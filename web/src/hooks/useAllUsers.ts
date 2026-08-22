@@ -15,12 +15,15 @@ export function useAllUsers(enabled = true): {
   usersLoading: boolean;
   /** True when the pool failed to load — pickers surface it instead of sitting empty. */
   usersError: boolean;
+  /** True once the pool actually loaded — CreateFeedback resolves a URL-carried subject id
+   *  against it and falls back to the picker only after this settles (v2.35.0). */
+  usersReady: boolean;
 } {
-  const { data: userPool, isLoading: usersLoading, isError: usersError } = useQuery({
+  const { data: userPool, isLoading: usersLoading, isError: usersError, isSuccess: usersReady } = useQuery({
     queryKey: ["users", "all"],
     queryFn: () => listAllUsers(),
     staleTime: 5 * 60 * 1000,
     enabled,
   });
-  return { userPool, usersLoading, usersError };
+  return { userPool, usersLoading, usersError, usersReady };
 }

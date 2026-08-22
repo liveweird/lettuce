@@ -70,7 +70,7 @@ export default function UserGoals() {
         <Group justify="flex-end">
           <Button
             component={RouterLink}
-            to={goalCreateLink(userId, name, backTo)}
+            to={goalCreateLink(userId, backTo)}
             leftSection={<IconPlus size={16} />}
           >
             {t("goal.newGoal")}

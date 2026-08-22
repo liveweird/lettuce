@@ -9,8 +9,8 @@ import {
 describe("performanceReviewLinks", () => {
   test("reviewCreateLink composes prefill and back params with encoding", () => {
     expect(reviewCreateLink()).toBe("/performance-reviews/new");
-    expect(reviewCreateLink(7, "Ann Nowak", "/performance?tab=managed")).toBe(
-      "/performance-reviews/new?subordinateId=7&subordinateName=Ann%20Nowak&back=%2Fperformance%3Ftab%3Dmanaged",
+    expect(reviewCreateLink(7, "/performance?tab=managed")).toBe(
+      "/performance-reviews/new?subordinateId=7&back=%2Fperformance%3Ftab%3Dmanaged",
     );
   });
 

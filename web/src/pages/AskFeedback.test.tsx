@@ -7,6 +7,21 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AskFeedback from "./AskFeedback";
 import { jsonResponse } from "../test/http";
 
+// The page resolves the provider's display name from the org pool (v2.35.0) — the URL's
+// providerName is ignored. Mocked at the hook level: this screen has no picker, so the pool's
+// only job here is the id → name resolution (and the unknown-id bounce, tested below).
+vi.mock("../hooks/useAllUsers", () => ({
+  useAllUsers: () => ({
+    userPool: [
+      { id: 3, name: "Me Myself" },
+      { id: 10, name: "Manny Manager" },
+    ],
+    usersLoading: false,
+    usersError: false,
+    usersReady: true,
+  }),
+}));
+
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -55,6 +70,13 @@ describe("AskFeedback page", () => {
     renderAskFeedback("");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");
     expect(screen.queryByRole("heading", { name: /ask for feedback/i })).toBeNull();
+  });
+
+  test("bounces back when the provider id matches no user (v2.35.0)", () => {
+    mockFetch.mockResolvedValue(jsonResponse(404, {}));
+    renderAskFeedback("?providerId=999&providerName=Impostor");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");
+    expect(screen.queryByText("Impostor")).toBeNull();
   });
 
   test("warns early and disables the request when this ask is already pending", async () => {

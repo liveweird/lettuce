@@ -5,6 +5,7 @@ import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.infra.paging.parsePaging
+import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.toPage
 import io.ktor.http.HttpHeaders
@@ -48,7 +49,10 @@ fun Application.configureTemplateRoutes() {
             post<Templates> {
                 val caller = call.caller()
                 requireAdmin(caller)
+                // Canonical single-line name (v2.35.0, MT-002): trimmed, control chars rejected;
+                // the multi-line content deliberately keeps its newlines.
                 val template = call.receive<Template>()
+                    .let { it.copy(name = sanitizeSingleLine(it.name, "Template name")) }
                 validateTemplateName(template.name)
                 validateTemplateContent(template.content)
                 val id = templateService.create(template)
@@ -65,7 +69,10 @@ fun Application.configureTemplateRoutes() {
             put<Templates.Id> { route ->
                 val caller = call.caller()
                 requireAdmin(caller)
+                // Canonical single-line name (v2.35.0, MT-002): trimmed, control chars rejected;
+                // the multi-line content deliberately keeps its newlines.
                 val template = call.receive<Template>()
+                    .let { it.copy(name = sanitizeSingleLine(it.name, "Template name")) }
                 validateTemplateName(template.name)
                 validateTemplateContent(template.content)
                 if (templateService.update(route.id, template) == 0) {

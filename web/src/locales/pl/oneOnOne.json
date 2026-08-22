@@ -63,6 +63,7 @@
   "dateBeforePrevious": "Nie może być wcześniejsza niż poprzednie spotkanie ({{date}}).",
   "error": {
     "permission": "Nie możesz zmieniać tego spotkania 1:1.",
+    "createForbidden": "Możesz dokumentować spotkania 1:1 tylko z osobami, którymi zarządzasz (bezpośrednio lub pośrednio).",
     "gone": "To spotkanie 1:1 już nie istnieje.",
     "notLatest": "Zmieniać można tylko najnowsze spotkanie 1:1 z tą osobą — istnieje już nowsze.",
     "backdated": "Ta data jest wcześniejsza niż ostatnie 1:1 z tą osobą — spotkania zapisywane są chronologicznie.",

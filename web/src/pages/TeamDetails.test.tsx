@@ -298,10 +298,10 @@ describe("TeamDetails page", () => {
     await user.click(await screen.findByRole("button", { name: "Feedback actions for Carol" }));
     expect(
       await screen.findByRole("menuitem", { name: "Provide feedback for Carol" }),
-    ).toHaveAttribute("href", "/feedback/new?subjectId=1&subjectName=Carol");
+    ).toHaveAttribute("href", "/feedback/new?subjectId=1");
     expect(screen.getByRole("menuitem", { name: "Ask Carol for feedback" })).toHaveAttribute(
       "href",
-      `/feedback/ask?providerId=1&providerName=Carol&back=${encodeURIComponent("/teams/3/details")}`,
+      `/feedback/ask?providerId=1&back=${encodeURIComponent("/teams/3/details")}`,
     );
     // The drill-down item carries from=members + the team id so "Back to …" returns to this roster.
     expect(screen.getByRole("menuitem", { name: "Feedbacks with Carol" })).toHaveAttribute(

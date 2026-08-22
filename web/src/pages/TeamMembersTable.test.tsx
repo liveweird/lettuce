@@ -131,7 +131,7 @@ describe("TeamMembersTable", () => {
     const item = await screen.findByRole("menuitem", { name: /provide feedback to bob brown/i });
     expect(item).toHaveAttribute(
       "href",
-      `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
+      `/feedback/new?subjectId=11&back=${encodeURIComponent("/?tab=peers")}`,
     );
   });
 
@@ -145,7 +145,7 @@ describe("TeamMembersTable", () => {
     const item = await screen.findByRole("menuitem", { name: /request feedback about bob brown/i });
     expect(item).toHaveAttribute(
       "href",
-      `/feedback/request?subjectId=11&subjectName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
+      `/feedback/request?subjectId=11&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
   });
 
@@ -157,7 +157,7 @@ describe("TeamMembersTable", () => {
     const item = await screen.findByRole("menuitem", { name: /ask bob brown for feedback/i });
     expect(item).toHaveAttribute(
       "href",
-      `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
+      `/feedback/ask?providerId=11&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
   });
 
@@ -169,7 +169,7 @@ describe("TeamMembersTable", () => {
     const item = await screen.findByRole("menuitem", { name: /ask bob brown for feedback/i });
     expect(item).toHaveAttribute(
       "href",
-      `/feedback/ask?providerId=11&providerName=Bob%20Brown&back=${encodeURIComponent("/?tab=peers")}`,
+      `/feedback/ask?providerId=11&back=${encodeURIComponent("/?tab=peers")}`,
     );
   });
 
@@ -223,7 +223,7 @@ describe("TeamMembersTable", () => {
     // Same gate: the create shortcut with the subordinate prefilled and the dashboard as back.
     expect(screen.getByRole("menuitem", { name: "New 1:1 with Bob Brown" })).toHaveAttribute(
       "href",
-      `/one-on-ones/new?subordinateId=11&subordinateName=Bob%20Brown&back=${encodeURIComponent("/?tab=subordinates")}`,
+      `/one-on-ones/new?subordinateId=11&back=${encodeURIComponent("/?tab=subordinates")}`,
     );
 
     cleanup();
@@ -950,7 +950,7 @@ describe("TeamMembersTable pinned to a team", () => {
     await openCardMenu(/feedback actions for bob brown/i);
     expect(
       await screen.findByRole("menuitem", { name: /provide feedback to bob brown/i }),
-    ).toHaveAttribute("href", `/feedback/new?subjectId=11&subjectName=Bob%20Brown&back=${back}`);
+    ).toHaveAttribute("href", `/feedback/new?subjectId=11&back=${back}`);
     // Drill-downs carry the team origin AND the exact host URL as the v1.39.0 back=
     // override (v2.5.5 — the embedding may hold an origin query the round-trip preserves).
     expect(screen.getByRole("menuitem", { name: /feedbacks with bob brown/i })).toHaveAttribute(
@@ -962,7 +962,7 @@ describe("TeamMembersTable pinned to a team", () => {
       await screen.findByRole("menuitem", { name: /new 1:1 with bob brown/i }),
     ).toHaveAttribute(
       "href",
-      `/one-on-ones/new?subordinateId=11&subordinateName=Bob%20Brown&back=${back}`,
+      `/one-on-ones/new?subordinateId=11&back=${back}`,
     );
     expect(screen.getByRole("menuitem", { name: /1:1 meetings with bob brown/i })).toHaveAttribute(
       "href",

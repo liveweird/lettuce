@@ -11,11 +11,14 @@ import io.ktor.server.auth.principal
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
+import io.ktor.http.decodeURLPart
 import io.ktor.http.withCharset
+import io.ktor.serialization.ContentConvertException
 import io.ktor.server.application.*
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.CannotTransformContentToTypeException
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.r2dbc.spi.R2dbcException
 import kotlinx.serialization.Serializable
@@ -98,6 +101,43 @@ private suspend fun ApplicationCall.respondInternalError(cause: Throwable) {
     respondProblem(HttpStatusCode.InternalServerError, "An unexpected error occurred")
 }
 
+// ContentNegotiation wraps every converter failure in BadRequestException("Failed to convert
+// request body to class ch.nokillswit...", JsonConvertException) — the FQCN is internal
+// structure in a client-facing body (MT-007; API-ERR-003) and the text is Ktor-version
+// -dependent, so it is replaced with fixed vocabulary. The wrap always carries a
+// ContentConvertException in its cause chain; our own validators throw BadRequestException
+// with no such cause, so their intentional messages pass through untouched.
+private fun Throwable.hasContentConvertCause(): Boolean {
+    var cur: Throwable? = cause
+    while (cur != null) {
+        if (cur is ContentConvertException) return true
+        cur = cur.cause
+    }
+    return false
+}
+
+// The Resources plugin's path/query decode failures arrive as BadRequestException with this
+// exact message (an overflowing id, a non-numeric segment) — equally internal vocabulary.
+private const val RESOURCE_DECODE_MESSAGE = "Can't transform call to resource"
+
+private fun clientSafeBadRequestDetail(cause: BadRequestException): String = when {
+    cause.hasContentConvertCause() -> "Request body is invalid or does not match the expected schema"
+    cause.message == RESOURCE_DECODE_MESSAGE -> "Path or query parameter is malformed"
+    else -> cause.message ?: "Bad request"
+}
+
+// Path ids are unsigned (UInt) end-to-end, but kotlinx's UInt decoding parses via
+// toInt().toUInt() — a negative segment like /users/-1 silently WRAPPED to 4294967295 and
+// flowed into the normal lookup instead of failing (MT-005), contradicting the spec's
+// `minimum: 0`. No legitimate /api/ path has a negative-integer segment.
+private val NEGATIVE_ID_SEGMENT = Regex("""^-\d+$""")
+
+private fun ApplicationCall.hasNegativeIdSegment(): Boolean {
+    val path = request.path()
+    return path.startsWith("/api/") &&
+        path.split('/').any { NEGATIVE_ID_SEGMENT.matches(it.decodeURLPart()) }
+}
+
 fun Application.configureErrorHandling() {
     install(StatusPages) {
         // The per-IP RateLimit plugin rejects with a bodiless 429; give it the same RFC 7807
@@ -108,11 +148,17 @@ fun Application.configureErrorHandling() {
         status(HttpStatusCode.TooManyRequests) { call, status ->
             call.respondProblem(status, "Rate limit exceeded — retry later")
         }
+        // Routing's wrong-method-on-an-existing-path rejection is a bodiless 405; give it the
+        // RFC 7807 body every other error carries (MT-004; API-ERR-001). No `Allow` header —
+        // Ktor does not surface the allowed-method set at this point (noted in the guidelines).
+        status(HttpStatusCode.MethodNotAllowed) { call, status ->
+            call.respondProblem(status, "Method not allowed for this resource")
+        }
         exception<TooManyRequestsException> { call, cause ->
             call.respondProblem(HttpStatusCode.TooManyRequests, cause.message ?: "Too many requests")
         }
         exception<BadRequestException> { call, cause ->
-            call.respondProblem(HttpStatusCode.BadRequest, cause.message ?: "Bad request")
+            call.respondProblem(HttpStatusCode.BadRequest, clientSafeBadRequestDetail(cause))
         }
         // A POST/PUT with NO Content-Type (a truly body-less request) never enters
         // ContentNegotiation (no converter matches ContentType.Any), so `call.receive` throws
@@ -153,6 +199,13 @@ fun Application.configureErrorHandling() {
         }
         exception<Throwable> { call, cause ->
             call.respondInternalError(cause)
+        }
+    }
+    // The negative-id rejection (MT-005) runs before routing, so no handler ever sees the
+    // silently wrapped value; StatusPages above turns the throw into the problem body.
+    intercept(ApplicationCallPipeline.Plugins) {
+        if (call.hasNegativeIdSegment()) {
+            throw BadRequestException("Path id must be a non-negative integer")
         }
     }
 }

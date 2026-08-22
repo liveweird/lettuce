@@ -330,17 +330,13 @@ describe("FeedbackTable (received view)", () => {
 
     const viewLinks = await screen.findAllByRole("link", { name: /view feedback from/i });
     expect(viewLinks).toHaveLength(2);
-    // Row 2 (Bob) has no requester -> only providerName in the query.
+    // Party names no longer ride the URL (v2.35.0) — the view screen renders the record's own.
     expect(
       screen.getByRole("link", { name: /view feedback from bob provider/i }),
-    ).toHaveAttribute("href", "/feedback/2/view?providerName=Bob%20Provider");
-    // Row 1 (Alice) has a requester -> both names are carried.
+    ).toHaveAttribute("href", "/feedback/2/view");
     expect(
       screen.getByRole("link", { name: /view feedback from alice provider/i }),
-    ).toHaveAttribute(
-      "href",
-      "/feedback/1/view?providerName=Alice%20Provider&requesterName=Carol%20Requester",
-    );
+    ).toHaveAttribute("href", "/feedback/1/view");
   });
 });
 
@@ -438,7 +434,7 @@ describe("FeedbackTable (provided view)", () => {
     // Row 2 (Tina) is DRAFT; row 1 (Sam) is SENT.
     const editLinks = await screen.findAllByRole("link", { name: /edit feedback for/i });
     expect(editLinks).toHaveLength(1);
-    expect(editLinks[0]).toHaveAttribute("href", "/feedback/2/edit?subjectName=Tina%20Subject");
+    expect(editLinks[0]).toHaveAttribute("href", "/feedback/2/edit");
     expect(
       screen.queryByRole("link", { name: /edit feedback for sam subject/i }),
     ).not.toBeInTheDocument();

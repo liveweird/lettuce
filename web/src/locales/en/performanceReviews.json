@@ -90,6 +90,8 @@
     "invalidTransition": "This action is not available in the review's current state.",
     "savePermission": "You are not allowed to modify this review.",
     "gone": "The review no longer exists.",
+    "notFound": "This performance review does not exist or was deleted.",
+    "viewPermission": "You are not allowed to view this performance review.",
     "conflict": "The review changed in the meantime — reload and try again.",
     "invalid": "The review data is invalid.",
     "updateFailedStatus": "Saving failed (HTTP {{status}}).",

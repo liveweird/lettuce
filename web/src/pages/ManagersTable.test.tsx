@@ -67,7 +67,7 @@ describe("ManagersTable", () => {
     const item = await screen.findByRole("menuitem", { name: /provide feedback to manager one/i });
     expect(item).toHaveAttribute(
       "href",
-      `/feedback/new?subjectId=1&subjectName=Manager%20One&back=${encodeURIComponent("/?tab=managers")}`,
+      `/feedback/new?subjectId=1&back=${encodeURIComponent("/?tab=managers")}`,
     );
   });
 
@@ -88,7 +88,7 @@ describe("ManagersTable", () => {
     const item = await screen.findByRole("menuitem", { name: /ask manager one for feedback/i });
     expect(item).toHaveAttribute(
       "href",
-      `/feedback/ask?providerId=1&providerName=Manager%20One&back=${encodeURIComponent("/?tab=managers")}`,
+      `/feedback/ask?providerId=1&back=${encodeURIComponent("/?tab=managers")}`,
     );
   });
 

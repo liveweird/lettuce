@@ -389,8 +389,8 @@ export default function Users() {
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.id !== currentUserId && hasFeature("FEEDBACKS") && (
                     <FeedbackActionsMenu
-                      provideTo={feedbackProvideLink(u.id, u.name)}
-                      askTo={feedbackAskLink(u.id, u.name, "/users")}
+                      provideTo={feedbackProvideLink(u.id)}
+                      askTo={feedbackAskLink(u.id, "/users")}
                       listTo={userFeedbacksLink(u.id, u.name, "users")}
                       name={u.name}
                     />

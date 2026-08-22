@@ -17,6 +17,7 @@ import {
   type GoalDefinitionFormValues,
 } from "../utils/goalForm";
 import { invalidateGoal } from "../utils/goalQueries";
+import { safeBackParam } from "../utils/url";
 
 // Default cancel target when no `back` param is present: the subordinates grid, the only
 // entry point that links here today.
@@ -32,13 +33,9 @@ export default function CreateGoal() {
 
   const preselectedId = Number(searchParams.get("subordinateId"));
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
-  const subordinateName = searchParams.get("subordinateName");
-  const backParam = searchParams.get("back");
-  const backTo = backParam ?? BACK_TO;
+  const backTo = safeBackParam(searchParams) ?? BACK_TO;
 
-  const [subordinate, setSubordinate] = useState<string | null>(
-    preselected ? String(preselectedId) : null,
-  );
+  const [picked, setPicked] = useState<string | null>(null);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const flow = useCreateThenActivate({
     area: "goal",
@@ -52,18 +49,26 @@ export default function CreateGoal() {
     validate: goalDefinitionValidation(t),
   });
 
-  // The picker is skipped entirely when the subordinate arrives prefilled (card/list flows).
-  const { reports, reportsError } = useManagedReports(!preselected);
+  // The pool ALWAYS loads (v2.35.0): a prefilled subordinate (card/list flows) resolves its
+  // display name against the caller's own managed data — never a URL param — and an id
+  // outside the caller's chain falls back to the picker once the pool settles.
+  const { reports, reportsError, reportsReady } = useManagedReports(true);
   const options = toReportOptions(reports);
+  const preselectedReport = preselected
+    ? reports.find((r) => r.userId === preselectedId)
+    : undefined;
+  const showPicker = !preselected || (reportsReady && !preselectedReport);
+  const subordinateId =
+    preselectedReport?.userId ?? (showPicker && picked != null ? Number(picked) : null);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("GOALS")) return <Navigate to="/" replace />;
 
   async function save(values: GoalDefinitionFormValues) {
-    if (!subordinate) return;
+    if (!subordinateId) return;
     await flow.submitCreate(() =>
       createGoal({
-        subordinateId: Number(subordinate),
+        subordinateId,
         ...toDefinitionBody(values),
       }),
     );
@@ -83,22 +88,23 @@ export default function CreateGoal() {
 
             <Group gap="xl" align="flex-start">
               <PersonaField label={t("goal.manager")} you />
-              {preselected ? (
-                <PersonaField
-                  label={t("goal.subordinate")}
-                  name={subordinateName ?? `#${preselectedId}`}
-                />
-              ) : (
+              {showPicker ? (
                 <Select
                   label={t("goal.subordinate")}
                   placeholder={t("goal.pickSubordinate")}
                   data={options}
-                  value={subordinate}
-                  onChange={setSubordinate}
+                  value={picked}
+                  onChange={setPicked}
                   searchable
                   clearable
                   nothingFoundMessage={t("goal.noReports")}
                   error={reportsError ? t("common.error.optionsFailed") : undefined}
+                />
+              ) : (
+                // The `#id` placeholder shows only until the pool resolves the canonical name.
+                <PersonaField
+                  label={t("goal.subordinate")}
+                  name={preselectedReport?.name ?? `#${preselectedId}`}
                 />
               )}
             </Group>
@@ -118,7 +124,7 @@ export default function CreateGoal() {
               <Button
                 type="submit"
                 loading={flow.submitting}
-                disabled={!subordinate || flow.createdId != null}
+                disabled={!subordinateId || flow.createdId != null}
               >
                 {t("common.action.create")}
               </Button>

@@ -7,9 +7,10 @@ function withBack(base: string, back?: string): string {
   return back ? `${base}&back=${encodeURIComponent(back)}` : base;
 }
 
-/** "Provide feedback" about a subject → the create editor (`/feedback/new`). */
-export function feedbackProvideLink(subjectId: number, subjectName: string, back?: string): string {
-  return withBack(`/feedback/new?subjectId=${subjectId}&subjectName=${encodeURIComponent(subjectName)}`, back);
+/** "Provide feedback" about a subject → the create editor (`/feedback/new`). The screen
+ *  resolves the subject's display name from the org pool (v2.35.0, never a URL param). */
+export function feedbackProvideLink(subjectId: number, back?: string): string {
+  return withBack(`/feedback/new?subjectId=${subjectId}`, back);
 }
 
 /** "New feedback" with NO subject → the create editor in picker mode (v2.28.0). Not
@@ -19,26 +20,23 @@ export function feedbackCreateLink(back?: string): string {
 }
 
 /** "Ask for feedback" from a provider → the ask flow (`/feedback/ask`). */
-export function feedbackAskLink(providerId: number, providerName: string, back?: string): string {
-  return withBack(`/feedback/ask?providerId=${providerId}&providerName=${encodeURIComponent(providerName)}`, back);
+export function feedbackAskLink(providerId: number, back?: string): string {
+  return withBack(`/feedback/ask?providerId=${providerId}`, back);
 }
 
 /** "Request feedback" about a subject (manager flow) → the request flow (`/feedback/request`). */
-export function feedbackRequestLink(subjectId: number, subjectName: string, back?: string): string {
-  return withBack(`/feedback/request?subjectId=${subjectId}&subjectName=${encodeURIComponent(subjectName)}`, back);
+export function feedbackRequestLink(subjectId: number, back?: string): string {
+  return withBack(`/feedback/request?subjectId=${subjectId}`, back);
 }
 
 /**
- * Optional addressing for the view/edit detail screens. Party names pre-fill the header while
- * the record loads; `as` picks the provider/team reading of a row the caller is a party to;
- * `requesterName` is appended only when the row has one; `back` overrides the return target
- * (the FeedbackTable embeddings); `from` marks the team-view origin on edit links.
+ * Optional addressing for the view/edit detail screens. `as` picks the provider/team reading
+ * of a row the caller is a party to; `back` overrides the return target (the FeedbackTable
+ * embeddings); `from` marks the team-view origin on edit links. The party-name params are
+ * gone (v2.35.0): headers render the fetched record's names only.
  */
 export type FeedbackDetailOpts = {
   as?: "provider" | "team";
-  providerName?: string;
-  subjectName?: string;
-  requesterName?: string | null;
   from?: string;
   back?: string;
 };
@@ -46,9 +44,6 @@ export type FeedbackDetailOpts = {
 function feedbackDetailSearch(opts?: FeedbackDetailOpts): string {
   const parts: string[] = [];
   if (opts?.as) parts.push(`as=${opts.as}`);
-  if (opts?.providerName) parts.push(`providerName=${encodeURIComponent(opts.providerName)}`);
-  if (opts?.subjectName) parts.push(`subjectName=${encodeURIComponent(opts.subjectName)}`);
-  if (opts?.requesterName) parts.push(`requesterName=${encodeURIComponent(opts.requesterName)}`);
   if (opts?.from) parts.push(`from=${opts.from}`);
   if (opts?.back) parts.push(`back=${encodeURIComponent(opts.back)}`);
   return parts.length ? `?${parts.join("&")}` : "";

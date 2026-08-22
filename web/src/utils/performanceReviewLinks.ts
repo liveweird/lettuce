@@ -3,16 +3,12 @@ import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSea
 // Builders for every /performance-reviews/* and /users/:id/performance-reviews URL (the
 // goalLinks idiom) — never hand-assemble these paths in pages.
 
-/** The create screen; `subordinateId`/`subordinateName` prefill (and lock) the report picker,
+/** The create screen; `subordinateId` prefills (and locks) the report picker — the screen
+ * resolves the display name from its own managed pool (v2.35.0, never a URL param);
  * `back` overrides where Cancel/save return to. */
-export function reviewCreateLink(
-  subordinateId?: number,
-  subordinateName?: string | null,
-  back?: string,
-): string {
+export function reviewCreateLink(subordinateId?: number, back?: string): string {
   const parts: string[] = [];
   if (subordinateId != null) parts.push(`subordinateId=${subordinateId}`);
-  if (subordinateName) parts.push(`subordinateName=${encodeURIComponent(subordinateName)}`);
   if (back) parts.push(`back=${encodeURIComponent(back)}`);
   return `/performance-reviews/new${parts.length ? `?${parts.join("&")}` : ""}`;
 }

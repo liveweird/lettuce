@@ -114,11 +114,7 @@ const VIEW_CONFIG: Record<
     renderAction: (f, { t, backTo }) => (
       <Button
         component={RouterLink}
-        to={feedbackViewLink(f.id, {
-          providerName: f.providerName,
-          requesterName: f.requesterName,
-          back: backTo,
-        })}
+        to={feedbackViewLink(f.id, { back: backTo })}
         variant="subtle"
         size="xs"
         leftSection={<IconEye size={14} />}
@@ -135,7 +131,7 @@ const VIEW_CONFIG: Record<
       f.status === "REQUESTED" || f.status === "DRAFT" ? (
         <Button
           component={RouterLink}
-          to={feedbackEditLink(f.id, { subjectName: f.subjectName, back: backTo })}
+          to={feedbackEditLink(f.id, { back: backTo })}
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -146,12 +142,7 @@ const VIEW_CONFIG: Record<
       ) : (
         <Button
           component={RouterLink}
-          to={feedbackViewLink(f.id, {
-            as: "provider",
-            subjectName: f.subjectName,
-            requesterName: f.requesterName,
-            back: backTo,
-          })}
+          to={feedbackViewLink(f.id, { as: "provider", back: backTo })}
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}
@@ -169,12 +160,7 @@ const VIEW_CONFIG: Record<
     renderAction: (f, { t, backTo }) => (
       <Button
         component={RouterLink}
-        to={feedbackViewLink(f.id, {
-          providerName: f.providerName,
-          subjectName: f.subjectName,
-          requesterName: f.requesterName,
-          back: backTo,
-        })}
+        to={feedbackViewLink(f.id, { back: backTo })}
         variant="subtle"
         size="xs"
         leftSection={<IconEye size={14} />}
@@ -191,7 +177,7 @@ const VIEW_CONFIG: Record<
       currentUserId === f.providerId && f.status === "DRAFT" ? (
         <Button
           component={RouterLink}
-          to={feedbackEditLink(f.id, { subjectName: f.subjectName, from: "team", back: backTo })}
+          to={feedbackEditLink(f.id, { from: "team", back: backTo })}
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -202,13 +188,7 @@ const VIEW_CONFIG: Record<
       ) : (
         <Button
           component={RouterLink}
-          to={feedbackViewLink(f.id, {
-            as: "team",
-            providerName: f.providerName,
-            subjectName: f.subjectName,
-            requesterName: f.requesterName,
-            back: backTo,
-          })}
+          to={feedbackViewLink(f.id, { as: "team", back: backTo })}
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}

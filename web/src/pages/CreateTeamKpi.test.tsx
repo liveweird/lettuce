@@ -143,13 +143,14 @@ describe("CreateTeamKpi", () => {
 
   test("a prefilled teamId skips the picker and Create submits against it", async () => {
     mockApi(mockFetch);
-    renderCreate("/team-kpis/new?teamId=10&teamName=Team%20AAA&back=%2Fteams%2F10%2Fkpis");
+    // A crafted teamName rides along — it must be IGNORED: the identity resolves from the
+    // caller's own manageable-teams pool (v2.35.0, the monkey-test SPA-1 fix).
+    renderCreate("/team-kpis/new?teamId=10&teamName=Impostor&back=%2Fteams%2F10%2Fkpis");
 
-    // No Select — the team renders as a read-only fact.
+    // No Select — the team renders as a read-only fact, with the CANONICAL name.
     expect(await screen.findByText("Team AAA")).toBeInTheDocument();
+    expect(screen.queryByText("Impostor")).toBeNull();
     expect(screen.queryByLabelText("Team", { selector: "input" })).not.toBeInTheDocument();
-    // No picker query was needed.
-    expect(mockFetch.mock.calls.some(([u]) => String(u).startsWith("/api/v1/teams?"))).toBe(false);
   });
 
   test("a missing target is refused client-side", async () => {

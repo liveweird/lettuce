@@ -115,10 +115,10 @@ export default function PersonCardActions({
 
   const links: Partial<Record<ButtonKey, string>> = {
     career: userCareerLink(userId, name, drillFrom ?? "managers", drillTeamId, drillOpts),
-    provide: feedbackProvideLink(userId, name, back),
-    ask: feedbackAskLink(userId, name, back),
-    request: feedbackRequestLink(userId, name, back),
-    newOneOnOne: oneOnOneCreateLink(userId, name, back),
+    provide: feedbackProvideLink(userId, back),
+    ask: feedbackAskLink(userId, back),
+    request: feedbackRequestLink(userId, back),
+    newOneOnOne: oneOnOneCreateLink(userId, back),
     feedbacks: userFeedbacksLink(userId, name, drillFrom, drillTeamId, undefined, audit, drillOpts),
     oneOnOnes: userOneOnOnesLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     goals: userGoalsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),

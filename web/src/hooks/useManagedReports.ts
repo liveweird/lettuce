@@ -18,8 +18,11 @@ import { groupTeamRows } from "../utils/teamRows";
 export function useManagedReports(enabled: boolean): {
   reports: { userId: number; name: string }[];
   reportsError: boolean;
+  /** True once the pool actually loaded — the create screens resolve a preselected id
+   *  against it and fall back to the picker only after this settles (v2.35.0). */
+  reportsReady: boolean;
 } {
-  const { data, isError } = useQuery({
+  const { data, isError, isSuccess } = useQuery({
     queryKey: ["teamMembers", "managedReports", "indirect"],
     queryFn: () => listAllTeamMembers("managed", true),
     staleTime: 5 * 60 * 1000,
@@ -32,7 +35,7 @@ export function useManagedReports(enabled: boolean): {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [data],
   );
-  return { reports, reportsError: isError };
+  return { reports, reportsError: isError, reportsReady: isSuccess };
 }
 
 /** The pool as Mantine Select options — the shape all four picker screens render. */

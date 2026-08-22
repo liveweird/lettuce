@@ -104,9 +104,11 @@ describe("CreateOneOnOne page", () => {
     expect(body.actionItems).toEqual([]);
   });
 
-  test("a prefilled subordinate renders read-only, skips the picker fetch, and creates directly", async () => {
+  test("a prefilled subordinate renders read-only with the name RESOLVED from the pool, and creates directly", async () => {
     mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).endsWith("/api/v1/one-on-ones") && init?.method === "POST") {
+      const url = String(input);
+      if (url.includes("/api/v1/teams/members")) return Promise.resolve(jsonResponse(200, REPORTS));
+      if (url.endsWith("/api/v1/one-on-ones") && init?.method === "POST") {
         return Promise.resolve(
           jsonResponse(201, {
             id: 43, managerId: 7, managerName: "Me", subordinateId: 8,
@@ -117,18 +119,17 @@ describe("CreateOneOnOne page", () => {
       }
       return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
     });
+    // A crafted subordinateName rides along — it must be IGNORED: the displayed identity
+    // resolves from the caller's own managed pool (v2.35.0, the monkey-test SPA-1 fix).
     renderCreate(
-      "/one-on-ones/new?subordinateId=8&subordinateName=Sam%20Subordinate&back=%2F%3Ftab%3Dsubordinates",
+      "/one-on-ones/new?subordinateId=8&subordinateName=Impostor&back=%2F%3Ftab%3Dsubordinates",
     );
 
-    // The party is fixed: plain text instead of a picker, Create enabled immediately.
+    // The party is fixed: plain text instead of a picker, showing the CANONICAL name.
     expect(await screen.findByText("Sam Subordinate")).toBeInTheDocument();
+    expect(screen.queryByText("Impostor")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Team member" })).toBeNull();
     expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
-    // No picker → no direct-reports fetch.
-    expect(
-      mockFetch.mock.calls.every(([u]) => !String(u).includes("/api/v1/teams/members")),
-    ).toBe(true);
     // Cancel returns to the originating Dashboard tab.
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
       "href",
@@ -147,6 +148,32 @@ describe("CreateOneOnOne page", () => {
       ([u, i]) => String(u).endsWith("/api/v1/one-on-ones") && (i as RequestInit)?.method === "POST",
     )!;
     expect(JSON.parse((init as RequestInit).body as string).subordinateId).toBe(8);
+  });
+
+  test("a preselected id outside the managed pool falls back to the picker", async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes("/api/v1/teams/members")) {
+        return Promise.resolve(jsonResponse(200, REPORTS));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderCreate("/one-on-ones/new?subordinateId=999&subordinateName=Impostor");
+
+    // Once the pool settles without a match, the picker takes over — no lying label,
+    // no enabled dead-end submit.
+    expect(await screen.findByRole("combobox", { name: "Team member" })).toBeInTheDocument();
+    expect(screen.queryByText("Impostor")).toBeNull();
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+  });
+
+  test("an external back target is ignored — Cancel stays on the default list", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, REPORTS));
+    renderCreate("/one-on-ones/new?back=%2F%2Fevil.example%2Fphish");
+    await screen.findByRole("combobox", { name: "Team member" });
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
+      "href",
+      "/one-on-ones?tab=managed",
+    );
   });
 
   test("the create button stays disabled until a team member is picked", async () => {
@@ -194,8 +221,11 @@ describe("CreateOneOnOne page", () => {
     await userEvent.click(await screen.findByRole("option", { name: "Zoe Zebra" }));
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
 
+    // The create-specific 403 wording (v2.35.0) — not the edit flow's "change this meeting".
     expect(
-      await screen.findByText("You are not allowed to change this 1:1 meeting."),
+      await screen.findByText(
+        "You may only document 1:1 meetings with people in your management chain.",
+      ),
     ).toBeInTheDocument();
   });
 });

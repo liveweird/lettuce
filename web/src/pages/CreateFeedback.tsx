@@ -14,6 +14,7 @@ import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
 import { PROVIDE_ERROR_KEYS } from "../utils/feedbackForm";
 import { showSuccessToast } from "../utils/toast";
+import { safeBackParam } from "../utils/url";
 
 /**
  * The feedback create screen, also serving the Kudos wall's create flow (`/kudos/new` renders
@@ -32,24 +33,26 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   const [subjectPick, setSubjectPick] = useState<string | null>(null);
 
   const urlSubjectId = Number(searchParams.get("subjectId"));
-  const subjectName = searchParams.get("subjectName");
   // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the default return
-  // to "/"; kudo mode always returns to the wall (its entry point carries no back param).
-  const backTo = kudo ? "/kudos" : (searchParams.get("back") ?? "/");
+  // to "/" — sanitized (in-app path only); kudo mode always returns to the wall (its entry
+  // point carries no back param).
+  const backTo = kudo ? "/kudos" : (safeBackParam(searchParams) ?? "/");
   const providerId = getUserId();
 
   // Two modes (v2.28.0): a valid subjectId in the URL fixes the subject (the deep-link path —
   // users-row actions, person cards); without one the page renders the subject picker instead
   // of redirecting (the /feedback header's "New feedback" entry). Kudo mode is always the
-  // picker — the wall has no per-person entry point.
-  const urlSubjectIsValid = !kudo && Number.isFinite(urlSubjectId) && urlSubjectId > 0;
-  const pickerMode = !urlSubjectIsValid;
-  const { userPool, usersError } = useAllUsers(pickerMode);
-  const subjectId = urlSubjectIsValid
-    ? urlSubjectId
-    : subjectPick != null
-      ? Number(subjectPick)
-      : null;
+  // picker — the wall has no per-person entry point. The pool ALWAYS loads (v2.35.0): a
+  // URL-carried subject resolves its display name against it — never from a URL param — and
+  // an id matching no user falls back to the picker once the pool settles.
+  const urlSubjectRequested = !kudo && Number.isFinite(urlSubjectId) && urlSubjectId > 0;
+  const { userPool, usersError, usersReady } = useAllUsers(true);
+  const urlSubject = urlSubjectRequested
+    ? (userPool ?? []).find((u) => u.id === urlSubjectId)
+    : undefined;
+  const pickerMode = !urlSubjectRequested || (usersReady && !urlSubject);
+  const subjectId =
+    urlSubject?.id ?? (pickerMode && subjectPick != null ? Number(subjectPick) : null);
 
   // Warn about an in-progress duplicate before the user types anything; in picker mode the
   // probe re-keys per picked subject (null while nothing is picked). Hook order: before the
@@ -73,12 +76,15 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (providerId == null) return <Navigate to="/" replace />;
 
-  const subjectDisplay = urlSubjectIsValid
-    ? // A URL-crafted self target is a valid self-reflection create — keep the
-      // app-wide plain "You" instead of rendering the caller's own chip.
-      urlSubjectId === providerId
-      ? t("common.state.you")
-      : (subjectName ?? `#${urlSubjectId}`)
+  const subjectDisplay = !pickerMode
+    ? // A URL-carried self target is a valid self-reflection create — keep the app-wide
+      // plain "You" instead of rendering the caller's own chip. The `#id` placeholder shows
+      // only until the pool resolves the canonical name.
+      urlSubject
+      ? urlSubject.id === providerId
+        ? t("common.state.you")
+        : urlSubject.name
+      : `#${urlSubjectId}`
     : subjectId != null
       ? (userPool ?? []).find((u) => u.id === subjectId)?.name
       : undefined;

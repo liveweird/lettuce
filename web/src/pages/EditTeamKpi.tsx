@@ -34,6 +34,7 @@ import {
 import { teamKpiViewLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
+import { safeBackParam } from "../utils/url";
 
 /**
  * The manager's DRAFT definition editor (reached from the view screen's Edit link). Everything
@@ -46,7 +47,7 @@ export default function EditTeamKpi() {
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const backOverride = searchParams.get("back");
+  const backOverride = safeBackParam(searchParams);
   const backTo = backOverride ?? "/team-kpis?tab=managed";
 
   const [error, setError] = useState<string | null>(null);

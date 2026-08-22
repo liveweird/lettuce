@@ -19,11 +19,13 @@ function PathProbe() {
   return <div data-testid="probe">{`${location.pathname}${location.search}`}</div>;
 }
 
+// Party names come from the RECORD — the URL name params are gone (v2.35.0).
 const FEEDBACK = {
   id: 5,
   requesterId: null,
   subjectId: 7,
   providerId: 10,
+  providerName: "Alice",
   visibility: "PUBLIC",
   status: "SENT",
   content: "Nice work on the launch",

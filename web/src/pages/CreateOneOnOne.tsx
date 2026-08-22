@@ -22,6 +22,7 @@ import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneEditLink } from "../utils/oneOnOneLinks";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
+import { safeBackParam } from "../utils/url";
 import { showSuccessToast } from "../utils/toast";
 
 const BACK_TO = "/one-on-ones?tab=managed";
@@ -32,8 +33,10 @@ const BACK_TO = "/one-on-ones?tab=managed";
  * the manager starts documenting from the open backlog rather than an empty form.
  *
  * The Dashboard's "New 1:1" card button prefills the subordinate via query params
- * (`subordinateId`/`subordinateName`/`back` — the app-wide create-screen convention); a
- * prefilled subordinate renders read-only and Cancel returns to `back`.
+ * (`subordinateId`/`back` — the app-wide create-screen convention); a prefilled subordinate
+ * renders read-only, with its NAME resolved from the caller's own managed pool — never from
+ * a URL param (v2.35.0: a crafted `subordinateName` could label the form as someone else
+ * while the id creates for the real target) — and Cancel returns to the sanitized `back`.
  */
 export default function CreateOneOnOne() {
   const { t } = useTranslation();
@@ -43,32 +46,37 @@ export default function CreateOneOnOne() {
 
   const preselectedId = Number(searchParams.get("subordinateId"));
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
-  const subordinateName = searchParams.get("subordinateName");
-  const backParam = searchParams.get("back");
+  const backParam = safeBackParam(searchParams);
   const backTo = backParam ?? BACK_TO;
 
-  const [subordinate, setSubordinate] = useState<string | null>(
-    preselected ? String(preselectedId) : null,
-  );
+  const [picked, setPicked] = useState<string | null>(null);
   const [meetingDate, setMeetingDate] = useState(todayIsoDate());
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // view=managed lists the caller's direct reports — exactly who a 1:1 can be held with.
-  // A prefilled subordinate needs no picker (and no fetch).
-  const { reports, reportsError } = useManagedReports(!preselected);
+  // view=managed lists the caller's chain — exactly who a 1:1 can be held with. The pool
+  // ALWAYS loads: a preselected id must resolve against it (canonical name, membership
+  // check); an id outside the caller's chain falls back to the picker once the pool settles
+  // instead of enabling a dead-end submit.
+  const { reports, reportsError, reportsReady } = useManagedReports(true);
   const options = toReportOptions(reports);
+  const preselectedReport = preselected
+    ? reports.find((r) => r.userId === preselectedId)
+    : undefined;
+  const showPicker = !preselected || (reportsReady && !preselectedReport);
+  const subordinateId =
+    preselectedReport?.userId ?? (showPicker && picked != null ? Number(picked) : null);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("ONE_ON_ONES")) return <Navigate to="/" replace />;
 
   async function submit() {
-    if (!subordinate || !meetingDate) return;
+    if (!subordinateId || !meetingDate) return;
     setError(null);
     setSubmitting(true);
     try {
       const created = await createOneOnOne({
-        subordinateId: Number(subordinate),
+        subordinateId,
         meetingDate,
         points: [],
         decisions: [],
@@ -83,7 +91,9 @@ export default function CreateOneOnOne() {
     } catch (err) {
       // Unlike PUT (where 409 means "not the latest"), a create 409 is unambiguous: the date
       // is earlier than the pair's latest meeting (the chronological rule).
-      setError(oneOnOneSaveErrorMessage(err, t, "oneOnOne.error.backdated"));
+      setError(
+        oneOnOneSaveErrorMessage(err, t, "oneOnOne.error.backdated", "oneOnOne.error.createForbidden"),
+      );
       setSubmitting(false);
     }
   }
@@ -97,23 +107,24 @@ export default function CreateOneOnOne() {
             {t("oneOnOne.createHint")}
           </Text>
 
-          {preselected ? (
-            // Launched from a subordinate's Dashboard card: the party is fixed, not editable.
-            <PersonaField
-              label={t("oneOnOne.subordinate")}
-              name={subordinateName ?? `#${preselectedId}`}
-            />
-          ) : (
+          {showPicker ? (
             <Select
               label={t("oneOnOne.subordinate")}
               placeholder={t("oneOnOne.pickSubordinate")}
               data={options}
-              value={subordinate}
-              onChange={setSubordinate}
+              value={picked}
+              onChange={setPicked}
               searchable
               clearable
               nothingFoundMessage={t("oneOnOne.noReports")}
               error={reportsError ? t("common.error.optionsFailed") : undefined}
+            />
+          ) : (
+            // Launched from a subordinate's Dashboard card: the party is fixed, not editable.
+            // The `#id` placeholder shows only until the pool resolves the canonical name.
+            <PersonaField
+              label={t("oneOnOne.subordinate")}
+              name={preselectedReport?.name ?? `#${preselectedId}`}
             />
           )}
 
@@ -139,7 +150,7 @@ export default function CreateOneOnOne() {
               type="button"
               onClick={submit}
               loading={submitting}
-              disabled={!subordinate || !meetingDate}
+              disabled={!subordinateId || !meetingDate}
             >
               {t("common.action.create")}
             </Button>

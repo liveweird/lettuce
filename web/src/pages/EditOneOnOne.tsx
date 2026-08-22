@@ -36,6 +36,7 @@ import {
 import { oneOnOneViewLink } from "../utils/oneOnOneLinks";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
 import { showSuccessToast } from "../utils/toast";
+import { safeBackParam } from "../utils/url";
 
 export default function EditOneOnOne() {
   const { t } = useTranslation();
@@ -44,7 +45,7 @@ export default function EditOneOnOne() {
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "managed";
-  const backOverride = searchParams.get("back");
+  const backOverride = safeBackParam(searchParams);
   const backTo = backOverride ?? `/one-on-ones?tab=${from === "team" ? "team" : "managed"}`;
 
   const [error, setError] = useState<string | null>(null);

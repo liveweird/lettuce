@@ -453,7 +453,7 @@ export default function ReviewsDashboard() {
                       // rows qualify, so the action exists only while the scope guarantees it.
                       <Button
                         component={RouterLink}
-                        to={reviewCreateLink(person.userId, person.name, BACK_TO)}
+                        to={reviewCreateLink(person.userId, BACK_TO)}
                         variant="light"
                         size="xs"
                         leftSection={<IconPlus size={14} />}

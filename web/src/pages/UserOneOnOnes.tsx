@@ -59,7 +59,7 @@ export default function UserOneOnOnes() {
         <Group justify="flex-end">
           <Button
             component={RouterLink}
-            to={oneOnOneCreateLink(userId, name, backTo)}
+            to={oneOnOneCreateLink(userId, backTo)}
             leftSection={<IconPlus size={16} />}
           >
             {t("oneOnOne.newMeeting")}

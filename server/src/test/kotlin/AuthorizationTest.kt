@@ -173,6 +173,15 @@ class AuthorizationTest {
             setBody(Team(name = "OwnTeam", managerId = aliceId, memberIds = listOf(member)))
         }
         assertEquals(HttpStatusCode.Forbidden, asSelf.status)
+
+        // Guard-before-receive (v2.35.0, MT-006): a non-admin's MALFORMED body is still 403,
+        // not the converter's 400 — the guard needs nothing from the payload, so it runs
+        // before the body decodes (the users POST ordering; "403 wins over 400").
+        val malformed = alice.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody("{}")
+        }
+        assertEquals(HttpStatusCode.Forbidden, malformed.status)
     }
 
     @Test

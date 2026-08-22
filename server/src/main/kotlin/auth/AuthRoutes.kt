@@ -16,6 +16,7 @@ import ch.nokillswit.plugins.JwtConfigKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.User
 import ch.nokillswit.users.UserRole
+import ch.nokillswit.users.canonicalEmail
 import ch.nokillswit.users.validateEmail
 import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
@@ -275,23 +276,28 @@ fun Application.configureAuthRoutes() {
         rateLimit(RateLimitName(LOGIN_RATE_LIMIT)) {
             post("/api/v1/login") {
                 val req = call.receive<LoginRequest>()
-                if (loginThrottle.isLocked(req.email)) {
-                    audit("login.rejected_locked", "email" to req.email)
+                // Canonical identity (v2.35.0, MT-001): accounts are stored under the folded
+                // email, so the login lookup folds the same way — a padded or case-variant
+                // submission matches its account (and keeps sharing one lockout bucket, which
+                // was already folding its keys).
+                val email = canonicalEmail(req.email)
+                if (loginThrottle.isLocked(email)) {
+                    audit("login.rejected_locked", "email" to email)
                     // Thrown (not respondProblem) so StatusPages marks the call handled and its
                     // generic 429 status handler cannot replace this specific detail.
                     throw TooManyRequestsException(
                         "Too many failed login attempts for this account — try again later",
                     )
                 }
-                val record = userService.findWithIdByEmail(req.email)
+                val record = userService.findWithIdByEmail(email)
                 if (record == null || !verifyPassword(req.password, record.second.passwordHash)) {
-                    val tripped = loginThrottle.recordFailure(req.email)
+                    val tripped = loginThrottle.recordFailure(email)
                     audit(
                         "login.failure",
-                        "email" to req.email,
+                        "email" to email,
                         "reason" to if (record == null) "unknown_email" else "wrong_password",
                     )
-                    if (tripped) audit("login.lockout", "email" to req.email)
+                    if (tripped) audit("login.lockout", "email" to email)
                     throw UnauthorizedException("Unknown email or wrong password")
                 }
                 val (userId, user) = record
@@ -300,10 +306,10 @@ fun Application.configureAuthRoutes() {
                 // recordFailure (correct credentials must not feed the lockout) nor recordSuccess
                 // (nothing to reset matters); a locked account still answers 429 first, above.
                 if (user.deactivated) {
-                    audit("login.failure", "email" to req.email, "reason" to "deactivated")
+                    audit("login.failure", "email" to email, "reason" to "deactivated")
                     throw ForbiddenException("Account is deactivated")
                 }
-                loginThrottle.recordSuccess(req.email)
+                loginThrottle.recordSuccess(email)
                 // Email MFA (opt-in via the MFA feature flag, read straight off the DB record —
                 // no JWT exists yet): correct credentials answer with a challenge, not tokens.
                 if (Feature.MFA !in user.disabledFeatures) {
@@ -400,7 +406,9 @@ fun Application.configureAuthRoutes() {
             // timing oracle: the lookup, bcrypt hash, and SMTP round-trip all take place
             // off the request).
             post("/api/v1/password-reset") {
-                val email = call.receive<PasswordResetRequest>().email.trim()
+                // Canonical identity (v2.35.0, MT-001): fold like login, so a case-variant
+                // reset request reaches its account (and keeps its one throttle bucket).
+                val email = canonicalEmail(call.receive<PasswordResetRequest>().email)
                 validateEmail(email)
                 if (mailer == null) {
                     // mail.transport=disabled — the deployment cannot send email at all.

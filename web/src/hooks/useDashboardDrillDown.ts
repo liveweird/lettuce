@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { canAudit } from "../api/session";
 import { userDetailsLink } from "../utils/userLinks";
 import { parsePositiveInt } from "../utils/parse";
+import { safeBackParam } from "../utils/url";
 
 // Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the
 // "Back to …" link and the invalid-id redirect. The managers/subordinates grids and the
@@ -49,9 +50,9 @@ export function useDashboardDrillDown(basePath: string): {
   const fromParam = searchParams.get("from");
   const teamId = parsePositiveInt(searchParams.get("teamId"));
   // Explicit return override (the details-page round-trip: `from` alone would lose the
-  // details page's own origin). In-app paths only — anything else is ignored.
-  const backParam = searchParams.get("back");
-  const backOverride = backParam?.startsWith("/") ? backParam : null;
+  // details page's own origin). In-app paths only (the shared sanitizer, v2.35.0) —
+  // anything else is ignored.
+  const backOverride = safeBackParam(searchParams);
   // The caller-manages assertion for origins that can't prove it (`from=details`): set by
   // the details page's direct-report flavor so the manager-only affordances survive.
   const managesParam = searchParams.get("manages") === "1";

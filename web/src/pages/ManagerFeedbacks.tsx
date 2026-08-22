@@ -8,6 +8,7 @@ import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { parsePositiveInt } from "../utils/parse";
+import { safeBackParam } from "../utils/url";
 
 // Which screen this one was opened from (a Dashboard tab, the Users list, or a team's members
 // roster), so the "Back to …" link and the invalid-id redirect return there. Defaults to managers
@@ -72,7 +73,7 @@ export default function ManagerFeedbacks() {
   const idIsValid = Number.isFinite(userId) && userId > 0;
   // Explicit return override (the details-page round-trip — the useDashboardDrillDown rule);
   // the origin key still names the label. In-app paths only.
-  const backParam = searchParams.get("back");
+  const backParam = safeBackParam(searchParams);
   const backOverride = backParam?.startsWith("/") ? backParam : null;
   const resolved =
     fromParam === "details" && idIsValid
@@ -176,7 +177,7 @@ export default function ManagerFeedbacks() {
             <Group justify="flex-end">
               <Button
                 component={RouterLink}
-                to={feedbackProvideLink(userId, who, backTo)}
+                to={feedbackProvideLink(userId, backTo)}
                 leftSection={<IconMessagePlus size={16} />}
                 aria-label={t("feedback.createFeedbackFor", { who })}
               >

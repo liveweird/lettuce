@@ -90,6 +90,8 @@
     "invalidTransition": "To działanie nie jest dostępne w bieżącym stanie oceny.",
     "savePermission": "Nie możesz modyfikować tej oceny.",
     "gone": "Ocena już nie istnieje.",
+    "notFound": "Ta ocena okresowa nie istnieje lub została usunięta.",
+    "viewPermission": "Nie możesz wyświetlić tej oceny okresowej.",
     "conflict": "Ocena zmieniła się w międzyczasie — odśwież i spróbuj ponownie.",
     "invalid": "Dane oceny są nieprawidłowe.",
     "updateFailedStatus": "Zapis nie powiódł się (HTTP {{status}}).",

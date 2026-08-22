@@ -180,7 +180,7 @@ describe("UserGoals page", () => {
     const back = encodeURIComponent("/users/10/goals?name=Bob&from=subordinates");
     expect(await screen.findByRole("link", { name: "New goal" })).toHaveAttribute(
       "href",
-      `/goals/new?subordinateId=10&subordinateName=Bob&back=${back}`,
+      `/goals/new?subordinateId=10&back=${back}`,
     );
   });
 
@@ -204,7 +204,7 @@ describe("UserGoals page", () => {
     );
     expect(await screen.findByRole("link", { name: "New goal" })).toHaveAttribute(
       "href",
-      `/goals/new?subordinateId=10&subordinateName=Bob&back=${back}`,
+      `/goals/new?subordinateId=10&back=${back}`,
     );
   });
 
@@ -231,7 +231,7 @@ describe("UserGoals page", () => {
     const back = encodeURIComponent("/users/10/goals?name=Bob&from=team&teamId=5");
     expect(screen.getByRole("link", { name: "New goal" })).toHaveAttribute(
       "href",
-      `/goals/new?subordinateId=10&subordinateName=Bob&back=${back}`,
+      `/goals/new?subordinateId=10&back=${back}`,
     );
   });
 

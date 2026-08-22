@@ -1,5 +1,33 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { toRelativePath } from "./url";
+import { safeBackParam, toRelativePath } from "./url";
+
+describe("safeBackParam", () => {
+  const of = (search: string) => new URLSearchParams(search);
+
+  test("accepts an in-app path with query and hash", () => {
+    expect(safeBackParam(of("back=/feedback?tab=provided"))).toBe("/feedback?tab=provided");
+    expect(safeBackParam(of("back=%2Fusers%3Ftab%3Dpeers%23top"))).toBe("/users?tab=peers#top");
+  });
+
+  test("null when absent", () => {
+    expect(safeBackParam(of(""))).toBeNull();
+    expect(safeBackParam(of("other=1"))).toBeNull();
+  });
+
+  test("rejects an absolute cross-origin URL", () => {
+    expect(safeBackParam(of("back=https%3A%2F%2Fevil.example%2Fphish"))).toBeNull();
+    expect(safeBackParam(of("back=http://evil.example/phish"))).toBeNull();
+  });
+
+  test("rejects a protocol-relative URL (the //evil.example bypass)", () => {
+    expect(safeBackParam(of("back=%2F%2Fevil.example%2Fphish"))).toBeNull();
+  });
+
+  test("rejects a scheme without slashes and relative junk", () => {
+    expect(safeBackParam(of("back=javascript:alert(1)"))).toBeNull();
+    expect(safeBackParam(of("back=feedback"))).toBeNull();
+  });
+});
 
 describe("toRelativePath", () => {
   test("passes through an app-relative path", () => {

@@ -63,7 +63,7 @@ export default function UserPerformanceReviews() {
         <Group justify="flex-end">
           <Button
             component={RouterLink}
-            to={reviewCreateLink(userId, name, backTo)}
+            to={reviewCreateLink(userId, backTo)}
             leftSection={<IconPlus size={16} />}
           >
             {t("performanceReview.newReview")}

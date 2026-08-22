@@ -18,6 +18,7 @@ import {
   type TeamKpiDefinitionFormValues,
 } from "../utils/teamKpiForm";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
+import { safeBackParam } from "../utils/url";
 
 // Default cancel target when no `back` param is present: the managed tab, the main entry point.
 const BACK_TO = "/team-kpis?tab=managed";
@@ -35,11 +36,9 @@ export default function CreateTeamKpi() {
 
   const preselectedId = Number(searchParams.get("teamId"));
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
-  const teamName = searchParams.get("teamName");
-  const backParam = searchParams.get("back");
-  const backTo = backParam ?? BACK_TO;
+  const backTo = safeBackParam(searchParams) ?? BACK_TO;
 
-  const [team, setTeam] = useState<string | null>(preselected ? String(preselectedId) : null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const flow = useCreateThenActivate({
     area: "teamKpi",
@@ -53,28 +52,35 @@ export default function CreateTeamKpi() {
     validate: teamKpiDefinitionValidation(t),
   });
 
-  // The picker is skipped entirely when the team arrives prefilled (the drill-down flow).
-  // Subtree-wide since v2.26.0 (includeIndirect widens the managerId filter server-side),
-  // paged to completion — the listAllTeams loop, not one capped page.
-  const { data: managedTeams } = useQuery({
+  // The manageable pool ALWAYS loads (v2.35.0) — subtree-wide since v2.26.0 (includeIndirect
+  // widens the managerId filter server-side), paged to completion (the listAllTeams loop). A
+  // prefilled team (the drill-down flow) resolves its display name against this pool — never
+  // a URL param — and an id outside the caller's manageable set falls back to the picker
+  // once the pool settles.
+  const { data: managedTeams, isSuccess: teamsReady } = useQuery({
     queryKey: ["teams", "kpiPicker", userId],
     queryFn: () => listAllTeams({ managerId: userId!, includeIndirect: true }),
     staleTime: 5 * 60 * 1000,
-    enabled: !preselected && userId != null,
+    enabled: userId != null,
   });
   const options = useMemo(
     () => (managedTeams ?? []).map((row) => ({ value: String(row.id), label: row.name })),
     [managedTeams],
   );
+  const preselectedTeam = preselected
+    ? (managedTeams ?? []).find((row) => row.id === preselectedId)
+    : undefined;
+  const showPicker = !preselected || (teamsReady && !preselectedTeam);
+  const teamId = preselectedTeam?.id ?? (showPicker && picked != null ? Number(picked) : null);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
 
   async function save(values: TeamKpiDefinitionFormValues) {
-    if (!team) return;
+    if (!teamId) return;
     await flow.submitCreate(() =>
       createTeamKpi({
-        teamId: Number(team),
+        teamId,
         ...toKpiDefinitionBody(values),
       }),
     );
@@ -93,23 +99,24 @@ export default function CreateTeamKpi() {
             </Stack>
 
             <Group gap="xl" align="flex-start">
-              {preselected ? (
-                <ReadOnlyField label={t("teamKpi.team")}>
-                  <Text size="sm" fw={500}>
-                    {teamName ?? `#${preselectedId}`}
-                  </Text>
-                </ReadOnlyField>
-              ) : (
+              {showPicker ? (
                 <Select
                   label={t("teamKpi.team")}
                   placeholder={t("teamKpi.pickTeam")}
                   data={options}
-                  value={team}
-                  onChange={setTeam}
+                  value={picked}
+                  onChange={setPicked}
                   searchable
                   clearable
                   nothingFoundMessage={t("teamKpi.noManagedTeams")}
                 />
+              ) : (
+                // The `#id` placeholder shows only until the pool resolves the canonical name.
+                <ReadOnlyField label={t("teamKpi.team")}>
+                  <Text size="sm" fw={500}>
+                    {preselectedTeam?.name ?? `#${preselectedId}`}
+                  </Text>
+                </ReadOnlyField>
               )}
             </Group>
 
@@ -125,7 +132,7 @@ export default function CreateTeamKpi() {
               <Button type="button" variant="default" onClick={openCancel} disabled={flow.submitting}>
                 {t("common.action.cancel")}
               </Button>
-              <Button type="submit" loading={flow.submitting} disabled={!team || flow.createdId != null}>
+              <Button type="submit" loading={flow.submitting} disabled={!teamId || flow.createdId != null}>
                 {t("common.action.create")}
               </Button>
             </Group>

@@ -31,6 +31,7 @@ import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import { invalidateFeedback } from "../utils/feedbackQueries";
 import { useAllUsers } from "../hooks/useAllUsers";
+import { safeBackParam } from "../utils/url";
 
 type Provider = { id: number; name: string };
 
@@ -50,9 +51,8 @@ export default function RequestFeedback() {
   }));
 
   const subjectId = Number(searchParams.get("subjectId"));
-  const subjectName = searchParams.get("subjectName");
   // Return to the Dashboard tab the user came from; default to subordinates.
-  const backTo = searchParams.get("back") ?? "/?tab=subordinates";
+  const backTo = safeBackParam(searchParams) ?? "/?tab=subordinates";
   const requesterId = getUserId();
 
   const [selected, setSelected] = useState<Provider[]>([]);
@@ -69,9 +69,12 @@ export default function RequestFeedback() {
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
-  const { userPool, usersError } = useAllUsers();
+  const { userPool, usersError, usersReady } = useAllUsers();
 
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
+  // The subject's display name resolves from the org pool — never from a URL param (v2.35.0);
+  // an id matching no user bounces back once the pool settles.
+  const subject = subjectIdIsValid ? (userPool ?? []).find((u) => u.id === subjectId) : undefined;
 
   // Early no-duplicate check, one triple per picked provider: providers whose feedback is
   // already in progress get an inline warning with a link, and Request stays disabled until
@@ -111,6 +114,7 @@ export default function RequestFeedback() {
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!subjectIdIsValid || requesterId == null) return <Navigate to={backTo} replace />;
+  if (usersReady && !subject) return <Navigate to={backTo} replace />;
 
   function add() {
     if (!pick) return;
@@ -183,7 +187,7 @@ export default function RequestFeedback() {
           <Group gap="xl">
             <PersonaField
               label={t("common.field.subject")}
-              name={subjectName ?? `#${subjectId}`}
+              name={subject?.name ?? `#${subjectId}`}
               you={subjectId === requesterId}
             />
             <PersonaField label={t("common.field.requester")} you />
