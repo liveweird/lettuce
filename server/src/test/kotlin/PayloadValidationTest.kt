@@ -114,6 +114,22 @@ class PayloadValidationTest {
     }
 
     @Test
+    fun `a body-less POST is a 400 problem - not a 500`() = testApplication {
+        usePostgresTestcontainer()
+        val client = adminClient()
+        // No body and no Content-Type: ContentNegotiation never runs (no converter matches
+        // ContentType.Any), so `receive` throws CannotTransformContentToTypeException — which
+        // used to escape to the 500 catch-all; the v2.34.0 central mapping (the 22021
+        // precedent) turns it into a 400 for every body-receiving route at once. (CSRF is off
+        // in tests, so the request reaches the handler.)
+        val response = client.post("/api/v1/templates")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        val problem = response.body<ProblemDetail>()
+        assertEquals(HttpStatusCode.BadRequest.value, problem.status)
+        assertEquals("Request body is missing or not JSON", problem.detail)
+    }
+
+    @Test
     fun `a non-numeric or out-of-range path id is a 400 problem`() = testApplication {
         usePostgresTestcontainer()
         val client = adminClient()

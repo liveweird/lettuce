@@ -196,6 +196,17 @@ class TeamService(val database: R2dbcDatabase) {
         )
     }
 
+    /**
+     * True iff [callerId] is [managerId] themselves or anywhere in their transitive chain —
+     * backs the TeamResponse `canManageKpis` capability (v2.34.0; the
+     * TeamKpiService.managesTeamOrChain predicate, keyed on the manager already in hand so
+     * the single GET/create pay one walk, not a team lookup). Own transaction.
+     */
+    suspend fun canManageKpisOf(callerId: UInt, managerId: UInt): Boolean =
+        suspendTransaction(database) {
+            callerId == managerId || isInManagementChain(callerId, managerId)
+        }
+
     suspend fun update(id: UInt, team: Team): Int = suspendTransaction(database) {
         validateMembership(team)
         val updated = Teams.update({ (Teams.id eq id) and (Teams.markedAsDeleted eq false) }) {

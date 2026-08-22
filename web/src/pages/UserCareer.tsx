@@ -179,14 +179,15 @@ function PositionForm({
  * The per-user career progression drill-down (`/users/:userId/career`, v2.15.0): the position
  * timeline, newest first, the current (open-ended) position emphasized. Readable by ANY
  * authenticated caller — deliberately NO manager redirect (the new-position notification
- * deep-links the person here with a bare URL); `callerManages` (the `manages=1` link
- * assertion — the server's 403s are the real enforcement) only reveals the chain-manager
- * editor: start a new position (concluding the current one), correct a row, delete a row.
+ * deep-links the person here with a bare URL); the editor — start a new position (concluding
+ * the current one), correct a row, delete a row — renders off the envelope's server-computed
+ * `canEdit` capability (v2.34.0: the caller is in the user's transitive chain; the old
+ * `manages=1` URL-param trust is gone).
  */
 export default function UserCareer() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { userId, idIsValid, name, origin, callerManages } = useDashboardDrillDown("career");
+  const { userId, idIsValid, name, origin } = useDashboardDrillDown("career");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -198,19 +199,21 @@ export default function UserCareer() {
     enabled: idIsValid,
   });
 
-  const currentPosition = data && data.length > 0 ? data[data.length - 1] : undefined;
+  const positions = data?.items;
+  const canEdit = data?.canEdit === true;
+  const currentPosition = positions && positions.length > 0 ? positions[positions.length - 1] : undefined;
 
   if (!idIsValid) return <Navigate to="/" replace />;
 
   const who = name ?? t("users.career.userFallback", { id: userId });
-  const editingPosition = editingId != null ? data?.find((p) => p.id === editingId) : undefined;
+  const editingPosition = editingId != null ? positions?.find((p) => p.id === editingId) : undefined;
   // The triples the draft must differ from (the adjacent-sameness rule, v2.15.2): the current
   // position when adding; the chronological neighbors of the edited row when correcting.
   // Legacy partial neighbors resolve to null and never block.
-  const editingIndex = editingPosition != null && data ? data.indexOf(editingPosition) : -1;
+  const editingIndex = editingPosition != null && positions ? positions.indexOf(editingPosition) : -1;
   const forbiddenTriples = (
     editingIndex >= 0
-      ? [neighborTripleKey(data?.[editingIndex - 1]), neighborTripleKey(data?.[editingIndex + 1])]
+      ? [neighborTripleKey(positions?.[editingIndex - 1]), neighborTripleKey(positions?.[editingIndex + 1])]
       : [neighborTripleKey(currentPosition)]
   ).filter((k): k is string => k != null);
 
@@ -264,16 +267,16 @@ export default function UserCareer() {
         </Anchor>
         <Title order={2}>{t("users.career.title", { who })}</Title>
         <Text size="sm" c="dimmed">
-          {t(callerManages ? "users.career.hintManage" : "users.career.hint", { who })}
+          {t(canEdit ? "users.career.hintManage" : "users.career.hint", { who })}
         </Text>
       </Stack>
 
       <CareerTimeline
-        positions={data}
+        positions={positions}
         isLoading={isLoading}
         isError={isError}
-        onEdit={callerManages ? setEditingId : undefined}
-        onDelete={callerManages ? setDeleteTarget : undefined}
+        onEdit={canEdit ? setEditingId : undefined}
+        onDelete={canEdit ? setDeleteTarget : undefined}
         busy={submitting}
       />
 
@@ -283,7 +286,7 @@ export default function UserCareer() {
         </Alert>
       )}
 
-      {callerManages && (
+      {canEdit && (
         <Paper withBorder p="md" radius="md">
           <PositionForm
             // Remounting IS the prefill: a fresh key on entering/leaving edit mode or when

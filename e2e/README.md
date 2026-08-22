@@ -55,6 +55,14 @@ for any new or edited spec:
   edits `seniority-levels`, `user-career.spec` edits `career-paths`; review periods —
   `performance-reviews.spec`; public holidays + AAA Two's days-off/allowance/corrections —
   `days-off.spec`; templates — `templates.spec` (unique names).
+- **Residue sweep + the marker contract (v2.34.0)**: `global-setup.ts` sweeps PREVIOUS runs'
+  throwaway entities off the shared volume before any worker starts (`sweep-residue.ts` —
+  soft-deletes teams whose name contains `E2E`, then users whose email contains `e2e`; teams
+  first, so deleted managers don't strand org-chart nodes). The contract cuts both ways: every
+  e2e-created user's EMAIL must contain `e2e` (the `createUserViaUi` derivation guarantees it)
+  and every e2e-created team's NAME must contain `E2E` — and nothing that must SURVIVE runs may
+  ever be named that way. Un-sweepable residue (dictionary values, closed/cancelled pulse
+  cycles, cancelled days-off rows) is known-inert and stays.
 - **`alerts.spec` and `pulse.spec` each run in their own project phase after everything else**
   (config `dependencies`, chained: chromium → alerts → pulse): an active alert overlays the
   header for every worker, and a pulse cycle sprays notifications at EVERY user's bell while the
@@ -84,6 +92,7 @@ scenario file is the design.
 - [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, multilingual — EN required, translations optional) + the read-only view with EN fallback.
 - [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle (self + the admin-for-another-user branch, 2026-08).
 - [`feature-flags.spec.ts`](scenarios/feature-flags.md) — per-user feature flags end to end + the per-feature screen's team bulk toggle.
+- [`error-handling.spec.ts`](scenarios/error-handling.md) — the SPA's failure surfaces under injected network faults (the suite's first `page.route` interception specs, v2.34.0): load-error alerts, save-error inline alerts, and the refresh transient-vs-rejected split.
 - [`feedback-delivery.spec.ts`](scenarios/feedback-delivery.md) — the receiving side: draft invisibility, Received list, bell deep link.
 - [`feedback-lifecycle-rest.spec.ts`](scenarios/feedback-lifecycle-rest.md) — create-as-SENT, provider draft delete, History/Lifecycle tabs.
 - [`feedback-provide.spec.ts`](scenarios/feedback-provide.md) — provide → draft → send → withdraw (entry via the /feedback New-feedback button + subject picker).
@@ -149,8 +158,11 @@ remaining real logins aren't throttled either.
 - **Login lockout (429)** — five failed logins would lock a seeded account for 15 minutes in the
   shared database and poison the rest of the run. Covered by `LoginThrottleTest` /
   `LoginLockoutTest` (server).
-- **Token refresh / expiry** — needs clock control; covered by server tests and the
-  `web/src/api/api.test.ts` unit tests.
+- **Token refresh / expiry (clock-driven)** — real expiry needs clock control; covered by
+  server tests and the `web/src/api/api.test.ts` unit tests. The browser-side refresh
+  BEHAVIOR (transient failure keeps the session, rejection signs out) IS covered since
+  v2.34.0 by `error-handling.spec.ts`, which forces the refresh path via `page.route`
+  interception instead of waiting out the token.
 - **The authz / visibility matrix** — exhaustively covered by `AuthorizationTest` (server); E2E
   asserts only user-visible consequences (a draft hidden from its subject, notification links).
 - **`DRAFT → WITHDRAWN` (abandon a draft)** — a valid backend transition with no UI affordance

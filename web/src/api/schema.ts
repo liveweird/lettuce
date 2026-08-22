@@ -3599,6 +3599,8 @@ export interface components {
         CareerPositionList: {
             /** @description Chronological (start ascending) — the last item is the current position. */
             items: components["schemas"]["CareerPositionResponse"][];
+            /** @description Server-computed capability of the CALLER (v2.34.0, the TeamKpiResponse.canManage precedent): may write this user's career timeline — true exactly for a manager in the user's transitive management chain (the write right); false for the user themselves and for HR-only readers. Envelope-level because the right is per-user — an empty history still offers the editor to a chain manager. */
+            canEdit: boolean;
         };
         CareerPyramidPosition: {
             /** Format: date */
@@ -3738,6 +3740,8 @@ export interface components {
             /** Format: int32 */
             managerId: number;
             memberIds: number[];
+            /** @description Server-computed capability of the CALLER (v2.34.0, the TeamKpiResponse.canManage predicate): may create/manage KPIs for this team — true for its current manager and any manager in the chain above them. NOT a team-edit right (team writes are ADMIN-only since v2.33.0). */
+            canManageKpis: boolean;
             /** @description Display name of the user referenced by `managerId` (resolved even when that user is soft-deleted). Populated by the single-team GET only; the create/update responses omit the key. */
             managerName?: string;
             /** @description True when the user referenced by `managerId` has been soft-deleted. Populated by the single-team GET only; the create/update responses omit the key. */

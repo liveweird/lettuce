@@ -14,6 +14,7 @@ import io.ktor.http.content.TextContent
 import io.ktor.http.withCharset
 import io.ktor.server.application.*
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.CannotTransformContentToTypeException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.r2dbc.spi.R2dbcException
@@ -112,6 +113,15 @@ fun Application.configureErrorHandling() {
         }
         exception<BadRequestException> { call, cause ->
             call.respondProblem(HttpStatusCode.BadRequest, cause.message ?: "Bad request")
+        }
+        // A POST/PUT with NO Content-Type (a truly body-less request) never enters
+        // ContentNegotiation (no converter matches ContentType.Any), so `call.receive` throws
+        // this instead of the BadRequestException the converter path wraps malformed JSON in —
+        // and it used to escape to the 500 catch-all (v2.34.0; the 22021 central-mapping
+        // precedent). Deliberately NOT the abstract ContentTransformationException parent:
+        // that would mislabel a future PayloadTooLarge (413) / UnsupportedMediaType (415).
+        exception<CannotTransformContentToTypeException> { call, _ ->
+            call.respondProblem(HttpStatusCode.BadRequest, "Request body is missing or not JSON")
         }
         exception<UnauthorizedException> { call, cause ->
             call.respondProblem(HttpStatusCode.Unauthorized, cause.message ?: "Unauthorized")

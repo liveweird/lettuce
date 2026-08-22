@@ -161,12 +161,18 @@ fun Application.configureCareerPositionRoutes() {
                 requireCareerPositionRead(caller, route.id) {
                     careerPositionService.managesUser(caller.userId, route.id)
                 }
+                // The canEdit capability = exactly the write right (the chain walk). Evaluated
+                // unconditionally: the read guard short-circuits for self/HR before its own
+                // walk, so those paths pay this one extra query — the registered
+                // TeamKpiRoutes capability trade-off (backlog #8).
+                val canEdit = caller.userId != route.id &&
+                    careerPositionService.managesUser(caller.userId, route.id)
                 val rows = careerPositionService.listRows(route.id)
                 val entries = userService.resolveEntryRefs(
                     *rows.flatMap { listOf(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }
                         .toTypedArray(),
                 )
-                call.respond(HttpStatusCode.OK, CareerPositionList(toResponses(rows, entries)))
+                call.respond(HttpStatusCode.OK, CareerPositionList(toResponses(rows, entries), canEdit = canEdit))
             }
             post<UserCareerPositions> { route ->
                 val caller = call.caller()

@@ -5690,12 +5690,20 @@ components:
 
     CareerPositionList:
       type: object
-      required: [items]
+      required: [items, canEdit]
       properties:
         items:
           type: array
           items: { $ref: '#/components/schemas/CareerPositionResponse' }
           description: Chronological (start ascending) — the last item is the current position.
+        canEdit:
+          type: boolean
+          description: >-
+            Server-computed capability of the CALLER (v2.34.0, the TeamKpiResponse.canManage
+            precedent): may write this user's career timeline — true exactly for a manager in
+            the user's transitive management chain (the write right); false for the user
+            themselves and for HR-only readers. Envelope-level because the right is per-user
+            — an empty history still offers the editor to a chain manager.
 
     CareerPyramidPosition:
       type: object
@@ -5882,7 +5890,7 @@ components:
 
     TeamResponse:
       type: object
-      required: [id, name, managerId, memberIds]
+      required: [id, name, managerId, memberIds, canManageKpis]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
@@ -5890,6 +5898,13 @@ components:
         memberIds:
           type: array
           items: { type: integer, format: int32, minimum: 0 }
+        canManageKpis:
+          type: boolean
+          description: >-
+            Server-computed capability of the CALLER (v2.34.0, the TeamKpiResponse.canManage
+            predicate): may create/manage KPIs for this team — true for its current manager
+            and any manager in the chain above them. NOT a team-edit right (team writes are
+            ADMIN-only since v2.33.0).
         managerName:
           type: string
           description: >-

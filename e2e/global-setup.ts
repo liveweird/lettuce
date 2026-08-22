@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BASE_URL } from "./playwright.config";
 import type { LoginBody } from "./sessions";
+import { sweepResidue } from "./sweep-residue";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
@@ -173,6 +174,10 @@ async function resetSeedFeatureFlags(): Promise<void> {
 }
 
 async function clearSeedLeftovers(): Promise<void> {
+  // Residue sweep first (v2.34.0): previous runs' E2E-marked teams/users off the shared
+  // volume, before anything else touches the lists. Safe here — no worker has started yet.
+  const admin = await apiLogin("admin@lettuce.local");
+  if (admin != null) await sweepResidue(BASE_URL, admin.token);
   await resetSeedFeatureFlags();
   let total = 0;
   for (const email of SEED_ACCOUNTS) total += await clearOpenProvidedFeedbacks(email);

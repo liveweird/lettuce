@@ -31,7 +31,7 @@ function MyCareer() {
       <Text size="sm" c="dimmed">
         {t("career.my.hint")}
       </Text>
-      <CareerTimeline positions={data} isLoading={isLoading} isError={isError} />
+      <CareerTimeline positions={data?.items} isLoading={isLoading} isError={isError} />
     </Stack>
   );
 }

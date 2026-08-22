@@ -62,6 +62,40 @@ class TeamRoutesTest {
         assertEquals(created, read.copy(managerName = null, managerDeleted = null))
         assertEquals("Test", read.managerName)
         assertEquals(false, read.managerDeleted)
+        // The creator named themselves manager, so the capability rides both responses.
+        assertTrue(created.canManageKpis)
+        assertTrue(read.canManageKpis)
+    }
+
+    @Test
+    fun `canManageKpis marks the manager and the chain above - nobody else`() = testApplication {
+        usePostgresTestcontainer()
+        // G manages Y {M}; M manages X {S}. U unrelated, A a chain-less admin.
+        val gEmail = uniqueEmail("kpicap-g")
+        val mEmail = uniqueEmail("kpicap-m")
+        val sEmail = uniqueEmail("kpicap-s")
+        val uEmail = uniqueEmail("kpicap-u")
+        val aEmail = uniqueEmail("kpicap-a")
+        val gId = TestUsers.seed(gEmail, "pw", roles = emptySet())
+        val mId = TestUsers.seed(mEmail, "pw", roles = emptySet())
+        val sId = TestUsers.seed(sEmail, "pw", roles = emptySet())
+        TestUsers.seed(uEmail, "pw", roles = emptySet())
+        TestUsers.seed(aEmail, "pw", roles = setOf(UserRole.ADMIN))
+        val teamY = TestServices.teams.create(Team(name = "kpicapY-${UUID.randomUUID()}", managerId = gId))
+        TestServices.teams.addMember(teamY, mId)
+        val teamX = TestServices.teams.create(Team(name = "kpicapX-${UUID.randomUUID()}", managerId = mId))
+        TestServices.teams.addMember(teamX, sId)
+
+        suspend fun canManage(email: String): Boolean =
+            authedClient(email, "pw").get("/api/v1/teams/$teamX").body<TeamResponse>().canManageKpis
+
+        // The capability (v2.34.0) = the TeamKpi manage predicate: manager + chain above;
+        // a member, an unrelated user, and a chain-less ADMIN all read the team but get false.
+        assertTrue(canManage(mEmail))
+        assertTrue(canManage(gEmail))
+        assertFalse(canManage(sEmail))
+        assertFalse(canManage(uEmail))
+        assertFalse(canManage(aEmail))
     }
 
     @Test

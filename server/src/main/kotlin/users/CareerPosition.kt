@@ -43,7 +43,17 @@ data class CareerPositionResponse(
 
 /** Unpaged (a person's positions are intrinsically few) — the corrections-list shape. */
 @Serializable
-data class CareerPositionList(val items: List<CareerPositionResponse>)
+data class CareerPositionList(
+    val items: List<CareerPositionResponse>,
+    /**
+     * Server-computed capability of the CALLER (v2.34.0, the TeamKpiResponse.canManage
+     * precedent): may write this user's career timeline — exactly the transitive-chain
+     * membership `requireCareerPositionWrite` enforces. Envelope-level because the right is
+     * per-USER (an empty history must still offer the editor to a chain manager); false for
+     * self and for HR-only readers (an HR caller who is also in the chain gets true).
+     */
+    val canEdit: Boolean = false,
+)
 
 /**
  * One position in a pyramid item's history (v2.17.0): the resolved triple plus the interval.
