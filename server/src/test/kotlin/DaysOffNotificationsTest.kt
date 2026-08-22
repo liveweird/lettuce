@@ -118,15 +118,56 @@ class DaysOffNotificationsTest {
     }
 
     @Test
-    fun `cancellation notifies the given managers`() {
-        val notifications = daysOffCancelledNotifications(setOf(7u), "Riley", "2030-03-04", "2030-03-05")
-        assertEquals(1, notifications.size)
-        assertEquals(7u, notifications.single().recipientId)
-        assertEquals(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER, notifications.single().type)
-        assertEquals(
-            mapOf("requester" to "Riley", "startDate" to "2030-03-04", "endDate" to "2030-03-05"),
-            notifications.single().params,
+    fun `an owner-cancel pairs the owner receipt with every direct manager`() {
+        val notifications = daysOffCancelledNotifications(
+            ownerId = 3u,
+            ownerName = "Riley",
+            actorName = "Riley",
+            managerRecipientIds = setOf(7u, 8u),
+            byManager = false,
+            startDate = "2030-03-04",
+            endDate = "2030-03-05",
         )
-        assertEquals("/days-off?tab=team", notifications.single().link)
+        assertEquals(3, notifications.size)
+        val toOwner = notifications.single { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_OWNER }
+        assertEquals(3u, toOwner.recipientId)
+        assertEquals(
+            mapOf("manager" to "Riley", "by" to "OWNER", "startDate" to "2030-03-04", "endDate" to "2030-03-05"),
+            toOwner.params,
+        )
+        assertEquals("/days-off?tab=requests", toOwner.link)
+        val toManagers = notifications.filter { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER }
+        assertEquals(setOf(7u, 8u), toManagers.map { it.recipientId }.toSet())
+        for (note in toManagers) {
+            assertEquals(
+                mapOf(
+                    "requester" to "Riley", "manager" to "Riley", "by" to "OWNER",
+                    "startDate" to "2030-03-04", "endDate" to "2030-03-05",
+                ),
+                note.params,
+            )
+            assertEquals("/days-off?tab=team", note.link)
+        }
+    }
+
+    @Test
+    fun `a manager-cancel tells the owner who acted and keeps the acting manager's receipt`() {
+        val notifications = daysOffCancelledNotifications(
+            ownerId = 3u,
+            ownerName = "Riley",
+            actorName = "Morgan",
+            managerRecipientIds = setOf(7u),
+            byManager = true,
+            startDate = "2030-03-04",
+            endDate = "2030-03-05",
+        )
+        assertEquals(2, notifications.size)
+        val toOwner = notifications.single { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_OWNER }
+        assertEquals("MANAGER", toOwner.params["by"])
+        assertEquals("Morgan", toOwner.params["manager"])
+        val receipt = notifications.single { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER }
+        assertEquals(7u, receipt.recipientId)
+        assertEquals("MANAGER", receipt.params["by"])
+        assertEquals("Riley", receipt.params["requester"])
     }
 }

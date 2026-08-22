@@ -1,8 +1,10 @@
 package ch.nokillswit
 
 import ch.nokillswit.daysoff.DaysOffBudgetList
+import ch.nokillswit.daysoff.DaysOffCancelRequest
 import ch.nokillswit.daysoff.DaysOffCalendarResponse
 import ch.nokillswit.daysoff.DaysOffCreateRequest
+import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.daysoff.DaysOffPageResponse
 import ch.nokillswit.daysoff.DaysOffResponse
 import ch.nokillswit.daysoff.DaysOffStatus
@@ -23,6 +25,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.r2dbc.selectAll
+import org.jetbrains.exposed.v1.r2dbc.update
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -44,6 +52,13 @@ class DaysOffRoutesTest {
     /** The first Monday of (year, month) — weekday-stable periods without hardcoded dates. */
     private fun monday(year: Int, month: Int = 6): LocalDate =
         LocalDate.of(year, month, 1).with(TemporalAdjusters.firstInMonth(DayOfWeek.MONDAY))
+
+    /** The mandatory-reason cancel POST (v2.31.0). */
+    private suspend fun HttpClient.cancelDaysOff(id: UInt, reason: String = "test cancel reason"): HttpResponse =
+        post("/api/v1/days-off/$id/cancel") {
+            contentType(ContentType.Application.Json)
+            setBody(DaysOffCancelRequest(reason))
+        }
 
     private suspend fun HttpClient.createDaysOff(
         start: String,
@@ -119,7 +134,7 @@ class DaysOffRoutesTest {
             owner.createDaysOff(mon.plusDays(7).toString(), mon.plusDays(8).toString()).status,
         )
         // CANCELLED frees the slot: cancel the first, then re-book the same days.
-        assertEquals(HttpStatusCode.NoContent, owner.post("/api/v1/days-off/${first.id}/cancel").status)
+        assertEquals(HttpStatusCode.NoContent, owner.cancelDaysOff(first.id).status)
         assertEquals(HttpStatusCode.Created, owner.createDaysOff(mon.toString(), mon.plusDays(4).toString()).status)
     }
 
@@ -230,20 +245,43 @@ class DaysOffRoutesTest {
         val rejected = sub.createDaysOff(mon.plusDays(7).toString()).body<DaysOffResponse>()
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/${rejected.id}/reject").status)
         assertEquals(DaysOffStatus.REJECTED, sub.get("/api/v1/days-off/${rejected.id}").body<DaysOffResponse>().status)
-        assertEquals(HttpStatusCode.Conflict, sub.post("/api/v1/days-off/${rejected.id}/cancel").status)
+        assertEquals(HttpStatusCode.Conflict, sub.cancelDaysOff(rejected.id).status)
 
-        // An ACCEPTED future request cancels; the stamp lands.
-        assertEquals(HttpStatusCode.NoContent, sub.post("/api/v1/days-off/${accepted.id}/cancel").status)
+        // An ACCEPTED request cancels; the stamps + the mandatory reason land, and the act
+        // is audited (never the reason itself).
+        val capture = LogCapture("ch.nokillswit.audit")
+        try {
+            assertEquals(HttpStatusCode.NoContent, sub.cancelDaysOff(accepted.id, reason = "Plans changed").status)
+            assertNotNull(
+                capture.awaitEvent {
+                    it.message == "days_off.cancelled" &&
+                        it.hasKeyValue("fromStatus", "ACCEPTED") &&
+                        it.keyValuePairs?.any { kv -> kv.key == "requestId" && kv.value == accepted.id.toLong() } == true &&
+                        it.keyValuePairs?.none { kv -> kv.value == "Plans changed" } == true
+                },
+            )
+        } finally {
+            capture.detach()
+        }
         val cancelled = sub.get("/api/v1/days-off/${accepted.id}").body<DaysOffResponse>()
         assertEquals(DaysOffStatus.CANCELLED, cancelled.status)
         assertNotNull(cancelled.cancelledAt)
+        assertEquals(subId, cancelled.cancelledById)
+        assertEquals("Machine Sub", cancelled.cancelledByName)
+        assertEquals("Plans changed", cancelled.cancelReason)
 
-        // An ACCEPTED request whose period already started may no longer be cancelled.
+        // A started/past ACCEPTED request is cancellable too (v2.31.0 — the date gate is gone).
         val past = monday(2001, 3)
         val started = sub.createDaysOff(past.toString(), past.plusDays(4).toString(), type = DaysOffType.UNPAID)
             .body<DaysOffResponse>()
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/${started.id}/accept").status)
-        assertEquals(HttpStatusCode.Conflict, sub.post("/api/v1/days-off/${started.id}/cancel").status)
+        assertEquals(HttpStatusCode.NoContent, sub.cancelDaysOff(started.id).status)
+
+        // The reason is obligatory: blank, oversized, or missing-body cancels are 400.
+        val forValidation = sub.createDaysOff(mon.plusDays(14).toString()).body<DaysOffResponse>()
+        assertEquals(HttpStatusCode.BadRequest, sub.cancelDaysOff(forValidation.id, reason = "  ").status)
+        assertEquals(HttpStatusCode.BadRequest, sub.cancelDaysOff(forValidation.id, reason = "x".repeat(1001)).status)
+        assertEquals(HttpStatusCode.NoContent, sub.cancelDaysOff(forValidation.id).status)
 
         // Unknown ids are 404 everywhere.
         assertEquals(HttpStatusCode.NotFound, sub.get("/api/v1/days-off/999999").status)
@@ -316,8 +354,23 @@ class DaysOffRoutesTest {
         assertEquals(HttpStatusCode.Forbidden, t.post("$url/accept").status)
         assertEquals(HttpStatusCode.Forbidden, u.post("$url/reject").status)
         assertEquals(HttpStatusCode.Forbidden, a.post("$url/accept").status)
-        // Cancellation: only the owner.
-        assertEquals(HttpStatusCode.Forbidden, m.post("$url/cancel").status)
+        // Cancellation (v2.31.0): the owner or ANY manager in the owner's chain — never a
+        // teammate, unrelated user, non-chain ADMIN, or HR. 403 wins over 400: the outsider
+        // probes carry no body and still get the uniform denial.
+        assertEquals(HttpStatusCode.Forbidden, t.post("$url/cancel").status)
+        assertEquals(HttpStatusCode.Forbidden, u.post("$url/cancel").status)
+        assertEquals(HttpStatusCode.Forbidden, a.post("$url/cancel").status)
+        assertEquals(HttpStatusCode.Forbidden, h.post("$url/cancel").status)
+
+        // The managers may cancel (v2.31.0): the grand-manager (chain) and the direct
+        // manager each cancel one of the owner's requests; the actor is recorded.
+        val forChain = s.createDaysOff(mon.plusDays(7).toString()).body<DaysOffResponse>()
+        assertEquals(HttpStatusCode.NoContent, g.cancelDaysOff(forChain.id, reason = "Coverage gap").status)
+        val chainCancelled = s.get("/api/v1/days-off/${forChain.id}").body<DaysOffResponse>()
+        assertEquals(gId, chainCancelled.cancelledById)
+        assertEquals("Coverage gap", chainCancelled.cancelReason)
+        val forDirect = s.createDaysOff(mon.plusDays(14).toString()).body<DaysOffResponse>()
+        assertEquals(HttpStatusCode.NoContent, m.cancelDaysOff(forDirect.id).status)
 
         // A REJECTED request drops off the teammate's radar (calendar parity) but stays
         // readable to the owner, the chain, and HR.
@@ -542,16 +595,34 @@ class DaysOffRoutesTest {
         assertEquals("Notif Mgr One", acceptedNote.params["manager"])
         assertEquals("/days-off?tab=requests", acceptedNote.link)
 
-        // Cancelling the ACCEPTED request notifies ONLY the resolver, not the other manager.
-        assertEquals(HttpStatusCode.NoContent, s.post("/api/v1/days-off/${created.id}/cancel").status)
+        // An owner-cancel notifies EVERY current direct manager uniformly (v2.31.0 — the
+        // resolver-only-for-ACCEPTED subtlety is gone) plus the owner's own receipt.
+        assertEquals(HttpStatusCode.NoContent, s.cancelDaysOff(created.id).status)
         assertEquals(1, m1.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
-        assertEquals(0, m2.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
-
-        // Cancelling a still-REQUESTED one notifies every direct manager.
-        val second = s.createDaysOff(mon.plusDays(7).toString()).body<DaysOffResponse>()
-        assertEquals(HttpStatusCode.NoContent, s.post("/api/v1/days-off/${second.id}/cancel").status)
-        assertEquals(2, m1.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
         assertEquals(1, m2.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
+        val ownReceipt = s.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_OWNER).single()
+        assertEquals("OWNER", ownReceipt.params["by"])
+        assertEquals("Notif Sub", ownReceipt.params["manager"]) // the actor IS the owner here
+        assertEquals("/days-off?tab=requests", ownReceipt.link)
+
+        // Same rule from REQUESTED.
+        val second = s.createDaysOff(mon.plusDays(7).toString()).body<DaysOffResponse>()
+        assertEquals(HttpStatusCode.NoContent, s.cancelDaysOff(second.id).status)
+        assertEquals(2, m1.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
+        assertEquals(2, m2.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
+
+        // A manager-cancel (v2.31.0): the owner is told who cancelled; the acting manager
+        // keeps a receipt and the OTHER manager deliberately hears nothing.
+        val byManager = s.createDaysOff(mon.plusDays(21).toString()).body<DaysOffResponse>()
+        assertEquals(HttpStatusCode.NoContent, m1.cancelDaysOff(byManager.id, reason = "Release week").status)
+        val ownerNote = s.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_OWNER)
+            .single { it.params["by"] == "MANAGER" }
+        assertEquals("Notif Mgr One", ownerNote.params["manager"])
+        val receipt = m1.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER)
+            .single { it.params["by"] == "MANAGER" }
+        assertEquals("Notif Sub", receipt.params["requester"])
+        assertEquals(3, m1.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
+        assertEquals(2, m2.notificationsOf(NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER).size)
 
         // Rejection notifies the owner.
         val third = s.createDaysOff(mon.plusDays(14).toString()).body<DaysOffResponse>()
@@ -665,5 +736,48 @@ class DaysOffRoutesTest {
             HttpStatusCode.BadRequest,
             m.createDaysOff(mon.plusDays(7).toString(), forUserId = tId).status,
         )
+    }
+
+    @Test
+    fun `cancel reasons are encrypted at rest and the startup backfill sweeps plaintext`() = testApplication {
+        usePostgresTestcontainer()
+        val ownerEmail = uniqueEmail("do-enc")
+        val ownerId = TestUsers.seed(ownerEmail, "pw", roles = emptySet())
+        TestDaysOff.setAllowance(ownerId, 20)
+        val owner = authedClient(ownerEmail, "pw")
+
+        val secret = "Secret cancellation reasoning ${java.util.UUID.randomUUID()}"
+        val mon = monday(2085, 3)
+        val created = owner.createDaysOff(mon.toString()).body<DaysOffResponse>()
+        assertEquals(HttpStatusCode.NoContent, owner.cancelDaysOff(created.id, reason = secret).status)
+        assertEquals(secret, owner.get("/api/v1/days-off/${created.id}").body<DaysOffResponse>().cancelReason)
+
+        // The raw column holds the envelope, not the plaintext (the correction-comment rule).
+        suspend fun raw(): String = suspendTransaction(TestDaysOff.service.database) {
+            ch.nokillswit.daysoff.DaysOffService.Requests
+                .selectAll()
+                .where { ch.nokillswit.daysoff.DaysOffService.Requests.id eq created.id }
+                .map { it[ch.nokillswit.daysoff.DaysOffService.Requests.cancelReason] }
+                .toList()
+                .single()!!
+        }
+        val encrypted = raw()
+        assertTrue(encrypted.startsWith(FieldCipher.PREFIX), "expected an envelope, got: ${encrypted.take(20)}")
+        assertTrue(!encrypted.contains(secret))
+
+        // The legacy backfill (the two-table encryptLegacyRows): a plaintext reason planted
+        // raw in the column is enveloped once, idempotently — the envelope-marker predicate
+        // keeps already-encrypted rows (and other tests' key-rotation residue) untouched.
+        val planted = "planted plaintext reason"
+        suspendTransaction(TestDaysOff.service.database) {
+            ch.nokillswit.daysoff.DaysOffService.Requests
+                .update({ ch.nokillswit.daysoff.DaysOffService.Requests.id eq created.id }) {
+                    it[ch.nokillswit.daysoff.DaysOffService.Requests.cancelReason] = planted
+                }
+        }
+        assertTrue(TestDaysOff.service.encryptLegacyRows(reencryptAll = false) >= 1)
+        val swept = raw()
+        assertTrue(swept.startsWith(FieldCipher.PREFIX))
+        assertEquals(planted, owner.get("/api/v1/days-off/${created.id}").body<DaysOffResponse>().cancelReason)
     }
 }

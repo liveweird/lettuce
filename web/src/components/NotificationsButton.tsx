@@ -84,6 +84,7 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   DAYS_OFF_ACCEPTED_TO_OWNER: "daysOffAccepted",
   DAYS_OFF_REJECTED_TO_OWNER: "daysOffRejected",
   DAYS_OFF_CANCELLED_TO_MANAGER: "daysOffCancelled",
+  DAYS_OFF_CANCELLED_TO_OWNER: "daysOffCancelledToOwner",
   DAYS_OFF_CORRECTED_TO_OWNER: "daysOffCorrected",
   DAYS_OFF_RECORDED_TO_OWNER: "daysOffRecordedToOwner",
   DAYS_OFF_RECORDED_TO_MANAGER: "daysOffRecordedToManager",
@@ -123,6 +124,9 @@ const DAYS_OFF_SPEC: ParamFormatSpec = {
   dateParams: ["startDate", "endDate"],
   enumParams: { type: "daysOff.type" },
 };
+// The cancel pair additionally words the actor (OWNER/MANAGER) via i18next context on `by`
+// (v2.31.0); rows minted before the rework carry no `by` and fall back to the base key.
+const DAYS_OFF_CANCEL_SPEC: ParamFormatSpec = { ...DAYS_OFF_SPEC, contextParam: "by" };
 const PULSE_SPEC: ParamFormatSpec = { dateParams: ["openDate", "closeDate"] };
 
 const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
@@ -134,7 +138,8 @@ const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   daysOffRequested: DAYS_OFF_SPEC,
   daysOffAccepted: DAYS_OFF_SPEC,
   daysOffRejected: DAYS_OFF_SPEC,
-  daysOffCancelled: DAYS_OFF_SPEC,
+  daysOffCancelled: DAYS_OFF_CANCEL_SPEC,
+  daysOffCancelledToOwner: DAYS_OFF_CANCEL_SPEC,
   daysOffRecordedToOwner: DAYS_OFF_SPEC,
   daysOffRecordedToManager: DAYS_OFF_SPEC,
   // The correction kind words ADD/SUBTRACT via i18next context.
@@ -207,6 +212,7 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   DAYS_OFF_ACCEPTED_TO_OWNER: { icon: IconBeach, color: "teal" },
   DAYS_OFF_REJECTED_TO_OWNER: { icon: IconBeach, color: "red" },
   DAYS_OFF_CANCELLED_TO_MANAGER: { icon: IconBeach, color: "gray" },
+  DAYS_OFF_CANCELLED_TO_OWNER: { icon: IconBeach, color: "gray" },
   DAYS_OFF_CORRECTED_TO_OWNER: { icon: IconBeach, color: "teal" },
   DAYS_OFF_RECORDED_TO_OWNER: { icon: IconBeach, color: "teal" },
   DAYS_OFF_RECORDED_TO_MANAGER: { icon: IconBeach, color: "teal" },

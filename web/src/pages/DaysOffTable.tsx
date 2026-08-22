@@ -1,8 +1,8 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
-import { Alert, Button, Group, Select, Stack, Table, Text } from "@mantine/core";
+import { ActionIcon, Alert, Button, Group, Popover, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconBeach, IconCheck, IconX } from "@tabler/icons-react";
+import { IconBeach, IconCheck, IconInfoCircle, IconX } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -10,6 +10,7 @@ import { getUserId } from "../api/session";
 import { acceptDaysOff, cancelDaysOff, listDaysOff, rejectDaysOff, type DaysOffListItem, type DaysOffListView, type DaysOffStatus, type DaysOffType } from "../api/daysoff";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DaysOffCancelModal from "../components/DaysOffCancelModal";
 import DaysOffStatusBadge from "../components/DaysOffStatusBadge";
 import EmptyState from "../components/EmptyState";
 import FilterPanel from "../components/FilterPanel";
@@ -19,8 +20,8 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { formatDate, formatIsoDate, formatTimestamp, todayIsoDate } from "../utils/datetime";
-import { formatDays, isCancellable } from "../utils/daysOffCost";
+import { formatDate, formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { formatDays } from "../utils/daysOffCost";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
@@ -131,22 +132,27 @@ export default function DaysOffTable({
   }
 
   function rowActions(r: DaysOffListItem) {
-    if (view === "own" && isCancellable(r.status, r.startDate, todayIsoDate())) {
-      return (
-        <Button
-          variant="subtle"
-          color="red"
-          size="xs"
-          leftSection={<IconX size={14} />}
-          loading={actingId === r.id}
-          disabled={actingId != null}
-          onClick={() => setPending({ kind: "cancel", id: r.id })}
-          aria-label={t("daysOff.cancelAria", { date: r.startDate })}
-        >
-          {t("daysOff.action.cancel")}
-        </Button>
-      );
-    }
+    // The server-computed capability flag (v2.31.0 — the team-KPI canManage precedent)
+    // replaces the old client-side owner/date inference: the caller owns the row or manages
+    // its owner transitively, and it is still REQUESTED/ACCEPTED. Date-independent.
+    const cancelButton = r.canCancel ? (
+      <Button
+        variant="subtle"
+        color="red"
+        size="xs"
+        leftSection={<IconX size={14} />}
+        loading={actingId === r.id}
+        disabled={actingId != null}
+        onClick={() => setPending({ kind: "cancel", id: r.id })}
+        aria-label={
+          view === "own"
+            ? t("daysOff.cancelAria", { date: r.startDate })
+            : t("daysOff.cancelForAria", { name: r.userName, date: r.startDate })
+        }
+      >
+        {t("daysOff.action.cancel")}
+      </Button>
+    ) : null;
     if (view === "managed" && r.status === "REQUESTED") {
       return (
         <Group gap={4} wrap="nowrap">
@@ -172,10 +178,11 @@ export default function DaysOffTable({
           >
             {t("daysOff.action.reject")}
           </Button>
+          {cancelButton}
         </Group>
       );
     }
-    return null;
+    return cancelButton;
   }
 
   const total = data?.total ?? 0;
@@ -301,7 +308,40 @@ export default function DaysOffTable({
                 </Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap" }}>{t(`daysOff.type.${r.type}`)}</Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
-                  <DaysOffStatusBadge status={r.status} />
+                  <Group gap={4} wrap="nowrap">
+                    <DaysOffStatusBadge status={r.status} />
+                    {r.status === "CANCELLED" && r.cancelReason != null && (
+                      // The cancellation record (v2.31.0): who withdrew it and why. Rows
+                      // cancelled before the rework carry no reason and get no affordance.
+                      <Popover width={320} withArrow shadow="md">
+                        <Popover.Target>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            aria-label={t("daysOff.cancelReasonAria")}
+                          >
+                            <IconInfoCircle size={16} />
+                          </ActionIcon>
+                        </Popover.Target>
+                        <Popover.Dropdown>
+                          <Stack gap={4}>
+                            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+                              {r.cancelReason}
+                            </Text>
+                            {r.cancelledByName != null && r.cancelledAt != null && (
+                              <Text size="xs" c="dimmed">
+                                {t("daysOff.cancelledByLine", {
+                                  author: r.cancelledByName,
+                                  date: formatDate(r.cancelledAt, i18n.language),
+                                })}
+                              </Text>
+                            )}
+                          </Stack>
+                        </Popover.Dropdown>
+                      </Popover>
+                    )}
+                  </Group>
                 </Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(r.createdAt)}>
                   {formatDate(r.createdAt, i18n.language)}
@@ -332,21 +372,26 @@ export default function DaysOffTable({
       />
 
       <ConfirmActionModal
-        opened={pending != null}
+        opened={pending?.kind === "reject"}
         onClose={() => setPending(null)}
-        title={t(pending?.kind === "reject" ? "daysOff.rejectTitle" : "daysOff.cancelTitle")}
-        message={t(pending?.kind === "reject" ? "daysOff.rejectMessage" : "daysOff.cancelMessage")}
+        title={t("daysOff.rejectTitle")}
+        message={t("daysOff.rejectMessage")}
         cancelLabel={t("common.action.cancel")}
-        confirmLabel={t(
-          pending?.kind === "reject" ? "daysOff.action.reject" : "daysOff.action.cancelConfirm",
-        )}
+        confirmLabel={t("daysOff.action.reject")}
         onConfirm={() => {
           if (!pending) return;
-          void runAction(
-            pending.id,
-            pending.kind === "reject" ? rejectDaysOff : cancelDaysOff,
-            pending.kind === "reject" ? "daysOff.toast.rejected" : "daysOff.toast.cancelled",
-          );
+          void runAction(pending.id, rejectDaysOff, "daysOff.toast.rejected");
+        }}
+        loading={actingId != null}
+      />
+
+      {/* Cancellation always records a reason (v2.31.0) — the required-textarea modal. */}
+      <DaysOffCancelModal
+        opened={pending?.kind === "cancel"}
+        onClose={() => setPending(null)}
+        onConfirm={(reason) => {
+          if (!pending) return;
+          void runAction(pending.id, (id) => cancelDaysOff(id, reason), "daysOff.toast.cancelled");
         }}
         loading={actingId != null}
       />

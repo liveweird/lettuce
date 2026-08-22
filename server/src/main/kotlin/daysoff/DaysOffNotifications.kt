@@ -116,19 +116,48 @@ internal fun daysOffCorrectionNotification(
     link = "/days-off?tab=requests",
 )
 
-/** Cancellation: cancelled-from-ACCEPTED tells the manager who accepted it ([recipientIds] =
- * the resolver); cancelled-from-REQUESTED tells all current direct managers (they were asked
- * to review it). */
+/** Cancellation (reworked v2.31.0 — owner or a chain manager cancels, always with a reason):
+ * both sides are told, always. The owner gets [DAYS_OFF_CANCELLED_TO_OWNER] (a durable receipt
+ * even when they cancelled themselves — the recorded-pair precedent); the manager side gets
+ * [DAYS_OFF_CANCELLED_TO_MANAGER] — every current direct manager on an owner-cancel, or just
+ * the acting manager's receipt on a manager-cancel (other managers deliberately silent, the
+ * row is visible in their managed list). The `by` param (OWNER/MANAGER) is an i18next context
+ * for the wording split; the REASON never rides params (content-free rule) — it lives
+ * encrypted on the row and renders via the table's popover. */
 internal fun daysOffCancelledNotifications(
-    recipientIds: Set<UInt>,
-    requesterName: String,
+    ownerId: UInt,
+    ownerName: String,
+    actorName: String,
+    managerRecipientIds: Set<UInt>,
+    byManager: Boolean,
     startDate: String,
     endDate: String,
-): List<Notification> = recipientIds.map { recipientId ->
-    Notification(
-        recipientId = recipientId,
-        type = NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER,
-        params = mapOf("requester" to requesterName, "startDate" to startDate, "endDate" to endDate),
-        link = "/days-off?tab=team",
+): List<Notification> {
+    val by = if (byManager) "MANAGER" else "OWNER"
+    val toOwner = Notification(
+        recipientId = ownerId,
+        type = NotificationType.DAYS_OFF_CANCELLED_TO_OWNER,
+        params = mapOf(
+            "manager" to actorName,
+            "by" to by,
+            "startDate" to startDate,
+            "endDate" to endDate,
+        ),
+        link = "/days-off?tab=requests",
     )
+    val toManagers = managerRecipientIds.map { recipientId ->
+        Notification(
+            recipientId = recipientId,
+            type = NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER,
+            params = mapOf(
+                "requester" to ownerName,
+                "manager" to actorName,
+                "by" to by,
+                "startDate" to startDate,
+                "endDate" to endDate,
+            ),
+            link = "/days-off?tab=team",
+        )
+    }
+    return listOf(toOwner) + toManagers
 }

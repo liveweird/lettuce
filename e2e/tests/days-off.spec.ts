@@ -21,7 +21,9 @@ import type { APIRequestContext, Page } from "@playwright/test";
 // never left with counting requests (REJECTED/CANCELLED rows are inert records). An UNPAID
 // single-day request then shows the same cost preview while leaving the paid budget untouched,
 // and is cancelled too. The manager also records a day ON BEHALF of AAA Two (v2.29.0, born
-// Accepted, both bells notified), which the owner cancels at the end.
+// Accepted, both bells notified), which the MANAGER cancels at the end (v2.31.0 — cancellation
+// is owner-or-chain and always carries a mandatory reason; the cancelled row grows a reason
+// popover and the acting manager keeps a bell receipt).
 //
 // The request window is a run-specific future Monday (weeks vary per run), so residue from a
 // failed earlier run rarely collides via the overlap rule — but the sweep below is what
@@ -99,17 +101,18 @@ async function sweepResidue(request: APIRequestContext) {
     }
   }
 
-  // Owner: cancel AAA Two's stranded counting requests (REQUESTED always cancellable;
-  // ACCEPTED only strictly before its start date — the spec only ever books the future,
-  // so anything already started is left alone rather than 409ing the sweep).
+  // Owner: cancel AAA Two's stranded counting requests. Cancellation is date-free since
+  // v2.31.0 (REQUESTED or ACCEPTED, past included) and always carries a mandatory reason.
   const ownAuth = authHeader(await apiToken(request, AAA_TWO));
-  const today = isoDate(new Date());
   const requests = (await (
     await request.get("/api/v1/days-off?view=own&pageSize=100", { headers: ownAuth })
   ).json()) as { items: { id: number; status: string; startDate: string }[] };
   for (const r of requests.items) {
-    if (r.status === "REQUESTED" || (r.status === "ACCEPTED" && r.startDate > today)) {
-      await request.post(`/api/v1/days-off/${r.id}/cancel`, { headers: ownAuth });
+    if (r.status === "REQUESTED" || r.status === "ACCEPTED") {
+      await request.post(`/api/v1/days-off/${r.id}/cancel`, {
+        headers: ownAuth,
+        data: { reason: "e2e residue sweep" },
+      });
     }
   }
 
@@ -272,12 +275,15 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await page.getByRole("option", { name: "Accepted" }).click();
   await expect(page.locator("tr", { hasText: "Accepted" }).first()).toBeVisible();
 
-  // Page the calendar forward to the request's month and find the accepted Tuesday's bar.
+  // Page the calendar forward to the ASSERTED TUESDAY's month (not Monday's — a window
+  // starting on a month's last Monday puts the Tuesday in the NEXT month, the latent
+  // Nov-30/Dec-1 flake) and find the accepted Tuesday's bar.
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.getByRole("table", { name: "Team days-off calendar" })).toBeVisible();
   const now = new Date();
+  const tuesday = addDays(MONDAY, 1);
   const monthSteps =
-    (MONDAY.getFullYear() - now.getFullYear()) * 12 + (MONDAY.getMonth() - now.getMonth());
+    (tuesday.getFullYear() - now.getFullYear()) * 12 + (tuesday.getMonth() - now.getMonth());
   for (let i = 0; i < monthSteps; i += 1) {
     await page.getByLabel("Next month").click();
   }
@@ -286,6 +292,8 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // Cancel the accepted (still future) request — the reserved days return to the budget.
   await page.goto("/days-off?tab=requests");
   await page.getByLabel(`Cancel your days-off request starting ${MONDAY_ISO}`).click();
+  // The mandatory reason (v2.31.0): the confirm is a required-textarea modal now.
+  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Plans changed — e2e");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Cancel the request", exact: true })
@@ -305,6 +313,8 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(budgetStrip).toHaveText(budgetBefore);
   // Cancel it again so seed accounts keep no counting rows.
   await page.getByLabel(`Cancel your days-off request starting ${WEDNESDAY_ISO}`).click();
+  // The mandatory reason (v2.31.0): the confirm is a required-textarea modal now.
+  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Not needed — e2e");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Cancel the request", exact: true })
@@ -370,25 +380,49 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(ownModal.getByRole("button", { name: "Add correction" })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  // The recorded entry sits in My requests as Accepted; cancel it (still future) so the
-  // seed account keeps no counting rows. The stored Status filter says Requested from the
-  // UNPAID leg — flip it to Accepted first.
-  const recordedFilters = page.getByRole("button", { name: "Filters" });
-  if ((await recordedFilters.getAttribute("aria-expanded")) !== "true") await recordedFilters.click();
+  await logout(page);
+
+  // ── Cleanup — and the v2.31.0 manager-side cancel: Manager AAA (a chain manager of the
+  // owner) cancels the recorded Accepted entry with a reason, keeps the bell receipt, and
+  // the cancelled row grows the reason popover. Seed accounts keep no counting rows. ──
+  await login(page, MANAGER_AAA);
+  await collapseAlertsBanner(page);
+  await page.goto("/days-off?tab=team");
+  const cleanupFilters = page.getByRole("button", { name: "Filters" });
+  if ((await cleanupFilters.getAttribute("aria-expanded")) !== "true") await cleanupFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
   await page.getByRole("option", { name: "Accepted" }).click();
-  await page.getByLabel(`Cancel your days-off request starting ${THURSDAY_ISO}`).click();
+  await page.getByLabel(`Cancel AAA Two's days-off request starting ${THURSDAY_ISO}`).click();
+  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Recorded in error — e2e");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Cancel the request", exact: true })
     .click();
   await expect(page.getByText("Request cancelled")).toBeVisible();
-  await logout(page);
-
-  // ── Cleanup: the manager deletes the correction; the admin removes the holiday. ──
-  await login(page, MANAGER_AAA);
-  await collapseAlertsBanner(page);
-  await page.goto("/days-off?tab=team");
+  // The cancelled row's reason popover (flip the filter to Cancelled to find it). Two
+  // residue defenses: the table renders LOCALIZED dates, not ISO (match the app's
+  // formatIsoDate — en, dateStyle medium), and cancelled rows are PERMANENT records, so
+  // earlier runs' residue outranks this run's row under the default -startDate sort —
+  // sort by "Requested on" descending instead (this run's rows are the newest created).
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Cancelled" }).click();
+  await page.getByRole("button", { name: "Requested on" }).click();
+  await page.getByRole("button", { name: "Requested on" }).click();
+  const thursdayFormatted = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
+    new Date(`${THURSDAY_ISO}T00:00:00`),
+  );
+  const cancelledRow = page.locator("tr", { hasText: thursdayFormatted }).first();
+  await cancelledRow.getByLabel("Cancellation reason").click();
+  await expect(page.getByText("Recorded in error — e2e")).toBeVisible();
+  await expect(page.getByText(/Manager AAA ·/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  // The acting manager's bell receipt.
+  const receiptBell = await openBell(page);
+  await expect(
+    notificationCard(receiptBell, "You cancelled AAA Two's days-off request"),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  // The rest of the cleanup: delete the correction, then the admin removes the holiday.
   await page.getByLabel("Budget corrections of AAA Two").click();
   const cleanupModal = page.getByRole("dialog");
   await cleanupModal.getByRole("button", { name: /^Delete the correction/ }).first().click();

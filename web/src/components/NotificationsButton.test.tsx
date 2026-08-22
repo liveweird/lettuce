@@ -295,11 +295,43 @@ describe("NotificationsButton", () => {
         params: { manager: "Mona Manager", startDate: "2026-08-10", endDate: "2026-08-11" },
       },
       {
+        // A pre-rework row: no `by` context — falls back to the base owner wording.
         ...base,
         id: 54,
         type: "DAYS_OFF_CANCELLED_TO_MANAGER",
         link: "/days-off?tab=team",
         params: { requester: "Riley Report", startDate: "2026-08-10", endDate: "2026-08-11" },
+      },
+      {
+        // v2.31.0: the acting manager's receipt (by=MANAGER context).
+        ...base,
+        id: 61,
+        type: "DAYS_OFF_CANCELLED_TO_MANAGER",
+        link: "/days-off?tab=team",
+        params: {
+          requester: "Riley Report", manager: "Mona Manager", by: "MANAGER",
+          startDate: "2026-08-12", endDate: "2026-08-13",
+        },
+      },
+      {
+        ...base,
+        id: 62,
+        type: "DAYS_OFF_CANCELLED_TO_OWNER",
+        link: "/days-off?tab=requests",
+        params: {
+          manager: "Mona Manager", by: "MANAGER",
+          startDate: "2026-08-12", endDate: "2026-08-13",
+        },
+      },
+      {
+        ...base,
+        id: 63,
+        type: "DAYS_OFF_CANCELLED_TO_OWNER",
+        link: "/days-off?tab=requests",
+        params: {
+          manager: "Riley Report", by: "OWNER",
+          startDate: "2026-08-14", endDate: "2026-08-15",
+        },
       },
       {
         ...base,
@@ -336,7 +368,7 @@ describe("NotificationsButton", () => {
         },
       },
     ];
-    setupMocks(mockFetch, rows, 8);
+    setupMocks(mockFetch, rows, 11);
     renderWithProviders(<Harness />);
     await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
 
@@ -353,6 +385,16 @@ describe("NotificationsButton", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("Riley Report cancelled their days-off request (Aug 10, 2026 – Aug 11, 2026)."),
+    ).toBeInTheDocument();
+    // The reworked cancel pair (v2.31.0): both sides hear it, actor-worded via the `by` context.
+    expect(
+      screen.getByText("You cancelled Riley Report's days-off request (Aug 12, 2026 – Aug 13, 2026)."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Mona Manager cancelled your days-off request (Aug 12, 2026 – Aug 13, 2026)."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("You cancelled your days-off request (Aug 14, 2026 – Aug 15, 2026)."),
     ).toBeInTheDocument();
     // The correction kind words ADD/SUBTRACT via i18next context (v1.43.0).
     expect(

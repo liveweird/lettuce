@@ -5,7 +5,7 @@ import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireDaysOffCorrectionsRead
-import ch.nokillswit.authz.requireDaysOffOwner
+import ch.nokillswit.authz.requireDaysOffCancel
 import ch.nokillswit.authz.requireDaysOffRead
 import ch.nokillswit.authz.requireDaysOffResolve
 import ch.nokillswit.authz.requireRelationship
@@ -88,22 +88,47 @@ fun Application.configureDaysOffRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
-    // Shared handler for the three lifecycle actions: read (404 when missing), the
-    // action-specific guard, the service transition (409 on an invalid from-status or the
-    // accepted-cancel date gate), then the notifications it produced.
+    // Shared handler for accept/reject: read (404 when missing), the resolve guard, the
+    // service transition (409 on an invalid from-status), then the notifications it produced.
     suspend fun transitionTo(call: ApplicationCall, requestId: UInt, target: DaysOffStatus) {
         val caller = call.daysOffCaller()
         val existing = daysOffService.read(requestId)
             ?: throw NotFoundException("Days-off request not found")
-        when (target) {
-            DaysOffStatus.ACCEPTED, DaysOffStatus.REJECTED ->
-                requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
-            DaysOffStatus.CANCELLED -> requireDaysOffOwner(caller, existing)
-            else -> error("Not a transition target: $target")
-        }
+        requireDaysOffResolve(caller) { daysOffService.isDirectManagerOf(caller.userId, existing.userId) }
         val toNotify = daysOffService.transition(requestId, caller.userId, target)
             ?: throw NotFoundException("Days-off request not found")
         toNotify.forEach { notificationService.create(it) }
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    // Cancellation (reworked v2.31.0): owner or chain manager, any date while
+    // REQUESTED/ACCEPTED, always with a mandatory reason. Guard BEFORE payload validation
+    // (403 wins over 400); the reason lands encrypted on the row and both sides are notified.
+    suspend fun cancelRequest(call: ApplicationCall, requestId: UInt) {
+        val caller = call.daysOffCaller()
+        val existing = daysOffService.read(requestId)
+            ?: throw NotFoundException("Days-off request not found")
+        requireDaysOffCancel(caller, existing) {
+            daysOffService.managesOwner(caller.userId, existing.userId)
+        }
+        val request = call.receive<DaysOffCancelRequest>()
+        validateDaysOffCancel(request)
+        val toNotify = daysOffService.cancel(requestId, caller.userId, request.reason.trim())
+            ?: throw NotFoundException("Days-off request not found")
+        toNotify.forEach { notificationService.create(it) }
+        // Withdrawing leave — possibly someone else's — is audited like the on-behalf
+        // recording; never the reason (it is encrypted at rest, the correction-comment rule).
+        audit(
+            "days_off.cancelled",
+            "byUserId" to caller.userId.toLong(),
+            "targetUserId" to existing.userId.toLong(),
+            "requestId" to requestId.toLong(),
+            "fromStatus" to existing.status.name,
+            "type" to existing.type.name,
+            "startDate" to existing.startDate,
+            "endDate" to existing.endDate,
+            "days" to existing.days,
+        )
         call.respond(HttpStatusCode.NoContent)
     }
 
@@ -229,7 +254,7 @@ fun Application.configureDaysOffRoutes() {
             }
             post<DaysOff.Id.Accept> { route -> transitionTo(call, route.parent.id, DaysOffStatus.ACCEPTED) }
             post<DaysOff.Id.Reject> { route -> transitionTo(call, route.parent.id, DaysOffStatus.REJECTED) }
-            post<DaysOff.Id.Cancel> { route -> transitionTo(call, route.parent.id, DaysOffStatus.CANCELLED) }
+            post<DaysOff.Id.Cancel> { route -> cancelRequest(call, route.parent.id) }
             get<DaysOffCalendar> {
                 val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
