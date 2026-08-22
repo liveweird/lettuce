@@ -15,7 +15,9 @@ import {
 import { apiToken, authHeader } from "./api";
 import type { APIRequestContext, Page } from "@playwright/test";
 
-// Days off end to end: the admin curates a public holiday and an allowance, AAA Two requests
+// Days off end to end: the admin curates a public holiday, Manager AAA sets AAA Two's yearly
+// allowance on the per-user drill-down (v2.32.0 — the chain-manager right; the admin edit page
+// lost the field), AAA Two requests
 // two periods, Manager AAA accepts one and rejects the other, the accepted days show on the
 // team calendar, and the accepted (future) request is cancelled again — so seeded accounts are
 // never left with counting requests (REJECTED/CANCELLED rows are inert records). An UNPAID
@@ -181,13 +183,34 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   ).toBeVisible();
   await expect(page.getByText(`E2E Holiday ${MONDAY_ISO}`).first()).toBeVisible();
 
-  await gotoUserRow(page, "AAA Two");
-  await page.getByRole("button", { name: "Modify actions for AAA Two" }).click();
-  await page.getByRole("menuitem", { name: "Edit AAA Two" }).click();
-  await expect(page).toHaveURL(/\/users\/\d+\/edit/);
-  await page.getByLabel("Paid days-off allowance (days per year)").fill("300");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page).toHaveURL(/\/users$/);
+  await logout(page);
+
+  // ── Manager AAA: sets AAA Two's yearly allowance on the drill-down (v2.32.0 — the field
+  // left the admin edit page; the chain-manager pencil beside the budget strip's Allowance).
+  // Two saves on purpose: the second (299 → 300) is an ACTUAL change every run — an
+  // idempotent re-PUT of 300 would mint no fresh bell for the notification assert below —
+  // and its prefill of 299 proves the first save persisted.
+  await login(page, MANAGER_AAA);
+  await collapseAlertsBanner(page);
+  await page.goto("/?tab=subordinates");
+  await page
+    .locator("li", { hasText: "AAA Two" })
+    .first()
+    .getByRole("link", { name: "Days off of AAA Two" })
+    .click();
+  await expect(page).toHaveURL(/\/users\/\d+\/days-off/);
+  await expect(page.getByText(/Paid days off of AAA Two in \d{4}/)).toBeVisible();
+  await page.getByLabel("Edit the paid days-off allowance of AAA Two").click();
+  await page.getByLabel(/^Allowance \(days per year\)/).fill("299");
+  await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Allowance saved")).toBeVisible();
+  await page.getByLabel("Edit the paid days-off allowance of AAA Two").click();
+  const allowanceInput = page.getByLabel(/^Allowance \(days per year\)/);
+  await expect(allowanceInput).toHaveValue("299");
+  await allowanceInput.fill("300");
+  await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
+  // The first toast may still be on screen (autoClose 2.5s) — first() dodges strict mode.
+  await expect(page.getByText("Allowance saved").first()).toBeVisible();
   await logout(page);
 
   // ── AAA Two: two requests — Mon(holiday)+Tue = 1 day, next Mon+Tue = 2 days. ──
@@ -259,6 +282,11 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   ).toBeVisible();
   await expect(
     notificationCard(ownBell, "Manager AAA rejected your days-off request"),
+  ).toBeVisible();
+  // The allowance change (v2.32.0) told the owner too — the 299→300 save is an actual
+  // change every run, so this run always minted a fresh card.
+  await expect(
+    notificationCard(ownBell, "Manager AAA set your yearly paid days-off allowance to 300"),
   ).toBeVisible();
   await page.keyboard.press("Escape");
 

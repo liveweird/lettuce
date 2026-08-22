@@ -275,9 +275,10 @@ export interface paths {
          * @description Replaces a user's editable representation — `name`, `email`, and `roles` (all required).
          *     The password is NOT part of this representation (it has its own `PUT /users/{id}/password`
          *     sub-resource and is preserved here). Requires the caller to be the target user, or ADMIN.
-         *     Only ADMIN may change a user's `roles`, `paidDaysOffAllowance`, or `uniqueId`; a
-         *     non-ADMIN caller must send the set/values the user already has (or omit the optional
-         *     fields), otherwise the request is rejected with 403.
+         *     Only ADMIN may change a user's `roles` or `uniqueId`; a non-ADMIN caller must send
+         *     the set/values the user already has (or omit the optional fields), otherwise the
+         *     request is rejected with 403. (The paid days-off allowance left this representation
+         *     in v2.32.0 — a chain manager sets it via PUT /days-off/allowance.)
          */
         put: operations["replaceUser"];
         post?: never;
@@ -2245,10 +2246,11 @@ export interface paths {
          *     - `view=own` (the default): the caller's own requests, at every status.
          *     - `view=managed`: requests of the caller's **direct reports** (members of non-deleted
          *       teams the caller manages), at every status — the same scope as the accept/reject
-         *       right, so every listed row's actions are valid. Deliberately direct-only (no
-         *       `includeIndirect`): a chain manager higher up still reads singles via the read
-         *       guard — the list scope is not an authorization boundary. A caller who manages no
-         *       team gets an empty page.
+         *       right. With `includeIndirect=true` (v2.32.0, strict boolean, 400 on other views)
+         *       the scope widens to the caller's whole **transitive management subtree** — the
+         *       drill-down's chain mode; the per-row `canResolve` capability marks which rows the
+         *       caller may actually accept/reject (their direct reports' REQUESTED rows only). A
+         *       caller who manages no team gets an empty page.
          *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
          *       request of the given user, at every status. HR usage is recorded in the security
          *       audit trail. The ordinary sort/filter/paging parameters apply on top.
@@ -2364,15 +2366,53 @@ export interface paths {
          *     The accumulation is anchored at the year of the user's earliest counting PAID
          *     request (REQUESTED/ACCEPTED) **or budget correction**, whichever is earlier (the
          *     allowance never phantom-accumulates over empty historical years),
-         *     and the CURRENT allowance value applies to every year — an admin's allowance change
-         *     recomputes history (documented behavior). REJECTED and CANCELLED requests never count.
+         *     and the CURRENT allowance value applies to every year — an allowance change (a chain
+         *     manager's, via PUT /days-off/allowance — v2.32.0) recomputes history (documented
+         *     behavior). REJECTED and CANCELLED requests never count.
          *
          *     Views (both caller-relative): `view=own` (the default) — the caller's single row;
          *     `view=managed` — one row per **direct report** (the manager's budget overview; empty
-         *     for a caller who manages no team). Rows sort by name.
+         *     for a caller who manages no team), or per user in the caller's whole **transitive
+         *     subtree** with `includeIndirect=true` (v2.32.0 — the drill-down's chain mode; strict
+         *     boolean, 400 with any other view). Rows sort by name. Each row carries the
+         *     server-computed `canCorrect` capability — whether the CALLER may write budget
+         *     corrections for that user (their direct reports only; always false on view=own).
          */
         get: operations["listDaysOffBudgets"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/allowance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a user's annual paid days-off allowance
+         * @description Sets the target user's annual paid days-off allowance in whole days (v2.32.0 — the
+         *     right moved here from the ADMIN-only users PUT). Allowed for any **manager in the
+         *     target's transitive management chain** — deliberately wider than the direct-only
+         *     corrections write (the cancellation-right rationale: the yearly budget is the chain's
+         *     shared prerogative) — and for **nobody else**: not the user themselves, not ADMIN,
+         *     not HR. A manager-less user's allowance is therefore unsettable (the corrections
+         *     gap, accepted). The guard runs before validation and before any read, so an unknown,
+         *     soft-deleted, or self-targeted id answers the same uniform 403 as a non-manager.
+         *
+         *     The CURRENT value applies to every calendar year — a change recomputes the
+         *     closed-form carry-over retroactively (see GET /days-off/budgets). Clearing is
+         *     inexpressible: a set allowance is only ever overwritten. Idempotent — re-PUTting the
+         *     current value is a silent 204 (no audit event, no notification); an actual change is
+         *     audited (`days_off.allowance_changed`) and notifies the target user.
+         */
+        put: operations["setDaysOffAllowance"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3435,11 +3475,6 @@ export interface components {
              */
             sendEmail: boolean;
             /**
-             * @description Annual paid days-off allowance in whole days. Omitted or null = leave unset
-             *     (= zero paid budget). The current value applies to every calendar year.
-             */
-            paidDaysOffAllowance?: number | null;
-            /**
              * @description Optional unique id (an employee-id-like reference). Omitted or null = not set.
              *     Unique among ACTIVE (non-deleted) users — a clash is 409; a soft-deleted user
              *     frees their id. Non-blank when provided (400 otherwise).
@@ -3463,8 +3498,6 @@ export interface components {
             careerPath: components["schemas"]["DictionaryEntry"] | null;
             careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
-            /** @description Annual paid days-off allowance in whole days; null = not configured. */
-            paidDaysOffAllowance: number | null;
             /** @description Always false at creation — kept so both user-response shapes stay aligned. */
             deactivated: boolean;
             /** @description Always exactly ["MFA"] at creation — every new user starts with the inverted-default MFA flag disabled (email MFA is opt-in); all other features start enabled. */
@@ -3485,14 +3518,6 @@ export interface components {
              *     caller must send the set the user already has, otherwise the request is rejected with 403.
              */
             roles: ("ADMIN" | "HR")[];
-            /**
-             * @description Annual paid days-off allowance in whole days. Omitted or null = leave unchanged —
-             *     there is deliberately no way to clear a set value. Assigning or changing requires
-             *     ADMIN (403 otherwise); resubmitting the current value is never a change. The
-             *     current value applies to every calendar year — changing it recomputes carry-over
-             *     retroactively.
-             */
-            paidDaysOffAllowance?: number | null;
             /**
              * @description Optional unique id (an employee-id-like reference). Omitted or null = leave
              *     unchanged — there is deliberately no way to clear a set value. Assigning or
@@ -3631,12 +3656,6 @@ export interface components {
              *     genuinely unset.
              */
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
-            /**
-             * @description Annual paid days-off allowance in whole days; null = not configured = zero paid
-             *     budget. ADMIN-only assignable; rides the user representation like the career
-             *     fields (managers consume the derived budget numbers via GET /days-off/budgets).
-             */
-            paidDaysOffAllowance: number | null;
             /**
              * @description True when an admin has reversibly deactivated the account: the user cannot sign in
              *     and cannot be NEWLY assigned (team member/manager, goal/1:1/review subordinate,
@@ -5034,6 +5053,8 @@ export interface components {
             cancelReason: string | null;
             /** @description Server-computed capability (v2.31.0, the team-KPI canManage precedent): the caller may cancel this row — they own it or manage the owner transitively, and it is REQUESTED/ACCEPTED. */
             canCancel: boolean;
+            /** @description Server-computed capability (v2.32.0): the caller may accept/reject this row — it is REQUESTED and they are a CURRENT DIRECT manager of the owner. Distinguishes actionable rows on the includeIndirect-widened managed view. */
+            canResolve: boolean;
             /** Format: int64 */
             lastModified: number;
         };
@@ -5083,7 +5104,7 @@ export interface components {
             userName: string;
             userDeleted: boolean;
             year: number;
-            /** @description The admin-configured annual allowance in whole days; null = not configured = zero budget. */
+            /** @description The configured annual allowance in whole days (set by a chain manager via PUT /days-off/allowance since v2.32.0); null = not configured = zero budget. */
             allowance: number | null;
             /**
              * Format: double
@@ -5110,9 +5131,20 @@ export interface components {
              * @description carriedOver + allowance + corrected − reserved − used; may be negative after a retroactive allowance cut.
              */
             remaining: number;
+            /** @description Server-computed capability (v2.32.0): the caller may write budget corrections for this user — i.e. is one of their CURRENT DIRECT managers. Always false on view=own and on chain-only (includeIndirect) rows; the allowance itself stays editable for every managed-view row (the wider chain right). */
+            canCorrect: boolean;
         };
         DaysOffBudgetList: {
             items: components["schemas"]["DaysOffBudget"][];
+        };
+        DaysOffAllowanceWrite: {
+            /**
+             * Format: int32
+             * @description The user whose allowance is set — must be in the caller's transitive management subtree (403 otherwise, uniformly).
+             */
+            userId: number;
+            /** @description The annual paid days-off allowance in whole days. Applies to every calendar year (a change recomputes carry-over retroactively). */
+            allowance: number;
         };
         DaysOffCorrectionWrite: {
             /**
@@ -5189,7 +5221,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CANCELLED_TO_OWNER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CANCELLED_TO_OWNER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -6216,7 +6248,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is not the target user and not ADMIN, or a non-ADMIN attempted to change roles, the paid days-off allowance, or the unique id */
+            /** @description Caller is not the target user and not ADMIN, or a non-ADMIN attempted to change roles or the unique id */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -9185,6 +9217,8 @@ export interface operations {
                 "startDate[gte]"?: string;
                 /** @description Upper bound (inclusive) on the start date, ISO YYYY-MM-DD. */
                 "startDate[lte]"?: string;
+                /** @description Only with view=managed (400 otherwise; strict true/false): widens the scope from direct reports to the caller's whole transitive management subtree. */
+                includeIndirect?: boolean;
             };
             header?: never;
             path?: never;
@@ -9296,6 +9330,8 @@ export interface operations {
             query?: {
                 /** @description Whose budgets — the caller's own or their direct reports'. */
                 view?: "own" | "managed";
+                /** @description Only with view=managed (400 otherwise; strict true/false): widens the scope from direct reports to the caller's whole transitive management subtree. */
+                includeIndirect?: boolean;
                 /** @description The calendar year; defaults to the server's current year. */
                 year?: number;
             };
@@ -9317,6 +9353,41 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    setDaysOffAllowance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaysOffAllowanceWrite"];
+            };
+        };
+        responses: {
+            /** @description Allowance set (or unchanged — the idempotent re-PUT) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not a manager in the target user's transitive management chain (or the target is unknown, soft-deleted, or the caller themselves — uniformly), or the caller's DAYS_OFF feature is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
     };

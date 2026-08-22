@@ -7,12 +7,15 @@ import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffCancel
 import ch.nokillswit.authz.requireDaysOffRead
+import ch.nokillswit.authz.requireDaysOffAllowanceWrite
 import ch.nokillswit.authz.requireDaysOffResolve
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
+import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
@@ -63,6 +66,10 @@ class DaysOffCalendar
 @Serializable
 @Resource("/api/v1/days-off/budgets")
 class DaysOffBudgets
+
+@Serializable
+@Resource("/api/v1/days-off/allowance")
+class DaysOffAllowance
 
 @Serializable
 @Resource("/api/v1/days-off/corrections")
@@ -176,6 +183,9 @@ fun Application.configureDaysOffRoutes() {
                 if (view == DaysOffListView.USER) {
                     requireAuditListAccess(caller, "daysOff", userId!!)
                 }
+                // includeIndirect (v2.32.0): widens view=managed from direct reports to the
+                // whole transitive subtree (the drill-down's chain mode); 400 on other views.
+                val includeIndirect = params.optionalIncludeIndirect(view, listOf(DaysOffListView.MANAGED))
                 // The date bounds must be strict ISO — a malformed value would silently compare
                 // as a garbage string against the VARCHAR column instead of filtering.
                 val startDateGte = params.optionalString("startDate[gte]")?.also { parseDaysOffDate(it, "startDate[gte]") }
@@ -188,7 +198,14 @@ fun Application.configureDaysOffRoutes() {
                     startDateGte = startDateGte,
                     startDateLte = startDateLte,
                 )
-                val result = daysOffService.list(view, caller.userId, filter, paging, targetUserId = userId)
+                val result = daysOffService.list(
+                    view,
+                    caller.userId,
+                    filter,
+                    paging,
+                    targetUserId = userId,
+                    includeIndirect = includeIndirect,
+                )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             post<DaysOff> {
@@ -351,13 +368,71 @@ fun Application.configureDaysOffRoutes() {
                 val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
                 val year = params.optionalString("year")?.let(::parseYearParam) ?: LocalDate.now().year
-                val userIds: Set<UInt> = when (val raw = params.optionalString("view") ?: "own") {
-                    "own" -> setOf(caller.userId)
-                    // The manager's budget overview: direct reports only (the resolve scope).
-                    "managed" -> daysOffService.directReports(caller.userId)
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed)")
+                val view = params.optionalString("view") ?: "own"
+                // includeIndirect (v2.32.0): widens view=managed from direct reports (the
+                // resolve scope) to the whole transitive subtree — the drill-down's chain
+                // mode; the standard strict-boolean shape rule, 400 with view=own.
+                val includeIndirect = params.optionalBoolean("includeIndirect")
+                if (includeIndirect != null && view != "managed") {
+                    throw BadRequestException("includeIndirect is only supported for view=managed")
                 }
-                call.respond(HttpStatusCode.OK, DaysOffBudgetList(daysOffService.budgets(userIds, year)))
+                // The direct set doubles as the rows' canCorrect capability (the corrections
+                // write right stays direct-only even on the widened scope).
+                val userIds: Set<UInt>
+                val correctableIds: Set<UInt>
+                when (view) {
+                    "own" -> {
+                        userIds = setOf(caller.userId)
+                        correctableIds = emptySet()
+                    }
+                    "managed" -> {
+                        correctableIds = daysOffService.directReports(caller.userId)
+                        userIds = if (includeIndirect == true) {
+                            daysOffService.transitiveReports(caller.userId)
+                        } else {
+                            correctableIds
+                        }
+                    }
+                    else -> throw BadRequestException("Unknown view: $view (allowed: own, managed)")
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    DaysOffBudgetList(daysOffService.budgets(userIds, year, correctableIds)),
+                )
+            }
+            put<DaysOffAllowance> {
+                val caller = call.daysOffCaller()
+                val write = call.receive<DaysOffAllowanceWrite>()
+                // The chain right (v2.32.0 — moved here from the ADMIN users PUT): guard
+                // before validation (403 wins over 400); the explicit self exclusion keeps a
+                // manager on their own roster from qualifying via their own team (the v2.29.0
+                // on-behalf idiom). Unknown/soft-deleted targets land the same uniform 403.
+                requireDaysOffAllowanceWrite(caller) {
+                    write.userId != caller.userId && daysOffService.managesOwner(caller.userId, write.userId)
+                }
+                validateDaysOffAllowance(write)
+                val result = userService.setPaidDaysOffAllowance(write.userId, write.allowance)
+                    ?: throw NotFoundException("User not found")
+                if (result.previous != write.allowance) {
+                    // A chain manager reshaped a subordinate's paid budget — audited like the
+                    // corrections; the owner hears about it (idempotent re-PUTs stay silent).
+                    notificationService.create(
+                        daysOffAllowanceChangedNotification(
+                            ownerId = write.userId,
+                            managerName = userService.read(caller.userId)?.name ?: "?",
+                            from = result.previous,
+                            to = write.allowance,
+                        ),
+                    )
+                    val auditFields = mutableListOf<Pair<String, Any?>>(
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to write.userId.toLong(),
+                    )
+                    result.previous?.let { auditFields += "allowanceFrom" to it.toLong() }
+                    auditFields += "allowanceTo" to write.allowance.toLong()
+                    audit("days_off.allowance_changed", *auditFields.toTypedArray())
+                }
+                call.respond(HttpStatusCode.NoContent)
             }
         }
     }

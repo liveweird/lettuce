@@ -2,6 +2,9 @@
 // drives the create form's live preview. Half-day integer units keep it exact; the server's
 // stored cost is authoritative (frozen at creation), this only previews.
 
+/** The server's allowance ceiling (MAX_PAID_DAYS_OFF_ALLOWANCE in daysoff/DaysOff.kt). */
+export const MAX_PAID_DAYS_OFF_ALLOWANCE = 365;
+
 /** True when the ISO date is a working day: not Saturday/Sunday and not a public holiday. */
 export function isWorkingDay(iso: string, holidays: Set<string>): boolean {
   // Date.UTC keeps the weekday independent of the viewer's timezone.

@@ -232,8 +232,6 @@
   "nextVacation": "Next vacation",
   "noVacationPlanned": "none planned",
   "daysOffBudgetLeft": "Days-off budget left",
-  "paidDaysOffAllowance": "Paid days-off allowance (days per year)",
-  "paidDaysOffAllowanceHint": "Whole days; unused days carry over to the next year. Leave empty to keep the current value — a set allowance cannot be cleared.",
   "statusFilterLabel": "Status",
   "statusActive": "Active",
   "statusInactive": "Inactive",

@@ -26,6 +26,26 @@ internal val COUNTING_STATUSES = listOf(DaysOffStatus.REQUESTED, DaysOffStatus.A
 const val MAX_PAID_DAYS_OFF_ALLOWANCE = 365
 
 /**
+ * Body of `PUT /days-off/allowance` (v2.32.0 — the allowance moved off the ADMIN users PUT):
+ * a chain manager sets [userId]'s annual paid allowance. Required and rangeless of history —
+ * the CURRENT value applies to every calendar year (a change recomputes the closed-form
+ * budget retroactively, documented on the budgets endpoint). Clearing stays inexpressible
+ * (no null) — a set allowance is only ever overwritten.
+ */
+@Serializable
+data class DaysOffAllowanceWrite(
+    val userId: UInt,
+    val allowance: Int,
+)
+
+/** Range rule for the allowance (whole days). Runs AFTER the chain guard — 403 wins over 400. */
+internal fun validateDaysOffAllowance(write: DaysOffAllowanceWrite) {
+    if (write.allowance !in 0..MAX_PAID_DAYS_OFF_ALLOWANCE) {
+        throw BadRequestException("Paid days-off allowance must be between 0 and $MAX_PAID_DAYS_OFF_ALLOWANCE days")
+    }
+}
+
+/**
  * Body of `POST /days-off` — the cost is computed server-side and the status is never settable.
  * Without [userId] the owner is the caller and the request enters REQUESTED; with [userId]
  * (v2.29.0) a current DIRECT MANAGER of that user records the entry on their behalf and it is
@@ -104,6 +124,10 @@ data class DaysOffListItem(
     // Server-computed capability (the team-KPI canManage precedent): the caller may cancel
     // this row — they own it or manage the owner (transitively) and it is REQUESTED/ACCEPTED.
     val canCancel: Boolean,
+    // The caller may accept/reject this row — it is REQUESTED and they are a CURRENT DIRECT
+    // manager of the owner (v2.32.0, with the managed view's includeIndirect widening: a
+    // chain row must not render resolve buttons that would 403).
+    val canResolve: Boolean,
     val lastModified: Long,
 )
 
@@ -149,7 +173,7 @@ data class DaysOffBudget(
     val userName: String,
     val userDeleted: Boolean,
     val year: Int,
-    // Null = not configured by an admin = zero paid budget.
+    // Null = not configured by a chain manager (v2.32.0; ADMIN-set before) = zero paid budget.
     val allowance: Int?,
     val carriedOver: Double,
     // The year's net manager corrections in days (signed; 0 when none) — v1.43.0.
@@ -159,6 +183,12 @@ data class DaysOffBudget(
     // ACCEPTED paid days in the year.
     val used: Double,
     val remaining: Double,
+    // Server-computed capability (the list rows' canCancel precedent): the caller may write
+    // budget corrections for this user — i.e. is a CURRENT DIRECT manager (the resolve right).
+    // False on view=own rows and on includeIndirect-only (chain) rows, whose viewer may still
+    // edit the allowance (the wider chain right — its capability is the row's presence in
+    // view=managed itself).
+    val canCorrect: Boolean,
 )
 
 @Serializable

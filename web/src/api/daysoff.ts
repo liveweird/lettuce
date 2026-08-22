@@ -26,6 +26,8 @@ type DaysOffListQuery = {
   startDateLte?: string;
   /** Required with view=user (the HR auditor view); a pin-filter with view=managed. */
   userId?: number;
+  /** view=managed only (v2.32.0): widen from direct reports to the whole transitive subtree. */
+  includeIndirect?: boolean;
 };
 
 export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
@@ -40,6 +42,7 @@ export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
     "startDate[gte]": q.startDateGte,
     "startDate[lte]": q.startDateLte,
     userId: q.userId,
+    includeIndirect: q.includeIndirect || undefined,
   });
   return jsonRequest<DaysOffPage>(`/api/v1/days-off?${params}`);
 }
@@ -58,8 +61,8 @@ export async function createDaysOff(body: DaysOffCreateBody): Promise<DaysOffRes
   });
 }
 
-// Lifecycle actions: accept/reject are the direct manager's resolution of a REQUESTED request;
-// cancel is the owner's withdrawal (REQUESTED anytime, ACCEPTED only before the start date).
+// Lifecycle actions: accept/reject are the direct manager's resolution of a REQUESTED request
+// (the rows' canResolve flag); cancel withdraws a REQUESTED/ACCEPTED request (canCancel).
 // A request not in the action's source status returns 409.
 async function daysOffTransition(id: number, action: string): Promise<void> {
   await voidRequest(`/api/v1/days-off/${id}/${action}`, { method: "POST" });
@@ -95,12 +98,25 @@ export type DaysOffBudget =
   paths["/api/v1/days-off/budgets"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
 export type DaysOffBudgetView = "own" | "managed";
 
-/** Per-user paid-days budget rows for a calendar year (own = one row, managed = direct reports). */
+/** Per-user paid-days budget rows for a calendar year (own = one row, managed = direct
+ * reports, or the whole transitive subtree with includeIndirect — v2.32.0). Each row carries
+ * `canCorrect` — whether the caller may write corrections for that user (direct reports only). */
 export async function listDaysOffBudgets(
   view: DaysOffBudgetView,
   year: number,
+  opts: { includeIndirect?: boolean } = {},
 ): Promise<DaysOffBudget[]> {
-  return (await jsonRequest<{ items: DaysOffBudget[] }>(`/api/v1/days-off/budgets?view=${view}&year=${year}`)).items;
+  const params = buildQuery({ view, year, includeIndirect: opts.includeIndirect || undefined });
+  return (await jsonRequest<{ items: DaysOffBudget[] }>(`/api/v1/days-off/budgets?${params}`)).items;
+}
+
+/** A chain manager sets a report's annual paid allowance (v2.32.0) — whole days 0–365; the
+ * current value applies to every year, and the target user is notified on an actual change. */
+export async function setDaysOffAllowance(userId: number, allowance: number): Promise<void> {
+  await voidRequest("/api/v1/days-off/allowance", {
+    method: "PUT",
+    body: JSON.stringify({ userId, allowance }),
+  });
 }
 
 export type DaysOffCorrection =

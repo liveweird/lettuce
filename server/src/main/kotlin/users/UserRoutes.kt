@@ -15,12 +15,10 @@ import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAdmin
-import ch.nokillswit.authz.requireCanAssignPaidDaysOffAllowance
 import ch.nokillswit.authz.requireCanAssignRoles
 import ch.nokillswit.authz.requireCanAssignUniqueId
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireUserRead
-import ch.nokillswit.daysoff.MAX_PAID_DAYS_OFF_ALLOWANCE
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
@@ -62,15 +60,8 @@ internal fun validatePassword(password: String) {
     }
 }
 
-// Field validation (incl. the shared email rule) lives in users/Validation.kt.
-
-/** Range rule for the paid days-off allowance (whole days). Runs AFTER the assign guard —
- * 403 wins over 400 for non-admins, the house convention. */
-private fun validatePaidDaysOffAllowance(value: Int?) {
-    if (value != null && value !in 0..MAX_PAID_DAYS_OFF_ALLOWANCE) {
-        throw BadRequestException("Paid days-off allowance must be between 0 and $MAX_PAID_DAYS_OFF_ALLOWANCE days")
-    }
-}
+// Field validation (incl. the shared email rule) lives in users/Validation.kt. (The paid
+// days-off allowance rule moved to daysoff/DaysOff.kt in v2.32.0 with its endpoint.)
 
 /** Audit format for a roles/features set: comma-joined sorted names, "" = empty set. */
 private fun <T : Enum<T>> Set<T>.joinedNames(): String = map { it.name }.sorted().joinToString(",")
@@ -207,8 +198,6 @@ fun Application.configureUserRoutes() {
                 val req = call.receive<UserRequest>()
                 validateNameAndEmail(req.name, req.email)
                 validatePassword(req.password)
-                // The whole POST is admin-only (requireAdmin above), so no assign guard needed.
-                validatePaidDaysOffAllowance(req.paidDaysOffAllowance)
                 validateUniqueId(req.uniqueId)
                 validateLanguage(req.language)
                 if (req.sendEmail && mailer == null) {
@@ -225,7 +214,6 @@ fun Application.configureUserRoutes() {
                     email = req.email,
                     passwordHash = hashPassword(req.password),
                     roles = req.roles?.toSet() ?: emptySet(),
-                    paidDaysOffAllowance = req.paidDaysOffAllowance,
                     uniqueId = req.uniqueId,
                     language = req.language ?: DEFAULT_LANGUAGE,
                 )
@@ -236,7 +224,6 @@ fun Application.configureUserRoutes() {
                     "email" to user.email,
                     "roles" to user.roles.joinedNames(),
                 )
-                user.paidDaysOffAllowance?.let { createdFields += "allowance" to it.toLong() }
                 user.uniqueId?.let { createdFields += "uniqueId" to it }
                 if (user.language != DEFAULT_LANGUAGE) createdFields += "language" to user.language
                 audit("user.created", *createdFields.toTypedArray())
@@ -271,7 +258,6 @@ fun Application.configureUserRoutes() {
                             careerPath = null,
                             careerSpecialization = null,
                             seniorityLevel = null,
-                            paidDaysOffAllowance = user.paidDaysOffAllowance,
                             deactivated = false,
                             disabledFeatures = listOf(Feature.MFA),
                             emailNotificationsEnabled = true,
@@ -328,12 +314,10 @@ fun Application.configureUserRoutes() {
                 val req = call.receive<UserUpdateRequest>()
                 val existing = userService.read(route.id)
                     ?: throw NotFoundException("User not found")
-                // Authz before validation: an unauthorized roles/allowance change is 403, not 400.
+                // Authz before validation: an unauthorized roles/unique-id change is 403, not 400.
                 requireCanAssignRoles(caller, existing.roles, req.roles.toSet())
-                requireCanAssignPaidDaysOffAllowance(caller, req.paidDaysOffAllowance, existing.paidDaysOffAllowance)
                 requireCanAssignUniqueId(caller, req.uniqueId, existing.uniqueId)
                 validateNameAndEmail(req.name, req.email)
-                validatePaidDaysOffAllowance(req.paidDaysOffAllowance)
                 validateUniqueId(req.uniqueId)
                 // Pre-check for the specific 409 detail (POST precedent); the partial index
                 // stays the race backstop. Excluding self keeps a same-value resubmit a no-op.
@@ -347,7 +331,6 @@ fun Application.configureUserRoutes() {
                     email = req.email,
                     passwordHash = existing.passwordHash,
                     roles = req.roles.toSet(),
-                    paidDaysOffAllowance = req.paidDaysOffAllowance ?: existing.paidDaysOffAllowance,
                     uniqueId = req.uniqueId ?: existing.uniqueId,
                 )
                 val updated = userService.update(route.id, user)
@@ -356,10 +339,10 @@ fun Application.configureUserRoutes() {
                 }
                 // Name and email are identity/security-relevant (email is the login
                 // identifier); audit with deltas only for the fields that actually changed.
-                // (Career changes moved to the career_position.* events in v2.15.0.)
-                val allowanceChanged = user.paidDaysOffAllowance != existing.paidDaysOffAllowance
+                // (Career changes moved to the career_position.* events in v2.15.0, the
+                // allowance to days_off.allowance_changed in v2.32.0.)
                 val uniqueIdChanged = user.uniqueId != existing.uniqueId
-                if (req.name != existing.name || req.email != existing.email || allowanceChanged || uniqueIdChanged) {
+                if (req.name != existing.name || req.email != existing.email || uniqueIdChanged) {
                     val auditFields = mutableListOf<Pair<String, Any?>>(
                         "byUserId" to caller.userId.toLong(),
                         "targetUserId" to route.id.toLong(),
@@ -372,13 +355,7 @@ fun Application.configureUserRoutes() {
                         auditFields += "emailFrom" to existing.email
                         auditFields += "emailTo" to req.email
                     }
-                    // The allowance shapes the paid-days budget — worth its own delta line
-                    // (From omitted when previously unset).
-                    if (allowanceChanged) {
-                        existing.paidDaysOffAllowance?.let { auditFields += "allowanceFrom" to it.toLong() }
-                        auditFields += "allowanceTo" to user.paidDaysOffAllowance!!.toLong()
-                    }
-                    // From omitted when previously unset (the allowance idiom).
+                    // From omitted when previously unset.
                     if (uniqueIdChanged) {
                         existing.uniqueId?.let { auditFields += "uniqueIdFrom" to it }
                         auditFields += "uniqueIdTo" to user.uniqueId!!

@@ -371,11 +371,14 @@ describe("TeamMembersTable", () => {
     expect(screen.getByText("Path")).toBeInTheDocument();
     expect(screen.getByText("QA Engineer")).toBeInTheDocument();
     // Sections (v1.46.0): Profile + the buttons-only Collaboration remain; the
-    // direct-only Performance/Days off sections drop with their stats and buttons.
+    // direct-only Performance section drops with its stats and buttons. Days off stays
+    // (v2.32.0 — the drill-down works chain-wide now), as the button-only section.
     expect(screen.getByText("Profile")).toBeInTheDocument();
     expect(screen.getByText("Collaboration")).toBeInTheDocument();
     expect(screen.queryByText("Performance")).toBeNull();
-    expect(screen.queryByText("Days off")).toBeNull();
+    // "Days off" appears twice — the section divider and the drill-down button.
+    expect(screen.getAllByText("Days off").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Days off of Bob Brown")).toBeInTheDocument();
   });
 
   test("switching the reports scope to all hides the Goals buttons like the 1:1 ones", async () => {

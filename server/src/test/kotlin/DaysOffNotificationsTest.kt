@@ -2,6 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.daysoff.DaysOffStatus
 import ch.nokillswit.daysoff.DaysOffType
+import ch.nokillswit.daysoff.daysOffAllowanceChangedNotification
 import ch.nokillswit.daysoff.daysOffCancelledNotifications
 import ch.nokillswit.daysoff.daysOffRecordedNotifications
 import ch.nokillswit.daysoff.daysOffRequestedNotifications
@@ -40,6 +41,18 @@ class DaysOffNotificationsTest {
             assertEquals("/days-off?tab=team", it.link)
         }
         assertTrue(daysOffRequestedNotifications(emptySet(), "Riley", DaysOffType.PAID, "1", "a", "b").isEmpty())
+    }
+
+    @Test
+    fun `an allowance change notifies the owner, omitting from on a first assignment`() {
+        val first = daysOffAllowanceChangedNotification(ownerId = 3u, managerName = "Morgan", from = null, to = 20)
+        assertEquals(3u, first.recipientId)
+        assertEquals(NotificationType.DAYS_OFF_ALLOWANCE_CHANGED, first.type)
+        assertEquals(mapOf("manager" to "Morgan", "to" to "20"), first.params)
+        assertEquals("/days-off?tab=requests", first.link)
+
+        val changed = daysOffAllowanceChangedNotification(ownerId = 3u, managerName = "Morgan", from = 20, to = 25)
+        assertEquals(mapOf("manager" to "Morgan", "from" to "20", "to" to "25"), changed.params)
     }
 
     @Test

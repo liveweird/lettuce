@@ -57,7 +57,8 @@
     "recorded": "Dni wolne zapisane i zaakceptowane",
     "accepted": "Wniosek zaakceptowany",
     "rejected": "Wniosek odrzucony",
-    "cancelled": "Wniosek anulowany"
+    "cancelled": "Wniosek anulowany",
+    "allowanceSaved": "Pula zapisana"
   },
   "error": {
     "invalidTransition": "Ten wniosek zmienił się w międzyczasie — odśwież i spróbuj ponownie.",
@@ -117,13 +118,20 @@
     "reserved": "Oczekujące",
     "used": "Wykorzystane",
     "remaining": "Pozostałe",
-    "noAllowance": "Nie masz jeszcze skonfigurowanej puli płatnych dni — zapytaj administratora/administratorkę; do tego czasu płatne wnioski są zablokowane.",
-    "noAllowanceOnBehalf": "Ta osoba nie ma jeszcze skonfigurowanej puli płatnych dni — zapytaj administratora/administratorkę; do tego czasu płatne wpisy są zablokowane.",
+    "noAllowance": "Nie masz jeszcze skonfigurowanej puli płatnych dni — zapytaj swojego menedżera/swoją menedżerkę; do tego czasu płatne wnioski są zablokowane.",
+    "noAllowanceOnBehalf": "Ta osoba nie ma jeszcze skonfigurowanej puli płatnych dni — ustaw ją na stronie dni wolnych tej osoby; do tego czasu płatne wpisy są zablokowane.",
     "loadError": "Nie udało się wczytać budżetu",
     "noReports": "Brak bezpośrednich podwładnych.",
     "corrected": "Korekty",
     "userTitle": "Płatne dni wolne — {{name}}, rok {{year}}",
-    "notAReport": "Ta osoba nie jest (już) Twoim bezpośrednim podwładnym — budżet jest niedostępny."
+    "notAReport": "Ta osoba nie należy (już) do osób, którymi zarządzasz — budżet jest niedostępny.",
+    "allowanceModalTitle": "Pula płatnych dni wolnych — {{name}}",
+    "allowanceLabel": "Pula roczna (dni rocznie)",
+    "allowanceHint": "Pełne dni; niewykorzystane dni przechodzą na kolejny rok. Bieżąca wartość obowiązuje w każdym roku kalendarzowym — zmiana przelicza także wcześniejsze salda. Ustawionej puli nie da się wyczyścić.",
+    "allowanceRequired": "Podaj pulę w dniach.",
+    "allowancePermission": "Nie możesz zmienić puli tej osoby.",
+    "allowanceFailed": "Nie udało się zapisać puli — sprawdź połączenie i spróbuj ponownie.",
+    "editAllowanceAria": "Edytuj pulę płatnych dni wolnych {{name}}"
   },
   "holidays": {
     "title": "Święta",

@@ -284,6 +284,17 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
             en = "${p.v("manager")} added ${p.v("days")} day(s) to your paid days-off budget for ${p.v("year")}.",
             pl = "${p.v("manager")} dodał/dodała ${p.v("days")} dni do Twojego budżetu płatnych dni na rok ${p.v("year")}.",
         )
+    NotificationType.DAYS_OFF_ALLOWANCE_CHANGED ->
+        // `from` is absent on a first assignment (the audit-delta idiom).
+        if (p["from"] != null) LocalizedText(
+            en = "${p.v("manager")} changed your annual paid days-off allowance " +
+                "from ${p.v("from")} to ${p.v("to")} day(s).",
+            pl = "${p.v("manager")} zmienił/zmieniła Twój roczny limit płatnych dni wolnych " +
+                "z ${p.v("from")} na ${p.v("to")} dni.",
+        ) else LocalizedText(
+            en = "${p.v("manager")} set your annual paid days-off allowance to ${p.v("to")} day(s).",
+            pl = "${p.v("manager")} ustawił/ustawiła Twój roczny limit płatnych dni wolnych na ${p.v("to")} dni.",
+        )
     NotificationType.PULSE_CYCLE_SCHEDULED -> LocalizedText(
         en = "A pulse survey is scheduled to open on ${p.v("openDate")}.",
         pl = "Ankieta pulsu zostanie otwarta ${p.v("openDate")}.",

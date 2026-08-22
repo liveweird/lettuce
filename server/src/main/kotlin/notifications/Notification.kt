@@ -51,6 +51,7 @@ enum class NotificationType {
     DAYS_OFF_CORRECTED_TO_OWNER,
     DAYS_OFF_RECORDED_TO_OWNER,
     DAYS_OFF_RECORDED_TO_MANAGER,
+    DAYS_OFF_ALLOWANCE_CHANGED,
     PULSE_CYCLE_SCHEDULED,
     PULSE_CYCLE_OPENED,
     PULSE_RESULTS_AVAILABLE,
@@ -109,6 +110,7 @@ val NotificationType.feature: Feature?
         NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
         NotificationType.DAYS_OFF_RECORDED_TO_OWNER,
         NotificationType.DAYS_OFF_RECORDED_TO_MANAGER,
+        NotificationType.DAYS_OFF_ALLOWANCE_CHANGED,
         -> Feature.DAYS_OFF
         NotificationType.PULSE_CYCLE_SCHEDULED,
         NotificationType.PULSE_CYCLE_OPENED,
