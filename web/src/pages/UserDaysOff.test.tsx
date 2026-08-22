@@ -121,6 +121,9 @@ describe("UserDaysOff", () => {
     expect(String(listCall?.[0])).toContain("includeIndirect=true");
     const budgetsCall = mockFetch.mock.calls.find(([u]) => String(u).includes("/api/v1/days-off/budgets"));
     expect(String(budgetsCall?.[0])).toContain("includeIndirect=true");
+    // The year picker lost its stacked label for the compact toolbar row (v2.32.1) — the
+    // aria-label must keep it accessible.
+    expect(screen.getByLabelText("Year", { selector: "input" })).toBeInTheDocument();
   });
 
   test("the allowance pencil opens the editor and PUTs the new value (v2.32.0)", async () => {

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.32.1",
+    date: "2026-08-22",
+    en: `A small visual polish on the days-off budget headers. On a person's days-off page and on the My team tab's budgets table, the year picker used to carry its own stacked label, which made the header row look broken — the title, the picker and the Corrections button all sat at different heights. The row is now one compact line: a slimmer year picker (still announced as "Year" to screen readers) aligned on the same centerline as the title and the button.`,
+    pl: `Drobny szlif wyglądu nagłówków budżetu dni wolnych. Na stronie dni wolnych danej osoby oraz w tabeli budżetów na zakładce Mój zespół selektor roku miał własną etykietę nad polem, przez co wiersz nagłówka wyglądał na rozjechany — tytuł, selektor i przycisk Korekty siedziały na różnych wysokościach. Teraz to jeden zwarty wiersz: smuklejszy selektor roku (czytniki ekranu nadal słyszą „Rok") wyrównany w jednej linii z tytułem i przyciskiem.`,
+  },
+  {
     version: "2.32.0",
     date: "2026-08-22",
     en: `The yearly pool of paid days off is now in managers' hands, not administrators'. Each person's allowance is set by their manager — anyone up the management chain, actually — right on the person's days-off page, next to the budget it feeds: a small pencil beside the Allowance figure opens the editor. The field is gone from the admin's user-edit form, and the person hears about every change through a notification saying who set what. Managers higher up the chain can now open a report's days-off page even for indirect reports and see the same budget strip and request list — approving and rejecting requests, like budget corrections, stays with the direct manager.`,
