@@ -268,7 +268,9 @@ export default function TeamMembersTable({
                       oneOnOnes: view === "managed" && scopeIsDirect,
                       goals: view === "managed" && scopeIsDirect,
                       reviews: view === "managed" && scopeIsDirect,
-                      daysOff: view === "managed" && scopeIsDirect,
+                      // Chain-wide since v2.32.0: the drill-down page handles indirect
+                      // reports (includeIndirect data + the chain-editable allowance).
+                      daysOff: view === "managed",
                     },
                   }}
                 />

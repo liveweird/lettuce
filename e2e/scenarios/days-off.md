@@ -7,7 +7,7 @@
   requests, paid-leave allowance, and budget corrections — this file is their single writer
   under parallel workers.
 - **Since**: v1.43.0 (budget corrections), v1.44.0 (subordinate-card vacation stats),
-  v2.29.0 (the manager's on-behalf recording)
+  v2.29.0 (the manager's on-behalf recording), v2.32.0 (the manager-set allowance)
 
 **Preconditions.** The booked window is a run-varying future Monday (4–43 weeks out); the whole
 two-week window stays inside one calendar year and clear of the seeded Polish statutory holidays
@@ -26,9 +26,15 @@ comment). The suite thus self-heals on the next run no matter where a run died.
    - *Expected*: "Public holiday added" (a residual holiday from a failed run answers "A holiday
      already exists on this date." instead — either way the date is now covered), and the
      holiday appears in the list.
-2. The admin edits AAA Two (users list → Modify actions → Edit), sets the paid days-off
-   allowance to 300 days per year, and saves.
-   - *Expected*: back on the users list.
+2. Manager AAA signs in, opens the Dashboard's subordinates tab, and follows AAA Two's
+   "Days off" card link to the per-user drill-down. Beside the budget strip's Allowance
+   figure, the pencil opens the allowance editor; the manager saves 299, reopens the editor,
+   and saves 300 (why two saves: the second is an actual change on every rerun — an
+   idempotent re-save of 300 would mint no fresh notification for step 9 — and the reopened
+   editor's 299 prefill proves the first save persisted; v2.32.0 moved the allowance from
+   the admin's user-edit form to this manager-owned spot).
+   - *Expected*: "Allowance saved" after each save; the reopened editor is prefilled
+     with 299.
 3. AAA Two opens Days off → My requests and files a PAID request for the holiday week's
    Monday–Tuesday via "New request".
    - *Expected*: the budget strip "Your paid days off in \<year\>" is visible; the live cost
@@ -52,7 +58,8 @@ comment). The suite thus self-heals on the next run no matter where a run died.
      budget strip, and the Accepted row.
 9. AAA Two signs back in and opens the bell.
    - *Expected*: both outcomes are notified — "Manager AAA accepted your days-off request" and
-     "Manager AAA rejected your days-off request".
+     "Manager AAA rejected your days-off request" — plus the allowance change from step 2:
+     "Manager AAA set your yearly paid days-off allowance to 300 day(s)."
 10. On My requests, AAA Two filters to Rejected, then to Accepted.
     - *Expected*: each filter surfaces the matching row.
 11. On the Calendar tab, AAA Two pages forward to the request's month.

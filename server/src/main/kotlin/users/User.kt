@@ -60,9 +60,9 @@ data class User(
     val passwordChangedAt: Long = 0,
     // The career triple no longer lives on the user (v2.15.0): it derives from the LATEST
     // career position (users/CareerPositionService.kt) and is resolved response-side.
-    // Annual paid days-off allowance in whole days (V38). Null = not configured = zero paid
-    // budget. ADMIN-only assignable; the current value applies to every calendar year.
-    val paidDaysOffAllowance: Int? = null,
+    // The paid days-off allowance likewise no longer lives on the domain object (v2.32.0):
+    // the V38 column is written only by UserService.setPaidDaysOffAllowance (chain-manager
+    // right, PUT /days-off/allowance) and read only by the days-off budget math.
     // Email-notification opt-out (V51): true (default) = every in-app notification is also
     // mirrored to the user's inbox. Never client-settable via PUT — flipped only by
     // PUT /users/{id}/email-notifications (target user or ADMIN).
@@ -86,8 +86,8 @@ data class UserRequest(
     // Create only (PUT ignores it): email the new user their credentials (users/WelcomeEmail.kt),
     // like the mass import's sendEmails option. 503 on a mail-less deployment.
     val sendEmail: Boolean = false,
-    // Optional paid days-off allowance in whole days (0–365) — ADMIN-only.
-    val paidDaysOffAllowance: Int? = null,
+    // (The paid days-off allowance left this request in v2.32.0 — a manager assigns it via
+    // PUT /days-off/allowance once the user is on their team.)
     // Optional unique id (V59) — the whole POST is ADMIN-only anyway. Unique among active
     // users; a clash is 409.
     val uniqueId: String? = null,
@@ -111,7 +111,6 @@ data class UserCreateResponse(
     val careerPath: DictionaryEntry?,
     val careerSpecialization: DictionaryEntry?,
     val seniorityLevel: DictionaryEntry?,
-    val paidDaysOffAllowance: Int?,
     // Always false at creation; kept in the shape so both user-response schemas stay aligned.
     val deactivated: Boolean,
     // Always exactly [MFA] at creation (the inverted-default opt-in flag; every other
@@ -131,12 +130,9 @@ data class UserUpdateRequest(
     val name: String,
     val email: String,
     val roles: List<UserRole>,
-    // Paid days-off allowance (whole days, 0–365). null/omitted = leave unchanged, changing
-    // it is ADMIN-only; clearing is inexpressible. (The career refs left this request in
-    // v2.15.0 — the position history owns them now.)
-    val paidDaysOffAllowance: Int? = null,
-    // Unique id (V59) — the allowance semantics verbatim: null/omitted = leave unchanged,
-    // changing is ADMIN-only, clearing is inexpressible. A clash with an active user is 409.
+    // Unique id (V59): null/omitted = leave unchanged, changing is ADMIN-only, clearing is
+    // inexpressible. A clash with an active user is 409. (The career refs left this request
+    // in v2.15.0, the paid days-off allowance in v2.32.0 — PUT /days-off/allowance owns it.)
     val uniqueId: String? = null,
 )
 
@@ -224,9 +220,8 @@ data class UserResponse(
     val careerPath: DictionaryEntry?,
     val careerSpecialization: DictionaryEntry?,
     val seniorityLevel: DictionaryEntry?,
-    // Rides the response wherever a user row is readable; managers consume the derived
-    // numbers via GET /days-off/budgets.
-    val paidDaysOffAllowance: Int?,
+    // (The paid days-off allowance left this response in v2.32.0 — it surfaces only on
+    // GET /days-off/budgets, whose own/managed scopes match who may see it.)
     // Reversible admin disable — the ONLY place the state surfaces is the admin users list
     // (Inactive badge + filter); no other feature DTO carries it by design.
     val deactivated: Boolean,
@@ -262,7 +257,6 @@ fun User.toResponse(id: UInt, profile: CareerProfile?) = UserResponse(
     careerPath = profile?.careerPath,
     careerSpecialization = profile?.careerSpecialization,
     seniorityLevel = profile?.seniorityLevel,
-    paidDaysOffAllowance = paidDaysOffAllowance,
     deactivated = deactivated,
     disabledFeatures = disabledFeatures.sortedBy { it.name },
     emailNotificationsEnabled = emailNotificationsEnabled,

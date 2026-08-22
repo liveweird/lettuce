@@ -27,6 +27,7 @@ function row(overrides: Partial<DaysOffListItem>): DaysOffListItem {
     cancelledByName: null,
     cancelReason: null,
     canCancel: false,
+    canResolve: false,
     lastModified: 1_700_000_000_000,
     ...overrides,
   };
@@ -106,7 +107,7 @@ describe("DaysOffTable", () => {
   test("managed view: Accept and Reject on pending rows, person column visible", async () => {
     const showSpy = vi.spyOn(notifications, "show");
     setupList([
-      row({ id: 21, status: "REQUESTED" }),
+      row({ id: 21, status: "REQUESTED", canResolve: true }),
       row({ id: 22, status: "ACCEPTED", startDate: "2099-05-03", endDate: "2099-05-04", canCancel: true }),
     ]);
     renderWithProviders(<DaysOffTable view="managed" />);
@@ -133,7 +134,7 @@ describe("DaysOffTable", () => {
   });
 
   test("reject goes through the confirmation modal", async () => {
-    setupList([row({ id: 31, status: "REQUESTED" })]);
+    setupList([row({ id: 31, status: "REQUESTED", canResolve: true })]);
     renderWithProviders(<DaysOffTable view="managed" />);
 
     await userEvent.click(

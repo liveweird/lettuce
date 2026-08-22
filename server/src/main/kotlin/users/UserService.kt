@@ -114,7 +114,6 @@ class UserService(val database: R2dbcDatabase) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
-            it[paidDaysOffAllowance] = user.paidDaysOffAllowance
             it[uniqueId] = user.uniqueId
             it[language] = user.language
         }
@@ -160,10 +159,11 @@ class UserService(val database: R2dbcDatabase) {
             it[name] = user.name
             it[email] = user.email
             it[passwordHash] = user.passwordHash
-            it[paidDaysOffAllowance] = user.paidDaysOffAllowance
             it[uniqueId] = user.uniqueId
             // Deliberately NO language write: the whole-user PUT never flips it (V61) —
             // PUT /users/{id}/language via setLanguage is the only writer after create.
+            // Likewise NO paidDaysOffAllowance write (v2.32.0): setPaidDaysOffAllowance
+            // (the chain-manager right behind PUT /days-off/allowance) is the only writer.
         }
         if (affected > 0) {
             // Wholesale replace — the set is tiny and this is idempotent and diff-free.
@@ -262,6 +262,33 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
+    /** The [setPaidDaysOffAllowance] result: the value before the write (null = was unset),
+     * so the route can detect a no-op re-PUT (audit/notification only on an actual change). */
+    data class AllowanceUpdate(val previous: Int?)
+
+    /**
+     * Set the paid days-off allowance (V38) — since v2.32.0 the ONLY writer of the column
+     * (the whole-user create/update no longer touch it): a chain-manager right behind
+     * PUT /days-off/allowance. Returns null when the id is unknown or soft-deleted (in
+     * practice unreachable — the route's chain guard already implies an active target).
+     * Idempotent like [setLanguage]; the read and conditional write share one transaction.
+     */
+    suspend fun setPaidDaysOffAllowance(id: UInt, allowance: Int): AllowanceUpdate? =
+        suspendTransaction(database) {
+            val row = Users.select(Users.paidDaysOffAllowance)
+                .where { (Users.id eq id) and active() }
+                .toList()
+                .singleOrNull()
+                ?: return@suspendTransaction null
+            val previous = row[Users.paidDaysOffAllowance]
+            if (previous != allowance) {
+                Users.update({ (Users.id eq id) and active() }) {
+                    it[paidDaysOffAllowance] = allowance
+                }
+            }
+            AllowanceUpdate(previous)
+        }
+
     /**
      * Which of [ids] are deactivated (active, non-soft-deleted) users — one SELECT, backing the
      * creation-time assignment blocks. Soft-deleted or unknown ids fall through to the existing
@@ -329,7 +356,6 @@ class UserService(val database: R2dbcDatabase) {
                         id = row[Users.id].value,
                         name = row[Users.name],
                         email = row[Users.email],
-                        paidDaysOffAllowance = row[Users.paidDaysOffAllowance],
                         deactivated = row[Users.deactivated],
                         emailNotificationsEnabled = row[Users.emailNotificationsEnabled],
                         uniqueId = row[Users.uniqueId],
@@ -352,7 +378,6 @@ class UserService(val database: R2dbcDatabase) {
                     careerSpecialization = profiles[row.id]?.careerSpecialization,
                     seniorityLevel = profiles[row.id]?.seniorityLevel
                         ?.takeIf { seniorityVisible == null || row.id in seniorityVisible },
-                    paidDaysOffAllowance = row.paidDaysOffAllowance,
                     deactivated = row.deactivated,
                     disabledFeatures = featuresByUser[row.id].orEmpty().sortedBy { f -> f.name },
                     emailNotificationsEnabled = row.emailNotificationsEnabled,
@@ -369,7 +394,6 @@ class UserService(val database: R2dbcDatabase) {
         val id: UInt,
         val name: String,
         val email: String,
-        val paidDaysOffAllowance: Int?,
         val deactivated: Boolean,
         val emailNotificationsEnabled: Boolean,
         val uniqueId: String?,
@@ -495,7 +519,6 @@ class UserService(val database: R2dbcDatabase) {
         disabledFeatures = disabledFeatures,
         deactivated = this[Users.deactivated],
         passwordChangedAt = this[Users.passwordChangedAt],
-        paidDaysOffAllowance = this[Users.paidDaysOffAllowance],
         emailNotificationsEnabled = this[Users.emailNotificationsEnabled],
         uniqueId = this[Users.uniqueId],
         language = this[Users.language],

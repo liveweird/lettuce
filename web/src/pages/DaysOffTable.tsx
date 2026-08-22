@@ -45,12 +45,16 @@ export default function DaysOffTable({
   view,
   userId,
   settingsKey,
+  includeIndirect,
 }: {
   view: DaysOffListView;
   /** Pin to one user (required with view="user"; the drill-down filter on "managed"). */
   userId?: number;
   /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
   settingsKey?: string;
+  /** view="managed" only (v2.32.0): widen from direct reports to the whole subtree — the
+   * drill-down's chain mode. Row actions stay honest via the server's canResolve/canCancel. */
+  includeIndirect?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -87,7 +91,8 @@ export default function DaysOffTable({
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
-      "daysOff", view, userId, page, pageSize, sortParam, debouncedUser, typeFilter, statusFilter,
+      "daysOff", view, userId, includeIndirect, page, pageSize, sortParam, debouncedUser,
+      typeFilter, statusFilter,
     ],
     queryFn: () =>
       listDaysOff({
@@ -99,6 +104,7 @@ export default function DaysOffTable({
         type: typeFilter ?? undefined,
         status: statusFilter ?? undefined,
         userId,
+        includeIndirect,
       }),
     placeholderData: keepPreviousData,
   });
@@ -153,7 +159,10 @@ export default function DaysOffTable({
         {t("daysOff.action.cancel")}
       </Button>
     ) : null;
-    if (view === "managed" && r.status === "REQUESTED") {
+    // Accept/reject follow the server's canResolve (v2.32.0 — a REQUESTED row whose owner
+    // the caller DIRECTLY manages): on the includeIndirect-widened drill-down a chain row
+    // renders Cancel only, exactly matching the server's rights.
+    if (r.canResolve) {
       return (
         <Group gap={4} wrap="nowrap">
           <Button

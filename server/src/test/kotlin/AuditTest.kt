@@ -480,57 +480,8 @@ class AuditTest {
         }
     }
 
-    @Test
-    fun `paid days-off allowance changes carry deltas in user updated and user created`() = testApplication {
-        usePostgresTestcontainer()
-        val adminEmail = uniqueEmail("admin")
-        TestUsers.seed(email = adminEmail, password = "pw")
-        val targetEmail = uniqueEmail("allowance-target")
-        val targetId = TestUsers.seed(email = targetEmail, password = "pw", roles = emptySet())
-        val appender = LogCapture("ch.nokillswit.audit")
-        try {
-            val client = authedClient(adminEmail, "pw")
-
-            suspend fun putAllowance(value: Int?) = client.put("/api/v1/users/$targetId") {
-                contentType(ContentType.Application.Json)
-                setBody(UserUpdateRequest(name = "Test", email = targetEmail, roles = emptyList(), paidDaysOffAllowance = value))
-            }
-
-            // First assignment: To present, From absent (previously unset).
-            putAllowance(20)
-            val assigned = appender.events.find { it.message == "user.updated" }
-            assertNotNull(assigned, "expected a user.updated audit event")
-            assertEquals(20L, assigned.keyValuePairs.first { it.key == "allowanceTo" }.value)
-            assertTrue(assigned.keyValuePairs.none { it.key == "allowanceFrom" })
-
-            // Resubmitting the same value (or null) is not a change → nothing new.
-            putAllowance(20)
-            putAllowance(null)
-            assertEquals(1, appender.events.count { it.message == "user.updated" })
-
-            // Changing it → From and To both present.
-            putAllowance(25)
-            val changed = appender.events.last { it.message == "user.updated" }
-            assertEquals(20L, changed.keyValuePairs.first { it.key == "allowanceFrom" }.value)
-            assertEquals(25L, changed.keyValuePairs.first { it.key == "allowanceTo" }.value)
-
-            // Create with an allowance → user.created carries it.
-            client.post("/api/v1/users") {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    ch.nokillswit.users.UserRequest(
-                        name = "Allowance Created", email = uniqueEmail("allowance-created"),
-                        password = "pw-123456789", paidDaysOffAllowance = 15,
-                    ),
-                )
-            }
-            val created = appender.events.find { it.message == "user.created" }
-            assertNotNull(created, "expected a user.created audit event")
-            assertEquals(15L, created.keyValuePairs.first { it.key == "allowance" }.value)
-        } finally {
-            appender.detach()
-        }
-    }
+    // (The allowance deltas left user.updated/user.created in v2.32.0 — the new
+    // days_off.allowance_changed event is pinned in DaysOffAllowanceTest.)
 
     @Test
     fun `unique id changes carry deltas in user updated and user created`() = testApplication {

@@ -491,9 +491,10 @@ paths:
         Replaces a user's editable representation — `name`, `email`, and `roles` (all required).
         The password is NOT part of this representation (it has its own `PUT /users/{id}/password`
         sub-resource and is preserved here). Requires the caller to be the target user, or ADMIN.
-        Only ADMIN may change a user's `roles`, `paidDaysOffAllowance`, or `uniqueId`; a
-        non-ADMIN caller must send the set/values the user already has (or omit the optional
-        fields), otherwise the request is rejected with 403.
+        Only ADMIN may change a user's `roles` or `uniqueId`; a non-ADMIN caller must send
+        the set/values the user already has (or omit the optional fields), otherwise the
+        request is rejected with 403. (The paid days-off allowance left this representation
+        in v2.32.0 — a chain manager sets it via PUT /days-off/allowance.)
       requestBody:
         required: true
         content:
@@ -507,7 +508,7 @@ paths:
         '403':
           description: >
             Caller is not the target user and not ADMIN, or a non-ADMIN attempted to change
-            roles, the paid days-off allowance, or the unique id
+            roles or the unique id
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -3571,10 +3572,11 @@ paths:
         - `view=own` (the default): the caller's own requests, at every status.
         - `view=managed`: requests of the caller's **direct reports** (members of non-deleted
           teams the caller manages), at every status — the same scope as the accept/reject
-          right, so every listed row's actions are valid. Deliberately direct-only (no
-          `includeIndirect`): a chain manager higher up still reads singles via the read
-          guard — the list scope is not an authorization boundary. A caller who manages no
-          team gets an empty page.
+          right. With `includeIndirect=true` (v2.32.0, strict boolean, 400 on other views)
+          the scope widens to the caller's whole **transitive management subtree** — the
+          drill-down's chain mode; the per-row `canResolve` capability marks which rows the
+          caller may actually accept/reject (their direct reports' REQUESTED rows only). A
+          caller who manages no team gets an empty page.
         - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
           request of the given user, at every status. HR usage is recorded in the security
           audit trail. The ordinary sort/filter/paging parameters apply on top.
@@ -3637,6 +3639,13 @@ paths:
           required: false
           schema: { type: string, format: date }
           description: Upper bound (inclusive) on the start date, ISO YYYY-MM-DD.
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: >
+            Only with view=managed (400 otherwise; strict true/false): widens the scope from
+            direct reports to the caller's whole transitive management subtree.
       responses:
         '200':
           description: A page of days-off requests
@@ -3784,18 +3793,30 @@ paths:
         The accumulation is anchored at the year of the user's earliest counting PAID
         request (REQUESTED/ACCEPTED) **or budget correction**, whichever is earlier (the
         allowance never phantom-accumulates over empty historical years),
-        and the CURRENT allowance value applies to every year — an admin's allowance change
-        recomputes history (documented behavior). REJECTED and CANCELLED requests never count.
+        and the CURRENT allowance value applies to every year — an allowance change (a chain
+        manager's, via PUT /days-off/allowance — v2.32.0) recomputes history (documented
+        behavior). REJECTED and CANCELLED requests never count.
 
         Views (both caller-relative): `view=own` (the default) — the caller's single row;
         `view=managed` — one row per **direct report** (the manager's budget overview; empty
-        for a caller who manages no team). Rows sort by name.
+        for a caller who manages no team), or per user in the caller's whole **transitive
+        subtree** with `includeIndirect=true` (v2.32.0 — the drill-down's chain mode; strict
+        boolean, 400 with any other view). Rows sort by name. Each row carries the
+        server-computed `canCorrect` capability — whether the CALLER may write budget
+        corrections for that user (their direct reports only; always false on view=own).
       parameters:
         - name: view
           in: query
           required: false
           schema: { type: string, enum: [own, managed], default: own }
           description: Whose budgets — the caller's own or their direct reports'.
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: >
+            Only with view=managed (400 otherwise; strict true/false): widens the scope from
+            direct reports to the caller's whole transitive management subtree.
         - name: year
           in: query
           required: false
@@ -3811,6 +3832,47 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/days-off/allowance:
+    put:
+      tags: [days-off]
+      operationId: setDaysOffAllowance
+      summary: Set a user's annual paid days-off allowance
+      description: |
+        Sets the target user's annual paid days-off allowance in whole days (v2.32.0 — the
+        right moved here from the ADMIN-only users PUT). Allowed for any **manager in the
+        target's transitive management chain** — deliberately wider than the direct-only
+        corrections write (the cancellation-right rationale: the yearly budget is the chain's
+        shared prerogative) — and for **nobody else**: not the user themselves, not ADMIN,
+        not HR. A manager-less user's allowance is therefore unsettable (the corrections
+        gap, accepted). The guard runs before validation and before any read, so an unknown,
+        soft-deleted, or self-targeted id answers the same uniform 403 as a non-manager.
+
+        The CURRENT value applies to every calendar year — a change recomputes the
+        closed-form carry-over retroactively (see GET /days-off/budgets). Clearing is
+        inexpressible: a set allowance is only ever overwritten. Idempotent — re-PUTting the
+        current value is a silent 204 (no audit event, no notification); an actual change is
+        audited (`days_off.allowance_changed`) and notifies the target user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaysOffAllowanceWrite'
+      responses:
+        '204': { description: Allowance set (or unchanged — the idempotent re-PUT) }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: >-
+            Caller is not a manager in the target user's transitive management chain (or the
+            target is unknown, soft-deleted, or the caller themselves — uniformly), or the
+            caller's DAYS_OFF feature is disabled
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
   /api/v1/days-off/corrections:
@@ -5470,14 +5532,6 @@ components:
           description: Create only — email the new user their credentials (the welcome
             message, in the user's language). Rejected with 503 on a deployment without
             outbound email.
-        paidDaysOffAllowance:
-          type: integer
-          minimum: 0
-          maximum: 365
-          nullable: true
-          description: |
-            Annual paid days-off allowance in whole days. Omitted or null = leave unset
-            (= zero paid budget). The current value applies to every calendar year.
         uniqueId:
           type: string
           maxLength: 50
@@ -5495,7 +5549,7 @@ components:
 
     UserCreateResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
       properties:
         id: { type: integer, format: int32 }
         name: { type: string }
@@ -5519,10 +5573,6 @@ components:
         seniorityLevel:
           nullable: true
           allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
-        paidDaysOffAllowance:
-          type: integer
-          nullable: true
-          description: Annual paid days-off allowance in whole days; null = not configured.
         deactivated:
           type: boolean
           description: Always false at creation — kept so both user-response shapes stay aligned.
@@ -5556,17 +5606,6 @@ components:
           description: |
             Part of the full representation (PUT). Changing the set requires ADMIN; a non-ADMIN
             caller must send the set the user already has, otherwise the request is rejected with 403.
-        paidDaysOffAllowance:
-          type: integer
-          minimum: 0
-          maximum: 365
-          nullable: true
-          description: |
-            Annual paid days-off allowance in whole days. Omitted or null = leave unchanged —
-            there is deliberately no way to clear a set value. Assigning or changing requires
-            ADMIN (403 otherwise); resubmitting the current value is never a change. The
-            current value applies to every calendar year — changing it recomputes carry-over
-            retroactively.
         uniqueId:
           type: string
           maxLength: 50
@@ -5726,7 +5765,7 @@ components:
 
     UserResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, paidDaysOffAllowance, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
@@ -5756,13 +5795,6 @@ components:
             v2.25.0: populated only when the caller is this user, a manager in their
             transitive management chain, or HR — null otherwise (hidden), as well as when
             genuinely unset.
-        paidDaysOffAllowance:
-          type: integer
-          nullable: true
-          description: |
-            Annual paid days-off allowance in whole days; null = not configured = zero paid
-            budget. ADMIN-only assignable; rides the user representation like the career
-            fields (managers consume the derived budget numbers via GET /days-off/budgets).
         deactivated:
           type: boolean
           description: |
@@ -7621,7 +7653,7 @@ components:
       required:
         [id, userId, userName, userDeleted, type, status, startDate, endDate, startHalf,
          endHalf, days, createdAt, cancelledAt, cancelledByName, cancelReason, canCancel,
-         lastModified]
+         canResolve, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         userId: { type: integer, format: int32, minimum: 0 }
@@ -7653,6 +7685,12 @@ components:
             Server-computed capability (v2.31.0, the team-KPI canManage precedent): the
             caller may cancel this row — they own it or manage the owner transitively, and
             it is REQUESTED/ACCEPTED.
+        canResolve:
+          type: boolean
+          description: >-
+            Server-computed capability (v2.32.0): the caller may accept/reject this row —
+            it is REQUESTED and they are a CURRENT DIRECT manager of the owner. Distinguishes
+            actionable rows on the includeIndirect-widened managed view.
         lastModified: { type: integer, format: int64 }
 
     DaysOffPage:
@@ -7715,7 +7753,7 @@ components:
 
     DaysOffBudget:
       type: object
-      required: [userId, userName, userDeleted, year, allowance, carriedOver, corrected, reserved, used, remaining]
+      required: [userId, userName, userDeleted, year, allowance, carriedOver, corrected, reserved, used, remaining, canCorrect]
       properties:
         userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
@@ -7724,7 +7762,9 @@ components:
         allowance:
           type: integer
           nullable: true
-          description: The admin-configured annual allowance in whole days; null = not configured = zero budget.
+          description: >-
+            The configured annual allowance in whole days (set by a chain manager via
+            PUT /days-off/allowance since v2.32.0); null = not configured = zero budget.
         carriedOver:
           type: number
           format: double
@@ -7747,6 +7787,13 @@ components:
           description: >-
             carriedOver + allowance + corrected − reserved − used; may be negative after a
             retroactive allowance cut.
+        canCorrect:
+          type: boolean
+          description: >-
+            Server-computed capability (v2.32.0): the caller may write budget corrections for
+            this user — i.e. is one of their CURRENT DIRECT managers. Always false on view=own
+            and on chain-only (includeIndirect) rows; the allowance itself stays editable for
+            every managed-view row (the wider chain right).
 
     DaysOffBudgetList:
       type: object
@@ -7756,6 +7803,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DaysOffBudget'
+
+    DaysOffAllowanceWrite:
+      type: object
+      required: [userId, allowance]
+      properties:
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The user whose allowance is set — must be in the caller's transitive
+            management subtree (403 otherwise, uniformly).
+        allowance:
+          type: integer
+          minimum: 0
+          maximum: 365
+          description: The annual paid days-off allowance in whole days. Applies to every
+            calendar year (a change recomputes carry-over retroactively).
 
     DaysOffCorrectionWrite:
       type: object
@@ -7887,6 +7951,7 @@ components:
             - DAYS_OFF_CORRECTED_TO_OWNER
             - DAYS_OFF_RECORDED_TO_OWNER
             - DAYS_OFF_RECORDED_TO_MANAGER
+            - DAYS_OFF_ALLOWANCE_CHANGED
             - PULSE_CYCLE_SCHEDULED
             - PULSE_CYCLE_OPENED
             - PULSE_RESULTS_AVAILABLE

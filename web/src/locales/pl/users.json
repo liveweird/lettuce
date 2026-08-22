@@ -240,8 +240,6 @@
   "nextVacation": "Najbliższy urlop",
   "noVacationPlanned": "brak w planach",
   "daysOffBudgetLeft": "Pozostały budżet dni wolnych",
-  "paidDaysOffAllowance": "Pula płatnych dni wolnych (dni rocznie)",
-  "paidDaysOffAllowanceHint": "Pełne dni; niewykorzystane dni przechodzą na kolejny rok. Zostaw puste, aby zachować obecną wartość — ustawionej puli nie da się wyczyścić.",
   "statusFilterLabel": "Status",
   "statusActive": "Aktywny",
   "statusInactive": "Nieaktywny",

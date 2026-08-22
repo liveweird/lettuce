@@ -116,6 +116,27 @@ internal fun daysOffCorrectionNotification(
     link = "/days-off?tab=requests",
 )
 
+/** Allowance change (v2.32.0): a chain manager set or changed the owner's annual paid
+ * allowance — the owner hears about it like a correction (create only there, change only
+ * here: a no-op re-PUT stays silent). Params carry the manager's name and the whole-day
+ * numbers; `from` is omitted on a first assignment (the audit-delta idiom). */
+internal fun daysOffAllowanceChangedNotification(
+    ownerId: UInt,
+    managerName: String,
+    from: Int?,
+    to: Int,
+): Notification = Notification(
+    recipientId = ownerId,
+    type = NotificationType.DAYS_OFF_ALLOWANCE_CHANGED,
+    params = buildMap {
+        put("manager", managerName)
+        from?.let { put("from", it.toString()) }
+        put("to", to.toString())
+    },
+    // The budget card lives on the requests tab (the correction-notification precedent).
+    link = "/days-off?tab=requests",
+)
+
 /** Cancellation (reworked v2.31.0 — owner or a chain manager cancels, always with a reason):
  * both sides are told, always. The owner gets [DAYS_OFF_CANCELLED_TO_OWNER] (a durable receipt
  * even when they cancelled themselves — the recorded-pair precedent); the manager side gets

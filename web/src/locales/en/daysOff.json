@@ -57,7 +57,8 @@
     "recorded": "Days off recorded and accepted",
     "accepted": "Request accepted",
     "rejected": "Request rejected",
-    "cancelled": "Request cancelled"
+    "cancelled": "Request cancelled",
+    "allowanceSaved": "Allowance saved"
   },
   "error": {
     "invalidTransition": "This request has changed in the meantime — refresh and try again.",
@@ -115,13 +116,20 @@
     "reserved": "Pending",
     "used": "Used",
     "remaining": "Remaining",
-    "noAllowance": "No paid-days allowance is configured for you yet — ask an administrator; paid requests are blocked until then.",
-    "noAllowanceOnBehalf": "No paid-days allowance is configured for this person yet — ask an administrator; paid entries are blocked until then.",
+    "noAllowance": "No paid-days allowance is configured for you yet — ask your manager; paid requests are blocked until then.",
+    "noAllowanceOnBehalf": "No paid-days allowance is configured for this person yet — set it on their days-off page; paid entries are blocked until then.",
     "loadError": "Could not load the budget",
     "noReports": "No direct reports.",
     "corrected": "Corrections",
     "userTitle": "Paid days off of {{name}} in {{year}}",
-    "notAReport": "This person is not one of your direct reports (anymore) — the budget is not available."
+    "notAReport": "This person is not among the people you manage (anymore) — the budget is not available.",
+    "allowanceModalTitle": "Paid days-off allowance — {{name}}",
+    "allowanceLabel": "Allowance (days per year)",
+    "allowanceHint": "Whole days; unused days carry over to the next year. The current value applies to every calendar year — changing it recomputes past balances. A set allowance cannot be cleared.",
+    "allowanceRequired": "Enter the allowance in days.",
+    "allowancePermission": "You may not change this person's allowance.",
+    "allowanceFailed": "Could not save the allowance — check your connection and try again.",
+    "editAllowanceAria": "Edit the paid days-off allowance of {{name}}"
   },
   "holidays": {
     "title": "Public holidays",

@@ -38,6 +38,8 @@ class NotificationEmailTest {
         "type" to "PAID",
         "days" to "4.5",
         "year" to "2026",
+        "from" to "20",
+        "to" to "25",
         "openDate" to "2026-09-01",
         "closeDate" to "2026-09-08",
         "cycleId" to "7",
@@ -148,6 +150,21 @@ class NotificationEmailTest {
             allParams + ("operation" to "ADD"), null, null, "pl",
         )!!
         assertTrue("dodał/dodała 4.5 dni" in add.body)
+    }
+
+    @Test
+    fun `the allowance change words a first assignment without a from value`() {
+        // allParams carries both from and to — the every-type sweep exercises the changed
+        // branch; the first-set wording needs `from` absent.
+        val firstSet = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_ALLOWANCE_CHANGED,
+            allParams - "from", null, null, "en",
+        )!!
+        assertTrue("set your annual paid days-off allowance to 25 day(s)." in firstSet.body, firstSet.body)
+        val changedPl = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_ALLOWANCE_CHANGED, allParams, null, null, "pl",
+        )!!
+        assertTrue("z 20 na 25 dni" in changedPl.body, changedPl.body)
     }
 
     @Test

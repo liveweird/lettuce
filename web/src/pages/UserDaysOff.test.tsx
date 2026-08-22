@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -19,6 +20,7 @@ const BUDGET = {
   reserved: 0.5,
   used: 3,
   remaining: 20,
+  canCorrect: true,
 };
 
 const ROW = {
@@ -56,17 +58,30 @@ function renderPage(route: string) {
 describe("UserDaysOff", () => {
   let mockFetch: FetchMock;
 
-  function setupMocks() {
+  function setupMocks(budget: typeof BUDGET = BUDGET) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
+      if (u.includes("/api/v1/days-off/allowance")) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
       if (u.includes("/api/v1/days-off/budgets")) {
-        return Promise.resolve(jsonResponse(200, { items: [BUDGET] }));
+        return Promise.resolve(jsonResponse(200, { items: [budget] }));
       }
       if (u.includes("/api/v1/days-off/corrections")) {
         return Promise.resolve(jsonResponse(200, { items: [] }));
       }
       if (u.includes("/api/v1/days-off")) {
-        return Promise.resolve(jsonResponse(200, { items: [ROW], page: 1, pageSize: 20, total: 1 }));
+        // The capability flags are the server's honest answer per caller: the manager view
+        // may resolve/cancel; the HR auditor (view=user) may not.
+        const managed = u.includes("view=managed");
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [{ ...ROW, canResolve: managed, canCancel: managed }],
+            page: 1,
+            pageSize: 20,
+            total: 1,
+          }),
+        );
       }
       return Promise.resolve(jsonResponse(200, { items: [] }));
     });
@@ -102,6 +117,45 @@ describe("UserDaysOff", () => {
       ([u]) => String(u).includes("/api/v1/days-off?") && String(u).includes("view=managed"),
     );
     expect(String(listCall?.[0])).toContain("userId=9");
+    // Both fetches run in chain mode (v2.32.0) so the page works for indirect reports too.
+    expect(String(listCall?.[0])).toContain("includeIndirect=true");
+    const budgetsCall = mockFetch.mock.calls.find(([u]) => String(u).includes("/api/v1/days-off/budgets"));
+    expect(String(budgetsCall?.[0])).toContain("includeIndirect=true");
+  });
+
+  test("the allowance pencil opens the editor and PUTs the new value (v2.32.0)", async () => {
+    setupMocks();
+    renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
+
+    await userEvent.click(
+      await screen.findByLabelText("Edit the paid days-off allowance of Riley Report"),
+    );
+    // withAsterisk joins the * into the accessible name — prefix-match (the house gotcha).
+    const input = await screen.findByLabelText(/^Allowance \(days per year\)/);
+    expect(input).toHaveValue("20");
+    await userEvent.clear(input);
+    await userEvent.type(input, "30");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/v1/days-off/allowance",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ userId: 9, allowance: 30 }) }),
+      );
+    });
+  });
+
+  test("a chain-only manager keeps the allowance editor but gets read-only corrections", async () => {
+    // canCorrect=false marks a row whose user the caller manages only transitively — the
+    // corrections write stays a direct-manager right, the allowance is chain-wide.
+    setupMocks({ ...BUDGET, canCorrect: false });
+    renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
+
+    expect(
+      await screen.findByLabelText("Edit the paid days-off allowance of Riley Report"),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Budget corrections of Riley Report"));
+    expect(await screen.findByText("No corrections yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add correction" })).toBeNull();
   });
 
   test("a caller with no manager origin and no audit mode redirects to /days-off", async () => {

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.32.0",
+    date: "2026-08-22",
+    en: `The yearly pool of paid days off is now in managers' hands, not administrators'. Each person's allowance is set by their manager — anyone up the management chain, actually — right on the person's days-off page, next to the budget it feeds: a small pencil beside the Allowance figure opens the editor. The field is gone from the admin's user-edit form, and the person hears about every change through a notification saying who set what. Managers higher up the chain can now open a report's days-off page even for indirect reports and see the same budget strip and request list — approving and rejecting requests, like budget corrections, stays with the direct manager.`,
+    pl: `Roczna pula płatnych dni wolnych jest teraz w rękach menedżerów, nie administratorów. Pulę każdej osoby ustawia jej przełożony/a — właściwie ktokolwiek w górę łańcucha zarządzania — bezpośrednio na stronie dni wolnych tej osoby, obok budżetu, który z niej wynika: mały ołówek przy polu Pula roczna otwiera edytor. Pole zniknęło z administracyjnego formularza edycji użytkownika, a osoba dowiaduje się o każdej zmianie z powiadomienia mówiącego, kto co ustawił. Menedżerowie wyżej w łańcuchu mogą teraz otworzyć stronę dni wolnych także pośredniego podwładnego/pośredniej podwładnej i zobaczyć ten sam pasek budżetu oraz listę wniosków — akceptowanie i odrzucanie wniosków, podobnie jak korekty budżetu, pozostaje przy bezpośrednim przełożonym/bezpośredniej przełożonej.`,
+  },
+  {
     version: "2.31.0",
     date: "2026-08-22",
     en: `Days-off cancellation got simpler and more accountable. A request in Requested or Accepted state can now be cancelled regardless of its dates — including past ones, handy for fixing records — and not just by its owner: any of their managers, all the way up the chain, can cancel too. Every cancellation now requires a short reason, which stays visible afterwards behind a small info icon next to the Cancelled status. Both sides always hear about it: the person the days off belong to and their managers each get a notification saying who cancelled and when.`,

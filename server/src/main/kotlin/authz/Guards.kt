@@ -165,17 +165,7 @@ suspend fun requireCareerPositionRead(
 }
 
 /**
- * The [requireCanAssignRoles] sibling for the paid days-off allowance (an Int, not a
- * dictionary ref): newly assigning or changing it is ADMIN-only. A null request (= leave
- * unchanged) or resubmitting the current value is not a change; clearing is inexpressible.
- */
-fun requireCanAssignPaidDaysOffAllowance(caller: CallerPrincipal, requested: Int?, current: Int?) {
-    if (requested == null || requested == current) return
-    if (!caller.isAdmin()) throw ForbiddenException("Only admins may change a user's paid days-off allowance")
-}
-
-/**
- * The [requireCanAssignPaidDaysOffAllowance] sibling for the unique id (V59): newly assigning
+ * The [requireCanAssignRoles] sibling for the unique id (V59): newly assigning
  * or changing it is ADMIN-only. A null request (= leave unchanged) or resubmitting the current
  * value is not a change; clearing is inexpressible — a wrong id is corrected by overwriting.
  */
@@ -564,6 +554,22 @@ suspend fun requireDaysOffCancel(
     if (caller.userId == request.userId) return
     if (managesOwner()) return
     throw ForbiddenException("Only the requester or a manager in their chain may cancel a days-off request")
+}
+
+/**
+ * Setting a user's paid days-off allowance (v2.32.0 — the right moved here from the ADMIN-only
+ * users PUT): any manager in the target's TRANSITIVE chain — the cancel-right rationale (the
+ * yearly budget is the chain's shared prerogative), deliberately wider than the direct-only
+ * corrections write. Nobody else — the user themselves, ADMIN, and HR included; a manager-less
+ * user's allowance is unsettable (the corrections gap, accepted). Guard-first (before payload
+ * validation and any read), so an unknown, soft-deleted, or self-targeted id is the same
+ * uniform 403 as a non-manager (the corrections-POST idiom).
+ */
+@Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
+suspend fun requireDaysOffAllowanceWrite(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) {
+    if (!managesOwner()) {
+        throw ForbiddenException("Only a manager in the user's management chain may change their paid days-off allowance")
+    }
 }
 
 /**

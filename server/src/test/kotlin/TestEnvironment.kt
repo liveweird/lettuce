@@ -411,9 +411,10 @@ object TestPerformanceReviewEvents {
     }
 }
 
-// Days-off test support: the allowance is ADMIN-assignable via the users PUT, but tests set it
-// directly (a full PUT would need the whole user representation); the days-off service reads the
-// column straight from the users table. Direct service access for the rest rides TestServices.
+// Days-off test support: the allowance is chain-manager-assignable via PUT /days-off/allowance
+// (v2.32.0), but tests set it directly (no manager relationship needed for a fixture); the
+// days-off service reads the column straight from the users table (clearing back to null is
+// only possible here — the API deliberately can't). Direct service access rides TestServices.
 object TestDaysOff {
     val service: ch.nokillswit.daysoff.DaysOffService by lazy {
         ch.nokillswit.daysoff.DaysOffService(sharedTestDatabase, TestServices.cipher)

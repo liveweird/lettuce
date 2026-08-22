@@ -18,7 +18,6 @@ import {
   Container,
   Group,
   Loader,
-  NumberInput,
   Paper,
   Stack,
   Title,
@@ -50,7 +49,6 @@ export default function EditUser() {
       name: "",
       email: "",
       roles: [],
-      paidDaysOffAllowance: "",
       uniqueId: "",
       language: "en",
     },
@@ -73,7 +71,6 @@ export default function EditUser() {
         name: data.name,
         email: data.email,
         roles: [...data.roles],
-        paidDaysOffAllowance: data.paidDaysOffAllowance ?? "",
         uniqueId: data.uniqueId ?? "",
         language: asSupportedLanguage(data.language),
       });
@@ -91,9 +88,6 @@ export default function EditUser() {
         name: values.name,
         email: values.email,
         roles: values.roles,
-        ...(values.paidDaysOffAllowance !== ""
-          ? { paidDaysOffAllowance: values.paidDaysOffAllowance }
-          : {}),
         ...(values.uniqueId.trim() !== "" ? { uniqueId: values.uniqueId.trim() } : {}),
       });
       // The language rides its own endpoint (v2.21.0) — saved only when actually changed,
@@ -167,16 +161,9 @@ export default function EditUser() {
           ) : (
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
+                {/* The paid days-off allowance left this form in v2.32.0 — a manager edits
+                    it on the person's days-off drill-down (/users/:id/days-off). */}
                 <UserFormFields form={form} />
-                <NumberInput
-                  label={t("users.paidDaysOffAllowance")}
-                  description={t("users.paidDaysOffAllowanceHint")}
-                  min={0}
-                  max={365}
-                  allowDecimal={false}
-                  clampBehavior="strict"
-                  {...form.getInputProps("paidDaysOffAllowance")}
-                />
                 {error && (
                   <Alert color="red" variant="light">
                     {error}

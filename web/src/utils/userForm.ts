@@ -10,10 +10,9 @@ export const MAX_EMAIL_LENGTH = 254;
 export const MAX_UNIQUE_ID_LENGTH = 50;
 
 /**
- * The form values shared by CreateUser and EditUser (the AlertFormValues idiom). One type
- * for both pages: `paidDaysOffAllowance` is edit-only — the create page initializes it
- * inert and never renders or submits it (the alternative, a generic form component, isn't
- * worth the type dance for one field).
+ * The form values shared by CreateUser and EditUser (the AlertFormValues idiom). (The paid
+ * days-off allowance left this form in v2.32.0 — a chain manager edits it on the person's
+ * days-off drill-down.)
  */
 export type UserFormValues = {
   name: string;
@@ -26,15 +25,13 @@ export type UserFormValues = {
   // The user's language (v2.21.0) — drives their UI at sign-in and every email sent to
   // them. On edit it rides the dedicated PUT /users/{id}/language, never the whole-user PUT.
   language: SupportedLanguage;
-  // Whole days ("" = unset). Sent only when set — omitting encodes "leave unchanged".
-  paidDaysOffAllowance: number | "";
   // No career fields (v2.15.0): career history lives on /users/:id/career, managed by the
   // person's management chain, not by admins.
 };
 
 /** The shared blank form (create page; edit initializes from the loaded user). */
 export function emptyUserFormValues(): UserFormValues {
-  return { name: "", email: "", roles: [], uniqueId: "", language: "en", paidDaysOffAllowance: "" };
+  return { name: "", email: "", roles: [], uniqueId: "", language: "en" };
 }
 
 // Linear-time (no ambiguous backtracking): dot-separated domain labels may not contain dots.
