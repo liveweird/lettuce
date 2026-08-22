@@ -75,9 +75,10 @@ chosen after weighing the alternatives:
 | Versioning | URL `/api/v1/` | `API-Version` header | One version, one client — path versioning's simplicity and visibility win; header versioning pays off only with concurrent majors |
 | Updates | `PUT` full-document replace | `PATCH` | Every update endpoint is a documented full replace; `PUT` is the semantically correct method for that |
 
-Rules the codebase does not yet implement (correlation-id echo, `Retry-After`, `ETag`,
-`Idempotency-Key`, HTTP/2, SLA metadata) are kept as rules with their non-conformance
-**accepted and registered** in the
+Rules the codebase does not yet satisfy (correlation-id echo, `Retry-After`, `ETag`/`304`,
+conditional writes (`If-Match`/`412`), `Idempotency-Key`, HTTP/2, SLA metadata, the 409
+`instance` URI on generic unique-violations, and the inline-vs-`$ref` error declarations)
+are kept as rules with their non-conformance **accepted and registered** in the
 [known-gaps register](./API-GUIDELINES.md#appendix-known-gaps-register) — each with an
 adoption pointer. Closing a gap = implement + declare in the spec + remove the register row
 (+ promote the corresponding hint-severity lint rule).

@@ -162,7 +162,9 @@ first-party client makes header negotiation pure overhead.
 
 ### API-VER-003 — Tolerant reader `[llm/manual]`
 **SHOULD** design consumers to **ignore unknown fields** in responses; **MUST** document one
-uniform policy for unknown request fields/params (ignore vs. reject) and apply it everywhere.
+uniform policy for unknown request fields/params (ignore vs. reject) and apply it everywhere —
+for query parameters that policy is settled in API-LIST-004 (unknown names ignored, repeated
+scalars rejected); unknown request-BODY members are rejected by strict deserialization.
 **Check:** unknown response members are tolerated; the request-side policy is documented.
 
 ### API-VER-004 — Deprecate before removal `[both]`
@@ -547,7 +549,10 @@ commit them. No endpoint/param/status may exist in code but not the spec, or vic
 
 ### API-DOC-002 — Keep it 3.0-compatible `[spectral]`
 **MUST** stay OpenAPI 3.0-compatible while the toolchain requires it (`nullable: true`,
-never `type: [..., "null"]`).
+never `type: [..., "null"]`). Note the deliberate split: the committed document is
+LABELED `openapi: 3.1.0` (openapi-typescript wants it) while its BODY stays 3.0-shaped —
+the conformance harness relabels it 3.0.3 in memory for swagger-request-validator
+(`OpenApiConformance.kt`) and `OpenApiSpecTest` pins that no 3.1-only construct creeps in.
 **Check:** no schema uses a `type` array containing `"null"`.
 
 ### API-DOC-003 — Unique operationIds `[spectral]`
@@ -609,8 +614,11 @@ gap"**, not as findings.
 - **API-LIST-001/002** — `total` after filters before paging, count + rows in one
   transaction; `page`/`pageSize` bounds enforced with `400`s; any cursor adoption documented
   per-endpoint?
-- **API-LIST-003/004/005 / API-NAME-004** — Sort/filter whitelists rejecting unknowns with
-  `400`; `id` tiebreaker; strict boolean/enum parsing; documented `q`/substring params?
+- **API-LIST-003/004/005 / API-NAME-004** — Sort whitelist rejecting unknown fields with
+  `400`; unknown values of recognized filter fields `400` (unknown parameter NAMES are
+  deliberately ignored — see API-LIST-004); repeated scalar keys `400` until an endpoint
+  implements documented `IN`; `id` tiebreaker; strict boolean/enum parsing; documented
+  `q`/substring params?
 - **API-NAME-001** — camelCase members everywhere?
 - **API-DATA-001/002/003** — Epoch-millis instants + padded ISO dates; exact numerics as
   strings; enums as named, documented strings?
