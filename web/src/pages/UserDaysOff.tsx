@@ -137,18 +137,22 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
   return (
     <Paper withBorder p="md" radius="md">
       <Stack gap="xs">
-        <Group justify="space-between" align="flex-end">
+        {/* One compact toolbar line (v2.32.1): the year Select drops its stacked label
+            (aria-label keeps it accessible) and sizes to the xs button, so title, picker,
+            and button share a centerline; the pair wraps together on narrow widths. */}
+        <Group justify="space-between" align="center">
           <Text size="sm" fw={600}>
             {t("daysOff.budget.userTitle", { name, year })}
           </Text>
-          <Group gap="sm" align="flex-end">
+          <Group gap="xs" align="center" wrap="nowrap">
             <Select
-              label={t("daysOff.budget.year")}
+              size="xs"
+              aria-label={t("daysOff.budget.year")}
               data={[currentYear - 1, currentYear, currentYear + 1].map((y) => String(y))}
               value={String(year)}
               onChange={(v) => v && setYear(Number(v))}
               allowDeselect={false}
-              w={110}
+              w={90}
             />
             <Button
               variant="subtle"

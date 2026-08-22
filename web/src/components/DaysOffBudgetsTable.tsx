@@ -30,17 +30,21 @@ export default function DaysOffBudgetsTable() {
 
   return (
     <Stack gap="sm">
-      <Group justify="space-between" align="flex-end">
+      {/* The compact toolbar line (v2.32.1, matching the drill-down's budget strip): the
+          year Select drops its stacked label (aria-label keeps it accessible) so title and
+          picker share a centerline. */}
+      <Group justify="space-between" align="center">
         <Text size="sm" fw={600}>
           {t("daysOff.budget.teamTitle")}
         </Text>
         <Select
-          label={t("daysOff.budget.year")}
+          size="xs"
+          aria-label={t("daysOff.budget.year")}
           data={[currentYear - 1, currentYear, currentYear + 1].map((y) => String(y))}
           value={String(year)}
           onChange={(v) => v && setYear(Number(v))}
           allowDeselect={false}
-          w={110}
+          w={90}
         />
       </Group>
 
