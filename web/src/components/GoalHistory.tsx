@@ -1,11 +1,11 @@
 import { dynamicKey } from "../utils/i18nKey";
-import { Alert, Text, Timeline } from "@mantine/core";
+import { Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listGoalEvents, type GoalEvent } from "../api/goals";
-import { formatIsoDate, formatTimestamp } from "../utils/datetime";
-import { loadErrorMessage } from "../utils/saveError";
+import { formatIsoDate } from "../utils/datetime";
+import EventTimeline from "./EventTimeline";
 
 // Render a structured goal audit event in the current language. Params carry enum names and
 // numeric values only (never title/description/summary text), so the wording names the aspect,
@@ -75,44 +75,28 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
 /** The goal's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function GoalHistory({ goalId }: { goalId: number }) {
   const { t, i18n } = useTranslation();
-  const { data: events, isError, error } = useQuery({
+  const { data: events, isLoading, isError, error } = useQuery({
     queryKey: ["goalEvents", goalId],
     queryFn: () => listGoalEvents(goalId),
   });
 
-  if (isError) {
-    // A failed history load must not masquerade as an empty history (v2.24.0).
-    return (
-      <Alert color="red" variant="light">
-        {loadErrorMessage(error, t)}
-      </Alert>
-    );
-  }
-
-  if (!events || events.length === 0) {
-    return (
-      <Text c="dimmed" size="sm">
-        {t("goal.noHistory")}
-      </Text>
-    );
-  }
-
   return (
-    <Timeline bulletSize={12} lineWidth={2}>
-      {events.map((e) => (
-        <Timeline.Item key={e.id} title={describeEvent(e, t, i18n.language)}>
-          {/* The progress update's optional context comment (v2.8.0) — plain text, pre-wrap
-              like the archive summary (it is captured in a plain textarea, not markdown). */}
-          {e.comment != null && e.comment !== "" && (
-            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-              {e.comment}
-            </Text>
-          )}
-          <Text size="xs" c="dimmed">
-            {e.userName} · {formatTimestamp(e.timestamp)}
+    <EventTimeline
+      events={events}
+      isLoading={isLoading}
+      isError={isError}
+      error={error}
+      emptyMessage={t("goal.noHistory")}
+      renderTitle={(e) => describeEvent(e, t, i18n.language)}
+      renderBody={(e) =>
+        e.comment != null && e.comment !== "" ? (
+          // The progress update's optional context comment (v2.8.0) — plain text, pre-wrap
+          // like the archive summary (it is captured in a plain textarea, not markdown).
+          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+            {e.comment}
           </Text>
-        </Timeline.Item>
-      ))}
-    </Timeline>
+        ) : null
+      }
+    />
   );
 }

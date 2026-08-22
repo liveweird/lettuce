@@ -6,7 +6,6 @@ import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.PasswordUpdateRequest
-import ch.nokillswit.users.UserCreateResponse
 import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserRequest
 import ch.nokillswit.users.UserUpdateRequest
@@ -17,7 +16,6 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.parameter
-import io.ktor.client.request.patch
 import io.ktor.client.request.put
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody

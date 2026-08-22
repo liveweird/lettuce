@@ -3,17 +3,15 @@ package ch.nokillswit.oneonones
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
-import ch.nokillswit.authz.requireDirectReport
+import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
 import ch.nokillswit.authz.requireOneOnOneWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
-import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
-import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.infra.paging.uintOnlyForView
@@ -36,8 +34,6 @@ import io.ktor.server.resources.put
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
-import java.time.LocalDate
-import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -208,7 +204,7 @@ fun Application.configureOneOnOneRoutes() {
                 // is no ADMIN create-on-behalf. The subordinate must be a current direct report
                 // (a member of a team the caller manages) — this is the relationship the feature
                 // models; the read right for higher chain managers comes later, not at creation.
-                requireDirectReport(
+                requireRelationship(
                     caller,
                     { oneOnOneService.isDirectReport(caller.userId, request.subordinateId) },
                     "You may only document 1:1 meetings with your direct reports",

@@ -1,7 +1,7 @@
 // Career positions & the caller-relative team pyramid.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { components, paths } from "./schema";
 
 export type CareerPosition = components["schemas"]["CareerPositionResponse"];
@@ -26,9 +26,7 @@ export type CareerPyramidList =
  * count); name-sorted.
  */
 export async function listCareerPyramid(includeIndirect: boolean): Promise<CareerPyramidList> {
-  const params = new URLSearchParams();
-  if (includeIndirect) params.set("includeIndirect", "true");
-  const query = params.toString();
+  const query = buildQuery({ includeIndirect: includeIndirect || undefined });
   return jsonRequest<CareerPyramidList>(`/api/v1/career/pyramid${query ? `?${query}` : ""}`);
 }
 

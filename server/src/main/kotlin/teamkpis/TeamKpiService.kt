@@ -12,6 +12,7 @@ import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
+import ch.nokillswit.users.userNameOf
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
@@ -326,15 +327,6 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             )
         }
     }
-
-    /** The actor's display name, resolved inside the caller's transaction (v2.26.0 — the actor
-     *  may be a chain manager or a member, not necessarily the team's manager). */
-    private suspend fun userNameOf(userId: UInt): String? =
-        UserService.Users
-            .select(UserService.Users.name)
-            .where { UserService.Users.id eq userId }
-            .map { it[UserService.Users.name] }
-            .singleOrNull()
 
     /** Public wrapper for the values routes' notification fan-out (own transaction). */
     suspend fun actorName(userId: UInt): String? = suspendTransaction(database) { userNameOf(userId) }

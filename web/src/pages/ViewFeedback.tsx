@@ -189,11 +189,13 @@ export default function ViewFeedback() {
                     ? t("common.state.you")
                     : (data!.providerName ?? providerName ?? `#${data!.providerId}`)
                 }
+                providerIsYou={isProvider}
                 subjectDisplay={
                   isSubject
                     ? t("common.state.you")
                     : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
                 }
+                subjectIsYou={isSubject}
                 requesterDisplay={
                   data!.requesterId != null
                     ? isRequester
@@ -201,6 +203,7 @@ export default function ViewFeedback() {
                       : (data!.requesterName ?? requesterName ?? `#${data!.requesterId}`)
                     : undefined
                 }
+                requesterIsYou={isRequester}
                 lastModified={data!.lastModified}
               />
               <RequesterMessage value={data!.requesterMessage} collapsible />

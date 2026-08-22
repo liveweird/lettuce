@@ -139,7 +139,7 @@ describe("FeedbackTable (team view)", () => {
 
     await screen.findByText("Sam Subject");
     await user.click(screen.getByRole("button", { name: /filters/i }));
-    await user.type(screen.getByLabelText(/provider/i), "ali");
+    await user.type(screen.getByLabelText(/provider/i, { selector: "input" }), "ali");
     await waitFor(() => {
       expect(feedbackUrls(mockFetch).some((u) => u.includes("providerName=ali"))).toBe(true);
     });

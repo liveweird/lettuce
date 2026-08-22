@@ -1,7 +1,7 @@
 // Templates API.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type TemplatePage =
@@ -15,12 +15,8 @@ type TemplateListQuery = {
 };
 
 export async function listTemplates(q: TemplateListQuery): Promise<TemplatePage> {
-  const params = new URLSearchParams();
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.name) params.set("name", q.name);
-  return jsonRequest<TemplatePage>(`/api/v1/templates?${params.toString()}`);
+  const params = buildQuery({ page: q.page, pageSize: q.pageSize, sort: q.sort, name: q.name });
+  return jsonRequest<TemplatePage>(`/api/v1/templates?${params}`);
 }
 
 type CreateTemplateBody =

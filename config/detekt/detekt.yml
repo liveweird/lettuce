@@ -82,3 +82,9 @@ style:
   # spec sweep) — each continue is one skip rule, not control-flow spaghetti.
   LoopWithTooManyJumpStatements:
     maxJumpCount: 3
+  # Unused imports are off in detekt's defaults (deprecated in favour of the ktlint wrapper,
+  # which is not installed); enabled here so helper-extraction leftovers can't accumulate
+  # (2026-08 review round found 16). If it ever false-positives on KDoc-only usage, prefer
+  # fixing the KDoc reference over disabling.
+  UnusedImports:
+    active: true

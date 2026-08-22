@@ -1,5 +1,5 @@
 // Builder for the career-progression URL (the daysOffLinks pattern) — never hand-assemble it.
-import { drillDownOptsSearch, type DrillDownOpts } from "./feedbackLinks";
+import { drillDownOptsSearch, type DrillDownOpts } from "./linkSearch";
 
 /**
  * The per-user career-progression drill-down (`/users/:id/career`, v2.15.0) — the

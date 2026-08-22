@@ -1,7 +1,7 @@
 // Alerts API — admin management plus the visible-alerts read.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type AlertPage =
@@ -16,13 +16,14 @@ type AlertListQuery = {
 };
 
 export async function listAlerts(q: AlertListQuery): Promise<AlertPage> {
-  const params = new URLSearchParams();
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.title) params.set("title", q.title);
-  if (q.isActive !== undefined) params.set("isActive", String(q.isActive));
-  return jsonRequest<AlertPage>(`/api/v1/alerts?${params.toString()}`);
+  const params = buildQuery({
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    title: q.title,
+    isActive: q.isActive,
+  });
+  return jsonRequest<AlertPage>(`/api/v1/alerts?${params}`);
 }
 
 export type CreateAlertBody =

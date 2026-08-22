@@ -8,7 +8,7 @@ import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffOwner
 import ch.nokillswit.authz.requireDaysOffRead
 import ch.nokillswit.authz.requireDaysOffResolve
-import ch.nokillswit.authz.requireDirectReport
+import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
@@ -178,7 +178,7 @@ fun Application.configureDaysOffRoutes() {
                     // Guard before validation — 403 wins over 400, the goals-create shape. The
                     // self check rides the same membership test (nobody is their own direct
                     // manager), so a self-targeting userId is also a 403, not a special case.
-                    requireDirectReport(
+                    requireRelationship(
                         caller,
                         { targetId != caller.userId && daysOffService.isDirectManagerOf(caller.userId, targetId) },
                         "Only a current direct manager may record days off on behalf of a report",

@@ -6,7 +6,6 @@ import ch.nokillswit.infra.crypto.reencryptRows
 import ch.nokillswit.infra.db.EventLog
 import ch.nokillswit.infra.db.EventLogTable
 import io.ktor.util.AttributeKey
-import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction

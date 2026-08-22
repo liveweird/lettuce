@@ -35,7 +35,6 @@
   "noFeedback": "Brak feedbacków",
   "unknown": "Nieznany",
   "rowsPerPage": "Wierszy na stronę",
-  "deletedSuffix": "{{name}} (usunięty)",
   "loadListError": "Nie udało się wczytać feedbacków",
   "clearRequesterFilter": "Wyczyść filtr proszącego",
   "clearProviderFilter": "Wyczyść filtr wystawiającego",

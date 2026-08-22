@@ -1,11 +1,9 @@
 import { dynamicKey } from "../utils/i18nKey";
-import { Alert, Text, Timeline } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { listFeedbackEvents, type FeedbackEvent } from "../api/feedbacks";
-import { formatTimestamp } from "../utils/datetime";
-import { loadErrorMessage } from "../utils/saveError";
+import EventTimeline from "./EventTimeline";
 
 // Render a structured audit event in the current language.
 function describeEvent(e: FeedbackEvent, t: TFunction): string {
@@ -35,37 +33,19 @@ function describeEvent(e: FeedbackEvent, t: TFunction): string {
 /** The feedback's audit history as a timeline (newest first, server-ordered), or an empty-state note. */
 export default function FeedbackHistory({ feedbackId }: { feedbackId: number }) {
   const { t } = useTranslation();
-  const { data: events, isError, error } = useQuery({
+  const { data: events, isLoading, isError, error } = useQuery({
     queryKey: ["feedbackEvents", feedbackId],
     queryFn: () => listFeedbackEvents(feedbackId),
   });
 
-  if (isError) {
-    // A failed history load must not masquerade as an empty history (v2.24.0).
-    return (
-      <Alert color="red" variant="light">
-        {loadErrorMessage(error, t)}
-      </Alert>
-    );
-  }
-
-  if (!events || events.length === 0) {
-    return (
-      <Text c="dimmed" size="sm">
-        {t("feedback.noHistory")}
-      </Text>
-    );
-  }
-
   return (
-    <Timeline bulletSize={12} lineWidth={2}>
-      {events.map((e) => (
-        <Timeline.Item key={e.id} title={describeEvent(e, t)}>
-          <Text size="xs" c="dimmed">
-            {e.userName} · {formatTimestamp(e.timestamp)}
-          </Text>
-        </Timeline.Item>
-      ))}
-    </Timeline>
+    <EventTimeline
+      events={events}
+      isLoading={isLoading}
+      isError={isError}
+      error={error}
+      emptyMessage={t("feedback.noHistory")}
+      renderTitle={(e) => describeEvent(e, t)}
+    />
   );
 }

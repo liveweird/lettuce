@@ -1,7 +1,7 @@
 // Days off API — requests, corrections, budgets, the calendar, and public holidays.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type DaysOffPage =
@@ -29,18 +29,19 @@ type DaysOffListQuery = {
 };
 
 export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
-  const params = new URLSearchParams();
-  params.set("view", q.view);
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.userName) params.set("userName", q.userName);
-  if (q.type) params.set("type", q.type);
-  if (q.status) params.set("status", q.status);
-  if (q.startDateGte) params.set("startDate[gte]", q.startDateGte);
-  if (q.startDateLte) params.set("startDate[lte]", q.startDateLte);
-  if (q.userId != null) params.set("userId", String(q.userId));
-  return jsonRequest<DaysOffPage>(`/api/v1/days-off?${params.toString()}`);
+  const params = buildQuery({
+    view: q.view,
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    userName: q.userName,
+    type: q.type,
+    status: q.status,
+    "startDate[gte]": q.startDateGte,
+    "startDate[lte]": q.startDateLte,
+    userId: q.userId,
+  });
+  return jsonRequest<DaysOffPage>(`/api/v1/days-off?${params}`);
 }
 
 export type DaysOffCreateBody =
@@ -103,9 +104,8 @@ export type DaysOffCorrectionOperation = DaysOffCorrection["operation"];
 
 /** A user's active budget corrections, newest first — unpaged (intrinsically few). */
 export async function listDaysOffCorrections(userId: number, year?: number): Promise<DaysOffCorrection[]> {
-  const params = new URLSearchParams({ userId: String(userId) });
-  if (year != null) params.set("year", String(year));
-  return (await jsonRequest<{ items: DaysOffCorrection[] }>(`/api/v1/days-off/corrections?${params.toString()}`)).items;
+  const params = buildQuery({ userId, year });
+  return (await jsonRequest<{ items: DaysOffCorrection[] }>(`/api/v1/days-off/corrections?${params}`)).items;
 }
 
 // Current-direct-manager only; the subordinate is notified.

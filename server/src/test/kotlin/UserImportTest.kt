@@ -4,7 +4,6 @@ import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.users.UserImportRequest
 import ch.nokillswit.users.UserImportResponse
 import ch.nokillswit.users.UserImportStatus
-import ch.nokillswit.users.UserRole
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody

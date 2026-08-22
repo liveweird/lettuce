@@ -166,3 +166,19 @@ export async function voidRequest(input: string, init?: RequestInit): Promise<vo
   const res = await authedFetch(input, init);
   if (!res.ok) throw new ApiError(res.status, await safeJson(res));
 }
+
+/**
+ * The list wrappers' query-string builder — replaces the per-module `URLSearchParams`
+ * ladders (2026-08 review round). Skips null/undefined/"" (an absent or cleared filter);
+ * `false` and `0` ARE sent (wasSeen=false, deactivated=false are meaningful filters) — a
+ * field that must be OMITTED when false (`includeIndirect`) is passed as `value || undefined`
+ * at the call site.
+ */
+export function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === "") continue;
+    search.set(key, String(value));
+  }
+  return search.toString();
+}

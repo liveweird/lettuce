@@ -1,7 +1,7 @@
 // Users API — accounts, roles, flags, import, and the account lifecycle actions.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { ApiError, jsonRequest, voidRequest } from "./http";
+import { ApiError, buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 import { type Feature, getUserId, setStoredDisabledFeatures, type UserRole } from "./session";
 
@@ -131,23 +131,24 @@ export async function setUserLanguage(id: number, language: string): Promise<voi
 }
 
 export async function listUsers(q: UserListQuery): Promise<UserPage> {
-  const params = new URLSearchParams();
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.name) params.set("name", q.name);
-  if (q.email) params.set("email", q.email);
-  if (q.role) params.set("role", q.role);
-  if (q.teamId != null) params.set("teamId", String(q.teamId));
-  // != null on purpose: false ("only active") is a meaningful filter value.
-  if (q.deactivated != null) params.set("deactivated", String(q.deactivated));
-  if (q.feature && q.featureEnabled != null) {
-    params.set("feature", q.feature);
-    params.set("featureEnabled", String(q.featureEnabled));
-  }
-  if (q.uniqueId) params.set("uniqueId", q.uniqueId);
-  if (q.uniqueIdMissing != null) params.set("uniqueIdMissing", String(q.uniqueIdMissing));
-  return jsonRequest<UserPage>(`/api/v1/users?${params.toString()}`);
+  // The feature/featureEnabled pair only travels together (the server requires both).
+  const featurePair = q.feature && q.featureEnabled != null;
+  const params = buildQuery({
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    name: q.name,
+    email: q.email,
+    role: q.role,
+    teamId: q.teamId,
+    // buildQuery keeps false: "only active" is a meaningful deactivated filter value.
+    deactivated: q.deactivated,
+    feature: featurePair ? q.feature : undefined,
+    featureEnabled: featurePair ? q.featureEnabled : undefined,
+    uniqueId: q.uniqueId,
+    uniqueIdMissing: q.uniqueIdMissing,
+  });
+  return jsonRequest<UserPage>(`/api/v1/users?${params}`);
 }
 
 /** Every user (optionally: of one team), paging until the server total is reached — the

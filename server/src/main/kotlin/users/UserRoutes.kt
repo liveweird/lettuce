@@ -9,7 +9,6 @@ import ch.nokillswit.dictionaries.DEFAULT_LANGUAGE
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
-import ch.nokillswit.plugins.isUniqueViolation
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException

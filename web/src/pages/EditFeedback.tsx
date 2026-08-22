@@ -291,6 +291,7 @@ export default function EditFeedback() {
             ? t("common.state.you")
             : (data!.subjectName ?? subjectName ?? `#${data!.subjectId}`)
         }
+        subjectIsYou={getUserId() === data!.subjectId}
         initialVisibility={clampVisibility(data!.visibility, hasRequester)}
         visibilityOptions={visibilityOptions}
         requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}

@@ -10,7 +10,6 @@ import ch.nokillswit.goals.GoalType
 import ch.nokillswit.infra.crypto.DEV_DATA_ENCRYPTION_KEY
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.teams.Team
-import ch.nokillswit.users.UserRole
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post

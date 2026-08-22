@@ -9,7 +9,6 @@ import ch.nokillswit.oneonones.OneOnOneItemInput
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.oneonones.OneOnOneService
 import ch.nokillswit.teams.Team
-import ch.nokillswit.users.UserRole
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post

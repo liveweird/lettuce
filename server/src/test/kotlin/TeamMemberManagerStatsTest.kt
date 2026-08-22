@@ -16,12 +16,10 @@ import ch.nokillswit.goals.GoalType
 import ch.nokillswit.oneonones.ActionItemOwner
 import ch.nokillswit.oneonones.OneOnOneActionItemInput
 import ch.nokillswit.oneonones.OneOnOneCreateRequest
-import ch.nokillswit.oneonones.OneOnOneItemInput
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamMemberListItem
 import ch.nokillswit.teams.TeamMemberPageResponse
-import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete

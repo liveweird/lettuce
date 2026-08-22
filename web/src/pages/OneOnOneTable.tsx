@@ -20,6 +20,7 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
+import { oneOnOneEditLink, oneOnOneViewLink } from "../utils/oneOnOneLinks";
 
 const SORT_FIELDS = ["meetingDate", "managerName", "subordinateName", "lastModified"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -55,7 +56,7 @@ const SUBORDINATE_COLUMN: PersonColumn = {
 };
 
 type ActionContext = {
-  backParam: string;
+  backParam: string | undefined;
   currentUserId: number | null;
   t: TFunction;
 };
@@ -83,7 +84,7 @@ const VIEW_CONFIG: Record<
       m.isLatest !== false ? (
         <Button
           component={RouterLink}
-          to={`/one-on-ones/${m.id}/edit?from=managed${backParam}`}
+          to={oneOnOneEditLink(m.id, "managed", backParam)}
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -117,7 +118,7 @@ const VIEW_CONFIG: Record<
       currentUserId != null && m.managerId === currentUserId && m.isLatest !== false ? (
         <Button
           component={RouterLink}
-          to={`/one-on-ones/${m.id}/edit?from=with${backParam}`}
+          to={oneOnOneEditLink(m.id, "with", backParam)}
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
@@ -141,13 +142,13 @@ function ViewButton({
   m: OneOnOneRow;
   label: string;
   aria: string;
-  backParam: string;
+  backParam: string | undefined;
   from?: string;
 }) {
   return (
     <Button
       component={RouterLink}
-      to={`/one-on-ones/${m.id}/view?${from ? `from=${from}` : "from=own"}${backParam}`}
+      to={oneOnOneViewLink(m.id, from ?? "own", backParam)}
       variant="subtle"
       size="xs"
       leftSection={<IconEye size={14} />}
@@ -178,7 +179,7 @@ export default function OneOnOneTable({
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const config = VIEW_CONFIG[view];
-  const backParam = backTo ? `&back=${encodeURIComponent(backTo)}` : "";
+  const backParam = backTo || undefined;
   // The drill-down's filters would be useless (both parties are fixed), so "with" has none.
   const showFilters = view !== "with";
   const columnCount = config.personColumns.length + 6; // date + 3 counts + modified + actions

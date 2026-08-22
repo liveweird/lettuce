@@ -7,7 +7,6 @@ import ch.nokillswit.notifications.NotificationType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
 
 /** Pure builder tests (no DB); persistence and delivery live in GoalRoutesTest. */
 class GoalNotificationsTest {

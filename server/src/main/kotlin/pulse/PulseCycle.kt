@@ -2,8 +2,6 @@ package ch.nokillswit.pulse
 
 import ch.nokillswit.infra.parseIsoDateStrict
 import io.ktor.server.plugins.BadRequestException
-import java.time.LocalDate
-import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
 
 /**
@@ -76,12 +74,10 @@ data class PulseCycleRow(
     val lastModified: Long,
 )
 
-private fun parseIsoDate(value: String, field: String): LocalDate = parseIsoDateStrict(value, field)
-
 /** Shape rules only (strict zero-padded ISO, close strictly after open); state rules live in the service. */
 fun validatePulseCycleDates(plannedOpenDate: String, plannedCloseDate: String) {
-    val open = parseIsoDate(plannedOpenDate, "plannedOpenDate")
-    val close = parseIsoDate(plannedCloseDate, "plannedCloseDate")
+    val open = parseIsoDateStrict(plannedOpenDate, "plannedOpenDate")
+    val close = parseIsoDateStrict(plannedCloseDate, "plannedCloseDate")
     if (!close.isAfter(open)) {
         throw BadRequestException("plannedCloseDate must be after plannedOpenDate")
     }

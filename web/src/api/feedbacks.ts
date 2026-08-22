@@ -1,7 +1,7 @@
 // Feedbacks API — CRUD, lifecycle transitions, and the event history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type FeedbackPage =
@@ -36,22 +36,23 @@ type FeedbackListQuery = {
 };
 
 export async function listFeedbacks(q: FeedbackListQuery): Promise<FeedbackPage> {
-  const params = new URLSearchParams();
-  params.set("view", q.view);
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.requesterName) params.set("requesterName", q.requesterName);
-  if (q.subjectName) params.set("subjectName", q.subjectName);
-  if (q.providerName) params.set("providerName", q.providerName);
-  if (q.providerId != null) params.set("providerId", String(q.providerId));
-  if (q.subjectId != null) params.set("subjectId", String(q.subjectId));
-  if (q.visibility) params.set("visibility", q.visibility);
-  if (q.status) params.set("status", q.status);
-  if (q.lastModifiedGte != null) params.set("lastModified[gte]", String(q.lastModifiedGte));
-  if (q.includeIndirect) params.set("includeIndirect", "true");
-  if (q.userId != null) params.set("userId", String(q.userId));
-  return jsonRequest<FeedbackPage>(`/api/v1/feedbacks?${params.toString()}`);
+  const params = buildQuery({
+    view: q.view,
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    requesterName: q.requesterName,
+    subjectName: q.subjectName,
+    providerName: q.providerName,
+    providerId: q.providerId,
+    subjectId: q.subjectId,
+    visibility: q.visibility,
+    status: q.status,
+    "lastModified[gte]": q.lastModifiedGte,
+    includeIndirect: q.includeIndirect || undefined,
+    userId: q.userId,
+  });
+  return jsonRequest<FeedbackPage>(`/api/v1/feedbacks?${params}`);
 }
 
 type CreateFeedbackBody =
@@ -75,11 +76,11 @@ export async function checkFeedbackDuplicate(params: {
   providerId: number;
   requesterId?: number;
 }): Promise<DuplicateCheckResponse> {
-  const query = new URLSearchParams({
-    subjectId: String(params.subjectId),
-    providerId: String(params.providerId),
+  const query = buildQuery({
+    subjectId: params.subjectId,
+    providerId: params.providerId,
+    requesterId: params.requesterId,
   });
-  if (params.requesterId != null) query.set("requesterId", String(params.requesterId));
   return jsonRequest<DuplicateCheckResponse>(`/api/v1/feedbacks/duplicate-check?${query}`);
 }
 

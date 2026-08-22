@@ -3,7 +3,7 @@ package ch.nokillswit.goals
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
-import ch.nokillswit.authz.requireDirectReport
+import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireGoalProgressWrite
 import ch.nokillswit.authz.requireGoalReadAllowingManager
@@ -11,7 +11,6 @@ import ch.nokillswit.authz.requireGoalWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
-import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalLong
@@ -207,7 +206,7 @@ fun Application.configureGoalRoutes() {
                 // The manager is always the caller (no create-on-behalf, not even for ADMIN) and
                 // the subordinate must be a direct report right now. Checked before payload
                 // validation so an outsider's malformed request is still 403, not 400.
-                requireDirectReport(
+                requireRelationship(
                     caller,
                     { goalService.isDirectReport(caller.userId, request.subordinateId) },
                     "You may only set goals for your direct reports",

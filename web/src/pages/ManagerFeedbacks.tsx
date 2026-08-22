@@ -7,6 +7,7 @@ import { canAudit, hasFeature } from "../api/session";
 import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
+import { parsePositiveInt } from "../utils/parse";
 
 // Which screen this one was opened from (a Dashboard tab, the Users list, or a team's members
 // roster), so the "Back to …" link and the invalid-id redirect return there. Defaults to managers
@@ -27,11 +28,6 @@ type OriginKey = keyof typeof ORIGIN;
 
 function isOriginKey(value: string | null): value is OriginKey {
   return value != null && value in ORIGIN;
-}
-
-function parsePositiveInt(value: string | null): number | null {
-  const n = Number(value);
-  return value != null && Number.isInteger(n) && n > 0 ? n : null;
 }
 
 // The `members` (team roster) and `team` (the team page's subordinates grid) origins are only

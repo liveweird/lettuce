@@ -1,4 +1,4 @@
-import { drillDownOptsSearch, type DrillDownOpts } from "./feedbackLinks";
+import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSearch";
 
 // Builders for every /performance-reviews/* and /users/:id/performance-reviews URL (the
 // goalLinks idiom) — never hand-assemble these paths in pages.
@@ -15,13 +15,6 @@ export function reviewCreateLink(
   if (subordinateName) parts.push(`subordinateName=${encodeURIComponent(subordinateName)}`);
   if (back) parts.push(`back=${encodeURIComponent(back)}`);
   return `/performance-reviews/new${parts.length ? `?${parts.join("&")}` : ""}`;
-}
-
-function detailSearch(from?: string, back?: string): string {
-  const parts: string[] = [];
-  if (from) parts.push(`from=${from}`);
-  if (back) parts.push(`back=${encodeURIComponent(back)}`);
-  return parts.length ? `?${parts.join("&")}` : "";
 }
 
 export function reviewViewLink(id: number, from?: string, back?: string): string {

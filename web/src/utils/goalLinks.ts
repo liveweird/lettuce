@@ -1,4 +1,4 @@
-import { drillDownOptsSearch, type DrillDownOpts } from "./feedbackLinks";
+import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSearch";
 
 // Builders for every goal-flow URL, so the query-string shape (and encodeURIComponent) lives
 // in one place instead of being hand-assembled at call sites — the feedbackLinks pattern.
@@ -19,13 +19,6 @@ export function goalCreateLink(
   if (subordinateName) parts.push(`subordinateName=${encodeURIComponent(subordinateName)}`);
   if (back) parts.push(`back=${encodeURIComponent(back)}`);
   return `/goals/new${parts.length ? `?${parts.join("&")}` : ""}`;
-}
-
-function detailSearch(from?: string, back?: string): string {
-  const parts: string[] = [];
-  if (from) parts.push(`from=${from}`);
-  if (back) parts.push(`back=${encodeURIComponent(back)}`);
-  return parts.length ? `?${parts.join("&")}` : "";
 }
 
 /** The read-only goal document. */

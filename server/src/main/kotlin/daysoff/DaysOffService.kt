@@ -7,13 +7,13 @@ import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
-import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.directManagerIds
 import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.memberTeamIds
 import ch.nokillswit.teams.membersOf
 import ch.nokillswit.users.UserService
+import ch.nokillswit.users.userNameOf
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.firstOrNull
@@ -733,12 +733,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         return entries
     }
 
-    private suspend fun userName(id: UInt): String =
-        UserService.Users
-            .select(UserService.Users.name)
-            .where { UserService.Users.id eq id }
-            .map { it[UserService.Users.name] }
-            .singleOrNull() ?: "#$id"
+    private suspend fun userName(id: UInt): String = userNameOf(id) ?: "#$id"
 
     private fun joined() = Requests
         .join(

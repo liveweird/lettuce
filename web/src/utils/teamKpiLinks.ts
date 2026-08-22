@@ -1,3 +1,5 @@
+import { detailSearch } from "./linkSearch";
+
 // Builders for every team-KPI-flow URL, so the query-string shape (and encodeURIComponent)
 // lives in one place instead of being hand-assembled at call sites — the goalLinks pattern.
 // Optional parts are appended only when given.
@@ -11,18 +13,14 @@ export function teamKpiCreateLink(teamId?: number, teamName?: string | null, bac
   return `/team-kpis/new${parts.length ? `?${parts.join("&")}` : ""}`;
 }
 
-function detailSearch(back?: string): string {
-  return back ? `?back=${encodeURIComponent(back)}` : "";
-}
-
 /** THE KPI screen (General / KPI data / Graph / History tabs; the manager edits data points inline). */
 export function teamKpiViewLink(id: number, back?: string): string {
-  return `/team-kpis/${id}/view${detailSearch(back)}`;
+  return `/team-kpis/${id}/view${detailSearch(undefined, back)}`;
 }
 
 /** The DRAFT definition editor (everything else redirects to the view). */
 export function teamKpiEditLink(id: number, back?: string): string {
-  return `/team-kpis/${id}/edit${detailSearch(back)}`;
+  return `/team-kpis/${id}/edit${detailSearch(undefined, back)}`;
 }
 
 /** The per-team KPI drill-down (`/teams/:id/kpis`), as linked from Dashboard → My teams. */

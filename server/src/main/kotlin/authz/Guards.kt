@@ -276,19 +276,21 @@ fun requireFeedbackWrite(caller: CallerPrincipal, feedback: Feedback) {
 }
 
 /**
- * The lifecycle features' shared relationship gate (goals / 1:1s / reviews creates, and the
- * days-off on-behalf recording — the ONE create-on-behalf in the app, v2.29.0): the target
- * must be in the required CURRENT relationship with the caller (their direct report) at call
- * time. The denial message stays per-feature (tests pin the wording); call this BEFORE
- * payload validation so an outsider's malformed request is still 403, not 400.
+ * The lifecycle features' shared relationship gate (goals / 1:1s / reviews creates, the
+ * days-off on-behalf recording, and team-KPI creates): the target must be in the required
+ * CURRENT relationship with the caller at call time. The predicate carries the semantics —
+ * a direct report for goals/1:1s/reviews, a direct manager for days-off on-behalf, the
+ * manager-or-chain for team KPIs — so name the lambda at the call site, not here. The denial
+ * message stays per-feature (tests pin the wording); call this BEFORE payload validation so
+ * an outsider's malformed request is still 403, not 400.
  */
 @Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
-suspend fun requireDirectReport(
+suspend fun requireRelationship(
     caller: CallerPrincipal,
-    isDirectReport: suspend () -> Boolean,
+    holds: suspend () -> Boolean,
     denied: String,
 ) {
-    if (!isDirectReport()) throw ForbiddenException(denied)
+    if (!holds()) throw ForbiddenException(denied)
 }
 
 // ── 1:1 meetings ────────────────────────────────────────────────────────────────────────────

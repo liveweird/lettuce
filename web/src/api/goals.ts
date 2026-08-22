@@ -1,7 +1,7 @@
 // Goals API — CRUD, progress, lifecycle transitions, and the event history.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { paths } from "./schema";
 
 export type GoalPage =
@@ -34,22 +34,23 @@ type GoalListQuery = {
 };
 
 export async function listGoals(q: GoalListQuery): Promise<GoalPage> {
-  const params = new URLSearchParams();
-  params.set("view", q.view);
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.title) params.set("title", q.title);
-  if (q.managerName) params.set("managerName", q.managerName);
-  if (q.subordinateName) params.set("subordinateName", q.subordinateName);
-  if (q.status) params.set("status", q.status);
-  if (q.type) params.set("type", q.type);
-  if (q.managerId != null) params.set("managerId", String(q.managerId));
-  if (q.subordinateId != null) params.set("subordinateId", String(q.subordinateId));
-  if (q.createdAtGte != null) params.set("createdAt[gte]", String(q.createdAtGte));
-  if (q.includeIndirect) params.set("includeIndirect", "true");
-  if (q.userId != null) params.set("userId", String(q.userId));
-  return jsonRequest<GoalPage>(`/api/v1/goals?${params.toString()}`);
+  const params = buildQuery({
+    view: q.view,
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    title: q.title,
+    managerName: q.managerName,
+    subordinateName: q.subordinateName,
+    status: q.status,
+    type: q.type,
+    managerId: q.managerId,
+    subordinateId: q.subordinateId,
+    "createdAt[gte]": q.createdAtGte,
+    includeIndirect: q.includeIndirect || undefined,
+    userId: q.userId,
+  });
+  return jsonRequest<GoalPage>(`/api/v1/goals?${params}`);
 }
 
 export type GoalCreateBody =

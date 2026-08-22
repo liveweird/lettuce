@@ -1,8 +1,8 @@
-import { drillDownOptsSearch, type DrillDownOpts } from "./feedbackLinks";
+import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSearch";
 
-// Builder for the 1:1 create-flow URL, so the query-string shape (and encodeURIComponent) lives in
-// one place instead of being hand-assembled at every call site. `subordinateName` and `back` are
-// each appended only when given, matching the per-person drill-down link that omits the name.
+// Builders for every 1:1-flow URL, so the query-string shape (and encodeURIComponent) lives in
+// one place instead of being hand-assembled at every call site — the goalLinks pattern.
+// Optional parts are appended only when given.
 export function oneOnOneCreateLink(
   subordinateId: number,
   subordinateName?: string | null,
@@ -12,6 +12,16 @@ export function oneOnOneCreateLink(
   if (subordinateName) url += `&subordinateName=${encodeURIComponent(subordinateName)}`;
   if (back) url += `&back=${encodeURIComponent(back)}`;
   return url;
+}
+
+/** The read-only 1:1 document. `from` names the originating tab (`own`/`managed`/`with`/`team`). */
+export function oneOnOneViewLink(id: number, from?: string, back?: string): string {
+  return `/one-on-ones/${id}/view${detailSearch(from, back)}`;
+}
+
+/** The 1:1 editor (only the pair's latest meeting — older ones redirect to the view). */
+export function oneOnOneEditLink(id: number, from?: string, back?: string): string {
+  return `/one-on-ones/${id}/edit${detailSearch(from, back)}`;
 }
 
 /**

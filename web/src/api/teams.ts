@@ -1,7 +1,7 @@
 // Teams API — CRUD, the member sub-resource, and the caller-relative members views.
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
-import { jsonRequest, voidRequest } from "./http";
+import { buildQuery, jsonRequest, voidRequest } from "./http";
 import type { components, paths } from "./schema";
 
 export type TeamPage = paths["/api/v1/teams"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -50,15 +50,16 @@ export async function updateTeam(id: number, body: UpdateTeamBody): Promise<void
 }
 
 export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
-  const params = new URLSearchParams();
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.name) params.set("name", q.name);
-  if (q.managerId != null) params.set("managerId", String(q.managerId));
-  if (q.includeIndirect) params.set("includeIndirect", "true");
-  if (q.memberId != null) params.set("memberId", String(q.memberId));
-  return jsonRequest<TeamPage>(`/api/v1/teams?${params.toString()}`);
+  const params = buildQuery({
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    name: q.name,
+    managerId: q.managerId,
+    includeIndirect: q.includeIndirect || undefined,
+    memberId: q.memberId,
+  });
+  return jsonRequest<TeamPage>(`/api/v1/teams?${params}`);
 }
 
 export async function addTeamMember(teamId: number, userId: number): Promise<void> {
@@ -87,16 +88,17 @@ type TeamMemberListQuery = {
 };
 
 export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMemberPage> {
-  const params = new URLSearchParams();
-  params.set("view", q.view);
-  params.set("page", String(q.page));
-  params.set("pageSize", String(q.pageSize));
-  if (q.sort) params.set("sort", q.sort);
-  if (q.name) params.set("name", q.name);
-  if (q.email) params.set("email", q.email);
-  if (q.teamId != null) params.set("teamId", String(q.teamId));
-  if (q.includeIndirect) params.set("includeIndirect", "true");
-  return jsonRequest<TeamMemberPage>(`/api/v1/teams/members?${params.toString()}`);
+  const params = buildQuery({
+    view: q.view,
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    name: q.name,
+    email: q.email,
+    teamId: q.teamId,
+    includeIndirect: q.includeIndirect || undefined,
+  });
+  return jsonRequest<TeamMemberPage>(`/api/v1/teams/members?${params}`);
 }
 
 /** Every team (optionally: of one member), paging until the server total is reached. */

@@ -6,7 +6,6 @@ import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationType
 import io.ktor.server.plugins.BadRequestException
 import java.time.LocalDate
-import java.time.format.DateTimeParseException
 import kotlinx.serialization.Serializable
 
 /**
