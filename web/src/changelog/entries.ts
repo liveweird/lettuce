@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.39.0",
+    date: "2026-08-24",
+    en: `Career timelines can now be backfilled. Until now a new position had to start after the current one, so a gap in someone's recorded history could never be filled in. Managers can now record a position with any past start date and the timeline sorts itself out: a position added before all the others ends the day before the previously-earliest one begins, and a start date landing inside an existing position splits it there — the old position keeps the part before the new date, and the new one takes over until the next position begins. Two rules keep the history honest, and the form flags both before you submit: no two positions may start on the same day, and a position must always differ from its neighbors on the timeline (the same path, specialization, and seniority twice in a row is not a step).`,
+    pl: `Historię kariery można teraz uzupełniać wstecz. Dotychczas nowe stanowisko musiało zaczynać się po obecnym, więc luki w zapisanej historii nie dało się wypełnić. Menedżerowie mogą teraz zapisać stanowisko z dowolną przeszłą datą rozpoczęcia, a oś czasu sama się porządkuje: stanowisko dodane przed wszystkimi innymi kończy się dzień przed początkiem dotychczas najwcześniejszego, a data rozpoczęcia trafiająca w środek istniejącego stanowiska dzieli je w tym miejscu — stare stanowisko zachowuje część sprzed nowej daty, a nowe przejmuje resztę aż do początku kolejnego. Dwie zasady chronią spójność historii, a formularz sygnalizuje obie jeszcze przed zapisem: dwa stanowiska nie mogą zaczynać się tego samego dnia, a stanowisko musi zawsze różnić się od sąsiednich na osi czasu (ta sama ścieżka, specjalizacja i poziom dwa razy z rzędu to nie krok).`,
+  },
+  {
     version: "2.38.2",
     date: "2026-08-24",
     en: `The templates page now says "Feedback templates" in its heading too, matching the renamed menu entry.`,

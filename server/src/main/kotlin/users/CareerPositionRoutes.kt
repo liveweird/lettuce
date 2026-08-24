@@ -207,15 +207,17 @@ fun Application.configureCareerPositionRoutes() {
                 write.careerSpecializationId?.let { auditFields += "careerSpecializationId" to it.toLong() }
                 write.seniorityLevelId?.let { auditFields += "seniorityLevelId" to it.toLong() }
                 audit("career_position.created", *auditFields.toTypedArray())
-                val row = careerPositionService.readRow(id)
-                    .orVanished("Career position", id)
+                // Derive the body's endDate against the FULL timeline: a backfilled position
+                // (v2.39.0) ends the day before its next neighbor starts — a single-row
+                // derivation would wrongly report it open-ended.
+                val rows = careerPositionService.listRows(route.id)
                 val entries = userService.resolveEntryRefs(
-                    row.careerPathId,
-                    row.careerSpecializationId,
-                    row.seniorityLevelId,
+                    *rows.flatMap { listOf(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }
+                        .toTypedArray(),
                 )
-                // Appended after the latest start, so the new position is always the open one.
-                call.respond(HttpStatusCode.Created, toResponses(listOf(row), entries).single())
+                val body = toResponses(rows, entries).firstOrNull { it.id == id }
+                    .orVanished("Career position", id)
+                call.respond(HttpStatusCode.Created, body)
             }
             put<UserCareerPositions.Position> { route ->
                 val existing = writeGuardedPosition(call, route.parent.id, route.positionId)

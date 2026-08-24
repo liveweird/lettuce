@@ -106,7 +106,7 @@ test("career progression: chain manager records positions, the person sees the t
   await page.getByLabel("Start date").fill("2025-02-01");
   await expect(page.getByRole("button", { name: "Start position" })).toBeDisabled();
   await expect(
-    page.getByText("This repeats the current position exactly", { exact: false }),
+    page.getByText("This repeats a neighboring position exactly", { exact: false }),
   ).toBeVisible();
   // Change the seniority to the SECOND option (a different seed value — same shared-dictionary
   // etiquette as the first pick: stable ids, nothing asserted on the value).
@@ -138,6 +138,28 @@ test("career progression: chain manager records positions, the person sees the t
   ]);
   await expect(page.getByLabel(/^Edit the position started /)).toHaveCount(1);
   await expect(page.getByText("Current", { exact: true })).toBeVisible();
+
+  // 7b. Backfill (v2.39.0): a position dated BEFORE the survivor. An already-taken date is
+  //     flagged client-side; a free past date with a changed triple inserts, and the new
+  //     earliest row lands closed (the survivor stays the one Current position).
+  await page.getByLabel("Start date").fill("2024-03-01");
+  await expect(
+    page.getByText("Another position already starts on this date", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start position" })).toBeDisabled();
+  await page.getByLabel("Start date").fill("2023-06-01");
+  // The prefilled triple now equals its date-neighbor (the survivor) — change the seniority.
+  await expect(
+    page.getByText("This repeats a neighboring position exactly", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("combobox", { name: "Seniority level" }).click();
+  await page.getByRole("option").nth(1).click();
+  await Promise.all([
+    page.waitForResponse((r) => isPositionsCall(r) && r.request().method() === "POST" && r.ok()),
+    page.getByRole("button", { name: "Start position" }).click(),
+  ]);
+  await expect(page.getByLabel("Edit the position started 2023-06-01")).toBeVisible();
+  await expect(page.getByText("Current", { exact: true })).toHaveCount(1);
 
   // 8. The current position backs the details card's Profile section.
   await page.goto(`/users/${sub.id}/details`);
@@ -226,5 +248,6 @@ test("career progression: chain manager records positions, the person sees the t
   // the retired-entry-keeps-resolving check runs as the owner.
   await login(page, sub.email, sub.password);
   await page.goto(`/users/${sub.id}/career`);
-  await expect(page.getByText(value2, { exact: true })).toBeVisible();
+  // Both rows (the survivor AND the 7b backfill) reference the renamed entry by id.
+  await expect(page.getByText(value2, { exact: true })).toHaveCount(2);
 });

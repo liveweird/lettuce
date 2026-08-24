@@ -34,7 +34,11 @@ export async function listCareerPyramid(includeIndirect: boolean): Promise<Caree
   return jsonRequest<CareerPyramidList>(`/api/v1/career/pyramid${query ? `?${query}` : ""}`);
 }
 
-/** Start a new position (chain managers only) — implicitly concludes the current one. */
+/**
+ * Record a position (chain managers only) at any non-future start date: an append implicitly
+ * concludes the current one; a past date backfills history (v2.39.0) — the timeline
+ * re-derives the neighboring ends around it.
+ */
 export async function createCareerPosition(
   userId: number,
   body: CareerPositionWriteBody,

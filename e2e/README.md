@@ -121,7 +121,7 @@ scenario file is the design.
 - [`teams.spec.ts`](scenarios/teams.md) — team CRUD, roster edits, admin-only manager reassignment.
 - [`templates.spec.ts`](scenarios/templates.md) — template CRUD + Insert into the feedback editor.
 - [`tour.spec.ts`](scenarios/tour.md) — the guided tour's landmark order as manager and admin.
-- [`user-career.spec.ts`](scenarios/user-career.md) — the career-position timeline, Career page + Team pyramid + time slider, dictionary rename propagation, the v2.25.0 self/chain/HR read privacy (no career link on manager cards; direct URL refused).
+- [`user-career.spec.ts`](scenarios/user-career.md) — the career-position timeline, the v2.39.0 past-insert backfill (taken-date + date-neighbor sameness notes), Career page + Team pyramid + time slider, dictionary rename propagation, the v2.25.0 self/chain/HR read privacy (no career link on manager cards; direct URL refused).
 - [`user-details.spec.ts`](scenarios/user-details.md) — the read-only user-details card in every relationship flavor + the Teams membership view.
 - [`user-edit.spec.ts`](scenarios/user-edit.md) — admin creates (password reveal) and renames a user.
 - [`users-admin.spec.ts`](scenarios/users-admin.md) — roles, password reset vs self-change, deactivate/reactivate, delete.

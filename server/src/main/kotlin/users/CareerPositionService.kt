@@ -23,8 +23,8 @@ val CareerPositionServiceKey = AttributeKey<CareerPositionService>("CareerPositi
  * position (cleared again by reactivation) — only the final row ever carries it (a new
  * position cannot be recorded for a deactivated user, and [delete] transfers the stamp to
  * the surviving final row), so derived ends stay authoritative everywhere else. Rules that
- * depend on the
- * user's OTHER rows — the ordering rules (append-after-latest, correct-between-neighbors) and
+ * depend on the user's OTHER rows — the ordering rules (create anywhere but never on an
+ * existing start (v2.39.0 — past inserts backfill history), correct-between-neighbors) and
  * the adjacent-sameness rule (v2.15.2: no position may carry the exact same triple as its
  * neighbor — a repeat is not a step) — are enforced here, atomically with the write (the
  * ReviewPeriodService adjacency idiom) → [ConflictException] (409); pure shape rules (ISO
@@ -159,24 +159,28 @@ class CareerPositionService(val database: R2dbcDatabase) {
         }
 
     /**
-     * Appends a position: the new start must be strictly after the latest existing one (409
-     * otherwise — inserting a forgotten historical position is deliberately not a thing; the
-     * timeline grows at the end and history is fixed via [update]/[delete]), and its triple
-     * must differ from the latest position's (409 — a repeat is not a step). Returns the id
-     * plus the owner's notification descriptor (the createCorrection shape — the route
-     * persists it after this transaction commits).
+     * Inserts a position anywhere in the timeline (v2.39.0 — past inserts backfill forgotten
+     * history; before that the timeline was append-only). The derived-end model does the rest:
+     * a new earliest position ends the day before the previously-earliest start, and a start
+     * landing mid-span of a past position splits it there — the new position takes over the
+     * remainder until the next one begins. Two 409s guard the insert: an exact start-date
+     * collision (the partial unique index stays the race backstop), and a triple equal to
+     * either chronological neighbor's (the [update] rule — a repeat is not a step). Returns
+     * the id plus the owner's notification descriptor (the createCorrection shape — the
+     * route persists it after this transaction commits).
      */
     suspend fun create(authorId: UInt, targetUserId: UInt, write: CareerPositionWrite): Pair<UInt, Notification> =
         suspendTransaction(database) {
-            val latest = rowsOf(targetUserId).lastOrNull()
-            if (latest != null && write.startDate <= latest.startDate) {
-                throw ConflictException(
-                    "A new position must start after the current one (started ${latest.startDate})",
-                )
+            val rows = rowsOf(targetUserId)
+            if (rows.any { it.startDate == write.startDate }) {
+                throw ConflictException("A position already starts on ${write.startDate}")
             }
-            if (latest != null && sameTriple(write, latest)) {
+            val prev = rows.lastOrNull { it.startDate < write.startDate }
+            val next = rows.firstOrNull { it.startDate > write.startDate }
+            if ((prev != null && sameTriple(write, prev)) || (next != null && sameTriple(write, next))) {
                 throw ConflictException(
-                    "A new position must differ from the previous one (same career path, specialization, and seniority)",
+                    "A new position must differ from the neighboring positions " +
+                        "(same career path, specialization, and seniority)",
                 )
             }
             val now = System.currentTimeMillis()
