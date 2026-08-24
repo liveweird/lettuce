@@ -5,7 +5,8 @@
   Manager AAA, Manager CCC, the Administrator
 - **Owns** (exclusive server-side state): nothing — read-only; no data is created or mutated
 - **Since**: v1.23.0 (the org chart), v1.30.2 (teamless people render as ordinary clickable
-  nodes under "Not in any team")
+  nodes under "Not in any team"), v2.40.0 (left→right orientation; team nodes collapse/expand
+  their members — client-side only)
 
 The whole organization as a canvas: person nodes open the user-details view, team nodes open the
 roster, with manages/member edges between them. Assertions target only seeded people and teams —
@@ -22,13 +23,19 @@ they always exist, whatever else e2e runs have added to the shared database.
 3. AAA One looks below the teams.
    - *Expected*: people in no team (the seed Administrator) render under the "Not in any team"
      section as ordinary clickable nodes.
-4. AAA One clicks Manager AAA's person node.
+4. AAA One collapses the CCC team node (its chevron toggle).
+   - *Expected*: CCC's members fold away — Manager AAA's node disappears, and so does the AAA
+     team they manage (the collapse cascades through a hidden member's own subtree); the CCC
+     node itself and Manager CCC stay visible.
+5. AAA One expands the CCC team node again.
+   - *Expected*: the folded subtree is restored — Manager AAA's node and the AAA team are back.
+6. AAA One clicks Manager AAA's person node.
    - *Expected*: the user-details view opens with the manager-flavor card ("One of your
      managers").
-5. AAA One uses the "Back to Org chart" link.
+7. AAA One uses the "Back to Org chart" link.
    - *Expected*: back on the chart — the details view carried the org-chart origin.
-6. AAA One clicks the AAA team node.
+8. AAA One clicks the AAA team node.
    - *Expected*: team AAA's roster opens (the Team details page); its back link also reads
      "Back to Org chart" — returning to the chart, not the teams list.
-7. AAA One uses that back link.
+9. AAA One uses that back link.
    - *Expected*: back on the chart.

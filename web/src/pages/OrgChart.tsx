@@ -1,9 +1,21 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Alert, Box, Center, Group, Loader, Paper, Stack, Text, Title, UnstyledButton } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Box,
+  Center,
+  Group,
+  Loader,
+  Paper,
+  Stack,
+  Text,
+  Title,
+  UnstyledButton,
+} from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { IconUsersGroup } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconUsersGroup } from "@tabler/icons-react";
 import {
   Background,
   BackgroundVariant,
@@ -15,6 +27,7 @@ import {
   type Edge,
   type Node,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { getUserId } from "../api/session";
@@ -23,6 +36,7 @@ import { getTeam, listAllTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
 import PersonaChip from "../components/PersonaChip";
 import {
+  applyCollapse,
   buildOrgGraph,
   layoutOrgGraph,
   PERSON_NODE_SIZE,
@@ -35,6 +49,7 @@ import { loadErrorMessage } from "../utils/saveError";
 
 // The whole org, composed client-side from the open lists (the house aggregation pattern):
 // teams + managers from the teams list, memberIds per team, names from the users list.
+// Returns the raw graph — layout runs in the component, downstream of the collapse state.
 async function fetchOrg() {
   const teams = await listAllTeams();
   const [memberships, users] = await Promise.all([
@@ -49,15 +64,23 @@ async function fetchOrg() {
     listAllUsers(),
   ]);
   const usersById = new Map(users.map((u) => [u.id, u.name]));
-  const { nodes, edges } = buildOrgGraph(teams, memberships, usersById);
-  return { positioned: layoutOrgGraph(nodes, edges), edges };
+  return buildOrgGraph(teams, memberships, usersById);
 }
 
 type PersonNodeType = Node<
   { userId: number; name: string; deleted: boolean; self: boolean },
   "person"
 >;
-type TeamNodeType = Node<{ teamId: number; name: string }, "team">;
+type TeamNodeType = Node<
+  {
+    teamId: number;
+    name: string;
+    collapsed: boolean;
+    memberCount: number;
+    onToggle: () => void;
+  },
+  "team"
+>;
 
 // Invisible connection points — the chart is read-only, the handles exist only so edges anchor.
 const HANDLE_STYLE = {
@@ -91,7 +114,7 @@ function PersonNode({ data }: NodeProps<PersonNodeType>) {
         alignItems: "center",
       }}
     >
-      <Handle type="target" position={Position.Top} style={HANDLE_STYLE} isConnectable={false} />
+      <Handle type="target" position={Position.Left} style={HANDLE_STYLE} isConnectable={false} />
       {data.deleted || data.self ? (
         body
       ) : (
@@ -105,7 +128,7 @@ function PersonNode({ data }: NodeProps<PersonNodeType>) {
           {body}
         </UnstyledButton>
       )}
-      <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} isConnectable={false} />
+      <Handle type="source" position={Position.Right} style={HANDLE_STYLE} isConnectable={false} />
     </Paper>
   );
 }
@@ -123,10 +146,25 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
         height: TEAM_NODE_SIZE.height,
         display: "flex",
         alignItems: "center",
+        gap: 6,
         borderColor: "var(--mantine-color-lettuce-filled)",
       }}
     >
-      <Handle type="target" position={Position.Top} style={HANDLE_STYLE} isConnectable={false} />
+      <Handle type="target" position={Position.Left} style={HANDLE_STYLE} isConnectable={false} />
+      {/* Tree-style expander before the name; teams with no members have nothing to fold. */}
+      {data.memberCount > 0 && (
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="sm"
+          onClick={data.onToggle}
+          aria-label={t(data.collapsed ? "org.expandAria" : "org.collapseAria", {
+            name: data.name,
+          })}
+        >
+          {data.collapsed ? <IconChevronRight size={16} /> : <IconChevronDown size={16} />}
+        </ActionIcon>
+      )}
       <UnstyledButton
         onClick={() => navigate(`/teams/${data.teamId}/details?from=org`)}
         aria-label={t("teams.membersOfAria", { name: data.name })}
@@ -139,7 +177,12 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
           </Text>
         </Group>
       </UnstyledButton>
-      <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} isConnectable={false} />
+      {data.collapsed && (
+        <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+          {t("org.hiddenMembers", { count: data.memberCount })}
+        </Text>
+      )}
+      <Handle type="source" position={Position.Right} style={HANDLE_STYLE} isConnectable={false} />
     </Paper>
   );
 }
@@ -185,9 +228,35 @@ export default function OrgChart() {
     queryFn: fetchOrg,
   });
 
+  // Collapsed team node ids — client-side view state only, everything expanded by default.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const toggleTeam = useCallback((id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Collapse first, then lay out what's left — collapsing re-runs dagre on the visible subgraph.
+  const visible = useMemo(() => {
+    if (data == null) return null;
+    const filtered = applyCollapse(data.nodes, data.edges, collapsed);
+    return { positioned: layoutOrgGraph(filtered.nodes, filtered.edges), edges: filtered.edges };
+  }, [data, collapsed]);
+  // Member counts come from the FULL graph so a collapsed team still states what it hides.
+  const memberCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of data?.edges ?? []) {
+      if (e.kind === "member") counts.set(e.source, (counts.get(e.source) ?? 0) + 1);
+    }
+    return counts;
+  }, [data]);
+
   const rfNodes: Node[] = useMemo(
     () =>
-      (data?.positioned ?? []).map((n) =>
+      (visible?.positioned ?? []).map((n) =>
         n.kind === "person"
           ? ({
               id: n.id,
@@ -201,7 +270,13 @@ export default function OrgChart() {
                 id: n.id,
                 type: "team",
                 position: { x: n.x, y: n.y },
-                data: { teamId: n.teamId, name: n.name },
+                data: {
+                  teamId: n.teamId,
+                  name: n.name,
+                  collapsed: collapsed.has(n.id),
+                  memberCount: memberCounts.get(n.id) ?? 0,
+                  onToggle: () => toggleTeam(n.id),
+                },
                 draggable: false,
               } satisfies Node)
             : ({
@@ -213,11 +288,11 @@ export default function OrgChart() {
                 selectable: false, // a plain label — nothing to click (cf. the note below)
               } satisfies Node),
       ),
-    [data, currentUserId],
+    [visible, collapsed, memberCounts, currentUserId, toggleTeam],
   );
   const rfEdges: Edge[] = useMemo(
     () =>
-      (data?.edges ?? []).map((e) => {
+      (visible?.edges ?? []).map((e) => {
         const stroke = e.kind === "manages" ? MANAGES_STROKE : MEMBER_STROKE;
         return {
           id: e.id,
@@ -228,8 +303,15 @@ export default function OrgChart() {
           markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
         };
       }),
-    [data],
+    [visible],
   );
+
+  // Re-fit after a collapse/expand: dagre reflows the whole chart, so without this the nodes
+  // shift out from under the viewport. The initial fit stays the `fitView` prop's job.
+  const rfInstance = useRef<ReactFlowInstance | null>(null);
+  useEffect(() => {
+    void rfInstance.current?.fitView({ duration: 200 });
+  }, [collapsed]);
 
   return (
     <Stack gap="md" h="100%">
@@ -267,6 +349,9 @@ export default function OrgChart() {
             nodes={rfNodes}
             edges={rfEdges}
             nodeTypes={NODE_TYPES}
+            onInit={(instance) => {
+              rfInstance.current = instance;
+            }}
             fitView
             nodesDraggable={false}
             nodesConnectable={false}

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.40.0",
+    date: "2026-08-24",
+    en: `The org chart got readable at depth. The chart now flows left to right instead of top to bottom, so an organization three or more levels deep reads as a tree instead of a paper-thin band stretching off the screen. Team nodes also gained a chevron: collapse a team to fold its members away — including anything they manage further down — and the node shows how many people it is hiding. Everything starts expanded, and expanding a team brings its whole branch back.`,
+    pl: `Struktura organizacji stała się czytelna w głąb. Wykres płynie teraz od lewej do prawej zamiast z góry na dół, więc organizacja o trzech lub więcej poziomach wygląda jak drzewo, a nie jak cienki pasek uciekający poza ekran. Węzły zespołów zyskały też strzałkę: zwiń zespół, aby schować jego członków — razem ze wszystkim, czym kierują niżej — a węzeł pokaże, ile osób ukrywa. Wszystko zaczyna rozwinięte, a rozwinięcie zespołu przywraca całą jego gałąź.`,
+  },
+  {
     version: "2.39.0",
     date: "2026-08-24",
     en: `Career timelines can now be backfilled. Until now a new position had to start after the current one, so a gap in someone's recorded history could never be filled in. Managers can now record a position with any past start date and the timeline sorts itself out: a position added before all the others ends the day before the previously-earliest one begins, and a start date landing inside an existing position splits it there — the old position keeps the part before the new date, and the new one takes over until the next position begins. Two rules keep the history honest, and the form flags both before you submit: no two positions may start on the same day, and a position must always differ from its neighbors on the timeline (the same path, specialization, and seniority twice in a row is not a step).`,

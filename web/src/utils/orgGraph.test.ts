@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  applyCollapse,
   buildOrgGraph,
   layoutOrgGraph,
   personNodeId,
@@ -94,6 +95,66 @@ describe("buildOrgGraph", () => {
   });
 });
 
+describe("applyCollapse", () => {
+  test("an empty set is the identity", () => {
+    const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
+    const result = applyCollapse(nodes, edges, new Set());
+    expect(result.nodes).toBe(nodes);
+    expect(result.edges).toBe(edges);
+  });
+
+  test("collapsing a leaf team hides its members but keeps the team and its manages edge", () => {
+    const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
+    const result = applyCollapse(nodes, edges, new Set([teamNodeId(1)]));
+
+    // AAA's members (1, 2) fold away; the team node, its manager, and everyone else stay.
+    const ids = result.nodes.map((n) => n.id);
+    expect(ids).not.toContain(personNodeId(1));
+    expect(ids).not.toContain(personNodeId(2));
+    expect(ids).toContain(teamNodeId(1));
+    expect(ids).toContain(personNodeId(10));
+    expect(ids).toContain(personNodeId(99)); // the floater is untouched
+    expect(result.edges.map((e) => e.id)).not.toContain("member-1-1");
+    expect(result.edges.map((e) => e.id)).toContain("manages-1");
+  });
+
+  test("collapsing the root team cascades through hidden members' own subtrees", () => {
+    const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
+    const result = applyCollapse(nodes, edges, new Set([teamNodeId(3)]));
+
+    // CCC's members are Managers AAA/BBB — hiding them drags AAA/BBB and their members away.
+    // Left: Manager CCC, the collapsed CCC node, the teamless floater, and only the CCC
+    // manages edge.
+    expect(result.nodes.map((n) => n.id).sort()).toEqual(
+      [personNodeId(12), personNodeId(99), teamNodeId(3)].sort(),
+    );
+    expect(result.edges.map((e) => e.id)).toEqual(["manages-3"]);
+  });
+
+  test("a member reachable through another expanded team survives the collapse", () => {
+    const teams: OrgTeamInput[] = [
+      { id: 1, name: "A", managerId: 10, managerName: "M1", managerDeleted: false },
+      { id: 2, name: "B", managerId: 11, managerName: "M2", managerDeleted: false },
+    ];
+    const memberships: OrgMembership[] = [
+      { teamId: 1, memberIds: [5] },
+      { teamId: 2, memberIds: [5] }, // the same person sits in both teams
+    ];
+    const users = new Map([
+      [5, "Shared"],
+      [10, "M1"],
+      [11, "M2"],
+    ]);
+    const { nodes, edges } = buildOrgGraph(teams, memberships, users);
+    const result = applyCollapse(nodes, edges, new Set([teamNodeId(1)]));
+
+    expect(result.nodes.map((n) => n.id)).toContain(personNodeId(5));
+    const edgeIds = result.edges.map((e) => e.id);
+    expect(edgeIds).not.toContain("member-1-5");
+    expect(edgeIds).toContain("member-2-5");
+  });
+});
+
 describe("layoutOrgGraph", () => {
   test("positions every node, converting dagre centers to top-left corners", () => {
     const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
@@ -105,10 +166,10 @@ describe("layoutOrgGraph", () => {
       expect(Number.isFinite(node.x)).toBe(true);
       expect(Number.isFinite(node.y)).toBe(true);
     }
-    // TB layout: the top manager (CCC's, who manages the root team) sits above their team.
+    // LR layout: the top manager (CCC's, who manages the root team) sits left of their team.
     const grand = positioned.find((n) => n.id === personNodeId(12))!;
     const grandTeam = positioned.find((n) => n.id === teamNodeId(3))!;
-    expect(grand.y + PERSON_NODE_SIZE.height).toBeLessThanOrEqual(grandTeam.y);
+    expect(grand.x + PERSON_NODE_SIZE.width).toBeLessThanOrEqual(grandTeam.x);
   });
 
   test("teamless people land below the chart, under the section label", () => {
