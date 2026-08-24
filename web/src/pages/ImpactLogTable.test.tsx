@@ -20,7 +20,7 @@ const OWN_PAGE = {
       userDeleted: false,
       periodStart: "2026-07-01",
       periodEnd: "2026-07-31",
-      whatHappenedPreview: "Shipped the reporting pipeline",
+      title: "Shipped the reporting pipeline",
       createdAt: new Date(2026, 7, 1).getTime(),
       lastModified: new Date(2026, 7, 2).getTime(),
     },
@@ -31,7 +31,7 @@ const OWN_PAGE = {
       userDeleted: false,
       periodStart: "2026-01-01",
       periodEnd: "2026-03-31",
-      whatHappenedPreview: "Q1 platform migration",
+      title: "Q1 platform migration",
       createdAt: new Date(2026, 3, 1).getTime(),
       lastModified: new Date(2026, 3, 1).getTime(),
     },
@@ -50,7 +50,7 @@ const MANAGED_PAGE = {
       userDeleted: false,
       periodStart: "2026-06-01",
       periodEnd: "2026-06-30",
-      whatHappenedPreview: "Vendor consolidation",
+      title: "Vendor consolidation",
       createdAt: new Date(2026, 6, 1).getTime(),
       lastModified: new Date(2026, 6, 1).getTime(),
     },
@@ -106,14 +106,16 @@ describe("ImpactLogTable", () => {
     expect(await screen.findByText("Shipped the reporting pipeline")).toBeInTheDocument();
     expect(screen.getByText("Jul 1, 2026 – Jul 31, 2026")).toBeInTheDocument();
     expect(screen.getByText("Q1 platform migration")).toBeInTheDocument();
+    // The Title column is sortable (v2.37.0 — it replaced the what-happened preview).
+    expect(screen.getByRole("button", { name: "Title" })).toBeInTheDocument();
     // No owner column on the own view — every row is the caller's.
     expect(screen.queryByText("Author")).toBeNull();
     // Own rows carry View + Edit + Delete.
     expect(
-      screen.getByRole("link", { name: "Edit entry Jul 1, 2026 – Jul 31, 2026" }),
+      screen.getByRole("link", { name: "Edit entry Shipped the reporting pipeline" }),
     ).toHaveAttribute("href", "/impact-log/5/edit");
     expect(
-      screen.getByRole("button", { name: "Delete entry Jul 1, 2026 – Jul 31, 2026" }),
+      screen.getByRole("button", { name: "Delete entry Shipped the reporting pipeline" }),
     ).toBeInTheDocument();
     // Default sort: most recent period first.
     const listCall = mockFetch.mock.calls.find(([u]) => String(u).startsWith("/api/v1/impact-log?"));
@@ -126,10 +128,10 @@ describe("ImpactLogTable", () => {
     const mockFetch = renderTable({ view: "own" });
 
     await user.click(
-      await screen.findByRole("button", { name: "Delete entry Jul 1, 2026 – Jul 31, 2026" }),
+      await screen.findByRole("button", { name: "Delete entry Shipped the reporting pipeline" }),
     );
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/Delete the entry for Jul 1, 2026/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Delete "Shipped the reporting pipeline"/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
     await waitFor(() => {

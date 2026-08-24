@@ -58,6 +58,7 @@ class ImpactLogRoutesTest {
     }
 
     private fun entryBody(
+        title: String = "Quarterly report pipeline",
         periodStart: String = "2026-07-01",
         periodEnd: String = "2026-07-31",
         whatHappened: String = "Shipped the quarterly report pipeline.",
@@ -65,6 +66,7 @@ class ImpactLogRoutesTest {
         whyItMattered: String = "Cut the reporting turnaround from days to minutes.",
         evidence: String = "Kudos from the finance team; dashboards in daily use.",
     ) = ImpactEntryRequest(
+        title = title,
         periodStart = periodStart,
         periodEnd = periodEnd,
         whatHappened = whatHappened,
@@ -105,6 +107,7 @@ class ImpactLogRoutesTest {
         assertTrue(location.endsWith("/api/v1/impact-log/${created.id}"), "Location was $location")
         assertEquals(pair.ownerId, created.userId)
         assertEquals("Olga Owner", created.userName)
+        assertEquals("Quarterly report pipeline", created.title)
         assertEquals("2026-07-01", created.periodStart)
         assertEquals("2026-07-31", created.periodEnd)
         assertEquals("Shipped the quarterly report pipeline.", created.whatHappened)
@@ -134,6 +137,8 @@ class ImpactLogRoutesTest {
             assertEquals(detail, response.body<ProblemDetail>().detail)
         }
 
+        expect400(entryBody(title = "  "), "Title must not be blank")
+        expect400(entryBody(title = "x".repeat(201)), "Title must be at most 200 characters")
         expect400(entryBody(periodStart = "07/01/2026"), "Period start must be an ISO date (YYYY-MM-DD)")
         expect400(entryBody(periodEnd = "2026-7-1"), "Period end must be an ISO date (YYYY-MM-DD)")
         expect400(
@@ -343,15 +348,16 @@ class ImpactLogRoutesTest {
         usePostgresTestcontainer()
         val pair = seedPair()
         val owner = authedClient(pair.ownerEmail, "pw")
-        owner.createEntry(entryBody(periodStart = "2026-01-01", periodEnd = "2026-01-31", whatHappened = "January work"))
-        owner.createEntry(entryBody(periodStart = "2026-05-01", periodEnd = "2026-05-31", whatHappened = "May work"))
+        owner.createEntry(entryBody(title = "January work", periodStart = "2026-01-01", periodEnd = "2026-01-31"))
+        owner.createEntry(entryBody(title = "May work", periodStart = "2026-05-01", periodEnd = "2026-05-31"))
         // The manager's own journal entry must not leak into the owner's view.
         authedClient(pair.managerEmail, "pw").createEntry()
 
         val page = owner.get("/api/v1/impact-log").body<ImpactEntryPageResponse>()
         assertEquals(2, page.total)
         assertEquals(listOf("2026-05-01", "2026-01-01"), page.items.map { it.periodStart })
-        assertEquals("May work", page.items.first().whatHappenedPreview)
+        // Rows carry the title (v2.37.0 — the identity column; section texts never list).
+        assertEquals("May work", page.items.first().title)
         assertTrue(page.items.all { it.userId == pair.ownerId })
     }
 
@@ -375,10 +381,18 @@ class ImpactLogRoutesTest {
             .body<ImpactEntryPageResponse>()
         assertTrue(grandWide.items.any { it.userId == pair.ownerId })
 
-        // The userName substring filter composes on top (accent/case-insensitive).
+        // The userName substring filter composes on top (accent/case-insensitive)…
         val filtered = manager.get("/api/v1/impact-log?view=managed&userName=olga")
             .body<ImpactEntryPageResponse>()
         assertTrue(filtered.items.isNotEmpty() && filtered.items.all { it.userName == "Olga Owner" })
+        // …and so does the title filter (v2.37.0).
+        val byTitle = manager.get("/api/v1/impact-log?view=managed&title=quarterly report")
+            .body<ImpactEntryPageResponse>()
+        assertTrue(byTitle.items.isNotEmpty() && byTitle.items.all { it.title.contains("Quarterly report") })
+        assertEquals(
+            0,
+            manager.get("/api/v1/impact-log?view=managed&title=zzz-no-such").body<ImpactEntryPageResponse>().total,
+        )
 
         // A non-manager's managed view is an empty page, not an error.
         val empty = authedClient(pair.ownerEmail, "pw").get("/api/v1/impact-log?view=managed")

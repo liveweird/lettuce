@@ -20,6 +20,7 @@ const ENTRY = {
   id: 5,
   userId: 8,
   userName: "Olga Owner",
+  title: "Pipeline shipped",
   periodStart: "2026-07-01",
   periodEnd: "2026-07-31",
   whatHappened: "Shipped the **pipeline**",
@@ -97,6 +98,8 @@ describe("ViewImpactEntry page", () => {
     expect(screen.getByText("Why did it matter")).toBeInTheDocument();
     expect(screen.getByText("What evidence / feedback supports that")).toBeInTheDocument();
     expect(screen.getByText("Olga Owner")).toBeInTheDocument();
+    // The entry title renders in the header (v2.37.0).
+    expect(screen.getByText("Pipeline shipped")).toBeInTheDocument();
     expect(screen.getByText("Jul 1, 2026 – Jul 31, 2026")).toBeInTheDocument();
     // The viewer (id 7) is not the owner (id 8) → no Edit entry point.
     expect(screen.queryByRole("link", { name: /^edit$/i })).toBeNull();
@@ -117,6 +120,25 @@ describe("ViewImpactEntry page", () => {
     expect(
       await screen.findByText("Entry created for the period Jul 1, 2026 – Jul 31, 2026."),
     ).toBeInTheDocument();
+  });
+
+  test("each section contracts and expands independently (expanded by default)", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    // The section label doubles as the toggle (the RequesterMessage idiom) — assert via
+    // aria-expanded, not through Mantine's Collapse animation (the FilterPanel idiom).
+    const toggle = await screen.findByRole("button", { name: "My contribution" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    // A neighbor keeps its own state.
+    expect(screen.getByRole("button", { name: "What happened" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
 
   test("a 403 maps to the access wording, a 404 to not-found", async () => {

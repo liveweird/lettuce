@@ -6,6 +6,7 @@ import io.ktor.server.plugins.BadRequestException
 import kotlinx.serialization.Serializable
 
 const val MAX_IMPACT_TEXT_LENGTH = 5000
+const val MAX_IMPACT_TITLE_LENGTH = 200
 
 /**
  * Body of `POST /impact-log` and `PUT /impact-log/{id}` — the owner is always the caller (a
@@ -16,6 +17,8 @@ const val MAX_IMPACT_TEXT_LENGTH = 5000
  */
 @Serializable
 data class ImpactEntryRequest(
+    // Short single-line identity, plaintext (lists sort/filter on it — the goals.title rule).
+    val title: String,
     val periodStart: String,
     val periodEnd: String,
     val whatHappened: String,
@@ -30,6 +33,8 @@ data class ImpactEntryResponse(
     val userId: UInt,
     // Resolved owner display name.
     val userName: String,
+    // Plaintext; '' only on pre-V66 rows (required non-blank on every create/update since).
+    val title: String,
     // ISO YYYY-MM-DD, start ≤ end.
     val periodStart: String,
     val periodEnd: String,
@@ -47,10 +52,11 @@ data class ImpactEntryListItem(
     val userId: UInt,
     val userName: String,
     val userDeleted: Boolean,
+    // The row's identity on the lists (v2.37.0 — replaced the decrypted what-happened
+    // preview); section texts never ride list rows.
+    val title: String,
     val periodStart: String,
     val periodEnd: String,
-    // First 200 chars of the (decrypted) "What happened" section — the feedback-preview idiom.
-    val whatHappenedPreview: String,
     val createdAt: Long,
     val lastModified: Long,
 )
@@ -87,6 +93,10 @@ data class ImpactEntryEventListResponse(
  * a journal records history — and all four sections non-blank within the shared bound.
  */
 internal fun validateImpactEntry(request: ImpactEntryRequest) {
+    if (request.title.isBlank()) throw BadRequestException("Title must not be blank")
+    if (request.title.length > MAX_IMPACT_TITLE_LENGTH) {
+        throw BadRequestException("Title must be at most $MAX_IMPACT_TITLE_LENGTH characters")
+    }
     parseIsoDateStrict(request.periodStart, "Period start")
     parseIsoDateStrict(request.periodEnd, "Period end")
     if (request.periodStart > request.periodEnd) {

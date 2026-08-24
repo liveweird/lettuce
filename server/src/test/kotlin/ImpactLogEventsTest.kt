@@ -14,6 +14,7 @@ import kotlin.test.assertTrue
 class ImpactLogEventsTest {
 
     private fun response(
+        title: String = "Pipeline",
         periodStart: String = "2026-07-01",
         periodEnd: String = "2026-07-31",
         whatHappened: String = "Shipped it.",
@@ -24,6 +25,7 @@ class ImpactLogEventsTest {
         id = 1u,
         userId = 2u,
         userName = "Olga Owner",
+        title = title,
         periodStart = periodStart,
         periodEnd = periodEnd,
         whatHappened = whatHappened,
@@ -35,6 +37,7 @@ class ImpactLogEventsTest {
     )
 
     private fun request(
+        title: String = "Pipeline",
         periodStart: String = "2026-07-01",
         periodEnd: String = "2026-07-31",
         whatHappened: String = "Shipped it.",
@@ -42,6 +45,7 @@ class ImpactLogEventsTest {
         whyItMattered: String = "Unblocked the team.",
         evidence: String = "Kudos thread.",
     ) = ImpactEntryRequest(
+        title = title,
         periodStart = periodStart,
         periodEnd = periodEnd,
         whatHappened = whatHappened,
@@ -67,13 +71,15 @@ class ImpactLogEventsTest {
         val event = impactEntryUpdateEvent(
             response(),
             request(
+                title = "Pipeline v2",
                 periodStart = "2026-06-01",
                 evidence = "New dashboard screenshots.",
                 contribution = "Built and documented it.",
             ),
         )!!
         assertEquals(ImpactEntryEventType.UPDATED, event.type)
-        assertEquals("periodStart,contribution,evidence", event.params["changed"])
+        // Stable order: title first, then period, then the sections.
+        assertEquals("title,periodStart,contribution,evidence", event.params["changed"])
         assertEquals("2026-07-01", event.params["periodStartFrom"])
         assertEquals("2026-06-01", event.params["periodStartTo"])
         // The end date did not move — no deltas for it.

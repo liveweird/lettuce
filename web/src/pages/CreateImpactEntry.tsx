@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import { Container, Paper, Stack, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { createImpactEntry } from "../api/impactLog";
 import ConfirmActionModal from "../components/ConfirmActionModal";
-import ImpactEntryFormFields from "../components/ImpactEntryFormFields";
+import ImpactEntryWizard from "../components/ImpactEntryWizard";
 import PersonaField from "../components/PersonaField";
 import {
   emptyImpactEntryValues,
@@ -62,35 +62,27 @@ export default function CreateImpactEntry() {
   return (
     <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(save)} noValidate>
-          <Stack>
-            <Stack gap={4}>
-              <Title order={2}>{t("impactLog.createTitle")}</Title>
-              <Text c="dimmed" size="sm">
-                {t("impactLog.createHint")}
-              </Text>
-            </Stack>
-
-            <PersonaField label={t("impactLog.owner")} you />
-
-            <ImpactEntryFormFields form={form} />
-
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-
-            <Group justify="flex-end" gap="sm">
-              <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={submitting}>
-                {t("common.action.create")}
-              </Button>
-            </Group>
+        {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
+            idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
+        <Stack>
+          <Stack gap={4}>
+            <Title order={2}>{t("impactLog.createTitle")}</Title>
+            <Text c="dimmed" size="sm">
+              {t("impactLog.createHint")}
+            </Text>
           </Stack>
-        </form>
+
+          <PersonaField label={t("impactLog.owner")} you />
+
+          <ImpactEntryWizard
+            form={form}
+            submitLabel={t("common.action.create")}
+            submitting={submitting}
+            error={error}
+            onCancel={openCancel}
+            onSubmit={() => form.onSubmit(save)()}
+          />
+        </Stack>
       </Paper>
 
       <ConfirmActionModal

@@ -20,6 +20,7 @@ type ImpactLogListQuery = {
   pageSize: number;
   sort?: string;
   userName?: string;
+  title?: string;
   /** Only valid with view=managed: widen from direct reports to the whole management chain. */
   includeIndirect?: boolean;
   /** Required with view=user (the HR auditor view): whose journal to list. */
@@ -33,6 +34,7 @@ export async function listImpactEntries(q: ImpactLogListQuery): Promise<ImpactEn
     pageSize: q.pageSize,
     sort: q.sort,
     userName: q.userName,
+    title: q.title,
     includeIndirect: q.includeIndirect || undefined,
     userId: q.userId,
   });

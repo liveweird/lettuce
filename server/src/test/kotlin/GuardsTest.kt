@@ -404,6 +404,7 @@ class GuardsTest {
         id = 42u,
         userId = ownerId,
         userName = "Olga Owner",
+        title = "t",
         periodStart = "2026-07-01",
         periodEnd = "2026-07-31",
         whatHappened = "w",

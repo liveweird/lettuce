@@ -12,6 +12,8 @@
   "rowsPerPage": "Entries per page",
   "owner": "Author",
   "clearOwnerFilter": "Clear author filter",
+  "clearTitleFilter": "Clear title filter",
+  "title": "Title",
   "period": "Period",
   "periodStart": "Period start",
   "periodEnd": "Period end",
@@ -26,11 +28,11 @@
   "viewTitle": "Journal entry",
   "history": "History",
   "noHistory": "No history yet.",
-  "viewAria": "View entry {{period}}",
-  "editAria": "Edit entry {{period}}",
-  "deleteAria": "Delete entry {{period}}",
+  "viewAria": "View entry {{title}}",
+  "editAria": "Edit entry {{title}}",
+  "deleteAria": "Delete entry {{title}}",
   "deleteConfirmTitle": "Delete entry?",
-  "deleteConfirmMessage": "Delete the entry for {{period}}? Its content will no longer be readable.",
+  "deleteConfirmMessage": "Delete \"{{title}}\"? Its content will no longer be readable.",
   "deleteErrorTitle": "Failed to delete the entry",
   "discardCreateTitle": "Discard entry?",
   "discardCreateMessage": "Discard this journal entry? Anything you've written won't be saved.",
@@ -51,7 +53,9 @@
     "periodRequired": "Pick a date",
     "periodOrder": "Period start must not be after its end",
     "sectionRequired": "This section is required",
-    "sectionTooLong": "Must be at most {{max}} characters"
+    "sectionTooLong": "Must be at most {{max}} characters",
+    "titleRequired": "A title is required",
+    "titleTooLong": "Must be at most {{max}} characters"
   },
   "error": {
     "permission": "Only the journal's owner may change this entry.",
@@ -64,5 +68,17 @@
   },
   "userFallback": "user #{{id}}",
   "journalAudit": "Impact log — {{who}}",
-  "journalAuditHint": "The auditor view: {{who}}'s whole journal, read-only. Access is recorded in the security audit trail."
+  "journalAuditHint": "The auditor view: {{who}}'s whole journal, read-only. Access is recorded in the security audit trail.",
+  "step": {
+    "whatHappened": "What happened",
+    "contribution": "My contribution",
+    "whyItMattered": "Why it mattered",
+    "evidence": "Evidence",
+    "review": "Review"
+  },
+  "action": {
+    "back": "Back",
+    "next": "Next"
+  },
+  "reviewHint": "Read your entry over — you can still step back and change any section."
 }

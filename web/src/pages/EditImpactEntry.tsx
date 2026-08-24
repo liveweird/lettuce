@@ -1,16 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Center,
-  Container,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Center, Container, Group, Loader, Paper, Stack, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,7 +9,7 @@ import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getImpactEntry, updateImpactEntry } from "../api/impactLog";
 import ConfirmActionModal from "../components/ConfirmActionModal";
-import ImpactEntryFormFields from "../components/ImpactEntryFormFields";
+import ImpactEntryWizard from "../components/ImpactEntryWizard";
 import PersonaField from "../components/PersonaField";
 import {
   emptyImpactEntryValues,
@@ -101,46 +91,42 @@ export default function EditImpactEntry() {
   return (
     <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(save)} noValidate>
-          <Stack>
-            <Title order={2}>{t("impactLog.editTitle")}</Title>
+        {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
+            idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
+        <Stack>
+          <Title order={2}>{t("impactLog.editTitle")}</Title>
 
             {isLoading ? (
               <Center py="xl">
                 <Loader />
               </Center>
             ) : isError ? (
-              <Alert color="red" variant="light">
-                {loadErrorText}
-              </Alert>
+              // Load failure: the wizard (and its footer) renders only once the document
+              // arrived, so this branch keeps its own Close affordance.
+              <>
+                <Alert color="red" variant="light">
+                  {loadErrorText}
+                </Alert>
+                <Group justify="flex-end" gap="sm">
+                  <Button type="button" variant="default" onClick={() => navigate(backTo)}>
+                    {t("common.action.close")}
+                  </Button>
+                </Group>
+              </>
             ) : data ? (
               <>
                 <PersonaField label={t("impactLog.owner")} name={data.userName} you={isOwner} />
-                <ImpactEntryFormFields form={form} />
+                <ImpactEntryWizard
+                  form={form}
+                  submitLabel={t("common.action.save")}
+                  submitting={submitting}
+                  error={error}
+                  onCancel={() => (form.isDirty() ? openCancel() : navigate(backTo))}
+                  onSubmit={() => form.onSubmit(save)()}
+                />
               </>
             ) : null}
-
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-
-            <Group justify="flex-end" gap="sm">
-              <Button
-                type="button"
-                variant="default"
-                onClick={() => (form.isDirty() ? openCancel() : navigate(backTo))}
-                disabled={submitting}
-              >
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={submitting} disabled={!isOwner}>
-                {t("common.action.save")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
+        </Stack>
       </Paper>
 
       <ConfirmActionModal
