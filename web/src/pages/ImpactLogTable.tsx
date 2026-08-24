@@ -1,0 +1,285 @@
+import { Link as RouterLink } from "react-router-dom";
+import { Alert, Button, Group, Stack, Table, Text } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
+import { IconEye, IconNotebook, IconPencil, IconTrash } from "@tabler/icons-react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import {
+  deleteImpactEntry,
+  listImpactEntries,
+  type ImpactEntryListItem,
+  type ImpactLogListView,
+} from "../api/impactLog";
+import ClearableTextInput from "../components/ClearableTextInput";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import EmptyState from "../components/EmptyState";
+import FilterPanel from "../components/FilterPanel";
+import PaginationBar from "../components/PaginationBar";
+import PersonCell from "../components/PersonCell";
+import ReportsScopeSelect from "../components/ReportsScopeSelect";
+import SortHeader from "../components/SortHeader";
+import TableLoadingRow from "../components/TableLoadingRow";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
+import { usePagedSort } from "../hooks/usePagedSort";
+import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
+import { getUserId } from "../api/session";
+import { formatDate, formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { impactEntryEditLink, impactEntryViewLink } from "../utils/impactLogLinks";
+import { invalidateImpactLog } from "../utils/impactLogQueries";
+import { loadErrorMessage } from "../utils/saveError";
+
+const REPORTS_SCOPES = ["direct", "all"] as const;
+type SortField = "periodStart" | "lastModified" | "userName";
+
+/**
+ * The impact log list — one component serving the caller's own journal (`own`, with
+ * edit/delete row actions), the manager-side reading view (`managed`, read-only, optional
+ * direct/chain Reports scope), and the HR auditor drill-down (`user`, read-only). The owner
+ * column shows only where rows can belong to different people (managed/user).
+ */
+export default function ImpactLogTable({
+  view,
+  userId,
+  settingsKey,
+  backTo,
+  withReportsScope,
+}: {
+  view: ImpactLogListView;
+  /** Required with view="user" (the HR auditor view): whose journal to list. */
+  userId?: number;
+  /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
+  settingsKey?: string;
+  /** When set, action links carry a back=… override so detail pages return here. */
+  backTo?: string;
+  /** Show the "Reports" direct/all filter and derive includeIndirect from it (managed only). */
+  withReportsScope?: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const currentUserId = getUserId();
+  // Whose entry it is only varies on the cross-person views; `user` pins one person, but the
+  // audit drill-down keeps the column so the row names its author explicitly.
+  const ownerVisible = view !== "own";
+  const sortFields: readonly SortField[] = ownerVisible
+    ? ["periodStart", "userName", "lastModified"]
+    : ["periodStart", "lastModified"];
+  const columnCount = sortFields.length + 2; // + the preview and actions columns
+
+  const storeKey = settingsKey ?? `impactLog.${view}`;
+  const [ownerFilter, setOwnerFilter] = useStoredState(`${storeKey}.filter.owner`, "", isString);
+  const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
+    `${storeKey}.filter.reportsScope`,
+    "direct",
+    isOneOf(REPORTS_SCOPES),
+  );
+  const includeIndirect = withReportsScope === true && reportsScope === "all";
+  const activeFilterCount =
+    (ownerVisible && ownerFilter.trim() ? 1 : 0) + (includeIndirect ? 1 : 0);
+
+  const [debouncedOwner] = useDebouncedValue(ownerFilter, 300);
+
+  const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
+    usePagedSort<SortField>(
+      "periodStart",
+      [debouncedOwner, includeIndirect],
+      { key: storeKey, sortFields },
+      "desc", // most recent periods first (the server's default order)
+    );
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: [
+      "impactLog",
+      view,
+      userId,
+      page,
+      pageSize,
+      sortParam,
+      debouncedOwner,
+      includeIndirect,
+    ],
+    queryFn: () =>
+      listImpactEntries({
+        view,
+        page,
+        pageSize,
+        sort: sortParam,
+        userName: (ownerVisible && debouncedOwner) || undefined,
+        includeIndirect: includeIndirect || undefined,
+        userId,
+      }),
+    placeholderData: keepPreviousData,
+  });
+
+  const total = data?.total ?? 0;
+  const queryClient = useQueryClient();
+  const deleteConfirm = useDeleteConfirm<ImpactEntryListItem>({
+    mutationFn: (row) => deleteImpactEntry(row.id),
+    onSuccess: () => invalidateImpactLog(queryClient),
+    successMessage: t("impactLog.toast.deleted"),
+  });
+
+  const period = (e: ImpactEntryListItem) =>
+    `${formatIsoDate(e.periodStart, i18n.language)} – ${formatIsoDate(e.periodEnd, i18n.language)}`;
+
+  return (
+    <Stack gap="md">
+      {(ownerVisible || withReportsScope) && (
+        <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+          {ownerVisible && (
+            <ClearableTextInput
+              label={t("impactLog.owner")}
+              value={ownerFilter}
+              onChange={setOwnerFilter}
+              clearLabel={t("impactLog.clearOwnerFilter")}
+            />
+          )}
+          {withReportsScope && (
+            <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+          )}
+        </FilterPanel>
+      )}
+
+      {isError && (
+        <Alert color="red" variant="light" title={t("impactLog.loadListError")}>
+          {loadErrorMessage(error, t)}
+        </Alert>
+      )}
+
+      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>
+              <SortHeader
+                field="periodStart"
+                label={t("impactLog.period")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            {ownerVisible && (
+              <Table.Th>
+                <SortHeader
+                  field="userName"
+                  label={t("impactLog.owner")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </Table.Th>
+            )}
+            <Table.Th>{t("impactLog.whatHappened")}</Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="lastModified"
+                label={t("impactLog.lastModified")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {isLoading && !data ? (
+            <TableLoadingRow colSpan={columnCount} />
+          ) : data && data.items.length > 0 ? (
+            data.items.map((e) => {
+              // The server enforces the same rule: only the owner writes.
+              const isOwner = currentUserId != null && e.userId === currentUserId;
+              const backParam = backTo || undefined;
+              return (
+                <Table.Tr key={e.id}>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <Text size="sm">{period(e)}</Text>
+                  </Table.Td>
+                  {ownerVisible && (
+                    <Table.Td>
+                      <PersonCell
+                        userId={e.userId}
+                        name={e.userName}
+                        deleted={e.userDeleted}
+                        currentUserId={currentUserId}
+                      />
+                    </Table.Td>
+                  )}
+                  <Table.Td>
+                    <Text size="sm" lineClamp={2} style={{ wordBreak: "break-word" }}>
+                      {e.whatHappenedPreview}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(e.lastModified)}>
+                    {formatDate(e.lastModified, i18n.language)}
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap" justify="flex-end">
+                      <Button
+                        component={RouterLink}
+                        to={impactEntryViewLink(e.id, backParam)}
+                        variant="subtle"
+                        size="xs"
+                        leftSection={<IconEye size={14} />}
+                        aria-label={t("impactLog.viewAria", { period: period(e) })}
+                      >
+                        {t("common.action.view")}
+                      </Button>
+                      {isOwner && (
+                        <>
+                          <Button
+                            component={RouterLink}
+                            to={impactEntryEditLink(e.id, backParam)}
+                            variant="subtle"
+                            size="xs"
+                            leftSection={<IconPencil size={14} />}
+                            aria-label={t("impactLog.editAria", { period: period(e) })}
+                          >
+                            {t("common.action.edit")}
+                          </Button>
+                          <Button
+                            variant="subtle"
+                            size="xs"
+                            color="red"
+                            leftSection={<IconTrash size={14} />}
+                            aria-label={t("impactLog.deleteAria", { period: period(e) })}
+                            onClick={() => deleteConfirm.requestDelete(e)}
+                          >
+                            {t("common.action.delete")}
+                          </Button>
+                        </>
+                      )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })
+          ) : !isError ? (
+            <Table.Tr>
+              <Table.Td colSpan={columnCount}>
+                <EmptyState
+                  icon={<IconNotebook size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                  label={t("impactLog.noEntries")}
+                />
+              </Table.Td>
+            </Table.Tr>
+          ) : null}
+        </Table.Tbody>
+      </Table>
+
+      <PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        rowsPerPageLabelKey="impactLog.rowsPerPage"
+      />
+
+      <ConfirmDeleteModal
+        confirm={deleteConfirm}
+        title={t("impactLog.deleteConfirmTitle")}
+        errorTitle={t("impactLog.deleteErrorTitle")}
+        body={(target) => t("impactLog.deleteConfirmMessage", { period: period(target) })}
+      />
+    </Stack>
+  );
+}

@@ -38,7 +38,7 @@ enum class UserRole { ADMIN, HR }
  * "Email MFA" in `.claude/docs/security.md`).
  */
 @Serializable
-enum class Feature { FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF, PULSE_SURVEYS, MFA }
+enum class Feature { FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF, PULSE_SURVEYS, IMPACT_LOG, MFA }
 
 @Serializable
 data class User(

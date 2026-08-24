@@ -246,6 +246,9 @@ object TestServices {
     val performanceReviews: ch.nokillswit.reviews.PerformanceReviewService by lazy {
         ch.nokillswit.reviews.PerformanceReviewService(sharedTestDatabase, cipher)
     }
+    val impactLog: ch.nokillswit.impactlog.ImpactLogService by lazy {
+        ch.nokillswit.impactlog.ImpactLogService(sharedTestDatabase, cipher)
+    }
 }
 
 // The review-period timeline is GLOBAL, append-only, and gapless — shared mutable state in the

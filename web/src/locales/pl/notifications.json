@@ -70,6 +70,9 @@
     "pulseCycleOpened": "Ankieta pulsu jest otwarta — odpowiedz do {{closeDate}}.",
     "pulseResultsAvailable": "Wyniki ankiety pulsu są już dostępne.",
     "pulseCycleCancelled": "Ankieta pulsu zaplanowana na {{openDate}} została anulowana.",
+    "impactEntryCreated": "{{author}} — osoba, która Ci podlega — dodał/a wpis do dziennika wpływu za okres {{periodStart}} – {{periodEnd}}.",
+    "impactEntryUpdated": "{{author}} — osoba, która Ci podlega — zaktualizował/a wpis w dzienniku wpływu za okres {{periodStart}} – {{periodEnd}}.",
+    "impactEntryDeleted": "{{author}} — osoba, która Ci podlega — usunął/usunęła wpis z dziennika wpływu za okres {{periodStart}} – {{periodEnd}}.",
     "careerPositionStarted": "{{manager}} odnotował/a nowe stanowisko w Twojej historii kariery, obowiązujące od {{startDate}}."
   },
   "delete": "Usuń",

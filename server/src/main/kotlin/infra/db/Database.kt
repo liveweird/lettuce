@@ -18,6 +18,10 @@ import ch.nokillswit.goals.GoalEventService
 import ch.nokillswit.goals.GoalEventServiceKey
 import ch.nokillswit.goals.GoalService
 import ch.nokillswit.goals.GoalServiceKey
+import ch.nokillswit.impactlog.ImpactLogEventService
+import ch.nokillswit.impactlog.ImpactLogEventServiceKey
+import ch.nokillswit.impactlog.ImpactLogService
+import ch.nokillswit.impactlog.ImpactLogServiceKey
 import ch.nokillswit.infra.crypto.FieldCipherKey
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
@@ -85,6 +89,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(AppSettingsServiceKey, AppSettingsService(database))
     attributes.put(PulseCycleServiceKey, PulseCycleService(database))
     attributes.put(PulseResponseServiceKey, PulseResponseService(database, attributes[FieldCipherKey]))
+    attributes.put(ImpactLogServiceKey, ImpactLogService(database, attributes[FieldCipherKey]))
+    attributes.put(ImpactLogEventServiceKey, ImpactLogEventService(database))
     // The email mirror (v2.3.0): configureMail runs before this module, so the transport and
     // appUrl are readable; the Application is the CoroutineScope its fire-and-forget sends
     // ride on (the password-reset launch precedent).

@@ -45,12 +45,12 @@ import {
   IconMail,
   IconMessageCircle,
   IconMoon,
+  IconNotebook,
   IconSettings,
   IconStairs,
   IconStairsUp,
   IconSun,
   IconTargetArrow,
-  IconUserScan,
   IconUsers,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -88,7 +88,6 @@ const Kudos = lazy(() => import("./pages/Kudos"));
 const CreateFeedback = lazy(() => import("./pages/CreateFeedback"));
 const RequestFeedback = lazy(() => import("./pages/RequestFeedback"));
 const AskFeedback = lazy(() => import("./pages/AskFeedback"));
-const SelfReflection = lazy(() => import("./pages/SelfReflection"));
 const EditFeedback = lazy(() => import("./pages/EditFeedback"));
 const ViewFeedback = lazy(() => import("./pages/ViewFeedback"));
 const ManagerFeedbacks = lazy(() => import("./pages/ManagerFeedbacks"));
@@ -102,6 +101,11 @@ const MyGoals = lazy(() => import("./pages/MyGoals"));
 const CreateGoal = lazy(() => import("./pages/CreateGoal"));
 const EditGoal = lazy(() => import("./pages/EditGoal"));
 const ViewGoal = lazy(() => import("./pages/ViewGoal"));
+const ImpactLog = lazy(() => import("./pages/ImpactLog"));
+const UserImpactLog = lazy(() => import("./pages/UserImpactLog"));
+const CreateImpactEntry = lazy(() => import("./pages/CreateImpactEntry"));
+const EditImpactEntry = lazy(() => import("./pages/EditImpactEntry"));
+const ViewImpactEntry = lazy(() => import("./pages/ViewImpactEntry"));
 const MyTeamKpis = lazy(() => import("./pages/MyTeamKpis"));
 const CreateTeamKpi = lazy(() => import("./pages/CreateTeamKpi"));
 const EditTeamKpi = lazy(() => import("./pages/EditTeamKpi"));
@@ -188,6 +192,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/kudos", label: "appShell.nav.kudos", icon: IconConfetti, tourId: "nav-kudos", feature: "FEEDBACKS" },
   { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones", feature: "ONE_ON_ONES" },
   { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals", feature: "GOALS" },
+  { to: "/impact-log", label: "appShell.nav.impactLog", icon: IconNotebook, tourId: "nav-impact-log", feature: "IMPACT_LOG" },
   { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis", feature: "TEAM_KPIS" },
   {
     to: "/performance",
@@ -403,7 +408,6 @@ function Shell() {
   const dynamicItems: NavLeaf[] =
     userId !== null
       ? [
-          { to: "/feedback/self", label: "appShell.nav.selfReflection", icon: IconUserScan, tourId: "nav-self-reflection", feature: "FEEDBACKS" },
           { to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" },
         ]
       : [];
@@ -616,7 +620,6 @@ export default function App() {
             <Route path="feedback/new" element={<CreateFeedback />} />
             <Route path="feedback/request" element={<RequestFeedback />} />
             <Route path="feedback/ask" element={<AskFeedback />} />
-            <Route path="feedback/self" element={<SelfReflection />} />
             <Route path="feedback/:id/edit" element={<EditFeedback />} />
             <Route path="feedback/:id/view" element={<ViewFeedback />} />
             <Route path="users/:userId/feedbacks" element={<ManagerFeedbacks />} />
@@ -630,6 +633,11 @@ export default function App() {
             <Route path="goals/new" element={<CreateGoal />} />
             <Route path="goals/:id/edit" element={<EditGoal />} />
             <Route path="goals/:id/view" element={<ViewGoal />} />
+            <Route path="impact-log" element={<ImpactLog />} />
+            <Route path="users/:userId/impact-log" element={<UserImpactLog />} />
+            <Route path="impact-log/new" element={<CreateImpactEntry />} />
+            <Route path="impact-log/:id/edit" element={<EditImpactEntry />} />
+            <Route path="impact-log/:id/view" element={<ViewImpactEntry />} />
             <Route path="team-kpis" element={<MyTeamKpis />} />
             <Route path="team-kpis/new" element={<CreateTeamKpi />} />
             <Route path="team-kpis/:id/edit" element={<EditTeamKpi />} />

@@ -43,6 +43,9 @@ class NotificationEmailTest {
         "openDate" to "2026-09-01",
         "closeDate" to "2026-09-08",
         "cycleId" to "7",
+        "author" to "Olga Owner",
+        "periodStart" to "2026-07-01",
+        "periodEnd" to "2026-07-31",
     )
 
     private val greetings = mapOf("en" to "Hi Rae Recipient,", "pl" to "Cześć Rae Recipient,")
@@ -150,6 +153,27 @@ class NotificationEmailTest {
             allParams + ("operation" to "ADD"), null, null, "pl",
         )!!
         assertTrue("dodał/dodała 4.5 dni" in add.body)
+    }
+
+    @Test
+    fun `impact log entries word the author and period in both languages`() {
+        val createdEn = notificationEmailContent(
+            "R", NotificationType.IMPACT_ENTRY_CREATED_TO_MANAGER, allParams, null, null, "en",
+        )!!
+        assertEquals("Lettuce: impact log", createdEn.subject)
+        assertTrue(
+            "Olga Owner, who reports to you, added an impact log entry for the period 2026-07-01 – 2026-07-31." in
+                createdEn.body,
+            createdEn.body,
+        )
+        val updatedPl = notificationEmailContent(
+            "R", NotificationType.IMPACT_ENTRY_UPDATED_TO_MANAGER, allParams, null, null, "pl",
+        )!!
+        assertTrue("zaktualizował/a wpis w dzienniku wpływu" in updatedPl.body, updatedPl.body)
+        val deletedPl = notificationEmailContent(
+            "R", NotificationType.IMPACT_ENTRY_DELETED_TO_MANAGER, allParams, null, null, "pl",
+        )!!
+        assertTrue("usunął/usunęła wpis z dziennika wpływu" in deletedPl.body, deletedPl.body)
     }
 
     @Test

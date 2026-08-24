@@ -1,0 +1,68 @@
+{
+  "sectionTitle": "Dziennik wpływu",
+  "tab": {
+    "own": "Mój dziennik",
+    "managed": "Dzienniki moich podwładnych"
+  },
+  "myJournalHint": "Twój osobisty dziennik osiągnięć — co się wydarzyło, jaki był Twój wkład, dlaczego miało to znaczenie i co to potwierdza. Twoi menedżerowie mogą go czytać; tylko Ty w nim piszesz.",
+  "managedHint": "Dzienniki osób, które Ci podlegają — tylko do odczytu. Filtr Podwładni może poszerzyć listę o cały Twój łańcuch zarządzania.",
+  "newEntry": "Nowy wpis",
+  "noEntries": "Brak wpisów w dzienniku.",
+  "loadListError": "Nie udało się wczytać dziennika wpływu",
+  "rowsPerPage": "Wpisów na stronę",
+  "owner": "Autor/ka",
+  "clearOwnerFilter": "Wyczyść filtr autora",
+  "period": "Okres",
+  "periodStart": "Początek okresu",
+  "periodEnd": "Koniec okresu",
+  "whatHappened": "Co się wydarzyło",
+  "contribution": "Mój wkład",
+  "whyItMattered": "Dlaczego miało to znaczenie",
+  "evidence": "Jakie dowody / feedback to potwierdzają",
+  "lastModified": "Ostatnia zmiana",
+  "createTitle": "Nowy wpis w dzienniku",
+  "createHint": "Zapisz osiągnięcie: okres, którego dotyczy, i cztery sekcje poniżej. Twoi bezpośredni menedżerowie zostaną powiadomieni.",
+  "editTitle": "Edytuj wpis w dzienniku",
+  "viewTitle": "Wpis w dzienniku",
+  "history": "Historia",
+  "noHistory": "Brak historii.",
+  "viewAria": "Zobacz wpis {{period}}",
+  "editAria": "Edytuj wpis {{period}}",
+  "deleteAria": "Usuń wpis {{period}}",
+  "deleteConfirmTitle": "Usunąć wpis?",
+  "deleteConfirmMessage": "Usunąć wpis za okres {{period}}? Jego treść przestanie być dostępna.",
+  "deleteErrorTitle": "Nie udało się usunąć wpisu",
+  "discardCreateTitle": "Odrzucić wpis?",
+  "discardCreateMessage": "Odrzucić ten wpis? Nic, co napisałeś/aś, nie zostanie zapisane.",
+  "discardChangesTitle": "Odrzucić zmiany?",
+  "discardChangesMessage": "Odrzucić zmiany? Wpis pozostanie bez zmian.",
+  "event": {
+    "created": "Utworzono wpis za okres {{periodStart}} – {{periodEnd}}.",
+    "updated": "Zaktualizowano wpis: {{fields}}.",
+    "periodDelta": "{{label}}: {{from}} → {{to}}",
+    "deleted": "Usunięto wpis."
+  },
+  "toast": {
+    "created": "Wpis dodany do dziennika",
+    "updated": "Wpis zaktualizowany",
+    "deleted": "Wpis usunięty"
+  },
+  "validation": {
+    "periodRequired": "Wybierz datę",
+    "periodOrder": "Początek okresu nie może być po jego końcu",
+    "sectionRequired": "Ta sekcja jest wymagana",
+    "sectionTooLong": "Maksymalnie {{max}} znaków"
+  },
+  "error": {
+    "permission": "Tylko właściciel/ka dziennika może zmienić ten wpis.",
+    "notFound": "Ten wpis już nie istnieje.",
+    "invalid": "Wpis jest nieprawidłowy — sprawdź okres i cztery sekcje.",
+    "saveFailed": "Nie udało się zapisać wpisu. Spróbuj ponownie.",
+    "saveFailedStatus": "Nie udało się zapisać wpisu (HTTP {{status}}).",
+    "loadFailed": "Nie udało się wczytać wpisu.",
+    "viewPermission": "Nie masz dostępu do tego wpisu."
+  },
+  "userFallback": "użytkownik #{{id}}",
+  "journalAudit": "Dziennik wpływu — {{who}}",
+  "journalAuditHint": "Widok audytora: cały dziennik {{who}}, tylko do odczytu. Dostęp jest zapisywany w dzienniku audytu bezpieczeństwa."
+}

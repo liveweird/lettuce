@@ -47,8 +47,11 @@ for any new or edited spec:
   lifecycle-rest = (AAA Two ← Manager AAA), hr = (AAA Three ← Manager AAA), manager-oversight =
   (AAA One ← Manager AAA, created directly as SENT — no open window), triage = the two
   self-requested (AAA One/Two ← Manager AAA) triples, third-party = (AAA One ← AAA Three, req.
-  Manager AAA), self-reflection = (AAA Two ← AAA Two), kudos = (AAA Three ← AAA Two, created
+  Manager AAA), kudos = (AAA Three ← AAA Two, created
   directly as SENT — no open window). Pick an unclaimed triple or a throwaway.
+- **Impact-log journals are per-owner state**: `impact-log.spec` exclusively owns AAA Two's
+  journal (entries deleted in-test with an API `afterEach` fallback); a future spec touching
+  impact-log rows must pick another owner or a throwaway.
 - **Bells**: presence asserts on a seed account's bell must be text-filtered
   (`notificationCard`); *count/badge/mark-all-as-seen* asserts belong only on a **throwaway**
   recipient (`notifications.spec` is the template) — seed bells receive concurrent traffic.
@@ -101,6 +104,7 @@ scenario file is the design.
 - [`feedback-request-triage.spec.ts`](scenarios/feedback-request-triage.md) — ask → accept → send; and reject.
 - [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, the skip-level chain create (v2.33.0), notifications.
 - [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08); admin gets no audit surface.
+- [`impact-log.spec.ts`](scenarios/impact-log.md) — the accomplishment journal (v2.36.0): owner creates/edits/deletes with History, the manager reads via My subordinates' journals.
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
 - [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
@@ -113,7 +117,6 @@ scenario file is the design.
 - [`password-reset.spec.ts`](scenarios/password-reset.md) — the Forgot-password flow (neutral answers, working new password; Mailpit-gated).
 - [`performance-reviews.spec.ts`](scenarios/performance-reviews.md) — review periods, the full review lifecycle, Distribution + Quadrants views.
 - [`pulse.spec.ts`](scenarios/pulse.md) — the pulse cycle end to end: schedule/open/fill/monitor/close/results/trend/cancel (own serial phase).
-- [`self-reflection.spec.ts`](scenarios/self-reflection.md) — feedback about oneself, delivered to the Provided tab.
 - [`team-kpis.spec.ts`](scenarios/team-kpis.md) — the team-KPI lifecycle, data points + graph, member notifications, the v2.26.0 member data entry (add row live, lifecycle withheld).
 - [`teams.spec.ts`](scenarios/teams.md) — team CRUD, roster edits, admin-only manager reassignment.
 - [`templates.spec.ts`](scenarios/templates.md) — template CRUD + Insert into the feedback editor.

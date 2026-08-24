@@ -100,16 +100,16 @@ export default function RequestFeedback() {
   const duplicates = duplicateData ?? NO_DUPLICATES;
   const hasDuplicates = selected.some((p) => duplicates.has(p.id));
 
-  // A provider cannot be the requester (requester ≠ provider) and cannot be already chosen.
-  // The subject IS offered: picking them asks the subject for a self-reflection
-  // (provider == subject — see "Self-reflection" in the backend rules).
+  // A provider cannot be the requester (requester ≠ provider), cannot be the subject
+  // (provider ≠ subject since v2.36.0 — requesting a self-reflection is gone with the
+  // feature), and cannot be already chosen.
   const addOptions = useMemo(() => {
     const chosen = new Set(selected.map((p) => p.id));
     return (userPool ?? [])
-      .filter((u) => u.id !== requesterId && !chosen.has(u.id))
+      .filter((u) => u.id !== requesterId && u.id !== subjectId && !chosen.has(u.id))
       .map((u) => ({ value: String(u.id), label: u.name }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [userPool, selected, requesterId]);
+  }, [userPool, selected, requesterId, subjectId]);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;

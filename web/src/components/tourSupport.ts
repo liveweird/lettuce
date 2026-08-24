@@ -82,6 +82,8 @@ export const TOUR_STEPS: TourStepDef[] = [
   // The managed tab header only mounts for managers — the gate keeps waitForElement from
   // burning its timeout on a target that never appears.
   { target: '[data-tour="goals-managed"]', contentKey: "tour.steps.goalsManaged", placement: "bottom", navTo: "/goals?tab=managed", managerOnly: true , feature: "GOALS" },
+  // Impact log — the personal accomplishment journal (v2.36.0, the Self-reflection successor).
+  { target: '[data-tour="nav-impact-log"]', contentKey: "tour.steps.impactLog", placement: "right", navTo: "/impact-log" , feature: "IMPACT_LOG" },
   // Team KPIs — the same shape as Goals: everyone has the member view, managers a second tab.
   { target: '[data-tour="nav-team-kpis"]', contentKey: "tour.steps.teamKpis", placement: "right", navTo: "/team-kpis" , feature: "TEAM_KPIS" },
   { target: '[data-tour="team-kpis-own"]', contentKey: "tour.steps.teamKpisOwn", placement: "bottom", navTo: "/team-kpis?tab=own" , feature: "TEAM_KPIS" },
@@ -129,7 +131,6 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="nav-dictionaries"]', contentKey: "tour.steps.dictionaries", placement: "right", navTo: "/dictionaries/career-paths" },
   // The remaining left-menu leaves — each anchors on the navbar leaf but also opens the actual
   // screen behind it. The whole left menu is toured before the header icons below.
-  { target: '[data-tour="nav-self-reflection"]', contentKey: "tour.steps.selfReflection", placement: "right", navTo: "/feedback/self" , feature: "FEEDBACKS" },
   { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right", navTo: "/users/:userId/change-password" },
   // Email notifications lives only in the header account menu (no navbar leaf), so its step
   // anchors on the opened screen's page title instead — the config-leaf idiom.

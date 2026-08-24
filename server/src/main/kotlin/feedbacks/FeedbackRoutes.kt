@@ -202,6 +202,12 @@ fun Application.configureFeedbackRoutes() {
                 if (caller.userId != feedback.providerId && caller.userId != feedback.requesterId) {
                     throw ForbiddenException("You may only create feedback you provide or request")
                 }
+                // Feedback about yourself (the retired self-reflection feature, v2.36.0) is
+                // rejected at CREATE only — legacy provider == subject rows stay fully
+                // readable, editable, and transitionable (the Impact log is the replacement).
+                if (feedback.providerId == feedback.subjectId) {
+                    throw BadRequestException("Feedback about yourself is not supported")
+                }
                 // After the authz guard (403 wins over 400): no NEW feedback involving a
                 // deactivated party. The caller is one of them and holds a session, so this
                 // can only trip on the OTHER parties — including them all is simplest.

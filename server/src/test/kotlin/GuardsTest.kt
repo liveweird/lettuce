@@ -397,4 +397,47 @@ class GuardsTest {
             }
         }
     }
+
+    // ── impact log ─────────────────────────────────────────────────────────────
+
+    private fun impactEntry(ownerId: UInt) = ch.nokillswit.impactlog.ImpactEntryResponse(
+        id = 42u,
+        userId = ownerId,
+        userName = "Olga Owner",
+        periodStart = "2026-07-01",
+        periodEnd = "2026-07-31",
+        whatHappened = "w",
+        contribution = "c",
+        whyItMattered = "y",
+        evidence = "e",
+        createdAt = 1L,
+        lastModified = 1L,
+    )
+
+    @Test
+    fun `impact entry reads admit the owner, the chain, and hr - admin and strangers are shut out`() {
+        runBlocking {
+            val entry = impactEntry(ownerId = subject.userId)
+            // Owner passes without the chain walk; HR passes BEFORE the lambda (no DB hit).
+            ch.nokillswit.authz.requireImpactEntryRead(subject, entry) { error("owner must not walk the chain") }
+            ch.nokillswit.authz.requireImpactEntryRead(hr, entry) { error("HR must not walk the chain") }
+            ch.nokillswit.authz.requireImpactEntryRead(stranger, entry) { true } // chain manager
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireImpactEntryRead(stranger, entry) { false }
+            }
+            // ADMIN deliberately gets nothing (the narrowed-ADMIN rule).
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireImpactEntryRead(admin, entry) { false }
+            }
+        }
+    }
+
+    @Test
+    fun `impact entry writes are owner-only - the chain read right carries no pen`() {
+        val entry = impactEntry(ownerId = subject.userId)
+        ch.nokillswit.authz.requireImpactEntryWrite(subject, entry)
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireImpactEntryWrite(stranger, entry) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireImpactEntryWrite(admin, entry) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireImpactEntryWrite(hr, entry) }
+    }
 }

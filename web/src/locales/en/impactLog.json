@@ -1,0 +1,68 @@
+{
+  "sectionTitle": "Impact log",
+  "tab": {
+    "own": "My journal",
+    "managed": "My subordinates' journals"
+  },
+  "myJournalHint": "Your personal journal of accomplishments — what happened, what you contributed, why it mattered, and what backs it up. Your managers can read it; only you write it.",
+  "managedHint": "The journals of the people who report to you — read-only. The Reports filter can widen the list to your whole management chain.",
+  "newEntry": "New entry",
+  "noEntries": "No journal entries.",
+  "loadListError": "Failed to load the impact log",
+  "rowsPerPage": "Entries per page",
+  "owner": "Author",
+  "clearOwnerFilter": "Clear author filter",
+  "period": "Period",
+  "periodStart": "Period start",
+  "periodEnd": "Period end",
+  "whatHappened": "What happened",
+  "contribution": "My contribution",
+  "whyItMattered": "Why did it matter",
+  "evidence": "What evidence / feedback supports that",
+  "lastModified": "Last modified",
+  "createTitle": "New journal entry",
+  "createHint": "Record an accomplishment: the period it covers and the four sections below. Your direct managers will be notified.",
+  "editTitle": "Edit journal entry",
+  "viewTitle": "Journal entry",
+  "history": "History",
+  "noHistory": "No history yet.",
+  "viewAria": "View entry {{period}}",
+  "editAria": "Edit entry {{period}}",
+  "deleteAria": "Delete entry {{period}}",
+  "deleteConfirmTitle": "Delete entry?",
+  "deleteConfirmMessage": "Delete the entry for {{period}}? Its content will no longer be readable.",
+  "deleteErrorTitle": "Failed to delete the entry",
+  "discardCreateTitle": "Discard entry?",
+  "discardCreateMessage": "Discard this journal entry? Anything you've written won't be saved.",
+  "discardChangesTitle": "Discard changes?",
+  "discardChangesMessage": "Discard your changes? The entry will remain as it was.",
+  "event": {
+    "created": "Entry created for the period {{periodStart}} – {{periodEnd}}.",
+    "updated": "Entry updated: {{fields}}.",
+    "periodDelta": "{{label}}: {{from}} → {{to}}",
+    "deleted": "Entry deleted."
+  },
+  "toast": {
+    "created": "Journal entry created",
+    "updated": "Journal entry updated",
+    "deleted": "Journal entry deleted"
+  },
+  "validation": {
+    "periodRequired": "Pick a date",
+    "periodOrder": "Period start must not be after its end",
+    "sectionRequired": "This section is required",
+    "sectionTooLong": "Must be at most {{max}} characters"
+  },
+  "error": {
+    "permission": "Only the journal's owner may change this entry.",
+    "notFound": "This entry no longer exists.",
+    "invalid": "The entry is invalid — check the period and the four sections.",
+    "saveFailed": "Failed to save the entry. Please try again.",
+    "saveFailedStatus": "Failed to save the entry (HTTP {{status}}).",
+    "loadFailed": "Failed to load the entry.",
+    "viewPermission": "You don't have access to this entry."
+  },
+  "userFallback": "user #{{id}}",
+  "journalAudit": "Impact log — {{who}}",
+  "journalAuditHint": "The auditor view: {{who}}'s whole journal, read-only. Access is recorded in the security audit trail."
+}

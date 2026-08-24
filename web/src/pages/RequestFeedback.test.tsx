@@ -88,7 +88,7 @@ describe("RequestFeedback page", () => {
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates");
   });
 
-  test("shows the subject and a provider picker that excludes only the requester", async () => {
+  test("shows the subject and a provider picker that excludes the requester and the subject", async () => {
     setupMocks(mockFetch, () => jsonResponse(201, { id: 1 }));
     const user = userEvent.setup();
     renderRequestFeedback();
@@ -105,34 +105,12 @@ describe("RequestFeedback page", () => {
     expect(await screen.findByRole("option", { name: "Alice Provider", hidden: true })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Bob Provider", hidden: true })).toBeInTheDocument();
 
-    // The requester (Me, id 3) is filtered out; the subject (Mona, id 7) IS offered —
-    // picking them requests a self-reflection (provider == subject).
+    // The requester (Me, id 3) AND the subject (Mona, id 7) are filtered out — requesting a
+    // self-reflection went away with the feature (v2.36.0).
     await user.clear(picker);
     await user.type(picker, "M");
-    expect(await screen.findByRole("option", { name: "Mona Subject", hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Mona Subject", hidden: true })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Me Myself", hidden: true })).not.toBeInTheDocument();
-  });
-
-  test("requesting from the subject submits a self-reflection request (provider == subject)", async () => {
-    const bodies: unknown[] = [];
-    setupMocks(mockFetch, (init) => {
-      bodies.push(JSON.parse((init as RequestInit).body as string));
-      return jsonResponse(201, { id: 55 });
-    });
-    const user = userEvent.setup();
-    renderRequestFeedback();
-
-    await screen.findAllByText("Mona Subject");
-    await addProvider(user, "Mona Subject");
-    await user.click(screen.getByRole("button", { name: /^request$/i }));
-
-    await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]).toMatchObject({
-      requesterId: 3,
-      subjectId: 7,
-      providerId: 7,
-      status: "REQUESTED",
-    });
   });
 
   test("a selected provider with an existing request is flagged and blocks submitting", async () => {

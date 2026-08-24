@@ -21,10 +21,11 @@ internal fun feedbackTransitionNotifications(
     nameById: Map<UInt, String>,
     subjectManagerNames: Map<UInt, String> = emptyMap(),
 ): List<Notification> {
-    // provider == subject is a SELF-REFLECTION. Its transitions are performed by that very
-    // person, so the subject/provider-directed notifications below would tell the acting user
-    // about their own action — they are filtered out at the end. Requester-directed ones (a
-    // requested self-reflection) survive, worded via the `self` i18next context.
+    // provider == subject is a LEGACY SELF-REFLECTION row (new ones are rejected at create
+    // since v2.36.0, but stored rows still transition). Its transitions are performed by that
+    // very person, so the subject/provider-directed notifications below would tell the acting
+    // user about their own action — they are filtered out at the end. Requester-directed ones
+    // (a requested self-reflection) survive, worded via the `self` i18next context.
     val isSelfReflection = next.subjectId == next.providerId
     val selfParams = if (isSelfReflection) mapOf("self" to "self") else emptyMap()
 

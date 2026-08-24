@@ -9,7 +9,8 @@ import kotlinx.serialization.Serializable
  * produced by feedbacks/FeedbackNotifications.kt, oneonones/OneOnOneNotifications.kt,
  * goals/GoalNotifications.kt, teamkpis/TeamKpiNotifications.kt,
  * reviews/PerformanceReviewNotifications.kt, daysoff/DaysOffNotifications.kt,
- * pulse/PulseNotifications.kt, and the password-change paths (users/UserRoutes.kt,
+ * pulse/PulseNotifications.kt, impactlog/ImpactLogNotifications.kt,
+ * and the password-change paths (users/UserRoutes.kt,
  * auth/AuthRoutes.kt); the SPA renders each one in the viewer's language from
  * `notifications.event.*` keys.
  */
@@ -56,6 +57,9 @@ enum class NotificationType {
     PULSE_CYCLE_OPENED,
     PULSE_RESULTS_AVAILABLE,
     PULSE_CYCLE_CANCELLED,
+    IMPACT_ENTRY_CREATED_TO_MANAGER,
+    IMPACT_ENTRY_UPDATED_TO_MANAGER,
+    IMPACT_ENTRY_DELETED_TO_MANAGER,
     CAREER_POSITION_STARTED_TO_USER,
     PASSWORD_CHANGED,
 }
@@ -117,6 +121,10 @@ val NotificationType.feature: Feature?
         NotificationType.PULSE_RESULTS_AVAILABLE,
         NotificationType.PULSE_CYCLE_CANCELLED,
         -> Feature.PULSE_SURVEYS
+        NotificationType.IMPACT_ENTRY_CREATED_TO_MANAGER,
+        NotificationType.IMPACT_ENTRY_UPDATED_TO_MANAGER,
+        NotificationType.IMPACT_ENTRY_DELETED_TO_MANAGER,
+        -> Feature.IMPACT_LOG
         // Career positions ride the ungated users area (v2.15.0) — feature-neutral like the
         // password notice, never filtered by a flag.
         NotificationType.CAREER_POSITION_STARTED_TO_USER,

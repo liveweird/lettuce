@@ -121,6 +121,9 @@ class FeatureFlagsTest {
             "/api/v1/public-holidays",
             "/api/v1/pulse-surveys/cycles",
             "/api/v1/pulse-surveys/visible-teams",
+            "/api/v1/impact-log",
+            // The feature 403 precedes even the 404 — a disabled caller learns nothing.
+            "/api/v1/impact-log/999999999",
         )
         gated.forEach { path ->
             assertEquals(HttpStatusCode.Forbidden, blocked.get(path).status, "expected 403 for $path")
@@ -320,6 +323,7 @@ class FeatureFlagsTest {
                 type.name.startsWith("PERFORMANCE_REVIEW_") -> Feature.PERFORMANCE_REVIEWS
                 type.name.startsWith("DAYS_OFF_") -> Feature.DAYS_OFF
                 type.name.startsWith("PULSE_") -> Feature.PULSE_SURVEYS
+                type.name.startsWith("IMPACT_ENTRY_") -> Feature.IMPACT_LOG
                 else -> error("Unclassified notification type $type — extend the mapping test")
             }
             assertEquals(expected, type.feature, "mapping for $type")

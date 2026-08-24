@@ -228,13 +228,14 @@ describe("Tour", () => {
     }
   });
 
-  test("buildSteps with all seven features disabled keeps only the non-feature steps", () => {
+  test("buildSteps with all eight features disabled keeps only the non-feature steps", () => {
     localStorage.setItem(
       "lettuce.auth.disabledFeatures",
       JSON.stringify([
         "FEEDBACKS",
         "ONE_ON_ONES",
         "GOALS",
+        "IMPACT_LOG",
         "TEAM_KPIS",
         "PERFORMANCE_REVIEWS",
         "DAYS_OFF",
@@ -316,6 +317,7 @@ describe("Tour", () => {
       { target: '[data-tour="nav-my-goals"]', path: "/goals" },
       { target: '[data-tour="goals-own"]', path: "/goals?tab=own" },
       { target: '[data-tour="goals-managed"]', path: "/goals?tab=managed" },
+      { target: '[data-tour="nav-impact-log"]', path: "/impact-log" },
       { target: '[data-tour="nav-team-kpis"]', path: "/team-kpis" },
       { target: '[data-tour="team-kpis-own"]', path: "/team-kpis?tab=own" },
       { target: '[data-tour="team-kpis-managed"]', path: "/team-kpis?tab=managed" },
@@ -348,7 +350,6 @@ describe("Tour", () => {
       // The Dictionaries group step opens the first of its four lists.
       { target: '[data-tour="nav-dictionaries"]', path: "/dictionaries/career-paths" },
       // These anchor on the navbar leaf but also open the actual screen (":userId" resolved).
-      { target: '[data-tour="nav-self-reflection"]', path: "/feedback/self" },
       { target: '[data-tour="nav-change-password"]', path: "/users/7/change-password" },
       // Email notifications has no navbar leaf (account-menu only) — the step opens the screen
       // and anchors on its page title, the config-leaf idiom.
@@ -388,9 +389,9 @@ describe("Tour", () => {
     await account!.before!({} as never);
     expect(navigateTo).not.toHaveBeenCalled();
     // Static navTo steps are unaffected by the missing id.
-    const selfReflection = steps.find((s) => s.target === '[data-tour="nav-self-reflection"]');
-    await selfReflection!.before!({} as never);
-    expect(navigateTo).toHaveBeenCalledWith("/feedback/self", '[data-tour="nav-self-reflection"]');
+    const impactLog = steps.find((s) => s.target === '[data-tour="nav-impact-log"]');
+    await impactLog!.before!({} as never);
+    expect(navigateTo).toHaveBeenCalledWith("/impact-log", '[data-tour="nav-impact-log"]');
   });
 
   test("every step disables Joyride scrolling and pins the window to the top itself", async () => {

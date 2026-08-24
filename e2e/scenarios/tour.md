@@ -16,8 +16,8 @@
      manager but not an ADMIN, so the three admin-only Config leaves (Pulse cycles, Feature
      flags, Alerts) are absent.
    - *Expected*: the documented landmarks appear each exactly in order, strictly one after
-     another — the whole left menu (Feedback, Kudos, 1:1 meetings, Goals, Team KPIs,
-     Performance, Career, Days off, Pulse, Config, Self-reflection, Changelog included) and
+     another — the whole left menu (Feedback, Kudos, 1:1 meetings, Goals, Impact log, Team
+     KPIs, Performance, Career, Days off, Pulse, Config, Changelog included) and
      every tab of the views those sections open (My goals / Goals I've set, My performance /
      Team's performance, My career / Team pyramid, Calendar / My requests / My team, Current
      survey / Results / Trend / Participation, Review periods / Public holidays /

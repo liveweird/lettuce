@@ -33,6 +33,7 @@ const FEATURE_LISTED: Record<components["schemas"]["Feature"], true> = {
   FEEDBACKS: true,
   ONE_ON_ONES: true,
   GOALS: true,
+  IMPACT_LOG: true,
   TEAM_KPIS: true,
   PERFORMANCE_REVIEWS: true,
   DAYS_OFF: true,
