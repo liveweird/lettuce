@@ -70,7 +70,7 @@ export default function ImpactLogTable({
   const sortFields: readonly SortField[] = ownerVisible
     ? ["periodStart", "userName", "title", "lastModified"]
     : ["periodStart", "title", "lastModified"];
-  const columnCount = sortFields.length + 2; // + the preview and actions columns
+  const columnCount = sortFields.length + 1; // + the actions column (the preview left in V66)
 
   const storeKey = settingsKey ?? `impactLog.${view}`;
   const [ownerFilter, setOwnerFilter] = useStoredState(`${storeKey}.filter.owner`, "", isString);

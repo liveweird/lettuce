@@ -1,14 +1,16 @@
-import { dynamicKey } from "../utils/i18nKey";
 import { Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
+import type { ParseKeys, TFunction } from "i18next";
 import { listImpactEntryEvents, type ImpactEntryEvent } from "../api/impactLog";
 import { formatIsoDate } from "../utils/datetime";
 import EventTimeline from "./EventTimeline";
 
 // The changed-field vocabulary of the UPDATED event's `changed` list → the field labels.
-const FIELD_LABELS: Record<string, string> = {
+// ParseKeys values (never string) so a typo or a missing key fails tsc — the lookup key is
+// server-supplied, but this value union is statically known (the web/CLAUDE.md typing rule).
+const FIELD_LABELS: Record<string, ParseKeys> = {
+  title: "impactLog.title",
   periodStart: "impactLog.periodStart",
   periodEnd: "impactLog.periodEnd",
   whatHappened: "impactLog.whatHappened",
@@ -34,7 +36,7 @@ function describeEvent(e: ImpactEntryEvent, t: TFunction, locale: string): strin
         // A field name this client build doesn't know renders raw (forward-compat).
         .map((f) => {
           const key = FIELD_LABELS[f];
-          return key ? t(dynamicKey(key)) : f;
+          return key ? t(key) : f;
         })
         .join(", ");
       return t("impactLog.event.updated", { fields });

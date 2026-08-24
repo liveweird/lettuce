@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.40.1",
+    date: "2026-08-25",
+    en: `Fixes from the latest review round. The Impact log button on a team page's member cards now opens that person's journal — it used to send managers to their own journal instead. Renaming a journal entry now shows up properly in its history ("Title" instead of a raw technical token, in both languages). Journal tables no longer reserve space for a column that was removed a while ago, and a few small internal inconsistencies were tidied up along the way.`,
+    pl: `Poprawki z ostatniej rundy przeglądu. Przycisk Dziennik wpływu na kartach członków strony zespołu otwiera teraz dziennik tej osoby — wcześniej odsyłał menedżerów do ich własnego dziennika. Zmiana tytułu wpisu w dzienniku wyświetla się teraz poprawnie w jego historii („Tytuł" zamiast surowego technicznego tokenu, w obu językach). Tabele dziennika nie rezerwują już miejsca na kolumnę usuniętą jakiś czas temu, a przy okazji uporządkowaliśmy kilka drobnych wewnętrznych niespójności.`,
+  },
+  {
     version: "2.40.0",
     date: "2026-08-24",
     en: `The org chart got readable at depth. The chart now flows left to right instead of top to bottom, so an organization three or more levels deep reads as a tree instead of a paper-thin band stretching off the screen. Team nodes also gained a chevron: collapse a team to fold its members away — including anything they manage further down — and the node shows how many people it is hiding. Everything starts expanded, and expanding a team brings its whole branch back.`,

@@ -5,6 +5,7 @@ import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.auth.RefreshRequest
 import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.impactlog.ImpactEntryRequest
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
@@ -142,6 +143,22 @@ class FeatureFlagsTest {
             )
         }
         assertEquals(HttpStatusCode.Forbidden, write.status)
+        // The impact-log create too — exercised so conformance sees its declared gate 403.
+        val impactWrite = blocked.post("/api/v1/impact-log") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                ImpactEntryRequest(
+                    title = "x",
+                    periodStart = "2026-01-01",
+                    periodEnd = "2026-01-31",
+                    whatHappened = "x",
+                    contribution = "x",
+                    whyItMattered = "x",
+                    evidence = "x",
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Forbidden, impactWrite.status)
         // Ungated areas keep working: users, notifications, dashboard. (The users list is
         // scoped to the caller's own email — an unfiltered page would surface other tests'
         // seeded `@test` addresses, which the conformance validator's email format rejects.)

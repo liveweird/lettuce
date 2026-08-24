@@ -2694,6 +2694,7 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
   /api/v1/impact-log/{id}:
@@ -2762,6 +2763,7 @@ paths:
         notified.
       responses:
         '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ImpactEntryNotOwner' }
         '404': { $ref: '#/components/responses/NotFound' }

@@ -43,14 +43,8 @@ export default function ImpactLog() {
       <Title order={2}>{t("impactLog.sectionTitle")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="own" data-tour="impact-log-own">
-            {t("impactLog.tab.own")}
-          </Tabs.Tab>
-          {isManager && (
-            <Tabs.Tab value="managed" data-tour="impact-log-managed">
-              {t("impactLog.tab.managed")}
-            </Tabs.Tab>
-          )}
+          <Tabs.Tab value="own">{t("impactLog.tab.own")}</Tabs.Tab>
+          {isManager && <Tabs.Tab value="managed">{t("impactLog.tab.managed")}</Tabs.Tab>}
         </Tabs.List>
 
         <Tabs.Panel value="own" pt="md">

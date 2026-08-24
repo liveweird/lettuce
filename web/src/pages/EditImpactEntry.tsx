@@ -121,7 +121,7 @@ export default function EditImpactEntry() {
                   submitLabel={t("common.action.save")}
                   submitting={submitting}
                   error={error}
-                  onCancel={() => (form.isDirty() ? openCancel() : navigate(backTo))}
+                  onCancel={openCancel}
                   onSubmit={() => form.onSubmit(save)()}
                 />
               </>

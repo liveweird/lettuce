@@ -3,7 +3,7 @@
   "hint": "How the organization fits together: a manager runs each team, members belong to it, and a member may manage a team of their own. Click a person for their details, a team for its roster; the chevron on a team folds its members away.",
   "collapseAria": "Collapse team {{name}}",
   "expandAria": "Expand team {{name}}",
-  "hiddenMembers": "+{{count}}",
+  "hiddenMembers": "+{{n}}",
   "legendManages": "manages",
   "legendMember": "member",
   "deletedTag": "(deleted)",
