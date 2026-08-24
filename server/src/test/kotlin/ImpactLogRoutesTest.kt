@@ -155,6 +155,10 @@ class ImpactLogRoutesTest {
         )
         // A single-day period (start == end) is fine.
         owner.createEntry(entryBody(periodStart = "2026-07-15", periodEnd = "2026-07-15"))
+
+        // A negative id 400s via the central pre-routing intercept (MT-005) — exercised on the
+        // delete so conformance sees the operation's declared 400.
+        assertEquals(HttpStatusCode.BadRequest, owner.delete("/api/v1/impact-log/-1").status)
     }
 
     // ---- read authorization ----

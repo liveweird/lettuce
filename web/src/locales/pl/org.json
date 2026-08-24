@@ -3,7 +3,7 @@
   "hint": "Jak organizacja się składa: każdym zespołem kieruje menedżer, członkowie do niego należą, a członek może kierować własnym zespołem. Kliknij osobę, aby zobaczyć jej szczegóły, albo zespół, aby zobaczyć jego skład; strzałka przy zespole zwija jego członków.",
   "collapseAria": "Zwiń zespół {{name}}",
   "expandAria": "Rozwiń zespół {{name}}",
-  "hiddenMembers": "+{{count}}",
+  "hiddenMembers": "+{{n}}",
   "legendManages": "kieruje",
   "legendMember": "członek",
   "deletedTag": "(usunięty/a)",

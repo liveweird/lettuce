@@ -41,7 +41,7 @@ describe("ImpactLogHistory", () => {
         items: [
           event("CREATED", { periodStart: "2026-07-01", periodEnd: "2026-07-31" }),
           event("UPDATED", {
-            changed: "periodEnd,contribution",
+            changed: "title,periodEnd,contribution",
             periodEndFrom: "2026-07-31",
             periodEndTo: "2026-08-15",
           }),
@@ -54,8 +54,9 @@ describe("ImpactLogHistory", () => {
     expect(
       await screen.findByText("Entry created for the period Jul 1, 2026 – Jul 31, 2026."),
     ).toBeInTheDocument();
-    // The UPDATED event names the changed fields with the section labels…
-    expect(screen.getByText("Entry updated: Period end, My contribution.")).toBeInTheDocument();
+    // The UPDATED event names the changed fields with their labels — the V66 title included
+    // (v2.40.1: it used to render as the raw wire token).
+    expect(screen.getByText("Entry updated: Title, Period end, My contribution.")).toBeInTheDocument();
     // …and the moved period bound renders its delta as a body line.
     expect(screen.getByText("Period end: Jul 31, 2026 → Aug 15, 2026")).toBeInTheDocument();
     expect(screen.getByText("Entry deleted.")).toBeInTheDocument();

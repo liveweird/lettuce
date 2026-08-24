@@ -284,6 +284,23 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByRole("link", { name: /impact log of/i })).toBeNull();
   });
 
+  test("the pinned team embedding addresses drill-downs with the team origin - Impact log included", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" teamId={4} emptyMessage="No team members" />);
+
+    // Without teamId the origin degrades to "managers" and UserImpactLog bounces the manager
+    // to their own journal — the v2.40.1 fix gave userImpactLogLink the teamId its siblings
+    // always had.
+    expect(await screen.findByRole("link", { name: "Impact log of Bob Brown" })).toHaveAttribute(
+      "href",
+      "/users/11/impact-log?name=Bob%20Brown&from=team&teamId=4",
+    );
+    expect(screen.getByRole("link", { name: "Performance reviews of Bob Brown" })).toHaveAttribute(
+      "href",
+      "/users/11/performance-reviews?name=Bob%20Brown&from=team&teamId=4",
+    );
+  });
+
   test("peer cards carry the career column - a null seniority stays hidden (v2.25.0)", async () => {
     // The server blanks a peer's seniority (private outside the chain), so null is
     // ambiguous — the row is omitted rather than showing a misleading "Not set".

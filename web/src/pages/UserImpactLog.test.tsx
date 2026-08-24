@@ -56,6 +56,19 @@ describe("UserImpactLog page", () => {
     expect(listCall).toContain("includeIndirect=true");
   });
 
+  test("the team-details drill-down (from=team&teamId): the manager branch renders, no bounce", async () => {
+    renderPage("/users/8/impact-log?name=Olga+Owner&from=team&teamId=4");
+
+    // The team origin (teamId present) implies the caller manages, so the pinned managed
+    // view renders — the v2.40.1 fix: the card button now carries teamId like its siblings.
+    expect(await screen.findByText("Impact log — Olga Owner")).toBeInTheDocument();
+    const listCall = mockFetch.mock.calls
+      .map((c) => String(c[0]))
+      .find((u) => u.includes("/api/v1/impact-log?"));
+    expect(listCall).toContain("view=managed");
+    expect(listCall).toContain("userId=8");
+  });
+
   test("audit mode (HR caller): the read-only user view, audit wording", async () => {
     localStorage.setItem(ROLES_KEY, JSON.stringify(["HR"]));
     renderPage("/users/8/impact-log?name=Olga+Owner&from=details&mode=audit");

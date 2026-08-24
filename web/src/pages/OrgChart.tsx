@@ -179,7 +179,7 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
       </UnstyledButton>
       {data.collapsed && (
         <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-          {t("org.hiddenMembers", { count: data.memberCount })}
+          {t("org.hiddenMembers", { n: data.memberCount })}
         </Text>
       )}
       <Handle type="source" position={Position.Right} style={HANDLE_STYLE} isConnectable={false} />

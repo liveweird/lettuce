@@ -127,7 +127,7 @@ export default function PersonCardActions({
     goals: userGoalsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     reviews: userPerformanceReviewsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     daysOff: userDaysOffLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
-    impactLog: userImpactLogLink(userId, name, drillFrom ?? "details", audit, drillOpts),
+    impactLog: userImpactLogLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
   };
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];

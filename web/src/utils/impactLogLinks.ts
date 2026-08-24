@@ -6,7 +6,7 @@ import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSea
 
 /** The entry create screen, optionally with a return target. */
 export function impactEntryCreateLink(back?: string): string {
-  return `/impact-log/new${back ? `?back=${encodeURIComponent(back)}` : ""}`;
+  return `/impact-log/new${detailSearch(undefined, back)}`;
 }
 
 /** The read-only entry document (Content/History tabs). */
@@ -27,10 +27,12 @@ export function userImpactLogLink(
   userId: number,
   name: string,
   from: string,
+  teamId?: number,
   audit?: boolean,
   opts?: DrillDownOpts,
 ): string {
   let url = `/users/${userId}/impact-log?name=${encodeURIComponent(name)}&from=${from}`;
+  if (teamId != null) url += `&teamId=${teamId}`;
   if (audit) url += `&mode=audit`;
   return url + drillDownOptsSearch(opts);
 }
