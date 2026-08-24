@@ -33,7 +33,8 @@ import kotlin.test.assertTrue
 
 /**
  * The career position timeline (v2.15.0; full-triple writes since v2.15.1): CRUD with the
- * derived end dates (the start-only model), the append/correct ordering rules (409), the
+ * derived end dates (the start-only model), the insert/correct ordering rules (409; past
+ * inserts backfill history since v2.39.0), the
  * transitive-chain write guard vs the any-authenticated read, dictionary-ref validation and
  * resolution (renames propagate, soft-deleted refs keep resolving, corrections resubmitting
  * a stale ref never trip over it), the current-position triple flowing into the user
@@ -222,7 +223,7 @@ class CareerPositionRoutesTest {
         }
 
     @Test
-    fun `ordering and shape rules - append-after-latest, between-neighbors, 400 sweep`() = testApplication {
+    fun `ordering and shape rules - insert anywhere, date collision, between-neighbors, 400 sweep`() = testApplication {
         usePostgresTestcontainer()
         val mgrEmail = uniqueEmail("cpo-m")
         val subEmail = uniqueEmail("cpo-s")
@@ -245,9 +246,28 @@ class CareerPositionRoutesTest {
         val b = create("2020-01-10", path = pathB).body<CareerPositionResponse>()
         val c = create("2022-01-10", path = pathC).body<CareerPositionResponse>()
 
-        // Appends must come strictly after the latest start (equal included).
+        // An exact start-date collision is 409 — the only date-based create conflict since
+        // v2.39.0 (the triple here differs from every neighbor, so it IS the date).
         assertEquals(HttpStatusCode.Conflict, create("2022-01-10").status)
-        assertEquals(HttpStatusCode.Conflict, create("2021-01-01").status)
+
+        // A PAST insert succeeds now (v2.39.0 backfill): it lands mid-span of b, which is
+        // split there — the new row takes the remainder up to c. The 201 body's endDate is
+        // derived against the FULL timeline (a single-row derivation would say open-ended).
+        val dResp = create("2021-01-01")
+        assertEquals(HttpStatusCode.Created, dResp.status)
+        val d = dResp.body<CareerPositionResponse>()
+        assertEquals("2022-01-09", d.endDate)
+        val afterMidSpan = manager.listPositions(subId)
+        assertEquals(listOf(a.id, b.id, d.id, c.id), afterMidSpan.map { it.id })
+        assertEquals(
+            listOf("2020-01-09", "2020-12-31", "2022-01-09", null),
+            afterMidSpan.map { it.endDate },
+        )
+
+        // A new EARLIEST position ends the day before the previously-earliest start (rule 1
+        // of the backfill semantics — again straight in the 201 body).
+        val e = create("2015-05-05", path = pathB).body<CareerPositionResponse>()
+        assertEquals("2018-01-09", e.endDate)
 
         // A correction must keep the row between its neighbors (strictly); each row keeps
         // its own path, so only the date rule is in play here.
@@ -263,8 +283,8 @@ class CareerPositionRoutesTest {
         assertEquals(HttpStatusCode.Conflict, correct(b.id, "2023-01-01", pathB))
         // The LAST row has no next neighbor — any date after its predecessor works (not future).
         assertEquals(HttpStatusCode.NoContent, correct(c.id, "2021-11-11", pathC))
-        // The FIRST row has no previous neighbor — it may move arbitrarily far back.
-        assertEquals(HttpStatusCode.NoContent, correct(a.id, "2015-01-01", pathA))
+        // The FIRST row (e since the backfill) has no previous neighbor — arbitrarily far back.
+        assertEquals(HttpStatusCode.NoContent, correct(e.id, "2010-01-01", pathB))
 
         // Shape 400s: malformed/unpadded/future dates, any missing triple field, bad refs.
         assertEquals(HttpStatusCode.BadRequest, create("2023-1-05").status)
@@ -322,6 +342,21 @@ class CareerPositionRoutesTest {
         assertEquals(HttpStatusCode.NoContent, correct(a.id, "2018-03-01", pathC))
         assertEquals(listOf(pathC, pathB, pathC), manager.listPositions(subId).map { it.careerPath?.id })
         assertTrue(c.id > 0u)
+
+        // A backfilled insert (v2.39.0) must differ from BOTH of its date-determined
+        // neighbors — here a (pathC) and b (pathB) — while a third triple slots right in.
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.createPosition(subId, "2019-03-01", pathC, specId, levelId).status,
+        )
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.createPosition(subId, "2019-03-01", pathB, specId, levelId).status,
+        )
+        assertEquals(
+            HttpStatusCode.Created,
+            manager.createPosition(subId, "2019-03-01", pathA, specId, levelId).status,
+        )
     }
 
     @Test

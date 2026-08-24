@@ -500,12 +500,19 @@ export interface paths {
         put?: never;
         /**
          * Start a new position (chain managers only)
-         * @description Appends a position to the user's timeline, implicitly concluding the current one the
-         *     day before the new `startDate`. Caller must be a manager in the user's TRANSITIVE
-         *     management chain — nobody else (not the user, not ADMIN, not HR). The start date must
-         *     be strictly after the current position's start and not in the future (with one day of timezone tolerance — clients submit their local date); all three refs
-         *     are required (v2.15.1), each an ACTIVE entry of its dictionary; the triple must
-         *     differ from the current position's (v2.15.2 — a repeat of the same career path,
+         * @description Inserts a position into the user's timeline at any non-future `startDate` (past
+         *     inserts backfill forgotten history since v2.39.0 — before that the timeline was
+         *     append-only). The derived-end model resolves the neighbors automatically: an append
+         *     concludes the current position the day before the new start; a new EARLIEST position
+         *     ends the day before the previously-earliest start; a start landing mid-span of a
+         *     past position splits it there — the new position takes over the remainder until the
+         *     next one begins (a bounded stint with the old role resuming afterwards = two
+         *     inserts). Caller must be a manager in the user's TRANSITIVE management chain —
+         *     nobody else (not the user, not ADMIN, not HR). The start date must not collide with
+         *     an existing position's (409) and not be in the future (with one day of timezone
+         *     tolerance — clients submit their local date); all three refs are required (v2.15.1),
+         *     each an ACTIVE entry of its dictionary; the triple must differ from BOTH
+         *     chronological neighbors' (v2.15.2 — a repeat of the same career path,
          *     specialization, and seniority is not a step, 409). A DEACTIVATED user is `400`
          *     (v2.17.0 — recording a new position is a new assignment; corrections and deletions
          *     of history stay allowed).
@@ -3681,8 +3688,9 @@ export interface components {
         CareerPositionWrite: {
             /**
              * Format: date
-             * @description Strict zero-padded ISO YYYY-MM-DD, not in the future (one day of timezone tolerance). Create: strictly after the
-             *     current position's start (409 otherwise). Correct: strictly between the
+             * @description Strict zero-padded ISO YYYY-MM-DD, not in the future (one day of timezone
+             *     tolerance). Create: any date no existing position starts on (409 on a collision;
+             *     past dates backfill history since v2.39.0). Correct: strictly between the
              *     neighboring positions' starts (409 otherwise).
              */
             startDate: string;
@@ -6907,7 +6915,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description The start date does not come after the current position's start, or the triple is identical to the current position's */
+            /** @description A position already starts on that date, or the triple is identical to a chronologically neighboring position's */
             409: {
                 headers: {
                     [name: string]: unknown;

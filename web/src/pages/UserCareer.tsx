@@ -79,7 +79,8 @@ function toBody(draft: Draft) {
 function PositionForm({
   initial,
   seedPosition,
-  forbiddenTriples,
+  forbiddenTriplesFor,
+  takenStartDates,
   editing,
   submitting,
   onSubmit,
@@ -88,8 +89,14 @@ function PositionForm({
   initial: Draft;
   /** The position whose values seeded [initial] — its (possibly soft-deleted) entries keep displaying. */
   seedPosition?: CareerPosition;
-  /** The neighboring positions' triple keys the draft must differ from (the server's v2.15.2 409). */
-  forbiddenTriples: string[];
+  /**
+   * The neighboring positions' triple keys the draft must differ from (the server's v2.15.2
+   * 409), BY the drafted start date — a past insert (v2.39.0) lands between different
+   * neighbors than an append, so the forbidden set follows the date ("" = none yet).
+   */
+  forbiddenTriplesFor: (startDate: string) => string[];
+  /** Existing start dates the draft must not collide with (the server's v2.39.0 409). */
+  takenStartDates: string[];
   editing: boolean;
   submitting: boolean;
   onSubmit: (draft: Draft) => void;
@@ -99,8 +106,9 @@ function PositionForm({
   const [draft, setDraft] = useState<Draft>(initial);
   const draftKey = tripleKey(draft);
   // "" = not all three set yet — the required-fields rule already blocks that case.
-  const sameAsNeighbor = draftKey !== "" && forbiddenTriples.includes(draftKey);
-  const draftValid = draft.startDate !== "" && draftKey !== "" && !sameAsNeighbor;
+  const sameAsNeighbor = draftKey !== "" && forbiddenTriplesFor(draft.startDate).includes(draftKey);
+  const duplicateStart = draft.startDate !== "" && takenStartDates.includes(draft.startDate);
+  const draftValid = draft.startDate !== "" && draftKey !== "" && !sameAsNeighbor && !duplicateStart;
 
   return (
     <Stack gap="xs">
@@ -156,6 +164,11 @@ function PositionForm({
           {t(editing ? "users.career.sameAsNeighborEdit" : "users.career.sameAsNeighbor")}
         </Text>
       )}
+      {duplicateStart && (
+        <Text size="xs" c="dimmed">
+          {t("users.career.duplicateStart")}
+        </Text>
+      )}
       <Group justify="flex-end" gap="sm">
         {onCancel != null && (
           <Button variant="default" disabled={submitting} onClick={onCancel}>
@@ -179,8 +192,9 @@ function PositionForm({
  * The per-user career progression drill-down (`/users/:userId/career`, v2.15.0): the position
  * timeline, newest first, the current (open-ended) position emphasized. Readable by ANY
  * authenticated caller — deliberately NO manager redirect (the new-position notification
- * deep-links the person here with a bare URL); the editor — start a new position (concluding
- * the current one), correct a row, delete a row — renders off the envelope's server-computed
+ * deep-links the person here with a bare URL); the editor — record a position (an append
+ * concludes the current one; a past start backfills history, v2.39.0 — the timeline
+ * re-derives the ends), correct a row, delete a row — renders off the envelope's server-computed
  * `canEdit` capability (v2.34.0: the caller is in the user's transitive chain; the old
  * `manages=1` URL-param trust is gone).
  */
@@ -207,15 +221,26 @@ export default function UserCareer() {
 
   const who = name ?? t("users.career.userFallback", { id: userId });
   const editingPosition = editingId != null ? positions?.find((p) => p.id === editingId) : undefined;
-  // The triples the draft must differ from (the adjacent-sameness rule, v2.15.2): the current
-  // position when adding; the chronological neighbors of the edited row when correcting.
-  // Legacy partial neighbors resolve to null and never block.
+  // The triples the draft must differ from (the adjacent-sameness rule, v2.15.2): when adding,
+  // the chronological neighbors of the DRAFTED start date (a past insert lands between
+  // different rows than an append, v2.39.0); when correcting, the edited row's own neighbors
+  // (the PUT keeps the row in place). Legacy partial neighbors resolve to null and never block.
   const editingIndex = editingPosition != null && positions ? positions.indexOf(editingPosition) : -1;
-  const forbiddenTriples = (
+  const editForbiddenTriples =
     editingIndex >= 0
       ? [neighborTripleKey(positions?.[editingIndex - 1]), neighborTripleKey(positions?.[editingIndex + 1])]
-      : [neighborTripleKey(currentPosition)]
-  ).filter((k): k is string => k != null);
+          .filter((k): k is string => k != null)
+      : [];
+  function addForbiddenTriplesFor(startDate: string): string[] {
+    if (positions == null || startDate === "") return [];
+    // Chronological ascending, strict ISO — lexicographic comparison is chronological.
+    const prev = positions.filter((p) => p.startDate < startDate).at(-1);
+    const next = positions.find((p) => p.startDate > startDate);
+    return [neighborTripleKey(prev), neighborTripleKey(next)].filter((k): k is string => k != null);
+  }
+  const takenStartDates = (positions ?? [])
+    .filter((p) => p.id !== editingPosition?.id)
+    .map((p) => p.startDate);
 
   async function run(action: () => Promise<unknown>, successKey: ParseKeys) {
     setSubmitting(true);
@@ -299,7 +324,8 @@ export default function UserCareer() {
             }
             initial={editingPosition != null ? draftOf(editingPosition) : addDraftOf(currentPosition)}
             seedPosition={editingPosition ?? currentPosition}
-            forbiddenTriples={forbiddenTriples}
+            forbiddenTriplesFor={editingPosition != null ? () => editForbiddenTriples : addForbiddenTriplesFor}
+            takenStartDates={takenStartDates}
             editing={editingPosition != null}
             submitting={submitting}
             onSubmit={submit}

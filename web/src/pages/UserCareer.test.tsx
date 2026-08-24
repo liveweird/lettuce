@@ -270,7 +270,7 @@ describe("UserCareer", () => {
 
     expect(
       await screen.findByText(
-        "The position conflicts with its neighbors: the start date must keep the order, and the values must not repeat a neighboring position.",
+        "The position conflicts with its neighbors: no two positions may start on the same date, a correction must keep the order, and the values must not repeat a neighboring position.",
       ),
     ).toBeInTheDocument();
   });
@@ -291,7 +291,7 @@ describe("UserCareer", () => {
     expect(screen.getByRole("button", { name: "Start position" })).toBeDisabled();
     expect(
       screen.getByText(
-        "This repeats the current position exactly — change at least one of the three fields.",
+        "This repeats a neighboring position exactly — change at least one of the three fields.",
       ),
     ).toBeInTheDocument();
 
@@ -300,7 +300,7 @@ describe("UserCareer", () => {
     await user.click(await screen.findByRole("option", { name: "Engineer" }));
     expect(
       screen.queryByText(
-        "This repeats the current position exactly — change at least one of the three fields.",
+        "This repeats a neighboring position exactly — change at least one of the three fields.",
       ),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start position" })).toBeEnabled();
@@ -325,5 +325,71 @@ describe("UserCareer", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+  });
+
+  test("adding with a past date checks sameness against the date-determined neighbors", async () => {
+    setupMocks({ canEdit: true });
+    const user = userEvent.setup();
+    renderPage("/users/9/career?name=R&from=subordinates");
+
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/^Career path/, { selector: "input" }) as HTMLInputElement).value,
+      ).toBe("Senior Engineer"),
+    );
+    // Shape the draft into the FIRST position's exact triple (11|21|31)…
+    const pathInput = screen.getByLabelText(/^Career path/, { selector: "input" });
+    await waitFor(() => expect(pathInput).not.toBeDisabled());
+    fireEvent.click(pathInput);
+    await user.click(await screen.findByRole("option", { name: "Engineer" }));
+    fireEvent.click(screen.getByLabelText(/^Seniority level/, { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "Junior" }));
+    // …dated mid-span of that first position: its predecessor IS the first position — blocked.
+    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2020-01-01" } });
+    expect(
+      screen.getByText(
+        "This repeats a neighboring position exactly — change at least one of the three fields.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start position" })).toBeDisabled();
+
+    // The SAME triple dated after the current position has a different predecessor (12|21|32)
+    // — the forbidden set follows the date (v2.39.0), so the submit enables.
+    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2024-03-01" } });
+    expect(
+      screen.queryByText(
+        "This repeats a neighboring position exactly — change at least one of the three fields.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start position" })).toBeEnabled();
+  });
+
+  test("an existing start date blocks the submit with the duplicate-date note", async () => {
+    setupMocks({ canEdit: true });
+    const user = userEvent.setup();
+    renderPage("/users/9/career?name=R&from=subordinates");
+
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/^Career path/, { selector: "input" }) as HTMLInputElement).value,
+      ).toBe("Senior Engineer"),
+    );
+    // A changed path keeps the sameness rule out of the way — the note below is the date's.
+    const pathInput = screen.getByLabelText(/^Career path/, { selector: "input" });
+    await waitFor(() => expect(pathInput).not.toBeDisabled());
+    fireEvent.click(pathInput);
+    await user.click(await screen.findByRole("option", { name: "Engineer" }));
+    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2019-02-01" } });
+    expect(
+      screen.getByText("Another position already starts on this date — pick a different start date."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start position" })).toBeDisabled();
+
+    // A free date clears it.
+    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2019-03-01" } });
+    expect(
+      screen.queryByText("Another position already starts on this date — pick a different start date."),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start position" })).toBeEnabled();
   });
 });
