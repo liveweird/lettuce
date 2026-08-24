@@ -51,7 +51,7 @@
     "configUsers": "Users — the people directory (admins manage accounts).",
     "configTeams": "Teams — teams and their membership.",
     "configOrg": "Org chart — the whole organization on one canvas: managers, their teams, and the members below, including members who manage teams of their own.",
-    "configTemplates": "Templates — reusable feedback templates.",
+    "configTemplates": "Feedback templates — reusable templates for feedback content.",
     "configReviewPeriods": "Review periods — the timeline of periods that performance reviews are written for. Everyone can read it; admins append the next period.",
     "configPublicHolidays": "Public holidays — the non-working days that days-off requests are costed against. Everyone can read it; admins maintain it.",
     "configPulseCycles": "Pulse cycles — schedule a pulse survey, open it, and close it when you have enough answers. You see participation counts here, never individual answers.",
