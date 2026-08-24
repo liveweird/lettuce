@@ -51,7 +51,7 @@
     "configUsers": "Użytkownicy — katalog osób (administratorzy zarządzają kontami).",
     "configTeams": "Zespoły — zespoły i ich członkowie.",
     "configOrg": "Struktura organizacji — cała organizacja na jednym diagramie: menedżerowie, ich zespoły i członkowie, w tym członkowie kierujący własnymi zespołami.",
-    "configTemplates": "Szablony — szablony feedbacku do wielokrotnego użytku.",
+    "configTemplates": "Szablony feedbacku — treści feedbacku do wielokrotnego użytku.",
     "configReviewPeriods": "Okresy ocen — oś czasu okresów, za które powstają oceny okresowe. Każdy może ją przeglądać, a administratorzy dodają kolejny okres.",
     "configPublicHolidays": "Święta — dni wolne od pracy, według których liczymy koszt wniosków o dni wolne. Każdy może je przeglądać, a administratorzy nimi zarządzają.",
     "configPulseCycles": "Cykle pulsu — zaplanuj ankietę pulsu, otwórz ją i zamknij, gdy zbierzesz dość odpowiedzi. Widzisz tu liczbę odpowiedzi, nigdy pojedyncze odpowiedzi.",

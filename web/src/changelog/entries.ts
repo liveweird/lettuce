@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.38.1",
+    date: "2026-08-24",
+    en: `The Config section's "Templates" menu entry is now called "Feedback templates" — saying what the templates are actually for, and leaving room for templates on other topics in the future.`,
+    pl: `Pozycja „Szablony" w sekcji Konfiguracja nazywa się teraz „Szablony feedbacku" — mówi wprost, do czego te szablony służą, i zostawia miejsce na szablony innych rzeczy w przyszłości.`,
+  },
+  {
     version: "2.38.0",
     date: "2026-08-24",
     en: `Managers can now jump straight from a person to their journal. On a subordinate's card — the dashboard's subordinates grid and the person's details page — the Performance section gained an Impact log button next to Performance reviews: it opens that person's journal entries in a read-only list (indirect reports included), with the usual sorting and filters. The same drill-down keeps working for HR auditors from the Audit section, as before.`,

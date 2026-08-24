@@ -82,7 +82,7 @@ describe("App shell", () => {
       // manual click, so its sibling links are visible.
       renderApp("/users");
       expect(await screen.findByRole("link", { name: /^teams$/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /^templates$/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /^feedback templates$/i })).toBeInTheDocument();
     });
 
     test("Review periods is a Config leaf for everyone; Alerts stays admin-only", async () => {
