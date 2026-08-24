@@ -51,7 +51,7 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   { path: "/days-off", heading: "Days off" },
   { path: "/pulse", heading: "Pulse surveys" },
   { path: "/org", heading: "Org chart" },
-  { path: "/templates", heading: "Templates" },
+  { path: "/templates", heading: "Feedback templates" },
   { path: "/dictionaries/career-paths", heading: "Career paths" },
   { path: "/alerts", heading: "Alerts" },
   { path: "/changelog", heading: "Changelog" },
