@@ -34,7 +34,7 @@ export type PositionedOrgNode = OrgNode & { x: number; y: number };
 // Fixed node boxes: dagre needs sizes up front, and the node components size themselves to
 // match (truncating long names) — the FeedbackLifecycle fixed-geometry idiom.
 export const PERSON_NODE_SIZE = { width: 220, height: 52 };
-export const TEAM_NODE_SIZE = { width: 180, height: 46 };
+export const TEAM_NODE_SIZE = { width: 220, height: 46 };
 export const SECTION_NODE_SIZE = { width: 220, height: 24 };
 
 export const UNATTACHED_SECTION_ID = "sec-unattached";
@@ -109,12 +109,61 @@ export function buildOrgGraph(
   return { nodes, edges };
 }
 
+/**
+ * The pure collapse filter, run BEFORE layout. Collapsing a team hides "the details within
+ * the team": its member edges die, and any node whose every full-graph inbound edge is dead
+ * hides too — computed as a fixpoint, so a hidden member's own managed teams and their
+ * subtrees cascade away, while a member reachable through another (expanded) team survives.
+ * Roots (no inbound edges — top managers, unattached people) never hide, so nobody leaks
+ * into the "Not in any team" section. The collapsed team node itself and its manages edge
+ * stay visible (its own inbound is untouched); it disappears only when an ancestor collapse
+ * hides its manager — correct, it IS that ancestor's detail — and reappears, still collapsed,
+ * on re-expand. On a pathological management cycle (already tolerated by the layout's
+ * acyclicer) collapsing a cycle team can fold the whole cycle away — accepted: the chart's
+ * only duty on corrupt org data is not crashing, and the state resets with the page.
+ * An empty set is the identity — the default (all expanded).
+ */
+export function applyCollapse(
+  nodes: OrgNode[],
+  edges: OrgEdge[],
+  collapsedTeamIds: ReadonlySet<string>,
+): { nodes: OrgNode[]; edges: OrgEdge[] } {
+  if (collapsedTeamIds.size === 0) return { nodes, edges };
+
+  const hidden = new Set<string>();
+  const inbound = new Map<string, OrgEdge[]>();
+  for (const edge of edges) {
+    const list = inbound.get(edge.target);
+    if (list) list.push(edge);
+    else inbound.set(edge.target, [edge]);
+  }
+  const isDead = (edge: OrgEdge) =>
+    hidden.has(edge.source) || (edge.kind === "member" && collapsedTeamIds.has(edge.source));
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [target, incoming] of inbound) {
+      if (!hidden.has(target) && incoming.every(isDead)) {
+        hidden.add(target);
+        changed = true;
+      }
+    }
+  }
+
+  return {
+    nodes: nodes.filter((node) => !hidden.has(node.id)),
+    edges: edges.filter((edge) => !hidden.has(edge.target) && !isDead(edge)),
+  };
+}
+
 const SECTION_GAP = 64; // clear break between the chart proper and the unattached rows
 const SECTION_NODE_GAP = 24; // matches dagre's nodesep
 const MIN_SECTION_COLUMNS = 3;
 
 /**
- * Dagre top-to-bottom layout of the edge-attached subgraph. `acyclicer: "greedy"` keeps
+ * Dagre left-to-right layout of the edge-attached subgraph (LR since v2.40.0 — top-down made
+ * deep orgs pancake into an unreadably wide, shallow band). `acyclicer: "greedy"` keeps
  * pathological management cycles (the backend's chain walker tolerates them, so the chart must
  * too) from crashing the layout. Dagre reports node centers; React Flow positions by top-left
  * corner — hence the conversion. Edge-less person nodes (people in no team — a team node always
@@ -132,7 +181,7 @@ export function layoutOrgGraph(nodes: OrgNode[], edges: OrgEdge[]): PositionedOr
   const unattached = nodes.filter((node) => !attachedIds.has(node.id));
 
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "TB", ranksep: 48, nodesep: SECTION_NODE_GAP, acyclicer: "greedy" });
+  g.setGraph({ rankdir: "LR", ranksep: 64, nodesep: SECTION_NODE_GAP, acyclicer: "greedy" });
   g.setDefaultEdgeLabel(() => ({}));
   for (const node of attached) g.setNode(node.id, { ...sizeOf(node) });
   for (const edge of edges) g.setEdge(edge.source, edge.target);

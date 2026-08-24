@@ -23,7 +23,7 @@ vi.mock("@xyflow/react", () => ({
   Controls: () => null,
   Background: () => null,
   BackgroundVariant: { Dots: "dots" },
-  Position: { Top: "top", Bottom: "bottom" },
+  Position: { Top: "top", Bottom: "bottom", Left: "left", Right: "right" },
   MarkerType: { ArrowClosed: "arrowclosed" },
 }));
 
@@ -125,6 +125,31 @@ describe("OrgChart page", () => {
 
     await user.click(screen.getByRole("button", { name: "User details for Manager AAA" }));
     expect(screen.getByTestId("probe")).toHaveTextContent("/users/10/details?name=Manager+AAA&from=org");
+  });
+
+  test("collapsing a team folds its members and their subtrees away; expanding restores them", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderOrg();
+
+    expect(await screen.findByText("AAA One")).toBeInTheDocument();
+    // A team with no members gets no toggle at all.
+    expect(screen.queryByRole("button", { name: /team Orphan/ })).not.toBeInTheDocument();
+
+    // Collapsing CCC hides its member (Manager AAA) AND cascades through the team they
+    // manage: AAA and AAA One fold away too. Only the two manages edges into CCC/Orphan stay.
+    await user.click(screen.getByRole("button", { name: "Collapse team CCC" }));
+    expect(screen.queryByText("Manager AAA")).not.toBeInTheDocument();
+    expect(screen.queryByText("AAA One")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Members of AAA" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Members of CCC" })).toBeInTheDocument();
+    expect(screen.getByText("+1")).toBeInTheDocument(); // the hidden-members count
+    expect(screen.getByTestId("canvas")).toHaveAttribute("data-edge-count", "2");
+
+    await user.click(screen.getByRole("button", { name: "Expand team CCC" }));
+    expect(screen.getByText("Manager AAA")).toBeInTheDocument();
+    expect(screen.getByText("AAA One")).toBeInTheDocument();
+    expect(screen.getByTestId("canvas")).toHaveAttribute("data-edge-count", "5");
   });
 
   test("team nodes open the roster", async () => {

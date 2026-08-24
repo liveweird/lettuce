@@ -1,7 +1,8 @@
 import { AAA_ONE, expect, login, test } from "./helpers";
 
 // The org chart (v1.23.0): the whole organization as a React Flow canvas — person nodes
-// (clickable → user details), team nodes (clickable → roster), manages/member edges.
+// (clickable → user details), team nodes (clickable → roster), manages/member edges; team
+// nodes collapse/expand their members (v2.40.0, client-side only).
 // Read-only: no data is created or mutated.
 
 test("the org chart renders the seed org and drills into details and rosters", async ({ page }) => {
@@ -24,6 +25,21 @@ test("the org chart renders the seed org and drills into details and rosters", a
   await expect(
     page.getByRole("button", { name: "User details for Administrator", exact: true }),
   ).toBeVisible();
+
+  // Collapsing CCC folds its members away — including Manager AAA and, cascading, the AAA
+  // team they manage (v2.40.0). Manager AAA's only membership is CCC (reviews.spec's
+  // throwaway teams are MANAGED by them, an outbound edge), so the absences are stable; the
+  // graph is a load-time snapshot, so parallel writers can't shift it mid-test.
+  await page.getByRole("button", { name: "Collapse team CCC" }).click();
+  await expect(page.getByRole("button", { name: "User details for Manager AAA" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Members of AAA" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Members of CCC" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "User details for Manager CCC" })).toBeVisible();
+
+  // Expanding restores the folded subtree.
+  await page.getByRole("button", { name: "Expand team CCC" }).click();
+  await expect(page.getByRole("button", { name: "User details for Manager AAA" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Members of AAA" })).toBeVisible();
 
   // A person node opens the details view with the org origin, and the back link returns here.
   await page.getByRole("button", { name: "User details for Manager AAA" }).click();
