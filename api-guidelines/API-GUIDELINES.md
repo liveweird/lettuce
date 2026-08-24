@@ -685,5 +685,8 @@ Per API-CACHE-003, each concurrency-sensitive write documents its defense (audit
   PUT, teams PUT (roster + manager delta rules still apply), templates PUT, dictionaries
   whole-document PUT, alerts PUT, per-user features PUT (wholesale replace by design),
   email-notifications PUT, pulse settings PUT, days-off correction PUT (single-manager writes),
-  review-period/public-holiday registries (create/delete only). Two admins editing the same template simultaneously can overwrite each
+  review-period/public-holiday registries (create/delete only), impact-log entry PUT (v2.36.0
+  — owner is the only writer, so contention is one user's two tabs), and career-position PUT
+  (chain-manager corrections; the neighbor-window 409s catch reordering races, not same-row
+  overwrites). Two admins editing the same template simultaneously can overwrite each
   other — a deliberate, documented trade-off at this scale.

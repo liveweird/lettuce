@@ -13,7 +13,7 @@
 
 1. The admin signs in; the templates list endpoint is stubbed to answer 500 (a problem+json
    body, and the stub keeps answering — React Query retries a 5xx twice before giving up).
-2. They open the Templates page.
+2. They open the Feedback templates page.
    - *Expected*: a red alert titled "Failed to load templates" with the body
      "Loading failed (500)." — never a silently empty table.
 
@@ -21,7 +21,7 @@
 
 1. The admin signs in; the templates list request is aborted at the network layer (the
    server is unreachable, not answering an error).
-2. They open the Templates page.
+2. They open the Feedback templates page.
    - *Expected*: the same titled alert, with the network-specific body "Can't reach the
      server. Check your connection and try again." — the transport failure is worded
      distinctly from an HTTP error.
@@ -39,7 +39,7 @@
 1. The admin signs in. The first templates fetch is stubbed to answer 401 exactly once
    (forcing the silent token refresh), and the refresh endpoint is stubbed to answer 500 —
    a TRANSIENT outage, not a rejection.
-2. They open the Templates page.
+2. They open the Feedback templates page.
    - *Expected*: the page shows "Loading failed (401)." but the session survives — the user
      menu stays visible and the URL never leaves the app.
 3. The stubs are removed and the page reloaded.
@@ -48,7 +48,7 @@
 ## Scenario: a rejected refresh signs the user out
 
 1. The same 401-once trigger, but the refresh endpoint answers 401 — a DEFINITIVE rejection.
-2. They open the Templates page.
+2. They open the Feedback templates page.
    - *Expected*: the app signs the user out to /login, the Sign in button renders, and the
      blue banner explains "You've been signed out."
 

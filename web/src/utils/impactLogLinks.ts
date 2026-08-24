@@ -21,7 +21,7 @@ export function impactEntryEditLink(id: number, back?: string): string {
 
 /**
  * The per-person impact log drill-down (`/users/:id/impact-log`) — the HR auditor's journal
- * view (the userGoalsLink shape; today only the audit flavor links here).
+ * view and, since v2.38.0, the chain manager's read-only view (the userGoalsLink shape).
  */
 export function userImpactLogLink(
   userId: number,
