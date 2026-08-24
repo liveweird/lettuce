@@ -77,6 +77,8 @@
   "kpisOfAria": "Team KPIs of {{name}}",
   "performanceReviews": "Performance reviews",
   "performanceReviewsForAria": "Performance reviews of {{name}}",
+  "impactLog": "Impact log",
+  "impactLogForAria": "Impact log of {{name}}",
   "toast": {
     "created": "Team created",
     "updated": "Team updated",

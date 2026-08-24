@@ -7,7 +7,8 @@
   in-test with an API fallback in `afterEach`, so a failed run leaves no residue; seeded accounts
   are never mutated
 - **Since**: v2.36.0 (the feature's introduction, replacing Self-reflection); v2.37.0 (the
-  create/edit screens became a five-step wizard)
+  create/edit screens became a five-step wizard); v2.38.0 (the person-card Impact-log
+  drill-down)
 
 ## Scenario: an employee journals an accomplishment, their manager reads it, and the owner deletes it
 
@@ -39,6 +40,11 @@
    - *Expected*: the entry's row is listed **without** an Edit action; opening it shows the
      content read-only (no Edit button on the view either) — the chain reads, only the owner
      writes.
-7. Manager AAA signs out; AAA Two signs back in and deletes the entry from "My journal"
+7. Still as Manager AAA: on the Dashboard's "My subordinates" tab, AAA Two's card's
+   Performance section now carries an **Impact log** button; they click it.
+   - *Expected*: the per-person journal drill-down "Impact log — AAA Two" opens, pinned to
+     that report — the entry's row is listed and the Author column is absent (the pin names
+     the person).
+8. Manager AAA signs out; AAA Two signs back in and deletes the entry from "My journal"
    (confirming the "Delete entry?" dialog).
    - *Expected*: a "Journal entry deleted" toast and the row is gone from the journal.

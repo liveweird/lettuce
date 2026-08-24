@@ -104,7 +104,7 @@ scenario file is the design.
 - [`feedback-request-triage.spec.ts`](scenarios/feedback-request-triage.md) — ask → accept → send; and reject.
 - [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, the skip-level chain create (v2.33.0), notifications.
 - [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08); admin gets no audit surface.
-- [`impact-log.spec.ts`](scenarios/impact-log.md) — the accomplishment journal (v2.36.0): owner creates/edits/deletes with History, the manager reads via My subordinates' journals.
+- [`impact-log.spec.ts`](scenarios/impact-log.md) — the accomplishment journal (v2.36.0): owner creates/edits/deletes with History, the manager reads via My subordinates' journals and the person-card Impact-log drill-down (v2.38.0).
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
 - [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.

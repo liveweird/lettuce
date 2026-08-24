@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.38.0",
+    date: "2026-08-24",
+    en: `Managers can now jump straight from a person to their journal. On a subordinate's card — the dashboard's subordinates grid and the person's details page — the Performance section gained an Impact log button next to Performance reviews: it opens that person's journal entries in a read-only list (indirect reports included), with the usual sorting and filters. The same drill-down keeps working for HR auditors from the Audit section, as before.`,
+    pl: `Menedżerowie mogą teraz przejść prosto od osoby do jej dziennika. Na karcie podwładnego/podwładnej — w siatce podwładnych na pulpicie i na stronie szczegółów osoby — sekcja Wyniki zyskała przycisk Dziennik wpływu obok Ocen okresowych: otwiera on wpisy dziennika tej osoby na liście tylko do odczytu (łącznie z pośrednimi podwładnymi), ze zwykłym sortowaniem i filtrami. Ten sam podgląd działa jak dotąd dla audytorów HR z sekcji Audyt.`,
+  },
+  {
     version: "2.37.0",
     date: "2026-08-24",
     en: `Writing an Impact log entry is now a guided journey instead of one long form. The create and edit screens walk you through the four sections one at a time — What happened, My contribution, Why it mattered, Evidence — with a step rail on top that always shows every step's name, its order, and where you are. You can step back at any time (or click any step you've already visited) without losing a word you've written, but you can't skip ahead: each section wants to be filled before the next opens. The period dates stay visible and editable above the steps the whole time, and the journey ends on a Review step that shows your entire entry rendered — one last read before you create or save it. On the Review step and on the entry's read-only view, each section can now be contracted and expanded (they start expanded) — fold away what you're done reading. And every entry now carries a required short title — it names the entry on the journal lists (where it replaced the "What happened" preview, and is sortable and filterable) and in the view and edit headers.`,

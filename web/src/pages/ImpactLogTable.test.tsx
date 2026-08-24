@@ -170,6 +170,24 @@ describe("ImpactLogTable", () => {
     });
   });
 
+  test("managed view pinned to one report hides the owner column and sends the fixed scope", async () => {
+    const mockFetch = renderTable(
+      { view: "managed", userId: 8, includeIndirect: true },
+      MANAGED_PAGE,
+    );
+
+    expect(await screen.findByText("Vendor consolidation")).toBeInTheDocument();
+    // The pin names the party — no owner column, no Author filter (the reviews idiom)…
+    expect(screen.queryByText("Olga Owner")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Author" })).toBeNull();
+    // …and no Reports toggle: the chain scope is fixed by the drill-down.
+    expect(screen.queryByLabelText("Reports", { selector: "input" })).toBeNull();
+    const listCall = mockFetch.mock.calls.find(([u]) => String(u).startsWith("/api/v1/impact-log?"));
+    expect(String(listCall![0])).toContain("view=managed");
+    expect(String(listCall![0])).toContain("userId=8");
+    expect(String(listCall![0])).toContain("includeIndirect=true");
+  });
+
   test("view=user passes the audited userId through", async () => {
     const mockFetch = renderTable({ view: "user", userId: 8 }, MANAGED_PAGE);
     expect(await screen.findByText("Olga Owner")).toBeInTheDocument();

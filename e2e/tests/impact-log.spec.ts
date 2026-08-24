@@ -111,6 +111,20 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   await managedRow.getByRole("link", { name: /^View entry/ }).click();
   await expect(page.getByText(happened)).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
+
+  // 4b. The person-card drill-down (v2.38.0): the subordinate card's Performance section
+  //     links straight to this report's journal — pinned to them, no Author column.
+  await page.goto("/?tab=subordinates");
+  await page
+    .locator("li", { hasText: "AAA Two" })
+    .first()
+    .getByRole("link", { name: "Impact log of AAA Two" })
+    .click();
+  await expect(page).toHaveURL(/\/users\/\d+\/impact-log/);
+  await expect(page.getByRole("heading", { name: "Impact log — AAA Two" })).toBeVisible();
+  const pinnedRow = page.locator("tr", { hasText: title });
+  await expect(pinnedRow).toBeVisible();
+  await expect(page.getByRole("button", { name: "Author" })).toHaveCount(0);
   await logout(page);
 
   // 5. The owner deletes the entry; the journal is empty of it again.

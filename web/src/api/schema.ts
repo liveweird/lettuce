@@ -1606,6 +1606,9 @@ export interface paths {
          *       - `userName` — case- and accent-insensitive substring match against the owner's
          *         name.
          *       - `title` — case- and accent-insensitive substring match against the entry title.
+         *       - `userId` — exact owner-id match; a pin-filter on `view=managed` (the person-card
+         *         drill-down, the days-off precedent), required with `view=user`, rejected with
+         *         `view=own` (`400` — own is caller-implied).
          *
          *     Malformed query parameters (unknown view, unknown sort field, out-of-range
          *     page/pageSize) respond with `400` and a `ProblemDetail` body.
@@ -8526,8 +8529,8 @@ export interface operations {
                 /** @description Which slice of journals to list — caller-relative, except the HR auditor view `user`. */
                 view?: "own" | "managed" | "user";
                 /**
-                 * @description Required with `view=user` (`400` when missing there, `400` with any other view):
-                 *     the user whose journal the auditor view lists.
+                 * @description Exact owner-id match. Required with `view=user` (`400` when missing there); an
+                 *     ordinary pin-filter with `view=managed`; rejected with `view=own` (`400`).
                  */
                 userId?: number;
                 /**

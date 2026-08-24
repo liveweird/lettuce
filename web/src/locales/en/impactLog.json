@@ -69,6 +69,8 @@
   "userFallback": "user #{{id}}",
   "journalAudit": "Impact log — {{who}}",
   "journalAuditHint": "The auditor view: {{who}}'s whole journal, read-only. Access is recorded in the security audit trail.",
+  "journalFor": "Impact log — {{who}}",
+  "journalForHint": "{{who}}'s journal of accomplishments, read-only.",
   "step": {
     "whatHappened": "What happened",
     "contribution": "My contribution",

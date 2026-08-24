@@ -268,6 +268,9 @@ export default function TeamMembersTable({
                       oneOnOnes: view === "managed" && scopeIsDirect,
                       goals: view === "managed" && scopeIsDirect,
                       reviews: view === "managed" && scopeIsDirect,
+                      // Chain-wide (v2.38.0): journal reads are the chain's right, and the
+                      // drill-down lists with includeIndirect — the daysOff shape.
+                      impactLog: view === "managed",
                       // Chain-wide since v2.32.0: the drill-down page handles indirect
                       // reports (includeIndirect data + the chain-editable allowance).
                       daysOff: view === "managed",

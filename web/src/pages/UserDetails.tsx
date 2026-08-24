@@ -193,6 +193,7 @@ export default function UserDetails() {
                 oneOnOnes: true,
                 goals: true,
                 reviews: true,
+                impactLog: true,
                 daysOff: true,
               },
             }
@@ -210,14 +211,14 @@ export default function UserDetails() {
             };
 
   // Whether any audit drill-down survives the viewer's feature flags (v1.53.0) — with all
-  // five features disabled the HR-audit block renders nothing, so it should not exist.
+  // six features disabled the HR-audit block renders nothing, so it should not exist.
   const auditBlockHasActions = hasVisibleActions(
     {
       labels: "users",
       audit: true,
-      show: { feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true },
+      show: { feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true },
     },
-    ["feedbacks", "oneOnOnes", "goals", "reviews", "daysOff"],
+    ["feedbacks", "oneOnOnes", "goals", "reviews", "daysOff", "impactLog"],
   );
 
   return (
