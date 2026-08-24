@@ -99,7 +99,7 @@ fun Application.configureImpactLogRoutes() {
                     else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, user)")
                 }
                 val paging = call.parsePaging(
-                    sortable = setOf("id", "userName", "periodStart", "periodEnd", "createdAt", "lastModified"),
+                    sortable = setOf("id", "userName", "title", "periodStart", "periodEnd", "createdAt", "lastModified"),
                     // A journal reads newest accomplishments first.
                     defaultSort = listOf(SortField("periodStart", descending = true)),
                 )
@@ -114,7 +114,10 @@ fun Application.configureImpactLogRoutes() {
                 val result = impactLogService.list(
                     view,
                     caller.userId,
-                    ImpactLogListFilter(userName = params.optionalString("userName")),
+                    ImpactLogListFilter(
+                        userName = params.optionalString("userName"),
+                        title = params.optionalString("title"),
+                    ),
                     paging,
                     includeIndirect = includeIndirect,
                     targetUserId = userId,

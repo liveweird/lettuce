@@ -29,7 +29,7 @@ import { invalidateImpactLog } from "../utils/impactLogQueries";
 import { loadErrorMessage } from "../utils/saveError";
 
 const REPORTS_SCOPES = ["direct", "all"] as const;
-type SortField = "periodStart" | "lastModified" | "userName";
+type SortField = "periodStart" | "title" | "lastModified" | "userName";
 
 /**
  * The impact log list — one component serving the caller's own journal (`own`, with
@@ -60,12 +60,13 @@ export default function ImpactLogTable({
   // audit drill-down keeps the column so the row names its author explicitly.
   const ownerVisible = view !== "own";
   const sortFields: readonly SortField[] = ownerVisible
-    ? ["periodStart", "userName", "lastModified"]
-    : ["periodStart", "lastModified"];
+    ? ["periodStart", "userName", "title", "lastModified"]
+    : ["periodStart", "title", "lastModified"];
   const columnCount = sortFields.length + 2; // + the preview and actions columns
 
   const storeKey = settingsKey ?? `impactLog.${view}`;
   const [ownerFilter, setOwnerFilter] = useStoredState(`${storeKey}.filter.owner`, "", isString);
+  const [titleFilter, setTitleFilter] = useStoredState(`${storeKey}.filter.title`, "", isString);
   const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
     `${storeKey}.filter.reportsScope`,
     "direct",
@@ -73,14 +74,17 @@ export default function ImpactLogTable({
   );
   const includeIndirect = withReportsScope === true && reportsScope === "all";
   const activeFilterCount =
-    (ownerVisible && ownerFilter.trim() ? 1 : 0) + (includeIndirect ? 1 : 0);
+    (ownerVisible && ownerFilter.trim() ? 1 : 0) +
+    (titleFilter.trim() ? 1 : 0) +
+    (includeIndirect ? 1 : 0);
 
   const [debouncedOwner] = useDebouncedValue(ownerFilter, 300);
+  const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "periodStart",
-      [debouncedOwner, includeIndirect],
+      [debouncedOwner, debouncedTitle, includeIndirect],
       { key: storeKey, sortFields },
       "desc", // most recent periods first (the server's default order)
     );
@@ -94,6 +98,7 @@ export default function ImpactLogTable({
       pageSize,
       sortParam,
       debouncedOwner,
+      debouncedTitle,
       includeIndirect,
     ],
     queryFn: () =>
@@ -103,6 +108,7 @@ export default function ImpactLogTable({
         pageSize,
         sort: sortParam,
         userName: (ownerVisible && debouncedOwner) || undefined,
+        title: debouncedTitle || undefined,
         includeIndirect: includeIndirect || undefined,
         userId,
       }),
@@ -119,24 +125,30 @@ export default function ImpactLogTable({
 
   const period = (e: ImpactEntryListItem) =>
     `${formatIsoDate(e.periodStart, i18n.language)} – ${formatIsoDate(e.periodEnd, i18n.language)}`;
+  // The row's spoken identity: the title, or the period on a pre-V66 title-less row.
+  const identity = (e: ImpactEntryListItem) => e.title || period(e);
 
   return (
     <Stack gap="md">
-      {(ownerVisible || withReportsScope) && (
-        <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
-          {ownerVisible && (
-            <ClearableTextInput
-              label={t("impactLog.owner")}
-              value={ownerFilter}
-              onChange={setOwnerFilter}
-              clearLabel={t("impactLog.clearOwnerFilter")}
-            />
-          )}
-          {withReportsScope && (
-            <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-          )}
-        </FilterPanel>
-      )}
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+        <ClearableTextInput
+          label={t("impactLog.title")}
+          value={titleFilter}
+          onChange={setTitleFilter}
+          clearLabel={t("impactLog.clearTitleFilter")}
+        />
+        {ownerVisible && (
+          <ClearableTextInput
+            label={t("impactLog.owner")}
+            value={ownerFilter}
+            onChange={setOwnerFilter}
+            clearLabel={t("impactLog.clearOwnerFilter")}
+          />
+        )}
+        {withReportsScope && (
+          <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+        )}
+      </FilterPanel>
 
       {isError && (
         <Alert color="red" variant="light" title={t("impactLog.loadListError")}>
@@ -167,7 +179,15 @@ export default function ImpactLogTable({
                 />
               </Table.Th>
             )}
-            <Table.Th>{t("impactLog.whatHappened")}</Table.Th>
+            <Table.Th>
+              <SortHeader
+                field="title"
+                label={t("impactLog.title")}
+                activeField={sortField}
+                activeDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
             <Table.Th>
               <SortHeader
                 field="lastModified"
@@ -205,7 +225,7 @@ export default function ImpactLogTable({
                   )}
                   <Table.Td>
                     <Text size="sm" lineClamp={2} style={{ wordBreak: "break-word" }}>
-                      {e.whatHappenedPreview}
+                      {e.title}
                     </Text>
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(e.lastModified)}>
@@ -219,7 +239,7 @@ export default function ImpactLogTable({
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}
-                        aria-label={t("impactLog.viewAria", { period: period(e) })}
+                        aria-label={t("impactLog.viewAria", { title: identity(e) })}
                       >
                         {t("common.action.view")}
                       </Button>
@@ -231,7 +251,7 @@ export default function ImpactLogTable({
                             variant="subtle"
                             size="xs"
                             leftSection={<IconPencil size={14} />}
-                            aria-label={t("impactLog.editAria", { period: period(e) })}
+                            aria-label={t("impactLog.editAria", { title: identity(e) })}
                           >
                             {t("common.action.edit")}
                           </Button>
@@ -240,7 +260,7 @@ export default function ImpactLogTable({
                             size="xs"
                             color="red"
                             leftSection={<IconTrash size={14} />}
-                            aria-label={t("impactLog.deleteAria", { period: period(e) })}
+                            aria-label={t("impactLog.deleteAria", { title: identity(e) })}
                             onClick={() => deleteConfirm.requestDelete(e)}
                           >
                             {t("common.action.delete")}
@@ -278,7 +298,7 @@ export default function ImpactLogTable({
         confirm={deleteConfirm}
         title={t("impactLog.deleteConfirmTitle")}
         errorTitle={t("impactLog.deleteErrorTitle")}
-        body={(target) => t("impactLog.deleteConfirmMessage", { period: period(target) })}
+        body={(target) => t("impactLog.deleteConfirmMessage", { title: identity(target) })}
       />
     </Stack>
   );

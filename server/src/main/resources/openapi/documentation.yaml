@@ -2579,17 +2579,18 @@ paths:
           user's whole journal. HR usage is recorded in the security audit trail. The
           ordinary sort/filter/paging parameters apply on top.
 
-        Rows carry the owner's name, the period dates, and a 200-character preview of the
-        "What happened" section — never the full section texts.
+        Rows carry the owner's name, the entry title, and the period dates — never the
+        (encrypted) section texts.
 
         Supports offset pagination, sorting and filtering.
 
-        - Sortable fields: `id`, `userName`, `periodStart`, `periodEnd`, `createdAt`,
+        - Sortable fields: `id`, `userName`, `title`, `periodStart`, `periodEnd`, `createdAt`,
           `lastModified`. Default sort is `periodStart` **descending** (most recent periods
           first). `id` ascending is always appended as a deterministic tiebreaker.
         - Filters (all optional, all whitelisted):
           - `userName` — case- and accent-insensitive substring match against the owner's
             name.
+          - `title` — case- and accent-insensitive substring match against the entry title.
 
         Malformed query parameters (unknown view, unknown sort field, out-of-range
         page/pageSize) respond with `400` and a `ProblemDetail` body.
@@ -2623,6 +2624,11 @@ paths:
           required: false
           schema: { type: string }
           description: Case- and accent-insensitive substring match against the owner's name.
+        - name: title
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case- and accent-insensitive substring match against the entry title.
       responses:
         '200':
           description: A page of impact log entries
@@ -2647,8 +2653,9 @@ paths:
         caller (no user id travels in the body; there is no create-on-behalf for anyone,
         ADMIN included). The period is a pair of ISO dates with `periodStart <= periodEnd`
         (past periods are fine — a journal records history; overlapping periods across
-        entries are allowed). All four sections are required non-blank markdown documents
-        within 5000 characters.
+        entries are allowed). The title is a required non-blank single line within 200
+        characters (plaintext — the lists sort and filter on it); all four sections are
+        required non-blank markdown documents within 5000 characters.
 
         The owner's **direct managers** are notified (the transitive chain above reads on
         demand but is not pinged); the creation is recorded in the entry's audit history.
@@ -2671,8 +2678,8 @@ paths:
                 $ref: '#/components/schemas/ImpactEntryResponse'
         '400':
           description: >-
-            Validation error (a malformed period date, a period start after its end, or a
-            blank/oversized section)
+            Validation error (a blank or oversized title, a malformed period date, a period
+            start after its end, or a blank/oversized section)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -2725,8 +2732,8 @@ paths:
         '204': { description: Updated }
         '400':
           description: >-
-            Validation error (a malformed period date, a period start after its end, or a
-            blank/oversized section)
+            Validation error (a blank or oversized title, a malformed period date, a period
+            start after its end, or a blank/oversized section)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -7310,8 +7317,14 @@ components:
 
     ImpactEntryRequest:
       type: object
-      required: [periodStart, periodEnd, whatHappened, contribution, whyItMattered, evidence]
+      required: [title, periodStart, periodEnd, whatHappened, contribution, whyItMattered, evidence]
       properties:
+        title:
+          type: string
+          maxLength: 200
+          description: >-
+            Short single-line identity for the entry; required non-blank. Plaintext (the
+            journal lists sort and substring-filter on it).
         periodStart:
           type: string
           format: date
@@ -7339,7 +7352,7 @@ components:
 
     ImpactEntryResponse:
       type: object
-      required: [id, userId, userName, periodStart, periodEnd, whatHappened, contribution, whyItMattered, evidence, createdAt, lastModified]
+      required: [id, userId, userName, title, periodStart, periodEnd, whatHappened, contribution, whyItMattered, evidence, createdAt, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         userId:
@@ -7348,6 +7361,9 @@ components:
           minimum: 0
           description: The journal's owner — always the creator; never changes.
         userName: { type: string }
+        title:
+          type: string
+          description: Empty only on entries created before the field existed (V66).
         periodStart: { type: string, format: date }
         periodEnd: { type: string, format: date }
         whatHappened: { type: string }
@@ -7365,19 +7381,19 @@ components:
 
     ImpactEntryListItem:
       type: object
-      required: [id, userId, userName, userDeleted, periodStart, periodEnd, whatHappenedPreview, createdAt, lastModified]
+      required: [id, userId, userName, userDeleted, title, periodStart, periodEnd, createdAt, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         userDeleted: { type: boolean }
-        periodStart: { type: string, format: date }
-        periodEnd: { type: string, format: date }
-        whatHappenedPreview:
+        title:
           type: string
           description: >-
-            First 200 characters of the "What happened" section. The full section texts never
-            ride list rows.
+            The row's identity (replaced the decrypted what-happened preview in v2.37.0);
+            section texts never ride list rows. Empty only on pre-V66 entries.
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
         createdAt: { type: integer, format: int64 }
         lastModified: { type: integer, format: int64 }
 

@@ -18,6 +18,7 @@ test.afterEach(async ({ request }) => {
 test("an employee journals an accomplishment, their manager reads it, and the owner deletes it", async ({
   page,
 }) => {
+  const title = uniqueText("E2E impact title");
   const happened = uniqueText("E2E impact happened");
   const contribution = uniqueText("E2E impact contribution");
 
@@ -28,36 +29,48 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   await page.getByRole("link", { name: "New entry" }).click();
   await expect(page.getByRole("heading", { name: "New journal entry" })).toBeVisible();
 
+  await page.getByLabel("Title").fill(title);
   await page.getByLabel("Period start").fill("2026-07-01");
   await page.getByLabel("Period end").fill("2026-07-31");
-  const editors = page.locator('[contenteditable="true"]');
-  await editors.nth(0).click();
-  await editors.nth(0).pressSequentially(happened);
-  await editors.nth(1).click();
-  await editors.nth(1).pressSequentially(contribution);
-  await editors.nth(2).click();
-  await editors.nth(2).pressSequentially("It unblocked the quarter.");
-  await editors.nth(3).click();
-  await editors.nth(3).pressSequentially("Kudos from the whole team.");
 
+  // The wizard (v2.37.0): one section per step, walked with Next — exactly ONE markdown
+  // editor is mounted at a time. The step rail names all five steps up front.
+  await expect(page.getByRole("button", { name: /Review/ })).toBeVisible();
+  const sections = [happened, contribution, "It unblocked the quarter.", "Kudos from the whole team."];
+  for (const text of sections) {
+    const editor = page.locator('[contenteditable="true"]');
+    await expect(editor).toHaveCount(1);
+    await editor.click();
+    await editor.pressSequentially(text);
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+  }
+
+  // The Review step shows the whole entry rendered, and the final Next must have LANDED here
+  // without submitting — the submit is a type="button" precisely so the browser's click
+  // activation re-hit-test (Next unmounts, the submit mounts under the pointer) stays inert.
+  await expect(page.getByText(happened)).toBeVisible();
+  await expect(page.getByText(contribution)).toBeVisible();
+  const createButton = page.getByRole("button", { name: "Create", exact: true });
+  await expect(createButton).toBeEnabled();
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/impact-log") && r.request().method() === "POST" && r.ok(),
     ),
-    // exact: the four markdown toolbars each carry a "Create link" button (substring trap).
-    page.getByRole("button", { name: "Create", exact: true }).click(),
+    // exact stays load-bearing: the markdown toolbar carries a "Create link" button.
+    createButton.click(),
   ]);
   entryId = ((await created.json()) as { id: number }).id;
 
   // Back on the journal: the fresh row shows its period and preview.
   await expect(page.getByText("Journal entry created").first()).toBeVisible();
-  const row = page.locator("tr", { hasText: happened });
+  const row = page.locator("tr", { hasText: title });
   await expect(row).toBeVisible();
   await expect(row.getByText("Jul 1, 2026 – Jul 31, 2026")).toBeVisible();
 
   // 2. The owner opens the entry: all four sections render, History holds the creation.
   await row.getByRole("link", { name: /^View entry/ }).click();
   await expect(page.getByRole("heading", { name: "Journal entry" })).toBeVisible();
+  await expect(page.getByText(title)).toBeVisible();
   await expect(page.getByText(happened)).toBeVisible();
   await expect(page.getByText(contribution)).toBeVisible();
   await page.getByRole("tab", { name: "History" }).click();
@@ -65,16 +78,23 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
     page.getByText("Entry created for the period Jul 1, 2026 – Jul 31, 2026."),
   ).toBeVisible();
 
-  // 3. The owner edits one section; the history names the changed field.
+  // 3. The owner edits one section — walking the wizard to "Why it mattered" (Back never
+  //    loses input; pre-filled steps pass validation instantly), then on to Review to Save.
   await page.getByRole("link", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Edit journal entry" })).toBeVisible();
-  const whyEditor = page.locator('[contenteditable="true"]').nth(2);
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  const whyEditor = page.locator('[contenteditable="true"]');
+  await expect(whyEditor).toHaveText(/unblocked the quarter/);
   await whyEditor.click();
   await whyEditor.pressSequentially(" And it set next quarter's direction.");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.getByText("And it set next quarter's direction.")).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Journal entry updated").first()).toBeVisible();
 
-  await page.locator("tr", { hasText: happened }).getByRole("link", { name: /^View entry/ }).click();
+  await page.locator("tr", { hasText: title }).getByRole("link", { name: /^View entry/ }).click();
   await page.getByRole("tab", { name: "History" }).click();
   await expect(page.getByText("Entry updated: Why did it matter.")).toBeVisible();
   await logout(page);
@@ -85,7 +105,7 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   await page.getByRole("tab", { name: "My subordinates' journals" }).click();
   await page.getByRole("button", { name: "Filters" }).click();
   await page.getByLabel("Author").fill("AAA Two");
-  const managedRow = page.locator("tr", { hasText: happened });
+  const managedRow = page.locator("tr", { hasText: title });
   await expect(managedRow).toBeVisible();
   await expect(managedRow.getByRole("link", { name: /^Edit entry/ })).toHaveCount(0);
   await managedRow.getByRole("link", { name: /^View entry/ }).click();
@@ -96,10 +116,10 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   // 5. The owner deletes the entry; the journal is empty of it again.
   await login(page, AAA_TWO);
   await page.getByRole("link", { name: "Impact log" }).click();
-  const ownRow = page.locator("tr", { hasText: happened });
+  const ownRow = page.locator("tr", { hasText: title });
   await ownRow.getByRole("button", { name: /^Delete entry/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Journal entry deleted").first()).toBeVisible();
-  await expect(page.locator("tr", { hasText: happened })).toHaveCount(0);
+  await expect(page.locator("tr", { hasText: title })).toHaveCount(0);
   entryId = null; // deleted in-test — the afterEach fallback has nothing to do
 });

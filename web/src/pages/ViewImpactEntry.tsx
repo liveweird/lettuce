@@ -5,7 +5,6 @@ import {
   Center,
   Container,
   Group,
-  Input,
   Loader,
   Paper,
   Stack,
@@ -20,15 +19,12 @@ import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getImpactEntry } from "../api/impactLog";
 import ImpactLogHistory from "../components/ImpactLogHistory";
-import MarkdownView from "../components/MarkdownView";
+import ImpactEntrySections from "../components/ImpactEntrySections";
 import PersonaField from "../components/PersonaField";
-import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
 import { formatDate, formatIsoDate } from "../utils/datetime";
 import { impactEntryEditLink } from "../utils/impactLogLinks";
 import { safeBackParam } from "../utils/url";
-
-const SECTIONS = ["whatHappened", "contribution", "whyItMattered", "evidence"] as const;
 
 /** The journal-entry document: read-only Content/History tabs; the owner gets the Edit entry point. */
 export default function ViewImpactEntry() {
@@ -78,6 +74,12 @@ export default function ViewImpactEntry() {
             </Alert>
           ) : data ? (
             <>
+              {/* The entry's own title (v2.37.0) — pre-V66 rows may have none. */}
+              {data.title !== "" && (
+                <Text size="lg" fw={600}>
+                  {data.title}
+                </Text>
+              )}
               <Group gap="xl">
                 <PersonaField label={t("impactLog.owner")} name={data.userName} you={isOwner} />
                 <ReadOnlyField label={t("impactLog.period")}>
@@ -98,15 +100,7 @@ export default function ViewImpactEntry() {
                 </Tabs.List>
 
                 <Tabs.Panel value="content" pt="md">
-                  <Stack gap="lg">
-                    {SECTIONS.map((section) => (
-                      <Input.Wrapper key={section} label={t(`impactLog.${section}`)}>
-                        <ProseBox>
-                          <MarkdownView>{data[section]}</MarkdownView>
-                        </ProseBox>
-                      </Input.Wrapper>
-                    ))}
-                  </Stack>
+                  <ImpactEntrySections values={data} />
                 </Tabs.Panel>
 
                 <Tabs.Panel value="history" pt="md">

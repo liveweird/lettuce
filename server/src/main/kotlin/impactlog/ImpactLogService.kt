@@ -27,6 +27,7 @@ enum class ImpactLogListView { OWN, MANAGED, USER }
 
 data class ImpactLogListFilter(
     val userName: String? = null,
+    val title: String? = null,
 )
 
 data class ImpactLogListResult(
@@ -42,6 +43,7 @@ data class ImpactEntryCreateResult(
 private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to ImpactLogService.Entries.id,
     "userName" to UserService.Users.name,
+    "title" to ImpactLogService.Entries.title,
     // ISO YYYY-MM-DD in a VARCHAR: lexicographic == chronological, so a plain column sort works.
     "periodStart" to ImpactLogService.Entries.periodStart,
     "periodEnd" to ImpactLogService.Entries.periodEnd,
@@ -51,13 +53,15 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 
 // The four section columns are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher
 // wraps every write and unwraps every read, so nothing above this service ever sees ciphertext.
-// None of them is filtered/sorted/searched in SQL (the list preview is .take(200) in Kotlin);
-// the period dates stay plaintext on purpose — lists sort on them.
+// None of them is filtered/sorted/searched in SQL, and section texts never ride list rows; the
+// title (V66) and the period dates stay plaintext on purpose — lists sort/filter on them.
 class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
     override val encryptedRowLabel = "impact log entry"
 
     object Entries : UIntIdTable("impact_log_entries") {
         val userId = reference("user_id", UserService.Users)
+        // Plaintext on purpose (V66) — lists sort/substring-filter on it (the goals.title rule).
+        val title = varchar("title", MAX_IMPACT_TITLE_LENGTH)
         val periodStart = varchar("period_start", 10)
         val periodEnd = varchar("period_end", 10)
         val whatHappened = text("what_happened")
@@ -81,6 +85,7 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
             val now = System.currentTimeMillis()
             val id = Entries.insert {
                 it[userId] = ownerId
+                it[title] = request.title
                 it[periodStart] = request.periodStart
                 it[periodEnd] = request.periodEnd
                 it[whatHappened] = cipher.encrypt(request.whatHappened)
@@ -126,7 +131,8 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
                 .toList()
                 .singleOrNull()
                 ?: return@suspendTransaction null
-            val changed = current.periodStart != request.periodStart ||
+            val changed = current.title != request.title ||
+                current.periodStart != request.periodStart ||
                 current.periodEnd != request.periodEnd ||
                 current.whatHappened != request.whatHappened ||
                 current.contribution != request.contribution ||
@@ -134,6 +140,7 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
                 current.evidence != request.evidence
             if (!changed) return@suspendTransaction emptyList()
             Entries.update({ (Entries.id eq id) and (Entries.markedAsDeleted eq false) }) {
+                it[title] = request.title
                 it[periodStart] = request.periodStart
                 it[periodEnd] = request.periodEnd
                 it[whatHappened] = cipher.encrypt(request.whatHappened)
@@ -208,9 +215,9 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
             .select(
                 Entries.id,
                 Entries.userId,
+                Entries.title,
                 Entries.periodStart,
                 Entries.periodEnd,
-                Entries.whatHappened,
                 Entries.createdAt,
                 Entries.lastModified,
                 UserService.Users.name,
@@ -224,10 +231,9 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
                     userId = row[Entries.userId].value,
                     userName = row[UserService.Users.name],
                     userDeleted = row[UserService.Users.markedAsDeleted],
+                    title = row[Entries.title],
                     periodStart = row[Entries.periodStart],
                     periodEnd = row[Entries.periodEnd],
-                    // Decrypt-then-take in Kotlin — SQL never touches the encrypted column.
-                    whatHappenedPreview = cipher.decrypt(row[Entries.whatHappened]).take(PREVIEW_LENGTH),
                     createdAt = row[Entries.createdAt],
                     lastModified = row[Entries.lastModified],
                 )
@@ -261,6 +267,7 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
         id = this[Entries.id].value,
         userId = this[Entries.userId].value,
         userName = this[UserService.Users.name],
+        title = this[Entries.title],
         periodStart = this[Entries.periodStart],
         periodEnd = this[Entries.periodEnd],
         whatHappened = cipher.decrypt(this[Entries.whatHappened]),
@@ -278,10 +285,9 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
         filter.userName?.takeIf { it.isNotBlank() }?.let {
             op = op and (UserService.Users.name.containsNormalized(it))
         }
+        filter.title?.takeIf { it.isNotBlank() }?.let {
+            op = op and (Entries.title.containsNormalized(it))
+        }
         return op
-    }
-
-    private companion object {
-        const val PREVIEW_LENGTH = 200
     }
 }

@@ -24,6 +24,7 @@ const ENTRY = {
   id: 5,
   userId: 7,
   userName: "Me Myself",
+  title: "Pipeline shipped",
   periodStart: "2026-07-01",
   periodEnd: "2026-07-31",
   whatHappened: "Shipped the pipeline",
@@ -74,25 +75,37 @@ describe("EditImpactEntry page", () => {
     localStorage.clear();
   });
 
-  test("seeds the form from the document and PUTs the whole replacement", async () => {
+  test("seeds the wizard from the document, walks to Review, and PUTs the whole replacement", async () => {
     const user = userEvent.setup();
     const mockFetch = renderScreen("/impact-log/5/edit?back=%2Fimpact-log");
 
-    // The document arrives and seeds every field; the owner renders as plain "You".
+    // The wizard opens on the first step, pre-filled; the owner renders as plain "You" and
+    // the period pair sits above the rail, editable on every step.
     expect(await screen.findByLabelText("What happened")).toHaveValue("Shipped the pipeline");
+    expect(screen.getByLabelText(/^Title/)).toHaveValue("Pipeline shipped");
     expect(screen.getByLabelText(/period start/i)).toHaveValue("2026-07-01");
     expect(screen.getByText("You")).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText("My contribution"));
-    await user.type(screen.getByLabelText("My contribution"), "Built and documented it");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    const contribution = await screen.findByLabelText("My contribution");
+    expect(contribution).toHaveValue("Built it");
+    await user.clear(contribution);
+    await user.type(contribution, "Built and documented it");
     fireEvent.change(screen.getByLabelText(/period end/i), { target: { value: "2026-08-15" } });
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    // Pre-filled steps validate instantly — Next-walk to the Review step and Save there.
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Built and documented it")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/impact-log"));
     const put = mockFetch.mock.calls.find(
       ([, init]) => (init as RequestInit | undefined)?.method === "PUT",
     );
     expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
+      title: "Pipeline shipped",
       periodStart: "2026-07-01",
       periodEnd: "2026-08-15",
       whatHappened: "Shipped the pipeline",
@@ -102,11 +115,12 @@ describe("EditImpactEntry page", () => {
     });
   });
 
-  test("a 403 load shows the permission wording and no submittable form", async () => {
+  test("a 403 load shows the permission wording with no wizard, only Close", async () => {
     renderScreen("/impact-log/5/edit", 403);
     expect(await screen.findByText("You don't have access to this entry.")).toBeInTheDocument();
     expect(screen.queryByLabelText("What happened")).toBeNull();
-    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(screen.getByRole("button", { name: /^close$/i })).toBeInTheDocument();
   });
 
   test("a 404 load says the entry no longer exists", async () => {

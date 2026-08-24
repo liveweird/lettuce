@@ -12,6 +12,8 @@
   "rowsPerPage": "Wpisów na stronę",
   "owner": "Autor/ka",
   "clearOwnerFilter": "Wyczyść filtr autora",
+  "clearTitleFilter": "Wyczyść filtr tytułu",
+  "title": "Tytuł",
   "period": "Okres",
   "periodStart": "Początek okresu",
   "periodEnd": "Koniec okresu",
@@ -26,11 +28,11 @@
   "viewTitle": "Wpis w dzienniku",
   "history": "Historia",
   "noHistory": "Brak historii.",
-  "viewAria": "Zobacz wpis {{period}}",
-  "editAria": "Edytuj wpis {{period}}",
-  "deleteAria": "Usuń wpis {{period}}",
+  "viewAria": "Zobacz wpis {{title}}",
+  "editAria": "Edytuj wpis {{title}}",
+  "deleteAria": "Usuń wpis {{title}}",
   "deleteConfirmTitle": "Usunąć wpis?",
-  "deleteConfirmMessage": "Usunąć wpis za okres {{period}}? Jego treść przestanie być dostępna.",
+  "deleteConfirmMessage": "Usunąć „{{title}}”? Jego treść przestanie być dostępna.",
   "deleteErrorTitle": "Nie udało się usunąć wpisu",
   "discardCreateTitle": "Odrzucić wpis?",
   "discardCreateMessage": "Odrzucić ten wpis? Nic, co napisałeś/aś, nie zostanie zapisane.",
@@ -51,7 +53,9 @@
     "periodRequired": "Wybierz datę",
     "periodOrder": "Początek okresu nie może być po jego końcu",
     "sectionRequired": "Ta sekcja jest wymagana",
-    "sectionTooLong": "Maksymalnie {{max}} znaków"
+    "sectionTooLong": "Maksymalnie {{max}} znaków",
+    "titleRequired": "Tytuł jest wymagany",
+    "titleTooLong": "Maksymalnie {{max}} znaków"
   },
   "error": {
     "permission": "Tylko właściciel/ka dziennika może zmienić ten wpis.",
@@ -64,5 +68,17 @@
   },
   "userFallback": "użytkownik #{{id}}",
   "journalAudit": "Dziennik wpływu — {{who}}",
-  "journalAuditHint": "Widok audytora: cały dziennik {{who}}, tylko do odczytu. Dostęp jest zapisywany w dzienniku audytu bezpieczeństwa."
+  "journalAuditHint": "Widok audytora: cały dziennik {{who}}, tylko do odczytu. Dostęp jest zapisywany w dzienniku audytu bezpieczeństwa.",
+  "step": {
+    "whatHappened": "Co się wydarzyło",
+    "contribution": "Mój wkład",
+    "whyItMattered": "Dlaczego to ważne",
+    "evidence": "Dowody",
+    "review": "Podsumowanie"
+  },
+  "action": {
+    "back": "Wstecz",
+    "next": "Dalej"
+  },
+  "reviewHint": "Przeczytaj swój wpis — nadal możesz wrócić i zmienić każdą sekcję."
 }

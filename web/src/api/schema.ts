@@ -1594,17 +1594,18 @@ export interface paths {
          *       user's whole journal. HR usage is recorded in the security audit trail. The
          *       ordinary sort/filter/paging parameters apply on top.
          *
-         *     Rows carry the owner's name, the period dates, and a 200-character preview of the
-         *     "What happened" section — never the full section texts.
+         *     Rows carry the owner's name, the entry title, and the period dates — never the
+         *     (encrypted) section texts.
          *
          *     Supports offset pagination, sorting and filtering.
          *
-         *     - Sortable fields: `id`, `userName`, `periodStart`, `periodEnd`, `createdAt`,
+         *     - Sortable fields: `id`, `userName`, `title`, `periodStart`, `periodEnd`, `createdAt`,
          *       `lastModified`. Default sort is `periodStart` **descending** (most recent periods
          *       first). `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
          *       - `userName` — case- and accent-insensitive substring match against the owner's
          *         name.
+         *       - `title` — case- and accent-insensitive substring match against the entry title.
          *
          *     Malformed query parameters (unknown view, unknown sort field, out-of-range
          *     page/pageSize) respond with `400` and a `ProblemDetail` body.
@@ -1617,8 +1618,9 @@ export interface paths {
          *     caller (no user id travels in the body; there is no create-on-behalf for anyone,
          *     ADMIN included). The period is a pair of ISO dates with `periodStart <= periodEnd`
          *     (past periods are fine — a journal records history; overlapping periods across
-         *     entries are allowed). All four sections are required non-blank markdown documents
-         *     within 5000 characters.
+         *     entries are allowed). The title is a required non-blank single line within 200
+         *     characters (plaintext — the lists sort and filter on it); all four sections are
+         *     required non-blank markdown documents within 5000 characters.
          *
          *     The owner's **direct managers** are notified (the transitive chain above reads on
          *     demand but is not pinged); the creation is recorded in the entry's audit history.
@@ -4714,6 +4716,8 @@ export interface components {
             items: components["schemas"]["GoalEventResponse"][];
         };
         ImpactEntryRequest: {
+            /** @description Short single-line identity for the entry; required non-blank. Plaintext (the journal lists sort and substring-filter on it). */
+            title: string;
             /**
              * Format: date
              * @description ISO `YYYY-MM-DD`; the first day the entry relates to. Past dates are fine.
@@ -4742,6 +4746,8 @@ export interface components {
              */
             userId: number;
             userName: string;
+            /** @description Empty only on entries created before the field existed (V66). */
+            title: string;
             /** Format: date */
             periodStart: string;
             /** Format: date */
@@ -4768,12 +4774,12 @@ export interface components {
             userId: number;
             userName: string;
             userDeleted: boolean;
+            /** @description The row's identity (replaced the decrypted what-happened preview in v2.37.0); section texts never ride list rows. Empty only on pre-V66 entries. */
+            title: string;
             /** Format: date */
             periodStart: string;
             /** Format: date */
             periodEnd: string;
-            /** @description First 200 characters of the "What happened" section. The full section texts never ride list rows. */
-            whatHappenedPreview: string;
             /** Format: int64 */
             createdAt: number;
             /** Format: int64 */
@@ -8531,6 +8537,8 @@ export interface operations {
                 includeIndirect?: boolean;
                 /** @description Case- and accent-insensitive substring match against the owner's name. */
                 userName?: string;
+                /** @description Case- and accent-insensitive substring match against the entry title. */
+                title?: string;
             };
             header?: never;
             path?: never;
@@ -8585,7 +8593,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImpactEntryResponse"];
                 };
             };
-            /** @description Validation error (a malformed period date, a period start after its end, or a blank/oversized section) */
+            /** @description Validation error (a blank or oversized title, a malformed period date, a period start after its end, or a blank/oversized section) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8647,7 +8655,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Validation error (a malformed period date, a period start after its end, or a blank/oversized section) */
+            /** @description Validation error (a blank or oversized title, a malformed period date, a period start after its end, or a blank/oversized section) */
             400: {
                 headers: {
                     [name: string]: unknown;

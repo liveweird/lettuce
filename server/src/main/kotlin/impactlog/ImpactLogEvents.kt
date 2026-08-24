@@ -26,6 +26,7 @@ data class ImpactEntryEventDescriptor(
 )
 
 // The stable field-name vocabulary of the UPDATED event's `changed` list (SPA-localized).
+private const val FIELD_TITLE = "title"
 private const val FIELD_PERIOD_START = "periodStart"
 private const val FIELD_PERIOD_END = "periodEnd"
 private const val FIELD_WHAT_HAPPENED = "whatHappened"
@@ -42,7 +43,7 @@ internal fun impactEntryCreationEvent(periodStart: String, periodEnd: String): I
 
 /**
  * Structured event recorded on an edit: ONE UPDATED event whose `changed` param comma-joins the
- * touched field names (stable period → sections order); period changes additionally carry their
+ * touched field names (stable title → period → sections order); period changes additionally carry their
  * from/to ISO dates (content-free like the goal due-date deltas — section texts never ride
  * along, changed or not). A no-op PUT returns null (no empty events).
  */
@@ -52,6 +53,7 @@ internal fun impactEntryUpdateEvent(
 ): ImpactEntryEventDescriptor? {
     val changed = mutableListOf<String>()
     val params = mutableMapOf<String, String>()
+    if (before.title != after.title) changed += FIELD_TITLE
     if (before.periodStart != after.periodStart) {
         changed += FIELD_PERIOD_START
         params["periodStartFrom"] = before.periodStart

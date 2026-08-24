@@ -34,6 +34,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 class ImpactLogEncryptionTest {
 
     private data class RawEntry(
+        val title: String,
         val periodStart: String,
         val whatHappened: String,
         val contribution: String,
@@ -47,6 +48,7 @@ class ImpactLogEncryptionTest {
                 .where { ImpactLogService.Entries.id eq id }
                 .map {
                     RawEntry(
+                        title = it[ImpactLogService.Entries.title],
                         periodStart = it[ImpactLogService.Entries.periodStart],
                         whatHappened = it[ImpactLogService.Entries.whatHappened],
                         contribution = it[ImpactLogService.Entries.contribution],
@@ -58,6 +60,7 @@ class ImpactLogEncryptionTest {
         }
 
     private fun secretBody() = ImpactEntryRequest(
+        title = "Public title",
         periodStart = "2026-07-01",
         periodEnd = "2026-07-31",
         whatHappened = "Confidential happening: the acquisition dry-run",
@@ -81,6 +84,8 @@ class ImpactLogEncryptionTest {
         // What the DB (a database-level attacker) sees: envelopes for every section, the period
         // dates in plain view (deliberate — lists sort on them).
         val raw = rawEntry(created.id)
+        // The title is deliberately in plain view (lists sort/filter on it — the goals rule).
+        assertEquals("Public title", raw.title)
         assertEquals("2026-07-01", raw.periodStart)
         listOf(raw.whatHappened, raw.contribution, raw.whyItMattered, raw.evidence).forEach {
             assertTrue(it.startsWith(FieldCipher.PREFIX))
@@ -114,6 +119,7 @@ class ImpactLogEncryptionTest {
         val legacyId = suspendTransaction(TestServices.impactLog.database) {
             ImpactLogService.Entries.insert {
                 it[ImpactLogService.Entries.userId] = ownerId
+                it[ImpactLogService.Entries.title] = "legacy title"
                 it[ImpactLogService.Entries.periodStart] = "2026-01-01"
                 it[ImpactLogService.Entries.periodEnd] = "2026-01-31"
                 it[ImpactLogService.Entries.whatHappened] = "legacy plain happening"
