@@ -68,6 +68,9 @@
     "pulseCycleOpened": "The pulse survey is open — share your answers by {{closeDate}}.",
     "pulseResultsAvailable": "Pulse survey results are available.",
     "pulseCycleCancelled": "The pulse survey planned for {{openDate}} was cancelled.",
+    "impactEntryCreated": "{{author}}, who reports to you, added an impact log entry for the period {{periodStart}} – {{periodEnd}}.",
+    "impactEntryUpdated": "{{author}}, who reports to you, updated an impact log entry for the period {{periodStart}} – {{periodEnd}}.",
+    "impactEntryDeleted": "{{author}}, who reports to you, deleted an impact log entry for the period {{periodStart}} – {{periodEnd}}.",
     "careerPositionStarted": "{{manager}} recorded a new position in your career progression, starting {{startDate}}."
   },
   "delete": "Delete",

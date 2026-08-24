@@ -8,6 +8,7 @@ import ch.nokillswit.feedbacks.FeedbackResponse
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.toResponse
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationResponse
 import ch.nokillswit.notifications.NotificationType
@@ -293,9 +294,9 @@ class FeedbackRoutesTest {
     }
 
     @Test
-    fun `provider equals subject is accepted as a self-reflection (no requester)`() = testApplication {
-        // provider == subject is the self-reflection case; with a requester it is rejected
-        // (covered in SelfReflectionTest).
+    fun `provider equals subject is rejected at create (self-reflection retired)`() = testApplication {
+        // v2.36.0: feedback about yourself (the retired self-reflection feature) is a 400 at
+        // create; legacy provider == subject rows stay functional (covered below).
         usePostgresTestcontainer()
         val t = seedTriad()
         val client = authedClient(t.providerEmail, "pw")
@@ -311,7 +312,46 @@ class FeedbackRoutesTest {
                 )
             )
         }
-        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("Feedback about yourself is not supported", response.body<ProblemDetail>().detail)
+    }
+
+    @Test
+    fun `a legacy self-reflection row still edits, sends, and lists for its owner`() = testApplication {
+        // Pre-v2.36.0 provider == subject rows remain in the DB; the create-only rejection must
+        // not break their edit/transition/list paths. Seeded via the service (the route refuses
+        // to mint new ones).
+        usePostgresTestcontainer()
+        val t = seedTriad()
+        val legacy = TestServices.feedbacks.create(
+            Feedback(
+                requesterId = null,
+                subjectId = t.providerId,
+                providerId = t.providerId,
+                visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                status = FeedbackStatus.DRAFT,
+                content = "Legacy self-reflection draft",
+            )
+        ).id
+        val client = authedClient(t.providerEmail, "pw")
+
+        val edit = client.put("/api/v1/feedbacks/$legacy") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                FeedbackContentUpdate(
+                    content = "Legacy self-reflection, edited",
+                    visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+                )
+            )
+        }
+        assertEquals(HttpStatusCode.NoContent, edit.status)
+
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/feedbacks/$legacy/send").status)
+
+        val provided = client.get("/api/v1/feedbacks?view=provided").body<FeedbackPageResponse>()
+        assertTrue(provided.items.any { it.id == legacy })
+        val received = client.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>()
+        assertTrue(received.items.any { it.id == legacy })
     }
 
     @Test

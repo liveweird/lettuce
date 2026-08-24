@@ -316,4 +316,47 @@ class HrRoleTest {
             appender.detach()
         }
     }
+
+    @Test
+    fun `hr reads an impact log entry and the auditor journal (both audited) but cannot write it`() = testApplication {
+        usePostgresTestcontainer()
+        val (pair, hrEmail, hrId) = seedPairAndHr()
+        val owner = authedClient(pair.subordinateEmail, "pw")
+        val entry = owner.post("/api/v1/impact-log") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                ch.nokillswit.impactlog.ImpactEntryRequest(
+                    periodStart = "2026-07-01",
+                    periodEnd = "2026-07-31",
+                    whatHappened = "Auditable happening",
+                    contribution = "Auditable contribution",
+                    whyItMattered = "Auditable impact",
+                    evidence = "Auditable evidence",
+                ),
+            )
+        }.body<ch.nokillswit.impactlog.ImpactEntryResponse>()
+
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val hr = authedClient(hrEmail, "pw")
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/impact-log/${entry.id}").status)
+            val read = appender.events.find { it.message == "hr.read" }
+            assertNotNull(read, "expected an hr.read audit event")
+            assertEquals("impactLog", read.keyValuePairs.first { it.key == "resource" }.value)
+            assertEquals(entry.id.toLong(), read.keyValuePairs.first { it.key == "resourceId" }.value)
+            assertEquals(hrId.toLong(), read.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/impact-log/${entry.id}/events").status)
+
+            val page = hr.get("/api/v1/impact-log?view=user&userId=${pair.subordinateId}")
+            assertEquals(HttpStatusCode.OK, page.status)
+            val list = appender.events.find { it.message == "hr.list" }
+            assertNotNull(list, "expected an hr.list audit event")
+            assertEquals("impactLog", list.keyValuePairs.first { it.key == "resource" }.value)
+
+            // Writes stay regular-user: HR is not the owner → 403 on every mutation.
+            assertEquals(HttpStatusCode.Forbidden, hr.delete("/api/v1/impact-log/${entry.id}").status)
+        } finally {
+            appender.detach()
+        }
+    }
 }

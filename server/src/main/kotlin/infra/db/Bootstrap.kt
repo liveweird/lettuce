@@ -6,6 +6,7 @@ import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalEventServiceKey
 import ch.nokillswit.goals.GoalServiceKey
+import ch.nokillswit.impactlog.ImpactLogServiceKey
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.pulse.PulseResponseServiceKey
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
@@ -82,6 +83,7 @@ suspend fun Application.configureBootstrap() {
         attributes[PerformanceReviewServiceKey],
         attributes[DaysOffServiceKey],
         attributes[PulseResponseServiceKey],
+        attributes[ImpactLogServiceKey],
     )
     encryptedAtRest.forEach { service ->
         val encrypted = service.encryptLegacyRows(reencryptAll = rotating)

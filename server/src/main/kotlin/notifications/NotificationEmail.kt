@@ -61,6 +61,7 @@ private fun subjectFor(type: NotificationType): LocalizedText = if (
     Feature.PERFORMANCE_REVIEWS -> LocalizedText(en = "Lettuce: performance review", pl = "Lettuce: ocena okresowa")
     Feature.DAYS_OFF -> LocalizedText(en = "Lettuce: days off", pl = "Lettuce: dni wolne")
     Feature.PULSE_SURVEYS -> LocalizedText(en = "Lettuce: pulse survey", pl = "Lettuce: ankieta pulsu")
+    Feature.IMPACT_LOG -> LocalizedText(en = "Lettuce: impact log", pl = "Lettuce: dziennik wpływu")
     // MFA mints no notifications (its emails are the sign-in codes themselves, sent directly
     // from the login flow) — same fallback as the feature-neutral security types.
     Feature.MFA, null -> LocalizedText(en = "Lettuce: security notice", pl = "Lettuce: powiadomienie o bezpieczeństwie")
@@ -310,6 +311,24 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
     NotificationType.PULSE_CYCLE_CANCELLED -> LocalizedText(
         en = "The pulse survey planned for ${p.v("openDate")} was cancelled.",
         pl = "Ankieta pulsu zaplanowana na ${p.v("openDate")} została anulowana.",
+    )
+    NotificationType.IMPACT_ENTRY_CREATED_TO_MANAGER -> LocalizedText(
+        en = "${p.v("author")}, who reports to you, added an impact log entry " +
+            "for the period ${p.v("periodStart")} – ${p.v("periodEnd")}.",
+        pl = "${p.v("author")} — osoba, która Ci podlega — dodał/a wpis do dziennika wpływu " +
+            "za okres ${p.v("periodStart")} – ${p.v("periodEnd")}.",
+    )
+    NotificationType.IMPACT_ENTRY_UPDATED_TO_MANAGER -> LocalizedText(
+        en = "${p.v("author")}, who reports to you, updated an impact log entry " +
+            "for the period ${p.v("periodStart")} – ${p.v("periodEnd")}.",
+        pl = "${p.v("author")} — osoba, która Ci podlega — zaktualizował/a wpis w dzienniku wpływu " +
+            "za okres ${p.v("periodStart")} – ${p.v("periodEnd")}.",
+    )
+    NotificationType.IMPACT_ENTRY_DELETED_TO_MANAGER -> LocalizedText(
+        en = "${p.v("author")}, who reports to you, deleted an impact log entry " +
+            "for the period ${p.v("periodStart")} – ${p.v("periodEnd")}.",
+        pl = "${p.v("author")} — osoba, która Ci podlega — usunął/usunęła wpis z dziennika wpływu " +
+            "za okres ${p.v("periodStart")} – ${p.v("periodEnd")}.",
     )
     NotificationType.CAREER_POSITION_STARTED_TO_USER -> LocalizedText(
         en = "${p.v("manager")} recorded a new position in your career progression, starting ${p.v("startDate")}.",

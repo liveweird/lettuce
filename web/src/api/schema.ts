@@ -843,7 +843,7 @@ export interface paths {
         put?: never;
         /**
          * Create a feedback record
-         * @description Any authenticated user may create a feedback record they are a party to. The provider may equal the subject — a self-reflection (feedback about yourself) — either standalone or with a requester (someone requesting a self-reflection from the subject). Creation is rejected with `409` while a feedback with the same (subject, provider, requester) triple — a null requester matches only null — is still in progress (active `DRAFT` or `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`. Creation involving a **deactivated** party (provider, requester, or subject) is rejected with `400`.
+         * @description Any authenticated user may create a feedback record they are a party to. The provider must NOT equal the subject (`400`) — feedback about yourself (the retired self-reflection feature, v2.36.0) is no longer creatable; pre-existing provider == subject rows remain readable, editable, and transitionable. Creation is rejected with `409` while a feedback with the same (subject, provider, requester) triple — a null requester matches only null — is still in progress (active `DRAFT` or `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`. Creation involving a **deactivated** party (provider, requester, or subject) is rejected with `400`.
          */
         post: operations["createFeedback"];
         delete?: never;
@@ -977,8 +977,9 @@ export interface paths {
          * @description Delivers a draft. Provider-only, no request body. Valid only from DRAFT (otherwise 409).
          *     Notifies the subject, the provider, the requester (if any), and each of the subject's
          *     direct managers (who gain read access on delivery), and records an audit
-         *     event. For a self-reflection (provider == subject) only the requester, if any, is
-         *     notified — the other recipients would be the acting user.
+         *     event. For a legacy self-reflection row (provider == subject; no longer creatable)
+         *     only the requester, if any, is notified — the other recipients would be the acting
+         *     user.
          */
         post: operations["sendFeedback"];
         delete?: never;
@@ -1002,7 +1003,8 @@ export interface paths {
          * Withdraw a feedback (DRAFT|SENT → WITHDRAWN)
          * @description Retracts a draft or a sent feedback (terminal). Provider-only, no request body. Valid from
          *     DRAFT or SENT (otherwise 409). Notifies the subject (and the requester, if any); for a
-         *     self-reflection (provider == subject) only the requester, if any, is notified.
+         *     legacy self-reflection row (provider == subject) only the requester, if any, is
+         *     notified.
          */
         post: operations["withdrawFeedback"];
         delete?: never;
@@ -1560,6 +1562,137 @@ export interface paths {
          *     server-generated; there is no create/update/delete endpoint.
          */
         get: operations["listGoalEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/impact-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List impact log entries for the caller
+         * @description Lists impact log entries (per-employee journal of accomplishments) scoped by `view`.
+         *     Except `view=user` (the HR auditor view), scoping is always relative to the caller,
+         *     including ADMIN callers.
+         *
+         *     - `view=own` (the default): the caller's own journal.
+         *     - `view=managed`: the journals of the caller's **direct reports** (members of
+         *       non-deleted teams the caller manages) or, with `includeIndirect=true`, of everyone
+         *       in the caller's **transitive management chain**. A caller who manages no team gets
+         *       an empty page. The narrower direct-only default is a list scope, not an
+         *       authorization boundary: the single-GET grants any manager in the owner's chain read
+         *       access.
+         *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view — the given
+         *       user's whole journal. HR usage is recorded in the security audit trail. The
+         *       ordinary sort/filter/paging parameters apply on top.
+         *
+         *     Rows carry the owner's name, the period dates, and a 200-character preview of the
+         *     "What happened" section — never the full section texts.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `userName`, `periodStart`, `periodEnd`, `createdAt`,
+         *       `lastModified`. Default sort is `periodStart` **descending** (most recent periods
+         *       first). `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filters (all optional, all whitelisted):
+         *       - `userName` — case- and accent-insensitive substring match against the owner's
+         *         name.
+         *
+         *     Malformed query parameters (unknown view, unknown sort field, out-of-range
+         *     page/pageSize) respond with `400` and a `ProblemDetail` body.
+         */
+        get: operations["listImpactEntries"];
+        put?: never;
+        /**
+         * Add an entry to the caller's own journal
+         * @description Creates an impact log entry in the **caller's own journal** — the owner is always the
+         *     caller (no user id travels in the body; there is no create-on-behalf for anyone,
+         *     ADMIN included). The period is a pair of ISO dates with `periodStart <= periodEnd`
+         *     (past periods are fine — a journal records history; overlapping periods across
+         *     entries are allowed). All four sections are required non-blank markdown documents
+         *     within 5000 characters.
+         *
+         *     The owner's **direct managers** are notified (the transitive chain above reads on
+         *     demand but is not pinged); the creation is recorded in the entry's audit history.
+         */
+        post: operations["createImpactEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/impact-log/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch an impact log entry
+         * @description Returns the full entry document — owner, period, and the four sections. Readable by
+         *     the entry's **owner**, the **HR auditor** (audit-logged), and any **manager in the
+         *     owner's transitive management chain** (their manager, that manager's manager, and so
+         *     on — over non-deleted teams). Anything else — ADMIN and teammates included — is `403`.
+         */
+        get: operations["getImpactEntry"];
+        /**
+         * Edit an impact log entry
+         * @description Replaces the entry's whole document (period and all four sections — the same shape as
+         *     the create). **Owner-only**: a journal is a personal record, so the chain's read
+         *     right carries no pen (nobody else writes, ADMIN and HR included).
+         *
+         *     A changed document notifies the owner's **direct managers** and records ONE `UPDATED`
+         *     audit event naming the changed fields; a no-op PUT notifies nobody and records
+         *     nothing.
+         */
+        put: operations["updateImpactEntry"];
+        post?: never;
+        /**
+         * Delete an impact log entry
+         * @description Soft-deletes an entry (the row is flagged, not physically removed, and disappears
+         *     from reads/lists; its audit history is retained). **Owner-only**, at any time — the
+         *     journal is the owner's record to curate. The owner's **direct managers** are
+         *     notified.
+         */
+        delete: operations["deleteImpactEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/impact-log/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an impact log entry's audit history
+         * @description Returns the immutable audit trail for an entry — one event per creation, edit (a
+         *     single `UPDATED` event naming the changed fields), and deletion — newest first (id
+         *     descending as the same-instant tiebreaker). Each entry is structural: an event `type`
+         *     plus a `params` map (ISO dates and field-name lists — never section text), with the
+         *     acting user resolved to `userName`; no rendered string is stored (clients localize
+         *     the description). Authorization matches the single-GET above: whoever may read the
+         *     entry may read its history. Events are server-generated; there is no
+         *     create/update/delete endpoint.
+         */
+        get: operations["listImpactEntryEvents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3415,7 +3548,7 @@ export interface components {
          * @description A per-user-toggleable feature area (feature flags). Storage models the DISABLED set — absent = enabled, so every user defaults to full access. MFA is the one inverted-default value: every user starts with it DISABLED (opt-in email MFA at login; it gates the login flow, not any feature routes).
          * @enum {string}
          */
-        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "TEAM_KPIS";
+        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "IMPACT_LOG" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "TEAM_KPIS";
         UserFeaturesUpdateRequest: {
             /** @description The complete new DISABLED set (wholesale replace) — an empty array re-enables everything. An unknown feature name is rejected with 400. */
             disabledFeatures: components["schemas"]["Feature"][];
@@ -4580,6 +4713,115 @@ export interface components {
         GoalEventList: {
             items: components["schemas"]["GoalEventResponse"][];
         };
+        ImpactEntryRequest: {
+            /**
+             * Format: date
+             * @description ISO `YYYY-MM-DD`; the first day the entry relates to. Past dates are fine.
+             */
+            periodStart: string;
+            /**
+             * Format: date
+             * @description ISO `YYYY-MM-DD`; not earlier than `periodStart`.
+             */
+            periodEnd: string;
+            /** @description Markdown; required non-blank. */
+            whatHappened: string;
+            /** @description Markdown; required non-blank. */
+            contribution: string;
+            /** @description Markdown; required non-blank. */
+            whyItMattered: string;
+            /** @description Markdown; required non-blank: the evidence / feedback supporting the entry. */
+            evidence: string;
+        };
+        ImpactEntryResponse: {
+            /** Format: int32 */
+            id: number;
+            /**
+             * Format: int32
+             * @description The journal's owner — always the creator; never changes.
+             */
+            userId: number;
+            userName: string;
+            /** Format: date */
+            periodStart: string;
+            /** Format: date */
+            periodEnd: string;
+            whatHappened: string;
+            contribution: string;
+            whyItMattered: string;
+            evidence: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; server-managed, immutable.
+             */
+            createdAt: number;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds; server-managed, bumped on every mutation.
+             */
+            lastModified: number;
+        };
+        ImpactEntryListItem: {
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            userId: number;
+            userName: string;
+            userDeleted: boolean;
+            /** Format: date */
+            periodStart: string;
+            /** Format: date */
+            periodEnd: string;
+            /** @description First 200 characters of the "What happened" section. The full section texts never ride list rows. */
+            whatHappenedPreview: string;
+            /** Format: int64 */
+            createdAt: number;
+            /** Format: int64 */
+            lastModified: number;
+        };
+        ImpactEntryPage: {
+            items: components["schemas"]["ImpactEntryListItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        ImpactEntryEventResponse: {
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            entryId: number;
+            /** Format: int32 */
+            userId: number;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
+            userName: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds when the event was recorded. Server-managed.
+             */
+            timestamp: number;
+            /**
+             * @description Structured event kind; the client renders it in the viewer's language.
+             * @enum {string}
+             */
+            type: "CREATED" | "UPDATED" | "DELETED";
+            /**
+             * @description Interpolation params for the localized rendering — the CREATED event's
+             *     `periodStart`/`periodEnd`, the UPDATED event's comma-joined `changed` field-name
+             *     list plus `periodStartFrom`/`periodStartTo`/`periodEndFrom`/`periodEndTo` when the
+             *     period moved. Never section text (params stay plaintext by design; the sections
+             *     are encrypted at rest). Empty object when the event kind needs none.
+             */
+            params: {
+                [key: string]: string;
+            };
+        };
+        ImpactEntryEventList: {
+            items: components["schemas"]["ImpactEntryEventResponse"][];
+        };
         TeamKpiCreateRequest: {
             /**
              * Format: int32
@@ -5238,12 +5480,15 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CANCELLED_TO_OWNER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CANCELLED_TO_OWNER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
-             *     `"self"` for the "about yourself" / self-reflection variants, `"reflection"` for a
-             *     requester's own request-for-a-self-reflection confirmation, and on PASSWORD_CHANGED
+             *     `"self"` for the "about yourself" variants (on the feedback kinds only for LEGACY
+             *     self-reflection rows — new provider == subject feedbacks are rejected since
+             *     v2.36.0), `"reflection"` for a
+             *     requester's own request-for-a-self-reflection confirmation (legacy rows only),
+             *     and on PASSWORD_CHANGED
              *     `"admin"` (an administrator reset it) or `"reset"` (self-service email reset; absent
              *     = the user changed it themselves). ONE_ON_ONE_CREATED_TO_SUBORDINATE carries
              *     `{manager,date}` and ONE_ON_ONE_CREATED_TO_MANAGER `{subordinate,date}` (the
@@ -5259,6 +5504,8 @@ export interface components {
              *     The DAYS_OFF_RECORDED_* pair (an on-behalf recording, v2.29.0) also carries
              *     `{type,days}` next to its party name. DAYS_OFF_CORRECTED_TO_OWNER carries
              *     `{manager,year,operation,days}` — the client words ADD/SUBTRACT from `operation`.
+             *     The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
+             *     owner's name and the entry's raw ISO period bounds (never section text).
              */
             params: {
                 [key: string]: string;
@@ -5836,6 +6083,24 @@ export interface components {
         };
         /** @description The action is not allowed from the request's current status (accept/reject need REQUESTED; cancel needs REQUESTED or ACCEPTED) */
         DaysOffInvalidTransition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is neither the entry's owner, nor the HR auditor, nor a manager in the owner's transitive management chain */
+        ImpactEntryNotReadable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+        /** @description Caller is not the journal's owner — a journal is a personal record, so the chain's read right carries no pen (nobody else writes, ADMIN and HR included) */
+        ImpactEntryNotOwner: {
             headers: {
                 [name: string]: unknown;
             };
@@ -7184,7 +7449,7 @@ export interface operations {
                     "application/json": components["schemas"]["FeedbackResponse"];
                 };
             };
-            /** @description Validation error (requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist */
+            /** @description Validation error (provider ≠ subject — feedback about yourself is not supported; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8234,6 +8499,216 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["GoalNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listImpactEntries: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Which slice of journals to list — caller-relative, except the HR auditor view `user`. */
+                view?: "own" | "managed" | "user";
+                /**
+                 * @description Required with `view=user` (`400` when missing there, `400` with any other view):
+                 *     the user whose journal the auditor view lists.
+                 */
+                userId?: number;
+                /**
+                 * @description Only valid with `view=managed` (else `400`): `true` widens the list from the
+                 *     caller's direct reports to their whole transitive management chain.
+                 */
+                includeIndirect?: boolean;
+                /** @description Case- and accent-insensitive substring match against the owner's name. */
+                userName?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of impact log entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactEntryPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description view=user requested without the HR role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createImpactEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpactEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Created — the full entry document */
+            201: {
+                headers: {
+                    /** @description URL of the new entry resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactEntryResponse"];
+                };
+            };
+            /** @description Validation error (a malformed period date, a period start after its end, or a blank/oversized section) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getImpactEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactEntryResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ImpactEntryNotReadable"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateImpactEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpactEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (a malformed period date, a period start after its end, or a blank/oversized section) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ImpactEntryNotOwner"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteImpactEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ImpactEntryNotOwner"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listImpactEntryEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry's events, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactEntryEventList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ImpactEntryNotReadable"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };

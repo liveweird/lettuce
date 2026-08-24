@@ -10,6 +10,7 @@ import {
   IconMessagePlus,
   IconMessageQuestion,
   IconMessages,
+  IconNotebook,
   IconPlus,
   IconStairsUp,
   IconTargetArrow,
@@ -23,6 +24,7 @@ import {
 } from "../utils/feedbackLinks";
 import { userCareerLink } from "../utils/careerLinks";
 import { userDaysOffLink } from "../utils/daysOffLinks";
+import { userImpactLogLink } from "../utils/impactLogLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
@@ -62,6 +64,7 @@ const ICONS: Record<ButtonKey, React.ReactNode> = {
   goals: <IconTargetArrow size={14} />,
   reviews: <IconClipboardText size={14} />,
   daysOff: <IconBeach size={14} />,
+  impactLog: <IconNotebook size={14} />,
 };
 
 // The create flows (Provide/Ask/Request/New 1:1) are ACTIONS — light variant; the
@@ -124,6 +127,7 @@ export default function PersonCardActions({
     goals: userGoalsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     reviews: userPerformanceReviewsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     daysOff: userDaysOffLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
+    impactLog: userImpactLogLink(userId, name, drillFrom ?? "details", audit, drillOpts),
   };
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];

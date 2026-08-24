@@ -178,7 +178,8 @@
     "oneOnOnesAria": "Audit 1:1 meetings of {{name}}",
     "goalsAria": "Audit goals of {{name}}",
     "performanceReviewsAria": "Audit performance reviews of {{name}}",
-    "daysOffAria": "Audit days off of {{name}}"
+    "daysOffAria": "Audit days off of {{name}}",
+    "impactLogAria": "Audit {{name}}'s impact log"
   },
   "section": {
     "profile": "Profile",
@@ -261,5 +262,6 @@
     "deactivated": "User deactivated",
     "reactivated": "User reactivated",
     "featuresSaved": "Features saved"
-  }
+  },
+  "impactLog": "Impact log"
 }

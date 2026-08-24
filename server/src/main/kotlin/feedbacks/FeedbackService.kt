@@ -111,6 +111,10 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * persists them, mirroring [transition].
      */
     suspend fun create(feedback: Feedback): FeedbackCreateResult = suspendTransaction(database) {
+        // NOTE: provider == subject (the retired self-reflection shape, v2.36.0) is rejected by
+        // the ROUTE's create handler, deliberately not here — the service stays able to carry
+        // legacy rows (and tests seed them through it), and the shared validate() below also
+        // runs on content edits, which must keep working for pre-existing self rows.
         validate(feedback)
         // No-duplicate invariant: while a feedback with the same (subject, provider, requester)
         // triple is still in progress (DRAFT or REQUESTED), a second one may not be created —
@@ -623,11 +627,10 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     }
 
     private fun validate(next: Feedback) {
-        // provider == subject is the SELF-REFLECTION case: feedback about yourself. It may exist
-        // on its own (the SPA's Self-reflection screen, no requester) or with a requester — a
-        // manager's "Request feedback" may include the subject among the providers, asking them
-        // for a self-reflection. requester ≠ provider (below) still prevents requesting one from
-        // yourself.
+        // provider == subject (a legacy SELF-REFLECTION row) is deliberately NOT rejected here:
+        // the ROUTE blocks NEW ones since v2.36.0, but pre-existing rows must stay editable —
+        // this validator also runs on content edits. requester ≠ provider (below) prevents
+        // requesting feedback from yourself.
         if (next.requesterId != null && next.requesterId == next.providerId) {
             throw BadRequestException("Requester cannot also be the provider")
         }

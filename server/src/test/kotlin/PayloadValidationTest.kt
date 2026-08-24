@@ -332,15 +332,16 @@ class PayloadValidationTest {
         usePostgresTestcontainer()
         val email = uniqueEmail("fb-len")
         val callerId = TestUsers.seed(email = email, password = "pw-123456789", roles = emptySet())
-        val providerId = TestUsers.seed(email = uniqueEmail("fb-len-p"), password = "pw", roles = emptySet())
+        val otherId = TestUsers.seed(email = uniqueEmail("fb-len-p"), password = "pw", roles = emptySet())
         val client = authedClient(email, "pw-123456789")
 
-        // Self-reflection draft (provider == subject == caller) keeps the party rules simple.
+        // Caller-authored draft about the other user (provider == subject is rejected since
+        // v2.36.0, so the fixture needs a real subject).
         suspend fun create(content: String) = client.post("/api/v1/feedbacks") {
             contentType(ContentType.Application.Json)
             setBody(
                 FeedbackCreateRequest(
-                    subjectId = callerId,
+                    subjectId = otherId,
                     providerId = callerId,
                     visibility = FeedbackVisibility.PROVIDER_SUBJECT,
                     status = FeedbackStatus.DRAFT,
@@ -369,7 +370,7 @@ class PayloadValidationTest {
                 FeedbackCreateRequest(
                     requesterId = callerId,
                     subjectId = callerId,
-                    providerId = providerId,
+                    providerId = otherId,
                     visibility = FeedbackVisibility.PROVIDER_REQUESTER,
                     status = FeedbackStatus.REQUESTED,
                     requesterMessage = "x".repeat(1001),

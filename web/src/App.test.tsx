@@ -127,14 +127,29 @@ describe("App shell", () => {
         renderApp("/");
         expect(await screen.findByRole("link", { name: /^feedback$/i })).toBeInTheDocument();
         expect(screen.getByRole("link", { name: /^days off$/i })).toBeInTheDocument();
+        // The Impact log leaf (v2.36.0) rides its own flag — untouched by GOALS.
+        expect(screen.getByRole("link", { name: /^impact log$/i })).toHaveAttribute(
+          "href",
+          "/impact-log",
+        );
         expect(screen.queryByRole("link", { name: /^goals$/i })).toBeNull();
       } finally {
         localStorage.removeItem("lettuce.auth.disabledFeatures");
       }
     });
 
+    test("a disabled IMPACT_LOG feature drops the Impact log nav leaf", async () => {
+      localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["IMPACT_LOG"]));
+      try {
+        renderApp("/");
+        expect(await screen.findByRole("link", { name: /^goals$/i })).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: /^impact log$/i })).toBeNull();
+      } finally {
+        localStorage.removeItem("lettuce.auth.disabledFeatures");
+      }
+    });
+
     test("disabling FEEDBACKS, PERFORMANCE_REVIEWS, and DAYS_OFF hides their nav and Config leaves", async () => {
-      // The Self-reflection leaf is dynamic — it only renders with a known user id.
       localStorage.setItem(USER_ID_KEY, "7");
       localStorage.setItem(
         "lettuce.auth.disabledFeatures",
@@ -149,7 +164,6 @@ describe("App shell", () => {
         // …the disabled features' top-level + dynamic leaves are gone…
         expect(screen.queryByRole("link", { name: /^feedback$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^kudos$/i })).toBeNull();
-        expect(screen.queryByRole("link", { name: /^self-reflection$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^performance$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^days off$/i })).toBeNull();
         // …and so are their Config leaves (expand the group so its siblings prove it rendered).

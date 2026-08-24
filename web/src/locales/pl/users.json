@@ -186,7 +186,8 @@
     "oneOnOnesAria": "Audytuj spotkania 1:1: {{name}}",
     "goalsAria": "Audytuj cele: {{name}}",
     "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}",
-    "daysOffAria": "Audytuj dni wolne: {{name}}"
+    "daysOffAria": "Audytuj dni wolne: {{name}}",
+    "impactLogAria": "Audytuj dziennik wpływu {{name}}"
   },
   "section": {
     "profile": "Profil",
@@ -269,5 +270,6 @@
     "deactivated": "Użytkownik dezaktywowany",
     "reactivated": "Użytkownik aktywowany ponownie",
     "featuresSaved": "Funkcje zapisane"
-  }
+  },
+  "impactLog": "Dziennik wpływu"
 }

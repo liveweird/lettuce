@@ -47,8 +47,10 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   // an id matching no user falls back to the picker once the pool settles.
   const urlSubjectRequested = !kudo && Number.isFinite(urlSubjectId) && urlSubjectId > 0;
   const { userPool, usersError, usersReady } = useAllUsers(true);
+  // A URL-crafted SELF subject resolves to nothing (feedback about yourself is gone since
+  // v2.36.0 — the server rejects it), so it falls back to the picker like any unknown id.
   const urlSubject = urlSubjectRequested
-    ? (userPool ?? []).find((u) => u.id === urlSubjectId)
+    ? (userPool ?? []).find((u) => u.id === urlSubjectId && u.id !== providerId)
     : undefined;
   const pickerMode = !urlSubjectRequested || (usersReady && !urlSubject);
   const subjectId =
@@ -61,8 +63,8 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
     subjectId != null && providerId != null ? { subjectId, providerId } : null,
   );
 
-  // Picking praises/reviews OTHERS: the caller is excluded (the Self-reflection screen covers
-  // self — the kudos-picker decision; a URL-crafted self subjectId still works below).
+  // Picking praises/reviews OTHERS: the caller is excluded — feedback about yourself is not
+  // supported (the self-reflection feature was retired in v2.36.0; the Impact log replaces it).
   const subjectOptions = useMemo(
     () =>
       (userPool ?? [])
@@ -77,14 +79,8 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   if (providerId == null) return <Navigate to="/" replace />;
 
   const subjectDisplay = !pickerMode
-    ? // A URL-carried self target is a valid self-reflection create — keep the app-wide
-      // plain "You" instead of rendering the caller's own chip. The `#id` placeholder shows
-      // only until the pool resolves the canonical name.
-      urlSubject
-      ? urlSubject.id === providerId
-        ? t("common.state.you")
-        : urlSubject.name
-      : `#${urlSubjectId}`
+    ? // The `#id` placeholder shows only until the pool resolves the canonical name.
+      (urlSubject?.name ?? `#${urlSubjectId}`)
     : subjectId != null
       ? (userPool ?? []).find((u) => u.id === subjectId)?.name
       : undefined;

@@ -9,6 +9,7 @@ import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.feedbacks.isDelivered
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
+import ch.nokillswit.impactlog.ImpactEntryResponse
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.pulse.PulseCycleStatus
 import ch.nokillswit.reviews.PerformanceReviewResponse
@@ -576,6 +577,40 @@ suspend fun requireDaysOffCorrectionsRead(
     if (grantHrRead(caller, "daysOffCorrections", targetUserId)) return
     if (managesOwner()) return // DB hit only if needed
     throw ForbiddenException("Caller may not read this user's budget corrections")
+}
+
+// ── Impact log ──────────────────────────────────────────────────────────────────────────────
+// Existence disclosure: like feedbacks, impact-log routes read BEFORE guarding (missing → 404,
+// existing-but-forbidden → 403), so an id probe can learn an entry exists — never its content
+// or owner (ids are sequential; existence is no secret).
+
+/**
+ * Reading an impact log entry (v2.36.0): the owner themselves, the HR auditor (audit-logged),
+ * and any manager in the owner's TRANSITIVE management chain — the
+ * [requireDaysOffCorrectionsRead] shape, with no status nuance (a journal has no lifecycle).
+ * Nobody else — ADMIN-as-such gets nothing (the narrowed-ADMIN rule), teammates never read
+ * each other's journals.
+ */
+suspend fun requireImpactEntryRead(
+    caller: CallerPrincipal,
+    entry: ImpactEntryResponse,
+    managesOwner: suspend () -> Boolean,
+) {
+    if (caller.userId == entry.userId) return // the owner — cheap rule first
+    if (grantHrRead(caller, "impactLog", entry.id)) return
+    if (managesOwner()) return // DB hit only if needed
+    throw ForbiddenException("Caller may not read this impact log entry")
+}
+
+/**
+ * Writing an impact log entry (edit/delete): the OWNER only — a journal is a personal record,
+ * so the chain's read right carries no pen (the authorship carve-out of the chain rule), and
+ * neither ADMIN nor HR gets anything.
+ */
+fun requireImpactEntryWrite(caller: CallerPrincipal, entry: ImpactEntryResponse) {
+    if (caller.userId != entry.userId) {
+        throw ForbiddenException("Only the journal's owner may modify this impact log entry")
+    }
 }
 
 // ── Pulse surveys ───────────────────────────────────────────────────────────────────────────

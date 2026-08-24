@@ -44,6 +44,7 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   { path: "/feedback", heading: "Feedback" },
   { path: "/kudos", heading: "Kudos" },
   { path: "/goals", heading: "Goals" },
+  { path: "/impact-log", heading: "Impact log" },
   { path: "/one-on-ones", heading: "1:1 meetings" },
   { path: "/performance", heading: "Performance" },
   { path: "/career", heading: "Career" },
@@ -58,6 +59,7 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   // the days-off request form, and the admin feature-flags screen.
   { path: "/kudos/new", heading: "New kudo" },
   { path: "/feedback/new", heading: "New feedback" },
+  { path: "/impact-log/new", heading: "New journal entry" },
   { path: "/days-off/new", heading: "New days-off request" },
   { path: "/feature-flags", heading: "Feature flags" },
 ];

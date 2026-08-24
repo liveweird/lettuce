@@ -31,6 +31,7 @@ import {
   IconEyeOff,
   IconKey,
   IconMessageQuestion,
+  IconNotebook,
   IconPencil,
   IconSend,
   IconStairsUp,
@@ -93,6 +94,9 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   PULSE_CYCLE_OPENED: "pulseCycleOpened",
   PULSE_RESULTS_AVAILABLE: "pulseResultsAvailable",
   PULSE_CYCLE_CANCELLED: "pulseCycleCancelled",
+  IMPACT_ENTRY_CREATED_TO_MANAGER: "impactEntryCreated",
+  IMPACT_ENTRY_UPDATED_TO_MANAGER: "impactEntryUpdated",
+  IMPACT_ENTRY_DELETED_TO_MANAGER: "impactEntryDeleted",
   CAREER_POSITION_STARTED_TO_USER: "careerPositionStarted",
   PASSWORD_CHANGED: "passwordChanged",
 };
@@ -129,6 +133,7 @@ const DAYS_OFF_SPEC: ParamFormatSpec = {
 // (v2.31.0); rows minted before the rework carry no `by` and fall back to the base key.
 const DAYS_OFF_CANCEL_SPEC: ParamFormatSpec = { ...DAYS_OFF_SPEC, contextParam: "by" };
 const PULSE_SPEC: ParamFormatSpec = { dateParams: ["openDate", "closeDate"] };
+const IMPACT_LOG_SPEC: ParamFormatSpec = { dateParams: ["periodStart", "periodEnd"] };
 
 const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   teamKpiValueRecorded: KPI_VALUE_SPEC,
@@ -149,6 +154,9 @@ const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   pulseCycleOpened: PULSE_SPEC,
   pulseResultsAvailable: PULSE_SPEC,
   pulseCycleCancelled: PULSE_SPEC,
+  impactEntryCreated: IMPACT_LOG_SPEC,
+  impactEntryUpdated: IMPACT_LOG_SPEC,
+  impactEntryDeleted: IMPACT_LOG_SPEC,
   careerPositionStarted: { dateParams: ["startDate"] },
 };
 
@@ -222,6 +230,9 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   PULSE_CYCLE_OPENED: { icon: IconHeartRateMonitor, color: "teal" },
   PULSE_RESULTS_AVAILABLE: { icon: IconHeartRateMonitor, color: "grape" },
   PULSE_CYCLE_CANCELLED: { icon: IconHeartRateMonitor, color: "gray" },
+  IMPACT_ENTRY_CREATED_TO_MANAGER: { icon: IconNotebook, color: "teal" },
+  IMPACT_ENTRY_UPDATED_TO_MANAGER: { icon: IconNotebook, color: "indigo" },
+  IMPACT_ENTRY_DELETED_TO_MANAGER: { icon: IconNotebook, color: "gray" },
   CAREER_POSITION_STARTED_TO_USER: { icon: IconStairsUp, color: "indigo" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };

@@ -15,7 +15,8 @@ export type ButtonKey =
   | "oneOnOnes"
   | "goals"
   | "reviews"
-  | "daysOff";
+  | "daysOff"
+  | "impactLog";
 
 export type LabelPair = { aria: ParseKeys; text: ParseKeys };
 
@@ -34,6 +35,9 @@ export const FEATURE_OF: Record<ButtonKey, Feature | null> = {
   goals: "GOALS",
   reviews: "PERFORMANCE_REVIEWS",
   daysOff: "DAYS_OFF",
+  // Audit-flavor only today (v2.36.0): managers read journals from the Impact log page's
+  // managed tab, so the person cards carry no impact-log button.
+  impactLog: "IMPACT_LOG",
 };
 
 export const PERSON_CARD_ACTION_LABELS: Record<
@@ -72,6 +76,8 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     reviews: { aria: "users.audit.performanceReviewsAria", text: "users.performanceReviews" },
     // v1.42.0: days off are per-user, so the auditor drill-down fits (unlike team KPIs).
     daysOff: { aria: "users.audit.daysOffAria", text: "users.daysOff" },
+    // v2.36.0: the whole-journal auditor view (view=user server-side, audit-logged).
+    impactLog: { aria: "users.audit.impactLogAria", text: "users.impactLog" },
   },
 };
 
