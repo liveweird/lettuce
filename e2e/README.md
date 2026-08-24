@@ -87,7 +87,7 @@ owned state, numbered steps, expected outcomes). **A new or behaviorally changed
 its scenario file and its line below in the same commit** — this list is the coverage map, the
 scenario file is the design.
 
-- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 21 authed pages (incl. the kudos/feedback/days-off create forms and `/feature-flags`, 2026-08); `color-contrast` consciously waived.
+- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 23 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, and the v2.36.0 impact-log pair); `color-contrast` consciously waived.
 - [`alerts.spec.ts`](scenarios/alerts.md) — admin broadcast alert: banner, hide/re-show, deactivate, delete (own serial phase).
 - [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
 - [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL (PL leg on a throwaway user — the switch persists server-side).
@@ -104,8 +104,8 @@ scenario file is the design.
 - [`feedback-request-triage.spec.ts`](scenarios/feedback-request-triage.md) — ask → accept → send; and reject.
 - [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, the skip-level chain create (v2.33.0), notifications.
 - [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08); admin gets no audit surface.
-- [`impact-log.spec.ts`](scenarios/impact-log.md) — the accomplishment journal (v2.36.0): owner creates/edits/deletes with History, the manager reads via My subordinates' journals and the person-card Impact-log drill-down (v2.38.0).
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
+- [`impact-log.spec.ts`](scenarios/impact-log.md) — the accomplishment journal (v2.36.0): owner creates/edits/deletes with History, the manager reads via My subordinates' journals and the person-card Impact-log drill-down (v2.38.0).
 - [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
 - [`manager-oversight.spec.ts`](scenarios/manager-oversight.md) — the My team feedback tab and the per-user two-way screen.
