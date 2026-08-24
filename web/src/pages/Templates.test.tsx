@@ -74,7 +74,7 @@ describe("Templates page", () => {
       expect.any(Object),
     );
     // The heading carries the data-tour anchor the guided tour targets for the Config → Templates step.
-    expect(screen.getByRole("heading", { name: "Templates" })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "Feedback templates" })).toHaveAttribute(
       "data-tour",
       "config-templates",
     );

@@ -76,7 +76,7 @@ test("a transient refresh failure keeps the session", async ({ page }) => {
   await page.unroute(LIST_GLOB);
   await page.unroute("**/api/v1/refresh");
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Templates" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Feedback templates" })).toBeVisible();
   await expect(page.getByText("Loading failed (401).")).toHaveCount(0);
 });
 

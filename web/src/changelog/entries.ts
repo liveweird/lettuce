@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.38.2",
+    date: "2026-08-24",
+    en: `The templates page now says "Feedback templates" in its heading too, matching the renamed menu entry.`,
+    pl: `Strona szablonów ma teraz w nagłówku „Szablony feedbacku" — spójnie ze zmienioną nazwą pozycji menu.`,
+  },
+  {
     version: "2.38.1",
     date: "2026-08-24",
     en: `The Config section's "Templates" menu entry is now called "Feedback templates" — saying what the templates are actually for, and leaving room for templates on other topics in the future.`,
