@@ -43,9 +43,14 @@ export default function ImpactLogTable({
   settingsKey,
   backTo,
   withReportsScope,
+  includeIndirect: includeIndirectProp,
 }: {
   view: ImpactLogListView;
-  /** Required with view="user" (the HR auditor view): whose journal to list. */
+  /**
+   * Required with view="user" (the HR auditor view): whose journal to list. On
+   * view="managed" it instead PINS the list to one report (the person-card drill-down,
+   * v2.38.0 — the PerformanceReviewTable subordinateId idiom).
+   */
   userId?: number;
   /** Override the localStorage view-settings namespace when embedded outside the main tabs. */
   settingsKey?: string;
@@ -53,12 +58,15 @@ export default function ImpactLogTable({
   backTo?: string;
   /** Show the "Reports" direct/all filter and derive includeIndirect from it (managed only). */
   withReportsScope?: boolean;
+  /** Fixed chain scope (the pinned drill-down — mutually exclusive with withReportsScope). */
+  includeIndirect?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   // Whose entry it is only varies on the cross-person views; `user` pins one person, but the
-  // audit drill-down keeps the column so the row names its author explicitly.
-  const ownerVisible = view !== "own";
+  // audit drill-down keeps the column so the row names its author explicitly. A managed pin
+  // hides it instead — the "drill-down pins that party" idiom (the page heading names them).
+  const ownerVisible = view === "managed" ? userId == null : view !== "own";
   const sortFields: readonly SortField[] = ownerVisible
     ? ["periodStart", "userName", "title", "lastModified"]
     : ["periodStart", "title", "lastModified"];
@@ -72,11 +80,13 @@ export default function ImpactLogTable({
     "direct",
     isOneOf(REPORTS_SCOPES),
   );
-  const includeIndirect = withReportsScope === true && reportsScope === "all";
+  const includeIndirect =
+    includeIndirectProp ?? (withReportsScope === true && reportsScope === "all");
   const activeFilterCount =
     (ownerVisible && ownerFilter.trim() ? 1 : 0) +
     (titleFilter.trim() ? 1 : 0) +
-    (includeIndirect ? 1 : 0);
+    // The fixed prop is page scope, not a user-chosen filter — only the toggle counts.
+    (withReportsScope === true && reportsScope === "all" ? 1 : 0);
 
   const [debouncedOwner] = useDebouncedValue(ownerFilter, 300);
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);

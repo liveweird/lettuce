@@ -260,20 +260,28 @@ describe("TeamMembersTable", () => {
       "/users/11/performance-reviews?name=Bob%20Brown&from=subordinates",
     );
     expect(screen.getAllByRole("link", { name: /performance reviews of/i })).toHaveLength(2);
+    // Its Performance-section sibling (v2.38.0): the per-report journal drill-down.
+    expect(screen.getByRole("link", { name: "Impact log of Bob Brown" })).toHaveAttribute(
+      "href",
+      "/users/11/impact-log?name=Bob%20Brown&from=subordinates",
+    );
 
-    // The all-reports scope hides it — creation (the drill-down's New review) needs a direct report.
+    // The all-reports scope hides it — creation (the drill-down's New review) needs a direct
+    // report. The Impact log button stays: journal reads are chain-wide (the daysOff shape).
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
     await waitFor(() => {
       expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
     });
+    expect(screen.getAllByRole("link", { name: /impact log of/i }).length).toBeGreaterThan(0);
 
     cleanup();
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
     await screen.findByText("Bob Brown");
     expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /impact log of/i })).toBeNull();
   });
 
   test("peer cards carry the career column - a null seniority stays hidden (v2.25.0)", async () => {
@@ -370,12 +378,14 @@ describe("TeamMembersTable", () => {
     });
     expect(screen.getByText("Path")).toBeInTheDocument();
     expect(screen.getByText("QA Engineer")).toBeInTheDocument();
-    // Sections (v1.46.0): Profile + the buttons-only Collaboration remain; the
-    // direct-only Performance section drops with its stats and buttons. Days off stays
-    // (v2.32.0 — the drill-down works chain-wide now), as the button-only section.
+    // Sections (v1.46.0): Profile + the buttons-only Collaboration remain; the Performance
+    // section drops its stats and Reviews button but stays for the chain-wide Impact log
+    // drill-down (v2.38.0 — the Days off shape, v2.32.0).
     expect(screen.getByText("Profile")).toBeInTheDocument();
     expect(screen.getByText("Collaboration")).toBeInTheDocument();
-    expect(screen.queryByText("Performance")).toBeNull();
+    expect(screen.getByText("Performance")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /impact log of/i })).toBeInTheDocument();
     // "Days off" appears twice — the section divider and the drill-down button.
     expect(screen.getAllByText("Days off").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Days off of Bob Brown")).toBeInTheDocument();

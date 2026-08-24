@@ -185,6 +185,12 @@ describe("UserDetails page", () => {
       "href",
       `/users/5/career?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
     );
+    // The Performance section's journal drill-down (v2.38.0) — manages=1 is what routes the
+    // drill-down page onto its managed (non-audit) branch.
+    expect(screen.getByRole("link", { name: "Impact log of Bob" })).toHaveAttribute(
+      "href",
+      `/users/5/impact-log?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
+    );
     // The subordinate flavor carries all four labeled sections (v1.46.0); "Days off"
     // matches the caption AND the drill-down button's text.
     expect(screen.getByText("Profile")).toBeInTheDocument();
@@ -298,6 +304,10 @@ describe("UserDetails page", () => {
       "href",
       `/users/5/performance-reviews?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
     );
+    expect(screen.getByRole("link", { name: "Audit Bob's impact log" })).toHaveAttribute(
+      "href",
+      `/users/5/impact-log?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
+    );
   });
 
   test("an auditor's audit block drops just a disabled feature's drill-down (v1.53.0)", async () => {
@@ -329,6 +339,7 @@ describe("UserDetails page", () => {
         "TEAM_KPIS",
         "PERFORMANCE_REVIEWS",
         "DAYS_OFF",
+        "IMPACT_LOG",
       ]),
     );
     try {

@@ -28,6 +28,11 @@ enum class ImpactLogListView { OWN, MANAGED, USER }
 data class ImpactLogListFilter(
     val userName: String? = null,
     val title: String? = null,
+    /**
+     * Exact owner-id pin on view=managed (the person-card drill-down, v2.38.0 — the days-off
+     * shape): ANDed onto the reports scope, so an out-of-chain id just yields an empty page.
+     */
+    val userId: UInt? = null,
 )
 
 data class ImpactLogListResult(
@@ -288,6 +293,7 @@ class ImpactLogService(val database: R2dbcDatabase, private val cipher: FieldCip
         filter.title?.takeIf { it.isNotBlank() }?.let {
             op = op and (Entries.title.containsNormalized(it))
         }
+        filter.userId?.let { op = op and (Entries.userId eq it) }
         return op
     }
 }

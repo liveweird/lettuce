@@ -10,9 +10,9 @@ import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
-import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
@@ -106,8 +106,17 @@ fun Application.configureImpactLogRoutes() {
                 val includeIndirect =
                     params.optionalIncludeIndirect(view, listOf(ImpactLogListView.MANAGED))
                 // The auditor view (HR-only): view-shape validation first, then the role gate
-                // (every use is audit-logged) — the goals-list idiom.
-                val userId = params.uintOnlyForView("userId", view, ImpactLogListView.USER)
+                // (every use is audit-logged) — the goals-list idiom. Deliberately NOT
+                // uintOnlyForView (the shared helper): like days-off, userId doubles as an
+                // ordinary pin-filter on view=managed (the person-card drill-down, v2.38.0),
+                // so only view=own rejects it.
+                val userId = params.optionalUInt("userId")
+                if (view == ImpactLogListView.USER && userId == null) {
+                    throw BadRequestException("userId is required for view=user")
+                }
+                if (view == ImpactLogListView.OWN && userId != null) {
+                    throw BadRequestException("userId is not supported for view=own")
+                }
                 if (view == ImpactLogListView.USER) {
                     requireAuditListAccess(caller, "impactLog", userId!!)
                 }
@@ -117,6 +126,8 @@ fun Application.configureImpactLogRoutes() {
                     ImpactLogListFilter(
                         userName = params.optionalString("userName"),
                         title = params.optionalString("title"),
+                        // The managed pin-filter; view=user carries its target via targetUserId.
+                        userId = if (view == ImpactLogListView.USER) null else userId,
                     ),
                     paging,
                     includeIndirect = includeIndirect,

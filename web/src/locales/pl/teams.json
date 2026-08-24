@@ -77,6 +77,8 @@
   "kpisOfAria": "KPI zespołu {{name}}",
   "performanceReviews": "Oceny okresowe",
   "performanceReviewsForAria": "Oceny okresowe: {{name}}",
+  "impactLog": "Dziennik wpływu",
+  "impactLogForAria": "Dziennik wpływu: {{name}}",
   "toast": {
     "created": "Zespół utworzony",
     "updated": "Zespół zaktualizowany",

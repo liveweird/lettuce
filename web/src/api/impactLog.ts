@@ -23,7 +23,10 @@ type ImpactLogListQuery = {
   title?: string;
   /** Only valid with view=managed: widen from direct reports to the whole management chain. */
   includeIndirect?: boolean;
-  /** Required with view=user (the HR auditor view): whose journal to list. */
+  /**
+   * Required with view=user (the HR auditor view): whose journal to list. On view=managed
+   * an optional exact-owner pin (the person-card drill-down, v2.38.0); 400 with view=own.
+   */
   userId?: number;
 };
 

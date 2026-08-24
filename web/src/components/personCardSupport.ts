@@ -35,8 +35,6 @@ export const FEATURE_OF: Record<ButtonKey, Feature | null> = {
   goals: "GOALS",
   reviews: "PERFORMANCE_REVIEWS",
   daysOff: "DAYS_OFF",
-  // Audit-flavor only today (v2.36.0): managers read journals from the Impact log page's
-  // managed tab, so the person cards carry no impact-log button.
   impactLog: "IMPACT_LOG",
 };
 
@@ -66,6 +64,8 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     oneOnOnes: { aria: "teams.oneOnOnesWithAria", text: "teams.oneOnOnes" },
     goals: { aria: "teams.goalsForAria", text: "teams.goals" },
     reviews: { aria: "teams.performanceReviewsForAria", text: "teams.performanceReviews" },
+    // v2.38.0: the manager-side per-report journal drill-down (view=managed pinned to the user).
+    impactLog: { aria: "teams.impactLogForAria", text: "teams.impactLog" },
     // v1.44.0: the manager-side per-report days-off drill-down.
     daysOff: { aria: "teams.daysOffForAria", text: "teams.daysOff" },
   },
@@ -129,7 +129,7 @@ export const OPERATIONAL_ACTIONS: readonly ButtonKey[] = [
   "oneOnOnes",
   "goals",
 ];
-export const PERFORMANCE_ACTIONS: readonly ButtonKey[] = ["reviews"];
+export const PERFORMANCE_ACTIONS: readonly ButtonKey[] = ["reviews", "impactLog"];
 export const DAYS_OFF_ACTIONS: readonly ButtonKey[] = ["daysOff"];
 
 // Whether any button of `subset` would render under these props — the card body uses it to

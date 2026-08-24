@@ -69,6 +69,8 @@
   "userFallback": "użytkownik #{{id}}",
   "journalAudit": "Dziennik wpływu — {{who}}",
   "journalAuditHint": "Widok audytora: cały dziennik {{who}}, tylko do odczytu. Dostęp jest zapisywany w dzienniku audytu bezpieczeństwa.",
+  "journalFor": "Dziennik wpływu — {{who}}",
+  "journalForHint": "Dziennik osiągnięć {{who}}, tylko do odczytu.",
   "step": {
     "whatHappened": "Co się wydarzyło",
     "contribution": "Mój wkład",

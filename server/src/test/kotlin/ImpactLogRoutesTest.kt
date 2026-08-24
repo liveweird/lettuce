@@ -401,6 +401,39 @@ class ImpactLogRoutesTest {
     }
 
     @Test
+    fun `view managed pins to one report with userId - out-of-chain ids yield an empty page`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val (grandEmail, _) = seedGrandManager(pair)
+        // A second direct report on the same manager, so the pin has something to exclude.
+        val otherEmail = uniqueEmail("impact-other")
+        val otherId = TestUsers.seed(otherEmail, "pw", name = "Oskar Other", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "impact-p-${UUID.randomUUID()}", managerId = pair.managerId))
+        TestServices.teams.addMember(teamId, otherId)
+        val ownerEntry = authedClient(pair.ownerEmail, "pw").createEntry()
+        authedClient(otherEmail, "pw").createEntry(entryBody(title = "Other report's work"))
+
+        // The pin narrows the managed scope to exactly one report (the drill-down, v2.38.0).
+        val manager = authedClient(pair.managerEmail, "pw")
+        val pinned = manager.get("/api/v1/impact-log?view=managed&userId=${pair.ownerId}")
+            .body<ImpactEntryPageResponse>()
+        assertEquals(1, pinned.total)
+        assertTrue(pinned.items.all { it.userId == pair.ownerId })
+        assertEquals(ownerEntry.id, pinned.items.single().id)
+
+        // The pin composes with includeIndirect — the chain drill-down's shape.
+        val grandPinned = authedClient(grandEmail, "pw")
+            .get("/api/v1/impact-log?view=managed&userId=${pair.ownerId}&includeIndirect=true")
+            .body<ImpactEntryPageResponse>()
+        assertTrue(grandPinned.items.any { it.id == ownerEntry.id })
+
+        // An id outside the caller's scope intersects to nothing — an empty 200, never a leak.
+        val outOfChain = manager.get("/api/v1/impact-log?view=managed&userId=${pair.managerId}")
+            .body<ImpactEntryPageResponse>()
+        assertEquals(0, outOfChain.total)
+    }
+
+    @Test
     fun `view user is the HR auditor's - HR only, userId required, others 403`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
