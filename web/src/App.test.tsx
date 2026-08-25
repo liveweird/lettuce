@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { APP_VERSION } from "./changelog/version";
@@ -133,6 +133,48 @@ describe("App shell", () => {
           "/impact-log",
         );
         expect(screen.queryByRole("link", { name: /^goals$/i })).toBeNull();
+      } finally {
+        localStorage.removeItem("lettuce.auth.disabledFeatures");
+      }
+    });
+
+    test("the Succession plans nav leaf is manager-only (async gate) and rides its feature flag", async () => {
+      // The bare fetch stub answers nothing, so the managed-teams probe never resolves to a
+      // manager — the leaf must stay absent.
+      renderApp("/");
+      expect(await screen.findByRole("link", { name: /^feedback$/i })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^succession plans$/i })).toBeNull();
+      cleanup();
+
+      // A manager (the /teams?managerId probe answers total > 0) gets the leaf…
+      localStorage.setItem(USER_ID_KEY, "7");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string) => {
+          if (String(url).startsWith("/api/v1/teams?")) {
+            return Promise.resolve(
+              new Response(JSON.stringify({ items: [], page: 1, pageSize: 1, total: 1 }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              }),
+            );
+          }
+          return new Promise<Response>(() => {});
+        }),
+      );
+      renderApp("/");
+      expect(await screen.findByRole("link", { name: /^succession plans$/i })).toHaveAttribute(
+        "href",
+        "/succession",
+      );
+      cleanup();
+
+      // …unless the SUCCESSION_PLANS flag is disabled.
+      localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["SUCCESSION_PLANS"]));
+      try {
+        renderApp("/");
+        expect(await screen.findByRole("link", { name: /^feedback$/i })).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: /^succession plans$/i })).toBeNull();
       } finally {
         localStorage.removeItem("lettuce.auth.disabledFeatures");
       }

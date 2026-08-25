@@ -63,8 +63,11 @@ private fun subjectFor(type: NotificationType): LocalizedText = if (
     Feature.PULSE_SURVEYS -> LocalizedText(en = "Lettuce: pulse survey", pl = "Lettuce: ankieta pulsu")
     Feature.IMPACT_LOG -> LocalizedText(en = "Lettuce: impact log", pl = "Lettuce: dziennik wpływu")
     // MFA mints no notifications (its emails are the sign-in codes themselves, sent directly
-    // from the login flow) — same fallback as the feature-neutral security types.
-    Feature.MFA, null -> LocalizedText(en = "Lettuce: security notice", pl = "Lettuce: powiadomienie o bezpieczeństwie")
+    // from the login flow), and SUCCESSION_PLANS mints none BY DESIGN (confidential — the
+    // subjects must never learn of it, and the owner is always the actor) — same fallback as
+    // the feature-neutral security types.
+    Feature.MFA, Feature.SUCCESSION_PLANS, null ->
+        LocalizedText(en = "Lettuce: security notice", pl = "Lettuce: powiadomienie o bezpieczeństwie")
 }
 
 /** Missing-param fallback: render "?" rather than fail the whole email. */

@@ -16,7 +16,8 @@ export type ButtonKey =
   | "goals"
   | "reviews"
   | "daysOff"
-  | "impactLog";
+  | "impactLog"
+  | "succession";
 
 export type LabelPair = { aria: ParseKeys; text: ParseKeys };
 
@@ -36,6 +37,7 @@ export const FEATURE_OF: Record<ButtonKey, Feature | null> = {
   reviews: "PERFORMANCE_REVIEWS",
   daysOff: "DAYS_OFF",
   impactLog: "IMPACT_LOG",
+  succession: "SUCCESSION_PLANS",
 };
 
 export const PERSON_CARD_ACTION_LABELS: Record<
@@ -78,6 +80,9 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     daysOff: { aria: "users.audit.daysOffAria", text: "users.daysOff" },
     // v2.36.0: the whole-journal auditor view (view=user server-side, audit-logged).
     impactLog: { aria: "users.audit.impactLogAria", text: "users.impactLog" },
+    // v2.42.0: every succession plan the person is a party to (seat or owner) — audit-only:
+    // the card flavors never carry it (a manager reads plans on the Succession page itself).
+    succession: { aria: "users.audit.successionAria", text: "users.successionPlans" },
   },
 };
 

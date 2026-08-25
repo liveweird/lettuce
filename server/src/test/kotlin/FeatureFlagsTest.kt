@@ -125,6 +125,8 @@ class FeatureFlagsTest {
             "/api/v1/impact-log",
             // The feature 403 precedes even the 404 — a disabled caller learns nothing.
             "/api/v1/impact-log/999999999",
+            "/api/v1/succession-plans",
+            "/api/v1/succession-plans/999999999",
         )
         gated.forEach { path ->
             assertEquals(HttpStatusCode.Forbidden, blocked.get(path).status, "expected 403 for $path")

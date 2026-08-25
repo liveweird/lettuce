@@ -340,6 +340,7 @@ describe("UserDetails page", () => {
         "PERFORMANCE_REVIEWS",
         "DAYS_OFF",
         "IMPACT_LOG",
+        "SUCCESSION_PLANS",
       ]),
     );
     try {

@@ -15,6 +15,7 @@ import {
   IconStairsUp,
   IconTargetArrow,
   IconUserPlus,
+  IconUserShield,
 } from "@tabler/icons-react";
 import {
   feedbackAskLink,
@@ -28,6 +29,7 @@ import { userImpactLogLink } from "../utils/impactLogLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
+import { userSuccessionLink } from "../utils/successionLinks";
 import { hasFeature } from "../api/session";
 import {
   ACTION_GROUPS,
@@ -65,6 +67,7 @@ const ICONS: Record<ButtonKey, React.ReactNode> = {
   reviews: <IconClipboardText size={14} />,
   daysOff: <IconBeach size={14} />,
   impactLog: <IconNotebook size={14} />,
+  succession: <IconUserShield size={14} />,
 };
 
 // The create flows (Provide/Ask/Request/New 1:1) are ACTIONS — light variant; the
@@ -128,6 +131,7 @@ export default function PersonCardActions({
     reviews: userPerformanceReviewsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     daysOff: userDaysOffLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
     impactLog: userImpactLogLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
+    succession: userSuccessionLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
   };
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];
