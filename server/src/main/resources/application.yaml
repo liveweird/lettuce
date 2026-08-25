@@ -37,6 +37,7 @@ ktor:
       - ch.nokillswit.daysoff.DaysOffRoutesKt.configureDaysOffRoutes
       - ch.nokillswit.pulse.PulseRoutesKt.configurePulseRoutes
       - ch.nokillswit.impactlog.ImpactLogRoutesKt.configureImpactLogRoutes
+      - ch.nokillswit.succession.SuccessionRoutesKt.configureSuccessionRoutes
       - ch.nokillswit.dashboard.DashboardRoutesKt.configureDashboardRoutes
       - ch.nokillswit.templates.TemplateRoutesKt.configureTemplateRoutes
       - ch.nokillswit.dictionaries.DictionaryRoutesKt.configureDictionaryRoutes

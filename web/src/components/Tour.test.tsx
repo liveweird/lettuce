@@ -124,8 +124,9 @@ describe("Tour", () => {
     const manager = buildSteps(t, true);
 
     // Feedback "My team", the two manager-side 1:1 tabs, the manager-side Goals, Team-KPI and
-    // Performance tabs, and the Days-off team tab are manager-only. Pulse "participation" is
-    // managerOrHr, which for this non-HR caller flips on being a manager just the same.
+    // Performance tabs, the Days-off team tab, and the Succession nav step are manager-only.
+    // Pulse "participation" is managerOrHr, which for this non-HR caller flips on being a
+    // manager just the same.
     const managerGatedTargets = [
       '[data-tour="feedback-team"]',
       '[data-tour="one-on-one-managed"]',
@@ -136,6 +137,7 @@ describe("Tour", () => {
       '[data-tour="career-pyramid"]',
       '[data-tour="days-off-team"]',
       '[data-tour="pulse-participation"]',
+      '[data-tour="nav-succession"]',
     ];
     for (const target of managerGatedTargets) {
       expect(nonManager.some((s) => s.target === target), target).toBe(false);
@@ -228,7 +230,7 @@ describe("Tour", () => {
     }
   });
 
-  test("buildSteps with all eight features disabled keeps only the non-feature steps", () => {
+  test("buildSteps with all nine features disabled keeps only the non-feature steps", () => {
     localStorage.setItem(
       "lettuce.auth.disabledFeatures",
       JSON.stringify([
@@ -240,6 +242,7 @@ describe("Tour", () => {
         "PERFORMANCE_REVIEWS",
         "DAYS_OFF",
         "PULSE_SURVEYS",
+        "SUCCESSION_PLANS",
       ]),
     );
     try {
@@ -336,6 +339,7 @@ describe("Tour", () => {
       { target: '[data-tour="pulse-results"]', path: "/pulse?tab=results" },
       { target: '[data-tour="pulse-trend"]', path: "/pulse?tab=trend" },
       { target: '[data-tour="pulse-participation"]', path: "/pulse?tab=participation" },
+      { target: '[data-tour="nav-succession"]', path: "/succession" },
       { target: '[data-tour="nav-config"]', path: "/users" },
       { target: '[data-tour="config-users"]', path: "/users" },
       { target: '[data-tour="config-teams"]', path: "/teams" },

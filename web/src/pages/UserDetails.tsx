@@ -211,14 +211,14 @@ export default function UserDetails() {
             };
 
   // Whether any audit drill-down survives the viewer's feature flags (v1.53.0) — with all
-  // six features disabled the HR-audit block renders nothing, so it should not exist.
+  // seven features disabled the HR-audit block renders nothing, so it should not exist.
   const auditBlockHasActions = hasVisibleActions(
     {
       labels: "users",
       audit: true,
-      show: { feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true },
+      show: { feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true },
     },
-    ["feedbacks", "oneOnOnes", "goals", "reviews", "daysOff", "impactLog"],
+    ["feedbacks", "oneOnOnes", "goals", "reviews", "daysOff", "impactLog", "succession"],
   );
 
   return (
@@ -295,7 +295,7 @@ export default function UserDetails() {
                 drillFrom="details"
                 drillBack={backHere}
                 audit
-                show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true }}
+                show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true }}
               />
             </Group>
           </Stack>

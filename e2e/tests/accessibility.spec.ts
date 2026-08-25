@@ -60,6 +60,8 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   { path: "/kudos/new", heading: "New kudo" },
   { path: "/feedback/new", heading: "New feedback" },
   { path: "/impact-log/new", heading: "New journal entry" },
+  { path: "/succession", heading: "Succession plans" },
+  { path: "/succession/new", heading: "New succession plan" },
   { path: "/days-off/new", heading: "New days-off request" },
   { path: "/feature-flags", heading: "Feature flags" },
 ];

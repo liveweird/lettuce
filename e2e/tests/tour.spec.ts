@@ -6,10 +6,10 @@ import type { Page } from "@playwright/test";
 // views they open, before the header icons. Anchors/steps that vanish or reorder fail the walks.
 // The suite's tour-seen stub only suppresses the AUTO-start; the replay button always works.
 //
-// Audience math over the 56 steps: MANAGER_AAA is a manager but NOT an ADMIN, so the three
-// admin-only Config leaves (Pulse cycles, Feature flags, Alerts) are absent → 53. The seed
-// admin is an ADMIN but manages no team, so the eight manager-only tab steps and the
-// manager-or-HR Pulse participation step are absent → 47.
+// Audience math over the 57 steps: MANAGER_AAA is a manager but NOT an ADMIN, so the three
+// admin-only Config leaves (Pulse cycles, Feature flags, Alerts) are absent → 54. The seed
+// admin is an ADMIN but manages no team, so the eight manager-only tab steps, the manager-only
+// Succession step, and the manager-or-HR Pulse participation step are absent → 47.
 
 const LANDMARKS = [
   "Take a quick tour",
@@ -38,6 +38,7 @@ const LANDMARKS = [
   "Results — the anonymous eNPS",
   "Trend — how a team's scores move",
   "Participation — how many people in the teams you watch",
+  "Succession plans — a manager's private planning space",
   "Config — users, teams",
   "Review periods — the timeline of periods",
   "Public holidays — the non-working days",
@@ -106,13 +107,13 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-test("the guided tour walks all 53 manager steps in the documented order", async ({ page }) => {
+test("the guided tour walks all 54 manager steps in the documented order", async ({ page }) => {
   await login(page, MANAGER_AAA);
   // A pre-existing active alert's expanded banner overlays the header (and the replay button).
   await collapseAlertsBanner(page);
   const seen = await walkTour(page);
 
-  expect(seen).toHaveLength(53);
+  expect(seen).toHaveLength(54);
   assertLandmarkOrder(seen, LANDMARKS);
   // The tour's closing step returned home.
   await expect(page).toHaveURL(/\/$|\?tab=/);
@@ -135,7 +136,7 @@ test("the guided tour walks the 47 admin steps including the admin-only Config l
       headers: { Authorization: `Bearer ${token}` },
     })
   ).json()) as { total: number };
-  const expected = 47 + (managed.total > 0 ? 9 : 0);
+  const expected = 47 + (managed.total > 0 ? 10 : 0);
 
   const seen = await walkTour(page);
 

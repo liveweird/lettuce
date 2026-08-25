@@ -442,4 +442,56 @@ class GuardsTest {
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireImpactEntryWrite(admin, entry) }
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireImpactEntryWrite(hr, entry) }
     }
+
+    // ── succession plans ───────────────────────────────────────────────────────
+
+    private fun successionPlan(ownerId: UInt, seatUserId: UInt) = ch.nokillswit.succession.SuccessionPlanResponse(
+        id = 7u,
+        managerId = ownerId,
+        managerName = "Mona Manager",
+        userId = seatUserId,
+        userName = "Sam Seat",
+        roleCriticality = ch.nokillswit.succession.RoleCriticality.CRITICAL,
+        retentionRisk = ch.nokillswit.succession.RetentionRisk.HIGH,
+        lossImpact = listOf("x"),
+        targetBenchDepth = 2,
+        status = ch.nokillswit.succession.SuccessionPlanStatus.OPEN,
+        benchCount = 0,
+        nominations = emptyList(),
+        createdAt = 1L,
+        lastReviewedAt = 1L,
+    )
+
+    @Test
+    fun `succession plan reads admit the owner, the chain above the owner, and hr - the seat person never`() {
+        runBlocking {
+            val plan = successionPlan(ownerId = subject.userId, seatUserId = stranger.userId)
+            // Owner passes without the chain walk; HR passes BEFORE the lambda (no DB hit).
+            ch.nokillswit.authz.requireSuccessionPlanRead(subject, plan) { error("owner must not walk the chain") }
+            ch.nokillswit.authz.requireSuccessionPlanRead(hr, plan) { error("HR must not walk the chain") }
+            // The chain grant is keyed on the OWNER — the closure answers "above the owner?".
+            ch.nokillswit.authz.requireSuccessionPlanRead(stranger, plan) { true }
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireSuccessionPlanRead(stranger, plan) { false }
+            }
+            // The SEAT'S PERSON is not a party — the feature is invisible to its subjects.
+            assertFailsWith<ForbiddenException> {
+                val ownPlan = successionPlan(ownerId = admin.userId, seatUserId = stranger.userId)
+                ch.nokillswit.authz.requireSuccessionPlanRead(stranger, ownPlan) { false }
+            }
+            // ADMIN deliberately gets nothing (the narrowed-ADMIN rule).
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireSuccessionPlanRead(admin, plan) { false }
+            }
+        }
+    }
+
+    @Test
+    fun `succession plan writes are owner-only - the chain read right carries no pen`() {
+        val plan = successionPlan(ownerId = subject.userId, seatUserId = stranger.userId)
+        ch.nokillswit.authz.requireSuccessionPlanWrite(subject, plan)
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireSuccessionPlanWrite(stranger, plan) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireSuccessionPlanWrite(admin, plan) }
+        assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireSuccessionPlanWrite(hr, plan) }
+    }
 }

@@ -51,6 +51,7 @@ tags:
   - name: one-on-ones
   - name: goals
   - name: impact-log
+  - name: succession-plans
   - name: team-kpis
   - name: review-periods
   - name: performance-reviews
@@ -2799,6 +2800,375 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ImpactEntryNotReadable' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/succession-plans:
+    get:
+      tags: [succession-plans]
+      operationId: listSuccessionPlans
+      summary: List succession plans for the caller
+      description: |
+        Lists succession plans (critical roles/seats) scoped by `view`. Except `view=user`
+        (the HR auditor view), scoping is always relative to the caller, including ADMIN
+        callers. The feature is invisible to its subjects: the seat's person and the
+        nominated candidates never see a plan through any view.
+
+        - `view=own` (the default): the plans the caller owns (created as the planning
+          manager). A caller who manages nobody simply gets an empty page.
+        - `view=team`: the plans owned by the caller's **direct reports** (members of
+          non-deleted teams the caller manages) or, with `includeIndirect=true`, by everyone
+          in the caller's **transitive management chain**. Every listed row is openable: the
+          single-GET grants any manager above the owner read access.
+        - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
+          plan the given user is a party to, as the seat's person or as the owning manager.
+          HR usage is recorded in the security audit trail.
+
+        Rows carry the owner, the seat's person, the two planning labels, the bench tally
+        (`benchCount` of nominations vs `targetBenchDepth`), the status, and the reviewed
+        stamp — never the (encrypted) loss-impact texts or any nomination detail.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `userName`, `managerName`, `status`, `createdAt`,
+          `lastReviewedAt`. Default sort is `lastReviewedAt` **descending** (recent planning
+          activity first). `id` ascending is always appended as a deterministic tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `userName` — case- and accent-insensitive substring match against the seat
+            person's name.
+          - `managerName` — case- and accent-insensitive substring match against the owner's
+            name.
+          - `status` — exact status match (`OPEN` or `CLOSED`).
+          - `userId` — required with `view=user`, rejected elsewhere (`400`).
+
+        Malformed query parameters (unknown view, unknown sort field, out-of-range
+        page/pageSize) respond with `400` and a `ProblemDetail` body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [own, team, user], default: own }
+          description: >-
+            Which slice of plans to list — caller-relative, except the HR auditor view
+            `user`.
+        - name: userId
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 0 }
+          description: >-
+            The audited target for `view=user` (required there, `400` when missing;
+            rejected with any other view).
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            Only valid with `view=team` (else `400`): `true` widens the list from plans
+            owned by the caller's direct reports to those owned by anyone in the caller's
+            transitive management chain.
+        - name: userName
+          in: query
+          required: false
+          schema: { type: string }
+          description: >-
+            Case- and accent-insensitive substring match against the seat person's name.
+        - name: managerName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case- and accent-insensitive substring match against the owner's name.
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [OPEN, CLOSED] }
+          description: Exact status match.
+      responses:
+        '200':
+          description: A page of succession plans
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessionPlanPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: view=user requested without the HR role
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [succession-plans]
+      operationId: createSuccessionPlan
+      summary: Create a succession plan for a critical role/seat
+      description: |
+        Creates a succession plan owned by the caller. The seat's person (`userId`) must be
+        in the caller's **transitive management chain** at creation time (the chain rule),
+        else `403`; a deactivated person cannot get a NEW plan (`400`). The person is
+        immutable after creation — planning for someone else means a new plan.
+
+        At most one **OPEN** plan per (owner, person): a duplicate is `409` (closed or
+        deleted plans never block a new one; other managers may keep their own independent
+        plans for the same person). The plan starts OPEN with an empty bench.
+
+        The loss-impact list holds at most 20 ordered short texts (each non-blank, at most
+        200 characters); the target bench depth is 1–10 (default 2). Nobody is notified —
+        succession planning is confidential by design (its subjects must never learn of it,
+        and the chain above reads on demand).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuccessionPlanCreateRequest'
+      responses:
+        '201':
+          description: Created — the full plan document
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new plan resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessionPlanResponse'
+        '400':
+          description: >-
+            Validation error (a blank/oversized/too-long loss-impact list, an out-of-range
+            bench depth, or a deactivated seat person)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The seat's person is not in the caller's transitive management chain
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '409':
+          description: The caller already has an OPEN plan for this person
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/succession-plans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [succession-plans]
+      operationId: getSuccessionPlan
+      summary: Fetch a succession plan
+      description: |
+        Returns the whole plan document — the seat fields, the decrypted loss-impact list,
+        and every nomination with its competency gaps and linked development goals (light
+        goal references: id, title, status, type; a soft-deleted goal drops out silently).
+        Readable by the plan's **owner**, the **HR auditor** (audit-logged), and any
+        **manager in the OWNER's transitive management chain**. Anything else — the seat's
+        person, the candidates, teammates, and ADMIN included — is `403`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessionPlanResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotReadable' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    put:
+      tags: [succession-plans]
+      operationId: updateSuccessionPlan
+      summary: Edit a succession plan's definition
+      description: |
+        Replaces the plan's definition fields — criticality, retention risk, the loss-impact
+        list, and the target bench depth; the seat's person is immutable. **Owner-only** (the
+        chain's read right carries no pen; ADMIN and HR get nothing). Allowed only while the
+        plan is OPEN — a CLOSED plan is read-only (`409`). Editing bumps the reviewed stamp.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuccessionPlanUpdate'
+      responses:
+        '204': { description: Updated }
+        '400':
+          description: >-
+            Validation error (a blank/oversized/too-long loss-impact list or an out-of-range
+            bench depth)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotOwner' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SuccessionPlanClosed' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [succession-plans]
+      operationId: deleteSuccessionPlan
+      summary: Delete a succession plan
+      description: |
+        Soft-deletes a plan (the row is flagged, not physically removed, and disappears from
+        reads/lists together with its nominations). **Owner-only**, at ANY status — a closed
+        plan may still be discarded. Nobody is notified.
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotOwner' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/succession-plans/{id}/close:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [succession-plans]
+      operationId: closeSuccessionPlan
+      summary: Close a succession plan
+      description: |
+        OPEN → CLOSED, the plan's one lifecycle edge. A closed plan stays browsable (to its
+        readers) but is read-only forever — there is no reopen; deletion stays available.
+        **Owner-only**; closing an already-closed plan is `409` (the transition rule).
+        Closing deliberately does NOT bump the reviewed stamp.
+      responses:
+        '204': { description: Closed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotOwner' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The plan is already closed
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/succession-plans/{id}/nominations:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [succession-plans]
+      operationId: createSuccessionNomination
+      summary: Nominate a successor on a plan
+      description: |
+        Adds a successor nomination to an OPEN plan (**owner-only**; a CLOSED plan is
+        read-only, `409`). The candidate may be ANY active user except the seat's own person
+        (cross-team/lateral candidates are expected — no chain requirement; a deactivated
+        candidate is `400`); one active nomination per candidate per plan (`409`).
+
+        `goalIds` links existing personal goals of the candidate as development action
+        items, in payload order: each must be a non-deleted goal whose subordinate IS the
+        candidate and which the plan's owner may read under the goal rules (the owner
+        authored it, or it has left DRAFT and the candidate is in the owner's transitive
+        chain) — else `400`. The linked goals are untouched and render to their subordinate
+        exactly as before, with no hint of the succession context.
+
+        The competency-gaps list holds at most 20 ordered short texts (each non-blank, at
+        most 200 characters). The candidate-awareness value is metadata only — whatever it
+        says, the candidate is never notified and never granted any read. Every nomination
+        mutation bumps the plan's reviewed stamp.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuccessionNominationRequest'
+      responses:
+        '201':
+          description: Created — the nomination with its resolved goal references
+          headers:
+            Location:
+              schema: { type: string }
+              description: >-
+                URL of the new nomination sub-resource (addressable for PUT/DELETE; it has
+                no own GET — the plan document embeds it).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessionNominationResponse'
+        '400':
+          description: >-
+            Validation error (the seat's person as candidate, an unknown/deleted/deactivated
+            candidate, a bad competency-gaps list, or an unlinkable goal id)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotOwner' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The plan is closed, or the candidate is already nominated on it
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/succession-plans/{id}/nominations/{nominationId}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - name: nominationId
+        in: path
+        required: true
+        schema: { type: integer, format: int32, minimum: 0 }
+        description: Id of the nomination (must belong to the addressed plan, else 404).
+    put:
+      tags: [succession-plans]
+      operationId: updateSuccessionNomination
+      summary: Edit a successor nomination
+      description: |
+        Replaces the nomination's whole document — candidate, readiness, type, awareness,
+        the competency-gaps list, and the linked goals (wholesale, payload order preserved).
+        **Owner-only**, OPEN plans only (`409`). The same candidate/goal rules as the create
+        apply; a since-deactivated candidate stays editable as long as the candidate is
+        unchanged (only a CHANGED candidate is checked like a fresh assignment). Bumps the
+        plan's reviewed stamp.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuccessionNominationRequest'
+      responses:
+        '204': { description: Updated }
+        '400':
+          description: >-
+            Validation error (the seat's person as candidate, an unknown/deleted candidate, a
+            newly assigned deactivated candidate, a bad competency-gaps list, or an
+            unlinkable goal id)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotOwner' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The plan is closed, or the new candidate is already nominated on it
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [succession-plans]
+      operationId: deleteSuccessionNomination
+      summary: Remove a successor nomination
+      description: |
+        Soft-deletes a nomination from an OPEN plan (**owner-only**; a CLOSED plan is
+        read-only, `409`). Its goal links become unreachable with it; the goals themselves
+        are untouched. Bumps the plan's reviewed stamp.
+      responses:
+        '204': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotOwner' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SuccessionPlanClosed' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
   /api/v1/team-kpis:
@@ -5610,6 +5980,27 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetail' }
 
+    SuccessionPlanNotReadable:
+      description: >-
+        Caller is neither the plan's owner, nor the HR auditor, nor a manager in the
+        OWNER's transitive management chain (the seat's person and the candidates are
+        deliberately excluded — the feature is invisible to its subjects)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    SuccessionPlanNotOwner:
+      description: >-
+        Caller is not the plan's owner — the chain's read right carries no pen (nobody
+        else writes, ADMIN and HR included)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    SuccessionPlanClosed:
+      description: A closed succession plan is read-only
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+
   schemas:
     LoginRequest:
       type: object
@@ -5688,7 +6079,7 @@ components:
 
     Feature:
       type: string
-      enum: [DAYS_OFF, FEEDBACKS, GOALS, IMPACT_LOG, MFA, ONE_ON_ONES, PERFORMANCE_REVIEWS, PULSE_SURVEYS, TEAM_KPIS]
+      enum: [DAYS_OFF, FEEDBACKS, GOALS, IMPACT_LOG, MFA, ONE_ON_ONES, PERFORMANCE_REVIEWS, PULSE_SURVEYS, SUCCESSION_PLANS, TEAM_KPIS]
       description: >-
         A per-user-toggleable feature area (feature flags). Storage models the DISABLED
         set — absent = enabled, so every user defaults to full access. MFA is the one
@@ -7498,6 +7889,247 @@ components:
         items:
           type: array
           items: { $ref: '#/components/schemas/ImpactEntryEventResponse' }
+
+    SuccessionPlanCreateRequest:
+      type: object
+      required: [userId, roleCriticality, retentionRisk]
+      properties:
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          description: >-
+            The seat's person — must be in the caller's transitive management chain at
+            creation (else 403) and active (else 400). Immutable after creation.
+        roleCriticality:
+          type: string
+          enum: [CRITICAL, CORE, STANDARD]
+          description: How critical the seat is to the organization — a planning label.
+        retentionRisk:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          description: How likely the seat's person is to leave — a planning label.
+        lossImpact:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 200 }
+          default: []
+          description: >-
+            Ordered short texts describing what is lost if the seat empties (each non-blank,
+            at most 200 characters; order is meaningful and preserved). Encrypted at rest.
+        targetBenchDepth:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 2
+          description: >-
+            The minimum nominated successors this seat needs; the bench cue compares
+            benchCount against it.
+
+    SuccessionPlanUpdate:
+      type: object
+      required: [roleCriticality, retentionRisk]
+      properties:
+        roleCriticality:
+          type: string
+          enum: [CRITICAL, CORE, STANDARD]
+        retentionRisk:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        lossImpact:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 200 }
+          default: []
+          description: Ordered short texts; the whole list is replaced on every save.
+        targetBenchDepth:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 2
+
+    SuccessionGoalRef:
+      type: object
+      required: [id, title, status, type]
+      description: >-
+        A light reference to a linked development goal — the plaintext identity fields the
+        client renders as a chip. The goal document itself stays behind the ordinary goal
+        read rules.
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        title: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, ARCHIVED]
+        type:
+          type: string
+          enum: [PLAN, NUMBER, PERCENTAGE]
+
+    SuccessionNominationRequest:
+      type: object
+      required: [candidateId, readiness, nominationType, awareness]
+      properties:
+        candidateId:
+          type: integer
+          format: int32
+          minimum: 0
+          description: >-
+            The nominated employee — any active user except the seat's own person (no chain
+            requirement; cross-team/lateral candidates are expected).
+        readiness:
+          type: string
+          enum: [READY_NOW, READY_SOON, FUTURE_PIPELINE, EMERGENCY_INTERIM]
+          description: >-
+            The candidate's readiness window — ready now (0-3 mo), ready soon (3-12 mo),
+            future pipeline (1-2 yrs), or emergency interim only.
+        nominationType:
+          type: string
+          enum: [PRIMARY, SECONDARY, CROSS_TEAM]
+        competencyGaps:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 200 }
+          default: []
+          description: >-
+            Ordered short texts naming what the candidate still lacks for the seat (each
+            non-blank, at most 200 characters). Encrypted at rest.
+        awareness:
+          type: string
+          enum: [TRANSPARENT, IMPLICIT, CONFIDENTIAL]
+          description: >-
+            Whether the candidate knows about the nomination — metadata only: whatever the
+            value, the candidate is never notified and never granted any read.
+        goalIds:
+          type: array
+          maxItems: 100
+          items: { type: integer, format: int32, minimum: 0 }
+          default: []
+          description: >-
+            The linked development action items (existing personal goals of the candidate),
+            wholesale-replaced on every save, payload order preserved. Each must be readable
+            by the plan's owner under the goal rules; duplicates are 400.
+
+    SuccessionNominationResponse:
+      type: object
+      required: [id, planId, candidateId, candidateName, readiness, nominationType, competencyGaps, awareness, goals, createdAt, lastModified]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        planId: { type: integer, format: int32, minimum: 0 }
+        candidateId: { type: integer, format: int32, minimum: 0 }
+        candidateName: { type: string }
+        readiness:
+          type: string
+          enum: [READY_NOW, READY_SOON, FUTURE_PIPELINE, EMERGENCY_INTERIM]
+        nominationType:
+          type: string
+          enum: [PRIMARY, SECONDARY, CROSS_TEAM]
+        competencyGaps:
+          type: array
+          items: { type: string }
+        awareness:
+          type: string
+          enum: [TRANSPARENT, IMPLICIT, CONFIDENTIAL]
+        goals:
+          type: array
+          items: { $ref: '#/components/schemas/SuccessionGoalRef' }
+          description: Linked development goals in stored order; soft-deleted goals drop out.
+        createdAt: { type: integer, format: int64 }
+        lastModified: { type: integer, format: int64 }
+
+    SuccessionPlanResponse:
+      type: object
+      required: [id, managerId, managerName, userId, userName, roleCriticality, retentionRisk, lossImpact, targetBenchDepth, status, benchCount, nominations, createdAt, lastReviewedAt]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The plan's owner — always the creator; never changes.
+        managerName: { type: string }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The seat's person; immutable.
+        userName: { type: string }
+        roleCriticality:
+          type: string
+          enum: [CRITICAL, CORE, STANDARD]
+        retentionRisk:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        lossImpact:
+          type: array
+          items: { type: string }
+          description: Ordered short texts (decrypted).
+        targetBenchDepth: { type: integer, minimum: 1, maximum: 10 }
+        status:
+          type: string
+          enum: [OPEN, CLOSED]
+        benchCount:
+          type: integer
+          minimum: 0
+          description: >-
+            ALL active nominations count toward the bench, emergency interims included; the
+            under-bench cue compares this against targetBenchDepth.
+        nominations:
+          type: array
+          items: { $ref: '#/components/schemas/SuccessionNominationResponse' }
+          description: The whole bench in creation order — the document embeds it.
+        createdAt:
+          type: integer
+          format: int64
+          description: Epoch milliseconds; server-managed, immutable.
+        lastReviewedAt:
+          type: integer
+          format: int64
+          description: >-
+            Epoch milliseconds; bumped by every plan/nomination mutation (editing IS
+            reviewing). Closing deliberately does not bump it.
+
+    SuccessionPlanListItem:
+      type: object
+      required: [id, managerId, managerName, userId, userName, userDeleted, roleCriticality, retentionRisk, targetBenchDepth, benchCount, status, createdAt, lastReviewedAt]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
+        managerName: { type: string }
+        userId: { type: integer, format: int32, minimum: 0 }
+        userName: { type: string }
+        userDeleted: { type: boolean }
+        roleCriticality:
+          type: string
+          enum: [CRITICAL, CORE, STANDARD]
+        retentionRisk:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        targetBenchDepth: { type: integer, minimum: 1, maximum: 10 }
+        benchCount:
+          type: integer
+          minimum: 0
+          description: Active nominations on the plan (all readiness windows count).
+        status:
+          type: string
+          enum: [OPEN, CLOSED]
+        createdAt: { type: integer, format: int64 }
+        lastReviewedAt: { type: integer, format: int64 }
+
+    SuccessionPlanPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuccessionPlanListItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
 
     TeamKpiCreateRequest:
       type: object

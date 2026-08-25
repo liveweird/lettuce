@@ -187,7 +187,8 @@
     "goalsAria": "Audytuj cele: {{name}}",
     "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}",
     "daysOffAria": "Audytuj dni wolne: {{name}}",
-    "impactLogAria": "Audytuj dziennik wpływu {{name}}"
+    "impactLogAria": "Audytuj dziennik wpływu {{name}}",
+    "successionAria": "Plany sukcesji dotyczące {{name}} (audyt)"
   },
   "section": {
     "profile": "Profil",
@@ -272,5 +273,6 @@
     "reactivated": "Użytkownik aktywowany ponownie",
     "featuresSaved": "Funkcje zapisane"
   },
-  "impactLog": "Dziennik wpływu"
+  "impactLog": "Dziennik wpływu",
+  "successionPlans": "Plany sukcesji"
 }

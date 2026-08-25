@@ -51,6 +51,7 @@ import {
   IconStairsUp,
   IconSun,
   IconTargetArrow,
+  IconUserShield,
   IconUsers,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -79,6 +80,7 @@ import LanguageSwitcher from "./components/LanguageSwitcher";
 import VersionStamp from "./components/VersionStamp";
 import { useChangelogUnseen } from "./hooks/useChangelogSeen";
 import { isBoolean, useStoredState } from "./hooks/useStoredState";
+import { useIsManager } from "./hooks/useIsManager";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 import { RouteErrorBoundary } from "./components/ErrorBoundary";
@@ -106,6 +108,12 @@ const UserImpactLog = lazy(() => import("./pages/UserImpactLog"));
 const CreateImpactEntry = lazy(() => import("./pages/CreateImpactEntry"));
 const EditImpactEntry = lazy(() => import("./pages/EditImpactEntry"));
 const ViewImpactEntry = lazy(() => import("./pages/ViewImpactEntry"));
+const SuccessionPlans = lazy(() => import("./pages/SuccessionPlans"));
+const UserSuccessionPlans = lazy(() => import("./pages/UserSuccessionPlans"));
+const CreateSuccessionPlan = lazy(() => import("./pages/CreateSuccessionPlan"));
+const EditSuccessionPlan = lazy(() => import("./pages/EditSuccessionPlan"));
+const ViewSuccessionPlan = lazy(() => import("./pages/ViewSuccessionPlan"));
+const EditSuccessionNomination = lazy(() => import("./pages/EditSuccessionNomination"));
 const MyTeamKpis = lazy(() => import("./pages/MyTeamKpis"));
 const CreateTeamKpi = lazy(() => import("./pages/CreateTeamKpi"));
 const EditTeamKpi = lazy(() => import("./pages/EditTeamKpi"));
@@ -179,6 +187,10 @@ type NavLeaf = {
   tourId?: string;
   // When set, the leaf renders only while the session user has the feature enabled (v1.53.0).
   feature?: Feature;
+  // When set, the leaf renders only for callers who manage a team (v2.42.0 — Succession
+  // plans). Resolved via useIsManager() in Shell, an ASYNC query: unlike the synchronous
+  // feature/admin gates the leaf pops in once the managed-teams probe answers.
+  managerOnly?: boolean;
 };
 type NavGroup = { label: ParseKeys; icon: typeof IconLayoutDashboard; children: NavLeaf[]; tourId?: string };
 type NavEntry = NavLeaf | NavGroup;
@@ -205,6 +217,14 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
   { to: "/career", label: "appShell.nav.career", icon: IconStairsUp, tourId: "nav-career" },
   { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off", feature: "DAYS_OFF" },
   { to: "/pulse", label: "appShell.nav.pulse", icon: IconHeartRateMonitor, tourId: "nav-pulse", feature: "PULSE_SURVEYS" },
+  {
+    to: "/succession",
+    label: "appShell.nav.succession",
+    icon: IconUserShield,
+    tourId: "nav-succession",
+    feature: "SUCCESSION_PLANS",
+    managerOnly: true,
+  },
   {
     label: "appShell.nav.config",
     icon: IconSettings,
@@ -401,6 +421,8 @@ function Shell() {
   // Desktop navbar visibility — device-level, persisted like the other view settings. The
   // mobile overlay keeps its own separate `opened` disclosure above.
   const [navCollapsed, setNavCollapsed] = useStoredState("appShell.navCollapsed", false, isBoolean);
+  // The one async nav gate (v2.42.0): the Succession leaf is manager-only.
+  const isManager = useIsManager();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const userId = getUserId();
@@ -433,9 +455,11 @@ function Shell() {
   );
   // Per-user feature flags (v1.53.0): drop leaves whose feature is disabled for the session
   // user (and any group thereby emptied) BEFORE leafTos, so active-highlight stays coherent.
+  const leafVisible = (leaf: NavLeaf) =>
+    (!leaf.feature || hasFeature(leaf.feature)) && (!leaf.managerOnly || isManager);
   const allEntries: NavEntry[] = [...staticItems, ...dynamicItems, CHANGELOG_NAV]
-    .map((e) => (isGroup(e) ? { ...e, children: e.children.filter((c) => !c.feature || hasFeature(c.feature)) } : e))
-    .filter((e) => (isGroup(e) ? e.children.length > 0 : !e.feature || hasFeature(e.feature)));
+    .map((e) => (isGroup(e) ? { ...e, children: e.children.filter(leafVisible) } : e))
+    .filter((e) => (isGroup(e) ? e.children.length > 0 : leafVisible(e)));
   const changelogUnseen = useChangelogUnseen();
   const leafTos = allEntries.flatMap((e) =>
     isGroup(e) ? e.children.map((c) => c.to) : [e.to],
@@ -638,6 +662,13 @@ export default function App() {
             <Route path="impact-log/new" element={<CreateImpactEntry />} />
             <Route path="impact-log/:id/edit" element={<EditImpactEntry />} />
             <Route path="impact-log/:id/view" element={<ViewImpactEntry />} />
+            <Route path="succession" element={<SuccessionPlans />} />
+            <Route path="users/:userId/succession" element={<UserSuccessionPlans />} />
+            <Route path="succession/new" element={<CreateSuccessionPlan />} />
+            <Route path="succession/:id/edit" element={<EditSuccessionPlan />} />
+            <Route path="succession/:id/view" element={<ViewSuccessionPlan />} />
+            <Route path="succession/:id/nominations/new" element={<EditSuccessionNomination />} />
+            <Route path="succession/:id/nominations/:nominationId/edit" element={<EditSuccessionNomination />} />
             <Route path="team-kpis" element={<MyTeamKpis />} />
             <Route path="team-kpis/new" element={<CreateTeamKpi />} />
             <Route path="team-kpis/:id/edit" element={<EditTeamKpi />} />

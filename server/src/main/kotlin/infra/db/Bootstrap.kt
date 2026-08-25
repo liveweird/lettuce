@@ -10,6 +10,7 @@ import ch.nokillswit.impactlog.ImpactLogServiceKey
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.pulse.PulseResponseServiceKey
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
+import ch.nokillswit.succession.SuccessionPlanServiceKey
 import ch.nokillswit.teamkpis.TeamKpiServiceKey
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
@@ -84,6 +85,7 @@ suspend fun Application.configureBootstrap() {
         attributes[DaysOffServiceKey],
         attributes[PulseResponseServiceKey],
         attributes[ImpactLogServiceKey],
+        attributes[SuccessionPlanServiceKey],
     )
     encryptedAtRest.forEach { service ->
         val encrypted = service.encryptLegacyRows(reencryptAll = rotating)

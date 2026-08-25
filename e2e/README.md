@@ -87,7 +87,7 @@ owned state, numbered steps, expected outcomes). **A new or behaviorally changed
 its scenario file and its line below in the same commit** — this list is the coverage map, the
 scenario file is the design.
 
-- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 23 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, and the v2.36.0 impact-log pair); `color-contrast` consciously waived.
+- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 25 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, the v2.36.0 impact-log pair, and the v2.42.0 succession pair); `color-contrast` consciously waived.
 - [`alerts.spec.ts`](scenarios/alerts.md) — admin broadcast alert: banner, hide/re-show, deactivate, delete (own serial phase).
 - [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
 - [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL (PL leg on a throwaway user — the switch persists server-side).
@@ -117,6 +117,7 @@ scenario file is the design.
 - [`password-reset.spec.ts`](scenarios/password-reset.md) — the Forgot-password flow (neutral answers, working new password; Mailpit-gated).
 - [`performance-reviews.spec.ts`](scenarios/performance-reviews.md) — review periods, the full review lifecycle, Distribution + Quadrants views.
 - [`pulse.spec.ts`](scenarios/pulse.md) — the pulse cycle end to end: schedule/open/fill/monitor/close/results/trend/cancel (own serial phase).
+- [`succession.spec.ts`](scenarios/succession.md) — succession plans (v2.42.0): create for a report, nominate a successor with the modal-created linked development goal, the under-bench cue, invisibility to the seat's person, close (read-only) + delete.
 - [`team-kpis.spec.ts`](scenarios/team-kpis.md) — the team-KPI lifecycle, data points + graph, member notifications, the v2.26.0 member data entry (add row live, lifecycle withheld), the v2.41.0 target direction (at-most flip, "≤" target render, per-value Vs-target deltas).
 - [`teams.spec.ts`](scenarios/teams.md) — team CRUD, roster edits, admin-only manager reassignment.
 - [`templates.spec.ts`](scenarios/templates.md) — template CRUD + Insert into the feedback editor.

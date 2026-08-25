@@ -109,6 +109,9 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="pulse-results"]', contentKey: "tour.steps.pulseResults", placement: "bottom", navTo: "/pulse?tab=results", feature: "PULSE_SURVEYS" },
   { target: '[data-tour="pulse-trend"]', contentKey: "tour.steps.pulseTrend", placement: "bottom", navTo: "/pulse?tab=trend", feature: "PULSE_SURVEYS" },
   { target: '[data-tour="pulse-participation"]', contentKey: "tour.steps.pulseParticipation", placement: "bottom", navTo: "/pulse?tab=participation", managerOrHr: true, feature: "PULSE_SURVEYS" },
+  // Succession plans — a manager's tool (v2.42.0): the nav leaf itself is manager-gated, so
+  // the step carries the same gate.
+  { target: '[data-tour="nav-succession"]', contentKey: "tour.steps.succession", placement: "right", navTo: "/succession", managerOnly: true, feature: "SUCCESSION_PLANS" },
   // The Config section + its subsections (separate routes). The nav step navigates into the
   // section a step early so the lazy /users route is mounted before its subsection target is needed.
   // Each leaf step anchors on that screen's page title, not on the navbar leaf.

@@ -47,6 +47,7 @@
     "pulseResults": "Wyniki — anonimowy eNPS i oceny pytań z zamkniętego cyklu, pokazywane tylko dla grup na tyle dużych, by odpowiedzi pozostały nieprzypisywalne.",
     "pulseTrend": "Trend — jak zmieniają się wyniki zespołu w kolejnych zamkniętych cyklach: przełączasz zespoły, do których należysz lub którymi zarządzasz, na jeden wspólny wykres — dla zarządzanych zespołów z liczbami tylko bezpośrednich członków albo wszystkich poniżej.",
     "pulseParticipation": "Udział — ile osób z obserwowanych przez Ciebie zespołów już odpowiedziało. Widzisz liczby i to, kto odpowiedział, nigdy same odpowiedzi.",
+    "succession": "Plany sukcesji — prywatna przestrzeń planowania menedżera: kluczowe role/stanowiska, nominowani następcy z gotowością i lukami kompetencyjnymi oraz powiązane cele rozwojowe. Widoczne dla Ciebie, Twoich przełożonych i HR — nigdy dla osób, których dotyczą.",
     "config": "Konfiguracja — użytkownicy, zespoły, szablony i rejestry, z których korzysta reszta aplikacji.",
     "configUsers": "Użytkownicy — katalog osób (administratorzy zarządzają kontami).",
     "configTeams": "Zespoły — zespoły i ich członkowie.",

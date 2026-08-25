@@ -179,7 +179,8 @@
     "goalsAria": "Audit goals of {{name}}",
     "performanceReviewsAria": "Audit performance reviews of {{name}}",
     "daysOffAria": "Audit days off of {{name}}",
-    "impactLogAria": "Audit {{name}}'s impact log"
+    "impactLogAria": "Audit {{name}}'s impact log",
+    "successionAria": "Succession plans involving {{name}} (audit)"
   },
   "section": {
     "profile": "Profile",
@@ -264,5 +265,6 @@
     "reactivated": "User reactivated",
     "featuresSaved": "Features saved"
   },
-  "impactLog": "Impact log"
+  "impactLog": "Impact log",
+  "successionPlans": "Succession plans"
 }

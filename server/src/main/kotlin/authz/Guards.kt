@@ -10,6 +10,7 @@ import ch.nokillswit.feedbacks.isDelivered
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.impactlog.ImpactEntryResponse
+import ch.nokillswit.succession.SuccessionPlanResponse
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.pulse.PulseCycleStatus
 import ch.nokillswit.reviews.PerformanceReviewResponse
@@ -610,6 +611,40 @@ suspend fun requireImpactEntryRead(
 fun requireImpactEntryWrite(caller: CallerPrincipal, entry: ImpactEntryResponse) {
     if (caller.userId != entry.userId) {
         throw ForbiddenException("Only the journal's owner may modify this impact log entry")
+    }
+}
+
+// ── Succession plans ────────────────────────────────────────────────────────────────────────
+// Existence disclosure: like impact-log, succession routes read BEFORE guarding (missing →
+// 404, existing-but-forbidden → 403), so an id probe can learn a plan exists — never its
+// content or parties (ids are sequential; existence is no secret).
+
+/**
+ * Reading a succession plan (v2.42.0): the OWNING MANAGER, the HR auditor (audit-logged), and
+ * any manager in the OWNER's transitive management chain — the [requireImpactEntryRead] shape
+ * keyed on the author, not the subject. The seat's person and the nominated candidates
+ * deliberately get 403 whatever the awareness value — the feature is invisible to its
+ * subjects; ADMIN-as-such gets nothing (the narrowed-ADMIN rule).
+ */
+suspend fun requireSuccessionPlanRead(
+    caller: CallerPrincipal,
+    plan: SuccessionPlanResponse,
+    managesOwner: suspend () -> Boolean,
+) {
+    if (caller.userId == plan.managerId) return // the owner — cheap rule first
+    if (grantHrRead(caller, "successionPlans", plan.id)) return
+    if (managesOwner()) return // DB hit only if needed
+    throw ForbiddenException("Caller may not read this succession plan")
+}
+
+/**
+ * Writing a succession plan (edit/close/delete and every nomination mutation): the OWNER only
+ * — the chain's read right carries no pen (the authorship carve-out of the chain rule), and
+ * neither ADMIN nor HR gets anything.
+ */
+fun requireSuccessionPlanWrite(caller: CallerPrincipal, plan: SuccessionPlanResponse) {
+    if (caller.userId != plan.managerId) {
+        throw ForbiddenException("Only the plan's owner may modify this succession plan")
     }
 }
 
