@@ -2233,7 +2233,10 @@ paths:
         PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for PLAN goals, whose
         progress model is instead their ordered **milestones** — id-less entries here (`400`
         when an entry carries an id), each a non-blank description within 4000 characters, at
-        most 100 of them, all starting not-done; the numeric types must send none. The current
+        most 100 of them, all starting not-done; the numeric types must send none.
+        `targetDirection` (v2.41.0) follows the same split: for the numeric types it states
+        which side of the target is good (**AT_LEAST** — reach it or more, the default when
+        omitted — or **AT_MOST** — stay at it or below), and it must be absent for PLAN. The current
         value starts **unset** (`currentValue` null — no recorded value) and is only set (via
         `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date** is required and
         must not be earlier than the current date (with one day of timezone tolerance —
@@ -2917,7 +2920,9 @@ paths:
         never the creator).
 
         Unlike goals there is no PLAN type: `targetValue` is **always required** (finite;
-        0–100 for PERCENTAGE). The KPI starts with no data points (`currentValue` `0.0`,
+        0–100 for PERCENTAGE), and `targetDirection` (v2.41.0) states which side of it is
+        good — **AT_LEAST** (reach it or more, the default when omitted) or **AT_MOST**
+        (stay at it or below). The KPI starts with no data points (`currentValue` `0.0`,
         `currentValueDate` null); data points become recordable (via the
         `/team-kpis/{id}/values` sub-resource) once the KPI is ACTIVE. There is no due date.
 
@@ -7064,6 +7069,14 @@ components:
           description: >-
             Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for
             PLAN.
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
+          nullable: true
+          description: >-
+            Which side of the target is good — AT_LEAST (reach the target or more) or AT_MOST
+            (stay at the target or below); meeting it exactly always counts as good. Defaults
+            to AT_LEAST for NUMBER and PERCENTAGE; must be absent for PLAN.
         milestones:
           type: array
           maxItems: 100
@@ -7097,6 +7110,13 @@ components:
           description: >-
             Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for
             PLAN.
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
+          nullable: true
+          description: >-
+            Which side of the target is good; defaults to AT_LEAST for NUMBER and PERCENTAGE,
+            must be absent for PLAN (see GoalCreateRequest).
         milestones:
           type: array
           maxItems: 100
@@ -7155,7 +7175,7 @@ components:
 
     GoalResponse:
       type: object
-      required: [id, managerId, managerName, subordinateId, subordinateName, createdAt, dueDate, title, description, type, targetValue, currentValue, milestones, status, summary, lastModified]
+      required: [id, managerId, managerName, subordinateId, subordinateName, createdAt, dueDate, title, description, type, targetValue, targetDirection, currentValue, milestones, status, summary, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         managerId: { type: integer, format: int32, minimum: 0 }
@@ -7182,6 +7202,13 @@ components:
           format: double
           nullable: true
           description: Null for PLAN goals.
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
+          nullable: true
+          description: >-
+            Which side of the target is good (AT_LEAST/AT_MOST; meeting it exactly counts as
+            good). Null for PLAN goals.
         currentValue:
           type: number
           format: double
@@ -7212,7 +7239,7 @@ components:
 
     GoalListItem:
       type: object
-      required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, title, type, targetValue, currentValue, milestonesDone, milestonesTotal, status, createdAt, dueDate, lastModified]
+      required: [id, managerId, managerName, managerDeleted, subordinateId, subordinateName, subordinateDeleted, title, type, targetValue, targetDirection, currentValue, milestonesDone, milestonesTotal, status, createdAt, dueDate, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         managerId: { type: integer, format: int32, minimum: 0 }
@@ -7226,6 +7253,11 @@ components:
           type: string
           enum: [PLAN, NUMBER, PERCENTAGE]
         targetValue: { type: number, format: double, nullable: true }
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
+          nullable: true
+          description: Null for PLAN goals.
         currentValue: { type: number, format: double, nullable: true }
         milestonesDone:
           type: integer
@@ -7284,6 +7316,7 @@ components:
             - DESCRIPTION_CHANGED
             - TYPE_CHANGED
             - TARGET_CHANGED
+            - TARGET_DIRECTION_CHANGED
             - DUE_DATE_CHANGED
             - PROGRESS_UPDATED
             - ACHIEVED_CHANGED
@@ -7303,8 +7336,9 @@ components:
           type: object
           additionalProperties: { type: string }
           description: |
-            Interpolation params for the localized rendering — enum names (`from`/`to` statuses
-            and types, the CREATED event's `type`), numeric values (target/progress
+            Interpolation params for the localized rendering — enum names (`from`/`to` statuses,
+            types, and target directions (`""` = none, a PLAN side), the CREATED event's
+            `type`), numeric values (target/progress
             `from`/`to`, `""` = no value), 1-based milestone positions (the `MILESTONE_*`
             events' `position`), and ISO dates (the due-date change's `from`/`to`).
             Never title/description/summary/milestone/comment text (params stay plaintext by
@@ -7488,6 +7522,13 @@ components:
           type: number
           format: double
           description: Always required — finite; 0–100 for PERCENTAGE.
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
+          default: AT_LEAST
+          description: >-
+            Which side of the target is good — AT_LEAST (reach the target or more) or AT_MOST
+            (stay at the target or below); meeting it exactly always counts as good.
 
     TeamKpiDefinitionUpdate:
       type: object
@@ -7505,6 +7546,13 @@ components:
           type: number
           format: double
           description: Always required — finite; 0–100 for PERCENTAGE.
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
+          default: AT_LEAST
+          description: >-
+            Which side of the target is good — AT_LEAST (reach the target or more) or AT_MOST
+            (stay at the target or below); meeting it exactly always counts as good.
 
     TeamKpiValueWrite:
       type: object
@@ -7553,7 +7601,7 @@ components:
 
     TeamKpiResponse:
       type: object
-      required: [id, teamId, teamName, teamDeleted, managerId, managerName, creatorId, creatorName, creatorDeleted, canManage, canRecordValues, createdAt, title, description, type, targetValue, currentValue, currentValueDate, status, summary, lastModified]
+      required: [id, teamId, teamName, teamDeleted, managerId, managerName, creatorId, creatorName, creatorDeleted, canManage, canRecordValues, createdAt, title, description, type, targetValue, targetDirection, currentValue, currentValueDate, status, summary, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         teamId: { type: integer, format: int32, minimum: 0 }
@@ -7603,6 +7651,11 @@ components:
           type: string
           enum: [NUMBER, PERCENTAGE]
         targetValue: { type: number, format: double }
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
+          description: >-
+            Which side of the target is good (v2.41.0) — AT_LEAST on every pre-existing KPI.
         currentValue:
           type: number
           format: double
@@ -7632,7 +7685,7 @@ components:
 
     TeamKpiListItem:
       type: object
-      required: [id, teamId, teamName, teamDeleted, managerId, managerName, managerDeleted, creatorId, creatorName, creatorDeleted, canManage, title, type, targetValue, currentValue, status, createdAt, lastModified]
+      required: [id, teamId, teamName, teamDeleted, managerId, managerName, managerDeleted, creatorId, creatorName, creatorDeleted, canManage, title, type, targetValue, targetDirection, currentValue, status, createdAt, lastModified]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         teamId: { type: integer, format: int32, minimum: 0 }
@@ -7656,6 +7709,9 @@ components:
           type: string
           enum: [NUMBER, PERCENTAGE]
         targetValue: { type: number, format: double }
+        targetDirection:
+          type: string
+          enum: [AT_LEAST, AT_MOST]
         currentValue: { type: number, format: double }
         status:
           type: string
@@ -7701,6 +7757,7 @@ components:
             - DESCRIPTION_CHANGED
             - TYPE_CHANGED
             - TARGET_CHANGED
+            - TARGET_DIRECTION_CHANGED
             - VALUE_RECORDED
             - VALUE_CORRECTED
             - VALUE_REMOVED

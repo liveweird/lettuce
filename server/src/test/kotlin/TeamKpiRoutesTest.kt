@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.teamkpis.TeamKpiArchiveRequest
+import ch.nokillswit.goals.TargetDirection
 import ch.nokillswit.teamkpis.TeamKpiCreateRequest
 import ch.nokillswit.teamkpis.TeamKpiDefinitionUpdate
 import ch.nokillswit.teamkpis.TeamKpiEventListResponse
@@ -141,12 +142,59 @@ class TeamKpiRoutesTest {
         assertTrue(created.canRecordValues)
         assertFalse(created.teamDeleted)
         assertEquals(52.0, created.targetValue)
+        // Direction omitted -> the AT_LEAST default (v2.41.0).
+        assertEquals(TargetDirection.AT_LEAST, created.targetDirection)
         assertEquals(0.0, created.currentValue)
         assertNull(created.summary)
         assertTrue(created.createdAt > 0)
 
         val fetched = manager.get("/api/v1/team-kpis/${created.id}").body<TeamKpiResponse>()
         assertEquals(created, fetched)
+    }
+
+    @Test
+    fun `the target direction round-trips, rides list rows, and flips with an event`() = testApplication {
+        usePostgresTestcontainer()
+        val team = seedTeam()
+        val manager = authedClient(team.managerEmail, "pw")
+
+        // An explicit AT_MOST (a churn-style KPI) echoes on the document and the list row.
+        val created = manager.post("/api/v1/team-kpis") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                TeamKpiCreateRequest(
+                    teamId = team.teamId,
+                    title = "Customer churn",
+                    type = TeamKpiType.PERCENTAGE,
+                    targetValue = 5.0,
+                    targetDirection = TargetDirection.AT_MOST,
+                ),
+            )
+        }.body<TeamKpiResponse>()
+        assertEquals(TargetDirection.AT_MOST, created.targetDirection)
+        val listed = manager.get("/api/v1/team-kpis?view=managed&teamId=${team.teamId}")
+            .body<TeamKpiPageResponse>()
+        assertEquals(TargetDirection.AT_MOST, listed.items.single { it.id == created.id }.targetDirection)
+
+        // Flipping the direction in DRAFT records TARGET_DIRECTION_CHANGED with both names.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/team-kpis/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    TeamKpiDefinitionUpdate(
+                        title = created.title,
+                        description = created.description,
+                        type = TeamKpiType.PERCENTAGE,
+                        targetValue = 5.0,
+                        targetDirection = TargetDirection.AT_LEAST,
+                    ),
+                )
+            }.status,
+        )
+        val events = manager.get("/api/v1/team-kpis/${created.id}/events").body<TeamKpiEventListResponse>()
+        assertEquals(TeamKpiEventType.TARGET_DIRECTION_CHANGED, events.items.first().type)
+        assertEquals(mapOf("from" to "AT_MOST", "to" to "AT_LEAST"), events.items.first().params)
     }
 
     @Test

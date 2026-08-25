@@ -36,6 +36,7 @@ const DRAFT_KPI = {
   description: "One release per week",
   type: "NUMBER",
   targetValue: 52,
+  targetDirection: "AT_LEAST",
   currentValue: 0,
   currentValueDate: null,
   status: "DRAFT",
@@ -91,7 +92,11 @@ describe("EditTeamKpi", () => {
     expect(await screen.findByRole("heading", { name: "Edit team KPI" })).toBeInTheDocument();
     const title = await screen.findByLabelText(/title/i);
     expect(title).toHaveValue("Deploy weekly");
+    // The Direction select seeds from the record (v2.41.0) — flip it along with the title.
+    expect(screen.getByLabelText("Direction", { selector: "input" })).toHaveValue("At least");
     fireEvent.change(title, { target: { value: "Deploy twice a week" } });
+    fireEvent.click(screen.getByLabelText("Direction", { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "At most" }));
     await user.click(screen.getByRole("button", { name: "Save draft" }));
 
     await waitFor(() => {
@@ -103,6 +108,7 @@ describe("EditTeamKpi", () => {
         title: "Deploy twice a week",
         type: "NUMBER",
         targetValue: 52,
+        targetDirection: "AT_MOST",
       });
     });
   });

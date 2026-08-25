@@ -22,6 +22,11 @@
   "dueDate": "Due date",
   "overdue": "Overdue",
   "target": "Target",
+  "targetDirection": {
+    "label": "Direction",
+    "AT_LEAST": "At least",
+    "AT_MOST": "At most"
+  },
   "current": "Current",
   "clearTitleFilter": "Clear title filter",
   "createdWindow": {
@@ -132,6 +137,9 @@
     "targetSet": "Target set to {{to}}.",
     "targetCleared": "Target removed.",
     "targetChanged": "Target changed from {{from}} to {{to}}.",
+    "targetDirectionSet": "Target direction set to {{to}}.",
+    "targetDirectionCleared": "Target direction removed.",
+    "targetDirectionChanged": "Target direction changed from {{from}} to {{to}}.",
     "dueDateChanged": "Due date changed from {{from}} to {{to}}.",
     "progressUpdated": "Progress updated from {{from}} to {{to}}.",
     "progressSet": "Progress set to {{to}}.",

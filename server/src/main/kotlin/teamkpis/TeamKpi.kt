@@ -1,5 +1,6 @@
 package ch.nokillswit.teamkpis
 
+import ch.nokillswit.goals.TargetDirection
 import ch.nokillswit.infra.paging.PageResponse
 import ch.nokillswit.infra.parseIsoDateStrict
 import io.ktor.server.plugins.BadRequestException
@@ -23,7 +24,8 @@ const val MAX_TEAM_KPI_TEXT_LENGTH = 4000
  * Body of `POST /team-kpis` — the status is always DRAFT, so it is not settable here. The caller
  * must be [teamId]'s current manager (route-checked); [targetValue] stays nullable in the request
  * so a missing target is a validated 400, not a deserialization error (see
- * [validateTeamKpiDefinition]). Data points are only recordable once ACTIVE.
+ * [validateTeamKpiDefinition]). [targetDirection] defaults to AT_LEAST (v2.41.0 — the shared
+ * goals enum: which side of the target is good). Data points are only recordable once ACTIVE.
  */
 @Serializable
 data class TeamKpiCreateRequest(
@@ -32,6 +34,7 @@ data class TeamKpiCreateRequest(
     val description: String = "",
     val type: TeamKpiType,
     val targetValue: Double? = null,
+    val targetDirection: TargetDirection = TargetDirection.AT_LEAST,
 )
 
 /**
@@ -46,6 +49,7 @@ data class TeamKpiDefinitionUpdate(
     val description: String = "",
     val type: TeamKpiType,
     val targetValue: Double? = null,
+    val targetDirection: TargetDirection = TargetDirection.AT_LEAST,
 )
 
 /**
@@ -108,6 +112,8 @@ data class TeamKpiResponse(
     val description: String,
     val type: TeamKpiType,
     val targetValue: Double,
+    // Which side of the target is good (v2.41.0) — always set, AT_LEAST on pre-V67 rows.
+    val targetDirection: TargetDirection,
     // Denormalized from the data points: the max-dated value (0.0 when there are none) and its
     // date (null when there are none) — recomputed inside every values-mutation transaction.
     val currentValue: Double,
@@ -136,6 +142,7 @@ data class TeamKpiListItem(
     val title: String,
     val type: TeamKpiType,
     val targetValue: Double,
+    val targetDirection: TargetDirection,
     val currentValue: Double,
     val status: TeamKpiStatus,
     val createdAt: Long,

@@ -76,6 +76,18 @@ export default function GoalDefinitionFields({
             {...form.getInputProps("targetValue")}
           />
         )}
+        {form.values.type !== "PLAN" && (
+          <Select
+            label={t("goal.targetDirection.label")}
+            data={(["AT_LEAST", "AT_MOST"] as const).map((direction) => ({
+              value: direction,
+              label: t(`goal.targetDirection.${direction}`),
+            }))}
+            allowDeselect={false}
+            w={200}
+            {...form.getInputProps("targetDirection")}
+          />
+        )}
         <TextInput
           type="date"
           label={t("goal.dueDate")}

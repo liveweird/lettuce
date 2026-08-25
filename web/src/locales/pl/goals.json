@@ -22,6 +22,11 @@
   "dueDate": "Termin",
   "overdue": "Po terminie",
   "target": "Wartość docelowa",
+  "targetDirection": {
+    "label": "Kierunek",
+    "AT_LEAST": "Co najmniej",
+    "AT_MOST": "Co najwyżej"
+  },
   "current": "Wartość bieżąca",
   "clearTitleFilter": "Wyczyść filtr tytułu",
   "createdWindow": {
@@ -132,6 +137,9 @@
     "targetSet": "Ustawiono wartość docelową na {{to}}.",
     "targetCleared": "Usunięto wartość docelową.",
     "targetChanged": "Zmieniono wartość docelową z {{from}} na {{to}}.",
+    "targetDirectionSet": "Ustawiono kierunek wartości docelowej na „{{to}}”.",
+    "targetDirectionCleared": "Usunięto kierunek wartości docelowej.",
+    "targetDirectionChanged": "Zmieniono kierunek wartości docelowej z „{{from}}” na „{{to}}”.",
     "dueDateChanged": "Zmieniono termin z {{from}} na {{to}}.",
     "progressUpdated": "Zaktualizowano postęp z {{from}} na {{to}}.",
     "progressSet": "Ustawiono postęp na {{to}}.",

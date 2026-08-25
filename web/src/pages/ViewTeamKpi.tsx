@@ -30,7 +30,7 @@ import TeamKpiHistory from "../components/TeamKpiHistory";
 import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
 import TeamKpiValuesEditor from "../components/TeamKpiValuesEditor";
 import { formatDate } from "../utils/datetime";
-import { formatGoalValue } from "../utils/goalValues";
+import { formatTargetValue } from "../utils/goalValues";
 import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
@@ -188,7 +188,9 @@ export default function ViewTeamKpi() {
                         <Text size="sm">{t(`teamKpi.type.${data.type}`)}</Text>
                       </ReadOnlyField>
                       <ReadOnlyField label={t("teamKpi.target")}>
-                        <Text size="sm">{formatGoalValue(data.type, data.targetValue, i18n.language)}</Text>
+                        <Text size="sm">
+                          {formatTargetValue(data.type, data.targetValue, data.targetDirection, i18n.language)}
+                        </Text>
                       </ReadOnlyField>
                     </Group>
                     {data.summary != null && data.summary !== "" && (

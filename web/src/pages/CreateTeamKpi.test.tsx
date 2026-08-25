@@ -115,6 +115,8 @@ describe("CreateTeamKpi", () => {
       title: "Deploy weekly",
       type: "NUMBER",
       targetValue: 52,
+      // Untouched Direction select -> the preselected "At least" default (v2.41.0).
+      targetDirection: "AT_LEAST",
     });
 
     await user.click(screen.getByRole("button", { name: "No" }));
@@ -151,6 +153,30 @@ describe("CreateTeamKpi", () => {
     expect(await screen.findByText("Team AAA")).toBeInTheDocument();
     expect(screen.queryByText("Impostor")).toBeNull();
     expect(screen.queryByLabelText("Team", { selector: "input" })).not.toBeInTheDocument();
+  });
+
+  test("flipping Direction to At most rides the create body (v2.41.0)", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderCreate("/team-kpis/new?teamId=10");
+
+    await screen.findByText("Team AAA");
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: "Customer churn" } });
+    fireEvent.change(screen.getByLabelText(/target/i), { target: { value: "5" } });
+    // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation.
+    fireEvent.click(screen.getByLabelText("Direction", { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "At most" }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      const create = mockFetch.mock.calls.find(
+        ([u, init]) => String(u) === "/api/v1/team-kpis" && (init as RequestInit)?.method === "POST",
+      );
+      expect(create).toBeDefined();
+      expect(JSON.parse((create![1] as RequestInit).body as string)).toMatchObject({
+        targetDirection: "AT_MOST",
+      });
+    });
   });
 
   test("a missing target is refused client-side", async () => {

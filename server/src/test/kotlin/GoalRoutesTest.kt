@@ -14,6 +14,7 @@ import ch.nokillswit.goals.GoalProgressUpdate
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.goals.GoalType
+import ch.nokillswit.goals.TargetDirection
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.teams.Team
@@ -135,6 +136,8 @@ class GoalRoutesTest {
         assertEquals("Mona Manager", created.managerName)
         assertEquals("Sub Ordinate", created.subordinateName)
         assertEquals(4.0, created.targetValue)
+        // Direction omitted -> the AT_LEAST default (v2.41.0).
+        assertEquals(TargetDirection.AT_LEAST, created.targetDirection)
         assertEquals(LocalDate.now().plusDays(30).toString(), created.dueDate)
         // No recorded value yet (v2.8.1) — the value field starts unset.
         assertNull(created.currentValue)
@@ -167,7 +170,89 @@ class GoalRoutesTest {
         assertTrue(created.milestones.none { it.done })
         assertEquals(created.milestones.size, created.milestones.map { it.id }.toSet().size)
         assertNull(created.targetValue)
+        assertNull(created.targetDirection)
         assertNull(created.currentValue)
+    }
+
+    @Test
+    fun `the target direction round-trips, flips with an event, and resets on a type change to PLAN`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+
+        // An explicit AT_MOST (a churn-style goal) echoes on the document and the list row.
+        val created = manager.post("/api/v1/goals") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalCreateRequest(
+                    subordinateId = pair.subordinateId,
+                    title = "Keep churn low",
+                    type = GoalType.PERCENTAGE,
+                    targetValue = 5.0,
+                    targetDirection = TargetDirection.AT_MOST,
+                    dueDate = LocalDate.now().plusDays(30).toString(),
+                ),
+            )
+        }.body<GoalResponse>()
+        assertEquals(TargetDirection.AT_MOST, created.targetDirection)
+        val listed = manager.get("/api/v1/goals?view=managed&subordinateId=${pair.subordinateId}")
+            .body<GoalPageResponse>()
+        assertEquals(TargetDirection.AT_MOST, listed.items.single { it.id == created.id }.targetDirection)
+
+        // Flipping the direction in DRAFT records TARGET_DIRECTION_CHANGED with both names.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.put("/api/v1/goals/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    GoalDefinitionUpdate(
+                        title = created.title,
+                        description = created.description,
+                        type = GoalType.PERCENTAGE,
+                        targetValue = 5.0,
+                        targetDirection = TargetDirection.AT_LEAST,
+                        dueDate = created.dueDate,
+                    ),
+                )
+            }.status,
+        )
+        val events = manager.get("/api/v1/goals/${created.id}/events").body<GoalEventListResponse>()
+        assertEquals(GoalEventType.TARGET_DIRECTION_CHANGED, events.items.first().type)
+        assertEquals(mapOf("from" to "AT_MOST", "to" to "AT_LEAST"), events.items.first().params)
+
+        // A type change to PLAN nulls the direction alongside the target.
+        manager.put("/api/v1/goals/${created.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalDefinitionUpdate(
+                    title = created.title,
+                    description = created.description,
+                    type = GoalType.PLAN,
+                    milestones = listOf(GoalMilestoneInput(description = "Step one")),
+                    dueDate = created.dueDate,
+                ),
+            )
+        }
+        val asPlan = manager.get("/api/v1/goals/${created.id}").body<GoalResponse>()
+        assertNull(asPlan.targetDirection)
+
+        // A PLAN payload carrying a direction is rejected like a PLAN target value.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.put("/api/v1/goals/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    GoalDefinitionUpdate(
+                        title = created.title,
+                        description = created.description,
+                        type = GoalType.PLAN,
+                        targetDirection = TargetDirection.AT_LEAST,
+                        milestones = listOf(GoalMilestoneInput(description = "Step one")),
+                        dueDate = created.dueDate,
+                    ),
+                )
+            }.status,
+        )
     }
 
     @Test

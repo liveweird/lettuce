@@ -9,6 +9,7 @@ import ch.nokillswit.goals.GoalProgressUpdate
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalStatus
 import ch.nokillswit.goals.GoalType
+import ch.nokillswit.goals.TargetDirection
 import ch.nokillswit.goals.goalCreationEvent
 import ch.nokillswit.goals.goalDefinitionUpdateEvents
 import ch.nokillswit.goals.goalDeletionEvent
@@ -26,6 +27,7 @@ class GoalEventsTest {
         description: String = "Secret description",
         type: GoalType = GoalType.NUMBER,
         targetValue: Double? = 10.0,
+        targetDirection: TargetDirection? = TargetDirection.AT_LEAST,
         currentValue: Double? = 0.0,
         milestones: List<GoalMilestoneResponse> = emptyList(),
         status: GoalStatus = GoalStatus.DRAFT,
@@ -34,7 +36,8 @@ class GoalEventsTest {
     ) = GoalResponse(
         id = 1u, managerId = 2u, subordinateId = 3u, createdAt = 0L, dueDate = dueDate,
         title = title, description = description, type = type,
-        targetValue = targetValue, currentValue = currentValue, milestones = milestones,
+        targetValue = targetValue, targetDirection = targetDirection,
+        currentValue = currentValue, milestones = milestones,
         status = status, summary = summary, lastModified = 0L,
         managerName = "Manager", subordinateName = "Subordinate",
     )
@@ -46,7 +49,7 @@ class GoalEventsTest {
         third: Boolean = false,
         status: GoalStatus = GoalStatus.ACTIVE,
     ) = goal(
-        type = GoalType.PLAN, targetValue = null, currentValue = null, status = status,
+        type = GoalType.PLAN, targetValue = null, targetDirection = null, currentValue = null, status = status,
         milestones = listOf(
             GoalMilestoneResponse(11u, "Draft the design", first),
             GoalMilestoneResponse(12u, "Build it", second),
@@ -122,6 +125,54 @@ class GoalEventsTest {
     }
 
     @Test
+    fun `a target direction flip mints TARGET_DIRECTION_CHANGED with both names`() {
+        val events = goalDefinitionUpdateEvents(
+            goal(),
+            GoalDefinitionUpdate(
+                title = "Ship the migration",
+                description = "Secret description",
+                type = GoalType.NUMBER,
+                targetValue = 10.0,
+                targetDirection = TargetDirection.AT_MOST,
+                dueDate = "2099-12-31",
+            ),
+        )
+        assertEquals(listOf(GoalEventType.TARGET_DIRECTION_CHANGED), events.map { it.type })
+        assertEquals(mapOf("from" to "AT_LEAST", "to" to "AT_MOST"), events.single().params)
+    }
+
+    @Test
+    fun `an omitted direction on a numeric payload does not diff against the stored default`() {
+        val events = goalDefinitionUpdateEvents(
+            goal(),
+            GoalDefinitionUpdate(
+                title = "Ship the migration",
+                description = "Secret description",
+                type = GoalType.NUMBER,
+                targetValue = 10.0,
+                dueDate = "2099-12-31",
+            ),
+        )
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `a type change to PLAN narrates the direction reset with an empty to side`() {
+        val events = goalDefinitionUpdateEvents(
+            goal(),
+            GoalDefinitionUpdate(
+                title = "Ship the migration",
+                description = "Secret description",
+                type = GoalType.PLAN,
+                targetValue = null,
+                dueDate = "2099-12-31",
+            ),
+        )
+        val direction = events.single { it.type == GoalEventType.TARGET_DIRECTION_CHANGED }
+        assertEquals(mapOf("from" to "AT_LEAST", "to" to ""), direction.params)
+    }
+
+    @Test
     fun `milestone definition diff yields removed then edited then added, by 1-based position`() {
         val before = planGoal(status = GoalStatus.DRAFT)
         // Remove "Build it" (stored position 2), rename "Ship it" (now payload position 2),
@@ -190,6 +241,8 @@ class GoalEventsTest {
             listOf(
                 GoalEventType.TYPE_CHANGED,
                 GoalEventType.TARGET_CHANGED,
+                // Leaving PLAN also gives the goal its direction (the AT_LEAST default).
+                GoalEventType.TARGET_DIRECTION_CHANGED,
                 GoalEventType.MILESTONE_REMOVED,
                 GoalEventType.MILESTONE_REMOVED,
                 GoalEventType.MILESTONE_REMOVED,

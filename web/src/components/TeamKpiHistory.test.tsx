@@ -40,6 +40,7 @@ describe("TeamKpiHistory", () => {
             toValue: "47.5",
           }),
           event(5, "VALUE_RECORDED", { date: "2026-07-20", value: "45.0" }),
+          event(5, "TARGET_DIRECTION_CHANGED", { from: "AT_LEAST", to: "AT_MOST" }),
           event(4, "TARGET_CHANGED", { from: "10.0", to: "80.0" }),
           event(3, "TYPE_CHANGED", { from: "NUMBER", to: "PERCENTAGE" }),
           event(2, "TITLE_CHANGED"),
@@ -55,6 +56,9 @@ describe("TeamKpiHistory", () => {
       screen.getByText("Type changed from Number to Percentage — the collected data points were removed."),
     ).toBeInTheDocument();
     expect(screen.getByText("Target changed from 10 to 80.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Target direction changed from At least to At most."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Value 45 recorded for Jul 20, 2026.")).toBeInTheDocument();
     expect(
       screen.getByText("Data point corrected: 45 on Jul 20, 2026 → 47.5 on Jul 21, 2026."),

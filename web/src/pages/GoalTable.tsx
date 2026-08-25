@@ -40,7 +40,7 @@ import {
 import { goalSaveErrorMessage } from "../utils/goalForm";
 import { goalEditLink, goalViewLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
-import { formatGoalValue, GoalCurrentValue, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
+import { formatTargetValue, GoalCurrentValue, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 import { showSuccessToast } from "../utils/toast";
 import { loadErrorMessage } from "../utils/saveError";
 
@@ -416,7 +416,7 @@ export default function GoalTable({
                     <GoalStatusBadge status={g.status} />
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
-                    {formatGoalValue(g.type, g.targetValue, i18n.language)}
+                    {formatTargetValue(g.type, g.targetValue, g.targetDirection, i18n.language)}
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     <GoalCurrentValue

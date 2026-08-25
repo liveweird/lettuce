@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.41.0",
+    date: "2026-08-25",
+    en: `Targets now know which way is better. When defining a numeric or percentage goal or team KPI you pick the target's direction: "at least" (acquire at least 10 customers — more is better) or "at most" (keep churn at most 5% — less is better). Existing goals and KPIs read as "at least", the way they were always understood. The direction shows up everywhere the target does (as "≥ 10" or "≤ 5%"), and it drives two new cues: every value in a KPI's data list shows how far above or below the target it sits, colored green when it is on the good side and red when it is not — a goal's current value gets the same badge on its view and update screens — and the KPI graph tints the good side of the target line, so one glance tells you whether the line should stay above or below it.`,
+    pl: `Wartości docelowe wiedzą teraz, w którą stronę jest lepiej. Definiując liczbowy lub procentowy cel albo KPI zespołu, wybierasz kierunek wartości docelowej: „co najmniej" (pozyskaj co najmniej 10 klientów — więcej znaczy lepiej) albo „co najwyżej" (utrzymaj churn na co najwyżej 5% — mniej znaczy lepiej). Istniejące cele i KPI czytamy jako „co najmniej", tak jak zawsze były rozumiane. Kierunek pojawia się wszędzie tam, gdzie wartość docelowa (jako „≥ 10" lub „≤ 5%"), i napędza dwie nowe wskazówki: każda wartość na liście danych KPI pokazuje, o ile jest powyżej lub poniżej wartości docelowej — na zielono, gdy jest po dobrej stronie, na czerwono, gdy nie — cel pokazuje taką samą plakietkę przy bieżącej wartości na ekranach podglądu i aktualizacji — a wykres KPI podbarwia dobrą stronę linii celu, więc jedno spojrzenie mówi, czy linia powinna trzymać się nad nią, czy pod nią.`,
+  },
+  {
     version: "2.40.1",
     date: "2026-08-25",
     en: `Fixes from the latest review round. The Impact log button on a team page's member cards now opens that person's journal — it used to send managers to their own journal instead. Renaming a journal entry now shows up properly in its history ("Title" instead of a raw technical token, in both languages). Journal tables no longer reserve space for a column that was removed a while ago, and a few small internal inconsistencies were tidied up along the way.`,

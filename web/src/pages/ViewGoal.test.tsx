@@ -30,6 +30,7 @@ const GOAL = {
   description: "Get the suite green **and keep it there**",
   type: "PERCENTAGE",
   targetValue: 90,
+  targetDirection: "AT_LEAST",
   currentValue: 45,
   milestones: [],
   status: "ACTIVE",
@@ -90,14 +91,27 @@ describe("ViewGoal page", () => {
     expect(screen.getByText("Active")).toBeInTheDocument();
     // Markdown renders (the bold run becomes its own node).
     expect(screen.getByText("and keep it there")).toBeInTheDocument();
-    expect(screen.getByText("90%")).toBeInTheDocument();
+    // The target carries its direction glyph (v2.41.0); the sentence keeps the plain value.
+    expect(screen.getByText("≥ 90%")).toBeInTheDocument();
     expect(screen.getByText("45% of the 90% target")).toBeInTheDocument();
+    // Below an at-least target -> the red distance badge next to Current.
+    const delta = screen.getByText("-45%");
+    expect(delta.closest(".mantine-Badge-root")?.getAttribute("style") ?? "").toContain("red");
     // The due date is far in the future — shown, but not flagged.
     expect(screen.getByText("Due date")).toBeInTheDocument();
     expect(screen.getByText("Jun 15, 2099")).toBeInTheDocument();
     expect(screen.queryByText("Overdue")).toBeNull();
     // No summary section while the goal was never closed.
     expect(screen.queryByText("Summary")).toBeNull();
+  });
+
+  test("under an at-most target the below-target value reads as good (v2.41.0)", async () => {
+    setupMocks({ ...GOAL, targetDirection: "AT_MOST" });
+    renderScreen();
+
+    expect(await screen.findByText("≤ 90%")).toBeInTheDocument();
+    const delta = screen.getByText("-45%");
+    expect(delta.closest(".mantine-Badge-root")?.getAttribute("style") ?? "").toContain("teal");
   });
 
   test("an ACTIVE goal past its due date shows the overdue badge; an ARCHIVED one does not", async () => {

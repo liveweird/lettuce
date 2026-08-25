@@ -152,6 +152,7 @@ describe("EditGoal page", () => {
         description: "Initial description",
         type: "PERCENTAGE",
         targetValue: 95,
+        targetDirection: "AT_LEAST",
         milestones: [],
         dueDate: "2099-09-01",
       });

@@ -45,6 +45,7 @@ describe("GoalHistory", () => {
           event("DESCRIPTION_CHANGED"),
           event("TYPE_CHANGED", { from: "NUMBER", to: "PERCENTAGE" }),
           event("TARGET_CHANGED", { from: "10.0", to: "80.0" }),
+          event("TARGET_DIRECTION_CHANGED", { from: "AT_LEAST", to: "AT_MOST" }),
           event("PROGRESS_UPDATED", { from: "0.0", to: "40.5" }),
           event("PROGRESS_COMMENTED"),
           // Historical only since v2.9.0 (the old BINARY type's flip) — still renders.
@@ -66,6 +67,9 @@ describe("GoalHistory", () => {
     expect(screen.getByText("Description changed.")).toBeInTheDocument();
     expect(screen.getByText("Type changed from Number to Percentage.")).toBeInTheDocument();
     expect(screen.getByText("Target changed from 10 to 80.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Target direction changed from At least to At most."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Progress updated from 0 to 40.5.")).toBeInTheDocument();
     expect(screen.getByText("Progress note added.")).toBeInTheDocument();
     expect(screen.getByText("Marked as achieved.")).toBeInTheDocument();
@@ -76,7 +80,7 @@ describe("GoalHistory", () => {
     expect(screen.getByText("Milestone 3 marked as not done.")).toBeInTheDocument();
     expect(screen.getByText("Status changed from Draft to Active.")).toBeInTheDocument();
     expect(screen.getByText("Goal deleted.")).toBeInTheDocument();
-    expect(screen.getAllByText(/Mona Manager ·/)).toHaveLength(15);
+    expect(screen.getAllByText(/Mona Manager ·/)).toHaveLength(16);
   });
 
   test("a progress update's comment renders under its timeline entry", async () => {
@@ -102,6 +106,8 @@ describe("GoalHistory", () => {
         items: [
           event("TARGET_CHANGED", { from: "", to: "50.0" }),
           event("TARGET_CHANGED", { from: "50.0", to: "" }),
+          event("TARGET_DIRECTION_CHANGED", { from: "", to: "AT_LEAST" }),
+          event("TARGET_DIRECTION_CHANGED", { from: "AT_LEAST", to: "" }),
           event("ACHIEVED_CHANGED", { to: "false" }),
         ],
       }),
@@ -110,6 +116,8 @@ describe("GoalHistory", () => {
 
     expect(await screen.findByText("Target set to 50.")).toBeInTheDocument();
     expect(screen.getByText("Target removed.")).toBeInTheDocument();
+    expect(screen.getByText("Target direction set to At least.")).toBeInTheDocument();
+    expect(screen.getByText("Target direction removed.")).toBeInTheDocument();
     expect(screen.getByText("Marked as not achieved.")).toBeInTheDocument();
   });
 

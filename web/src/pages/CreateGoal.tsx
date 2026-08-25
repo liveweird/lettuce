@@ -45,7 +45,15 @@ export default function CreateGoal() {
   });
 
   const form = useForm<GoalDefinitionFormValues>({
-    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "", milestones: [], dueDate: "" },
+    initialValues: {
+      title: "",
+      description: "",
+      type: "NUMBER",
+      targetValue: "",
+      targetDirection: "AT_LEAST",
+      milestones: [],
+      dueDate: "",
+    },
     validate: goalDefinitionValidation(t),
   });
 

@@ -93,6 +93,7 @@ export default function EditGoal() {
       description: "",
       type: "NUMBER",
       targetValue: "",
+      targetDirection: "AT_LEAST",
       milestones: [],
       dueDate: "",
     },

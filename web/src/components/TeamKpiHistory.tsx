@@ -33,6 +33,11 @@ function describeEvent(e: TeamKpiEvent, t: TFunction, locale: string, type: Team
       });
     case "TARGET_CHANGED":
       return t("teamKpi.event.targetChanged", { from: num(p.from), to: num(p.to) });
+    case "TARGET_DIRECTION_CHANGED":
+      return t("teamKpi.event.targetDirectionChanged", {
+        from: t(dynamicKey(`teamKpi.targetDirection.${p.from}`)),
+        to: t(dynamicKey(`teamKpi.targetDirection.${p.to}`)),
+      });
     case "VALUE_RECORDED":
       return t("teamKpi.event.valueRecorded", {
         value: num(p.value),

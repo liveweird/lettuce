@@ -34,6 +34,16 @@ function describeEvent(e: GoalEvent, t: TFunction, locale: string): string {
       if (!p.to) return t("goal.event.targetCleared");
       if (!p.from) return t("goal.event.targetSet", { to: num(p.to) });
       return t("goal.event.targetChanged", { from: num(p.from), to: num(p.to) });
+    case "TARGET_DIRECTION_CHANGED": {
+      // An empty side means "no direction" (the PLAN side of a type change).
+      if (!p.to) return t("goal.event.targetDirectionCleared");
+      const to = t(dynamicKey(`goal.targetDirection.${p.to}`));
+      if (!p.from) return t("goal.event.targetDirectionSet", { to });
+      return t("goal.event.targetDirectionChanged", {
+        from: t(dynamicKey(`goal.targetDirection.${p.from}`)),
+        to,
+      });
+    }
     case "DUE_DATE_CHANGED":
       return t("goal.event.dueDateChanged", {
         from: formatIsoDate(p.from ?? "", locale),

@@ -17,7 +17,7 @@ import { addTeamKpiValue, deleteTeamKpiValue, listTeamKpiValues, updateTeamKpiVa
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";
-import { formatGoalValue } from "../utils/goalValues";
+import { formatGoalValue, TargetDelta } from "../utils/goalValues";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
@@ -187,6 +187,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
             <Table.Tr>
               <Table.Th>{t("teamKpi.date")}</Table.Th>
               <Table.Th>{t("teamKpi.value")}</Table.Th>
+              <Table.Th>{t("teamKpi.vsTarget")}</Table.Th>
               {canEdit && <Table.Th w={1} />}
             </Table.Tr>
           </Table.Thead>
@@ -218,6 +219,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                       </Text>
                     )}
                   </Table.Td>
+                  <Table.Td />
                   <Table.Td>
                     <Group gap="xs" wrap="nowrap">
                       <ActionIcon
@@ -251,6 +253,15 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                 <Table.Tr key={row.id}>
                   <Table.Td>{formatIsoDate(row.date, locale)}</Table.Td>
                   <Table.Td>{formatGoalValue(kpi.type, row.value, locale)}</Table.Td>
+                  <Table.Td>
+                    <TargetDelta
+                      type={kpi.type}
+                      value={row.value}
+                      target={kpi.targetValue}
+                      direction={kpi.targetDirection}
+                      locale={locale}
+                    />
+                  </Table.Td>
                   {canEdit && (
                     <Table.Td>
                       <Group gap="xs" wrap="nowrap">

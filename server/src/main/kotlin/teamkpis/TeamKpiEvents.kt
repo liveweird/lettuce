@@ -20,6 +20,8 @@ enum class TeamKpiEventType {
     DESCRIPTION_CHANGED,
     TYPE_CHANGED,
     TARGET_CHANGED,
+    // v2.41.0: the at-least/at-most flip — params carry the TargetDirection names.
+    TARGET_DIRECTION_CHANGED,
     VALUE_RECORDED,
     VALUE_CORRECTED,
     VALUE_REMOVED,
@@ -42,7 +44,8 @@ internal fun teamKpiCreationEvent(type: TeamKpiType): TeamKpiEventDescriptor =
 
 /**
  * Structured events recorded on a DRAFT definition edit: one per changed aspect, in a stable
- * title → description → type → target order. A no-op PUT returns an empty list (no empty events).
+ * title → description → type → target → direction order. A no-op PUT returns an empty list (no
+ * empty events).
  */
 internal fun teamKpiDefinitionUpdateEvents(
     before: TeamKpiResponse,
@@ -65,6 +68,12 @@ internal fun teamKpiDefinitionUpdateEvents(
         events += TeamKpiEventDescriptor(
             TeamKpiEventType.TARGET_CHANGED,
             mapOf("from" to valueParam(before.targetValue), "to" to valueParam(after.targetValue)),
+        )
+    }
+    if (before.targetDirection != after.targetDirection) {
+        events += TeamKpiEventDescriptor(
+            TeamKpiEventType.TARGET_DIRECTION_CHANGED,
+            mapOf("from" to before.targetDirection.name, "to" to after.targetDirection.name),
         )
     }
     return events

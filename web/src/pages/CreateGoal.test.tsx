@@ -133,6 +133,7 @@ describe("CreateGoal page", () => {
       description: "",
       type: "NUMBER",
       targetValue: 4,
+      targetDirection: "AT_LEAST",
       milestones: [],
       dueDate: "2099-06-15",
     });
@@ -202,6 +203,8 @@ describe("CreateGoal page", () => {
     fireEvent.click(screen.getByLabelText("Type", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "Plan (milestones)" }));
     expect(screen.queryByLabelText(/target/i)).toBeNull();
+    // The Direction select is PLAN-hidden like the target input (v2.41.0).
+    expect(screen.queryByLabelText("Direction", { selector: "input" })).toBeNull();
 
     // The milestone editor appears; add two ordered steps.
     await user.click(screen.getByRole("button", { name: "Add milestone" }));
@@ -218,6 +221,7 @@ describe("CreateGoal page", () => {
       expect(JSON.parse((post![1] as RequestInit).body as string)).toMatchObject({
         type: "PLAN",
         targetValue: null,
+        targetDirection: null,
         milestones: [{ description: "Pass the exam" }, { description: "File the certificate" }],
       });
     });

@@ -87,18 +87,30 @@ test("a manager walks a team KPI around the whole lifecycle, managing its data p
   // The manager's DRAFT row opens the definition editor directly (v1.29.1).
   await rowByTitle(page, title).getByRole("link", { name: `Edit team KPI ${title}` }).click();
   await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/edit`));
+  // v2.41.0: flip the target direction — churn-style, staying at or below 50 is good.
+  // (combobox role: a Mantine Select's mounted listbox shares the label — strict-mode trap.)
+  await page.getByRole("combobox", { name: "Direction" }).click();
+  await page.getByRole("option", { name: "At most" }).click();
   await page.getByRole("button", { name: "Save & activate", exact: true }).click();
   await expect(rowByTitle(page, title).getByText("Active", { exact: true })).toBeVisible();
 
   // The KPI data tab: add a backdated point and a later one, correct the first, remove the
   // second — every operation persists immediately (no Save button on the screen).
   await rowByTitle(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
+  // General shows the target with its direction glyph (v2.41.0) — anchor on the view URL
+  // first, or the assert can match the LIST's Target cells before navigation completes.
+  await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/view`));
+  await expect(page.getByText("≤ 50", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "KPI data" }).click();
   await expect(page.getByText("No data points yet.")).toBeVisible();
   await addValue(page, id, "2026-07-01", "30");
   await addValue(page, id, "2026-07-10", "40");
   await expect(page.getByRole("cell", { name: "Jul 1, 2026", exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Jul 10, 2026", exact: true })).toBeVisible();
+  // Each row states its distance from the ≤ 50 target (v2.41.0): 30 → -20, 40 → -10.
+  await expect(page.getByRole("columnheader", { name: "Vs target" })).toBeVisible();
+  await expect(page.getByText("-20", { exact: true })).toBeVisible();
+  await expect(page.getByText("-10", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit the value of Jul 1, 2026" }).click();
   await page.getByRole("row", { name: /Jul 1, 2026/ }).getByLabel("Value", { exact: true }).fill("35");

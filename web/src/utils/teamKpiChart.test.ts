@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { TeamKpiValue } from "../api/teamkpis";
-import { buildTeamKpiSeries } from "./teamKpiChart";
+import { buildTeamKpiSeries, goodZoneBounds } from "./teamKpiChart";
 
 const value = (id: number, date: string, v: number): TeamKpiValue => ({ id, date, value: v });
 
@@ -25,5 +25,19 @@ describe("buildTeamKpiSeries", () => {
 
   test("an empty list yields an empty series — nothing is synthesized", () => {
     expect(buildTeamKpiSeries([])).toEqual([]);
+  });
+});
+
+describe("goodZoneBounds", () => {
+  test("AT_LEAST tints from the target upward — the far bound sits well above any domain", () => {
+    const bounds = goodZoneBounds("AT_LEAST", 52);
+    expect(bounds.y1).toBe(52);
+    expect(bounds.y2).toBeGreaterThan(52_000);
+  });
+
+  test("AT_MOST tints from the target downward — the far bound sits well below any domain", () => {
+    const bounds = goodZoneBounds("AT_MOST", 5);
+    expect(bounds.y2).toBe(5);
+    expect(bounds.y1).toBeLessThan(-4_000);
   });
 });

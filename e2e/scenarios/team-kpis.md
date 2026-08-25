@@ -8,7 +8,8 @@
 - **Since**: v1.29.0 (the tabbed view screen as THE KPI screen), v1.29.1 (a manager's DRAFT row
   opens the editor directly), v1.30.0 (members notified about recorded data points), v2.26.0
   (recording data is the team's shared work — members add/correct/remove points; lifecycle stays
-  manager-or-chain)
+  manager-or-chain), v2.41.0 (the target direction — at least / at most — with the per-value
+  distance cues)
 
 ## Scenario: a manager walks a team KPI around the whole lifecycle, managing its data points inline
 
@@ -17,14 +18,17 @@
 2. They create a new KPI ("New team KPI") with a unique title and a Target of 50, then answer the
    "Do you want to activate the KPI immediately?" prompt with **No**.
    - *Expected*: back on the drill-down list, the KPI's row shows **Draft**.
-3. The manager's draft row opens the definition editor directly (**Edit** — v1.29.1); they click
-   **Save & activate**.
+3. The manager's draft row opens the definition editor directly (**Edit** — v1.29.1); they flip
+   the **Direction** to **At most** (v2.41.0 — churn-style: staying at or below the target is
+   good), then click **Save & activate**.
    - *Expected*: the row now shows **Active**.
-4. They open the KPI's view screen and its **KPI data** tab.
+4. They open the KPI's view screen (General shows the target with its direction glyph, **≤ 50**)
+   and its **KPI data** tab.
    - *Expected*: "No data points yet."
 5. They add a backdated point (Jul 1, 2026 → 30) and a later one (Jul 10, 2026 → 40) — every
    data-point operation persists immediately, there is no Save button on this screen.
-   - *Expected*: both dated rows appear in the table.
+   - *Expected*: both dated rows appear in the table, each with its signed distance from the
+     ≤ 50 target in the **Vs target** column (30 → -20, 40 → -10; both on the good side).
 6. They correct the first point inline (edit Jul 1's value to 35) and remove the second
    (confirming "Remove this data point?").
    - *Expected*: the corrected value 35 shows; the Jul 10 row is gone.
