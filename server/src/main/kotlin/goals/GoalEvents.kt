@@ -22,6 +22,9 @@ enum class GoalEventType {
     DESCRIPTION_CHANGED,
     TYPE_CHANGED,
     TARGET_CHANGED,
+    // v2.41.0: the at-least/at-most flip — params carry the TargetDirection names ("" = none,
+    // a PLAN side of a type change).
+    TARGET_DIRECTION_CHANGED,
     DUE_DATE_CHANGED,
     PROGRESS_UPDATED,
     // Historical only (the pre-v2.9.0 BINARY type's flag flip): nothing mints it anymore, but
@@ -61,7 +64,7 @@ internal fun goalCreationEvent(type: GoalType): GoalEventDescriptor =
 
 /**
  * Structured events recorded on a DRAFT definition edit: one per changed aspect, in a stable
- * title → description → type → target → due date → milestones order (within milestones the 1:1
+ * title → description → type → target → direction → due date → milestones order (within milestones the 1:1
  * items order: removed → edited → added; pure reordering yields nothing — order is
  * presentational). A no-op PUT returns an empty list (no empty events).
  */
@@ -86,6 +89,15 @@ internal fun goalDefinitionUpdateEvents(
         events += GoalEventDescriptor(
             GoalEventType.TARGET_CHANGED,
             mapOf("from" to valueParam(before.targetValue), "to" to valueParam(after.targetValue)),
+        )
+    }
+    // Compare against the NORMALIZED direction (null for PLAN, AT_LEAST default otherwise) —
+    // an omitted direction on a numeric payload must not diff against the stored default.
+    val afterDirection = normalizedTargetDirection(after.type, after.targetDirection)
+    if (before.targetDirection != afterDirection) {
+        events += GoalEventDescriptor(
+            GoalEventType.TARGET_DIRECTION_CHANGED,
+            mapOf("from" to (before.targetDirection?.name ?: ""), "to" to (afterDirection?.name ?: "")),
         )
     }
     if (before.dueDate != after.dueDate) {

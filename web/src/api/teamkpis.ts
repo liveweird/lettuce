@@ -10,6 +10,9 @@ export type TeamKpiResponse =
   paths["/api/v1/team-kpis/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type TeamKpiStatus = TeamKpiResponse["status"];
 export type TeamKpiType = TeamKpiResponse["type"];
+// Re-exported from the KPI response so KPI code needs no cross-module type import; the same
+// two-value union as the goals TargetDirection.
+export type TargetDirection = TeamKpiResponse["targetDirection"];
 
 export type TeamKpiListView = "own" | "managed";
 

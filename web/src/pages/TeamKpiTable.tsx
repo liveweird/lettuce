@@ -24,7 +24,7 @@ import {
   formatTimestamp,
   type CreatedWindow,
 } from "../utils/datetime";
-import { formatGoalValue } from "../utils/goalValues";
+import { formatGoalValue, formatTargetValue } from "../utils/goalValues";
 import { teamKpiEditLink, teamKpiViewLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage } from "../utils/saveError";
 
@@ -304,7 +304,7 @@ export default function TeamKpiTable({
                     <TeamKpiStatusBadge status={k.status} />
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
-                    {formatGoalValue(k.type, k.targetValue, i18n.language)}
+                    {formatTargetValue(k.type, k.targetValue, k.targetDirection, i18n.language)}
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     {formatGoalValue(k.type, k.currentValue, i18n.language)}

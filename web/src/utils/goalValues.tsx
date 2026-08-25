@@ -3,7 +3,7 @@
 // small presentational components share one home, at the cost of Fast Refresh for it.
 import { Badge, Group, Progress, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { GoalResponse, GoalStatus, GoalType } from "../api/goals";
+import type { GoalResponse, GoalStatus, GoalType, TargetDirection } from "../api/goals";
 import ReadOnlyField from "../components/ReadOnlyField";
 import { todayIsoDate } from "./datetime";
 
@@ -31,6 +31,65 @@ export function formatGoalValue(type: GoalType, value: number | null | undefined
   if (type === "PLAN" || value == null) return "—";
   const formatted = new Intl.NumberFormat(locale).format(value);
   return type === "PERCENTAGE" ? `${formatted}%` : formatted;
+}
+
+// The target with its direction glyph ("≥ 10" / "≤ 5%", v2.41.0) — every TARGET render site
+// uses this; current-value sites keep the bare formatGoalValue. Directionless (PLAN/null)
+// falls back to the plain rendering.
+export function formatTargetValue(
+  type: GoalType,
+  value: number | null | undefined,
+  direction: TargetDirection | null | undefined,
+  locale: string,
+): string {
+  const formatted = formatGoalValue(type, value, locale);
+  if (type === "PLAN" || value == null || !direction) return formatted;
+  return `${direction === "AT_LEAST" ? "≥" : "≤"} ${formatted}`;
+}
+
+// Which side of the target is good: reach-or-exceed for AT_LEAST, stay-at-or-below for
+// AT_MOST — meeting the target exactly always counts as good (the server's documented rule).
+export function meetsTarget(direction: TargetDirection, value: number, target: number): boolean {
+  return direction === "AT_LEAST" ? value >= target : value <= target;
+}
+
+// The signed distance from the target ("+3", "−2%"; "0" when exactly on it) — the KPI values
+// list / goal current-value delta. Sign says where the value sits; color (TargetDelta) says
+// whether that side is good.
+export function formatTargetDelta(
+  type: GoalType,
+  value: number,
+  target: number,
+  locale: string,
+): string {
+  const formatted = new Intl.NumberFormat(locale, { signDisplay: "exceptZero" }).format(value - target);
+  return type === "PERCENTAGE" ? `${formatted}%` : formatted;
+}
+
+// The colored above/below-target cue (v2.41.0): teal on the good side of the target, red on
+// the bad one (the pulse deltaColor idiom — semantic success is teal, never brand green).
+export function TargetDelta({
+  type,
+  value,
+  target,
+  direction,
+  locale,
+}: {
+  type: GoalType;
+  value: number;
+  target: number;
+  direction: TargetDirection;
+  locale: string;
+}) {
+  return (
+    <Badge
+      variant="light"
+      color={meetsTarget(direction, value, target) ? "teal" : "red"}
+      style={{ minWidth: "max-content" }}
+    >
+      {formatTargetDelta(type, value, target, locale)}
+    </Badge>
+  );
 }
 
 // The per-type CURRENT value, compact (table cells): the "done / total" milestone tally for
@@ -105,8 +164,21 @@ export function GoalValues({ goal, locale }: { goal: GoalResponse; locale: strin
       </ReadOnlyField>
     );
   }
-  const target = formatGoalValue(goal.type, goal.targetValue, locale);
+  const target = formatTargetValue(goal.type, goal.targetValue, goal.targetDirection, locale);
+  // The sentence under the progress bar keeps the plain target — "45% of the ≥ 90% target"
+  // would read as noise; the glyph lives on the Target field.
+  const plainTarget = formatGoalValue(goal.type, goal.targetValue, locale);
   const current = formatGoalValue(goal.type, goal.currentValue, locale);
+  const delta =
+    goal.currentValue != null && goal.targetValue != null && goal.targetDirection != null ? (
+      <TargetDelta
+        type={goal.type}
+        value={goal.currentValue}
+        target={goal.targetValue}
+        direction={goal.targetDirection}
+        locale={locale}
+      />
+    ) : null;
   return (
     <Stack gap="xs">
       <Group gap="xl">
@@ -114,7 +186,10 @@ export function GoalValues({ goal, locale }: { goal: GoalResponse; locale: strin
           <Text size="sm">{target}</Text>
         </ReadOnlyField>
         <ReadOnlyField label={t("goal.current")}>
-          <Text size="sm">{goal.currentValue == null ? t("goal.noValueYet") : current}</Text>
+          <Group gap="xs" wrap="nowrap">
+            <Text size="sm">{goal.currentValue == null ? t("goal.noValueYet") : current}</Text>
+            {delta}
+          </Group>
         </ReadOnlyField>
       </Group>
       {goal.type === "PERCENTAGE" && goal.currentValue != null && (
@@ -122,14 +197,15 @@ export function GoalValues({ goal, locale }: { goal: GoalResponse; locale: strin
           <Progress
             value={goal.currentValue}
             color={
-              goal.targetValue != null && goal.currentValue >= goal.targetValue
+              goal.targetValue != null &&
+              meetsTarget(goal.targetDirection ?? "AT_LEAST", goal.currentValue, goal.targetValue)
                 ? "teal"
                 : "lettuce"
             }
             aria-label={t("goal.current")}
           />
           <Text size="sm" c="dimmed">
-            {t("goal.currentOfTarget", { current, target })}
+            {t("goal.currentOfTarget", { current, target: plainTarget })}
           </Text>
         </>
       )}

@@ -1,5 +1,6 @@
 package ch.nokillswit
 
+import ch.nokillswit.goals.TargetDirection
 import ch.nokillswit.teamkpis.TeamKpiDefinitionUpdate
 import ch.nokillswit.teamkpis.TeamKpiEventType
 import ch.nokillswit.teamkpis.TeamKpiResponse
@@ -36,6 +37,7 @@ class TeamKpiEventsTest {
         description = "Secret description",
         type = TeamKpiType.NUMBER,
         targetValue = 10.0,
+        targetDirection = TargetDirection.AT_LEAST,
         currentValue = 4.0,
         currentValueDate = "2026-07-20",
         status = TeamKpiStatus.DRAFT,
@@ -102,6 +104,22 @@ class TeamKpiEventsTest {
         events.forEach { event ->
             event.params.values.forEach { assertFalse("Leaky" in it) }
         }
+    }
+
+    @Test
+    fun `a target direction flip mints TARGET_DIRECTION_CHANGED with both names`() {
+        val events = teamKpiDefinitionUpdateEvents(
+            before,
+            TeamKpiDefinitionUpdate(
+                title = "Deploy frequency",
+                description = "Secret description",
+                type = TeamKpiType.NUMBER,
+                targetValue = 10.0,
+                targetDirection = TargetDirection.AT_MOST,
+            ),
+        )
+        assertEquals(listOf(TeamKpiEventType.TARGET_DIRECTION_CHANGED), events.map { it.type })
+        assertEquals(mapOf("from" to "AT_LEAST", "to" to "AT_MOST"), events.single().params)
     }
 
     @Test

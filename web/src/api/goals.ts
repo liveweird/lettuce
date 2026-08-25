@@ -11,6 +11,8 @@ export type GoalResponse =
   paths["/api/v1/goals/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type GoalStatus = GoalResponse["status"];
 export type GoalType = GoalResponse["type"];
+// The at-least/at-most target semantic (v2.41.0), shared with team KPIs.
+export type TargetDirection = NonNullable<GoalResponse["targetDirection"]>;
 
 export type GoalListView = "own" | "managed" | "team" | "user";
 

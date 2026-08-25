@@ -73,7 +73,7 @@ export default function EditTeamKpi() {
   });
 
   const definitionForm = useForm<TeamKpiDefinitionFormValues>({
-    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "" },
+    initialValues: { title: "", description: "", type: "NUMBER", targetValue: "", targetDirection: "AT_LEAST" },
     validate: teamKpiDefinitionValidation(t),
   });
 

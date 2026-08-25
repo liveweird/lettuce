@@ -1,5 +1,10 @@
 import type { TFunction } from "i18next";
-import type { TeamKpiDefinitionUpdateBody, TeamKpiResponse, TeamKpiType } from "../api/teamkpis";
+import type {
+  TargetDirection,
+  TeamKpiDefinitionUpdateBody,
+  TeamKpiResponse,
+  TeamKpiType,
+} from "../api/teamkpis";
 import { saveErrorMessage } from "./saveError";
 
 export const MAX_TEAM_KPI_TITLE_LENGTH = 200;
@@ -12,6 +17,7 @@ export interface TeamKpiDefinitionFormValues {
   description: string;
   type: TeamKpiType;
   targetValue: number | string;
+  targetDirection: TargetDirection;
 }
 
 export function toKpiDefinitionFormValues(kpi: TeamKpiResponse): TeamKpiDefinitionFormValues {
@@ -20,6 +26,7 @@ export function toKpiDefinitionFormValues(kpi: TeamKpiResponse): TeamKpiDefiniti
     description: kpi.description,
     type: kpi.type,
     targetValue: kpi.targetValue,
+    targetDirection: kpi.targetDirection,
   };
 }
 
@@ -30,6 +37,7 @@ export function toKpiDefinitionBody(values: TeamKpiDefinitionFormValues): TeamKp
     type: values.type,
     // An empty NumberInput ("") never survives validation, so the fallback is defensive only.
     targetValue: values.targetValue === "" ? 0 : Number(values.targetValue),
+    targetDirection: values.targetDirection,
   };
 }
 

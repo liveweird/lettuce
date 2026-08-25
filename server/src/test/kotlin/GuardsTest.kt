@@ -269,6 +269,7 @@ class GuardsTest {
         description = "",
         type = GoalType.PLAN,
         targetValue = null,
+        targetDirection = null,
         currentValue = null,
         milestones = emptyList(),
         status = status,

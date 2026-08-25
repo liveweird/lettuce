@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { GoalDefinitionUpdateBody, GoalResponse, GoalType } from "../api/goals";
+import type { GoalDefinitionUpdateBody, GoalResponse, GoalType, TargetDirection } from "../api/goals";
 import { todayIsoDate } from "./datetime";
 import { saveErrorMessage } from "./saveError";
 
@@ -31,6 +31,7 @@ export interface GoalDefinitionFormValues {
   description: string;
   type: GoalType;
   targetValue: number | string;
+  targetDirection: TargetDirection;
   milestones: GoalMilestoneDraft[];
   dueDate: string;
 }
@@ -42,6 +43,9 @@ export function toDefinitionFormValues(goal: GoalResponse): GoalDefinitionFormVa
     description: goal.description,
     type: goal.type,
     targetValue: goal.targetValue ?? "",
+    // PLAN rows carry null server-side; the form keeps the default so a later type switch
+    // starts from "at least".
+    targetDirection: goal.targetDirection ?? "AT_LEAST",
     milestones: goal.milestones.map((m, i) => ({
       key: `milestone-loaded-${milestoneKeyCounter}-${i}`,
       id: m.id,
@@ -61,6 +65,8 @@ export function toDefinitionBody(values: GoalDefinitionFormValues): GoalDefiniti
     // numeric types, so the fallback is defensive only.
     targetValue:
       values.type === "PLAN" || values.targetValue === "" ? null : Number(values.targetValue),
+    // PLAN carries no direction (the server 400s one), like the target.
+    targetDirection: values.type === "PLAN" ? null : values.targetDirection,
     // Milestones apply to PLAN only (the server 400s them elsewhere); keys stripped, ids
     // preserved, payload order IS the order.
     milestones:

@@ -1332,7 +1332,10 @@ export interface paths {
          *     PERCENTAGE goals (0–100 for PERCENTAGE) and **must be absent** for PLAN goals, whose
          *     progress model is instead their ordered **milestones** — id-less entries here (`400`
          *     when an entry carries an id), each a non-blank description within 4000 characters, at
-         *     most 100 of them, all starting not-done; the numeric types must send none. The current
+         *     most 100 of them, all starting not-done; the numeric types must send none.
+         *     `targetDirection` (v2.41.0) follows the same split: for the numeric types it states
+         *     which side of the target is good (**AT_LEAST** — reach it or more, the default when
+         *     omitted — or **AT_MOST** — stay at it or below), and it must be absent for PLAN. The current
          *     value starts **unset** (`currentValue` null — no recorded value) and is only set (via
          *     `PUT /goals/{id}/progress`) once the goal is ACTIVE. The **due date** is required and
          *     must not be earlier than the current date (with one day of timezone tolerance —
@@ -1772,7 +1775,9 @@ export interface paths {
          *     never the creator).
          *
          *     Unlike goals there is no PLAN type: `targetValue` is **always required** (finite;
-         *     0–100 for PERCENTAGE). The KPI starts with no data points (`currentValue` `0.0`,
+         *     0–100 for PERCENTAGE), and `targetDirection` (v2.41.0) states which side of it is
+         *     good — **AT_LEAST** (reach it or more, the default when omitted) or **AT_MOST**
+         *     (stay at it or below). The KPI starts with no data points (`currentValue` `0.0`,
          *     `currentValueDate` null); data points become recordable (via the
          *     `/team-kpis/{id}/values` sub-resource) once the KPI is ACTIVE. There is no due date.
          *
@@ -4553,6 +4558,11 @@ export interface components {
              */
             targetValue?: number | null;
             /**
+             * @description Which side of the target is good — AT_LEAST (reach the target or more) or AT_MOST (stay at the target or below); meeting it exactly always counts as good. Defaults to AT_LEAST for NUMBER and PERCENTAGE; must be absent for PLAN.
+             * @enum {string|null}
+             */
+            targetDirection?: "AT_LEAST" | "AT_MOST" | null;
+            /**
              * @description PLAN only (the numeric types must send none, `400` otherwise): the goal's ordered milestones, id-less at creation. At most 100.
              * @default []
              */
@@ -4577,6 +4587,11 @@ export interface components {
              * @description Required for NUMBER and PERCENTAGE (0–100 for PERCENTAGE); must be absent for PLAN.
              */
             targetValue?: number | null;
+            /**
+             * @description Which side of the target is good; defaults to AT_LEAST for NUMBER and PERCENTAGE, must be absent for PLAN (see GoalCreateRequest).
+             * @enum {string|null}
+             */
+            targetDirection?: "AT_LEAST" | "AT_MOST" | null;
             /**
              * @description PLAN only (the numeric types must send none, `400` otherwise): the whole-list replacement of the goal's milestones in payload order — id-matched rows kept (done flags preserved), missing rows removed, id-less rows added. Duplicate or foreign ids are `400`.
              * @default []
@@ -4632,6 +4647,11 @@ export interface components {
              */
             targetValue: number | null;
             /**
+             * @description Which side of the target is good (AT_LEAST/AT_MOST; meeting it exactly counts as good). Null for PLAN goals.
+             * @enum {string|null}
+             */
+            targetDirection: "AT_LEAST" | "AT_MOST" | null;
+            /**
              * Format: double
              * @description Null for PLAN goals — and null while no value has been recorded yet (a fresh goal starts unset); settable only while ACTIVE.
              */
@@ -4664,6 +4684,11 @@ export interface components {
             type: "PLAN" | "NUMBER" | "PERCENTAGE";
             /** Format: double */
             targetValue: number | null;
+            /**
+             * @description Null for PLAN goals.
+             * @enum {string|null}
+             */
+            targetDirection: "AT_LEAST" | "AT_MOST" | null;
             /** Format: double */
             currentValue: number | null;
             /** @description PLAN only (null for the numeric types): how many milestones are done. Milestone texts never ride list rows. */
@@ -4707,10 +4732,11 @@ export interface components {
              * @description Structured event kind; the client renders it in the viewer's language. ACHIEVED_CHANGED is historical only (the pre-v2.9.0 BINARY type's flag flip) — nothing mints it anymore.
              * @enum {string}
              */
-            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "DUE_DATE_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "MILESTONE_ADDED" | "MILESTONE_EDITED" | "MILESTONE_REMOVED" | "MILESTONE_COMPLETED" | "MILESTONE_REOPENED" | "PROGRESS_COMMENTED" | "STATUS_CHANGED" | "DELETED";
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "TARGET_DIRECTION_CHANGED" | "DUE_DATE_CHANGED" | "PROGRESS_UPDATED" | "ACHIEVED_CHANGED" | "MILESTONE_ADDED" | "MILESTONE_EDITED" | "MILESTONE_REMOVED" | "MILESTONE_COMPLETED" | "MILESTONE_REOPENED" | "PROGRESS_COMMENTED" | "STATUS_CHANGED" | "DELETED";
             /**
-             * @description Interpolation params for the localized rendering — enum names (`from`/`to` statuses
-             *     and types, the CREATED event's `type`), numeric values (target/progress
+             * @description Interpolation params for the localized rendering — enum names (`from`/`to` statuses,
+             *     types, and target directions (`""` = none, a PLAN side), the CREATED event's
+             *     `type`), numeric values (target/progress
              *     `from`/`to`, `""` = no value), 1-based milestone positions (the `MILESTONE_*`
              *     events' `position`), and ISO dates (the due-date change's `from`/`to`).
              *     Never title/description/summary/milestone/comment text (params stay plaintext by
@@ -4859,6 +4885,12 @@ export interface components {
              * @description Always required — finite; 0–100 for PERCENTAGE.
              */
             targetValue: number;
+            /**
+             * @description Which side of the target is good — AT_LEAST (reach the target or more) or AT_MOST (stay at the target or below); meeting it exactly always counts as good.
+             * @default AT_LEAST
+             * @enum {string}
+             */
+            targetDirection: "AT_LEAST" | "AT_MOST";
         };
         TeamKpiDefinitionUpdate: {
             title: string;
@@ -4874,6 +4906,12 @@ export interface components {
              * @description Always required — finite; 0–100 for PERCENTAGE.
              */
             targetValue: number;
+            /**
+             * @description Which side of the target is good — AT_LEAST (reach the target or more) or AT_MOST (stay at the target or below); meeting it exactly always counts as good.
+             * @default AT_LEAST
+             * @enum {string}
+             */
+            targetDirection: "AT_LEAST" | "AT_MOST";
         };
         TeamKpiValueWrite: {
             /**
@@ -4944,6 +4982,11 @@ export interface components {
             /** Format: double */
             targetValue: number;
             /**
+             * @description Which side of the target is good (v2.41.0) — AT_LEAST on every pre-existing KPI.
+             * @enum {string}
+             */
+            targetDirection: "AT_LEAST" | "AT_MOST";
+            /**
              * Format: double
              * @description Denormalized from the data points: the max-dated point's value, recomputed on every values mutation — 0.0 when there are none.
              */
@@ -4988,6 +5031,8 @@ export interface components {
             type: "NUMBER" | "PERCENTAGE";
             /** Format: double */
             targetValue: number;
+            /** @enum {string} */
+            targetDirection: "AT_LEAST" | "AT_MOST";
             /** Format: double */
             currentValue: number;
             /** @enum {string} */
@@ -5025,7 +5070,7 @@ export interface components {
              * @description Structured event kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "VALUE_RECORDED" | "VALUE_CORRECTED" | "VALUE_REMOVED" | "STATUS_CHANGED" | "DELETED";
+            type: "CREATED" | "TITLE_CHANGED" | "DESCRIPTION_CHANGED" | "TYPE_CHANGED" | "TARGET_CHANGED" | "TARGET_DIRECTION_CHANGED" | "VALUE_RECORDED" | "VALUE_CORRECTED" | "VALUE_REMOVED" | "STATUS_CHANGED" | "DELETED";
             /**
              * @description Interpolation params for the localized rendering — enum names (`from`/`to`
              *     statuses and types, the CREATED event's `type`), numeric values (target `from`/`to`),

@@ -7,6 +7,8 @@ import ch.nokillswit.goals.GoalType
 import ch.nokillswit.goals.MAX_GOAL_MILESTONES
 import ch.nokillswit.goals.MAX_GOAL_TEXT_LENGTH
 import ch.nokillswit.goals.MAX_GOAL_TITLE_LENGTH
+import ch.nokillswit.goals.TargetDirection
+import ch.nokillswit.goals.normalizedTargetDirection
 import ch.nokillswit.goals.validateGoalDefinition
 import ch.nokillswit.goals.validateGoalDueDate
 import ch.nokillswit.goals.validateGoalProgress
@@ -14,7 +16,9 @@ import ch.nokillswit.goals.validateGoalSummary
 import io.ktor.server.plugins.BadRequestException
 import java.time.LocalDate
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 /**
  * Pure validator tests (no DB) — every branch of the goal validation rules in goals/Goal.kt.
@@ -31,11 +35,12 @@ class GoalValidationTest {
         description: String = "desc",
         type: GoalType = GoalType.NUMBER,
         targetValue: Double? = 10.0,
+        targetDirection: TargetDirection? = null,
         milestones: List<GoalMilestoneInput> = emptyList(),
         dueDate: String = futureDate,
         newMilestonesOnly: Boolean = false,
     ) = validateGoalDefinition(
-        title, description, type, targetValue, milestones, dueDate,
+        title, description, type, targetValue, targetDirection, milestones, dueDate,
         newMilestonesOnly = newMilestonesOnly, today = today,
     )
 
@@ -69,6 +74,22 @@ class GoalValidationTest {
     fun `PLAN accepts a null target and rejects a set one`() {
         definition(type = GoalType.PLAN, targetValue = null)
         assertFailsWith<BadRequestException> { definition(type = GoalType.PLAN, targetValue = 1.0) }
+    }
+
+    @Test
+    fun `PLAN rejects a target direction, the numeric types accept either`() {
+        assertFailsWith<BadRequestException> {
+            definition(type = GoalType.PLAN, targetValue = null, targetDirection = TargetDirection.AT_LEAST)
+        }
+        definition(type = GoalType.NUMBER, targetDirection = TargetDirection.AT_MOST)
+        definition(type = GoalType.PERCENTAGE, targetValue = 5.0, targetDirection = TargetDirection.AT_LEAST)
+    }
+
+    @Test
+    fun `normalizedTargetDirection defaults the numeric types to AT_LEAST and nulls PLAN`() {
+        assertEquals(TargetDirection.AT_LEAST, normalizedTargetDirection(GoalType.NUMBER, null))
+        assertEquals(TargetDirection.AT_MOST, normalizedTargetDirection(GoalType.PERCENTAGE, TargetDirection.AT_MOST))
+        assertNull(normalizedTargetDirection(GoalType.PLAN, null))
     }
 
     // ---- definition: milestone rules (PLAN) ----

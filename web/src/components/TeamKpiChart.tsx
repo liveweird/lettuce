@@ -5,12 +5,16 @@
 import "@mantine/charts/styles.css";
 import { Alert, Stack, Text } from "@mantine/core";
 import { ChartTooltip, LineChart } from "@mantine/charts";
+// The repo's first direct recharts import (a declared peer of @mantine/charts, so it adds no
+// dependency): Mantine's LineChart exposes reference LINES as a prop but reference AREAS only
+// as recharts children.
+import { ReferenceArea } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { listTeamKpiValues, type TeamKpiResponse } from "../api/teamkpis";
 import { formatDate } from "../utils/datetime";
-import { formatGoalValue } from "../utils/goalValues";
-import { buildTeamKpiSeries } from "../utils/teamKpiChart";
+import { formatGoalValue, formatTargetValue } from "../utils/goalValues";
+import { buildTeamKpiSeries, goodZoneBounds } from "../utils/teamKpiChart";
 import { loadErrorMessage } from "../utils/saveError";
 
 /**
@@ -50,11 +54,12 @@ export default function TeamKpiChart({ kpi }: { kpi: TeamKpiResponse }) {
 
   const points = buildTeamKpiSeries(values);
   const series = [{ name: "value", label: t("teamKpi.current"), color: "lettuce.6" }];
+  const formattedTarget = formatTargetValue(kpi.type, kpi.targetValue, kpi.targetDirection, locale);
 
   return (
     <Stack gap="xs">
       <Text size="sm" c="dimmed">
-        {t("teamKpi.graphHint", { target: formatValue(kpi.targetValue) })}
+        {t("teamKpi.graphHint", { target: formattedTarget })}
       </Text>
       <LineChart
         h={280}
@@ -87,7 +92,7 @@ export default function TeamKpiChart({ kpi }: { kpi: TeamKpiResponse }) {
         referenceLines={[
           {
             y: kpi.targetValue,
-            label: t("teamKpi.targetLine", { target: formatValue(kpi.targetValue) }),
+            label: t("teamKpi.targetLine", { target: formattedTarget }),
             color: "gray.6",
             // Recharts drops a reference line outside the data-derived y-domain by default
             // ("discard") — extend the domain instead, so the target is always visible even when
@@ -95,7 +100,20 @@ export default function TeamKpiChart({ kpi }: { kpi: TeamKpiResponse }) {
             ifOverflow: "extendDomain",
           },
         ]}
-      />
+      >
+        {/* The good-zone tint (v2.41.0): a transparent teal wash on the target's good side —
+            above the line for AT_LEAST, below it for AT_MOST. The far bound sits well outside
+            the domain and ifOverflow="hidden" clips it to the plot area, so the tint bleeds
+            to the chart edge. Semantic success is teal (never brand green), theme-aware via
+            the Mantine CSS var. */}
+        <ReferenceArea
+          {...goodZoneBounds(kpi.targetDirection, kpi.targetValue)}
+          fill="var(--mantine-color-teal-6)"
+          fillOpacity={0.08}
+          stroke="none"
+          ifOverflow="hidden"
+        />
+      </LineChart>
     </Stack>
   );
 }

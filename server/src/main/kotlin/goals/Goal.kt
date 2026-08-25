@@ -12,6 +12,24 @@ enum class GoalType { PLAN, NUMBER, PERCENTAGE }
 @Serializable
 enum class GoalStatus { DRAFT, ACTIVE, ARCHIVED }
 
+/**
+ * Which side of the target is "good" (v2.41.0): AT_LEAST — the tracked value should reach the
+ * target or more (acquire >= 10 customers); AT_MOST — it should stay at the target or below
+ * (churn <= 5%). Meeting the target exactly always counts as good. Shared with team KPIs (the
+ * teamkpis package imports it — one semantic, one enum, like the SPA's shared value formatter).
+ */
+@Serializable
+enum class TargetDirection { AT_LEAST, AT_MOST }
+
+/**
+ * The stored direction for a definition payload: null for PLAN (the type-specific-columns
+ * convention — PLAN has no target), the given value or the AT_LEAST default otherwise. Both the
+ * service writes and the event diff use this, so an omitted direction never diffs against the
+ * stored default.
+ */
+internal fun normalizedTargetDirection(type: GoalType, direction: TargetDirection?): TargetDirection? =
+    if (type == GoalType.PLAN) null else direction ?: TargetDirection.AT_LEAST
+
 const val MAX_GOAL_TITLE_LENGTH = 200
 const val MAX_GOAL_TEXT_LENGTH = 4000
 const val MAX_GOAL_MILESTONES = 100
@@ -51,6 +69,7 @@ data class GoalMilestoneResponse(
  * NUMBER/PERCENTAGE and must be absent for PLAN, whose [milestones] (id-less here — a create
  * carries no existing rows) are its whole progress model (see [validateGoalDefinition]); the
  * current value stays unrecorded (null / no milestone done) until the goal is ACTIVE.
+ * [targetDirection] defaults to AT_LEAST for the numeric types and must be absent for PLAN.
  */
 @Serializable
 data class GoalCreateRequest(
@@ -59,6 +78,7 @@ data class GoalCreateRequest(
     val description: String = "",
     val type: GoalType,
     val targetValue: Double? = null,
+    val targetDirection: TargetDirection? = null,
     val milestones: List<GoalMilestoneInput> = emptyList(),
     val dueDate: String,
 )
@@ -78,6 +98,7 @@ data class GoalDefinitionUpdate(
     val description: String = "",
     val type: GoalType,
     val targetValue: Double? = null,
+    val targetDirection: TargetDirection? = null,
     val milestones: List<GoalMilestoneInput> = emptyList(),
     val dueDate: String,
 )
@@ -116,6 +137,8 @@ data class GoalResponse(
     val description: String,
     val type: GoalType,
     val targetValue: Double?,
+    // Null for PLAN goals (like the target itself).
+    val targetDirection: TargetDirection?,
     val currentValue: Double?,
     // PLAN only (stored order; empty for the numeric types) — the goal's whole progress model.
     val milestones: List<GoalMilestoneResponse>,
@@ -141,6 +164,7 @@ data class GoalListItem(
     val title: String,
     val type: GoalType,
     val targetValue: Double?,
+    val targetDirection: TargetDirection?,
     val currentValue: Double?,
     // PLAN only (null for the numeric types): the row's milestone tally — descriptions never
     // ride list rows (they are encrypted; the tally is content-free).
@@ -184,17 +208,19 @@ data class GoalEventListResponse(
 
 /**
  * Validates a goal's definition fields (create and DRAFT edit): title/description bounds plus the
- * type-specific rules — PLAN carries no target (its progress model is its [milestones]: each
- * description non-blank within the shared text bound, at most [MAX_GOAL_MILESTONES] of them,
- * and none at all for the numeric types), NUMBER requires a finite target, PERCENTAGE a target
- * within 0–100 — plus the due-date rule (see [validateGoalDueDate]). With [newMilestonesOnly]
- * (create) the payload must not reference existing milestone rows (the 1:1 forbid-ids rule).
+ * type-specific rules — PLAN carries no target and no target direction (its progress model is
+ * its [milestones]: each description non-blank within the shared text bound, at most
+ * [MAX_GOAL_MILESTONES] of them, and none at all for the numeric types), NUMBER requires a
+ * finite target, PERCENTAGE a target within 0–100 — plus the due-date rule (see
+ * [validateGoalDueDate]). With [newMilestonesOnly] (create) the payload must not reference
+ * existing milestone rows (the 1:1 forbid-ids rule).
  */
 internal fun validateGoalDefinition(
     title: String,
     description: String,
     type: GoalType,
     targetValue: Double?,
+    targetDirection: TargetDirection?,
     milestones: List<GoalMilestoneInput>,
     dueDate: String,
     newMilestonesOnly: Boolean = false,
@@ -210,6 +236,9 @@ internal fun validateGoalDefinition(
     when (type) {
         GoalType.PLAN -> {
             if (targetValue != null) throw BadRequestException("A PLAN goal must not have a target value")
+            if (targetDirection != null) {
+                throw BadRequestException("A PLAN goal must not have a target direction")
+            }
             if (milestones.size > MAX_GOAL_MILESTONES) {
                 throw BadRequestException("A PLAN goal may have at most $MAX_GOAL_MILESTONES milestones")
             }

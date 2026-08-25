@@ -73,6 +73,16 @@ export default function TeamKpiDefinitionFields({
           suffix={form.values.type === "PERCENTAGE" ? "%" : undefined}
           {...form.getInputProps("targetValue")}
         />
+        <Select
+          label={t("teamKpi.targetDirection.label")}
+          data={(["AT_LEAST", "AT_MOST"] as const).map((direction) => ({
+            value: direction,
+            label: t(`teamKpi.targetDirection.${direction}`),
+          }))}
+          allowDeselect={false}
+          w={200}
+          {...form.getInputProps("targetDirection")}
+        />
       </Group>
       {typeChangeWarning && (
         <Text size="sm" c="orange">

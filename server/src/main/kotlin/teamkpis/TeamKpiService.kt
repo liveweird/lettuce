@@ -1,6 +1,7 @@
 package ch.nokillswit.teamkpis
 
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.goals.TargetDirection
 import ch.nokillswit.infra.crypto.EncryptedAtRest
 import ch.nokillswit.infra.crypto.FieldCipher
 import ch.nokillswit.infra.crypto.reencryptRows
@@ -85,6 +86,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         val description = text("description")
         val type = enumerationByName("type", 20, TeamKpiType::class)
         val targetValue = double("target_value")
+        val targetDirection = enumerationByName("target_direction", 20, TargetDirection::class)
         val currentValue = double("current_value")
         val currentValueDate = varchar("current_value_date", 10).nullable()
         val status = enumerationByName("status", 20, TeamKpiStatus::class)
@@ -121,6 +123,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             it[description] = cipher.encrypt(request.description)
             it[type] = request.type
             it[targetValue] = request.targetValue!!
+            it[targetDirection] = request.targetDirection
             it[currentValue] = 0.0
             it[currentValueDate] = null
             it[status] = TeamKpiStatus.DRAFT
@@ -165,6 +168,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             it[description] = cipher.encrypt(update.description)
             it[type] = update.type
             it[targetValue] = update.targetValue!!
+            it[targetDirection] = update.targetDirection
             it[lastModified] = System.currentTimeMillis()
         }
         if (typeChanged) recomputeCurrent(id)
@@ -391,6 +395,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                 TeamKpis.title,
                 TeamKpis.type,
                 TeamKpis.targetValue,
+                TeamKpis.targetDirection,
                 TeamKpis.currentValue,
                 TeamKpis.status,
                 TeamKpis.createdAt,
@@ -424,6 +429,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                     title = row[TeamKpis.title],
                     type = row[TeamKpis.type],
                     targetValue = row[TeamKpis.targetValue],
+                    targetDirection = row[TeamKpis.targetDirection],
                     currentValue = row[TeamKpis.currentValue],
                     status = row[TeamKpis.status],
                     createdAt = row[TeamKpis.createdAt],
@@ -525,6 +531,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         description = cipher.decrypt(this[TeamKpis.description]),
         type = this[TeamKpis.type],
         targetValue = this[TeamKpis.targetValue],
+        targetDirection = this[TeamKpis.targetDirection],
         currentValue = this[TeamKpis.currentValue],
         currentValueDate = this[TeamKpis.currentValueDate],
         status = this[TeamKpis.status],

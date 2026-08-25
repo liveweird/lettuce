@@ -83,6 +83,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         val description = text("description")
         val type = enumerationByName("type", 20, GoalType::class)
         val targetValue = double("target_value").nullable()
+        val targetDirection = enumerationByName("target_direction", 20, TargetDirection::class).nullable()
         val currentValue = double("current_value").nullable()
         val status = enumerationByName("status", 20, GoalStatus::class)
         val summary = text("summary").nullable()
@@ -111,7 +112,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
     suspend fun create(managerId: UInt, request: GoalCreateRequest): UInt = suspendTransaction(database) {
         validateGoalDefinition(
             request.title, request.description, request.type, request.targetValue,
-            request.milestones, request.dueDate, newMilestonesOnly = true,
+            request.targetDirection, request.milestones, request.dueDate, newMilestonesOnly = true,
         )
         val now = System.currentTimeMillis()
         val id = Goals.insert {
@@ -123,6 +124,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             it[description] = cipher.encrypt(request.description)
             it[type] = request.type
             it[targetValue] = request.targetValue
+            it[targetDirection] = normalizedTargetDirection(request.type, request.targetDirection)
             // No recorded value yet (v2.8.1): the value field stays null until the first
             // progress update — an auto-zero would read as recorded progress. (A PLAN goal's
             // milestones likewise all start not-done.)
@@ -168,7 +170,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         }
         validateGoalDefinition(
             update.title, update.description, update.type, update.targetValue,
-            update.milestones, update.dueDate,
+            update.targetDirection, update.milestones, update.dueDate,
         )
         val typeChanged = current.second != update.type
         val updated = Goals.update({ (Goals.id eq id) and (Goals.markedAsDeleted eq false) }) {
@@ -177,6 +179,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             it[description] = cipher.encrypt(update.description)
             it[type] = update.type
             it[targetValue] = update.targetValue
+            it[targetDirection] = normalizedTargetDirection(update.type, update.targetDirection)
             // A type change discards recorded progress back to "no value" (v2.8.1: null, not
             // the old type's zero) — the audit events explain the reset.
             it[currentValue] = if (typeChanged) null else current.third
@@ -345,6 +348,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                 Goals.title,
                 Goals.type,
                 Goals.targetValue,
+                Goals.targetDirection,
                 Goals.currentValue,
                 Goals.status,
                 Goals.createdAt,
@@ -369,6 +373,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
                     title = row[Goals.title],
                     type = row[Goals.type],
                     targetValue = row[Goals.targetValue],
+                    targetDirection = row[Goals.targetDirection],
                     currentValue = row[Goals.currentValue],
                     milestonesDone = null,
                     milestonesTotal = null,
@@ -494,6 +499,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
         description = cipher.decrypt(this[Goals.description]),
         type = this[Goals.type],
         targetValue = this[Goals.targetValue],
+        targetDirection = this[Goals.targetDirection],
         currentValue = this[Goals.currentValue],
         milestones = milestones,
         status = this[Goals.status],

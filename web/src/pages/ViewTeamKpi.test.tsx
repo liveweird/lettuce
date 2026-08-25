@@ -11,13 +11,14 @@ import { jsonResponse } from "../test/http";
 // date-formatted label are assertable.
 vi.mock("@mantine/charts", () => ({
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  LineChart: ({ data, referenceLines, tooltipProps }: any) => (
+  LineChart: ({ data, referenceLines, tooltipProps, children }: any) => (
     <div
       data-testid="line-chart"
       data-points={data.length}
       data-reference-y={referenceLines?.[0]?.y}
       data-reference-overflow={referenceLines?.[0]?.ifOverflow}
     >
+      {children}
       {tooltipProps?.content?.({
         label: Date.parse("2026-07-10"),
         payload: [
@@ -32,6 +33,22 @@ vi.mock("@mantine/charts", () => ({
       data-testid="chart-tooltip"
       data-label={String(label)}
       data-row-keys={payload.map((p: any) => p.dataKey).join(",")}
+    />
+  ),
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}));
+
+// The good-zone ReferenceArea is a raw recharts child (v2.41.0) — stub it so the mocked
+// LineChart can render it without a real chart context.
+vi.mock("recharts", () => ({
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  ReferenceArea: (props: any) => (
+    <div
+      data-testid="good-zone"
+      data-y1={props.y1}
+      data-y2={props.y2}
+      data-fill={props.fill}
+      data-overflow={props.ifOverflow}
     />
   ),
   /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -59,6 +76,7 @@ const KPI = {
   description: "One production release per week",
   type: "NUMBER",
   targetValue: 52,
+  targetDirection: "AT_LEAST",
   currentValue: 12,
   currentValueDate: "2026-07-10",
   status: "ACTIVE",
@@ -118,7 +136,8 @@ describe("ViewTeamKpi", () => {
     expect(screen.getAllByText("You")).toHaveLength(2);
     expect(screen.getByText("One production release per week")).toBeInTheDocument();
     expect(screen.getByText("Number")).toBeInTheDocument();
-    expect(screen.getByText("52")).toBeInTheDocument();
+    // The target renders with its direction glyph (v2.41.0).
+    expect(screen.getByText("≥ 52")).toBeInTheDocument();
     // The current value moved to the KPI data tab — General no longer shows it.
     expect(screen.queryByText("Current")).not.toBeInTheDocument();
     // The four tabs.
@@ -230,6 +249,28 @@ describe("ViewTeamKpi", () => {
     const tooltip = screen.getByTestId("chart-tooltip");
     expect(tooltip).toHaveAttribute("data-row-keys", "value");
     expect(tooltip.getAttribute("data-label")).toMatch(/2026/);
+    // The good-zone tint (v2.41.0): AT_LEAST anchors y1 at the target with the far bound
+    // pushed past the domain, clipped by ifOverflow="hidden" — teal.
+    const zone = screen.getByTestId("good-zone");
+    expect(zone).toHaveAttribute("data-y1", "52");
+    expect(Number(zone.getAttribute("data-y2"))).toBeGreaterThan(52);
+    expect(zone.getAttribute("data-fill")).toContain("teal");
+    expect(zone).toHaveAttribute("data-overflow", "hidden");
+    // The hint names the target with its direction glyph.
+    expect(screen.getByText(/≥ 52/)).toBeInTheDocument();
+  });
+
+  test("an AT_MOST KPI tints the graph below the target line", async () => {
+    mockApi(mockFetch, { ...KPI, targetDirection: "AT_MOST" });
+    const user = userEvent.setup();
+    renderView();
+    await screen.findByText("Deploy weekly");
+
+    await user.click(screen.getByRole("tab", { name: "Graph" }));
+    const zone = await screen.findByTestId("good-zone");
+    expect(zone).toHaveAttribute("data-y2", "52");
+    expect(Number(zone.getAttribute("data-y1"))).toBeLessThan(52);
+    expect(screen.getByText(/≤ 52/)).toBeInTheDocument();
   });
 
   test("the Graph tab shows the empty note when the KPI has no data points", async () => {

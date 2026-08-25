@@ -28,6 +28,7 @@ const KPI: TeamKpiResponse = {
   description: "",
   type: "NUMBER",
   targetValue: 52,
+  targetDirection: "AT_LEAST",
   currentValue: 12,
   currentValueDate: "2026-07-10",
   status: "ACTIVE",
@@ -237,5 +238,27 @@ describe("TeamKpiValuesEditor", () => {
     mockApi(mockFetch, []);
     renderWithProviders(<TeamKpiValuesEditor kpi={KPI} />);
     expect(await screen.findByText("No data points yet.")).toBeInTheDocument();
+  });
+
+  test("each row shows its signed distance from the target, colored by the good side (v2.41.0)", async () => {
+    // AT_LEAST with target 52: both recorded values sit below it — red badges.
+    mockApi(mockFetch);
+    renderWithProviders(<TeamKpiValuesEditor kpi={KPI} />);
+    await screen.findByText("12");
+    expect(screen.getByText("Vs target")).toBeInTheDocument();
+    const below = screen.getByText("-40");
+    expect(below).toBeInTheDocument();
+    expect(screen.getByText("-47")).toBeInTheDocument();
+    expect(below.closest(".mantine-Badge-root")?.getAttribute("style") ?? "").toContain("red");
+  });
+
+  test("under AT_MOST the same below-target rows read as good (teal)", async () => {
+    mockApi(mockFetch);
+    renderWithProviders(
+      <TeamKpiValuesEditor kpi={{ ...KPI, targetDirection: "AT_MOST" }} />,
+    );
+    await screen.findByText("12");
+    const below = screen.getByText("-40");
+    expect(below.closest(".mantine-Badge-root")?.getAttribute("style") ?? "").toContain("teal");
   });
 });

@@ -7,7 +7,7 @@ import ReadOnlyField from "./ReadOnlyField";
 import ProseBox from "./ProseBox";
 import MarkdownView from "./MarkdownView";
 import { MAX_GOAL_TEXT_LENGTH } from "../utils/goalForm";
-import { formatGoalValue } from "../utils/goalValues";
+import { formatTargetValue, TargetDelta } from "../utils/goalValues";
 
 interface GoalProgressMilestoneValue {
   id: number;
@@ -80,7 +80,22 @@ export default function GoalProgressFields({
       ) : (
         <Group gap="xl" align="flex-start">
           <ReadOnlyField label={t("goal.target")}>
-            <Text size="sm">{formatGoalValue(goal.type, goal.targetValue, locale)}</Text>
+            <Group gap="xs" wrap="nowrap">
+              <Text size="sm">
+                {formatTargetValue(goal.type, goal.targetValue, goal.targetDirection, locale)}
+              </Text>
+              {goal.currentValue != null &&
+                goal.targetValue != null &&
+                goal.targetDirection != null && (
+                  <TargetDelta
+                    type={goal.type}
+                    value={goal.currentValue}
+                    target={goal.targetValue}
+                    direction={goal.targetDirection}
+                    locale={locale}
+                  />
+                )}
+            </Group>
           </ReadOnlyField>
           <NumberInput
             label={t("goal.current")}
