@@ -28,8 +28,8 @@
    default target bench depth of 2, and click **Create**.
    - *Expected*: a "Succession plan created" toast; the screen lands on the plan's **Review
      screen** (Basic-info tab) — the definition is inline-editable (the loss-impact row holds
-     its text) and the orange under-bench cue reads "The bench is below target: 0 of 2
-     successors nominated.".
+     its text), the seat person's name links to their user-details page, and the orange
+     under-bench cue reads "The bench is below target: 0 of 2 successors nominated.".
 3. On the **Nominations tab** they click **Add nomination**, pick AAA Two as the candidate,
    set the readiness window to "Ready now (0–3 mo)", and add one competency gap (a unique
    text); because AAA Two is in the manager's own chain, the **New development goal** button
@@ -60,7 +60,8 @@
 7. They open the Dashboard's subordinates tab.
    - *Expected*: AAA One's person card carries a **"Succession plan"** button beside Career
      progression (the viewer owns an OPEN plan for them) linking straight to the plan's
-     Review screen; AAA Two's card — a candidate, not a seat — has no such button.
+     Review screen, plus a "Succession reviewed" row in the Profile section showing how long
+     ago the plan was last reviewed; AAA Two's card — a candidate, not a seat — has neither.
 8. They click **Complete review**.
    - *Expected*: a "Review completed" toast (the plan's last-reviewed date is stamped — the
      ONLY thing that updates it besides creation) and a return to the Succession plans list,

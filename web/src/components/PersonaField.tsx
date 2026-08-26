@@ -13,17 +13,23 @@ export default function PersonaField({
   label,
   name,
   you = false,
+  to,
+  ariaLabel,
 }: {
   label: string;
   name?: string;
   you?: boolean;
+  /** Optional user-details link (v2.47.2 — the name-as-link idiom reaching form headers);
+   *  the "You" branch stays plain per the house rule. */
+  to?: string;
+  ariaLabel?: string;
 }) {
   const { t } = useTranslation();
   return (
     <Input.Wrapper label={label}>
       {/* mih mirrors the default input height; content is vertically centered like input text. */}
       <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-        {you ? <Text size="sm">{t("common.state.you")}</Text> : <PersonaChip name={name ?? ""} />}
+        {you ? <Text size="sm">{t("common.state.you")}</Text> : <PersonaChip name={name ?? ""} to={to} ariaLabel={ariaLabel} />}
       </Box>
     </Input.Wrapper>
   );

@@ -250,6 +250,7 @@ export default function TeamMembersTable({
                   showSeniorityWhenUnset={view === "managed"}
                   showLastReview={view === "managed" && scopeIsDirect}
                   showDaysOff={view === "managed" && scopeIsDirect}
+                  successionReviewedAt={openPlanByUserId.get(m.userId)?.lastReviewedAt}
                   actions={{
                     userId: m.userId,
                     name: m.name,
@@ -260,7 +261,7 @@ export default function TeamMembersTable({
                     // Embeddings return the drill-downs to their exact host URL (origin query
                     // included) — the v1.39.0 back= override; the label stays the origin's.
                     drillBack: backToProp,
-                    successionPlanId: openPlanByUserId.get(m.userId),
+                    successionPlanId: openPlanByUserId.get(m.userId)?.id,
                     show: {
                       // Career timeline reads are self/chain/HR-only since v2.25.0: managed
                       // rows are the caller's chain; peers only for auditors.

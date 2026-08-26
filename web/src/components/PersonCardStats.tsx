@@ -160,6 +160,7 @@ export default function PersonCardBody({
   showSeniorityWhenUnset = false,
   showLastReview = false,
   showDaysOff = false,
+  successionReviewedAt,
   actions,
 }: {
   person: PersonCardData;
@@ -169,6 +170,9 @@ export default function PersonCardBody({
   showLastReview?: boolean;
   /** Gate for the budget row (v1.44.0) — subordinate flavors only; peers get vacation-only. */
   showDaysOff?: boolean;
+  /** The viewer's own OPEN plan's reviewed stamp for this person (v2.47.2) — present exactly
+   *  when the Succession-plan button shows (both derive from the useOwnSuccessionPlans map). */
+  successionReviewedAt?: number;
   /** The card's buttons, rendered inside their sections; undefined = none (the self card). */
   actions?: PersonCardActionsProps;
 }) {
@@ -206,6 +210,11 @@ export default function PersonCardBody({
     <div className={classes.body}>
       <Section label={t("users.section.profile")}>
         <CareerRows person={person} showSeniorityWhenUnset={showSeniorityWhenUnset} />
+        {successionReviewedAt != null && (
+          <StatRow label={t("users.successionReviewed")}>
+            <TimeStat at={successionReviewedAt} />
+          </StatRow>
+        )}
         {/* The career-progression drill-down (v2.15.0) — the profile's own button row. */}
         {actionsRow(PROFILE_ACTIONS)}
       </Section>
