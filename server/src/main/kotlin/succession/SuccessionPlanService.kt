@@ -206,7 +206,8 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
      * Adds a nomination to an OPEN plan (owner-only, guarded route-side). The candidate must be
      * an existing active user (soft-deleted/unknown → 400 here; the deactivation rule runs
      * route-side); one active nomination per candidate per plan (→ 409, index backstop); the
-     * goal links must pass [validateGoalLinks]. Bumps the plan's reviewed stamp.
+     * goal links must pass [validateGoalLinks]. A PRIMARY nomination demotes any existing
+     * PRIMARY on the plan ([demoteExistingPrimary]). Bumps the plan's reviewed stamp.
      */
     suspend fun createNomination(
         planId: UInt,
@@ -230,6 +231,9 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         }
         validateGoalLinks(ownerId, request.candidateId, request.goalIds)
         val now = System.currentTimeMillis()
+        if (request.nominationType == NominationType.PRIMARY) {
+            demoteExistingPrimary(planId, excludeNominationId = null, now)
+        }
         val id = Nominations.insert {
             it[this.planId] = planId
             it[candidateId] = request.candidateId
@@ -248,8 +252,9 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
     /**
      * Replaces a nomination's whole document, goal links included (wholesale, payload order =
      * stored order). Null when the nomination is missing/deleted or lives under a different
-     * plan (the corrections idiom → 404); the parent must be OPEN (→ 409). Bumps the plan's
-     * reviewed stamp.
+     * plan (the corrections idiom → 404); the parent must be OPEN (→ 409). A save that sets
+     * PRIMARY demotes any other PRIMARY on the plan ([demoteExistingPrimary]). Bumps the
+     * plan's reviewed stamp.
      */
     suspend fun updateNomination(
         planId: UInt,
@@ -281,16 +286,20 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
             }
         }
         validateGoalLinks(ownerId, request.candidateId, request.goalIds)
+        val now = System.currentTimeMillis()
+        if (request.nominationType == NominationType.PRIMARY) {
+            demoteExistingPrimary(planId, excludeNominationId = nominationId, now)
+        }
         Nominations.update({ (Nominations.id eq nominationId) and (Nominations.markedAsDeleted eq false) }) {
             it[candidateId] = request.candidateId
             it[readiness] = request.readiness
             it[nominationType] = request.nominationType
             it[competencyGaps] = cipher.encrypt(encodeTexts(request.competencyGaps))
             it[awareness] = request.awareness
-            it[lastModified] = System.currentTimeMillis()
+            it[lastModified] = now
         }
         replaceGoalLinks(nominationId, request.goalIds)
-        touchPlan(planId, System.currentTimeMillis())
+        touchPlan(planId, now)
         true
     }
 
@@ -593,6 +602,23 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
                 it[this.goalId] = goalId
                 it[position] = index
             }
+        }
+    }
+
+    /**
+     * At most one active PRIMARY nomination per plan (V69): a write that sets PRIMARY demotes
+     * any other active PRIMARY to SECONDARY in the same transaction (the SPA confirms with the
+     * owner first). Idempotent; the V69 partial unique index is the concurrent-write backstop.
+     */
+    private suspend fun demoteExistingPrimary(planId: UInt, excludeNominationId: UInt?, now: Long) {
+        Nominations.update({
+            (Nominations.planId eq planId) and
+                (Nominations.nominationType eq NominationType.PRIMARY) and
+                activeNomination() and
+                (excludeNominationId?.let { Nominations.id neq it } ?: Op.TRUE)
+        }) {
+            it[nominationType] = NominationType.SECONDARY
+            it[lastModified] = now
         }
     }
 

@@ -2,13 +2,15 @@
 
 - **Spec**: [tests/succession.spec.ts](../tests/succession.spec.ts)
 - **Actors**: Manager AAA (the plan owner), AAA One (the seat's person — the feature's
-  invisible subject), AAA Two (the nominated candidate)
+  invisible subject), AAA Two and AAA Three (the nominated candidates)
 - **Owns** (exclusive server-side state): Manager AAA's succession plans (seat: AAA One,
-  candidate: AAA Two) plus the development goal the nomination modal creates for the
-  (Manager AAA, AAA Two) pair — goals.spec owns the (Manager AAA, AAA Three) pair, so no
-  collision; everything is unique-texted and deleted in-test, with an API fallback in
-  `afterEach`, so a failed run leaves no residue; seeded accounts are never mutated
-- **Since**: v2.42.0 (the feature's introduction)
+  candidates: AAA Two and AAA Three) plus the development goal the nomination modal creates
+  for the (Manager AAA, AAA Two) pair — goals.spec owns the (Manager AAA, AAA Three) *goal*
+  pair, and no goal is created for AAA Three here, so no collision; everything is
+  unique-texted and deleted in-test, with an API fallback in `afterEach`, so a failed run
+  leaves no residue; seeded accounts are never mutated
+- **Since**: v2.42.0 (the feature's introduction); the one-primary confirm-demote step joined
+  in v2.43.0
 
 ## Scenario: a manager plans a succession, nominates a successor with a linked development goal, and closes the plan
 
@@ -36,14 +38,22 @@
    - *Expected*: a "Nomination added" toast; back on the plan view the nomination card shows
      AAA Two, the readiness window, the competency gap, and the linked goal as a chip; the
      under-bench cue now reads "1 of 2".
-6. Manager AAA signs out; AAA One (the seat's person) signs in.
+6. They click **Add nomination** again, pick AAA Three as the candidate, and switch the
+   nomination type — pre-set to **Secondary**, since the plan already holds a primary — to
+   **Primary**, then submit with **Create**.
+   - *Expected*: a confirmation dialog explains that AAA Two is currently the primary
+     successor and that making AAA Three primary will change AAA Two's nomination to
+     secondary; continuing via **Make primary** yields the "Nomination added" toast, the plan
+     view shows AAA Three as the only Primary with AAA Two now Secondary (the demotion rode
+     the same write), and the 2-of-2 bench retires the under-target cue.
+7. Manager AAA signs out; AAA One (the seat's person) signs in.
    - *Expected*: no "Succession plans" leaf in their navigation (they manage nobody), and a
      direct visit to `/succession` shows only an empty "My plans" list — the feature is
      invisible to its subjects.
-7. AAA One signs out; Manager AAA signs back in, opens the plan, clicks **Close plan**, and
+8. AAA One signs out; Manager AAA signs back in, opens the plan, clicks **Close plan**, and
    confirms.
    - *Expected*: a "Succession plan closed" toast; the closed note shows, the
      Edit/Add-nomination affordances are gone, and the bench (the gap text included) stays
      browsable.
-8. They click **Delete** and confirm.
+9. They click **Delete** and confirm.
    - *Expected*: a "Succession plan deleted" toast and a return to the Succession plans list.

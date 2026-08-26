@@ -370,6 +370,9 @@ export default function EditSuccessionNomination() {
   const [submitting, setSubmitting] = useState(false);
   const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [goalModalOpen, { open: openGoalModal, close: closeGoalModal }] = useDisclosure(false);
+  const [primaryConfirmOpen, { open: openPrimaryConfirm, close: closePrimaryConfirm }] =
+    useDisclosure(false);
+  const [pendingValues, setPendingValues] = useState<SuccessionNominationFormValues | null>(null);
 
   const { data: plan, isLoading, isError, error: fetchError } = useQuery({
     queryKey: ["successionPlan", planId],
@@ -391,6 +394,22 @@ export default function EditSuccessionNomination() {
   if (existing && !form.initialized) {
     form.initialize(toNominationFormValues(existing));
   }
+  // Create mode seeds SECONDARY when the plan already holds a PRIMARY, so the confirm-demote
+  // flow below fires only on a deliberate choice — not on every second nomination.
+  if (!editing && plan && !form.initialized) {
+    form.initialize({
+      ...emptyNominationValues(),
+      nominationType: plan.nominations.some((nomination) => nomination.nominationType === "PRIMARY")
+        ? "SECONDARY"
+        : "PRIMARY",
+    });
+  }
+
+  // The one-PRIMARY-per-plan rule (V69): the server demotes this nomination's rival to
+  // SECONDARY in the same write, so a submit that sets PRIMARY beside it must be confirmed.
+  const otherPrimary = plan?.nominations.find(
+    (nomination) => nomination.nominationType === "PRIMARY" && nomination.id !== nominationId,
+  );
 
   const { userPool, usersError } = useAllUsers();
   const { reports } = useManagedReports(true);
@@ -456,6 +475,18 @@ export default function EditSuccessionNomination() {
     }
   }
 
+  function handleSubmit(values: SuccessionNominationFormValues) {
+    if (values.nominationType === "PRIMARY" && otherPrimary) {
+      setPendingValues(values);
+      openPrimaryConfirm();
+      return;
+    }
+    void save(values);
+  }
+
+  const pendingCandidateName =
+    candidateOptions.find((option) => option.value === pendingValues?.candidateId)?.label ?? "";
+
 
   return (
     <Container size="md" px={0}>
@@ -502,7 +533,7 @@ export default function EditSuccessionNomination() {
               submitting={submitting}
               editing={editing}
               error={error}
-              onSubmit={save}
+              onSubmit={handleSubmit}
               onCancel={openCancel}
               onOpenGoalModal={openGoalModal}
             />
@@ -515,6 +546,24 @@ export default function EditSuccessionNomination() {
         onClose={closeGoalModal}
         candidateId={candidateId}
         onCreated={(goalId) => form.setFieldValue("goalIds", [...form.values.goalIds, goalId])}
+      />
+
+      <ConfirmActionModal
+        opened={primaryConfirmOpen}
+        onClose={closePrimaryConfirm}
+        title={t("succession.primaryConfirmTitle")}
+        message={t("succession.primaryConfirmMessage", {
+          candidate: pendingCandidateName,
+          current: otherPrimary?.candidateName ?? "",
+        })}
+        cancelLabel={t("common.action.cancel")}
+        confirmLabel={t("succession.primaryConfirmAction")}
+        confirmColor="lettuce"
+        onConfirm={() => {
+          // Close first — a failed save reports through the form's inline Alert, not a modal.
+          closePrimaryConfirm();
+          if (pendingValues) void save(pendingValues);
+        }}
       />
 
       <ConfirmActionModal

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -27,6 +27,20 @@ const NOMINATION = {
   competencyGaps: ["Stakeholder management"],
   awareness: "IMPLICIT",
   goals: [{ id: 11, title: "Lead the on-call rotation", status: "ACTIVE", type: "NUMBER" }],
+  createdAt: 1,
+  lastModified: 2,
+};
+
+const SECOND_NOMINATION = {
+  id: 32,
+  planId: 5,
+  candidateId: 10,
+  candidateName: "Lena Lateral",
+  readiness: "FUTURE_PIPELINE",
+  nominationType: "SECONDARY",
+  competencyGaps: [],
+  awareness: "CONFIDENTIAL",
+  goals: [],
   createdAt: 1,
   lastModified: 2,
 };
@@ -90,7 +104,7 @@ function renderScreen(route: string, plan: Record<string, unknown> = PLAN) {
     if (u === "/api/v1/succession-plans/5/nominations" && method === "POST") {
       return Promise.resolve(jsonResponse(201, NOMINATION));
     }
-    if (u === "/api/v1/succession-plans/5/nominations/31" && method === "PUT") {
+    if (/^\/api\/v1\/succession-plans\/5\/nominations\/\d+$/.test(u) && method === "PUT") {
       return Promise.resolve(new Response(null, { status: 204 }));
     }
     if (u === "/api/v1/succession-plans/5") {
@@ -243,6 +257,58 @@ describe("EditSuccessionNomination page", () => {
         goalIds: [11],
       });
     });
+  });
+
+  test("create: the type defaults to Secondary when the plan already holds a primary", async () => {
+    renderScreen("/succession/5/nominations/new");
+    expect(
+      await screen.findByLabelText("Nomination type", { selector: "input" }),
+    ).toHaveValue("Secondary");
+  });
+
+  test("edit: promoting a second nomination to Primary confirms the demotion, naming the standing primary", async () => {
+    const user = userEvent.setup();
+    const mockFetch = renderScreen("/succession/5/nominations/32/edit", {
+      ...PLAN,
+      benchCount: 2,
+      nominations: [NOMINATION, SECOND_NOMINATION],
+    });
+
+    expect(await screen.findByLabelText("Candidate", { selector: "input" })).toHaveValue(
+      "Lena Lateral",
+    );
+    await user.click(screen.getByLabelText("Nomination type", { selector: "input" }));
+    await user.click(await screen.findByRole("option", { name: "Primary" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // The confirm modal names both parties; Cancel keeps the save unsent.
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(
+      "Cleo Candidate is currently the primary successor on this plan. " +
+        "Making Lena Lateral primary will change the nomination of Cleo Candidate to secondary.",
+    );
+    const putCalls = () =>
+      mockFetch.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === "PUT",
+      );
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(putCalls()).toHaveLength(0);
+
+    // Submit again and continue: the PUT carries PRIMARY (the server demotes the rival).
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", { name: "Make primary" }),
+    );
+    await waitFor(() => {
+      const call = putCalls().find(
+        ([url]) => String(url) === "/api/v1/succession-plans/5/nominations/32",
+      );
+      expect(call).toBeTruthy();
+      expect(
+        JSON.parse(String((call![1] as RequestInit).body)).nominationType,
+      ).toBe("PRIMARY");
+    });
+    expect(await screen.findByTestId("probe")).toHaveTextContent("/succession/5/view");
   });
 
   test("a closed plan blocks the editor with the read-only wording", async () => {

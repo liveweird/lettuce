@@ -3072,8 +3072,9 @@ paths:
 
         The competency-gaps list holds at most 20 ordered short texts (each non-blank, at
         most 200 characters). The candidate-awareness value is metadata only — whatever it
-        says, the candidate is never notified and never granted any read. Every nomination
-        mutation bumps the plan's reviewed stamp.
+        says, the candidate is never notified and never granted any read. A PRIMARY
+        nomination demotes any existing PRIMARY on the plan to SECONDARY in the same write.
+        Every nomination mutation bumps the plan's reviewed stamp.
       requestBody:
         required: true
         content:
@@ -3127,8 +3128,9 @@ paths:
         the competency-gaps list, and the linked goals (wholesale, payload order preserved).
         **Owner-only**, OPEN plans only (`409`). The same candidate/goal rules as the create
         apply; a since-deactivated candidate stays editable as long as the candidate is
-        unchanged (only a CHANGED candidate is checked like a fresh assignment). Bumps the
-        plan's reviewed stamp.
+        unchanged (only a CHANGED candidate is checked like a fresh assignment). A save that
+        sets PRIMARY demotes any other PRIMARY on the plan to SECONDARY in the same write.
+        Bumps the plan's reviewed stamp.
       requestBody:
         required: true
         content:
@@ -7985,6 +7987,10 @@ components:
         nominationType:
           type: string
           enum: [PRIMARY, SECONDARY, CROSS_TEAM]
+          description: >-
+            At most one active PRIMARY nomination per plan — a write that sets PRIMARY
+            demotes any existing PRIMARY nomination on the plan to SECONDARY in the same
+            transaction (clients should confirm with the user first).
         competencyGaps:
           type: array
           maxItems: 20

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.43.0",
+    date: "2026-08-26",
+    en: `One primary successor per seat. A succession plan's bench now holds at most one primary nomination: when you nominate or edit a successor and set the type to primary while another nomination already holds it, the app asks you to confirm — continuing makes the new choice primary and changes the previous one to secondary in the same step. When a plan already has a primary successor, a new nomination starts as secondary, so the question only comes up when you deliberately pick primary. Plans that held several primary nominations before this release keep the most recently edited one as primary.`,
+    pl: `Jeden główny następca na stanowisko. Ławka planu sukcesji ma teraz co najwyżej jedną główną nominację: gdy nominujesz lub edytujesz następcę i wybierasz typ „główna", a inna nominacja już go ma, aplikacja poprosi Cię o potwierdzenie — kontynuując, ustawiasz nowy wybór jako główny, a poprzednia nominacja w tym samym kroku zmienia się na rezerwową. Gdy plan ma już głównego następcę, nowa nominacja zaczyna jako rezerwowa, więc pytanie pojawia się tylko wtedy, gdy świadomie wybierzesz typ główny. W planach, które przed tym wydaniem miały kilka głównych nominacji, główną pozostaje ta ostatnio edytowana.`,
+  },
+  {
     version: "2.42.0",
     date: "2026-08-25",
     en: `Succession plans, a private planning space for managers. Mark a critical role/seat on your team — how critical it is, how likely the person is to leave, and what would be lost if they did — set a target bench depth, and nominate successors: anyone in the organization, each with a readiness window, a nomination type (primary, secondary or cross-team), their competency gaps, and whether they know about it. Nominations can link the candidate's personal goals as development action items, and a new goal can be created right from the nomination — linked immediately. A colored cue warns while a seat has fewer nominated successors than its target, and the list shows how long ago each plan was last reviewed. Plans are visible only to their owner, the managers above them, and HR — never to the people they concern; nobody is notified about anything. A finished plan can be closed (browsable but read-only) or deleted.`,
