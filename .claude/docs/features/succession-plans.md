@@ -42,6 +42,18 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   interims included; the under-bench cue compares it against `targetBenchDepth` (orange
   warning while short, teal once met, equality good). List rows get it via one grouped count
   per page (the milestones-tally idiom); the document via the embedded nominations.
+- **One PRIMARY per plan (v2.43.0, V69)**: at most one active nomination may be
+  `nomination_type = PRIMARY`. The server enforces it by **auto-demoting** — a nomination
+  create/PUT that sets PRIMARY flips any other active PRIMARY on the plan to SECONDARY in the
+  same transaction (`demoteExistingPrimary`, self-excluding on PUT; the demoted row's
+  `last_modified` bumps too), never by rejecting (user decision — no acknowledge flag in the
+  API). The `uq_succession_nominations_plan_primary` partial unique index is the
+  concurrent-write backstop (23505 → the global 409 mapping; a retry then succeeds by
+  demoting); V69 also normalized pre-rule data (per plan, the most recently modified PRIMARY
+  kept, the rest demoted). The SPA is the UX gate: submitting PRIMARY while the loaded plan
+  document holds another PRIMARY opens a ConfirmActionModal naming both candidates
+  (`succession.primaryConfirm*`), and the nomination create form seeds its type to SECONDARY
+  when the plan already holds a PRIMARY, so the confirm fires only on a deliberate choice.
 - **Goal links**: `SuccessionNominationRequest.goalIds` (wholesale replace, ordered, dupes →
   400) must each be a non-deleted goal whose `subordinateId` IS the candidate and which the
   plan's OWNER may read under the goal rules minus HR (the owner authored it, or it has left

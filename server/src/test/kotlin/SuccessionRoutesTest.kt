@@ -462,6 +462,60 @@ class SuccessionRoutesTest {
         }
 
     @Test
+    fun `one primary per plan - a write that sets PRIMARY demotes the standing one, on create and on edit`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val chain = seedChain()
+            val secondId = TestUsers.seed(uniqueEmail("succ-candidate2"), "pw", name = "Nina Nominee", roles = emptySet())
+            val thirdId = TestUsers.seed(uniqueEmail("succ-candidate3"), "pw", name = "Theo Third", roles = emptySet())
+            val manager = authedClient(chain.managerEmail, "pw")
+            val plan = manager.createPlan(planBody(chain.seatId))
+
+            val first = manager.nominate(plan.id, nominationBody(chain.candidateId))
+            // A SECONDARY create never touches the standing PRIMARY.
+            val second = manager.nominate(
+                plan.id,
+                nominationBody(secondId, nominationType = NominationType.SECONDARY),
+            )
+            var byId = manager.readPlan(plan.id).nominations.associateBy { it.id }
+            assertEquals(NominationType.PRIMARY, byId.getValue(first.id).nominationType)
+            assertEquals(NominationType.SECONDARY, byId.getValue(second.id).nominationType)
+
+            // Editing the second to PRIMARY demotes the first in the same write.
+            val promote = manager.put("/api/v1/succession-plans/${plan.id}/nominations/${second.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(nominationBody(secondId, nominationType = NominationType.PRIMARY))
+            }
+            assertEquals(HttpStatusCode.NoContent, promote.status)
+            byId = manager.readPlan(plan.id).nominations.associateBy { it.id }
+            assertEquals(NominationType.SECONDARY, byId.getValue(first.id).nominationType)
+            assertEquals(NominationType.PRIMARY, byId.getValue(second.id).nominationType)
+
+            // Re-saving the standing PRIMARY as PRIMARY is a no-op for the others (self-excluded).
+            val keep = manager.put("/api/v1/succession-plans/${plan.id}/nominations/${second.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    nominationBody(
+                        secondId,
+                        readiness = SuccessorReadiness.READY_NOW,
+                        nominationType = NominationType.PRIMARY,
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.NoContent, keep.status)
+            byId = manager.readPlan(plan.id).nominations.associateBy { it.id }
+            assertEquals(NominationType.SECONDARY, byId.getValue(first.id).nominationType)
+            assertEquals(NominationType.PRIMARY, byId.getValue(second.id).nominationType)
+
+            // A CREATE that sets PRIMARY demotes the standing one too.
+            val third = manager.nominate(plan.id, nominationBody(thirdId))
+            byId = manager.readPlan(plan.id).nominations.associateBy { it.id }
+            assertEquals(NominationType.SECONDARY, byId.getValue(second.id).nominationType)
+            assertEquals(NominationType.PRIMARY, byId.getValue(third.id).nominationType)
+            assertEquals(1, byId.values.count { it.nominationType == NominationType.PRIMARY })
+        }
+
+    @Test
     fun `nomination validation - the seat person, duplicates, unknown or deactivated candidates`() = testApplication {
         usePostgresTestcontainer()
         val chain = seedChain()

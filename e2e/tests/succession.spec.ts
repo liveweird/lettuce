@@ -2,10 +2,11 @@ import { test, expect, login, logout, uniqueText, AAA_ONE, MANAGER_AAA } from ".
 import { apiToken, authHeader } from "./api";
 
 // Succession plans (v2.42.0): the manager's critical-role/seat records. This file exclusively
-// owns Manager AAA's succession plans (seat: AAA One, candidate: AAA Two) plus the development
-// goal the nomination modal creates for the (Manager AAA, AAA Two) pair — goals.spec owns the
-// (Manager AAA, AAA Three) pair, so no collision. Everything is unique-texted and deleted
-// in-test, with an API fallback so a failed run leaves no residue.
+// owns Manager AAA's succession plans (seat: AAA One, candidates: AAA Two and AAA Three) plus
+// the development goal the nomination modal creates for the (Manager AAA, AAA Two) pair —
+// goals.spec owns the (Manager AAA, AAA Three) GOAL pair and no goal is created for AAA Three
+// here, so no collision. Everything is unique-texted and deleted in-test, with an API fallback
+// so a failed run leaves no residue.
 let planId: number | null = null;
 let goalId: number | null = null;
 
@@ -117,7 +118,33 @@ test("a manager plans a succession, nominates a successor with a linked developm
     page.getByText("The bench is below target: 1 of 2 successors nominated."),
   ).toBeVisible();
 
-  // 5. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
+  // 5. A second nomination (AAA Three) defaults to Secondary now that a primary exists;
+  //    explicitly picking Primary asks to demote AAA Two, and continuing swaps the two types.
+  await page.getByRole("link", { name: "Add nomination" }).click();
+  await expect(page.getByRole("heading", { name: "New successor nomination" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Nomination type" })).toHaveValue("Secondary");
+  await page.getByRole("combobox", { name: "Candidate", exact: true }).click();
+  await page.getByRole("option", { name: "AAA Three" }).click();
+  await page.getByRole("combobox", { name: "Nomination type" }).click();
+  await page.getByRole("option", { name: "Primary", exact: true }).click();
+  await page.locator("#main-content").getByRole("button", { name: "Create", exact: true }).click();
+  const confirm = page.getByRole("dialog");
+  await expect(confirm.getByText(/AAA Two is currently the primary successor/)).toBeVisible();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes("/nominations") && r.request().method() === "POST" && r.ok(),
+    ),
+    confirm.getByRole("button", { name: "Make primary" }).click(),
+  ]);
+  await expect(page.getByText("Nomination added").first()).toBeVisible();
+  // The demote rode the same write: AAA Three holds the one Primary, AAA Two turned Secondary,
+  // and the 2/2 bench retires the under-target cue.
+  await expect(page.getByText("AAA Three", { exact: true })).toBeVisible();
+  await expect(page.getByText("Primary", { exact: true })).toBeVisible();
+  await expect(page.getByText("Secondary", { exact: true })).toBeVisible();
+  await expect(page.getByText(/The bench is below target/)).toHaveCount(0);
+
+  // 6. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
   await logout(page);
   await login(page, AAA_ONE);
   await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
@@ -126,7 +153,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByRole("heading", { name: "Succession plans" })).toBeVisible();
   await expect(page.getByText("No succession plans")).toBeVisible();
 
-  // 6. Back as the owner: close the plan — it stays browsable but read-only; then delete it.
+  // 7. Back as the owner: close the plan — it stays browsable but read-only; then delete it.
   await logout(page);
   await login(page, MANAGER_AAA);
   await page.goto(`/succession/${planId}/view`);

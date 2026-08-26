@@ -1877,8 +1877,9 @@ export interface paths {
          *
          *     The competency-gaps list holds at most 20 ordered short texts (each non-blank, at
          *     most 200 characters). The candidate-awareness value is metadata only — whatever it
-         *     says, the candidate is never notified and never granted any read. Every nomination
-         *     mutation bumps the plan's reviewed stamp.
+         *     says, the candidate is never notified and never granted any read. A PRIMARY
+         *     nomination demotes any existing PRIMARY on the plan to SECONDARY in the same write.
+         *     Every nomination mutation bumps the plan's reviewed stamp.
          */
         post: operations["createSuccessionNomination"];
         delete?: never;
@@ -1905,8 +1906,9 @@ export interface paths {
          *     the competency-gaps list, and the linked goals (wholesale, payload order preserved).
          *     **Owner-only**, OPEN plans only (`409`). The same candidate/goal rules as the create
          *     apply; a since-deactivated candidate stays editable as long as the candidate is
-         *     unchanged (only a CHANGED candidate is checked like a fresh assignment). Bumps the
-         *     plan's reviewed stamp.
+         *     unchanged (only a CHANGED candidate is checked like a fresh assignment). A save that
+         *     sets PRIMARY demotes any other PRIMARY on the plan to SECONDARY in the same write.
+         *     Bumps the plan's reviewed stamp.
          */
         put: operations["updateSuccessionNomination"];
         post?: never;
@@ -5132,7 +5134,10 @@ export interface components {
              * @enum {string}
              */
             readiness: "READY_NOW" | "READY_SOON" | "FUTURE_PIPELINE" | "EMERGENCY_INTERIM";
-            /** @enum {string} */
+            /**
+             * @description At most one active PRIMARY nomination per plan — a write that sets PRIMARY demotes any existing PRIMARY nomination on the plan to SECONDARY in the same transaction (clients should confirm with the user first).
+             * @enum {string}
+             */
             nominationType: "PRIMARY" | "SECONDARY" | "CROSS_TEAM";
             /**
              * @description Ordered short texts naming what the candidate still lacks for the seat (each non-blank, at most 200 characters). Encrypted at rest.
@@ -9443,6 +9448,8 @@ export interface operations {
             /** @description Created — the nomination with its resolved goal references */
             201: {
                 headers: {
+                    /** @description URL of the new nomination sub-resource (addressable for PUT/DELETE; it has no own GET — the plan document embeds it). */
+                    Location?: string;
                     [name: string]: unknown;
                 };
                 content: {
