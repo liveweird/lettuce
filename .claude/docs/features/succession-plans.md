@@ -39,9 +39,9 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   explicit review action `POST …/{id}/complete-review`** (v2.44.0 — owner-only, OPEN-only 409,
   repeatable; the v2.42.0 editing-is-reviewing model is REVERSED by the user: plan/nomination
   mutations and closing never touch the stamp; the V68 SQL comment saying otherwise is
-  historical — Flyway checksums freeze it). No event tables (the days-off class —
-  HR reads are still audited) and **NO notifications of any kind** (deliberate: confidential,
-  pull-not-push; the SPA's invalidation skips the bell).
+  historical — Flyway checksums freeze it). **NO notifications of any kind** (deliberate:
+  confidential, pull-not-push; the SPA's invalidation skips the bell — history events are
+  silent too).
 - **Bench math (user decision)**: `benchCount` counts ALL active nominations — emergency
   interims included; the under-bench cue compares it against `targetBenchDepth` (orange
   warning while short, teal once met, equality good). List rows get it via one grouped count
@@ -58,6 +58,28 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   document holds another PRIMARY opens a ConfirmActionModal naming both candidates
   (`succession.primaryConfirm*`), and the nomination create form seeds its type to SECONDARY
   when the plan already holds a PRIMARY, so the confirm fires only on a deliberate choice.
+- **History (v2.46.0 — the v2.42.0 "no event tables" decision REVERSED by the user)**:
+  `succession_plan_events` (`V70`) is the SEVENTH `EventLogTable` clone
+  (`SuccessionEventService`, no cipher; the pure descriptor builders live in
+  `succession/SuccessionEvents.kt` — the ImpactLogEvents shape). ONE plan-scoped table:
+  nomination changes are plan-level events identified by the candidate's display name.
+  Vocabulary: `CREATED` (definition scalars), the definition PUT's per-field fan-out
+  `CRITICALITY_CHANGED`/`RISK_CHANGED`/`BENCH_DEPTH_CHANGED` (from/to) +
+  `LOSS_IMPACT_CHANGED` (name-only), `REVIEW_COMPLETED`, `CLOSED`, `DELETED`
+  (minted-then-unreachable, the impact-log precedent), `NOMINATION_ADDED`/`UPDATED` (one
+  event, `changed` field list + enum from/to)/`REMOVED`, and `PRIMARY_DEMOTED` — the V69
+  auto-demote's history, **route-derived** from the standing PRIMARY in the pre-mutation
+  document (the write guard returns it; zero service changes). All params are computed
+  route-side from the write-guard document and appended via `EventLog.create` after the
+  mutation commit (the consistency model — own transaction, accepted non-atomicity).
+  **Params carry enum names, numbers, and candidate names only — NEVER loss-impact/
+  competency-gap text** (candidate names are the same disclosure class as the plaintext
+  `candidate_id` FK, and event readers see them in the document anyway).
+  `GET /api/v1/succession-plans/{id}/events` rides `requireSuccessionPlanRead` — whoever
+  reads the plan reads its history; the seat's person and candidates stay at 403. The SPA's
+  Review screen gained a third **History** tab (`components/SuccessionHistory.tsx` — the
+  `EventTimeline` shell + `describeEvent` over `succession.event.*`, enum labels via
+  `dynamicKey`, the typed `FIELD_LABELS` map for `changed` tokens).
 - **Goal links**: `SuccessionNominationRequest.goalIds` (wholesale replace, ordered, dupes →
   400) must each be a non-deleted goal whose `subordinateId` IS the candidate and which the
   plan's OWNER may read under the goal rules minus HR (the owner authored it, or it has left

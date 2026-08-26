@@ -49,6 +49,10 @@ class SuccessionPlans {
         class CompleteReview(val parent: Id)
 
         @Serializable
+        @Resource("events")
+        class Events(val parent: Id)
+
+        @Serializable
         @Resource("nominations")
         class Nominations(val parent: Id) {
             @Serializable
@@ -63,8 +67,13 @@ class SuccessionPlans {
 private fun ApplicationCall.successionCaller() =
     caller().also { requireFeatureEnabled(it, Feature.SUCCESSION_PLANS) }
 
+// The descriptor -> persistable-event adapter (the ImpactLogRoutes shape).
+private fun SuccessionEventDescriptor.toEvent(planId: UInt, userId: UInt) =
+    SuccessionPlanEvent(planId = planId, userId = userId, type = type, params = params)
+
 fun Application.configureSuccessionRoutes() {
     val successionService = attributes[SuccessionPlanServiceKey]
+    val eventService = attributes[SuccessionEventServiceKey]
     val userService = attributes[UserServiceKey]
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the plan (missing →
@@ -157,6 +166,7 @@ fun Application.configureSuccessionRoutes() {
                 userService.requireNoDeactivatedUsers(listOf(request.userId))
                 validateSuccessionPlanFields(request.lossImpact, request.targetBenchDepth)
                 val id = successionService.create(caller.userId, request)
+                eventService.create(successionPlanCreationEvent(request).toEvent(id, caller.userId))
                 call.response.header(HttpHeaders.Location, call.application.href(SuccessionPlans.Id(id = id)))
                 val created = successionService.read(id)
                     .orVanished("Succession plan", id)
@@ -167,23 +177,31 @@ fun Application.configureSuccessionRoutes() {
                 call.respond(HttpStatusCode.OK, plan)
             }
             put<SuccessionPlans.Id> { route ->
-                writeGuardedPlan(call, route.id)
+                val existing = writeGuardedPlan(call, route.id)
                 val edit = call.receive<SuccessionPlanUpdate>()
                 validateSuccessionPlanFields(edit.lossImpact, edit.targetBenchDepth)
                 successionService.update(route.id, edit)
                     ?: throw NotFoundException("Succession plan not found")
+                // Per-field history fan-out (the goals idiom); a no-op PUT records nothing.
+                successionPlanUpdateEvents(existing, edit).forEach { descriptor ->
+                    eventService.create(descriptor.toEvent(route.id, call.caller().userId))
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
             post<SuccessionPlans.Id.Close> { route ->
                 writeGuardedPlan(call, route.parent.id)
                 successionService.close(route.parent.id)
                     ?: throw NotFoundException("Succession plan not found")
+                eventService.create(successionPlanClosedEvent().toEvent(route.parent.id, call.caller().userId))
                 call.respond(HttpStatusCode.NoContent)
             }
             post<SuccessionPlans.Id.CompleteReview> { route ->
                 writeGuardedPlan(call, route.parent.id)
                 successionService.completeReview(route.parent.id)
                     ?: throw NotFoundException("Succession plan not found")
+                eventService.create(
+                    successionReviewCompletedEvent().toEvent(route.parent.id, call.caller().userId),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<SuccessionPlans.Id> { route ->
@@ -191,6 +209,8 @@ fun Application.configureSuccessionRoutes() {
                 if (successionService.delete(route.id) == 0) {
                     throw NotFoundException("Succession plan not found")
                 }
+                // Audited against the plan; unreachable via the API afterwards (soft-deleted).
+                eventService.create(successionPlanDeletedEvent().toEvent(route.id, call.caller().userId))
                 call.respond(HttpStatusCode.NoContent)
             }
             post<SuccessionPlans.Id.Nominations> { route ->
@@ -216,6 +236,15 @@ fun Application.configureSuccessionRoutes() {
                     .orVanished("Succession plan", route.parent.id)
                     .nominations.find { it.id == id }
                     .orVanished("Succession nomination", id)
+                val actorId = call.caller().userId
+                eventService.create(nominationAddedEvent(created).toEvent(route.parent.id, actorId))
+                // The V69 auto-demote's history: the standing PRIMARY in the PRE-mutation
+                // document is the row the service demoted (route-derived — no service change).
+                if (request.nominationType == NominationType.PRIMARY) {
+                    plan.nominations.find { it.nominationType == NominationType.PRIMARY }?.let {
+                        eventService.create(primaryDemotedEvent(it).toEvent(route.parent.id, actorId))
+                    }
+                }
                 call.respond(HttpStatusCode.Created, created)
             }
             put<SuccessionPlans.Id.Nominations.NominationId> { route ->
@@ -231,14 +260,37 @@ fun Application.configureSuccessionRoutes() {
                 }
                 successionService.updateNomination(planId, route.nominationId, plan.managerId, edit)
                     ?: throw NotFoundException("Succession nomination not found")
+                // `existing` is non-null here (the service 404s the same missing row above).
+                if (existing != null) {
+                    val actorId = call.caller().userId
+                    nominationUpdateEvents(existing, edit)?.let { descriptor ->
+                        eventService.create(descriptor.toEvent(planId, actorId))
+                    }
+                    if (edit.nominationType == NominationType.PRIMARY) {
+                        plan.nominations
+                            .find { it.nominationType == NominationType.PRIMARY && it.id != route.nominationId }
+                            ?.let { eventService.create(primaryDemotedEvent(it).toEvent(planId, actorId)) }
+                    }
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<SuccessionPlans.Id.Nominations.NominationId> { route ->
                 val planId = route.parent.parent.id
-                writeGuardedPlan(call, planId)
+                val plan = writeGuardedPlan(call, planId)
                 successionService.deleteNomination(planId, route.nominationId)
                     ?: throw NotFoundException("Succession nomination not found")
+                plan.nominations.find { it.id == route.nominationId }?.let {
+                    eventService.create(nominationRemovedEvent(it).toEvent(planId, call.caller().userId))
+                }
                 call.respond(HttpStatusCode.NoContent)
+            }
+            get<SuccessionPlans.Id.Events> { route ->
+                // Whoever may read the plan may read its history (the impact-log rule).
+                readGuardedPlan(call, route.parent.id)
+                call.respond(
+                    HttpStatusCode.OK,
+                    SuccessionPlanEventListResponse(eventService.listForPlan(route.parent.id)),
+                )
             }
         }
     }

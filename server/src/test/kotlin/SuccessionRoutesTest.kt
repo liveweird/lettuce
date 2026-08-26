@@ -9,6 +9,9 @@ import ch.nokillswit.succession.NominationType
 import ch.nokillswit.succession.RetentionRisk
 import ch.nokillswit.succession.RoleCriticality
 import ch.nokillswit.succession.SuccessionCompetencyGap
+import ch.nokillswit.succession.SuccessionEventType
+import ch.nokillswit.succession.SuccessionPlanEventListResponse
+import ch.nokillswit.succession.SuccessionPlanEventResponse
 import ch.nokillswit.succession.SuccessionNominationRequest
 import ch.nokillswit.succession.SuccessionNominationResponse
 import ch.nokillswit.succession.SuccessionPlanCreateRequest
@@ -428,6 +431,103 @@ class SuccessionRoutesTest {
             manager.post("/api/v1/succession-plans/999999999/complete-review").status,
         )
     }
+
+    // ---- events ----
+
+    @Test
+    fun `the event trail records every mutation, params stay content-free, readers match the plan`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val chain = seedChain()
+            val secondId = TestUsers.seed(uniqueEmail("succ-ev-cand2"), "pw", name = "Nina Nominee", roles = emptySet())
+            val manager = authedClient(chain.managerEmail, "pw")
+            val plan = manager.createPlan(planBody(chain.seatId))
+
+            suspend fun trail(): List<SuccessionPlanEventResponse> =
+                manager.get("/api/v1/succession-plans/${plan.id}/events")
+                    .body<SuccessionPlanEventListResponse>().items
+
+            // CREATED at birth; the chain above reads the trail, the subjects never do.
+            assertEquals(listOf(SuccessionEventType.CREATED), trail().map { it.type })
+            val grand = authedClient(chain.grandEmail, "pw")
+            assertEquals(HttpStatusCode.OK, grand.get("/api/v1/succession-plans/${plan.id}/events").status)
+            val seat = authedClient(chain.seatEmail, "pw")
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                seat.get("/api/v1/succession-plans/${plan.id}/events").status,
+            )
+
+            // Definition edit → per-field fan-out; the identical re-PUT mints nothing.
+            val edit = SuccessionPlanUpdate(
+                roleCriticality = RoleCriticality.CORE,
+                retentionRisk = RetentionRisk.MEDIUM,
+                lossImpact = plan.lossImpact,
+                targetBenchDepth = 3,
+            )
+            manager.put("/api/v1/succession-plans/${plan.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(edit)
+            }
+            assertEquals(4, trail().size)
+            manager.put("/api/v1/succession-plans/${plan.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(edit)
+            }
+            assertEquals(4, trail().size)
+
+            assertEquals(
+                HttpStatusCode.NoContent,
+                manager.post("/api/v1/succession-plans/${plan.id}/complete-review").status,
+            )
+            val first = manager.nominate(plan.id, nominationBody(chain.candidateId))
+            // A second PRIMARY records both the addition and the V69 demote side effect.
+            manager.nominate(plan.id, nominationBody(secondId))
+            // Editing the (now SECONDARY) first nomination mints ONE UPDATED.
+            manager.put("/api/v1/succession-plans/${plan.id}/nominations/${first.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    nominationBody(
+                        chain.candidateId,
+                        readiness = SuccessorReadiness.READY_NOW,
+                        nominationType = NominationType.SECONDARY,
+                    ),
+                )
+            }
+            assertEquals(
+                HttpStatusCode.NoContent,
+                manager.delete("/api/v1/succession-plans/${plan.id}/nominations/${first.id}").status,
+            )
+            assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/succession-plans/${plan.id}/close").status)
+
+            val events = trail()
+            assertEquals(
+                listOf(
+                    SuccessionEventType.CLOSED,
+                    SuccessionEventType.NOMINATION_REMOVED,
+                    SuccessionEventType.NOMINATION_UPDATED,
+                    SuccessionEventType.PRIMARY_DEMOTED,
+                    SuccessionEventType.NOMINATION_ADDED,
+                    SuccessionEventType.NOMINATION_ADDED,
+                    SuccessionEventType.REVIEW_COMPLETED,
+                    SuccessionEventType.BENCH_DEPTH_CHANGED,
+                    SuccessionEventType.RISK_CHANGED,
+                    SuccessionEventType.CRITICALITY_CHANGED,
+                    SuccessionEventType.CREATED,
+                ),
+                events.map { it.type },
+            )
+            val demoted = events.first { it.type == SuccessionEventType.PRIMARY_DEMOTED }
+            assertEquals("Cleo Candidate", demoted.params["candidateName"])
+            val updated = events.first { it.type == SuccessionEventType.NOMINATION_UPDATED }
+            assertEquals("readiness", updated.params["changed"])
+            assertEquals("Mona Manager", events.first().userName)
+            // The content-free invariant: no encrypted list text ever rides params.
+            assertTrue(
+                events.flatMap { it.params.values }.none {
+                    it.contains("Stakeholder management") || it.contains("Key client")
+                },
+            )
+        }
 
     // ---- nominations ----
 

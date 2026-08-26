@@ -175,7 +175,17 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByText("Primary", { exact: true })).toBeVisible();
   await expect(page.getByText("Secondary", { exact: true })).toBeVisible();
 
-  // 7. Complete review stamps the reviewed date and exits to the list, where the filled
+  // 7. The History tab (v2.46.0): the trail records the whole session so far, localized.
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("Plan created (Critical / High, bench target 2).")).toBeVisible();
+  await expect(
+    page.getByText("AAA Three nominated (Ready soon (3–12 mo), Primary)."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("The nomination of AAA Two changed to secondary — a new primary was chosen."),
+  ).toBeVisible();
+
+  // 8. Complete review stamps the reviewed date and exits to the list, where the filled
   //    Critical/High badges show on the row.
   await page.getByRole("button", { name: "Complete review" }).click();
   await expect(page.getByText("Review completed").first()).toBeVisible();
@@ -183,7 +193,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByText("Critical", { exact: true })).toBeVisible();
   await expect(page.getByText("High", { exact: true })).toBeVisible();
 
-  // 8. Re-entering and leaving via Close warns that the visit won't count as a review.
+  // 9. Re-entering and leaving via Close warns that the visit won't count as a review.
   await page.getByRole("link", { name: "Review the succession plan for AAA One" }).click();
   await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
@@ -192,7 +202,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await leaveDialog.getByRole("button", { name: "Leave" }).click();
   await expect(page).toHaveURL(/\/succession$/);
 
-  // 9. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
+  // 10. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
   await logout(page);
   await login(page, AAA_ONE);
   await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
@@ -201,7 +211,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByRole("heading", { name: "Succession plans" })).toBeVisible();
   await expect(page.getByText("No succession plans")).toBeVisible();
 
-  // 10. Back as the owner: close the plan — it stays browsable but read-only; then delete it
+  // 11. Back as the owner: close the plan — it stays browsable but read-only; then delete it
   //    from the list (the Review screen no longer carries Delete).
   await logout(page);
   await login(page, MANAGER_AAA);

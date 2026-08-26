@@ -158,6 +158,31 @@ data class SuccessionPlanListItem(
 
 typealias SuccessionPlanPageResponse = PageResponse<SuccessionPlanListItem>
 
+/** The write DTO the routes hand to [SuccessionEventService] (the ImpactEntryEvent shape). */
+@Serializable
+data class SuccessionPlanEvent(
+    val planId: UInt,
+    val userId: UInt,
+    val type: SuccessionEventType,
+    val params: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class SuccessionPlanEventResponse(
+    val id: UInt,
+    val planId: UInt,
+    val userId: UInt,
+    val userName: String,
+    val timestamp: Long,
+    val type: SuccessionEventType,
+    val params: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class SuccessionPlanEventListResponse(
+    val items: List<SuccessionPlanEventResponse>,
+)
+
 /** Shared by create and update — the definition fields minus the person. */
 internal fun validateSuccessionPlanFields(
     lossImpact: List<String>,

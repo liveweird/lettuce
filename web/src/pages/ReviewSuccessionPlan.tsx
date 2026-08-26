@@ -33,6 +33,7 @@ import ConfirmActionModal from "../components/ConfirmActionModal";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import PersonaField from "../components/PersonaField";
 import ReadOnlyField from "../components/ReadOnlyField";
+import SuccessionHistory from "../components/SuccessionHistory";
 import SuccessionPlanFields from "../components/SuccessionPlanFields";
 import {
   BenchBadge,
@@ -194,6 +195,7 @@ export default function ReviewSuccessionPlan() {
                 <Tabs.List>
                   <Tabs.Tab value="basics">{t("succession.tab.basics")}</Tabs.Tab>
                   <Tabs.Tab value="nominations">{t("succession.tab.nominations")}</Tabs.Tab>
+                  <Tabs.Tab value="history">{t("succession.tab.history")}</Tabs.Tab>
                 </Tabs.List>
 
                 <Tabs.Panel value="basics" pt="md">
@@ -386,6 +388,11 @@ export default function ReviewSuccessionPlan() {
                       ))
                     )}
                   </Stack>
+                </Tabs.Panel>
+
+                <Tabs.Panel value="history" pt="md">
+                  {/* Direct import, never lazy — keepMounted={false} defers the query. */}
+                  <SuccessionHistory planId={id} />
                 </Tabs.Panel>
               </Tabs>
 

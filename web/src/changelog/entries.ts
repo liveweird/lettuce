@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.46.0",
+    date: "2026-08-26",
+    en: `Succession plans keep their history now. A new History tab on the plan screen shows the full trail of changes, newest first — when the plan was created, every change to criticality, risk or bench depth, completed reviews, each nomination added, edited or removed (including when a new primary choice moved the previous one to secondary), and the closing — each with who did it and when. The trail is visible to exactly the people who can see the plan: you, the managers above you, and HR — the people the plan concerns still see nothing, and nobody gets notified.`,
+    pl: `Plany sukcesji mają teraz swoją historię. Nowa zakładka Historia na ekranie planu pokazuje pełny ślad zmian, od najnowszych — utworzenie planu, każdą zmianę krytyczności, ryzyka lub głębokości ławki, zakończone przeglądy, każdą dodaną, zmienioną lub usuniętą nominację (w tym moment, gdy nowy wybór głównego następcy przesunął poprzedniego do rezerwy) oraz zamknięcie — każdy wpis z informacją, kto i kiedy. Historię widzą dokładnie te osoby, które widzą plan: Ty, przełożeni nad Tobą i HR — osoby, których plan dotyczy, nadal nie widzą niczego, i nikt nie dostaje powiadomień.`,
+  },
+  {
     version: "2.45.1",
     date: "2026-08-26",
     en: `A small polish on competency gaps: the filled checkbox now sits to the left of the gap's text, next to the row number, so ticking off progress reads naturally like a checklist.`,

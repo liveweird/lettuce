@@ -3,6 +3,7 @@
   "tab": {
     "basics": "Podstawowe informacje",
     "nominations": "Nominacje",
+    "history": "Historia",
     "own": "Moje plany",
     "team": "Plany moich podwładnych"
   },
@@ -63,6 +64,21 @@
   "pickPerson": "Wybierz osobę",
   "noReports": "Nie znaleziono podwładnych",
   "viewTitle": "Plan sukcesji",
+  "noHistory": "Brak historii.",
+  "event": {
+    "created": "Utworzono plan ({{criticality}} / {{risk}}, cel \u0142awki: {{target}}).",
+    "criticalityChanged": "Zmieniono krytyczno\u015b\u0107 roli z \u201e{{from}}\u201d na \u201e{{to}}\u201d.",
+    "riskChanged": "Zmieniono ryzyko odej\u015bcia z \u201e{{from}}\u201d na \u201e{{to}}\u201d.",
+    "benchDepthChanged": "Zmieniono docelow\u0105 g\u0142\u0119boko\u015b\u0107 \u0142awki z {{from}} na {{to}}.",
+    "lossImpactChanged": "Zaktualizowano list\u0119 skutk\u00f3w odej\u015bcia.",
+    "reviewCompleted": "Zako\u0144czono przegl\u0105d.",
+    "closed": "Zamkni\u0119to plan.",
+    "deleted": "Usuni\u0119to plan.",
+    "nominationAdded": "Nominowano {{name}} ({{readiness}}, {{type}}).",
+    "nominationUpdated": "Zaktualizowano nominacj\u0119 {{name}}: {{fields}}.",
+    "nominationRemoved": "Usuni\u0119to nominacj\u0119 {{name}}.",
+    "primaryDemoted": "Nominacja {{name}} zmieni\u0142a si\u0119 na rezerwow\u0105 \u2014 wybrano nowego g\u0142\u00f3wnego nast\u0119pc\u0119."
+  },
   "completeReview": "Zako\u0144cz przegl\u0105d",
   "closeReviewTitle": "Wyj\u015b\u0107 bez zako\u0144czenia przegl\u0105du?",
   "closeReviewMessage": "Zamkni\u0119cie tego ekranu nie liczy si\u0119 jako przegl\u0105d planu \u2014 data ostatniego przegl\u0105du pozostanie bez zmian.",
