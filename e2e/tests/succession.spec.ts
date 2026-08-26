@@ -133,7 +133,22 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByText(gap)).toBeVisible();
   await expect(page.getByRole("link", { name: `Open the goal ${goalTitle}` })).toBeVisible();
 
-  // 5. A second nomination (AAA Three) defaults to Secondary now that a primary exists;
+  // 5. Progress on a gap: edit the nomination, tick its filled flag, and see the strikethrough
+  //    on the read-only card (v2.45.0).
+  await page.getByLabel("Edit the nomination of AAA Two").click();
+  await expect(page.getByRole("heading", { name: "Edit successor nomination" })).toBeVisible();
+  await page.getByLabel("Mark competency gap 1 as filled").check();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes("/nominations/") && r.request().method() === "PUT" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Save", exact: true }).click(),
+  ]);
+  await expect(page.getByText("Nomination updated").first()).toBeVisible();
+  await page.getByRole("tab", { name: "Nominations" }).click();
+  await expect(page.getByText(gap)).toHaveCSS("text-decoration-line", "line-through");
+
+  // 6. A second nomination (AAA Three) defaults to Secondary now that a primary exists;
   //    explicitly picking Primary asks to demote AAA Two, and continuing swaps the two types.
   await page.getByRole("link", { name: "Add nomination" }).click();
   await expect(page.getByRole("heading", { name: "New successor nomination" })).toBeVisible();
@@ -160,7 +175,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByText("Primary", { exact: true })).toBeVisible();
   await expect(page.getByText("Secondary", { exact: true })).toBeVisible();
 
-  // 6. Complete review stamps the reviewed date and exits to the list, where the filled
+  // 7. Complete review stamps the reviewed date and exits to the list, where the filled
   //    Critical/High badges show on the row.
   await page.getByRole("button", { name: "Complete review" }).click();
   await expect(page.getByText("Review completed").first()).toBeVisible();
@@ -168,7 +183,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByText("Critical", { exact: true })).toBeVisible();
   await expect(page.getByText("High", { exact: true })).toBeVisible();
 
-  // 7. Re-entering and leaving via Close warns that the visit won't count as a review.
+  // 8. Re-entering and leaving via Close warns that the visit won't count as a review.
   await page.getByRole("link", { name: "Review the succession plan for AAA One" }).click();
   await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
@@ -177,7 +192,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await leaveDialog.getByRole("button", { name: "Leave" }).click();
   await expect(page).toHaveURL(/\/succession$/);
 
-  // 8. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
+  // 9. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
   await logout(page);
   await login(page, AAA_ONE);
   await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
@@ -186,7 +201,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByRole("heading", { name: "Succession plans" })).toBeVisible();
   await expect(page.getByText("No succession plans")).toBeVisible();
 
-  // 9. Back as the owner: close the plan — it stays browsable but read-only; then delete it
+  // 10. Back as the owner: close the plan — it stays browsable but read-only; then delete it
   //    from the list (the Review screen no longer carries Delete).
   await logout(page);
   await login(page, MANAGER_AAA);

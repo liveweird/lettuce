@@ -1,4 +1,4 @@
-import { Button, Group, Input, Paper, Stack, Text } from "@mantine/core";
+import { Button, Checkbox, Group, Input, Paper, Stack, Text } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -27,6 +27,7 @@ export default function OrderedTextListEditor<
   addLabel,
   onAdd,
   rowAria,
+  flag,
 }: {
   form: UseFormReturnType<Values>;
   /** The form field holding the `TextRowDraft[]` list. */
@@ -42,6 +43,17 @@ export default function OrderedTextListEditor<
     moveUp: (position: number) => string;
     moveDown: (position: number) => string;
     remove: (position: number) => string;
+  };
+  /**
+   * Opt-in per-row boolean flag (v2.45.0 — the competency gaps' "filled" progress tick):
+   * renders a checkbox per row bound to `row.filled`. The toggle is a callback for the same
+   * reason as `onAdd` — the concrete field path stays typed at the call site. The checkbox
+   * needs its own aria name (the row's text lives in a textarea, unlike the goal milestones
+   * whose checkbox label IS the description).
+   */
+  flag?: {
+    aria: (position: number) => string;
+    onToggle: (index: number, checked: boolean) => void;
   };
 }) {
   const { t } = useTranslation();
@@ -71,6 +83,14 @@ export default function OrderedTextListEditor<
                 aria-label={rowAria.item(index + 1)}
                 {...form.getInputProps(`${field}.${index}.value`)}
               />
+              {flag && (
+                <Checkbox
+                  mt={10}
+                  checked={row.filled ?? false}
+                  onChange={(event) => flag.onToggle(index, event.currentTarget.checked)}
+                  aria-label={flag.aria(index + 1)}
+                />
+              )}
               <RowControls
                 index={index}
                 count={rows.length}

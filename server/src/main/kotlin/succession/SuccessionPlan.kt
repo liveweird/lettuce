@@ -82,10 +82,21 @@ data class SuccessionNominationRequest(
     val candidateId: UInt,
     val readiness: SuccessorReadiness,
     val nominationType: NominationType,
-    // Ordered short texts naming what the candidate still lacks for the seat.
-    val competencyGaps: List<String> = emptyList(),
+    // Ordered gaps naming what the candidate still lacks for the seat (v2.45.0: objects).
+    val competencyGaps: List<SuccessionCompetencyGap> = emptyList(),
     val awareness: CandidateAwareness,
     val goalIds: List<UInt> = emptyList(),
+)
+
+/**
+ * One competency gap (v2.45.0): a short text plus the [filled] progress flag — the goal
+ * milestones' `done` shape without row identity (gaps live positionally inside ONE encrypted
+ * JSON array column; a legacy plain-string element decodes as `filled = false`).
+ */
+@Serializable
+data class SuccessionCompetencyGap(
+    val text: String,
+    val filled: Boolean = false,
 )
 
 @Serializable
@@ -97,7 +108,7 @@ data class SuccessionNominationResponse(
     val candidateName: String,
     val readiness: SuccessorReadiness,
     val nominationType: NominationType,
-    val competencyGaps: List<String>,
+    val competencyGaps: List<SuccessionCompetencyGap>,
     val awareness: CandidateAwareness,
     // Linked development goals in stored order; soft-deleted goals drop out silently.
     val goals: List<SuccessionGoalRef>,
@@ -170,7 +181,10 @@ internal fun validateNomination(request: SuccessionNominationRequest, seatUserId
     if (request.candidateId == seatUserId) {
         throw BadRequestException("The seat's own person cannot be nominated as their successor")
     }
-    validateShortTextList(request.competencyGaps, "Competency gaps")
+    if (request.competencyGaps.size > MAX_SUCCESSION_LIST_ITEMS) {
+        throw BadRequestException("Competency gaps must have at most $MAX_SUCCESSION_LIST_ITEMS items")
+    }
+    request.competencyGaps.forEach { validateShortText(it.text, "Competency gaps") }
     if (request.goalIds.size != request.goalIds.distinct().size) {
         throw BadRequestException("Duplicate goal id in payload")
     }
@@ -180,12 +194,14 @@ private fun validateShortTextList(items: List<String>, label: String) {
     if (items.size > MAX_SUCCESSION_LIST_ITEMS) {
         throw BadRequestException("$label must have at most $MAX_SUCCESSION_LIST_ITEMS items")
     }
-    items.forEach {
-        if (it.isBlank()) throw BadRequestException("$label items must not be blank")
-        if (it.length > MAX_SUCCESSION_ITEM_LENGTH) {
-            throw BadRequestException(
-                "$label items must be at most $MAX_SUCCESSION_ITEM_LENGTH characters",
-            )
-        }
+    items.forEach { validateShortText(it, label) }
+}
+
+private fun validateShortText(text: String, label: String) {
+    if (text.isBlank()) throw BadRequestException("$label items must not be blank")
+    if (text.length > MAX_SUCCESSION_ITEM_LENGTH) {
+        throw BadRequestException(
+            "$label items must be at most $MAX_SUCCESSION_ITEM_LENGTH characters",
+        )
     }
 }

@@ -8,7 +8,9 @@ bench depth** (1–10, default 2 — the minimum nominated successors). Each pla
 **successor nominations**: a candidate (ANY active user except the seat's person — cross-team
 /lateral candidates are deliberate, no chain requirement; `readiness`
 `READY_NOW/READY_SOON/FUTURE_PIPELINE/EMERGENCY_INTERIM`, `nomination_type`
-`PRIMARY/SECONDARY/CROSS_TEAM`, ordered **competency-gap** texts, `awareness`
+`PRIMARY/SECONDARY/CROSS_TEAM`, ordered **competency gaps** — since v2.45.0 each a
+`{text, filled}` object: the `filled` progress flag is ticked by the owner in the
+nomination editor and renders struck-through on the read-only cards — `awareness`
 `TRANSPARENT/IMPLICIT/CONFIDENTIAL` — **pure metadata**: whatever the value, the candidate is
 never notified and never granted any read), each linkable to the candidate's existing personal
 goals as **development action items**. Tables `succession_plans` + `succession_nominations`
@@ -69,7 +71,10 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   before, with no hint of the succession context.
 - **Encryption at rest**: `loss_impact` and `competency_gaps` are each ONE
   application-encrypted JSON array (kotlinx list codec inside the service; nothing SQL-queries
-  them, neither ever rides list rows) — `SuccessionPlanService` is the TENTH `EncryptedAtRest`
+  them, neither ever rides list rows). The gap element shape evolved in v2.45.0 from a plain
+  string to `{text, filled}` INSIDE the same column — `decodeGaps` lifts legacy string
+  elements to `filled = false` forever (the `decrypt` passthrough class; no migration, old
+  rows normalize to the object shape on their next save; `reencryptRows` is payload-opaque) — `SuccessionPlanService` is the TENTH `EncryptedAtRest`
   registrant (both tables in one `encryptLegacyRows` transaction, the GoalService two-table
   shape). Everything else (enums, ids, bench depth, timestamps) stays plaintext.
 - **List** (`GET /api/v1/succession-plans?view=own|team|user`): `own` (default) = the caller's

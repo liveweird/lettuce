@@ -99,6 +99,7 @@
   "competencyGapMoveUp": "Move competency gap {{position}} up",
   "competencyGapMoveDown": "Move competency gap {{position}} down",
   "competencyGapRemove": "Remove competency gap {{position}}",
+  "competencyGapFilledAria": "Mark competency gap {{position}} as filled",
   "developmentGoals": "Development action items",
   "developmentGoalsHint": "Personal goals of the candidate linked to this nomination.",
   "noLinkedGoals": "No development goals linked.",

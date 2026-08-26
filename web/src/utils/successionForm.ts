@@ -20,8 +20,12 @@ export const MIN_BENCH_DEPTH = 1;
 export const MAX_BENCH_DEPTH = 10;
 const DEFAULT_BENCH_DEPTH = 2;
 
-/** One row of an ordered short-text list; `key` is the React identity of an unsaved draft. */
-export type TextRowDraft = { key: number; value: string };
+/**
+ * One row of an ordered short-text list; `key` is the React identity of an unsaved draft.
+ * `filled` exists only on competency-gap rows (v2.45.0 — the progress flag; loss-impact rows
+ * never set it and the editor renders its checkbox only on opt-in).
+ */
+export type TextRowDraft = { key: number; value: string; filled?: boolean };
 
 let draftKey = 0;
 export function emptyTextRowDraft(value = ""): TextRowDraft {
@@ -122,7 +126,10 @@ export function toNominationFormValues(
     candidateId: String(nomination.candidateId),
     readiness: nomination.readiness,
     nominationType: nomination.nominationType,
-    competencyGaps: nomination.competencyGaps.map((value) => emptyTextRowDraft(value)),
+    competencyGaps: nomination.competencyGaps.map((gap) => ({
+      ...emptyTextRowDraft(gap.text),
+      filled: gap.filled ?? false,
+    })),
     awareness: nomination.awareness,
     goalIds: nomination.goals.map((goal) => String(goal.id)),
   };
@@ -133,7 +140,10 @@ export function toNominationBody(values: SuccessionNominationFormValues): Succes
     candidateId: Number(values.candidateId),
     readiness: values.readiness,
     nominationType: values.nominationType,
-    competencyGaps: values.competencyGaps.map((row) => row.value.trim()),
+    competencyGaps: values.competencyGaps.map((row) => ({
+      text: row.value.trim(),
+      filled: row.filled ?? false,
+    })),
     awareness: values.awareness,
     goalIds: values.goalIds.map(Number),
   };

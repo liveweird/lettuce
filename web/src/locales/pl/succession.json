@@ -99,6 +99,7 @@
   "competencyGapMoveUp": "Przesuń lukę kompetencyjną {{position}} w górę",
   "competencyGapMoveDown": "Przesuń lukę kompetencyjną {{position}} w dół",
   "competencyGapRemove": "Usuń lukę kompetencyjną {{position}}",
+  "competencyGapFilledAria": "Oznacz lukę kompetencyjną {{position}} jako uzupełnioną",
   "developmentGoals": "Działania rozwojowe",
   "developmentGoalsHint": "Cele osobiste kandydata/ki powiązane z tą nominacją.",
   "noLinkedGoals": "Nie powiązano celów rozwojowych.",

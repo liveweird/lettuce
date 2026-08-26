@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.45.0",
+    date: "2026-08-26",
+    en: `Competency gaps track progress now. Each gap on a successor nomination has a checkbox: tick it when the candidate has filled that gap. On the plan's nomination cards, filled gaps show struck through, so a glance at the bench tells you how far each successor's preparation has come. Existing nominations carry on unchanged — their gaps simply start unticked.`,
+    pl: `Luki kompetencyjne pokazują teraz postęp. Każda luka w nominacji następcy ma pole wyboru: zaznacz je, gdy kandydat/ka uzupełni tę lukę. Na kartach nominacji w planie uzupełnione luki są przekreślone, więc jeden rzut oka na ławkę mówi, jak daleko posunęło się przygotowanie każdego następcy. Istniejące nominacje działają bez zmian — ich luki zaczynają po prostu jako niezaznaczone.`,
+  },
+  {
     version: "2.44.0",
     date: "2026-08-26",
     en: `Succession plans got a proper review workflow. Opening a plan from the list (the button now says "Review") lands on a two-tab screen — Basic info and Nominations — where the owner edits everything in place: no separate view and edit modes anymore. Role criticality and retention risk are now colored sliders instead of drop-downs, the bench-depth hint moved into a small info icon, and the criticality/risk badges got a high-contrast look that is actually readable on the list and the plan. Leaving the screen is explicit about what it means: "Complete review" saves your changes and updates the plan's last-reviewed date — now the only thing that ever updates it, so the list truly shows when each plan was last looked at — while "Close" warns you that leaving this way won't count as a review. Closing the plan for good works as before, and deleting now happens from the list.`,
