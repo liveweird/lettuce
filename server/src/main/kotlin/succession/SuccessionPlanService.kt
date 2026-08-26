@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
@@ -46,6 +48,7 @@ private val seatUsers = UserService.Users.alias("seat_users")
 
 // The JSON-array shape of the two ordered short-text list columns (the JsonParams.kt idiom).
 private val textListSerializer = ListSerializer(String.serializer())
+private val gapListSerializer = ListSerializer(SuccessionCompetencyGap.serializer())
 
 private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "id" to SuccessionPlanService.Plans.id,
@@ -252,7 +255,7 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
             it[candidateId] = request.candidateId
             it[readiness] = request.readiness
             it[nominationType] = request.nominationType
-            it[competencyGaps] = cipher.encrypt(encodeTexts(request.competencyGaps))
+            it[competencyGaps] = cipher.encrypt(encodeGaps(request.competencyGaps))
             it[awareness] = request.awareness
             it[createdAt] = now
             it[lastModified] = now
@@ -306,7 +309,7 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
             it[candidateId] = request.candidateId
             it[readiness] = request.readiness
             it[nominationType] = request.nominationType
-            it[competencyGaps] = cipher.encrypt(encodeTexts(request.competencyGaps))
+            it[competencyGaps] = cipher.encrypt(encodeGaps(request.competencyGaps))
             it[awareness] = request.awareness
             it[lastModified] = now
         }
@@ -480,7 +483,7 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
                     candidateName = row[UserService.Users.name],
                     readiness = row[Nominations.readiness],
                     nominationType = row[Nominations.nominationType],
-                    competencyGaps = decodeTexts(cipher.decrypt(row[Nominations.competencyGaps])),
+                    competencyGaps = decodeGaps(cipher.decrypt(row[Nominations.competencyGaps])),
                     awareness = row[Nominations.awareness],
                     goals = emptyList(),
                     createdAt = row[Nominations.createdAt],
@@ -644,6 +647,23 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
 
     private fun decodeTexts(value: String): List<String> =
         listJson.decodeFromString(textListSerializer, value)
+
+    private fun encodeGaps(items: List<SuccessionCompetencyGap>): String =
+        listJson.encodeToString(gapListSerializer, items)
+
+    /**
+     * Lenient gap decode (v2.45.0): pre-flag rows hold plain-string elements — those lift to
+     * `filled = false`; object elements decode normally. Legacy rows are never rewritten in
+     * place (they normalize to the object shape on their next save), so this stays forever —
+     * the `decrypt` plaintext-passthrough class of compatibility.
+     */
+    private fun decodeGaps(value: String): List<SuccessionCompetencyGap> =
+        listJson.parseToJsonElement(value).jsonArray.map { element ->
+            when (element) {
+                is JsonPrimitive -> SuccessionCompetencyGap(text = element.content, filled = false)
+                else -> listJson.decodeFromJsonElement(SuccessionCompetencyGap.serializer(), element)
+            }
+        }
 
     private fun buildPredicate(filter: SuccessionListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE

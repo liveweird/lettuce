@@ -338,7 +338,19 @@ export default function ReviewSuccessionPlan() {
                               <ReadOnlyField label={t("succession.competencyGaps")}>
                                 <List type="ordered" size="sm" spacing={4}>
                                   {nomination.competencyGaps.map((gap, index) => (
-                                    <List.Item key={index}>{gap}</List.Item>
+                                    <List.Item key={index}>
+                                      {/* Filled gaps read as settled — the MilestoneList idiom. */}
+                                      <Text
+                                        span
+                                        size="sm"
+                                        c={gap.filled ? "dimmed" : undefined}
+                                        style={{
+                                          textDecoration: gap.filled ? "line-through" : undefined,
+                                        }}
+                                      >
+                                        {gap.text}
+                                      </Text>
+                                    </List.Item>
                                   ))}
                                 </List>
                               </ReadOnlyField>

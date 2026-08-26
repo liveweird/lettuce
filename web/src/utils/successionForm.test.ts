@@ -42,7 +42,7 @@ const nomination: SuccessionNominationResponse = {
   candidateName: "Cleo",
   readiness: "READY_NOW",
   nominationType: "SECONDARY",
-  competencyGaps: ["Budget ownership"],
+  competencyGaps: [{ text: "Budget ownership", filled: true }],
   awareness: "CONFIDENTIAL",
   goals: [
     { id: 11, title: "Lead on-call", status: "ACTIVE", type: "NUMBER" },
@@ -81,7 +81,7 @@ describe("succession form mapping", () => {
     const body = toNominationBody(values);
     expect(body.candidateId).toBe(4);
     expect(body.goalIds).toEqual([11, 7]);
-    expect(body.competencyGaps).toEqual(["Budget ownership"]);
+    expect(body.competencyGaps).toEqual([{ text: "Budget ownership", filled: true }]);
   });
 
   test("empty defaults: plan CORE/MEDIUM/depth 2, nomination READY_SOON/PRIMARY/IMPLICIT", () => {

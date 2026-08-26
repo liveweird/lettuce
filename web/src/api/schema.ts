@@ -5139,6 +5139,15 @@ export interface components {
             /** @default 2 */
             targetBenchDepth: number;
         };
+        SuccessionCompetencyGap: {
+            /** @description Non-blank short text naming the gap. Encrypted at rest. */
+            text: string;
+            /**
+             * @description The progress flag (v2.45.0): the owner ticks it when the gap has been filled; filled gaps render struck through on the plan's nomination cards. Rows stored before the flag existed decode as not filled.
+             * @default false
+             */
+            filled: boolean;
+        };
         /** @description A light reference to a linked development goal — the plaintext identity fields the client renders as a chip. The goal document itself stays behind the ordinary goal read rules. */
         SuccessionGoalRef: {
             /** Format: int32 */
@@ -5166,10 +5175,10 @@ export interface components {
              */
             nominationType: "PRIMARY" | "SECONDARY" | "CROSS_TEAM";
             /**
-             * @description Ordered short texts naming what the candidate still lacks for the seat (each non-blank, at most 200 characters). Encrypted at rest.
+             * @description Ordered gaps naming what the candidate still lacks for the seat, each with its filled progress flag (wholesale-replaced on every save). Encrypted at rest.
              * @default []
              */
-            competencyGaps: string[];
+            competencyGaps: components["schemas"]["SuccessionCompetencyGap"][];
             /**
              * @description Whether the candidate knows about the nomination — metadata only: whatever the value, the candidate is never notified and never granted any read.
              * @enum {string}
@@ -5193,7 +5202,7 @@ export interface components {
             readiness: "READY_NOW" | "READY_SOON" | "FUTURE_PIPELINE" | "EMERGENCY_INTERIM";
             /** @enum {string} */
             nominationType: "PRIMARY" | "SECONDARY" | "CROSS_TEAM";
-            competencyGaps: string[];
+            competencyGaps: components["schemas"]["SuccessionCompetencyGap"][];
             /** @enum {string} */
             awareness: "TRANSPARENT" | "IMPLICIT" | "CONFIDENTIAL";
             /** @description Linked development goals in stored order; soft-deleted goals drop out. */

@@ -40,31 +40,35 @@
      "Nomination added" toast; back on the Review screen the Basic-info cue reads "1 of 2"
      and the Nominations tab shows the card — AAA Two, the readiness window, the gap, and the
      linked goal as a chip.
-4. They add a second nomination for AAA Three: the nomination type is pre-set to
+4. They edit AAA Two's nomination and tick the competency gap's **filled** checkbox (the
+   v2.45.0 progress flag next to each gap), then Save.
+   - *Expected*: a "Nomination updated" toast; back on the Nominations tab the filled gap
+     renders **struck through** (and dimmed) on the read-only card — unfilled gaps stay plain.
+5. They add a second nomination for AAA Three: the nomination type is pre-set to
    **Secondary** (the plan already holds a primary); they switch it to **Primary** and
    submit.
    - *Expected*: a confirmation dialog explains that AAA Two is currently the primary
      successor and continuing via **Make primary** demotes them; after continuing, the
      "Nomination added" toast shows, the Nominations tab lists AAA Three as the only Primary
      with AAA Two now Secondary, and the 2-of-2 bench retires the under-target cue.
-5. They click **Complete review**.
+6. They click **Complete review**.
    - *Expected*: a "Review completed" toast (the plan's last-reviewed date is stamped — the
      ONLY thing that updates it besides creation) and a return to the Succession plans list,
      where the row shows the filled Critical/High badges and a **Review** action (there is no
      Edit action anymore).
-6. They re-enter the plan via **Review** and leave via **Close**.
+7. They re-enter the plan via **Review** and leave via **Close**.
    - *Expected*: a warning dialog says closing the screen will not count as a review of the
      plan; confirming with **Leave** returns to the list without touching the plan.
-7. Manager AAA signs out; AAA One (the seat's person) signs in.
+8. Manager AAA signs out; AAA One (the seat's person) signs in.
    - *Expected*: no "Succession plans" leaf in their navigation (they manage nobody), and a
      direct visit to `/succession` shows only an empty "My plans" list — the feature is
      invisible to its subjects.
-8. AAA One signs out; Manager AAA signs back in, opens the plan, clicks **Close plan**, and
+9. AAA One signs out; Manager AAA signs back in, opens the plan, clicks **Close plan**, and
    confirms.
    - *Expected*: a "Succession plan closed" toast; the closed note shows, the Complete-review
      and Add-nomination affordances are gone, and the bench (the gap text included) stays
      browsable on the Nominations tab.
-9. They close the read-only screen and delete the plan **from the list row**, confirming the
+10. They close the read-only screen and delete the plan **from the list row**, confirming the
    dialog.
    - *Expected*: a "Succession plan deleted" toast on the Succession plans list — the Review
      screen itself no longer offers Delete.

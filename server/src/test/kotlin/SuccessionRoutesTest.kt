@@ -8,6 +8,7 @@ import ch.nokillswit.succession.CandidateAwareness
 import ch.nokillswit.succession.NominationType
 import ch.nokillswit.succession.RetentionRisk
 import ch.nokillswit.succession.RoleCriticality
+import ch.nokillswit.succession.SuccessionCompetencyGap
 import ch.nokillswit.succession.SuccessionNominationRequest
 import ch.nokillswit.succession.SuccessionNominationResponse
 import ch.nokillswit.succession.SuccessionPlanCreateRequest
@@ -89,7 +90,7 @@ class SuccessionRoutesTest {
         candidateId: UInt,
         readiness: SuccessorReadiness = SuccessorReadiness.READY_SOON,
         nominationType: NominationType = NominationType.PRIMARY,
-        competencyGaps: List<String> = listOf("Stakeholder management"),
+        competencyGaps: List<SuccessionCompetencyGap> = listOf(SuccessionCompetencyGap("Stakeholder management")),
         awareness: CandidateAwareness = CandidateAwareness.IMPLICIT,
         goalIds: List<UInt> = emptyList(),
     ) = SuccessionNominationRequest(
@@ -468,7 +469,7 @@ class SuccessionRoutesTest {
             assertEquals("Cleo Candidate", created.candidateName)
             assertEquals(SuccessorReadiness.READY_SOON, created.readiness)
             assertEquals(NominationType.PRIMARY, created.nominationType)
-            assertEquals(listOf("Stakeholder management"), created.competencyGaps)
+            assertEquals(listOf(SuccessionCompetencyGap("Stakeholder management")), created.competencyGaps)
             assertEquals(CandidateAwareness.IMPLICIT, created.awareness)
             // Payload order IS the order.
             assertEquals(listOf(goalB, goalA), created.goals.map { it.id })
@@ -488,7 +489,10 @@ class SuccessionRoutesTest {
                         chain.candidateId,
                         readiness = SuccessorReadiness.READY_NOW,
                         nominationType = NominationType.SECONDARY,
-                        competencyGaps = listOf("Budget ownership", "Hiring"),
+                        competencyGaps = listOf(
+                            SuccessionCompetencyGap("Budget ownership", filled = true),
+                            SuccessionCompetencyGap("Hiring"),
+                        ),
                         awareness = CandidateAwareness.TRANSPARENT,
                         goalIds = listOf(goalA),
                     ),
@@ -498,7 +502,13 @@ class SuccessionRoutesTest {
             val edited = manager.readPlan(plan.id).nominations.single()
             assertEquals(SuccessorReadiness.READY_NOW, edited.readiness)
             assertEquals(NominationType.SECONDARY, edited.nominationType)
-            assertEquals(listOf("Budget ownership", "Hiring"), edited.competencyGaps)
+            assertEquals(
+                listOf(
+                    SuccessionCompetencyGap("Budget ownership", filled = true),
+                    SuccessionCompetencyGap("Hiring", filled = false),
+                ),
+                edited.competencyGaps,
+            )
             assertEquals(CandidateAwareness.TRANSPARENT, edited.awareness)
             assertEquals(listOf(goalA), edited.goals.map { it.id })
 
@@ -613,7 +623,7 @@ class SuccessionRoutesTest {
         // Gap-list validation matches the plan's (shared bounds).
         assertEquals(
             HttpStatusCode.BadRequest,
-            nominateStatus(nominationBody(chain.grandId, competencyGaps = listOf(" "))),
+            nominateStatus(nominationBody(chain.grandId, competencyGaps = listOf(SuccessionCompetencyGap(" ")))),
         )
         // Duplicate goal ids are rejected up-front.
         assertEquals(

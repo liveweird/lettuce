@@ -24,7 +24,7 @@ const NOMINATION = {
   candidateName: "Cleo Candidate",
   readiness: "READY_SOON",
   nominationType: "PRIMARY",
-  competencyGaps: ["Stakeholder management"],
+  competencyGaps: [{ text: "Stakeholder management", filled: false }],
   awareness: "IMPLICIT",
   goals: [{ id: 11, title: "Lead the on-call rotation", status: "ACTIVE", type: "NUMBER" }],
   createdAt: 1,
@@ -239,6 +239,8 @@ describe("EditSuccessionNomination page", () => {
 
     await user.click(screen.getByLabelText("Candidate awareness", { selector: "input" }));
     await user.click(await screen.findByRole("option", { name: "Transparent" }));
+    // Tick the gap's filled progress flag (v2.45.0) — it rides the same PUT.
+    await user.click(screen.getByLabelText("Mark competency gap 1 as filled"));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -252,7 +254,7 @@ describe("EditSuccessionNomination page", () => {
         candidateId: 9,
         readiness: "READY_SOON",
         nominationType: "PRIMARY",
-        competencyGaps: ["Stakeholder management"],
+        competencyGaps: [{ text: "Stakeholder management", filled: true }],
         awareness: "TRANSPARENT",
         goalIds: [11],
       });

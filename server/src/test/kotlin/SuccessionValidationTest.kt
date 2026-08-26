@@ -2,6 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.succession.CandidateAwareness
 import ch.nokillswit.succession.NominationType
+import ch.nokillswit.succession.SuccessionCompetencyGap
 import ch.nokillswit.succession.SuccessionNominationRequest
 import ch.nokillswit.succession.SuccessorReadiness
 import ch.nokillswit.succession.validateNomination
@@ -16,7 +17,7 @@ class SuccessionValidationTest {
 
     private fun nomination(
         candidateId: UInt = 2u,
-        competencyGaps: List<String> = listOf("Delegation"),
+        competencyGaps: List<SuccessionCompetencyGap> = listOf(SuccessionCompetencyGap("Delegation")),
         goalIds: List<UInt> = emptyList(),
     ) = SuccessionNominationRequest(
         candidateId = candidateId,
@@ -49,12 +50,12 @@ class SuccessionValidationTest {
 
         val self = assertFailsWith<BadRequestException> { validateNomination(nomination(candidateId = 1u), 1u) }
         assertTrue(self.message!!.contains("successor"))
-        assertFailsWith<BadRequestException> { validateNomination(nomination(competencyGaps = listOf(" ")), 1u) }
+        assertFailsWith<BadRequestException> { validateNomination(nomination(competencyGaps = listOf(SuccessionCompetencyGap(" "))), 1u) }
         assertFailsWith<BadRequestException> {
-            validateNomination(nomination(competencyGaps = listOf("x".repeat(201))), 1u)
+            validateNomination(nomination(competencyGaps = listOf(SuccessionCompetencyGap("x".repeat(201)))), 1u)
         }
         assertFailsWith<BadRequestException> {
-            validateNomination(nomination(competencyGaps = List(21) { "g$it" }), 1u)
+            validateNomination(nomination(competencyGaps = List(21) { SuccessionCompetencyGap("g$it") }), 1u)
         }
         val dup = assertFailsWith<BadRequestException> {
             validateNomination(nomination(goalIds = listOf(5u, 6u, 5u)), 1u)

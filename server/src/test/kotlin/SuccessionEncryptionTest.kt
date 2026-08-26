@@ -6,6 +6,7 @@ import ch.nokillswit.succession.CandidateAwareness
 import ch.nokillswit.succession.NominationType
 import ch.nokillswit.succession.RetentionRisk
 import ch.nokillswit.succession.RoleCriticality
+import ch.nokillswit.succession.SuccessionCompetencyGap
 import ch.nokillswit.succession.SuccessionNominationRequest
 import ch.nokillswit.succession.SuccessionPlanCreateRequest
 import ch.nokillswit.succession.SuccessionPlanResponse
@@ -87,7 +88,7 @@ class SuccessionEncryptionTest {
                     candidateId = candidateId,
                     readiness = SuccessorReadiness.READY_SOON,
                     nominationType = NominationType.PRIMARY,
-                    competencyGaps = listOf("Confidential gap: no budget experience"),
+                    competencyGaps = listOf(SuccessionCompetencyGap("Confidential gap: no budget experience", filled = true)),
                     awareness = CandidateAwareness.CONFIDENTIAL,
                 ),
             )
@@ -105,7 +106,7 @@ class SuccessionEncryptionTest {
         val fetched = manager.get("/api/v1/succession-plans/${plan.id}").body<SuccessionPlanResponse>()
         assertEquals(listOf("Confidential impact: sole payments approver"), fetched.lossImpact)
         assertEquals(
-            listOf("Confidential gap: no budget experience"),
+            listOf(SuccessionCompetencyGap("Confidential gap: no budget experience", filled = true)),
             fetched.nominations.single().competencyGaps,
         )
     }
@@ -150,7 +151,11 @@ class SuccessionEncryptionTest {
         // The plaintext survives the wrap.
         val read = TestServices.successionPlans.read(legacyPlanId)!!
         assertEquals(listOf("legacy plain impact"), read.lossImpact)
-        assertEquals(listOf("legacy plain gap"), read.nominations.single().competencyGaps)
+        // The pre-flag STRING element shape lifts to filled = false (the lenient decode).
+        assertEquals(
+            listOf(SuccessionCompetencyGap("legacy plain gap", filled = false)),
+            read.nominations.single().competencyGaps,
+        )
         // Idempotent: a second pass finds nothing legacy.
         assertEquals(0, TestServices.successionPlans.encryptLegacyRows())
 

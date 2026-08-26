@@ -7972,6 +7972,23 @@ components:
           maximum: 10
           default: 2
 
+    SuccessionCompetencyGap:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Non-blank short text naming the gap. Encrypted at rest.
+        filled:
+          type: boolean
+          default: false
+          description: >-
+            The progress flag (v2.45.0): the owner ticks it when the gap has been filled;
+            filled gaps render struck through on the plan's nomination cards. Rows stored
+            before the flag existed decode as not filled.
+
     SuccessionGoalRef:
       type: object
       required: [id, title, status, type]
@@ -8016,11 +8033,11 @@ components:
         competencyGaps:
           type: array
           maxItems: 20
-          items: { type: string, maxLength: 200 }
+          items: { $ref: '#/components/schemas/SuccessionCompetencyGap' }
           default: []
           description: >-
-            Ordered short texts naming what the candidate still lacks for the seat (each
-            non-blank, at most 200 characters). Encrypted at rest.
+            Ordered gaps naming what the candidate still lacks for the seat, each with its
+            filled progress flag (wholesale-replaced on every save). Encrypted at rest.
         awareness:
           type: string
           enum: [TRANSPARENT, IMPLICIT, CONFIDENTIAL]
@@ -8053,7 +8070,7 @@ components:
           enum: [PRIMARY, SECONDARY, CROSS_TEAM]
         competencyGaps:
           type: array
-          items: { type: string }
+          items: { $ref: '#/components/schemas/SuccessionCompetencyGap' }
         awareness:
           type: string
           enum: [TRANSPARENT, IMPLICIT, CONFIDENTIAL]

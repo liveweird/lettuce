@@ -297,6 +297,11 @@ function NominationForm({
             moveDown: (position) => t("succession.competencyGapMoveDown", { position }),
             remove: (position) => t("succession.competencyGapRemove", { position }),
           }}
+          flag={{
+            aria: (position) => t("succession.competencyGapFilledAria", { position }),
+            onToggle: (index, checked) =>
+              form.setFieldValue(`competencyGaps.${index}.filled`, checked),
+          }}
         />
 
         <Stack gap={6}>

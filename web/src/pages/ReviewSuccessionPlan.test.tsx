@@ -37,7 +37,10 @@ const PLAN = {
       candidateName: "Cleo Candidate",
       readiness: "READY_SOON",
       nominationType: "PRIMARY",
-      competencyGaps: ["Stakeholder management"],
+      competencyGaps: [
+        { text: "Stakeholder management", filled: true },
+        { text: "Budget ownership", filled: false },
+      ],
       awareness: "CONFIDENTIAL",
       goals: [{ id: 11, title: "Lead the on-call rotation", status: "ACTIVE", type: "NUMBER" }],
       createdAt: 1,
@@ -129,7 +132,13 @@ describe("ReviewSuccessionPlan page", () => {
     expect(screen.getByLabelText("Edit the nomination of Cleo Candidate")).toBeInTheDocument();
     expect(screen.getByLabelText("Delete the nomination of Cleo Candidate")).toBeInTheDocument();
     expect(screen.getByText("Ready soon (3–12 mo)")).toBeInTheDocument();
-    expect(screen.getByText("Stakeholder management")).toBeInTheDocument();
+    // Filled gaps read as settled: struck through + dimmed; open ones stay plain (v2.45.0).
+    expect(screen.getByText("Stakeholder management")).toHaveStyle({
+      textDecoration: "line-through",
+    });
+    expect(screen.getByText("Budget ownership")).not.toHaveStyle({
+      textDecoration: "line-through",
+    });
     expect(
       screen.getByRole("link", { name: "Open the goal Lead the on-call rotation" }),
     ).toHaveAttribute("href", "/goals/11/view?back=%2Fsuccession%2F5%2Fview");
