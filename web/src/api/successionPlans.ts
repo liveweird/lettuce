@@ -126,6 +126,22 @@ export async function deleteSuccessionNomination(
   });
 }
 
+/**
+ * ALL of the caller's own OPEN plans (the listAllTeamMembers paging-loop shape) — the pool
+ * behind the person-card "Succession plan" button (v2.47.0). `view=own` implies ownership;
+ * OPEN-only keeps the (person → plan) mapping unique (the V68 one-OPEN-per-pair invariant).
+ */
+export async function listAllOwnOpenSuccessionPlans(): Promise<SuccessionPlanListItem[]> {
+  const items: SuccessionPlanListItem[] = [];
+  let page = 1;
+  for (;;) {
+    const result = await listSuccessionPlans({ view: "own", status: "OPEN", page, pageSize: 100 });
+    items.push(...result.items);
+    if (items.length >= result.total || result.items.length === 0) return items;
+    page += 1;
+  }
+}
+
 type SuccessionPlanEventList =
   paths["/api/v1/succession-plans/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type SuccessionPlanEvent = SuccessionPlanEventList["items"][number];

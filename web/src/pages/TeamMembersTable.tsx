@@ -11,6 +11,7 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconArrowDown, IconArrowUp, IconUsersGroup } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useOwnSuccessionPlans } from "../hooks/useOwnSuccessionPlans";
 import { canAudit } from "../api/session";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/teams";
 import ClearableTextInput from "../components/ClearableTextInput";
@@ -140,6 +141,9 @@ export default function TeamMembersTable({
   // One card per person; a member of two of the caller's teams gets aggregated team badges.
   // PaginationBar still shows the server total (memberships), which can slightly exceed the
   // card count on a page — acceptable at this app's scale.
+  // The viewer's own OPEN succession plans (v2.47.0) — managed view only.
+  const { openPlanByUserId } = useOwnSuccessionPlans(view === "managed");
+
   const people = groupTeamRows(data?.items ?? []);
 
   const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -256,10 +260,13 @@ export default function TeamMembersTable({
                     // Embeddings return the drill-downs to their exact host URL (origin query
                     // included) — the v1.39.0 back= override; the label stays the origin's.
                     drillBack: backToProp,
+                    successionPlanId: openPlanByUserId.get(m.userId),
                     show: {
                       // Career timeline reads are self/chain/HR-only since v2.25.0: managed
                       // rows are the caller's chain; peers only for auditors.
                       career: view === "managed" || canAudit(),
+                      // v2.47.0: only when the viewer OWNS an open plan for this person.
+                      succession: view === "managed" && openPlanByUserId.has(m.userId),
                       provide: true,
                       ask: true,
                       request: view === "managed",

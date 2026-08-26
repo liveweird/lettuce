@@ -54,10 +54,19 @@ function teamsPage(): Response {
   return jsonResponse(200, { items: SEED_TEAMS, page: 1, pageSize: 100, total: SEED_TEAMS.length });
 }
 
-function setupMocks(mockFetch: FetchMock, response: Response = membersPage(SEED_MEMBERS)) {
+function setupMocks(
+  mockFetch: FetchMock,
+  response: Response = membersPage(SEED_MEMBERS),
+  ownPlans: Array<{ id: number; userId: number }> = [],
+) {
   mockFetch.mockImplementation((url: string) => {
     const path = String(url);
     if (path.startsWith("/api/v1/teams/members")) return Promise.resolve(response.clone());
+    if (path.startsWith("/api/v1/succession-plans")) {
+      return Promise.resolve(
+        jsonResponse(200, { items: ownPlans, page: 1, pageSize: 100, total: ownPlans.length }),
+      );
+    }
     if (path.startsWith("/api/v1/teams")) return Promise.resolve(teamsPage());
     return Promise.resolve(jsonResponse(404, {}));
   });
@@ -374,6 +383,27 @@ describe("TeamMembersTable", () => {
     const link = await screen.findByRole("link", { name: /days off of bob brown/i });
     expect(link.getAttribute("href")).toContain("/users/11/days-off");
     expect(link.getAttribute("href")).toContain("from=subordinates");
+  });
+
+  test("managed cards link the viewer's own OPEN succession plan; plan-less rows stay bare (v2.47.0)", async () => {
+    setupMocks(mockFetch, membersPage(SEED_MEMBERS), [{ id: 9, userId: 11 }]);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+
+    const link = await screen.findByRole("link", { name: "Succession plan for Bob Brown" });
+    expect(link.getAttribute("href")).toContain("/succession/9/view");
+    // Alice has no plan in the pool — no button on her card.
+    expect(screen.queryByRole("link", { name: "Succession plan for Alice Adams" })).toBeNull();
+  });
+
+  test("the peers view never shows a succession-plan button (the pool never even loads)", async () => {
+    setupMocks(mockFetch, membersPage([SEED_MEMBERS[1]]), [{ id: 9, userId: 11 }]);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No team members" />);
+
+    await screen.findByText("Bob Brown");
+    expect(screen.queryByRole("link", { name: "Succession plan for Bob Brown" })).toBeNull();
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).startsWith("/api/v1/succession-plans")),
+    ).toBe(false);
   });
 
   test("the all-reports scope keeps the career column even though the stats disappear", async () => {

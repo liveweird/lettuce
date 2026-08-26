@@ -14,7 +14,7 @@
   never mutated
 - **Since**: v2.42.0 (the feature's introduction); the one-primary confirm-demote step joined
   in v2.43.0; the Review-screen flow (sliders, tabs, Complete review / Close warning,
-  list-only Delete) in v2.44.0; the History tab (the house event trail) in v2.46.0
+  list-only Delete) in v2.44.0; the History tab (the house event trail) in v2.46.0; the person-card Succession-plan button in v2.47.0
 
 ## Scenario: a manager plans a succession, nominates a successor with a linked development goal, and closes the plan
 
@@ -57,24 +57,28 @@
      one-primary demotion of AAA Two — every entry with its actor and timestamp; the trail is
      readable by exactly the plan's readers (the seat's person and candidates still see
      nothing, and no notifications accompany it).
-7. They click **Complete review**.
+7. They open the Dashboard's subordinates tab.
+   - *Expected*: AAA One's person card carries a **"Succession plan"** button beside Career
+     progression (the viewer owns an OPEN plan for them) linking straight to the plan's
+     Review screen; AAA Two's card — a candidate, not a seat — has no such button.
+8. They click **Complete review**.
    - *Expected*: a "Review completed" toast (the plan's last-reviewed date is stamped — the
      ONLY thing that updates it besides creation) and a return to the Succession plans list,
      where the row shows the filled Critical/High badges and a **Review** action (there is no
      Edit action anymore).
-8. They re-enter the plan via **Review** and leave via **Close**.
+9. They re-enter the plan via **Review** and leave via **Close**.
    - *Expected*: a warning dialog says closing the screen will not count as a review of the
      plan; confirming with **Leave** returns to the list without touching the plan.
-9. Manager AAA signs out; AAA One (the seat's person) signs in.
+10. Manager AAA signs out; AAA One (the seat's person) signs in.
    - *Expected*: no "Succession plans" leaf in their navigation (they manage nobody), and a
      direct visit to `/succession` shows only an empty "My plans" list — the feature is
      invisible to its subjects.
-10. AAA One signs out; Manager AAA signs back in, opens the plan, clicks **Close plan**, and
+11. AAA One signs out; Manager AAA signs back in, opens the plan, clicks **Close plan**, and
    confirms.
    - *Expected*: a "Succession plan closed" toast; the closed note shows, the Complete-review
      and Add-nomination affordances are gone, and the bench (the gap text included) stays
      browsable on the Nominations tab.
-11. They close the read-only screen and delete the plan **from the list row**, confirming the
+12. They close the read-only screen and delete the plan **from the list row**, confirming the
    dialog.
    - *Expected*: a "Succession plan deleted" toast on the Succession plans list — the Review
      screen itself no longer offers Delete.

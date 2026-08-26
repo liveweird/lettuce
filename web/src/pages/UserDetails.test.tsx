@@ -88,6 +88,8 @@ function mockApi(
       seniorityLevel?: { id: number; values: { en: string; pl?: string } } | null;
     }>;
     teams?: Array<{ id: number; name: string }>;
+    // The viewer's own OPEN plans pool (v2.47.0) — {planId, seat userId} pairs.
+    ownPlans?: Array<{ id: number; userId: number }>;
   },
 ) {
   mockFetch.mockImplementation((url: string) => {
@@ -101,6 +103,9 @@ function mockApi(
       return Promise.resolve(page(items ?? []));
     }
     if (u.startsWith("/api/v1/users?")) return Promise.resolve(page(opts.users ?? []));
+    if (u.startsWith("/api/v1/succession-plans?")) {
+      return Promise.resolve(page((opts.ownPlans ?? []).map((p) => ({ ...p, userName: "x" }))));
+    }
     if (u.startsWith("/api/v1/teams?")) return Promise.resolve(page(opts.teams ?? []));
     return Promise.resolve(jsonResponse(404, {}));
   });
@@ -197,6 +202,22 @@ describe("UserDetails page", () => {
     expect(screen.getByText("Collaboration")).toBeInTheDocument();
     expect(screen.getByText("Performance")).toBeInTheDocument();
     expect(screen.getAllByText("Days off")).toHaveLength(2);
+    // No OPEN plan for Bob in the viewer's pool → no Succession-plan button (v2.47.0).
+    expect(screen.queryByRole("link", { name: "Succession plan for Bob" })).toBeNull();
+  });
+
+  test("the subordinate card links the viewer's own OPEN succession plan for the person (v2.47.0)", async () => {
+    mockApi(mockFetch, {
+      managed: [{ ...BOB_ROW, activeGoalCount: 0 }],
+      ownPlans: [{ id: 9, userId: 5 }],
+    });
+    renderDetails();
+
+    expect(await screen.findByText("One of your subordinates")).toBeInTheDocument();
+    // Beside Career progression in the Profile row, linking the plan's Review screen.
+    expect(
+      await screen.findByRole("link", { name: "Succession plan for Bob" }),
+    ).toHaveAttribute("href", `/succession/9/view?back=${BACK_HERE}`);
   });
 
   test("a user found in the member view renders the peer-flavored card", async () => {

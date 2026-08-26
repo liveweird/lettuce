@@ -70,6 +70,10 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     impactLog: { aria: "teams.impactLogForAria", text: "teams.impactLog" },
     // v1.44.0: the manager-side per-report days-off drill-down.
     daysOff: { aria: "teams.daysOffForAria", text: "teams.daysOff" },
+    // v2.47.0: the viewer's own OPEN plan for this person (pool-gated by the caller — the
+    // show flag is set only when useOwnSuccessionPlans has a match, so the href's plan id
+    // is always present when the button renders).
+    succession: { aria: "teams.successionPlanForAria", text: "teams.successionPlan" },
   },
   audit: {
     feedbacks: { aria: "users.audit.feedbacksAria", text: "users.feedbacks" },
@@ -80,8 +84,9 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     daysOff: { aria: "users.audit.daysOffAria", text: "users.daysOff" },
     // v2.36.0: the whole-journal auditor view (view=user server-side, audit-logged).
     impactLog: { aria: "users.audit.impactLogAria", text: "users.impactLog" },
-    // v2.42.0: every succession plan the person is a party to (seat or owner) — audit-only:
-    // the card flavors never carry it (a manager reads plans on the Succession page itself).
+    // v2.42.0: every succession plan the person is a party to (seat or owner). Since
+    // v2.47.0 the manages flavors carry the key too (the teams table above) — there it is
+    // the viewer's own OPEN plan for the person, linked directly.
     succession: { aria: "users.audit.successionAria", text: "users.successionPlans" },
   },
 };
@@ -124,7 +129,7 @@ export const ACTION_GROUPS: readonly ActionGroup[] = [
 // their labeled sections via the `only` prop. The fixed button order splits cleanly at the
 // section boundaries (career | …goals | reviews | daysOff), so the overall button order
 // across a card is unchanged from the flat-footer era.
-export const PROFILE_ACTIONS: readonly ButtonKey[] = ["career"];
+export const PROFILE_ACTIONS: readonly ButtonKey[] = ["career", "succession"];
 export const OPERATIONAL_ACTIONS: readonly ButtonKey[] = [
   "provide",
   "ask",

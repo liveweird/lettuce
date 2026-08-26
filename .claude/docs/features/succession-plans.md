@@ -155,7 +155,14 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   out-of-pool goals stay selectable) plus the **"New development goal" Modal**
   (`GoalDefinitionFields` embedded — creates a DRAFT for the candidate, auto-selects it =
   linked by default, no navigation; shown only when the candidate is in the caller's
-  `useManagedReports` pool, since the server would 403 the create). HR audit drill-down
+  `useManagedReports` pool, since the server would 403 the create). **Person-card entry point (v2.47.0)**: the manages-flavor cards (the dashboard
+  subordinates grid + UserDetails' direct-report flavor) carry a **"Succession plan"** button
+  beside Career progression in the Profile row — rendered ONLY when the viewer OWNS an OPEN
+  plan for that person (the `useOwnSuccessionPlans` pool: `["succession","ownOpenByUser"]`
+  over `view=own&status=OPEN`, all pages; the `["succession"]` prefix auto-invalidates on
+  every plan mutation) and linking straight to `/succession/{planId}/view`. The `succession`
+  ButtonKey is thereby flavor-split: manages = the owner's plan link (`teams.successionPlan*`
+  labels, `successionPlanId` prop), audit = the per-person drill-down as before. HR audit drill-down
   `/users/:userId/succession?mode=audit` (`UserSuccessionPlans.tsx`, `view="user"`) via the
   User-details Audit block (`succession` ButtonKey in `personCardSupport.ts` — audit-flavor
   labels only, `FEATURE_OF` = SUCCESSION_PLANS; remember `auditBlockHasActions` lists it).
