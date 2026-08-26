@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -99,10 +99,14 @@ describe("CreateSuccessionPlan page", () => {
     await user.click(screen.getByLabelText("Person", { selector: "input" }));
     await user.click(await screen.findByRole("option", { name: "Sam Seat" }));
 
-    await user.click(screen.getByLabelText("Role criticality", { selector: "input" }));
-    await user.click(await screen.findByRole("option", { name: "Critical" }));
-    await user.click(screen.getByLabelText("Retention risk", { selector: "input" }));
-    await user.click(await screen.findByRole("option", { name: "High" }));
+    // The sliders (v2.44.0): defaults CORE/MEDIUM sit mid-scale; one ArrowRight promotes
+    // each to the severe end (the CareerPyramid keyboard-driving idiom).
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Role criticality" }), {
+      key: "ArrowRight",
+    });
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Retention risk" }), {
+      key: "ArrowRight",
+    });
 
     await user.click(screen.getByRole("button", { name: "Add impact item" }));
     await user.type(screen.getByLabelText("Loss-impact item 1"), "Client trust");

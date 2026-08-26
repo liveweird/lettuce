@@ -33,9 +33,11 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
 - **Lifecycle**: OPEN → CLOSED via `POST …/{id}/close` — **terminal** (repeat close → 409, no
   reopen); a CLOSED plan stays browsable but every mutation (plan PUT, nomination
   POST/PUT/DELETE) answers 409 "A closed succession plan is read-only"; DELETE (soft) stays
-  available at any status. `last_reviewed_at` is stamped at create and **bumped by every
-  plan/nomination mutation in the same transaction** (editing IS reviewing — the user's
-  definition); closing deliberately does NOT bump it. No event tables (the days-off class —
+  available at any status. `last_reviewed_at` is stamped at create and updated **ONLY by the
+  explicit review action `POST …/{id}/complete-review`** (v2.44.0 — owner-only, OPEN-only 409,
+  repeatable; the v2.42.0 editing-is-reviewing model is REVERSED by the user: plan/nomination
+  mutations and closing never touch the stamp; the V68 SQL comment saying otherwise is
+  historical — Flyway checksums freeze it). No event tables (the days-off class —
   HR reads are still audited) and **NO notifications of any kind** (deliberate: confidential,
   pull-not-push; the SPA's invalidation skips the bell).
 - **Bench math (user decision)**: `benchCount` counts ALL active nominations — emergency
@@ -86,22 +88,39 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   reaches the feature via the Audit drill-down instead; a non-manager's direct visit renders
   the empty own list — no async redirect race, the MyGoals-own precedent). `/succession`
   (`SuccessionPlans.tsx`, the ImpactLog two-tab shape): "My plans" (`SuccessionPlanTable
-  view="own"` — row actions View + owner's Edit (OPEN only)/Delete via
-  `useDeleteConfirm`; footer "New plan", managers only) and — managers only — "My
-  subordinates' plans" (`view="team"`, read-only, `withReportsScope` → `includeIndirect`).
-  Columns: seat person, Criticality/Retention-risk badges (`components/SuccessionBadges.tsx` —
-  CRITICAL red.7/CORE orange.6/STANDARD gray.6; HIGH orange.8/MEDIUM yellow.6/LOW teal),
-  **Bench** ("n / target" `BenchBadge`, orange under target / teal met), Status (OPEN
-  teal/CLOSED gray), **Last reviewed** (`formatRelativeTime` + absolute `title` — the house
-  relative-time idiom). `/succession/new` + `/succession/:id/edit` share
-  `components/SuccessionPlanFields.tsx` (criticality/risk Selects, bench-depth NumberInput,
+  view="own"` — row actions are **Review** (everyone; the screen renders read-only where the
+  caller can't write) **+ the owner's Delete** (any status, `useDeleteConfirm`) since v2.44.0
+  — there is NO Edit action or edit page anymore; footer "New plan", managers only) and —
+  managers only — "My subordinates' plans" (`view="team"`, read-only, `withReportsScope` →
+  `includeIndirect`). Columns: seat person, Criticality/Retention-risk badges
+  (`components/SuccessionBadges.tsx` — CRITICAL red.7/CORE orange.6/STANDARD gray.6; HIGH
+  orange.8/MEDIUM yellow.6/LOW teal; **the two severity badges are `variant="filled"` +
+  `autoContrast`** since v2.44.0 — the light variant was unreadable on yellow/orange — and
+  their color maps are exported for the definition sliders), **Bench** ("n / target"
+  `BenchBadge`, orange under target / teal met), Status (OPEN teal/CLOSED gray), **Last
+  reviewed** (`formatRelativeTime` + absolute `title` — the house relative-time idiom).
+  `/succession/new` and the Review screen share `components/SuccessionPlanFields.tsx`
+  (v2.44.0: criticality/risk as **discrete 3-stop `Slider`s** — mild→severe left-to-right,
+  marks = the enum labels, track colored from the badge maps, aria via `thumbLabel` (the
+  CareerPyramid rule), driven by keyboard in tests; the bench-depth NumberInput's hint moved
+  from `description` into a `HintIcon` (the PulseTeamResultCard reusable) beside the label;
   and the loss-impact list via **`components/OrderedTextListEditor.tsx`** — the
   GoalMilestonesEditor generalized over the form type, reusing `RowControls`; used again for
-  competency gaps). `/succession/:id/view` (`ViewSuccessionPlan.tsx`) — the whole document:
-  badges, the orange under-bench Alert, the ordered lists, one Paper card per nomination with
-  linked-goal chips → `goalViewLink`; owner+OPEN affordances Edit/Close
-  (`ConfirmActionModal`)/Add-nomination/per-card Edit+Delete; Delete available at any status;
-  closed → gray read-only note. The nomination editor `/succession/:id/nominations/new` +
+  competency gaps). **`/succession/:id/view` is the Review screen**
+  (`ReviewSuccessionPlan.tsx`, v2.44.0 — the former read-only view + `/succession/:id/edit`
+  page folded into one, no view/edit switching): two Tabs (`keepMounted={false}`, the
+  EditGoal-inside-form idiom) — **Basic info** (party row + Last reviewed; the definition
+  INLINE-EDITABLE via a page-level `useForm` + `SuccessionPlanFields` for the owner of an
+  OPEN plan, the read-only badge/list render otherwise; the under-bench Alert lives here) and
+  **Nominations** (the bench badge, the Paper cards with linked-goal chips → `goalViewLink`;
+  owner+OPEN keeps always-visible Add/per-card Edit+Delete navigating to the nomination
+  editor). Footer (owner+OPEN, in order): **Close** — ConfirmActionModal warning the visit
+  won't count as a review (+ an unsaved-changes sentence when the form is dirty), confirm =
+  Leave; **Complete review** — validates, PUTs the definition only when dirty, then POSTs
+  `complete-review`, toasts `succession.toast.reviewed`, exits; **Close plan** — the
+  unchanged confirm + close, the screen re-renders read-only in place. Non-owners and CLOSED
+  plans get a single plain Close; **plan Delete lives on the list only**. The nomination
+  editor `/succession/:id/nominations/new` +
   `…/:nominationId/edit` (`EditSuccessionNomination.tsx`, one screen both modes): candidate
   Select over `useAllUsers` minus the seat person/deactivated/already-nominated, the three
   enum Selects, the gaps list, and the **Development action items MultiSelect** over
@@ -119,11 +138,14 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   `succession.own`/`succession.team`/`userSuccession.audit`.
 - **Tests**: `SuccessionRoutesTest` (create round-trip + chain 403 + deactivated 400 +
   duplicate-open 409, the read matrix incl. the seat-person/candidate 403s, owner-only writes,
-  the closed-plan 409 matrix, nomination CRUD + candidate rules + the goal-link 400 matrix +
-  reviewed-stamp bumps, the three list views + filters, the no-notifications pin),
-  `SuccessionValidationTest` (pure), `SuccessionEncryptionTest` (envelopes on both JSON
+  the closed-plan 409 matrix, nomination CRUD + candidate rules + the goal-link 400 matrix,
+  the mutations-never-touch-the-stamp pins + the `complete review` matrix (sole stamp writer,
+  owner-only, OPEN-only, repeatable), the three list views + filters, the no-notifications
+  pin), `SuccessionValidationTest` (pure), `SuccessionEncryptionTest` (envelopes on both JSON
   columns, backfill + rotation), `GuardsTest` succession section, the FeatureFlagsTest gate
-  probes. SPA: the six page tests + `SuccessionBadges`/`OrderedTextListEditor` component tests
-  + `successionForm.test.ts` + the App nav-gate and Tour cases; e2e `succession.spec.ts` (owns
-  Manager AAA's plans — seat AAA One, candidate AAA Two — and the modal-created goal for the
-  (Manager AAA, AAA Two) pair).
+  probes. SPA: the five page tests (`ReviewSuccessionPlan.test.tsx` covers the tabs, the
+  slider fields, the Complete-review save+stamp flows, and the Close warning) +
+  `SuccessionBadges`/`OrderedTextListEditor` component tests + `successionForm.test.ts` + the
+  App nav-gate and Tour cases; e2e `succession.spec.ts` (owns Manager AAA's plans — seat AAA
+  One, candidates AAA Two/Three — and the modal-created goal for the (Manager AAA, AAA Two)
+  pair).

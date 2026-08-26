@@ -45,6 +45,10 @@ class SuccessionPlans {
         class Close(val parent: Id)
 
         @Serializable
+        @Resource("complete-review")
+        class CompleteReview(val parent: Id)
+
+        @Serializable
         @Resource("nominations")
         class Nominations(val parent: Id) {
             @Serializable
@@ -173,6 +177,12 @@ fun Application.configureSuccessionRoutes() {
             post<SuccessionPlans.Id.Close> { route ->
                 writeGuardedPlan(call, route.parent.id)
                 successionService.close(route.parent.id)
+                    ?: throw NotFoundException("Succession plan not found")
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post<SuccessionPlans.Id.CompleteReview> { route ->
+                writeGuardedPlan(call, route.parent.id)
+                successionService.completeReview(route.parent.id)
                     ?: throw NotFoundException("Succession plan not found")
                 call.respond(HttpStatusCode.NoContent)
             }

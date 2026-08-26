@@ -2988,7 +2988,8 @@ paths:
         Replaces the plan's definition fields — criticality, retention risk, the loss-impact
         list, and the target bench depth; the seat's person is immutable. **Owner-only** (the
         chain's read right carries no pen; ADMIN and HR get nothing). Allowed only while the
-        plan is OPEN — a CLOSED plan is read-only (`409`). Editing bumps the reviewed stamp.
+        plan is OPEN — a CLOSED plan is read-only (`409`). Editing does NOT touch the reviewed
+        stamp — only the explicit complete-review action (and creation) sets it.
       requestBody:
         required: true
         content:
@@ -3050,6 +3051,27 @@ paths:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/succession-plans/{id}/complete-review:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [succession-plans]
+      operationId: completeSuccessionReview
+      summary: Complete a review of the plan
+      description: |
+        Stamps the plan's `lastReviewedAt` to now — THE only writer of the reviewed stamp
+        besides creation (since v2.44.0 plan/nomination mutations no longer bump it).
+        **Owner-only**; OPEN plans only (a CLOSED plan is `409`). Repeatable — reviewing
+        again simply re-stamps (a review is not a state transition).
+      responses:
+        '204': { description: Review completed — the reviewed stamp is updated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/SuccessionPlanNotOwner' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SuccessionPlanClosed' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/succession-plans/{id}/nominations:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -3074,7 +3096,7 @@ paths:
         most 200 characters). The candidate-awareness value is metadata only — whatever it
         says, the candidate is never notified and never granted any read. A PRIMARY
         nomination demotes any existing PRIMARY on the plan to SECONDARY in the same write.
-        Every nomination mutation bumps the plan's reviewed stamp.
+        The plan's reviewed stamp is untouched — only the complete-review action sets it.
       requestBody:
         required: true
         content:
@@ -3130,7 +3152,7 @@ paths:
         apply; a since-deactivated candidate stays editable as long as the candidate is
         unchanged (only a CHANGED candidate is checked like a fresh assignment). A save that
         sets PRIMARY demotes any other PRIMARY on the plan to SECONDARY in the same write.
-        Bumps the plan's reviewed stamp.
+        The plan's reviewed stamp is untouched.
       requestBody:
         required: true
         content:
@@ -3163,7 +3185,7 @@ paths:
       description: |
         Soft-deletes a nomination from an OPEN plan (**owner-only**; a CLOSED plan is
         read-only, `409`). Its goal links become unreachable with it; the goals themselves
-        are untouched. Bumps the plan's reviewed stamp.
+        are untouched. The plan's reviewed stamp is untouched.
       responses:
         '204': { description: Deleted }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -8091,8 +8113,9 @@ components:
           type: integer
           format: int64
           description: >-
-            Epoch milliseconds; bumped by every plan/nomination mutation (editing IS
-            reviewing). Closing deliberately does not bump it.
+            Epoch milliseconds; set at creation and updated ONLY by the explicit
+            complete-review action (since v2.44.0) — plan/nomination mutations and closing
+            never touch it.
 
     SuccessionPlanListItem:
       type: object

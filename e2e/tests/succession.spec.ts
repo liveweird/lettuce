@@ -10,6 +10,20 @@ import { apiToken, authHeader } from "./api";
 let planId: number | null = null;
 let goalId: number | null = null;
 
+// The pulse.spec sweep precedent: a stranded plan for the owned (Manager AAA, AAA One) pair —
+// a failed run, or manual testing on the shared volume — 409s the create below and blocks the
+// spec until someone cleans it by hand. Sweep the pair at start; this spec owns it outright.
+test.beforeEach(async ({ request }) => {
+  const token = await apiToken(request, MANAGER_AAA);
+  const res = await request.get("/api/v1/succession-plans?view=own&pageSize=100", {
+    headers: authHeader(token),
+  });
+  const { items } = (await res.json()) as { items: { id: number; userName: string }[] };
+  for (const plan of items.filter((p) => p.userName === "AAA One")) {
+    await request.delete(`/api/v1/succession-plans/${plan.id}`, { headers: authHeader(token) });
+  }
+});
+
 test.afterEach(async ({ request }) => {
   const token = await apiToken(request, MANAGER_AAA);
   if (planId != null) {
@@ -32,7 +46,8 @@ test("a manager plans a succession, nominates a successor with a linked developm
   const gap = uniqueText("E2E succession gap");
   const goalTitle = uniqueText("E2E succession goal");
 
-  // 1. The manager creates a plan for a direct report.
+  // 1. The manager creates a plan for a direct report — the criticality/risk sliders start
+  //    mid-scale (Core/Medium); one ArrowRight each promotes them to Critical/High.
   await login(page, MANAGER_AAA);
   await page.getByRole("link", { name: "Succession plans" }).click();
   await expect(page.getByRole("heading", { name: "Succession plans" })).toBeVisible();
@@ -41,10 +56,8 @@ test("a manager plans a succession, nominates a successor with a linked developm
 
   await page.getByRole("combobox", { name: "Person" }).click();
   await page.getByRole("option", { name: "AAA One" }).click();
-  await page.getByRole("combobox", { name: "Role criticality" }).click();
-  await page.getByRole("option", { name: "Critical" }).click();
-  await page.getByRole("combobox", { name: "Retention risk" }).click();
-  await page.getByRole("option", { name: "High", exact: true }).click();
+  await page.getByRole("slider", { name: "Role criticality" }).press("ArrowRight");
+  await page.getByRole("slider", { name: "Retention risk" }).press("ArrowRight");
   await page.getByRole("button", { name: "Add impact item" }).click();
   // exact: the row's move/remove buttons carry "… loss-impact item 1 …" labels too.
   await page.getByLabel("Loss-impact item 1", { exact: true }).fill(impact);
@@ -59,16 +72,17 @@ test("a manager plans a succession, nominates a successor with a linked developm
   planId = ((await created.json()) as { id: number }).id;
   await expect(page.getByText("Succession plan created").first()).toBeVisible();
 
-  // 2. The create lands on the plan view: badges, the empty bench's warning cue, the impact list.
+  // 2. The create lands on the Review screen's Basic-info tab: the definition is inline
+  //    editable (the impact row carries its text) and the empty bench shows the warning cue.
   await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();
-  await expect(page.getByText("Critical", { exact: true })).toBeVisible();
-  await expect(page.getByText("High", { exact: true })).toBeVisible();
   await expect(
     page.getByText("The bench is below target: 0 of 2 successors nominated."),
   ).toBeVisible();
-  await expect(page.getByText(impact)).toBeVisible();
+  await expect(page.getByLabel("Loss-impact item 1", { exact: true })).toHaveValue(impact);
 
-  // 3. Nominate AAA Two, with a competency gap and a development goal created from the modal.
+  // 3. Nominate AAA Two from the Nominations tab, with a competency gap and a development
+  //    goal created from the modal.
+  await page.getByRole("tab", { name: "Nominations" }).click();
   await page.getByRole("link", { name: "Add nomination" }).click();
   await expect(page.getByRole("heading", { name: "New successor nomination" })).toBeVisible();
   // exact: "Candidate awareness" is a sibling combobox.
@@ -109,14 +123,15 @@ test("a manager plans a succession, nominates a successor with a linked developm
   ]);
   await expect(page.getByText("Nomination added").first()).toBeVisible();
 
-  // 4. The plan view shows the bench: the nomination card, its gap, the goal chip, 1/2 cue.
+  // 4. Back on the Review screen: the 1/2 cue on Basic info, the card on the Nominations tab.
+  await expect(
+    page.getByText("The bench is below target: 1 of 2 successors nominated."),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Nominations" }).click();
   await expect(page.getByText("AAA Two", { exact: true })).toBeVisible();
   await expect(page.getByText("Ready now (0–3 mo)")).toBeVisible();
   await expect(page.getByText(gap)).toBeVisible();
   await expect(page.getByRole("link", { name: `Open the goal ${goalTitle}` })).toBeVisible();
-  await expect(
-    page.getByText("The bench is below target: 1 of 2 successors nominated."),
-  ).toBeVisible();
 
   // 5. A second nomination (AAA Three) defaults to Secondary now that a primary exists;
   //    explicitly picking Primary asks to demote AAA Two, and continuing swaps the two types.
@@ -138,13 +153,31 @@ test("a manager plans a succession, nominates a successor with a linked developm
   ]);
   await expect(page.getByText("Nomination added").first()).toBeVisible();
   // The demote rode the same write: AAA Three holds the one Primary, AAA Two turned Secondary,
-  // and the 2/2 bench retires the under-target cue.
+  // and the 2/2 bench retires the under-target cue on the Basic-info tab.
+  await expect(page.getByText(/The bench is below target/)).toHaveCount(0);
+  await page.getByRole("tab", { name: "Nominations" }).click();
   await expect(page.getByText("AAA Three", { exact: true })).toBeVisible();
   await expect(page.getByText("Primary", { exact: true })).toBeVisible();
   await expect(page.getByText("Secondary", { exact: true })).toBeVisible();
-  await expect(page.getByText(/The bench is below target/)).toHaveCount(0);
 
-  // 6. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
+  // 6. Complete review stamps the reviewed date and exits to the list, where the filled
+  //    Critical/High badges show on the row.
+  await page.getByRole("button", { name: "Complete review" }).click();
+  await expect(page.getByText("Review completed").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/succession$/);
+  await expect(page.getByText("Critical", { exact: true })).toBeVisible();
+  await expect(page.getByText("High", { exact: true })).toBeVisible();
+
+  // 7. Re-entering and leaving via Close warns that the visit won't count as a review.
+  await page.getByRole("link", { name: "Review the succession plan for AAA One" }).click();
+  await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  const leaveDialog = page.getByRole("dialog");
+  await expect(leaveDialog.getByText(/will not count as a review of the plan/)).toBeVisible();
+  await leaveDialog.getByRole("button", { name: "Leave" }).click();
+  await expect(page).toHaveURL(/\/succession$/);
+
+  // 8. The seat's person sees nothing: no nav leaf (not a manager), an empty direct visit.
   await logout(page);
   await login(page, AAA_ONE);
   await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
@@ -153,7 +186,8 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(page.getByRole("heading", { name: "Succession plans" })).toBeVisible();
   await expect(page.getByText("No succession plans")).toBeVisible();
 
-  // 7. Back as the owner: close the plan — it stays browsable but read-only; then delete it.
+  // 9. Back as the owner: close the plan — it stays browsable but read-only; then delete it
+  //    from the list (the Review screen no longer carries Delete).
   await logout(page);
   await login(page, MANAGER_AAA);
   await page.goto(`/succession/${planId}/view`);
@@ -163,12 +197,15 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await expect(
     page.getByText("This plan is closed — it stays browsable but can no longer be edited."),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Add nomination" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
-  // The bench stays browsable on the closed plan.
+  await expect(page.getByRole("button", { name: "Complete review" })).toHaveCount(0);
+  // The bench stays browsable on the closed plan, without edit affordances.
+  await page.getByRole("tab", { name: "Nominations" }).click();
   await expect(page.getByText(gap)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Add nomination" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("link", { name: "Close", exact: true }).click();
+  await expect(page).toHaveURL(/\/succession$/);
+  await page.getByRole("button", { name: "Delete the succession plan for AAA One" }).click();
   await Promise.all([
     page.waitForResponse(
       (r) =>
@@ -179,6 +216,5 @@ test("a manager plans a succession, nominates a successor with a linked developm
     page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click(),
   ]);
   planId = null;
-  await expect(page).toHaveURL(/\/succession$/);
   await expect(page.getByText("Succession plan deleted").first()).toBeVisible();
 });

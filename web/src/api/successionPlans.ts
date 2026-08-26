@@ -84,6 +84,14 @@ export async function closeSuccessionPlan(id: number): Promise<void> {
   await voidRequest(`/api/v1/succession-plans/${id}/close`, { method: "POST" });
 }
 
+/**
+ * Stamps the plan's reviewed date — THE only writer of it besides creation (v2.44.0).
+ * Owner-only, OPEN plans only, repeatable.
+ */
+export async function completeSuccessionReview(id: number): Promise<void> {
+  await voidRequest(`/api/v1/succession-plans/${id}/complete-review`, { method: "POST" });
+}
+
 export async function deleteSuccessionPlan(id: number): Promise<void> {
   await voidRequest(`/api/v1/succession-plans/${id}`, { method: "DELETE" });
 }

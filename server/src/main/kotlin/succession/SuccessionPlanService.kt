@@ -163,8 +163,8 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
 
     /**
      * Replaces the plan's definition fields (the person is immutable). Null when the row is
-     * missing/deleted (→ 404); a CLOSED plan is read-only (→ 409). Bumps the reviewed stamp —
-     * editing IS reviewing.
+     * missing/deleted (→ 404); a CLOSED plan is read-only (→ 409). Does NOT touch the reviewed
+     * stamp — only [completeReview] (and creation) sets it, v2.44.0.
      */
     suspend fun update(id: UInt, request: SuccessionPlanUpdate): Boolean? = suspendTransaction(database) {
         val current = planStatus(id) ?: return@suspendTransaction null
@@ -174,8 +174,20 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
             it[retentionRisk] = request.retentionRisk
             it[lossImpact] = cipher.encrypt(encodeTexts(request.lossImpact))
             it[targetBenchDepth] = request.targetBenchDepth
-            it[lastReviewedAt] = System.currentTimeMillis()
         }
+        true
+    }
+
+    /**
+     * The explicit review action (v2.44.0): stamps last_reviewed_at = now — THE only writer of
+     * the reviewed stamp besides creation (the v2.42.0 editing-is-reviewing model is retired;
+     * mutations no longer bump it). Owner-only route-side; OPEN plans only (→ 409); repeatable
+     * (a review is not a transition — re-reviewing just re-stamps). Null for a missing row.
+     */
+    suspend fun completeReview(id: UInt): Boolean? = suspendTransaction(database) {
+        val current = planStatus(id) ?: return@suspendTransaction null
+        requireOpen(current)
+        touchPlan(id, System.currentTimeMillis())
         true
     }
 
@@ -207,7 +219,8 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
      * an existing active user (soft-deleted/unknown → 400 here; the deactivation rule runs
      * route-side); one active nomination per candidate per plan (→ 409, index backstop); the
      * goal links must pass [validateGoalLinks]. A PRIMARY nomination demotes any existing
-     * PRIMARY on the plan ([demoteExistingPrimary]). Bumps the plan's reviewed stamp.
+     * PRIMARY on the plan ([demoteExistingPrimary]). The reviewed stamp is untouched (v2.44.0
+     * — see [completeReview]).
      */
     suspend fun createNomination(
         planId: UInt,
@@ -245,7 +258,6 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
             it[lastModified] = now
         }[Nominations.id].value
         replaceGoalLinks(id, request.goalIds)
-        touchPlan(planId, now)
         id
     }
 
@@ -253,8 +265,8 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
      * Replaces a nomination's whole document, goal links included (wholesale, payload order =
      * stored order). Null when the nomination is missing/deleted or lives under a different
      * plan (the corrections idiom → 404); the parent must be OPEN (→ 409). A save that sets
-     * PRIMARY demotes any other PRIMARY on the plan ([demoteExistingPrimary]). Bumps the
-     * plan's reviewed stamp.
+     * PRIMARY demotes any other PRIMARY on the plan ([demoteExistingPrimary]). The reviewed
+     * stamp is untouched (v2.44.0 — see [completeReview]).
      */
     suspend fun updateNomination(
         planId: UInt,
@@ -299,14 +311,13 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
             it[lastModified] = now
         }
         replaceGoalLinks(nominationId, request.goalIds)
-        touchPlan(planId, now)
         true
     }
 
     /**
      * Soft-deletes a nomination (its goal links become unreachable with it; the goals are
      * untouched). Null for a missing row or one under a different plan (→ 404); the parent
-     * must be OPEN (→ 409). Bumps the plan's reviewed stamp.
+     * must be OPEN (→ 409). The reviewed stamp is untouched (v2.44.0 — see [completeReview]).
      */
     suspend fun deleteNomination(planId: UInt, nominationId: UInt): Boolean? = suspendTransaction(database) {
         val status = planStatus(planId) ?: return@suspendTransaction null
@@ -320,7 +331,6 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         Nominations.update({ (Nominations.id eq nominationId) and (Nominations.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true
         }
-        touchPlan(planId, System.currentTimeMillis())
         true
     }
 
@@ -622,7 +632,7 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         }
     }
 
-    /** Every plan/nomination mutation is a review — the list's "reviewed X ago" runs on this. */
+    /** Stamps the reviewed date — called ONLY by [completeReview] since v2.44.0 (and set at create). */
     private suspend fun touchPlan(planId: UInt, now: Long) {
         Plans.update({ (Plans.id eq planId) and (Plans.markedAsDeleted eq false) }) {
             it[lastReviewedAt] = now

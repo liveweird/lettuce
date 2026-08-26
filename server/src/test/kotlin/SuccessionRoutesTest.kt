@@ -30,6 +30,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import java.util.UUID
+import kotlinx.coroutines.delay
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -299,7 +300,7 @@ class SuccessionRoutesTest {
     // ---- writes & lifecycle ----
 
     @Test
-    fun `update is owner-only, bumps the reviewed stamp, and a closed plan is read-only`() = testApplication {
+    fun `update is owner-only, leaves the reviewed stamp alone, and a closed plan is read-only`() = testApplication {
         usePostgresTestcontainer()
         val chain = seedChain()
         val manager = authedClient(chain.managerEmail, "pw")
@@ -329,7 +330,8 @@ class SuccessionRoutesTest {
         assertEquals(RetentionRisk.MEDIUM, edited.retentionRisk)
         assertEquals(listOf("Institutional memory"), edited.lossImpact)
         assertEquals(3, edited.targetBenchDepth)
-        assertTrue(edited.lastReviewedAt >= plan.lastReviewedAt, "editing is reviewing")
+        // v2.44.0: editing is NOT reviewing — only the explicit complete-review stamps.
+        assertEquals(plan.lastReviewedAt, edited.lastReviewedAt)
         assertEquals(plan.createdAt, edited.createdAt)
 
         assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/succession-plans/${plan.id}/close").status)
@@ -377,10 +379,59 @@ class SuccessionRoutesTest {
             assertEquals(HttpStatusCode.NotFound, manager.delete("/api/v1/succession-plans/${plan.id}").status)
         }
 
+    @Test
+    fun `complete review - the sole reviewed-stamp writer, owner-only, OPEN-only`() = testApplication {
+        usePostgresTestcontainer()
+        val chain = seedChain()
+        val manager = authedClient(chain.managerEmail, "pw")
+        val plan = manager.createPlan(planBody(chain.seatId))
+        val stampAtCreate = plan.lastReviewedAt
+
+        // Mutations leave the stamp alone (v2.44.0)…
+        manager.nominate(plan.id, nominationBody(chain.candidateId))
+        assertEquals(stampAtCreate, manager.readPlan(plan.id).lastReviewedAt)
+
+        // …and only the owner may complete a review (the chain reads, the seat sees nothing).
+        val grand = authedClient(chain.grandEmail, "pw")
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            grand.post("/api/v1/succession-plans/${plan.id}/complete-review").status,
+        )
+        val seat = authedClient(chain.seatEmail, "pw")
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            seat.post("/api/v1/succession-plans/${plan.id}/complete-review").status,
+        )
+
+        delay(5) // epoch-millis stamp — guarantee a strictly later review moment
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.post("/api/v1/succession-plans/${plan.id}/complete-review").status,
+        )
+        val reviewed = manager.readPlan(plan.id)
+        assertTrue(reviewed.lastReviewedAt > stampAtCreate)
+        assertEquals(stampAtCreate, reviewed.createdAt)
+
+        // Repeatable (not a transition), but a CLOSED plan is read-only; unknown id 404s.
+        assertEquals(
+            HttpStatusCode.NoContent,
+            manager.post("/api/v1/succession-plans/${plan.id}/complete-review").status,
+        )
+        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/succession-plans/${plan.id}/close").status)
+        assertEquals(
+            HttpStatusCode.Conflict,
+            manager.post("/api/v1/succession-plans/${plan.id}/complete-review").status,
+        )
+        assertEquals(
+            HttpStatusCode.NotFound,
+            manager.post("/api/v1/succession-plans/999999999/complete-review").status,
+        )
+    }
+
     // ---- nominations ----
 
     @Test
-    fun `nomination round-trip with goal links - payload order kept, reviewed stamp bumped, wholesale replace`() =
+    fun `nomination round-trip with goal links - payload order kept, reviewed stamp untouched, wholesale replace`() =
         testApplication {
             usePostgresTestcontainer()
             val chain = seedChain()
@@ -426,7 +477,8 @@ class SuccessionRoutesTest {
 
             val afterCreate = manager.readPlan(plan.id)
             assertEquals(1, afterCreate.benchCount)
-            assertTrue(afterCreate.lastReviewedAt >= plan.lastReviewedAt)
+            // v2.44.0: nomination mutations never touch the reviewed stamp.
+            assertEquals(plan.lastReviewedAt, afterCreate.lastReviewedAt)
 
             // The PUT replaces the whole document — links included (goalA alone now).
             val edit = manager.put("/api/v1/succession-plans/${plan.id}/nominations/${created.id}") {
