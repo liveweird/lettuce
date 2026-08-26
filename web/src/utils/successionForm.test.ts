@@ -3,6 +3,7 @@ import type { TFunction } from "i18next";
 import { ApiError } from "../api/http";
 import type { SuccessionNominationResponse, SuccessionPlanResponse } from "../api/successionPlans";
 import {
+  definitionDirty,
   emptyNominationValues,
   emptySuccessionPlanValues,
   emptyTextRowDraft,
@@ -134,5 +135,26 @@ describe("succession error mapping", () => {
     );
     expect(successionSaveErrorMessage(new ApiError(400, null), t)).toBe("succession.error.invalid");
     expect(successionSaveErrorMessage(new Error("net"), t)).toBe("succession.error.saveFailed");
+  });
+});
+
+describe("definitionDirty (checkup-29 — payload compare, not Mantine dirty flags)", () => {
+  test("clean form matches the stored plan", () => {
+    expect(definitionDirty(toSuccessionPlanFormValues(plan), plan)).toBe(false);
+  });
+
+  test("a list REORDER counts as dirty (the isDirty blind spot)", () => {
+    const values = toSuccessionPlanFormValues(plan);
+    values.lossImpact = [values.lossImpact[1], values.lossImpact[0]];
+    expect(definitionDirty(values, plan)).toBe(true);
+  });
+
+  test("a removed row and a scalar change count as dirty", () => {
+    const removed = toSuccessionPlanFormValues(plan);
+    removed.lossImpact = removed.lossImpact.slice(0, 1);
+    expect(definitionDirty(removed, plan)).toBe(true);
+    const scalar = toSuccessionPlanFormValues(plan);
+    scalar.targetBenchDepth = 5;
+    expect(definitionDirty(scalar, plan)).toBe(true);
   });
 });

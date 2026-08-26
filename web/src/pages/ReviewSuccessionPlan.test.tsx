@@ -200,6 +200,36 @@ describe("ReviewSuccessionPlan page", () => {
     expect(await screen.findByTestId("probe")).toHaveTextContent("/succession");
   });
 
+  test("a loss-impact ROW removal alone still saves on Complete review (checkup-29)", async () => {
+    const user = userEvent.setup();
+    const mockFetch = renderScreen();
+
+    // Remove row 2 and touch nothing else — Mantine's isDirty misses list ops; the
+    // payload compare must not.
+    await user.click(await screen.findByLabelText("Remove loss-impact item 2"));
+    await user.click(screen.getByRole("button", { name: "Complete review" }));
+    await waitFor(() => {
+      const puts = callsOf(mockFetch, "PUT", "/api/v1/succession-plans/5");
+      expect(puts).toHaveLength(1);
+      expect(JSON.parse(String((puts[0][1] as RequestInit).body)).lossImpact).toEqual([
+        "Client trust",
+      ]);
+    });
+  });
+
+  test("Close plan warns about unsaved definition edits (terminal state — checkup-29)", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const bench = await screen.findByLabelText("Target bench depth");
+    await user.clear(bench);
+    await user.type(bench, "4");
+    await user.click(screen.getByRole("button", { name: "Close plan" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Your unsaved changes will also be discarded.");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  });
+
   test("Complete review with no edits only stamps (no PUT)", async () => {
     const user = userEvent.setup();
     const mockFetch = renderScreen();

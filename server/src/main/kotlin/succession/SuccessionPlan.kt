@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 // Bounds shared by the two ordered short-text lists (loss impact / competency gaps).
 const val MAX_SUCCESSION_LIST_ITEMS = 20
 const val MAX_SUCCESSION_ITEM_LENGTH = 200
+const val MAX_SUCCESSION_GOAL_LINKS = 100
 const val MIN_BENCH_DEPTH = 1
 const val MAX_BENCH_DEPTH = 10
 const val DEFAULT_BENCH_DEPTH = 2
@@ -210,6 +211,9 @@ internal fun validateNomination(request: SuccessionNominationRequest, seatUserId
         throw BadRequestException("Competency gaps must have at most $MAX_SUCCESSION_LIST_ITEMS items")
     }
     request.competencyGaps.forEach { validateShortText(it.text, "Competency gaps") }
+    if (request.goalIds.size > MAX_SUCCESSION_GOAL_LINKS) {
+        throw BadRequestException("At most $MAX_SUCCESSION_GOAL_LINKS goals can be linked to a nomination")
+    }
     if (request.goalIds.size != request.goalIds.distinct().size) {
         throw BadRequestException("Duplicate goal id in payload")
     }

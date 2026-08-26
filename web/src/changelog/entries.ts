@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.47.1",
+    date: "2026-08-26",
+    en: `Fixes from a thorough review round, all in succession plans. Removing or reordering loss-impact items now always saves when you complete a review — previously such edits could be silently lost if nothing else changed. Closing a plan now warns about unsaved edits (closing is final, so they would be gone for good). Opening a plan from a person card and adding a nomination now returns you all the way back to that card. The under-bench cue follows the bench target as you edit it. A candidate who was deactivated after being nominated shows properly in the nomination editor instead of a blank picker, and the new-goal window starts clean each time. A page-navigation crash on user details was fixed along the way.`,
+    pl: `Poprawki z gruntownej rundy przeglądu, wszystkie w planach sukcesji. Usunięcie lub zmiana kolejności skutków odejścia zawsze zapisuje się teraz przy zakończeniu przeglądu — wcześniej takie zmiany mogły przepaść bez śladu, jeśli nic innego się nie zmieniło. Zamknięcie planu ostrzega teraz o niezapisanych zmianach (zamknięcie jest ostateczne, więc przepadłyby na dobre). Otwarcie planu z karty osoby i dodanie nominacji prowadzi teraz z powrotem aż do tej karty. Wskazówka o ławce podąża za celem w trakcie edycji. Kandydat/ka dezaktywowany/a po nominacji wyświetla się poprawnie w edytorze nominacji zamiast pustego pola wyboru, a okno nowego celu zaczyna za każdym razem od czystego stanu. Przy okazji naprawiono błąd nawigacji na stronie szczegółów użytkownika.`,
+  },
+  {
     version: "2.47.0",
     date: "2026-08-26",
     en: `A shortcut from people to their plans. When you keep an open succession plan for one of your reports, their person card — on the dashboard's subordinates tab and on their details page — now shows a "Succession plan" button right next to Career progression, taking you straight to that plan. The button only appears for people you actually have an open plan for, and disappears when the plan is closed or deleted.`,

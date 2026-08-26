@@ -8027,7 +8027,7 @@ components:
             Interpolation params for the localized rendering — enum names, numbers, and
             candidate display names only (never loss-impact/competency-gap text). In use:
             `roleCriticality`/`retentionRisk`/`targetBenchDepth` (CREATED), `from`/`to`
-            (the *_CHANGED kinds), `candidateName` + `readiness`/`nominationType`/`awareness`
+            (the *_CHANGED kinds except LOSS_IMPACT_CHANGED, which carries none), `candidateName` + `readiness`/`nominationType`/`awareness`
             (NOMINATION_ADDED), `candidateName` + `changed` (comma-joined field names:
             candidate, readiness, nominationType, awareness, competencyGaps, goals) +
             optional `readinessFrom/To`/`nominationTypeFrom/To`/`awarenessFrom/To`

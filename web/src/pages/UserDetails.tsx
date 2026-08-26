@@ -130,13 +130,16 @@ export default function UserDetails() {
     queryFn: () => fetchUserDetails(userId),
     enabled: idIsValid,
   });
+  // The viewer's own OPEN plans (v2.47.0) — enabled-gated to the resolved managed flavor.
+  // MUST stay above the early return (Rules of Hooks — the checkup-29 lint fix).
+  const { openPlanByUserId } = useOwnSuccessionPlans(
+    idIsValid && data?.relationship === "subordinate",
+  );
 
   if (!idIsValid) return <Navigate to="/users" replace />;
 
   const person = data?.person ?? null;
   const relationship = data?.relationship ?? null;
-  // The viewer's own OPEN plans (v2.47.0) — fired only once the managed flavor resolves.
-  const { openPlanByUserId } = useOwnSuccessionPlans(relationship === "subordinate");
   const name = person?.name ?? nameParam;
   // Where the create flows' Cancel returns: this page, with its own params preserved.
   const backHere = userDetailsLink(

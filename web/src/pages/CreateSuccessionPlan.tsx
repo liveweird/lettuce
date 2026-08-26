@@ -18,6 +18,7 @@ import {
   toSuccessionPlanBody,
   type SuccessionPlanFormValues,
 } from "../utils/successionForm";
+import { successionPlanViewLink } from "../utils/successionLinks";
 import { invalidateSuccession } from "../utils/successionQueries";
 import { showSuccessToast } from "../utils/toast";
 import { safeBackParam } from "../utils/url";
@@ -62,7 +63,7 @@ export default function CreateSuccessionPlan() {
       await invalidateSuccession(queryClient);
       showSuccessToast(t("succession.toast.created"));
       // Land on the new plan — nominating successors is the natural next step.
-      navigate(`/succession/${created.id}/view`, { replace: true });
+      navigate(successionPlanViewLink(created.id), { replace: true });
     } catch (err) {
       setError(successionSaveErrorMessage(err, t));
       setSubmitting(false);

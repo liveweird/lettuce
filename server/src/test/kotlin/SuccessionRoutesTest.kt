@@ -456,6 +456,12 @@ class SuccessionRoutesTest {
                 HttpStatusCode.Forbidden,
                 seat.get("/api/v1/succession-plans/${plan.id}/events").status,
             )
+            val hrEmail = uniqueEmail("succ-ev-hr")
+            TestUsers.seed(hrEmail, "pw", name = "Harriet HR", roles = setOf(UserRole.HR))
+            assertEquals(
+                HttpStatusCode.OK,
+                authedClient(hrEmail, "pw").get("/api/v1/succession-plans/${plan.id}/events").status,
+            )
 
             // Definition edit → per-field fan-out; the identical re-PUT mints nothing.
             val edit = SuccessionPlanUpdate(
@@ -482,6 +488,16 @@ class SuccessionRoutesTest {
             val first = manager.nominate(plan.id, nominationBody(chain.candidateId))
             // A second PRIMARY records both the addition and the V69 demote side effect.
             manager.nominate(plan.id, nominationBody(secondId))
+            // Re-saving the standing PRIMARY unchanged-as-PRIMARY mints NOTHING — neither an
+            // UPDATED (no-op) nor a PRIMARY_DEMOTED (the route's self-exclusion).
+            val second = manager.readPlan(plan.id).nominations.first { it.candidateId == secondId }
+            val countBefore = trail().size
+            manager.put("/api/v1/succession-plans/${plan.id}/nominations/${second.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(nominationBody(secondId))
+            }
+            assertEquals(countBefore, trail().size)
+
             // Editing the (now SECONDARY) first nomination mints ONE UPDATED.
             manager.put("/api/v1/succession-plans/${plan.id}/nominations/${first.id}") {
                 contentType(ContentType.Application.Json)

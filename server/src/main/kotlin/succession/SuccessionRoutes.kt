@@ -216,10 +216,10 @@ fun Application.configureSuccessionRoutes() {
             post<SuccessionPlans.Id.Nominations> { route ->
                 val plan = writeGuardedPlan(call, route.parent.id)
                 val request = call.receive<SuccessionNominationRequest>()
-                validateNomination(request, plan.userId)
-                // The deactivation rule (after authz, before the service): no NEW nominations
-                // for deactivated candidates.
+                // The deactivation rule (after authz, BEFORE payload validation — the plan-POST
+                // and goals/1:1 ordering; checkup-29 made the two POSTs in this file agree).
                 userService.requireNoDeactivatedUsers(listOf(request.candidateId))
+                validateNomination(request, plan.userId)
                 val id = requireValidReferences("Referenced goal does not exist") {
                     successionService.createNomination(route.parent.id, plan.managerId, request)
                 }

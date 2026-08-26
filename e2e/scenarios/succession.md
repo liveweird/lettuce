@@ -14,7 +14,7 @@
   never mutated
 - **Since**: v2.42.0 (the feature's introduction); the one-primary confirm-demote step joined
   in v2.43.0; the Review-screen flow (sliders, tabs, Complete review / Close warning,
-  list-only Delete) in v2.44.0; the History tab (the house event trail) in v2.46.0; the person-card Succession-plan button in v2.47.0
+  list-only Delete) in v2.44.0; the gap filled flag + strikethrough in v2.45.0; the History tab (the house event trail) in v2.46.0; the person-card Succession-plan button in v2.47.0
 
 ## Scenario: a manager plans a succession, nominates a successor with a linked development goal, and closes the plan
 

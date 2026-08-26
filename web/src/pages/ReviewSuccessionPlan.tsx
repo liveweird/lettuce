@@ -48,9 +48,11 @@ import { goalViewLink } from "../utils/goalLinks";
 import {
   successionNominationCreateLink,
   successionNominationEditLink,
+  successionPlanViewLink,
 } from "../utils/successionLinks";
 import { invalidateSuccession } from "../utils/successionQueries";
 import {
+  definitionDirty,
   successionLoadErrorMessage,
   successionSaveErrorMessage,
   successionPlanValidation,
@@ -84,7 +86,9 @@ export default function ReviewSuccessionPlan() {
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
-  const hereUrl = idIsValid ? `/succession/${id}/view` : "/succession";
+  // Preserves this screen's own ?back= so nested nav (nomination editor, goal chips) can
+  // round-trip all the way to a person card (checkup-29 fix).
+  const hereUrl = idIsValid ? successionPlanViewLink(id, backOverride ?? undefined) : "/succession";
 
   const [closePlanOpen, { open: openClosePlan, close: closeClosePlan }] = useDisclosure(false);
   const [closeReviewOpen, { open: openCloseReview, close: closeCloseReview }] =
@@ -124,7 +128,14 @@ export default function ReviewSuccessionPlan() {
   const isOwner = data != null && currentUserId != null && currentUserId === data.managerId;
   const isOpen = data?.status === "OPEN";
   const canEdit = isOwner && isOpen;
-  const underBench = data != null && data.benchCount < data.targetBenchDepth;
+  // Payload-compared dirtiness (form.isDirty() misses list ops — checkup-29).
+  const dirty = canEdit && data != null && definitionDirty(form.values, data);
+  // The under-bench cue tracks the FORM's target while editing, so raising it reflects live.
+  const liveTarget =
+    canEdit && Number.isFinite(Number(form.values.targetBenchDepth)) && Number(form.values.targetBenchDepth) > 0
+      ? Number(form.values.targetBenchDepth)
+      : data?.targetBenchDepth ?? 0;
+  const underBench = data != null && data.benchCount < liveTarget;
   const errorMessage = successionLoadErrorMessage(error, t);
 
   async function doClosePlan() {
@@ -149,7 +160,7 @@ export default function ReviewSuccessionPlan() {
     setActionError(null);
     setSaving(true);
     try {
-      if (form.isDirty()) {
+      if (dirty) {
         await updateSuccessionPlan(id, toSuccessionPlanBody(form.values));
       }
       await completeSuccessionReview(id);
@@ -162,9 +173,13 @@ export default function ReviewSuccessionPlan() {
     }
   }
 
-  const closeReviewMessage = form.isDirty()
+  const closeReviewMessage = dirty
     ? `${t("succession.closeReviewMessage")} ${t("succession.closeReviewUnsaved")}`
     : t("succession.closeReviewMessage");
+  // Closing the plan is TERMINAL — unsaved definition edits deserve the same warning.
+  const closePlanMessage = dirty
+    ? `${t("succession.closeConfirmMessage")} ${t("succession.closeReviewUnsaved")}`
+    : t("succession.closeConfirmMessage");
 
   return (
     <Container size="md" px={0}>
@@ -204,7 +219,7 @@ export default function ReviewSuccessionPlan() {
                       <Alert color="orange" variant="light">
                         {t("succession.underBenchNote", {
                           n: data.benchCount,
-                          target: data.targetBenchDepth,
+                          target: liveTarget,
                         })}
                       </Alert>
                     )}
@@ -239,7 +254,7 @@ export default function ReviewSuccessionPlan() {
                             <RetentionRiskBadge value={data.retentionRisk} />
                           </ReadOnlyField>
                           <ReadOnlyField label={t("succession.bench")}>
-                            <BenchBadge count={data.benchCount} target={data.targetBenchDepth} />
+                            <BenchBadge count={data.benchCount} target={liveTarget} />
                           </ReadOnlyField>
                         </Group>
 
@@ -265,7 +280,7 @@ export default function ReviewSuccessionPlan() {
                 <Tabs.Panel value="nominations" pt="md">
                   <Stack>
                     <Group justify="space-between" align="center">
-                      <BenchBadge count={data.benchCount} target={data.targetBenchDepth} />
+                      <BenchBadge count={data.benchCount} target={liveTarget} />
                       {canEdit && (
                         <Button
                           component={RouterLink}
@@ -451,7 +466,7 @@ export default function ReviewSuccessionPlan() {
         opened={closePlanOpen}
         onClose={closeClosePlan}
         title={t("succession.closeConfirmTitle")}
-        message={t("succession.closeConfirmMessage")}
+        message={closePlanMessage}
         cancelLabel={t("common.action.cancel")}
         confirmLabel={t("succession.closePlan")}
         confirmColor="red"
