@@ -26,9 +26,9 @@ This is a Kotlin/Gradle backend plus a separate React frontend:
   bootstrap.
 - `server/` is the Kotlin/JVM Ktor application. Feature packages live directly under
   `server/src/main/kotlin/` (`auth`, `users`, `teams`, `feedbacks`, `oneonones`, `goals`,
-  `teamkpis`, `reviews`, `daysoff`, `pulse`, `settings`, `templates`, `dictionaries`,
-  `notifications`, `alerts`, and `dashboard`). Cross-cutting wiring and policy live in
-  `plugins/`, `audit/`, and `authz/`; infrastructure is in `infra/`.
+  `impactlog`, `succession`, `teamkpis`, `reviews`, `daysoff`, `pulse`, `settings`, `templates`,
+  `dictionaries`, `notifications`, `alerts`, and `dashboard`). Cross-cutting wiring and policy
+  live in `plugins/`, `audit/`, and `authz/`; infrastructure is in `infra/`.
 - `server/src/main/resources/application.yaml` declaratively registers application modules.
   `main.kt` only starts `EngineMain`; do not wire features from it. Module order matters because
   modules publish and consume Ktor application attributes.
@@ -51,12 +51,15 @@ registered in `application.yaml`. `plugins/Routing.kt` is only the final SPA/sta
   `http://localhost:8080`; Mailpit is at `http://localhost:8025`.
 - `docker compose up postgres`: start only the development database.
 - `./gradlew build`: compile and verify the Gradle modules with the JDK 21 toolchain.
+- `./gradlew detekt`: run the zero-findings Kotlin static-analysis gate; it also rides
+  `check`/`build`.
 - `./gradlew :server:run`: start Ktor/Netty on port 8080.
 - `./gradlew test` or `./gradlew :server:test`: run Kotlin tests; Docker is required for
   Testcontainers.
 - `./gradlew :server:test --tests "<fully-qualified test name>"`: run one backend test.
 - `cd web && npm run dev`: start Vite on port 5173, proxying `/api` to Ktor.
-- `cd web && npm run build && npm run lint && npm test`: type-check, bundle, lint, and run Vitest.
+- `cd web && npm run build && npm run lint && npm run knip && npm test`: type-check, bundle, lint,
+  run the dead-code gate, and run Vitest.
 - `cd web && npm run test:coverage`: run frontend coverage gates.
 - `cd web && npm run gen:api`: regenerate `web/src/api/schema.ts` from the OpenAPI contract.
 - `cd e2e && npm test`: run Playwright against the full stack on port 8080.
@@ -114,8 +117,9 @@ a gated surface, keep route guards, navigation, page guards, cards/actions, noti
 tour-step gates aligned with the feature-flag rules in `web/CLAUDE.md` and
 `.claude/docs/authorization.md`.
 
-`web/src/changelog/entries.ts` is the sole source of the displayed app version. Adding a newest
-English/Polish changelog entry is the release bump; the Gradle snapshot version is unrelated.
+`web/src/changelog/version.ts` is the sole source of the displayed app version. A release requires
+both a newest English/Polish entry in `web/src/changelog/entries.ts` and the matching `APP_VERSION`
+bump in `version.ts`; tests pin them together. The Gradle snapshot version is unrelated.
 
 ## Testing and Verification
 
