@@ -80,8 +80,8 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   Review screen gained a third **History** tab (`components/SuccessionHistory.tsx` — the
   `EventTimeline` shell + `describeEvent` over `succession.event.*`, enum labels via
   `dynamicKey`, the typed `FIELD_LABELS` map for `changed` tokens).
-- **Goal links**: `SuccessionNominationRequest.goalIds` (wholesale replace, ordered, dupes →
-  400) must each be a non-deleted goal whose `subordinateId` IS the candidate and which the
+- **Goal links**: `SuccessionNominationRequest.goalIds` (wholesale replace, ordered, ≤100,
+  dupes → 400) must each be a non-deleted goal whose `subordinateId` IS the candidate and which the
   plan's OWNER may read under the goal rules minus HR (the owner authored it, or it has left
   DRAFT and the candidate is in the owner's transitive chain) — validated inside the mutation
   transaction (cross-feature table read, the service-layer rule). Reads carry light
@@ -135,13 +135,13 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   GoalMilestonesEditor generalized over the form type, reusing `RowControls`; used again for
   competency gaps). **`/succession/:id/view` is the Review screen**
   (`ReviewSuccessionPlan.tsx`, v2.44.0 — the former read-only view + `/succession/:id/edit`
-  page folded into one, no view/edit switching): two Tabs (`keepMounted={false}`, the
+  page folded into one, no view/edit switching): three Tabs (`keepMounted={false}`, the
   EditGoal-inside-form idiom) — **Basic info** (party row + Last reviewed; the definition
   INLINE-EDITABLE via a page-level `useForm` + `SuccessionPlanFields` for the owner of an
   OPEN plan, the read-only badge/list render otherwise; the under-bench Alert lives here) and
   **Nominations** (the bench badge, the Paper cards with linked-goal chips → `goalViewLink`;
   owner+OPEN keeps always-visible Add/per-card Edit+Delete navigating to the nomination
-  editor). Footer (owner+OPEN, in order): **Close** — ConfirmActionModal warning the visit
+  editor) and **History** (v2.46.0 — `SuccessionHistory`, see the History bullet). Footer (owner+OPEN, in order): **Close** — ConfirmActionModal warning the visit
   won't count as a review (+ an unsaved-changes sentence when the form is dirty), confirm =
   Leave; **Complete review** — validates, PUTs the definition only when dirty, then POSTs
   `complete-review`, toasts `succession.toast.reviewed`, exits; **Close plan** — the
@@ -156,7 +156,8 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   (`GoalDefinitionFields` embedded — creates a DRAFT for the candidate, auto-selects it =
   linked by default, no navigation; shown only when the candidate is in the caller's
   `useManagedReports` pool, since the server would 403 the create). **Person-card entry point (v2.47.0)**: the manages-flavor cards (the dashboard
-  subordinates grid + UserDetails' direct-report flavor) carry a **"Succession plan"** button
+  subordinates grid, its `/teams/:id/details` embedding, and UserDetails' direct-report
+  flavor) carry a **"Succession plan"** button
   beside Career progression in the Profile row — rendered ONLY when the viewer OWNS an OPEN
   plan for that person (the `useOwnSuccessionPlans` pool: `["succession","ownOpenByUser"]`
   over `view=own&status=OPEN`, all pages; the `["succession"]` prefix auto-invalidates on
@@ -175,11 +176,13 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   the closed-plan 409 matrix, nomination CRUD + candidate rules + the goal-link 400 matrix,
   the mutations-never-touch-the-stamp pins + the `complete review` matrix (sole stamp writer,
   owner-only, OPEN-only, repeatable), the three list views + filters, the no-notifications
-  pin), `SuccessionValidationTest` (pure), `SuccessionEncryptionTest` (envelopes on both JSON
-  columns, backfill + rotation), `GuardsTest` succession section, the FeatureFlagsTest gate
-  probes. SPA: the five page tests (`ReviewSuccessionPlan.test.tsx` covers the tabs, the
+  pin), the events pair — `SuccessionEventsTest` (the pure descriptor-builder matrix) and the
+  `SuccessionRoutesTest` trail test (vocabulary ordering, the PRIMARY_DEMOTED param, the
+  content-free pin, the reader guard) — `SuccessionValidationTest` (pure),
+  `SuccessionEncryptionTest` (envelopes on both JSON columns, backfill + rotation),
+  `GuardsTest` succession section, the FeatureFlagsTest gate probes. SPA: the six page tests (`ReviewSuccessionPlan.test.tsx` covers the tabs, the
   slider fields, the Complete-review save+stamp flows, and the Close warning) +
-  `SuccessionBadges`/`OrderedTextListEditor` component tests + `successionForm.test.ts` + the
+  `SuccessionBadges`/`OrderedTextListEditor`/`SuccessionHistory` component tests + `successionForm.test.ts` + the
   App nav-gate and Tour cases; e2e `succession.spec.ts` (owns Manager AAA's plans — seat AAA
   One, candidates AAA Two/Three — and the modal-created goal for the (Manager AAA, AAA Two)
   pair).

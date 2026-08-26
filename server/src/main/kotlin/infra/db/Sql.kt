@@ -1,5 +1,6 @@
 package ch.nokillswit.infra.db
 
+import ch.nokillswit.plugins.isUniqueViolation
 import io.ktor.server.plugins.BadRequestException
 import io.r2dbc.spi.R2dbcException
 import org.jetbrains.exposed.v1.core.CustomFunction
@@ -55,15 +56,19 @@ internal fun containsPattern(raw: String): LikePattern {
 
 /**
  * Runs [block], translating low-level SQL failures (FK violations from client-supplied ids, on
- * either the JDBC or R2DBC path) into a 400 with [message]. Unique violations are not expected
- * through here — routes with unique columns rely on the global 23505→409 StatusPages mapping.
+ * either the JDBC or R2DBC path) into a 400 with [message]. Unique violations (23505) are
+ * RETHROWN so the global StatusPages 23505→409 mapping keeps working — a wrapped block whose
+ * table carries unique indexes (succession nominations, performance reviews) must answer 409
+ * on the concurrent-duplicate race, not a misleading reference 400 (checkup-29 fix).
  */
 suspend fun <T> requireValidReferences(message: String, block: suspend () -> T): T =
     try {
         block()
     } catch (e: ExposedSQLException) {
+        if (e.isUniqueViolation()) throw e
         throw BadRequestException(message, e)
     } catch (e: R2dbcException) {
+        if (e.isUniqueViolation()) throw e
         throw BadRequestException(message, e)
     }
 

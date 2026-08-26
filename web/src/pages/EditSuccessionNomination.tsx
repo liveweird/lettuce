@@ -55,6 +55,7 @@ import {
   toNominationFormValues,
   type SuccessionNominationFormValues,
 } from "../utils/successionForm";
+import { successionPlanViewLink } from "../utils/successionLinks";
 import { invalidateSuccession } from "../utils/successionQueries";
 import { showSuccessToast } from "../utils/toast";
 import { safeBackParam } from "../utils/url";
@@ -93,8 +94,12 @@ function buildCandidateOptions(
       .filter((nomination) => nomination.id !== nominationId)
       .map((nomination) => nomination.candidateId),
   );
+  // The edited nomination's OWN candidate stays pickable even if since deactivated — the
+  // server allows keeping them (the delta rule), and dropping the option would blank the
+  // Select while the form silently resubmits the id (checkup-29).
+  const keepId = plan.nominations.find((n) => n.id === nominationId)?.candidateId;
   return (userPool ?? [])
-    .filter((u) => u.id !== plan.userId && !u.deactivated && !taken.has(u.id))
+    .filter((u) => u.id !== plan.userId && (!u.deactivated || u.id === keepId) && !taken.has(u.id))
     .map((u) => ({ value: String(u.id), label: u.name }));
 }
 
@@ -169,7 +174,10 @@ function DevelopmentGoalModal({
     <Modal
       opened={opened}
       onClose={() => {
-        if (!goalSubmitting) onClose();
+        if (goalSubmitting) return;
+        // Stale half-typed input must not resurface on the next open (checkup-29).
+        goalForm.reset();
+        onClose();
       }}
       title={t("succession.newGoalTitle")}
       size="lg"
@@ -186,7 +194,15 @@ function DevelopmentGoalModal({
             </Alert>
           )}
           <Group justify="flex-end" gap="sm">
-            <Button type="button" variant="default" onClick={onClose} disabled={goalSubmitting}>
+            <Button
+              type="button"
+              variant="default"
+              onClick={() => {
+                goalForm.reset();
+                onClose();
+              }}
+              disabled={goalSubmitting}
+            >
               {t("common.action.cancel")}
             </Button>
             <Button type="submit" loading={goalSubmitting}>
@@ -297,11 +313,7 @@ function NominationForm({
             moveDown: (position) => t("succession.competencyGapMoveDown", { position }),
             remove: (position) => t("succession.competencyGapRemove", { position }),
           }}
-          flag={{
-            aria: (position) => t("succession.competencyGapFilledAria", { position }),
-            onToggle: (index, checked) =>
-              form.setFieldValue(`competencyGaps.${index}.filled`, checked),
-          }}
+          flag={{ aria: (position) => t("succession.competencyGapFilledAria", { position }) }}
         />
 
         <Stack gap={6}>
@@ -369,7 +381,7 @@ export default function EditSuccessionNomination() {
   const nominationId = params.nominationId != null ? Number(params.nominationId) : null;
   const editing = nominationId != null;
   const backTo =
-    safeBackParam(searchParams) ?? (planIdIsValid ? `/succession/${planId}/view` : "/succession");
+    safeBackParam(searchParams) ?? (planIdIsValid ? successionPlanViewLink(planId) : "/succession");
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -491,7 +503,6 @@ export default function EditSuccessionNomination() {
 
   const pendingCandidateName =
     candidateOptions.find((option) => option.value === pendingValues?.candidateId)?.label ?? "";
-
 
   return (
     <Container size="md" px={0}>

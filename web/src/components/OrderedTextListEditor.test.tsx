@@ -64,10 +64,7 @@ function FlagHarness() {
           moveDown: (position) => `Move item ${position} down`,
           remove: (position) => `Remove item ${position}`,
         }}
-        flag={{
-          aria: (position) => `Mark item ${position} as filled`,
-          onToggle: (index, checked) => form.setFieldValue(`items.${index}.filled`, checked),
-        }}
+        flag={{ aria: (position) => `Mark item ${position} as filled` }}
       />
       <output data-testid="flags">
         {form.values.items.map((row) => String(row.filled ?? false)).join("|")}

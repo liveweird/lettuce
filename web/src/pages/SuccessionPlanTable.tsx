@@ -9,7 +9,6 @@ import {
   listSuccessionPlans,
   type SuccessionListView,
   type SuccessionPlanListItem,
-  type SuccessionPlanStatus,
 } from "../api/successionPlans";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
@@ -41,7 +40,8 @@ type SortField = "userName" | "managerName" | "status" | "lastReviewedAt";
 
 /**
  * The succession-plan list — one component serving the caller's own plans (`own`, with
- * edit/delete row actions; close lives on the view screen), the chain-above reading view
+ * Review + owner-Delete row actions since v2.44.0; Close plan lives on the Review screen),
+ * the chain-above reading view
  * (`team`, read-only, optional direct/chain Reports scope), and the HR auditor drill-down
  * (`user`, read-only). The owner column shows only where rows can belong to different
  * owners (team/user).
@@ -120,7 +120,7 @@ export default function SuccessionPlanTable({
         pageSize,
         sort: sortParam,
         userName: debouncedPerson || undefined,
-        status: (statusFilter as SuccessionPlanStatus | null) ?? undefined,
+        status: (statusFilter) ?? undefined,
         includeIndirect: includeIndirect || undefined,
         userId,
       }),

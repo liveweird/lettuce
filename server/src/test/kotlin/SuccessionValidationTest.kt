@@ -57,6 +57,9 @@ class SuccessionValidationTest {
         assertFailsWith<BadRequestException> {
             validateNomination(nomination(competencyGaps = List(21) { SuccessionCompetencyGap("g$it") }), 1u)
         }
+        assertFailsWith<BadRequestException> {
+            validateNomination(nomination(goalIds = List(101) { it.toUInt() }), 1u)
+        }
         val dup = assertFailsWith<BadRequestException> {
             validateNomination(nomination(goalIds = listOf(5u, 6u, 5u)), 1u)
         }

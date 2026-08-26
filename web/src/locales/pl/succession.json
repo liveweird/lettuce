@@ -3,7 +3,7 @@
   "tab": {
     "basics": "Podstawowe informacje",
     "nominations": "Nominacje",
-    "history": "Historia",
+      "history": "Historia",
     "own": "Moje plany",
     "team": "Plany moich podwładnych"
   },
@@ -96,7 +96,6 @@
   "lossImpactMoveDown": "Przesuń skutek utraty {{position}} w dół",
   "lossImpactRemove": "Usuń skutek utraty {{position}}",
   "listLimitHint": "Maksymalnie {{max}} pozycji.",
-  "nominations": "Nominacje następców",
   "addNomination": "Dodaj nominację",
   "noNominations": "Nie nominowano jeszcze następców.",
   "addNominationTitle": "Nowa nominacja następcy",

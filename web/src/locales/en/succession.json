@@ -3,7 +3,7 @@
   "tab": {
     "basics": "Basic info",
     "nominations": "Nominations",
-    "history": "History",
+      "history": "History",
     "own": "My plans",
     "team": "My subordinates' plans"
   },
@@ -96,7 +96,6 @@
   "lossImpactMoveDown": "Move loss-impact item {{position}} down",
   "lossImpactRemove": "Remove loss-impact item {{position}}",
   "listLimitHint": "Up to {{max}} items.",
-  "nominations": "Successor nominations",
   "addNomination": "Add nomination",
   "noNominations": "No successors nominated yet.",
   "addNominationTitle": "New successor nomination",

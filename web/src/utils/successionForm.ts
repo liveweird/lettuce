@@ -69,6 +69,24 @@ export function toSuccessionPlanBody(values: SuccessionPlanFormValues): Successi
   };
 }
 
+/**
+ * Whether the definition form differs from the stored plan — compared over the PAYLOADS, not
+ * Mantine's dirty flags (checkup-29: `form.isDirty()` misses `insertListItem`/`removeListItem`/
+ * `reorderListItem`, so a loss-impact row edit could vanish behind a false-clean form).
+ */
+export function definitionDirty(
+  values: SuccessionPlanFormValues,
+  plan: SuccessionPlanResponse,
+): boolean {
+  const reference: SuccessionPlanUpdateBody = {
+    roleCriticality: plan.roleCriticality,
+    retentionRisk: plan.retentionRisk,
+    lossImpact: plan.lossImpact,
+    targetBenchDepth: plan.targetBenchDepth,
+  };
+  return JSON.stringify(toSuccessionPlanBody(values)) !== JSON.stringify(reference);
+}
+
 /** Per-row validation for an ordered short-text list (loss impact / competency gaps). */
 function textListValidation(t: TFunction) {
   return {

@@ -172,12 +172,15 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
     suspend fun update(id: UInt, request: SuccessionPlanUpdate): Boolean? = suspendTransaction(database) {
         val current = planStatus(id) ?: return@suspendTransaction null
         requireOpen(current)
-        Plans.update({ (Plans.id eq id) and (Plans.markedAsDeleted eq false) }) {
+        val updated = Plans.update({ (Plans.id eq id) and (Plans.markedAsDeleted eq false) }) {
             it[roleCriticality] = request.roleCriticality
             it[retentionRisk] = request.retentionRisk
             it[lossImpact] = cipher.encrypt(encodeTexts(request.lossImpact))
             it[targetBenchDepth] = request.targetBenchDepth
         }
+        // A concurrent soft-delete between the status read and this write → 404, not a
+        // silent 204 (the zero-row-mutation rule; checkup-29).
+        if (updated == 0) return@suspendTransaction null
         true
     }
 
@@ -190,7 +193,7 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
     suspend fun completeReview(id: UInt): Boolean? = suspendTransaction(database) {
         val current = planStatus(id) ?: return@suspendTransaction null
         requireOpen(current)
-        touchPlan(id, System.currentTimeMillis())
+        if (touchPlan(id, System.currentTimeMillis()) == 0) return@suspendTransaction null
         true
     }
 
@@ -204,9 +207,10 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         if (current == SuccessionPlanStatus.CLOSED) {
             throw ConflictException("The succession plan is already closed")
         }
-        Plans.update({ (Plans.id eq id) and (Plans.markedAsDeleted eq false) }) {
+        val updated = Plans.update({ (Plans.id eq id) and (Plans.markedAsDeleted eq false) }) {
             it[status] = SuccessionPlanStatus.CLOSED
         }
+        if (updated == 0) return@suspendTransaction null
         true
     }
 
@@ -234,17 +238,7 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         val status = planStatus(planId) ?: throw NotFoundException("Succession plan not found")
         requireOpen(status)
         requireCandidateExists(request.candidateId)
-        val duplicate = Nominations
-            .select(Nominations.id)
-            .where {
-                (Nominations.planId eq planId) and (Nominations.candidateId eq request.candidateId) and
-                    activeNomination()
-            }
-            .toList()
-            .isNotEmpty()
-        if (duplicate) {
-            throw ConflictException("This candidate is already nominated on this plan")
-        }
+        requireCandidateNotNominated(planId, request.candidateId, excludeNominationId = null)
         validateGoalLinks(ownerId, request.candidateId, request.goalIds)
         val now = System.currentTimeMillis()
         if (request.nominationType == NominationType.PRIMARY) {
@@ -288,17 +282,7 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         requireOpen(status)
         if (existing != request.candidateId) {
             requireCandidateExists(request.candidateId)
-            val duplicate = Nominations
-                .select(Nominations.id)
-                .where {
-                    (Nominations.planId eq planId) and (Nominations.candidateId eq request.candidateId) and
-                        (Nominations.id neq nominationId) and activeNomination()
-                }
-                .toList()
-                .isNotEmpty()
-            if (duplicate) {
-                throw ConflictException("This candidate is already nominated on this plan")
-            }
+            requireCandidateNotNominated(planId, request.candidateId, excludeNominationId = nominationId)
         }
         validateGoalLinks(ownerId, request.candidateId, request.goalIds)
         val now = System.currentTimeMillis()
@@ -618,6 +602,27 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         }
     }
 
+
+    /** One active nomination per candidate per plan — the friendly 409 (index as race backstop). */
+    private suspend fun requireCandidateNotNominated(
+        planId: UInt,
+        candidateId: UInt,
+        excludeNominationId: UInt?,
+    ) {
+        val duplicate = Nominations
+            .select(Nominations.id)
+            .where {
+                (Nominations.planId eq planId) and (Nominations.candidateId eq candidateId) and
+                    activeNomination() and
+                    (excludeNominationId?.let { Nominations.id neq it } ?: Op.TRUE)
+            }
+            .toList()
+            .isNotEmpty()
+        if (duplicate) {
+            throw ConflictException("This candidate is already nominated on this plan")
+        }
+    }
+
     /**
      * At most one active PRIMARY nomination per plan (V69): a write that sets PRIMARY demotes
      * any other active PRIMARY to SECONDARY in the same transaction (the SPA confirms with the
@@ -636,11 +641,10 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
     }
 
     /** Stamps the reviewed date — called ONLY by [completeReview] since v2.44.0 (and set at create). */
-    private suspend fun touchPlan(planId: UInt, now: Long) {
+    private suspend fun touchPlan(planId: UInt, now: Long): Int =
         Plans.update({ (Plans.id eq planId) and (Plans.markedAsDeleted eq false) }) {
             it[lastReviewedAt] = now
         }
-    }
 
     private fun encodeTexts(items: List<String>): String =
         listJson.encodeToString(textListSerializer, items)
@@ -652,15 +656,17 @@ class SuccessionPlanService(val database: R2dbcDatabase, private val cipher: Fie
         listJson.encodeToString(gapListSerializer, items)
 
     /**
-     * Lenient gap decode (v2.45.0): pre-flag rows hold plain-string elements — those lift to
-     * `filled = false`; object elements decode normally. Legacy rows are never rewritten in
-     * place (they normalize to the object shape on their next save), so this stays forever —
-     * the `decrypt` plaintext-passthrough class of compatibility.
+     * Backward-compatible gap decode (v2.45.0): pre-flag rows hold plain STRING elements —
+     * those lift to `filled = false`; object elements decode normally. Anything else (a
+     * corrupted row) fails strictly like [decodeTexts] — writer-controlled columns, so a 500
+     * is the honest outcome. Legacy rows are never rewritten in place (they normalize to the
+     * object shape on their next save), so the string branch stays forever.
      */
     private fun decodeGaps(value: String): List<SuccessionCompetencyGap> =
         listJson.parseToJsonElement(value).jsonArray.map { element ->
-            when (element) {
-                is JsonPrimitive -> SuccessionCompetencyGap(text = element.content, filled = false)
+            when {
+                element is JsonPrimitive && element.isString ->
+                    SuccessionCompetencyGap(text = element.content, filled = false)
                 else -> listJson.decodeFromJsonElement(SuccessionCompetencyGap.serializer(), element)
             }
         }

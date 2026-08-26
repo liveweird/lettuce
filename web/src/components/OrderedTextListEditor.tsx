@@ -46,14 +46,14 @@ export default function OrderedTextListEditor<
   };
   /**
    * Opt-in per-row boolean flag (v2.45.0 — the competency gaps' "filled" progress tick):
-   * renders a checkbox per row bound to `row.filled`. The toggle is a callback for the same
-   * reason as `onAdd` — the concrete field path stays typed at the call site. The checkbox
-   * needs its own aria name (the row's text lives in a textarea, unlike the goal milestones
-   * whose checkbox label IS the description).
+   * renders a checkbox per row bound to `row.filled` via the same template-path
+   * `getInputProps` the text input uses (checkup-29 simplification — the earlier onToggle
+   * callback was needless indirection). The checkbox needs its own aria name (the row's
+   * text lives in a textarea, unlike the goal milestones whose checkbox label IS the
+   * description).
    */
   flag?: {
     aria: (position: number) => string;
-    onToggle: (index: number, checked: boolean) => void;
   };
 }) {
   const { t } = useTranslation();
@@ -76,9 +76,8 @@ export default function OrderedTextListEditor<
               {flag && (
                 <Checkbox
                   mt={10}
-                  checked={row.filled ?? false}
-                  onChange={(event) => flag.onToggle(index, event.currentTarget.checked)}
                   aria-label={flag.aria(index + 1)}
+                  {...form.getInputProps(`${field}.${index}.filled`, { type: "checkbox" })}
                 />
               )}
               <EmojiTextarea
