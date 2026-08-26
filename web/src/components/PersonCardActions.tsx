@@ -29,7 +29,7 @@ import { userImpactLogLink } from "../utils/impactLogLinks";
 import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
-import { userSuccessionLink } from "../utils/successionLinks";
+import { successionPlanViewLink, userSuccessionLink } from "../utils/successionLinks";
 import { hasFeature } from "../api/session";
 import {
   ACTION_GROUPS,
@@ -93,6 +93,8 @@ export type PersonCardActionsProps = {
   /** The drill-downs' `from` origin. `feedbacks` omits it when unset (its resolver defaults). */
   drillFrom?: string;
   drillTeamId?: number;
+  /** The viewer's own OPEN plan for this person (v2.47.0) — pairs with show.succession. */
+  successionPlanId?: number;
   /** Explicit drill-down return URL (`back=` override) — the details-page round-trip. */
   drillBack?: string;
   /** The caller manages this person: drill-downs keep their manager-only affordances. */
@@ -111,6 +113,7 @@ export default function PersonCardActions({
   back,
   drillFrom,
   drillTeamId,
+  successionPlanId,
   drillBack,
   manages,
   audit,
@@ -131,7 +134,14 @@ export default function PersonCardActions({
     reviews: userPerformanceReviewsLink(userId, name, drillFrom ?? "managers", drillTeamId, audit, drillOpts),
     daysOff: userDaysOffLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
     impactLog: userImpactLogLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
-    succession: userSuccessionLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts),
+    // The manages flavors link the viewer's own OPEN plan directly (v2.47.0); the audit
+    // flavor keeps the per-person drill-down. The id may be absent only when show.succession
+    // is false (the caller's pool gate), so the entry going undefined never renders.
+    succession: audit
+      ? userSuccessionLink(userId, name, drillFrom ?? "details", drillTeamId, audit, drillOpts)
+      : successionPlanId != null
+        ? successionPlanViewLink(successionPlanId, drillBack ?? back)
+        : undefined,
   };
 
   const labelSource = audit ? LABELS.audit : LABELS[labels];

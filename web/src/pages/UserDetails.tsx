@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { Alert, Anchor, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import { useOwnSuccessionPlans } from "../hooks/useOwnSuccessionPlans";
 import { IconUsersGroup } from "@tabler/icons-react";
 import { canAudit, getUserId } from "../api/session";
 import { listUsers, type UserPage } from "../api/users";
@@ -134,6 +135,8 @@ export default function UserDetails() {
 
   const person = data?.person ?? null;
   const relationship = data?.relationship ?? null;
+  // The viewer's own OPEN plans (v2.47.0) — fired only once the managed flavor resolves.
+  const { openPlanByUserId } = useOwnSuccessionPlans(relationship === "subordinate");
   const name = person?.name ?? nameParam;
   // Where the create flows' Cancel returns: this page, with its own params preserved.
   const backHere = userDetailsLink(
@@ -183,8 +186,10 @@ export default function UserDetails() {
               drillFrom: "details",
               drillBack: backHere,
               manages: true,
+              successionPlanId: openPlanByUserId.get(person.userId),
               show: {
                 career: true,
+                succession: openPlanByUserId.has(person.userId),
                 provide: true,
                 ask: true,
                 request: true,

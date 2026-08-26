@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.47.0",
+    date: "2026-08-26",
+    en: `A shortcut from people to their plans. When you keep an open succession plan for one of your reports, their person card — on the dashboard's subordinates tab and on their details page — now shows a "Succession plan" button right next to Career progression, taking you straight to that plan. The button only appears for people you actually have an open plan for, and disappears when the plan is closed or deleted.`,
+    pl: `Skrót od ludzi do ich planów. Gdy prowadzisz otwarty plan sukcesji dla któregoś ze swoich podwładnych, jego karta — na zakładce podwładnych pulpitu i na stronie szczegółów — pokazuje teraz przycisk „Plan sukcesji" tuż obok Historii kariery, prowadzący wprost do tego planu. Przycisk pojawia się tylko przy osobach, dla których naprawdę masz otwarty plan, i znika po zamknięciu lub usunięciu planu.`,
+  },
+  {
     version: "2.46.0",
     date: "2026-08-26",
     en: `Succession plans keep their history now. A new History tab on the plan screen shows the full trail of changes, newest first — when the plan was created, every change to criticality, risk or bench depth, completed reviews, each nomination added, edited or removed (including when a new primary choice moved the previous one to secondary), and the closing — each with who did it and when. The trail is visible to exactly the people who can see the plan: you, the managers above you, and HR — the people the plan concerns still see nothing, and nobody gets notified.`,
