@@ -1,4 +1,4 @@
-import { Group, Input, NumberInput, Slider, Stack } from "@mantine/core";
+import { Box, Group, Input, NumberInput, Slider, Stack } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import type { RetentionRisk, RoleCriticality } from "../api/successionPlans";
@@ -40,19 +40,24 @@ function LevelSlider<V extends string>({
 }) {
   return (
     <Input.Wrapper label={label} w={220}>
-      <Slider
-        min={0}
-        max={scale.length - 1}
-        step={1}
-        value={Math.max(0, scale.indexOf(value))}
-        onChange={(index) => onChange(scale[index])}
-        marks={scale.map((option, index) => ({ value: index, label: optionLabel(option) }))}
-        label={(index) => optionLabel(scale[index])}
-        color={colors[value]}
-        thumbLabel={label}
-        mt={6}
-        mb="lg"
-      />
+      {/* Mark labels center under the track ends (translateX(-50%), nowrap) and would
+          overhang the container — the inner padding pulls the track in so the edge labels
+          land inside the 220px column (v2.47.2). */}
+      <Box px={26}>
+        <Slider
+          min={0}
+          max={scale.length - 1}
+          step={1}
+          value={Math.max(0, scale.indexOf(value))}
+          onChange={(index) => onChange(scale[index])}
+          marks={scale.map((option, index) => ({ value: index, label: optionLabel(option) }))}
+          label={(index) => optionLabel(scale[index])}
+          color={colors[value]}
+            thumbLabel={label}
+          mt={6}
+          mb="lg"
+        />
+      </Box>
     </Input.Wrapper>
   );
 }

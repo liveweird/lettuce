@@ -135,6 +135,11 @@ describe("ReviewSuccessionPlan page", () => {
       screen.getByText("The bench is below target: 1 of 2 successors nominated."),
     ).toBeInTheDocument();
 
+    // The seat's name links to user details (v2.47.2).
+    expect(screen.getByRole("link", { name: "User details for Sam Seat" })).toHaveAttribute(
+      "href",
+      "/users/8/details?name=Sam+Seat",
+    );
     // The footer trio; Edit and Delete are gone from this screen.
     expect(screen.getByRole("button", { name: /^Close$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete review" })).toBeInTheDocument();
@@ -313,6 +318,8 @@ describe("ReviewSuccessionPlan page", () => {
     renderScreen();
 
     expect(await screen.findByText("Sam Seat")).toBeInTheDocument();
+    // Chain/HR readers can click through to the person too.
+    expect(screen.getByRole("link", { name: "User details for Sam Seat" })).toBeInTheDocument();
     expect(screen.getByText("Critical")).toBeInTheDocument();
     expect(screen.queryByRole("slider", { name: "Role criticality" })).toBeNull();
     expect(screen.getByRole("link", { name: /^Close$/ })).toBeInTheDocument();

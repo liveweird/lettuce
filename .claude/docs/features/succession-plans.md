@@ -136,7 +136,8 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   competency gaps). **`/succession/:id/view` is the Review screen**
   (`ReviewSuccessionPlan.tsx`, v2.44.0 — the former read-only view + `/succession/:id/edit`
   page folded into one, no view/edit switching): three Tabs (`keepMounted={false}`, the
-  EditGoal-inside-form idiom) — **Basic info** (party row + Last reviewed; the definition
+  EditGoal-inside-form idiom) — **Basic info** (party row — the seat's name links to user details since v2.47.2, the
+  FeedbackMeta no-deleted-flag caveat applies — + Last reviewed; the definition
   INLINE-EDITABLE via a page-level `useForm` + `SuccessionPlanFields` for the owner of an
   OPEN plan, the read-only badge/list render otherwise; the under-bench Alert lives here) and
   **Nominations** (the bench badge, the Paper cards with linked-goal chips → `goalViewLink`;
@@ -157,7 +158,9 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   linked by default, no navigation; shown only when the candidate is in the caller's
   `useManagedReports` pool, since the server would 403 the create). **Person-card entry point (v2.47.0)**: the manages-flavor cards (the dashboard
   subordinates grid, its `/teams/:id/details` embedding, and UserDetails' direct-report
-  flavor) carry a **"Succession plan"** button
+  flavor) carry a **"Succession plan"** button and (v2.47.2) a **"Succession reviewed"**
+  Profile stat row (the plan's `lastReviewedAt` as relative time, under Seniority — both
+  derive from the same pool map, so they appear together)
   beside Career progression in the Profile row — rendered ONLY when the viewer OWNS an OPEN
   plan for that person (the `useOwnSuccessionPlans` pool: `["succession","ownOpenByUser"]`
   over `view=own&status=OPEN`, all pages; the `["succession"]` prefix auto-invalidates on

@@ -12,7 +12,7 @@ import { hasFeature } from "../api/session";
  * the (403-bound) request.
  */
 export function useOwnSuccessionPlans(enabled: boolean): {
-  openPlanByUserId: Map<number, number>;
+  openPlanByUserId: Map<number, { id: number; lastReviewedAt: number }>;
 } {
   const { data } = useQuery({
     queryKey: ["succession", "ownOpenByUser"],
@@ -21,7 +21,13 @@ export function useOwnSuccessionPlans(enabled: boolean): {
     enabled: enabled && hasFeature("SUCCESSION_PLANS"),
   });
   const openPlanByUserId = useMemo(
-    () => new Map((data ?? []).map((plan) => [plan.userId, plan.id])),
+    () =>
+      new Map(
+        (data ?? []).map((plan) => [
+          plan.userId,
+          { id: plan.id, lastReviewedAt: plan.lastReviewedAt },
+        ]),
+      ),
     [data],
   );
   return { openPlanByUserId };

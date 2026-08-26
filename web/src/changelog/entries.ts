@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.47.2",
+    date: "2026-08-26",
+    en: `Three small succession-plan touches. The person's name on a plan now links to their details page. The criticality and risk sliders keep their labels neatly inside the card. And wherever a person card shows the "Succession plan" button, its Profile section now also tells you when that plan was last reviewed — right under Seniority, as "Succession reviewed: … ago".`,
+    pl: `Trzy drobne szlify planów sukcesji. Nazwisko osoby na planie prowadzi teraz do jej strony szczegółów. Suwaki krytyczności i ryzyka trzymają swoje etykiety schludnie wewnątrz karty. A wszędzie tam, gdzie karta osoby pokazuje przycisk „Plan sukcesji", sekcja Profil informuje teraz także, kiedy ten plan był ostatnio przeglądany — tuż pod Poziomem, jako „Przegląd sukcesji: … temu".`,
+  },
+  {
     version: "2.47.1",
     date: "2026-08-26",
     en: `Fixes from a thorough review round, all in succession plans. Removing or reordering loss-impact items now always saves when you complete a review — previously such edits could be silently lost if nothing else changed. Closing a plan now warns about unsaved edits (closing is final, so they would be gone for good). Opening a plan from a person card and adding a nomination now returns you all the way back to that card. The under-bench cue follows the bench target as you edit it. A candidate who was deactivated after being nominated shows properly in the nomination editor instead of a blank picker, and the new-goal window starts clean each time. A page-navigation crash on user details was fixed along the way.`,

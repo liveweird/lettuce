@@ -79,6 +79,8 @@ test("a manager plans a succession, nominates a successor with a linked developm
     page.getByText("The bench is below target: 0 of 2 successors nominated."),
   ).toBeVisible();
   await expect(page.getByLabel("Loss-impact item 1", { exact: true })).toHaveValue(impact);
+  // The seat's name links to user details (v2.47.2).
+  await expect(page.getByRole("link", { name: "User details for AAA One" })).toBeVisible();
 
   // 3. Nominate AAA Two from the Nominations tab, with a competency gap and a development
   //    goal created from the modal.
@@ -188,11 +190,10 @@ test("a manager plans a succession, nominates a successor with a linked developm
   // 8. The person-card button (v2.47.0): while the plan is OPEN, the subordinates grid's
   //    AAA One card links straight to it; AAA Two (a candidate, not a seat) gets nothing.
   await page.goto("/?tab=subordinates");
-  await page
-    .locator("li", { hasText: "AAA One" })
-    .first()
-    .getByRole("link", { name: "Succession plan for AAA One" })
-    .click();
+  const aaaOneCard = page.locator("li", { hasText: "AAA One" }).first();
+  // The Profile section reports the plan's reviewed stamp beside the button (v2.47.2).
+  await expect(aaaOneCard.getByText("Succession reviewed")).toBeVisible();
+  await aaaOneCard.getByRole("link", { name: "Succession plan for AAA One" }).click();
   await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();
   await page.goto("/?tab=subordinates");
   await expect(

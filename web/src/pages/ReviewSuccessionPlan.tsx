@@ -62,6 +62,7 @@ import {
   type SuccessionPlanFormValues,
 } from "../utils/successionForm";
 import { showSuccessToast } from "../utils/toast";
+import { userDetailsLink } from "../utils/userLinks";
 import { safeBackParam } from "../utils/url";
 
 /**
@@ -225,10 +226,16 @@ export default function ReviewSuccessionPlan() {
                     )}
 
                     <Group gap="xl" align="flex-start">
+                      {/* The seat's name links to user details (v2.47.2). The document
+                          carries no userDeleted flag (the FeedbackMeta precedent), so the
+                          link renders for deleted seats too; viewer-is-seat can't happen
+                          (the seat 403s this whole screen). */}
                       <PersonaField
                         label={t("succession.person")}
                         name={data.userName}
                         you={currentUserId != null && currentUserId === data.userId}
+                        to={userDetailsLink(data.userId, data.userName)}
+                        ariaLabel={t("users.detailsFor", { name: data.userName })}
                       />
                       <PersonaField
                         label={t("succession.owner")}

@@ -57,7 +57,7 @@ function teamsPage(): Response {
 function setupMocks(
   mockFetch: FetchMock,
   response: Response = membersPage(SEED_MEMBERS),
-  ownPlans: Array<{ id: number; userId: number }> = [],
+  ownPlans: Array<{ id: number; userId: number; lastReviewedAt: number }> = [],
 ) {
   mockFetch.mockImplementation((url: string) => {
     const path = String(url);
@@ -386,17 +386,23 @@ describe("TeamMembersTable", () => {
   });
 
   test("managed cards link the viewer's own OPEN succession plan; plan-less rows stay bare (v2.47.0)", async () => {
-    setupMocks(mockFetch, membersPage(SEED_MEMBERS), [{ id: 9, userId: 11 }]);
+    setupMocks(mockFetch, membersPage(SEED_MEMBERS), [
+      { id: 9, userId: 11, lastReviewedAt: Date.now() - 86_400_000 },
+    ]);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
     const link = await screen.findByRole("link", { name: "Succession plan for Bob Brown" });
     expect(link.getAttribute("href")).toContain("/succession/9/view");
     // Alice has no plan in the pool — no button on her card.
     expect(screen.queryByRole("link", { name: "Succession plan for Alice Adams" })).toBeNull();
+    // Bob's card carries the reviewed stat row (v2.47.2); it's the only one.
+    expect(screen.getAllByText("Succession reviewed")).toHaveLength(1);
   });
 
   test("the peers view never shows a succession-plan button (the pool never even loads)", async () => {
-    setupMocks(mockFetch, membersPage([SEED_MEMBERS[1]]), [{ id: 9, userId: 11 }]);
+    setupMocks(mockFetch, membersPage([SEED_MEMBERS[1]]), [
+      { id: 9, userId: 11, lastReviewedAt: Date.now() },
+    ]);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No team members" />);
 
     await screen.findByText("Bob Brown");

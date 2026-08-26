@@ -189,7 +189,7 @@ export default function UserDetails() {
               drillFrom: "details",
               drillBack: backHere,
               manages: true,
-              successionPlanId: openPlanByUserId.get(person.userId),
+              successionPlanId: openPlanByUserId.get(person.userId)?.id,
               show: {
                 career: true,
                 succession: openPlanByUserId.has(person.userId),
@@ -269,6 +269,7 @@ export default function UserDetails() {
                 showSeniorityWhenUnset={relationship === "subordinate" || selfView}
                 showLastReview={relationship === "subordinate"}
                 showDaysOff={relationship === "subordinate"}
+                successionReviewedAt={openPlanByUserId.get(person.userId)?.lastReviewedAt}
                 actions={actions}
               />
             }
