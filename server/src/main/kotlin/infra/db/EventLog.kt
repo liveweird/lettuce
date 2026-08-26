@@ -16,7 +16,7 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 /**
- * The shared shape of the six per-record audit-event tables (feedback/1:1/goal/team-KPI/
+ * The shared shape of the seven per-record audit-event tables (feedback/1:1/goal/team-KPI/
  * performance-review/impact-log `*_events` — all V15 clones): an FK to the owning record, the acting
  * user, a creation timestamp, and a structured (type + JSON params) event the SPA localizes.
  * Feature packages declare `object XEvents : EventLogTable("x_events", "x_id", XTable)` and

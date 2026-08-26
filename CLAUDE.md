@@ -44,7 +44,7 @@ Group is `ch.nokillswit`, version `1.0.0-SNAPSHOT` (set in root `build.gradle.kt
 ch.nokillswit
 ├── main.kt
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
-├── infra/db/           Flyway migrations + R2DBC connection bootstrap + the shared EventLog base behind the six `*_events` services (v2.4.1)
+├── infra/db/           Flyway migrations + R2DBC connection bootstrap + the shared EventLog base behind the seven `*_events` services (v2.4.1)
 ├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging + the repeated-key 400 singleValue)
 ├── infra/validation/   cross-feature text sanitation: sanitizeSingleLine (v2.35.0 — see "Single-line identity fields" in `.claude/docs/security.md`)
 ├── infra/mail/         outbound email: Mailer (smtp via Jakarta/Angus, log, disabled) + configureMail (see "Outbound email" in `.claude/docs/security.md`)
@@ -60,7 +60,7 @@ ch.nokillswit
 ├── oneonones/          /api/v1/one-on-ones/* CRUD + list + events + action-item history + OneOnOneService + Meetings/Notes/ActionItems tables (see "1:1 meetings" in `.claude/docs/features/one-on-ones.md`)
 ├── goals/              /api/v1/goals/* CRUD + list + events + progress/transition actions + GoalService + Goals table (see "Goals" in `.claude/docs/features/goals.md`)
 ├── impactlog/          /api/v1/impact-log/* — the per-employee accomplishment journal: CRUD + list + events + ImpactLogService + impact_log_entries/impact_log_events tables (owner-only writes; chain+HR reads — see "Impact log" in `.claude/docs/features/impact-log.md`)
-├── succession/         /api/v1/succession-plans/* — the manager's critical-role/seat records: plan + nomination CRUD + close + goal links + SuccessionPlanService + succession_plans/succession_nominations/succession_nomination_goals tables (owner-only writes; chain-above-the-owner+HR reads, invisible to its subjects — see "Succession plans" in `.claude/docs/features/succession-plans.md`)
+├── succession/         /api/v1/succession-plans/* — the manager's critical-role/seat records: plan + nomination CRUD + close + complete-review + events + goal links + SuccessionPlanService + succession_plans/succession_nominations/succession_nomination_goals/succession_plan_events tables (owner-only writes; chain-above-the-owner+HR reads, invisible to its subjects — see "Succession plans" in `.claude/docs/features/succession-plans.md`)
 ├── teamkpis/           /api/v1/team-kpis/* CRUD + list + events + values sub-resource + transition actions + TeamKpiService + TeamKpis/TeamKpiValues tables (see "Team KPIs" in `.claude/docs/features/team-kpis.md`)
 ├── reviews/            /api/v1/performance-reviews/* CRUD + list + events + transition actions + /api/v1/review-periods registry + PerformanceReviewService/ReviewPeriodService (see "Performance reviews" in `.claude/docs/features/performance-reviews.md`)
 ├── daysoff/            /api/v1/days-off/* requests + accept/reject/cancel actions + calendar + budgets + the chain-manager allowance PUT + corrections sub-resource + /api/v1/public-holidays registry + DaysOffService/PublicHolidayService (see "Days off" in `.claude/docs/features/days-off.md`)

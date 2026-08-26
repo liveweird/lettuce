@@ -65,6 +65,23 @@ function renderScreen(plan: Record<string, unknown> = PLAN) {
     if (u === "/api/v1/succession-plans/5" && method === "PUT") {
       return Promise.resolve(new Response(null, { status: 204 }));
     }
+    if (u === "/api/v1/succession-plans/5/events") {
+      return Promise.resolve(
+        jsonResponse(200, {
+          items: [
+            {
+              id: 1,
+              planId: 5,
+              userId: 7,
+              userName: "Me Manager",
+              timestamp: 1,
+              type: "CREATED",
+              params: { roleCriticality: "CRITICAL", retentionRisk: "HIGH", targetBenchDepth: "2" },
+            },
+          ],
+        }),
+      );
+    }
     if (u === "/api/v1/succession-plans/5") {
       return Promise.resolve(jsonResponse(200, plan));
     }
@@ -142,6 +159,18 @@ describe("ReviewSuccessionPlan page", () => {
     expect(
       screen.getByRole("link", { name: "Open the goal Lead the on-call rotation" }),
     ).toHaveAttribute("href", "/goals/11/view?back=%2Fsuccession%2F5%2Fview");
+  });
+
+  test("the History tab renders the plan's localized audit trail (v2.46.0)", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByRole("slider", { name: "Role criticality" });
+    expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "History" }));
+    expect(
+      await screen.findByText("Plan created (Critical / High, bench target 2)."),
+    ).toBeInTheDocument();
   });
 
   test("Complete review saves pending edits, stamps the review, and exits; clean forms skip the PUT", async () => {

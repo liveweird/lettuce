@@ -1876,6 +1876,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/succession-plans/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a succession plan's audit history
+         * @description Returns the immutable audit trail for a plan (v2.46.0), newest first (id descending
+         *     as the same-instant tiebreaker). Each entry is structural: an event `type` plus a
+         *     `params` map of enum names, numbers, and candidate display names — no rendered string
+         *     is stored (clients localize the description) and the encrypted loss-impact /
+         *     competency-gap texts NEVER appear. Nomination changes are plan-level events.
+         *     Authorization matches the single-GET above: whoever may read the plan may read its
+         *     history — the seat's person and the candidates get 403 as everywhere in this feature.
+         *     Events are server-generated; there is no create/update/delete endpoint, and no
+         *     notifications accompany them.
+         */
+        get: operations["listSuccessionPlanEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/succession-plans/{id}/nominations": {
         parameters: {
             query?: never;
@@ -5138,6 +5168,43 @@ export interface components {
             lossImpact: string[];
             /** @default 2 */
             targetBenchDepth: number;
+        };
+        SuccessionPlanEventResponse: {
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            planId: number;
+            /** Format: int32 */
+            userId: number;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
+            userName: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the change. Server-managed.
+             */
+            timestamp: number;
+            /**
+             * @description Structured event kind; the client renders it in the viewer's language.
+             * @enum {string}
+             */
+            type: "CREATED" | "CRITICALITY_CHANGED" | "RISK_CHANGED" | "BENCH_DEPTH_CHANGED" | "LOSS_IMPACT_CHANGED" | "REVIEW_COMPLETED" | "CLOSED" | "DELETED" | "NOMINATION_ADDED" | "NOMINATION_UPDATED" | "NOMINATION_REMOVED" | "PRIMARY_DEMOTED";
+            /**
+             * @description Interpolation params for the localized rendering — enum names, numbers, and
+             *     candidate display names only (never loss-impact/competency-gap text). In use:
+             *     `roleCriticality`/`retentionRisk`/`targetBenchDepth` (CREATED), `from`/`to`
+             *     (the *_CHANGED kinds), `candidateName` + `readiness`/`nominationType`/`awareness`
+             *     (NOMINATION_ADDED), `candidateName` + `changed` (comma-joined field names:
+             *     candidate, readiness, nominationType, awareness, competencyGaps, goals) +
+             *     optional `readinessFrom/To`/`nominationTypeFrom/To`/`awarenessFrom/To`
+             *     (NOMINATION_UPDATED), `candidateName` (NOMINATION_REMOVED, PRIMARY_DEMOTED).
+             *     Empty object when the event kind needs none.
+             */
+            params: {
+                [key: string]: string;
+            };
+        };
+        SuccessionPlanEventList: {
+            items: components["schemas"]["SuccessionPlanEventResponse"][];
         };
         SuccessionCompetencyGap: {
             /** @description Non-blank short text naming the gap. Encrypted at rest. */
@@ -9488,6 +9555,33 @@ export interface operations {
             403: components["responses"]["SuccessionPlanNotOwner"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["SuccessionPlanClosed"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listSuccessionPlanEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plan's events, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessionPlanEventList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["SuccessionPlanNotReadable"];
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
     };

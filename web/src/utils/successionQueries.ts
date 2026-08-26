@@ -7,5 +7,6 @@ import type { QueryClient } from "@tanstack/react-query";
  */
 export async function invalidateSuccession(queryClient: QueryClient, id?: number): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: ["succession"] });
+  await queryClient.invalidateQueries({ queryKey: ["successionPlanEvents"] });
   if (id != null) await queryClient.invalidateQueries({ queryKey: ["successionPlan", id] });
 }

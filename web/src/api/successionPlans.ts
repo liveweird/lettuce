@@ -125,3 +125,11 @@ export async function deleteSuccessionNomination(
     method: "DELETE",
   });
 }
+
+type SuccessionPlanEventList =
+  paths["/api/v1/succession-plans/{id}/events"]["get"]["responses"]["200"]["content"]["application/json"];
+export type SuccessionPlanEvent = SuccessionPlanEventList["items"][number];
+
+export async function listSuccessionPlanEvents(id: number): Promise<SuccessionPlanEvent[]> {
+  return (await jsonRequest<SuccessionPlanEventList>(`/api/v1/succession-plans/${id}/events`)).items;
+}

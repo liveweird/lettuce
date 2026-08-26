@@ -42,6 +42,8 @@ import ch.nokillswit.reviews.PerformanceReviewService
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
 import ch.nokillswit.reviews.ReviewPeriodService
 import ch.nokillswit.reviews.ReviewPeriodServiceKey
+import ch.nokillswit.succession.SuccessionEventService
+import ch.nokillswit.succession.SuccessionEventServiceKey
 import ch.nokillswit.succession.SuccessionPlanService
 import ch.nokillswit.succession.SuccessionPlanServiceKey
 import ch.nokillswit.teamkpis.TeamKpiEventService
@@ -94,6 +96,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(ImpactLogServiceKey, ImpactLogService(database, attributes[FieldCipherKey]))
     attributes.put(ImpactLogEventServiceKey, ImpactLogEventService(database))
     attributes.put(SuccessionPlanServiceKey, SuccessionPlanService(database, attributes[FieldCipherKey]))
+    attributes.put(SuccessionEventServiceKey, SuccessionEventService(database))
     // The email mirror (v2.3.0): configureMail runs before this module, so the transport and
     // appUrl are readable; the Application is the CoroutineScope its fire-and-forget sends
     // ride on (the password-reset launch precedent).

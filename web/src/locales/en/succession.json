@@ -3,6 +3,7 @@
   "tab": {
     "basics": "Basic info",
     "nominations": "Nominations",
+    "history": "History",
     "own": "My plans",
     "team": "My subordinates' plans"
   },
@@ -63,6 +64,21 @@
   "pickPerson": "Pick a person",
   "noReports": "No reports found",
   "viewTitle": "Succession plan",
+  "noHistory": "No history yet.",
+  "event": {
+    "created": "Plan created ({{criticality}} / {{risk}}, bench target {{target}}).",
+    "criticalityChanged": "Role criticality changed from {{from}} to {{to}}.",
+    "riskChanged": "Retention risk changed from {{from}} to {{to}}.",
+    "benchDepthChanged": "Target bench depth changed from {{from}} to {{to}}.",
+    "lossImpactChanged": "Loss-impact list updated.",
+    "reviewCompleted": "Review completed.",
+    "closed": "Plan closed.",
+    "deleted": "Plan deleted.",
+    "nominationAdded": "{{name}} nominated ({{readiness}}, {{type}}).",
+    "nominationUpdated": "Nomination of {{name}} updated: {{fields}}.",
+    "nominationRemoved": "Nomination of {{name}} removed.",
+    "primaryDemoted": "The nomination of {{name}} changed to secondary \u2014 a new primary was chosen."
+  },
   "completeReview": "Complete review",
   "closeReviewTitle": "Leave without completing the review?",
   "closeReviewMessage": "Closing this screen will not count as a review of the plan \u2014 the last-reviewed date stays unchanged.",
