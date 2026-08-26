@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "2.45.1",
+    date: "2026-08-26",
+    en: `A small polish on competency gaps: the filled checkbox now sits to the left of the gap's text, next to the row number, so ticking off progress reads naturally like a checklist.`,
+    pl: `Drobny szlif luk kompetencyjnych: pole wyboru „uzupełniona" znajduje się teraz po lewej stronie tekstu luki, obok numeru wiersza, więc odhaczanie postępu czyta się naturalnie jak listę zadań.`,
+  },
+  {
     version: "2.45.0",
     date: "2026-08-26",
     en: `Competency gaps track progress now. Each gap on a successor nomination has a checkbox: tick it when the candidate has filled that gap. On the plan's nomination cards, filled gaps show struck through, so a glance at the bench tells you how far each successor's preparation has come. Existing nominations carry on unchanged — their gaps simply start unticked.`,

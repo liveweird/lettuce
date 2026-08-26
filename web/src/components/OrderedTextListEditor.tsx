@@ -73,6 +73,14 @@ export default function OrderedTextListEditor<
               <Text size="sm" c="dimmed" w={24} ta="right" pt={8} style={{ flexShrink: 0 }}>
                 {index + 1}.
               </Text>
+              {flag && (
+                <Checkbox
+                  mt={10}
+                  checked={row.filled ?? false}
+                  onChange={(event) => flag.onToggle(index, event.currentTarget.checked)}
+                  aria-label={flag.aria(index + 1)}
+                />
+              )}
               <EmojiTextarea
                 style={{ flex: 1 }}
                 autosize
@@ -83,14 +91,6 @@ export default function OrderedTextListEditor<
                 aria-label={rowAria.item(index + 1)}
                 {...form.getInputProps(`${field}.${index}.value`)}
               />
-              {flag && (
-                <Checkbox
-                  mt={10}
-                  checked={row.filled ?? false}
-                  onChange={(event) => flag.onToggle(index, event.currentTarget.checked)}
-                  aria-label={flag.aria(index + 1)}
-                />
-              )}
               <RowControls
                 index={index}
                 count={rows.length}
