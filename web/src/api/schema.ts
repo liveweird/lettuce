@@ -1809,7 +1809,8 @@ export interface paths {
          * @description Replaces the plan's definition fields — criticality, retention risk, the loss-impact
          *     list, and the target bench depth; the seat's person is immutable. **Owner-only** (the
          *     chain's read right carries no pen; ADMIN and HR get nothing). Allowed only while the
-         *     plan is OPEN — a CLOSED plan is read-only (`409`). Editing bumps the reviewed stamp.
+         *     plan is OPEN — a CLOSED plan is read-only (`409`). Editing does NOT touch the reviewed
+         *     stamp — only the explicit complete-review action (and creation) sets it.
          */
         put: operations["updateSuccessionPlan"];
         post?: never;
@@ -1850,6 +1851,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/succession-plans/{id}/complete-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a review of the plan
+         * @description Stamps the plan's `lastReviewedAt` to now — THE only writer of the reviewed stamp
+         *     besides creation (since v2.44.0 plan/nomination mutations no longer bump it).
+         *     **Owner-only**; OPEN plans only (a CLOSED plan is `409`). Repeatable — reviewing
+         *     again simply re-stamps (a review is not a state transition).
+         */
+        post: operations["completeSuccessionReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/succession-plans/{id}/nominations": {
         parameters: {
             query?: never;
@@ -1879,7 +1905,7 @@ export interface paths {
          *     most 200 characters). The candidate-awareness value is metadata only — whatever it
          *     says, the candidate is never notified and never granted any read. A PRIMARY
          *     nomination demotes any existing PRIMARY on the plan to SECONDARY in the same write.
-         *     Every nomination mutation bumps the plan's reviewed stamp.
+         *     The plan's reviewed stamp is untouched — only the complete-review action sets it.
          */
         post: operations["createSuccessionNomination"];
         delete?: never;
@@ -1908,7 +1934,7 @@ export interface paths {
          *     apply; a since-deactivated candidate stays editable as long as the candidate is
          *     unchanged (only a CHANGED candidate is checked like a fresh assignment). A save that
          *     sets PRIMARY demotes any other PRIMARY on the plan to SECONDARY in the same write.
-         *     Bumps the plan's reviewed stamp.
+         *     The plan's reviewed stamp is untouched.
          */
         put: operations["updateSuccessionNomination"];
         post?: never;
@@ -1916,7 +1942,7 @@ export interface paths {
          * Remove a successor nomination
          * @description Soft-deletes a nomination from an OPEN plan (**owner-only**; a CLOSED plan is
          *     read-only, `409`). Its goal links become unreachable with it; the goals themselves
-         *     are untouched. Bumps the plan's reviewed stamp.
+         *     are untouched. The plan's reviewed stamp is untouched.
          */
         delete: operations["deleteSuccessionNomination"];
         options?: never;
@@ -5212,7 +5238,7 @@ export interface components {
             createdAt: number;
             /**
              * Format: int64
-             * @description Epoch milliseconds; bumped by every plan/nomination mutation (editing IS reviewing). Closing deliberately does not bump it.
+             * @description Epoch milliseconds; set at creation and updated ONLY by the explicit complete-review action (since v2.44.0) — plan/nomination mutations and closing never touch it.
              */
             lastReviewedAt: number;
         };
@@ -9427,6 +9453,32 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    completeSuccessionReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Review completed — the reviewed stamp is updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["SuccessionPlanNotOwner"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["SuccessionPlanClosed"];
             500: components["responses"]["InternalServerError"];
         };
     };

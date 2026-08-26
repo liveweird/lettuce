@@ -5,23 +5,13 @@ import type {
   RoleCriticality,
   SuccessionPlanStatus,
 } from "../api/successionPlans";
+import { CRITICALITY_COLORS, RISK_COLORS } from "./successionScales";
 
-// The succession plans' colored pills — single color source (the FeedbackBadges idiom), all
-// `variant="light"` + min-width so table cells never ellipsize them. Semantic palette rules:
-// red/orange grade the severity scales (the ratingColor direction), teal marks the good side
-// (never brand green), gray the neutral/terminal states.
-
-const CRITICALITY_COLORS: Record<RoleCriticality, string> = {
-  CRITICAL: "red.7",
-  CORE: "orange.6",
-  STANDARD: "gray.6",
-};
-
-const RISK_COLORS: Record<RetentionRisk, string> = {
-  HIGH: "orange.8",
-  MEDIUM: "yellow.6",
-  LOW: "teal",
-};
+// The succession plans' colored pills (the FeedbackBadges idiom), with min-width so table
+// cells never ellipsize them. The severity color maps live in ./successionScales (shared
+// with the definition form's sliders — the Fast-Refresh split); the two severity badges are
+// `variant="filled"` + `autoContrast` (v2.44.0 — the light variant was barely readable on
+// yellow/orange), while the status/bench pills keep the house light variant.
 
 const STATUS_COLORS: Record<SuccessionPlanStatus, string> = {
   OPEN: "teal",
@@ -31,7 +21,12 @@ const STATUS_COLORS: Record<SuccessionPlanStatus, string> = {
 export function CriticalityBadge({ value }: { value: RoleCriticality }) {
   const { t } = useTranslation();
   return (
-    <Badge color={CRITICALITY_COLORS[value]} variant="light" style={{ minWidth: "max-content" }}>
+    <Badge
+      color={CRITICALITY_COLORS[value]}
+      variant="filled"
+      autoContrast
+      style={{ minWidth: "max-content" }}
+    >
       {t(`succession.criticality.${value}`)}
     </Badge>
   );
@@ -40,7 +35,7 @@ export function CriticalityBadge({ value }: { value: RoleCriticality }) {
 export function RetentionRiskBadge({ value }: { value: RetentionRisk }) {
   const { t } = useTranslation();
   return (
-    <Badge color={RISK_COLORS[value]} variant="light" style={{ minWidth: "max-content" }}>
+    <Badge color={RISK_COLORS[value]} variant="filled" autoContrast style={{ minWidth: "max-content" }}>
       {t(`succession.risk.${value}`)}
     </Badge>
   );

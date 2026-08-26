@@ -111,8 +111,7 @@ const ViewImpactEntry = lazy(() => import("./pages/ViewImpactEntry"));
 const SuccessionPlans = lazy(() => import("./pages/SuccessionPlans"));
 const UserSuccessionPlans = lazy(() => import("./pages/UserSuccessionPlans"));
 const CreateSuccessionPlan = lazy(() => import("./pages/CreateSuccessionPlan"));
-const EditSuccessionPlan = lazy(() => import("./pages/EditSuccessionPlan"));
-const ViewSuccessionPlan = lazy(() => import("./pages/ViewSuccessionPlan"));
+const ReviewSuccessionPlan = lazy(() => import("./pages/ReviewSuccessionPlan"));
 const EditSuccessionNomination = lazy(() => import("./pages/EditSuccessionNomination"));
 const MyTeamKpis = lazy(() => import("./pages/MyTeamKpis"));
 const CreateTeamKpi = lazy(() => import("./pages/CreateTeamKpi"));
@@ -665,8 +664,7 @@ export default function App() {
             <Route path="succession" element={<SuccessionPlans />} />
             <Route path="users/:userId/succession" element={<UserSuccessionPlans />} />
             <Route path="succession/new" element={<CreateSuccessionPlan />} />
-            <Route path="succession/:id/edit" element={<EditSuccessionPlan />} />
-            <Route path="succession/:id/view" element={<ViewSuccessionPlan />} />
+            <Route path="succession/:id/view" element={<ReviewSuccessionPlan />} />
             <Route path="succession/:id/nominations/new" element={<EditSuccessionNomination />} />
             <Route path="succession/:id/nominations/:nominationId/edit" element={<EditSuccessionNomination />} />
             <Route path="team-kpis" element={<MyTeamKpis />} />

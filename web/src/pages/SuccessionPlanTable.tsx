@@ -1,7 +1,7 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Button, Group, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconEye, IconPencil, IconTrash, IconUserShield } from "@tabler/icons-react";
+import { IconEye, IconTrash, IconUserShield } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -31,7 +31,7 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { getUserId } from "../api/session";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
-import { successionPlanEditLink, successionPlanViewLink } from "../utils/successionLinks";
+import { successionPlanViewLink } from "../utils/successionLinks";
 import { invalidateSuccession } from "../utils/successionQueries";
 import { loadErrorMessage } from "../utils/saveError";
 
@@ -265,22 +265,10 @@ export default function SuccessionPlanTable({
                         variant="subtle"
                         size="xs"
                         leftSection={<IconEye size={14} />}
-                        aria-label={t("succession.viewAria", { name: plan.userName })}
+                        aria-label={t("succession.reviewAria", { name: plan.userName })}
                       >
-                        {t("common.action.view")}
+                        {t("succession.review")}
                       </Button>
-                      {isOwner && plan.status === "OPEN" && (
-                        <Button
-                          component={RouterLink}
-                          to={successionPlanEditLink(plan.id, backParam)}
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconPencil size={14} />}
-                          aria-label={t("succession.editAria", { name: plan.userName })}
-                        >
-                          {t("common.action.edit")}
-                        </Button>
-                      )}
                       {isOwner && (
                         <Button
                           variant="subtle"

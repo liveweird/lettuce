@@ -109,17 +109,22 @@ describe("SuccessionPlanTable", () => {
     expect(screen.queryByRole("button", { name: "Owner" })).toBeNull();
   });
 
-  test("the owner's rows offer Edit only while OPEN; Delete always; others only View", async () => {
+  test("rows offer Review for everyone and Delete for the owner only — Edit is gone (v2.44.0)", async () => {
     renderTable();
 
-    expect(await screen.findByLabelText("View the succession plan for Sam Seat")).toBeInTheDocument();
-    // Plan 1 (OPEN, owned): Edit + Delete. Plan 2 (CLOSED, owned): Delete but no Edit.
-    expect(screen.getByLabelText("Edit the succession plan for Sam Seat")).toBeInTheDocument();
+    // Every row gets Review (the screen renders read-only where the caller can't write)…
+    expect(
+      await screen.findByLabelText("Review the succession plan for Sam Seat"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Review the succession plan for Cleo Candidate"),
+    ).toBeInTheDocument();
+    // …the owner keeps Delete at any status, and the Edit action no longer exists.
     expect(screen.getByLabelText("Delete the succession plan for Sam Seat")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Edit the succession plan for Cleo Candidate")).toBeNull();
     expect(
       screen.getByLabelText("Delete the succession plan for Cleo Candidate"),
     ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Edit the succession plan/)).toBeNull();
   });
 
   test("a non-owner viewer (team view) sees the Owner column and no mutating actions", async () => {
@@ -129,7 +134,9 @@ describe("SuccessionPlanTable", () => {
     expect(await screen.findByText("Sam Seat")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Owner" })).toBeInTheDocument();
     expect(screen.getAllByText("Me Manager")).toHaveLength(2);
-    expect(screen.queryByLabelText("Edit the succession plan for Sam Seat")).toBeNull();
+    expect(
+      screen.getByLabelText("Review the succession plan for Sam Seat"),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Delete the succession plan for Sam Seat")).toBeNull();
   });
 

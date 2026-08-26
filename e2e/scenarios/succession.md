@@ -8,52 +8,63 @@
   for the (Manager AAA, AAA Two) pair — goals.spec owns the (Manager AAA, AAA Three) *goal*
   pair, and no goal is created for AAA Three here, so no collision; everything is
   unique-texted and deleted in-test, with an API fallback in `afterEach`, so a failed run
-  leaves no residue; seeded accounts are never mutated
+  leaves no residue — and a `beforeEach` API sweep deletes any stranded plan for the owned
+  pair (a prior failed run or manual testing on the shared volume would otherwise 409 the
+  create and block the spec permanently, the pulse.spec sweep precedent); seeded accounts are
+  never mutated
 - **Since**: v2.42.0 (the feature's introduction); the one-primary confirm-demote step joined
-  in v2.43.0
+  in v2.43.0; the Review-screen flow (sliders, tabs, Complete review / Close warning,
+  list-only Delete) in v2.44.0
 
 ## Scenario: a manager plans a succession, nominates a successor with a linked development goal, and closes the plan
 
 1. Manager AAA signs in, opens "Succession plans" from the left menu (the leaf is
    manager-only), and clicks "New plan".
-   - *Expected*: the "New succession plan" screen opens with the owner shown as plain "You"
-     and a person picker over the manager's reporting line.
-2. They pick AAA One as the seat's person, set Role criticality to **Critical** and Retention
-   risk to **High**, add one loss-impact item (a unique text), keep the default target bench
-   depth of 2, and click **Create**.
-   - *Expected*: a "Succession plan created" toast; the screen lands on the new plan's view —
-     the Critical/High badges show, the loss-impact item lists, and the orange under-bench
-     cue reads "The bench is below target: 0 of 2 successors nominated.".
-3. They click **Add nomination**, pick AAA Two as the candidate (any active user except the
-   seat's person qualifies), set the readiness window to "Ready now (0–3 mo)", and add one
-   competency gap (a unique text).
-   - *Expected*: because AAA Two is in the manager's own chain, the **New development goal**
-     button is offered under the Development action items picker.
-4. They click **New development goal**, fill the modal (a unique title, target 3, a future
-   due date), and Create it.
-   - *Expected*: a "Development goal created and linked" toast; the fresh goal appears
-     pre-selected in the Development action items picker as "<title> (Draft)" — linked by
-     default, with no navigation away from the half-filled nomination form.
-5. They submit the nomination with **Create**.
-   - *Expected*: a "Nomination added" toast; back on the plan view the nomination card shows
-     AAA Two, the readiness window, the competency gap, and the linked goal as a chip; the
-     under-bench cue now reads "1 of 2".
-6. They click **Add nomination** again, pick AAA Three as the candidate, and switch the
-   nomination type — pre-set to **Secondary**, since the plan already holds a primary — to
-   **Primary**, then submit with **Create**.
+   - *Expected*: the "New succession plan" screen opens with the owner shown as plain "You",
+     a person picker over the manager's reporting line, and the Role-criticality /
+     Retention-risk **sliders** resting mid-scale (Core / Medium).
+2. They pick AAA One as the seat's person, promote both sliders one step to the severe end
+   (**Critical** / **High**, by keyboard), add one loss-impact item (a unique text), keep the
+   default target bench depth of 2, and click **Create**.
+   - *Expected*: a "Succession plan created" toast; the screen lands on the plan's **Review
+     screen** (Basic-info tab) — the definition is inline-editable (the loss-impact row holds
+     its text) and the orange under-bench cue reads "The bench is below target: 0 of 2
+     successors nominated.".
+3. On the **Nominations tab** they click **Add nomination**, pick AAA Two as the candidate,
+   set the readiness window to "Ready now (0–3 mo)", and add one competency gap (a unique
+   text); because AAA Two is in the manager's own chain, the **New development goal** button
+   is offered — they fill its modal (a unique title, target 3, a future due date) and Create
+   it, then submit the nomination with **Create**.
+   - *Expected*: a "Development goal created and linked" toast with the fresh goal
+     pre-selected as "<title> (Draft)" (linked by default, no navigation away), then a
+     "Nomination added" toast; back on the Review screen the Basic-info cue reads "1 of 2"
+     and the Nominations tab shows the card — AAA Two, the readiness window, the gap, and the
+     linked goal as a chip.
+4. They add a second nomination for AAA Three: the nomination type is pre-set to
+   **Secondary** (the plan already holds a primary); they switch it to **Primary** and
+   submit.
    - *Expected*: a confirmation dialog explains that AAA Two is currently the primary
-     successor and that making AAA Three primary will change AAA Two's nomination to
-     secondary; continuing via **Make primary** yields the "Nomination added" toast, the plan
-     view shows AAA Three as the only Primary with AAA Two now Secondary (the demotion rode
-     the same write), and the 2-of-2 bench retires the under-target cue.
+     successor and continuing via **Make primary** demotes them; after continuing, the
+     "Nomination added" toast shows, the Nominations tab lists AAA Three as the only Primary
+     with AAA Two now Secondary, and the 2-of-2 bench retires the under-target cue.
+5. They click **Complete review**.
+   - *Expected*: a "Review completed" toast (the plan's last-reviewed date is stamped — the
+     ONLY thing that updates it besides creation) and a return to the Succession plans list,
+     where the row shows the filled Critical/High badges and a **Review** action (there is no
+     Edit action anymore).
+6. They re-enter the plan via **Review** and leave via **Close**.
+   - *Expected*: a warning dialog says closing the screen will not count as a review of the
+     plan; confirming with **Leave** returns to the list without touching the plan.
 7. Manager AAA signs out; AAA One (the seat's person) signs in.
    - *Expected*: no "Succession plans" leaf in their navigation (they manage nobody), and a
      direct visit to `/succession` shows only an empty "My plans" list — the feature is
      invisible to its subjects.
 8. AAA One signs out; Manager AAA signs back in, opens the plan, clicks **Close plan**, and
    confirms.
-   - *Expected*: a "Succession plan closed" toast; the closed note shows, the
-     Edit/Add-nomination affordances are gone, and the bench (the gap text included) stays
-     browsable.
-9. They click **Delete** and confirm.
-   - *Expected*: a "Succession plan deleted" toast and a return to the Succession plans list.
+   - *Expected*: a "Succession plan closed" toast; the closed note shows, the Complete-review
+     and Add-nomination affordances are gone, and the bench (the gap text included) stays
+     browsable on the Nominations tab.
+9. They close the read-only screen and delete the plan **from the list row**, confirming the
+   dialog.
+   - *Expected*: a "Succession plan deleted" toast on the Succession plans list — the Review
+     screen itself no longer offers Delete.

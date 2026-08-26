@@ -9,14 +9,12 @@ export function successionPlanCreateLink(back?: string): string {
   return `/succession/new${detailSearch(undefined, back)}`;
 }
 
-/** The read-only plan document (definition + the nomination bench). */
+/**
+ * The plan's Review screen (v2.44.0 — the former view/edit pair folded into one): the whole
+ * document, inline-editable for the owner while OPEN, read-only otherwise.
+ */
 export function successionPlanViewLink(id: number, back?: string): string {
   return `/succession/${id}/view${detailSearch(undefined, back)}`;
-}
-
-/** The plan definition editor (owner-only server-side). */
-export function successionPlanEditLink(id: number, back?: string): string {
-  return `/succession/${id}/edit${detailSearch(undefined, back)}`;
 }
 
 /** The nomination create screen under a plan. */
