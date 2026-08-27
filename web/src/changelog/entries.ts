@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.0.0",
+    date: "2026-08-27",
+    en: `Lettuce opens up to other systems. A new read-only integration API lets your other tools — data warehouses, BI dashboards, HR systems — pull people data straight from lettuce: users with their career history, teams with members and KPIs, days off with budgets, performance reviews and review periods, all through one flexible GraphQL endpoint. Access is for dedicated technical clients only: an administrator registers a client on the new Config → Integration clients screen and receives its API key exactly once — after that only a fingerprint of the key is stored, and a key can be revoked at any moment, immediately and permanently. The whole surface is off by default and enabled per deployment, every request is rate-limited and recorded in the audit trail, and the schema itself is a versioned, documented contract other teams can build against. Succession plans and personal feedback stay out of it by design.`,
+    pl: `Lettuce otwiera się na inne systemy. Nowe integracyjne API tylko do odczytu pozwala Twoim pozostałym narzędziom — hurtowniom danych, pulpitom BI, systemom HR — pobierać dane wprost z lettuce: użytkowników z historią kariery, zespoły z członkami i KPI, urlopy z budżetami, przeglądy okresowe i ich okresy, wszystko przez jeden elastyczny punkt GraphQL. Dostęp mają wyłącznie dedykowani klienci techniczni: administrator rejestruje klienta na nowym ekranie Konfiguracja → Klienci integracji i otrzymuje jego klucz API dokładnie raz — potem przechowywany jest tylko odcisk klucza, a klucz można w każdej chwili unieważnić, natychmiast i trwale. Cała funkcja jest domyślnie wyłączona i włączana per wdrożenie, każde zapytanie podlega limitom i trafia do dziennika audytu, a sam schemat jest wersjonowanym, udokumentowanym kontraktem, na którym inne zespoły mogą budować. Plany sukcesji i osobisty feedback celowo pozostają poza zasięgiem tego API.`,
+  },
+  {
     version: "2.47.2",
     date: "2026-08-26",
     en: `Three small succession-plan touches. The person's name on a plan now links to their details page. The criticality and risk sliders keep their labels neatly inside the card. And wherever a person card shows the "Succession plan" button, its Profile section now also tells you when that plan was last reviewed — right under Seniority, as "Succession reviewed: … ago".`,

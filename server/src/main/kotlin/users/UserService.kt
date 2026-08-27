@@ -548,6 +548,15 @@ class UserService(val database: R2dbcDatabase) {
         return suspendTransaction(database) { currentProfilesByUserIds(ids) }
     }
 
+    /**
+     * Batch team memberships for the integration API (v3.0.0 — unscoped by design, see
+     * integration/): the users-list `teams` enrichment exposed as its own transaction. Users
+     * with no memberships are absent from the map.
+     */
+    suspend fun teamsByUserIds(ids: Set<UInt>): Map<UInt, List<TeamRef>> =
+        if (ids.isEmpty()) emptyMap()
+        else suspendTransaction(database) { teamRefsByUserIds(ids.toList()) }
+
     /** Must run inside a transaction — see [careerProfilesByUserIds]. */
     private suspend fun currentProfilesByUserIds(ids: Set<UInt>): Map<UInt, CareerProfile> {
         if (ids.isEmpty()) return emptyMap()

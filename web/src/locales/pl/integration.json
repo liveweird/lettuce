@@ -1,0 +1,33 @@
+{
+  "title": "Klienci integracji",
+  "hint": "Techniczni klienci z kluczami API do integracyjnego API tylko do odczytu pod /integration/graphql. Klucz wyświetlany jest dokładnie raz — przy utworzeniu; zapisz go w menedżerze sekretów. Unieważnienie klucza jest nieodwracalne; aby go wymienić, utwórz nowego klienta.",
+  "loadError": "Nie udało się wczytać klientów integracji",
+  "empty": "Nie ma jeszcze żadnych klientów integracji.",
+  "name": "Nazwa klienta",
+  "addClient": "Dodaj klienta",
+  "keyPanelTitle": "Klucz API dla „{{name}}” — wyświetlany tylko raz",
+  "keyPanelWarning": "Skopiuj ten klucz teraz i przechowuj go bezpiecznie. Nie da się go wyświetlić ponownie — zapisany jest wyłącznie jego skrót.",
+  "createdBy": "Utworzył/a {{name}}",
+  "lastUsed": "Ostatnio użyty {{time}}",
+  "neverUsed": "Nigdy nie użyty",
+  "badge": {
+    "active": "Aktywny",
+    "revoked": "Unieważniony"
+  },
+  "revoke": "Unieważnij",
+  "revokeAria": "Unieważnij klucz API klienta {{name}}",
+  "revokeTitle": "Unieważnić ten klucz API?",
+  "revokeMessage": "Klucz klienta „{{name}}” natychmiast przestanie działać i nie da się go przywrócić. Aby odzyskać dostęp, utwórz nowego klienta.",
+  "revokeFailed": "Unieważnienie nie powiodło się",
+  "toast": {
+    "revoked": "Klucz API unieważniony"
+  },
+  "error": {
+    "actionPermission": "Nie masz uprawnień do zarządzania klientami integracji.",
+    "invalidName": "Nazwa klienta jest nieprawidłowa — musi być niepustym pojedynczym wierszem o długości najwyżej 100 znaków.",
+    "gone": "Ten klient już nie istnieje.",
+    "alreadyRevoked": "Ten klient jest już unieważniony.",
+    "saveFailedStatus": "Zapis nie powiódł się (HTTP {{status}}). Spróbuj ponownie.",
+    "saveFailed": "Zapis nie powiódł się. Sprawdź połączenie i spróbuj ponownie."
+  }
+}

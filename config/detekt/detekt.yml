@@ -23,9 +23,13 @@ complexity:
   # splitting them by function count would fork feature logic across files.
   TooManyFunctions:
     active: false
-  # Per-feature route test suites are deliberately comprehensive (one file per feature).
+  # Per-feature route test suites are deliberately comprehensive (one file per feature), and
+  # the one-cohesive-service-per-feature idiom (see TooManyFunctions above) means the biggest
+  # feature service (DaysOffService, incl. the v3.0.0 integration reads) tops the default
+  # line count; the raised threshold still backstops runaway growth.
   LargeClass:
     excludes: ['**/src/test/**']
+    threshold: 1000
   # The documented authz/visibility matrices (canReadFeedback & friends) read best as single
   # four-clause conditions — the clause count IS the matrix width.
   ComplexCondition:

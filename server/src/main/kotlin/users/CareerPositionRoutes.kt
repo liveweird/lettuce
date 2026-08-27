@@ -61,8 +61,10 @@ private fun changedRefs(
 private fun effectiveEndDate(rows: List<CareerPositionService.PositionRow>, i: Int): String? =
     rows.getOrNull(i + 1)?.let { LocalDate.parse(it.startDate).minusDays(1).toString() } ?: rows[i].endDate
 
-/** Chronological rows → responses: resolve refs and derive each end from the next start. */
-private fun toResponses(
+/** Chronological rows → responses: resolve refs and derive each end from the next start.
+ *  Internal (not private): the integration API's User.careerHistory resolver reuses it so the
+ *  derived-end model has exactly one implementation (see integration/). */
+internal fun toResponses(
     rows: List<CareerPositionService.PositionRow>,
     entries: Map<UInt, DictionaryEntry>,
 ): List<CareerPositionResponse> = rows.mapIndexed { i, row ->

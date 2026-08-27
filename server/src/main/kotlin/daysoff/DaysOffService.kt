@@ -48,6 +48,12 @@ data class DaysOffListResult(
     val total: Long,
 )
 
+/** The integration API's full-document page (v3.0.0) — see [DaysOffService.listAllFull]. */
+data class DaysOffFullListResult(
+    val items: List<DaysOffResponse>,
+    val total: Long,
+)
+
 private val ownerUsers = UserService.Users.alias("owner_users")
 private val cancelUsers = UserService.Users.alias("cancel_users")
 
@@ -217,7 +223,12 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             .map { it }
             .singleOrNull()
             ?: return@suspendTransaction null
-        val resolvedById = row[Requests.resolvedBy]?.value
+        // One extra lookup only when resolved — spares the read path a second user join.
+        toFullResponse(row, resolvedByName = row[Requests.resolvedBy]?.value?.let { userName(it) })
+    }
+
+    /** A joined() row → the full response, with the resolver name supplied by the caller. */
+    private fun toFullResponse(row: ResultRow, resolvedByName: String?): DaysOffResponse =
         DaysOffResponse(
             id = row[Requests.id].value,
             userId = row[Requests.userId].value,
@@ -230,9 +241,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             endHalf = row[Requests.endHalf],
             days = row[Requests.costHalfDays] / 2.0,
             createdAt = row[Requests.createdAt],
-            resolvedById = resolvedById,
-            // One extra lookup only when resolved — spares the read path a second user join.
-            resolvedByName = resolvedById?.let { userName(it) },
+            resolvedById = row[Requests.resolvedBy]?.value,
+            resolvedByName = resolvedByName,
             resolvedAt = row[Requests.resolvedAt],
             cancelledAt = row[Requests.cancelledAt],
             cancelledById = row[Requests.cancelledBy]?.value,
@@ -240,6 +250,60 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             cancelReason = row[Requests.cancelReason]?.let { cipher.decrypt(it) },
             lastModified = row[Requests.lastModified],
         )
+
+    /**
+     * Unscoped full-document page for the integration API (v3.0.0 — no caller, no view
+     * scoping, no capability stamping; see integration/). Reuses [DaysOffListFilter]'s
+     * userId/type/status/startDate-bound predicate; resolver names come from ONE batch query.
+     */
+    suspend fun listAllFull(filter: DaysOffListFilter, paging: PageRequest): DaysOffFullListResult =
+        suspendTransaction(database) {
+            val predicate = buildPredicate(filter) and active()
+            val total = joined().selectAll().where { predicate }.count()
+            val rows = joined().selectAll()
+                .where { predicate }
+                .applyPaging(paging, SORTABLE_COLUMNS)
+                .map { it }
+                .toList()
+            DaysOffFullListResult(items = withResolverNames(rows), total = total)
+        }
+
+    /**
+     * Batch for the integration API (v3.0.0): owner id → their requests (every status),
+     * optionally bounded to startDates of one calendar year; owners without requests are
+     * absent from the map.
+     */
+    suspend fun listByUserIds(userIds: Set<UInt>, year: Int?): Map<UInt, List<DaysOffResponse>> =
+        if (userIds.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            var predicate: Op<Boolean> = (Requests.userId inList userIds) and active()
+            year?.let {
+                predicate = predicate and
+                    (Requests.startDate greaterEq "$it-01-01") and (Requests.startDate lessEq "$it-12-31")
+            }
+            val rows = joined().selectAll()
+                .where { predicate }
+                .orderBy(Requests.id to SortOrder.ASC)
+                .map { it }
+                .toList()
+            withResolverNames(rows).groupBy { it.userId }
+        }
+
+    /** Rows → responses with resolver names filled from ONE batch name query (in-transaction). */
+    private suspend fun withResolverNames(rows: List<ResultRow>): List<DaysOffResponse> {
+        val resolverIds = rows.mapNotNull { it[Requests.resolvedBy]?.value }.toSet()
+        val names =
+            if (resolverIds.isEmpty()) {
+                emptyMap()
+            } else {
+                UserService.Users
+                    .select(UserService.Users.id, UserService.Users.name)
+                    .where { UserService.Users.id inList resolverIds }
+                    .map { it[UserService.Users.id].value to it[UserService.Users.name] }
+                    .toList()
+                    .toMap()
+            }
+        return rows.map { row -> toFullResponse(row, resolvedByName = row[Requests.resolvedBy]?.value?.let { names[it] }) }
     }
 
     /**
@@ -587,6 +651,34 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 .orderBy(Corrections.year to SortOrder.DESC, Corrections.id to SortOrder.DESC)
                 .map { it.toCorrection() }
                 .toList()
+        }
+
+    /**
+     * Batch for the integration API (v3.0.0): user id → their active corrections (newest year,
+     * then newest row, first — the [listCorrections] order), optionally bounded to one year;
+     * users without corrections are absent from the map.
+     */
+    suspend fun listCorrectionsByUserIds(
+        userIds: Set<UInt>,
+        year: Int?,
+    ): Map<UInt, List<DaysOffCorrectionResponse>> =
+        if (userIds.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            var predicate: Op<Boolean> = (Corrections.userId inList userIds) and correctionActive()
+            year?.let { predicate = predicate and (Corrections.year eq it) }
+            Corrections
+                .join(
+                    ownerUsers,
+                    JoinType.INNER,
+                    onColumn = Corrections.authorId,
+                    otherColumn = ownerUsers[UserService.Users.id],
+                )
+                .selectAll()
+                .where { predicate }
+                .orderBy(Corrections.year to SortOrder.DESC, Corrections.id to SortOrder.DESC)
+                .map { it.toCorrection() }
+                .toList()
+                .groupBy { it.userId }
         }
 
     suspend fun readCorrection(id: UInt): DaysOffCorrectionResponse? = suspendTransaction(database) {

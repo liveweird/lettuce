@@ -43,6 +43,12 @@ data class TeamKpiListResult(
     val total: Long,
 )
 
+/** The integration API's full-document page (v3.0.0) — see [TeamKpiService.listAllFull]. */
+data class TeamKpiFullListResult(
+    val items: List<TeamKpiResponse>,
+    val total: Long,
+)
+
 /** Result of [TeamKpiService.correctValue]: the pre-edit row (for the audit event) + whether anything changed. */
 data class TeamKpiValueCorrection(
     val old: TeamKpiValueResponse,
@@ -139,6 +145,55 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             .map { it.toResponse() }
             .singleOrNull()
     }
+
+    /**
+     * Unscoped full-document page for the integration API (v3.0.0 — no caller, no view
+     * scoping, DRAFTs included by design; see integration/). Rows decrypt like [read];
+     * capability flags keep their false defaults (the schema never exposes them).
+     */
+    suspend fun listAllFull(teamId: UInt?, status: TeamKpiStatus?, paging: PageRequest): TeamKpiFullListResult =
+        suspendTransaction(database) {
+            var predicate: Op<Boolean> = active()
+            teamId?.let { predicate = predicate and (TeamKpis.teamId eq it) }
+            status?.let { predicate = predicate and (TeamKpis.status eq it) }
+            val total = joined().selectAll().where { predicate }.count()
+            val items = joined().selectAll()
+                .where { predicate }
+                .applyPaging(paging, SORTABLE_COLUMNS)
+                .map { it.toResponse() }
+                .toList()
+            TeamKpiFullListResult(items = items, total = total)
+        }
+
+    /**
+     * Batch for the integration API (v3.0.0): team id → its KPIs (every status), decrypted;
+     * teams without KPIs are absent from the map.
+     */
+    suspend fun listByTeamIds(teamIds: Set<UInt>): Map<UInt, List<TeamKpiResponse>> =
+        if (teamIds.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            joined().selectAll()
+                .where { (TeamKpis.teamId inList teamIds) and active() }
+                .orderBy(TeamKpis.id to SortOrder.ASC)
+                .map { it.toResponse() }
+                .toList()
+                .groupBy { it.teamId }
+        }
+
+    /**
+     * Batch for the integration API (v3.0.0): KPI id → its data points (date DESC like
+     * [listValues]); KPIs without points are absent from the map.
+     */
+    suspend fun valuesByKpiIds(kpiIds: Set<UInt>): Map<UInt, List<TeamKpiValueResponse>> =
+        if (kpiIds.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            TeamKpiValues.selectAll()
+                .where { TeamKpiValues.kpiId inList kpiIds }
+                .orderBy(TeamKpiValues.valueDate to SortOrder.DESC)
+                .map { it[TeamKpiValues.kpiId].value to it.toValueResponse() }
+                .toList()
+                .groupBy({ it.first }, { it.second })
+        }
 
     /**
      * Edits a DRAFT KPI's definition (title, description, type, target — never its team, status,

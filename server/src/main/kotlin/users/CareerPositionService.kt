@@ -74,6 +74,22 @@ class CareerPositionService(val database: R2dbcDatabase) {
         rowsOf(userId)
     }
 
+    /**
+     * Batch timelines for the integration API (v3.0.0 — unscoped by design, see integration/):
+     * user id → active positions, chronological like [listRows]; users without positions are
+     * absent from the map.
+     */
+    suspend fun listRowsByUserIds(userIds: Set<UInt>): Map<UInt, List<PositionRow>> =
+        if (userIds.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            CareerPositions.selectAll()
+                .where { (CareerPositions.userId inList userIds) and active() }
+                .orderBy(CareerPositions.startDate to SortOrder.ASC, CareerPositions.id to SortOrder.ASC)
+                .map { it.toRow() }
+                .toList()
+                .groupBy { it.userId }
+        }
+
     suspend fun readRow(id: UInt): PositionRow? = suspendTransaction(database) {
         CareerPositions.selectAll()
             .where { (CareerPositions.id eq id) and active() }

@@ -34,6 +34,7 @@ import {
   IconHierarchy,
   IconHistory,
   IconRoute,
+  IconPlugConnected,
   IconSpeakerphone,
   IconToggleLeft,
   IconChartLine,
@@ -141,6 +142,7 @@ const ChangeUserPassword = lazy(() => import("./pages/ChangeUserPassword"));
 const EmailNotifications = lazy(() => import("./pages/EmailNotifications"));
 const UserFeatures = lazy(() => import("./pages/UserFeatures"));
 const FeatureFlags = lazy(() => import("./pages/FeatureFlags"));
+const IntegrationClients = lazy(() => import("./pages/IntegrationClients"));
 const UserTeams = lazy(() => import("./pages/UserTeams"));
 const UserDetails = lazy(() => import("./pages/UserDetails"));
 const CreateTeam = lazy(() => import("./pages/CreateTeam"));
@@ -447,6 +449,7 @@ function Shell() {
               feature: "PULSE_SURVEYS",
             },
             { to: "/feature-flags", label: "appShell.nav.featureFlags", icon: IconToggleLeft },
+            { to: "/integration-clients", label: "appShell.nav.integrationClients", icon: IconPlugConnected },
             { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
           ],
         }
@@ -628,6 +631,7 @@ export default function App() {
             <Route path="users/:id/email-notifications" element={<EmailNotifications />} />
             <Route path="users/:id/features" element={<UserFeatures />} />
             <Route path="feature-flags" element={<FeatureFlags />} />
+            <Route path="integration-clients" element={<IntegrationClients />} />
             <Route path="users/:id/teams" element={<UserTeams />} />
             <Route path="users/:userId/details" element={<UserDetails />} />
             <Route path="teams" element={<Teams />} />
