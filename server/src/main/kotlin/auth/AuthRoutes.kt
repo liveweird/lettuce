@@ -10,6 +10,7 @@ import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
 import ch.nokillswit.integration.INTEGRATION_RATE_LIMIT
 import ch.nokillswit.integration.apiKeyHash
+import ch.nokillswit.integration.integrationBearerToken
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
@@ -24,7 +25,6 @@ import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
@@ -280,12 +280,15 @@ fun Application.configureAuthRoutes() {
         // The integration API's per-key bucket (v3.0.0) lives in this install because RateLimit
         // is a single application-level plugin — the routes it throttles are registered by
         // configureIntegration (which runs after this module; see integration/Integration.kt).
-        // Keyed on the SHA-256 of the presented bearer credential (per key, works before auth
-        // runs, no key material held in memory); keyless requests fall back to the host.
+        // Keyed on the SHA-256 of the NORMALIZED bearer token — the same parse the auth guard
+        // uses (checkup #30, A-H1: hashing the raw header let every rotated garbage header mint
+        // its own fresh bucket, a limit bypass plus unbounded limiter-registry growth, while
+        // case/whitespace variants of one valid key multiplied its quota). Anything that does
+        // not parse to a lettuce_int_ token shares the per-host bucket.
         register(RateLimitName(INTEGRATION_RATE_LIMIT)) {
             rateLimiter(limit = integrationLimit, refillPeriod = 60.seconds)
             requestKey { call ->
-                call.request.headers[HttpHeaders.Authorization]?.let { apiKeyHash(it) }
+                integrationBearerToken(call)?.let { apiKeyHash(it) }
                     ?: call.request.origin.remoteHost
             }
         }

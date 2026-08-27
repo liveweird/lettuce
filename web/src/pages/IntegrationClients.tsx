@@ -1,4 +1,3 @@
-import { charCountDescription } from "../utils/charCount";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
@@ -29,6 +28,7 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
 import RevealablePassword from "../components/RevealablePassword";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
+import { charCountDescription } from "../utils/charCount";
 import { formatRelativeTime } from "../utils/datetime";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 
@@ -49,7 +49,11 @@ export default function IntegrationClients() {
   const [submitting, setSubmitting] = useState(false);
   const revokeConfirm = useDeleteConfirm<{ id: number; name: string }>({
     mutationFn: (target) => revokeIntegrationClient(target.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["integrationClients"] }),
+    onSuccess: (target) => {
+      // The one-time key panel must not outlive its client (checkup #30, C-L3).
+      setCreated((current) => (current?.client.id === target.id ? null : current));
+      return queryClient.invalidateQueries({ queryKey: ["integrationClients"] });
+    },
     successMessage: t("integration.toast.revoked"),
   });
 
@@ -97,6 +101,9 @@ export default function IntegrationClients() {
 
           {created && (
             <Alert
+              // Keyed by client so a SECOND create remounts the panel: RevealablePassword's
+              // reveal state would otherwise survive and show key #2 unmasked (checkup #30, C-H1).
+              key={created.client.id}
               color="yellow"
               variant="light"
               title={t("integration.keyPanelTitle", { name: created.client.name })}

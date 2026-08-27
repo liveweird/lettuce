@@ -14,6 +14,7 @@ import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teams.Team
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -111,6 +112,22 @@ class IntegrationGraphQlTest {
             assertEquals(HttpStatusCode.Unauthorized, response.status)
             assertEquals("Missing or invalid integration API key", response.body<ProblemDetail>().detail)
         }
+
+        // Exactly ONE Authorization header is accepted (checkup #30, A-L9)…
+        val doubled = plain.post("/integration/graphql") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "Bearer $key")
+            header(HttpHeaders.Authorization, "Bearer $key")
+            setBody(GqlBody(query))
+        }
+        assertEquals(HttpStatusCode.Unauthorized, doubled.status)
+        // …while scheme case is normalized (the guard and the rate-limit key share one parse).
+        val lowercase = plain.post("/integration/graphql") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "bearer $key")
+            setBody(GqlBody(query))
+        }
+        assertEquals(HttpStatusCode.OK, lowercase.status)
 
         // A revoked key stops authenticating immediately — same uniform 401.
         assertEquals(HttpStatusCode.OK, plain.graphql(key, query).status)
@@ -241,6 +258,16 @@ class IntegrationGraphQlTest {
         }
         assertEquals(HttpStatusCode.Created, valueResponse.status)
 
+        // The Team parent chains kpisByTeam -> valuesByKpi — the only loader-feeds-loader path
+        // (checkup #30 test gap 6).
+        val nested = jsonClient().graphql(
+            key,
+            """{ team(id: ${teamId.toInt()}) { kpis { title values { value } } } }""",
+        ).data()["team"]!!.jsonObject
+        val nestedKpi = nested["kpis"]!!.jsonArray.single().jsonObject
+        assertEquals("Gql KPI", nestedKpi["title"]!!.jsonPrimitive.content)
+        assertEquals(4.0, nestedKpi["values"]!!.jsonArray.single().jsonObject["value"]!!.jsonPrimitive.content.toDouble())
+
         val kpis = jsonClient().graphql(
             key,
             """{ teamKpis(teamId: ${teamId.toInt()}) {
@@ -311,9 +338,11 @@ class IntegrationGraphQlTest {
         enabledApp()
         val (_, key) = freshKey("gql-guard")
         val plain = jsonClient()
-        // Depth 12 via introspection nesting — blocked by MaxQueryDepthInstrumentation(10).
+        // Depth 17 via introspection nesting — blocked by MaxQueryDepthInstrumentation(15)
+        // (the limit sits ABOVE the standard introspection query's depth 12 — checkup #30, A-H2).
         val deep = """{ __schema { types { fields { type { ofType { ofType { ofType { ofType {
-            ofType { ofType { ofType { name } } } } } } } } } } } }"""
+            ofType { ofType { ofType { ofType { ofType { ofType { ofType { ofType {
+            name } } } } } } } } } } } } } } } } }"""
         assertTrue("depth" in plain.graphql(key, deep).expectGraphQlError().lowercase())
         // Unknown fields are validation errors (200 + errors), never a transport failure.
         plain.graphql(key, "{ users { items { passwordHash } } }").expectGraphQlError()
@@ -361,5 +390,287 @@ class IntegrationGraphQlTest {
         } finally {
             appender.detach()
         }
+    }
+
+    @Test
+    fun `the standard introspection query succeeds within the guardrails`() = testApplication {
+        // Checkup #30, A-H2: the contract promises introspection-based discovery, and the
+        // canonical query nests ofType seven deep (depth 12) — the old depth-10 limit broke it.
+        enabledApp()
+        val (_, key) = freshKey("gql-introspect")
+        val data = jsonClient().graphql(key, graphql.introspection.IntrospectionQuery.INTROSPECTION_QUERY).data()
+        val types = data["__schema"]!!.jsonObject["types"]!!.jsonArray
+        assertTrue(types.any { it.jsonObject["name"]?.jsonPrimitive?.content == "User" })
+    }
+
+    @Test
+    fun `alias fan-outs past the pageSize-weighted complexity budget are rejected`() = testApplication {
+        // Checkup #30, A-M5: the default calculator ignored pageSize, so 100-row pages carrying
+        // year-alias fan-outs multiplied the DataLoader work far past the flat budget's intent.
+        enabledApp()
+        val (_, key) = freshKey("gql-complexity")
+        val plain = jsonClient()
+        val aliases = (0 until 120).joinToString(" ") { "a$it: daysOffBudget(year: ${2000 + (it % 100)}) { remaining }" }
+        val bomb = "{ users(pageSize: 100) { items { $aliases } } }"
+        assertTrue("complexity" in plain.graphql(key, bomb).expectGraphQlError().lowercase())
+        // A wide single-pass bulk-sync selection stays affordable.
+        val wide = """{ users(pageSize: 100) { total items {
+            id name email uniqueId roles deactivated language
+            careerHistory { startDate endDate }
+            teams { id name }
+            daysOff(year: 2062) { status days }
+            daysOffBudget(year: 2062) { allowance remaining }
+            performanceReviews { status attitude { rating } } } } }"""
+        plain.graphql(key, wide).data()
+    }
+
+    @Test
+    fun `date and year bounds are validated like the REST API`() = testApplication {
+        // Checkup #30, B-H1 + A-M4: unvalidated bounds either silently dropped rows
+        // (lexicographic VARCHAR compare) or overflowed the closed-form budget math.
+        enabledApp()
+        val (_, key) = freshKey("gql-bounds")
+        val plain = jsonClient()
+        assertTrue("from" in plain.graphql(key, """{ daysOff(from: "2026-1-1") { total } }""").expectGraphQlError())
+        assertTrue("to" in plain.graphql(key, """{ daysOff(to: "garbage") { total } }""").expectGraphQlError())
+        assertTrue("year" in plain.graphql(key, "{ user(id: 1) { daysOff(year: 1999) { status } } }").expectGraphQlError())
+        assertTrue(
+            "year" in plain.graphql(key, "{ user(id: 1) { daysOffBudget(year: 2147483647) { remaining } } }")
+                .expectGraphQlError(),
+        )
+    }
+
+    @Test
+    fun `variables flow through and lenient tokens cannot crash the transport`() = testApplication {
+        enabledApp()
+        val (_, key) = freshKey("gql-vars")
+        val email = uniqueEmail("gql-vars-user")
+        TestUsers.seed(email, "pw", roles = emptySet())
+        val plain = jsonClient()
+
+        // The declared-variable path (the JsonObject -> toAnyValue bridge).
+        val withVars = plain.post("/integration/graphql") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "Bearer $key")
+            setBody("""{"query":"query U(${'$'}email: String) { users(email: ${'$'}email) { total } }","variables":{"email":"$email"}}""")
+        }
+        assertEquals(HttpStatusCode.OK, withVars.status)
+        val total = withVars.body<JsonObject>()["data"]!!.jsonObject["users"]!!.jsonObject["total"]!!
+        assertEquals(1, total.jsonPrimitive.content.toInt())
+
+        // Checkup #30, A-M3: the lenient default Json accepts an unquoted token as a non-string
+        // primitive — pre-fix this crashed the number fallback into a transport 500.
+        val lenient = plain.post("/integration/graphql") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "Bearer $key")
+            setBody("""{"query":"{ reviewPeriods { id } }","variables":{"x":abc}}""")
+        }
+        assertEquals(HttpStatusCode.OK, lenient.status)
+    }
+
+    @Test
+    fun `user nesting resolves teams, career history, and dictionary translations`() = testApplication {
+        // Checkup #30 test gaps 1 + 7: careerHistory with REAL rows (derived end dates + the
+        // DictionaryValue map->list flattening) and User.teams under the single-user root,
+        // where the serialized map has NO teams key and only the loader wiring can answer.
+        enabledApp()
+        val (_, key) = freshKey("gql-career")
+        val managerEmail = uniqueEmail("gql-cr-manager")
+        val managerId = TestUsers.seed(managerEmail, "pw", roles = emptySet())
+        val memberId = TestUsers.seed(uniqueEmail("gql-cr-member"), "pw", roles = emptySet())
+        val teamName = "gql-cr-${UUID.randomUUID()}"
+        val teamId = TestServices.teams.create(ch.nokillswit.teams.Team(name = teamName, managerId = managerId))
+        TestServices.teams.addMember(teamId, memberId)
+        val marker = UUID.randomUUID().toString().take(8)
+        val pathId = TestDictionaries.append(ch.nokillswit.dictionaries.Dictionary.CAREER_PATH, "GqlPath $marker").single()
+        val specId = TestDictionaries
+            .append(ch.nokillswit.dictionaries.Dictionary.CAREER_SPECIALIZATION, "GqlSpec $marker").single()
+        // Two DISTINCT levels — a position repeating its neighbor's exact triple is 409
+        // (the adjacent-sameness rule).
+        val levelIds = TestDictionaries
+            .append(ch.nokillswit.dictionaries.Dictionary.SENIORITY_LEVEL, "GqlLevelA $marker", "GqlLevelB $marker")
+        val manager = authedClient(managerEmail, "pw")
+        for ((start, levelId) in listOf("1990-01-01" to levelIds[0], "1995-06-01" to levelIds[1])) {
+            assertEquals(
+                HttpStatusCode.Created,
+                manager.post("/api/v1/users/$memberId/career-positions") {
+                    contentType(ContentType.Application.Json)
+                    setBody(ch.nokillswit.users.CareerPositionWrite(start, pathId, specId, levelId))
+                }.status,
+            )
+        }
+
+        val user = jsonClient().graphql(
+            key,
+            """{ user(id: ${memberId.toInt()}) {
+                 teams { name }
+                 careerHistory { startDate endDate careerPath { values { language value } } } } }""",
+        ).data()["user"]!!.jsonObject
+        assertEquals(teamName, user["teams"]!!.jsonArray.single().jsonObject["name"]!!.jsonPrimitive.content)
+        val history = user["careerHistory"]!!.jsonArray
+        assertEquals(listOf("1990-01-01", "1995-06-01"), history.map { it.jsonObject["startDate"]!!.jsonPrimitive.content })
+        // The derived-end model: first row ends the day before the next starts; the current row is open.
+        assertEquals("1995-05-31", history[0].jsonObject["endDate"]!!.jsonPrimitive.content)
+        assertTrue(history[1].jsonObject["endDate"] is kotlinx.serialization.json.JsonNull)
+        val pathValues = history[1].jsonObject["careerPath"]!!.jsonObject["values"]!!.jsonArray
+        val en = pathValues.single { it.jsonObject["language"]!!.jsonPrimitive.content == "en" }
+        assertEquals("GqlPath $marker", en.jsonObject["value"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `encrypted cancel reasons, corrections, and nested reviews decrypt through the graph`() = testApplication {
+        // Checkup #30 test gaps 4 + 5: the two remaining encrypted columns (cancel_reason,
+        // correction comment) and the reviewsBySubordinate loader never ran through the graph.
+        enabledApp()
+        val (_, key) = freshKey("gql-decrypt")
+        val managerEmail = uniqueEmail("gql-de-manager")
+        val ownerEmail = uniqueEmail("gql-de-owner")
+        val managerId = TestUsers.seed(managerEmail, "pw", roles = emptySet())
+        val ownerId = TestUsers.seed(ownerEmail, "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(
+            ch.nokillswit.teams.Team(name = "gql-de-${UUID.randomUUID()}", managerId = managerId),
+        )
+        TestServices.teams.addMember(teamId, ownerId)
+        TestDaysOff.setAllowance(ownerId, 30)
+        val manager = authedClient(managerEmail, "pw")
+        val owner = authedClient(ownerEmail, "pw")
+
+        val start = LocalDate.of(2063, 6, 1).with(TemporalAdjusters.firstInMonth(DayOfWeek.MONDAY))
+        val requestId = owner.post("/api/v1/days-off") {
+            contentType(ContentType.Application.Json)
+            setBody(DaysOffCreateRequest(DaysOffType.PAID, start.toString(), start.plusDays(1).toString()))
+        }.body<ch.nokillswit.daysoff.DaysOffResponse>().id
+        val cancelSecret = "Gql cancel secret ${UUID.randomUUID()}"
+        assertEquals(
+            HttpStatusCode.NoContent,
+            owner.post("/api/v1/days-off/$requestId/cancel") {
+                contentType(ContentType.Application.Json)
+                setBody(ch.nokillswit.daysoff.DaysOffCancelRequest(cancelSecret))
+            }.status,
+        )
+        val correctionSecret = "Gql correction secret ${UUID.randomUUID()}"
+        assertEquals(
+            HttpStatusCode.Created,
+            manager.post("/api/v1/days-off/corrections") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ch.nokillswit.daysoff.DaysOffCorrectionWrite(
+                        ownerId, 2063, ch.nokillswit.daysoff.DaysOffCorrectionOperation.ADD, 1.5, correctionSecret,
+                    ),
+                )
+            }.status,
+        )
+        val period = TestReviewPeriods.append()
+        val reviewSecret = "Gql review secret ${UUID.randomUUID()}"
+        assertEquals(
+            HttpStatusCode.Created,
+            manager.post("/api/v1/performance-reviews") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    PerformanceReviewCreateRequest(
+                        subordinateId = ownerId,
+                        periodId = period.id,
+                        attitude = CategoryAssessment(3, reviewSecret),
+                    ),
+                )
+            }.status,
+        )
+
+        val user = jsonClient().graphql(
+            key,
+            """{ user(id: ${ownerId.toInt()}) {
+                 daysOff(year: 2063) { status cancelReason cancelledByName }
+                 daysOffCorrections(year: 2063) { operation days comment }
+                 performanceReviews { status attitude { rating summary } } } }""",
+        ).data()["user"]!!.jsonObject
+        val request = user["daysOff"]!!.jsonArray.single().jsonObject
+        assertEquals("CANCELLED", request["status"]!!.jsonPrimitive.content)
+        assertEquals(cancelSecret, request["cancelReason"]!!.jsonPrimitive.content)
+        val correction = user["daysOffCorrections"]!!.jsonArray.single().jsonObject
+        assertEquals("ADD", correction["operation"]!!.jsonPrimitive.content)
+        assertEquals(correctionSecret, correction["comment"]!!.jsonPrimitive.content)
+        val review = user["performanceReviews"]!!.jsonArray.single().jsonObject
+        assertEquals("DRAFT", review["status"]!!.jsonPrimitive.content)
+        assertEquals(reviewSecret, review["attitude"]!!.jsonObject["summary"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `missing and soft-deleted teams resolve to null`() = testApplication {
+        enabledApp()
+        val (admin, key) = freshKey("gql-nullteam")
+        val plain = jsonClient()
+        assertTrue(plain.graphql(key, "{ team(id: 999999999) { name } }").data()["team"] is kotlinx.serialization.json.JsonNull)
+        val managerId = TestUsers.seed(uniqueEmail("gql-nt-manager"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(
+            ch.nokillswit.teams.Team(name = "gql-nt-${UUID.randomUUID()}", managerId = managerId),
+        )
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/teams/$teamId").status)
+        assertTrue(plain.graphql(key, "{ team(id: ${teamId.toInt()}) { name } }").data()["team"] is kotlinx.serialization.json.JsonNull)
+    }
+
+    @Test
+    fun `root filters and paging compose`() = testApplication {
+        enabledApp()
+        val (admin, key) = freshKey("gql-filters")
+        val base = "gql-flt-${UUID.randomUUID()}"
+        val activeId = TestUsers.seed("$base-a@test", "pw", roles = emptySet())
+        val dormantId = TestUsers.seed("$base-b@test", "pw", roles = emptySet())
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$dormantId/deactivate").status)
+        val teamName = "gql-flt-team-${UUID.randomUUID()}"
+        val managerId = TestUsers.seed(uniqueEmail("gql-flt-mgr"), "pw", roles = emptySet())
+        TestServices.teams.create(ch.nokillswit.teams.Team(name = teamName, managerId = managerId))
+        val plain = jsonClient()
+
+        val deactivated = plain.graphql(key, """{ users(email: "$base", deactivated: true) { items { id } total } }""")
+            .data()["users"]!!.jsonObject
+        assertEquals(
+            listOf(dormantId.toInt()),
+            deactivated["items"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content.toInt() },
+        )
+        // The paging offset math: page 2 of size 1 under the same filter is the second id.
+        val page2 = plain.graphql(key, """{ users(email: "$base", pageSize: 1, page: 2) { items { id } total } }""")
+            .data()["users"]!!.jsonObject
+        assertEquals(2, page2["total"]!!.jsonPrimitive.content.toInt())
+        assertEquals(
+            listOf(maxOf(activeId.toInt(), dormantId.toInt())),
+            page2["items"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content.toInt() },
+        )
+        val teams = plain.graphql(key, """{ teams(name: "$teamName") { total items { name } } }""")
+            .data()["teams"]!!.jsonObject
+        assertEquals(1, teams["total"]!!.jsonPrimitive.content.toInt())
+    }
+
+    @Test
+    fun `the sanitizing handler passes validation messages and hides everything else`() {
+        // GQL-ERR-002's mechanical pin (checkup #30, B-M4): the "Internal error" branch was
+        // otherwise unreachable from the route tests — precisely because the resolvers guard
+        // their inputs — so it is exercised at the unit level.
+        val env = graphql.schema.DataFetchingEnvironmentImpl.newDataFetchingEnvironment()
+            .executionStepInfo(
+                graphql.execution.ExecutionStepInfo.newExecutionStepInfo()
+                    .type(graphql.Scalars.GraphQLString)
+                    .path(graphql.execution.ResultPath.parse("/probe"))
+                    .build(),
+            )
+            .mergedField(
+                graphql.execution.MergedField.newMergedField(
+                    graphql.language.Field.newField("probe").build(),
+                ).build(),
+            )
+            .build()
+        val handler = ch.nokillswit.integration.SanitizingExceptionHandler()
+        fun messageFor(e: Throwable): String {
+            val params = graphql.execution.DataFetcherExceptionHandlerParameters.newExceptionParameters()
+                .dataFetchingEnvironment(env)
+                .exception(e)
+                .build()
+            return handler.handleException(params).get().errors.single().message
+        }
+        assertEquals("bad arg", messageFor(io.ktor.server.plugins.BadRequestException("bad arg")))
+        assertEquals(
+            "bad arg",
+            messageFor(java.util.concurrent.CompletionException(io.ktor.server.plugins.BadRequestException("bad arg"))),
+        )
+        assertEquals("Internal error", messageFor(IllegalStateException("secret-internal-detail")))
     }
 }

@@ -556,6 +556,11 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * carry-over over the user's counting PAID requests up to [year] (one fetch, grouped in
      * Kotlin — no SQL arithmetic on R2DBC), split into the year's reserved (REQUESTED) and used
      * (ACCEPTED) days. Users without any requests still get a row. Sorted by name.
+     * PINNED CONTRACT (checkup #30, B-M3): the result is driven off the `users` table with
+     * NO deleted/deactivated filter — EVERY id in [userIds] that names an existing user row
+     * yields a budget. The integration API's non-null `User.daysOffBudget` GraphQL field
+     * depends on this; adding an `active()` filter here would turn it into a hard error
+     * for soft-deleted users reachable through that graph.
      * [correctable] stamps every row's `canCorrect` capability flag: since v2.33.0 the
      * corrections write is chain-wide, so every managed-view row (the caller's subtree by
      * construction) is correctable and view=own rows never are — decided route-side.

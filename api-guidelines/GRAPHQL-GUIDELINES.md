@@ -21,7 +21,8 @@ the runtime schema cannot drift from it.
   Retired fields carry `@deprecated(reason: "...")` for at least one major version first.
   **Check**: diff review of `schema.graphqls`; the contract test pins the root-field surface
   so root changes are conscious.
-- **GQL-CON-004** `[test]` Every type, field, and argument MUST carry a description string —
+- **GQL-CON-004** `[test]` Every type, field, argument, and enum value MUST carry a
+  description string —
   the schema is self-documenting via introspection (which stays enabled) and
   `GET /integration/graphql/schema`. **Check**: contract test walks the schema.
 
@@ -30,7 +31,9 @@ the runtime schema cannot drift from it.
 - **GQL-NAME-001** Types are `PascalCase` nouns; fields and arguments `camelCase`; enums mirror
   the server's Kotlin enum values verbatim (`SCREAMING_SNAKE`). Field names MUST match the REST
   wire names for the same data (the DTO-serialization bridge guarantees it — divergence means a
-  hand-built map drifted). **Check**: review against the REST response schemas.
+  hand-built map drifted). Registered carve-out: deliberate GRAPH reshapes of flat REST pairs
+  (`Team.manager: UserRef` over `managerId`/`managerName`) are allowed — the nested object's own
+  fields still follow the rule. **Check**: review against the REST response schemas.
 - **GQL-NAME-002** Ids are `Int` (unsigned 31-bit, numeric parity with REST JSON); dates are
   ISO `String` (`YYYY-MM-DD`, months `YYYY-MM`); timestamps are epoch-millis via the custom
   `Long` scalar — the ONE custom scalar; adding another needs a registered reason here.
@@ -39,7 +42,7 @@ the runtime schema cannot drift from it.
   `page`/`pageSize` args and an `XPage { items page pageSize total }` envelope carrying the
   REST list semantics (1-based, default 20, max 100, `total` after filters before pagination;
   violations are GraphQL errors). Small closed registries (review periods) and parent-scoped
-  nested lists MAY be unpaged. **Check**: `gqlPageRequest` is the only paging parser;
+  nested lists MAY be unpaged. **Check**: `DataFetchingEnvironment.pageRequest()` (Fetchers.kt) is the only paging parser;
   route test covers the bounds.
 - **GQL-LIST-002** Nested list fields MUST resolve through a per-request DataLoader batching
   one service call per (loader, arg-set) — a per-row SQL call is a defect. **Check**: new
@@ -58,8 +61,8 @@ the runtime schema cannot drift from it.
   deliberate and total; per-user feature flags do not apply (caller-side gates).
   **Check**: review; the encryption tests pin service-side decryption.
 - **GQL-SEC-003** `[test]` Caller-relative capability flags (`canCancel`, `canManage`, …) and
-  secrets (password hashes, key hashes) MUST NOT appear in the schema. **Check**: schema review;
-  the unknown-field test documents `passwordHash` rejection.
+  secrets (password hashes, key hashes) MUST NOT appear in the schema. **Check**: the contract
+  test's forbidden-field walk (checkup #30, B-M4) plus the unknown-field route test.
 - **GQL-SEC-004** `[test]` Scope additions are opt-in per family: succession plans, feedbacks,
   1:1s, goals, impact log, pulse, notifications, alerts, templates are NOT exposed in v1 —
   adding a family is a deliberate decision recorded in the feature doc, never a side effect.
@@ -79,9 +82,13 @@ the runtime schema cannot drift from it.
   messages pass through; unexpected exceptions become a bare "Internal error" (logged
   server-side) — never exception class names (the MT-007 rule). **Check**:
   `SanitizingExceptionHandler` + tests.
-- **GQL-OPS-001** `[test]` Query-shape guardrails MUST stay installed: max depth 10, max
-  complexity 300 (`GraphQLFactory.kt`); raising them is a reviewed change here. **Check**:
-  depth-probe route test.
+- **GQL-OPS-001** `[test]` Query-shape guardrails MUST stay installed: max depth 15 (above
+  the standard introspection query's depth 12 — checkup #30 A-H2: a lower limit breaks the
+  contract-discovery promise) and max complexity 1000 under the pageSize-weighted calculator
+  (a paged field multiplies its subtree by ceil(pageSize/20), cap 5 — checkup #30 A-M5:
+  flat budgets ignore page size and let alias fan-outs amplify the year-scoped DataLoaders);
+  changing either is a reviewed change here. **Check**: the introspection-succeeds,
+  depth-probe, and alias-fan-out route tests.
 - **GQL-OPS-002** `[test]` Every executed request MUST audit `integration.request` (client id,
   client name, operation name, root field names) — never query text or variables; auth
   failures audit `integration.auth_failed`. **Check**: audit route test.

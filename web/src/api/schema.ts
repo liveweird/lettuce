@@ -4612,7 +4612,7 @@ export interface components {
             total: number;
         };
         IntegrationClientRequest: {
-            /** @description Single-line display label for the client (trimmed; control characters rejected). */
+            /** @description Single-line display label for the client (trimmed; control characters rejected; blank rejected). */
             name: string;
         };
         IntegrationClientResponse: {

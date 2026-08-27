@@ -1,6 +1,7 @@
 package ch.nokillswit.integration
 
 import ch.nokillswit.daysoff.DaysOffService
+import ch.nokillswit.daysoff.parseDaysOffDate
 import ch.nokillswit.infra.paging.DEFAULT_PAGE_SIZE
 import ch.nokillswit.infra.paging.MAX_PAGE_SIZE
 import ch.nokillswit.infra.paging.PageRequest
@@ -66,9 +67,29 @@ internal fun DataFetchingEnvironment.uintArgument(name: String): UInt? =
         it.toUInt()
     }
 
-/** An enum argument (graphql-java hands enum values over as their String names). */
+/** An enum argument (graphql-java hands enum values over as their String names). A value the
+ *  Kotlin enum lacks (an SDL-only value added ahead of code) is a clean 400-class error, never
+ *  an opaque "Internal error" (checkup #30, A-L3). */
 internal inline fun <reified E : Enum<E>> DataFetchingEnvironment.enumArgument(name: String): E? =
-    getArgument<String>(name)?.let { enumValueOf<E>(it) }
+    getArgument<String>(name)?.let { raw ->
+        enumValues<E>().firstOrNull { it.name == raw }
+            ?: throw BadRequestException("$name value $raw is not supported")
+    }
+
+/** A calendar-year argument with the REST bound (the DaysOffRoutes 2000..2100 rule) — an
+ *  unbounded year overflows the closed-form budget arithmetic (checkup #30, A-M4). */
+internal fun DataFetchingEnvironment.yearArgument(name: String): Int? =
+    getArgument<Int>(name)?.also {
+        if (it !in MIN_YEAR..MAX_YEAR) throw BadRequestException("$name must be between $MIN_YEAR and $MAX_YEAR")
+    }
+
+/** A strict ISO YYYY-MM-DD argument — an unvalidated bound would compare lexicographically
+ *  against the VARCHAR date columns and silently drop rows (checkup #30, B-H1). */
+internal fun DataFetchingEnvironment.isoDateArgument(name: String): String? =
+    getArgument<String>(name)?.also { parseDaysOffDate(it, name) }
+
+internal const val MIN_YEAR = 2000
+internal const val MAX_YEAR = 2100
 
 /** The REST-mirroring page envelope ({items, page, pageSize, total}). */
 internal fun pageEnvelope(items: List<Map<String, Any?>>, paging: PageRequest, total: Long): Map<String, Any?> =

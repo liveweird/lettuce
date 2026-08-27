@@ -11,6 +11,7 @@ import graphql.ErrorType
 import graphql.GraphQL
 import graphql.GraphQLContext
 import graphql.GraphQLError
+import graphql.analysis.FieldComplexityCalculator
 import graphql.analysis.MaxQueryComplexityInstrumentation
 import graphql.analysis.MaxQueryDepthInstrumentation
 import graphql.execution.CoercedVariables
@@ -38,13 +39,37 @@ import java.util.concurrent.CompletionException
 import org.dataloader.DataLoader
 import org.slf4j.LoggerFactory
 
-// Query-shape guardrails: the deepest legitimate query is ~6 levels (users → items →
-// performanceReviews → overall → summary), and a full bulk-sync selection is ~60–80 fields —
-// both limits leave headroom while bounding recursion/abuse probes (→ 200 + GraphQL errors).
-internal const val MAX_QUERY_DEPTH = 10
-internal const val MAX_QUERY_COMPLEXITY = 300
+// Query-shape guardrails (recalibrated in checkup #30 — A-H2/A-M5): depth 15 because the
+// STANDARD introspection query nests `ofType` seven deep (total depth 12) and the contract
+// promises introspection works — 10 rejected it; complexity 1000 with a pageSize-weighted
+// calculator (a paged field multiplies its subtree by ceil(pageSize/20), an unresolvable
+// pageSize — a variable — charges the worst case) so a wide single-pass bulk sync fits while
+// alias fan-outs that would amplify the year-scoped DataLoaders are rejected. Violations
+// answer 200 + GraphQL errors.
+internal const val MAX_QUERY_DEPTH = 15
+internal const val MAX_QUERY_COMPLEXITY = 1000
+private const val PAGE_FACTOR_UNIT = 20
+private const val MAX_PAGE_FACTOR = 5
 
 private val integrationLogger = LoggerFactory.getLogger("ch.nokillswit.integration")
+
+/** Complexity that scales with the requested page size (checkup #30, A-M5): the default
+ *  calculator charges `users(pageSize: 100)` like `users(pageSize: 1)`, letting alias fan-outs
+ *  multiply the year-scoped DataLoader work far past what the flat budget implies. A paged
+ *  field multiplies its subtree by ceil(pageSize/20), capped at 5 (= max 100 / default 20);
+ *  a pageSize the analyzer cannot read (a variable) charges the cap. */
+private val pageSizeWeightedComplexity = FieldComplexityCalculator { env, childComplexity ->
+    val pageSizeValue = env.field.arguments.firstOrNull { it.name == "pageSize" }?.value
+    val factor = when (pageSizeValue) {
+        null -> 1
+        is IntValue -> {
+            val size = runCatching { pageSizeValue.value.intValueExact() }.getOrDefault(Int.MAX_VALUE)
+            ((size.toLong() + PAGE_FACTOR_UNIT - 1) / PAGE_FACTOR_UNIT).coerceIn(1L, MAX_PAGE_FACTOR.toLong()).toInt()
+        }
+        else -> MAX_PAGE_FACTOR
+    }
+    factor * (childComplexity + 1)
+}
 
 /** Schema-only build (no fetchers) — the same parser+scalar path production uses; backs the
  *  Docker-free IntegrationSchemaContractTest (parseability, read-only shape, documentation). */
@@ -72,7 +97,7 @@ fun buildIntegrationGraphQL(sdl: String, services: IntegrationServices): GraphQL
             ChainedInstrumentation(
                 listOf(
                     MaxQueryDepthInstrumentation(MAX_QUERY_DEPTH),
-                    MaxQueryComplexityInstrumentation(MAX_QUERY_COMPLEXITY),
+                    MaxQueryComplexityInstrumentation(MAX_QUERY_COMPLEXITY, pageSizeWeightedComplexity),
                 ),
             ),
         )
@@ -101,7 +126,7 @@ private fun TypeRuntimeWiring.Builder.queryFetchers(services: IntegrationService
     .dataFetcher(
         "user",
         suspendFetcher { env ->
-            val id = requireNotNull(env.uintArgument("id"))
+            val id = requireNotNull(env.uintArgument("id")) { "id is non-null in the schema" }
             val user = services.users.read(id) ?: return@suspendFetcher null
             val profile = services.users.careerProfilesByUserIds(setOf(id))[id]
             user.toResponse(id, profile).toGraphQL()
@@ -118,7 +143,7 @@ private fun TypeRuntimeWiring.Builder.queryFetchers(services: IntegrationService
     .dataFetcher(
         "team",
         suspendFetcher { env ->
-            val id = requireNotNull(env.uintArgument("id"))
+            val id = requireNotNull(env.uintArgument("id")) { "id is non-null in the schema" }
             val detail = services.teams.readDetail(id) ?: return@suspendFetcher null
             // Hand-built map (TeamDetail is not @Serializable): UInt ids MUST become Long here.
             mapOf<String, Any?>(
@@ -140,8 +165,8 @@ private fun TypeRuntimeWiring.Builder.queryFetchers(services: IntegrationService
             val filter = DaysOffListFilter(
                 userId = env.uintArgument("userId"),
                 status = env.enumArgument<DaysOffStatus>("status"),
-                startDateGte = env.getArgument("from"),
-                startDateLte = env.getArgument("to"),
+                startDateGte = env.isoDateArgument("from"),
+                startDateLte = env.isoDateArgument("to"),
             )
             val result = services.daysOff.listAllFull(filter, paging)
             pageEnvelope(result.items.map { it.toGraphQL() }, paging, result.total)
@@ -176,17 +201,23 @@ private fun TypeRuntimeWiring.Builder.queryFetchers(services: IntegrationService
 
 private fun TypeRuntimeWiring.Builder.userFetchers(): TypeRuntimeWiring.Builder = this
     .dataFetcher("careerHistory") { env -> env.listLoader("careerHistoryByUser").load(env.parentId()) }
-    .dataFetcher("teams") { env -> env.listLoader("teamsByUser").load(env.parentId()) }
+    .dataFetcher("teams") { env ->
+        // The users LIST rows already carry the teams enrichment (UserService.list) — reuse it
+        // instead of a second team query; the single-user map omits the key (EncodeDefault
+        // NEVER), so user(id) parents still batch through the loader (checkup #30, A-L5).
+        checkNotNull(env.getSource<Map<String, Any?>>())["teams"]
+            ?: env.listLoader("teamsByUser").load(env.parentId())
+    }
     .dataFetcher("performanceReviews") { env -> env.listLoader("reviewsBySubordinate").load(env.parentId()) }
     .dataFetcher("daysOff") { env ->
-        env.yearScopedLoader("daysOffByUser").load(env.parentId() to env.getArgument<Int>("year"))
+        env.yearScopedLoader("daysOffByUser").load(env.parentId() to env.yearArgument("year"))
     }
     .dataFetcher("daysOffCorrections") { env ->
-        env.yearScopedLoader("correctionsByUser").load(env.parentId() to env.getArgument<Int>("year"))
+        env.yearScopedLoader("correctionsByUser").load(env.parentId() to env.yearArgument("year"))
     }
     .dataFetcher("daysOffBudget") { env ->
         val loader: DataLoader<Pair<Long, Int>, Map<String, Any?>> = checkNotNull(env.getDataLoader("budgetByUserYear"))
-        loader.load(env.parentId() to requireNotNull(env.getArgument<Int>("year")))
+        loader.load(env.parentId() to requireNotNull(env.yearArgument("year")) { "year is non-null in the schema" })
     }
 
 private fun TypeRuntimeWiring.Builder.teamFetchers(): TypeRuntimeWiring.Builder = this
@@ -227,10 +258,21 @@ private val longScalar: GraphQLScalarType = GraphQLScalarType.newScalar()
     .coercing(LongCoercing)
     .build()
 
+// parseValue/parseLiteral are currently unreachable — no SDL argument or input uses Long
+// (output-only scalar today); kept symmetric and strict as cheap future-proofing (checkup #30).
 private object LongCoercing : Coercing<Long, Long> {
-    override fun serialize(dataFetcherResult: Any, graphQLContext: GraphQLContext, locale: Locale): Long =
-        (dataFetcherResult as? Number)?.toLong()
+    override fun serialize(dataFetcherResult: Any, graphQLContext: GraphQLContext, locale: Locale): Long {
+        val number = dataFetcherResult as? Number
             ?: throw CoercingSerializeException("Expected a numeric Long value")
+        val long = number.toLong()
+        // Refuse silent truncation (a fractional Double on a Long! field is a wiring bug).
+        if (number is Double || number is Float) {
+            if (number.toDouble() != long.toDouble()) {
+                throw CoercingSerializeException("Expected an integral Long value")
+            }
+        }
+        return long
+    }
 
     override fun parseValue(input: Any, graphQLContext: GraphQLContext, locale: Locale): Long = when (input) {
         is Number -> input.toLong()
@@ -243,8 +285,12 @@ private object LongCoercing : Coercing<Long, Long> {
         variables: CoercedVariables,
         graphQLContext: GraphQLContext,
         locale: Locale,
-    ): Long = (input as? IntValue)?.value?.toLong()
-        ?: throw CoercingParseLiteralException("Expected a Long literal")
+    ): Long = when (input) {
+        is IntValue -> input.value.toLong()
+        is graphql.language.StringValue ->
+            input.value?.toLongOrNull() ?: throw CoercingParseLiteralException("Expected a Long literal")
+        else -> throw CoercingParseLiteralException("Expected a Long literal")
+    }
 }
 
 /** A plain GraphQLError implementation — NOT GraphqlErrorBuilder: chaining that F-bounded

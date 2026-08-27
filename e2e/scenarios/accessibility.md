@@ -23,7 +23,7 @@ violation this spec reports is a regression in names, roles, or structure.
 ## Scenario: <path> has no WCAG A/AA violations
 
 One generated test per scanned page — the title pattern instantiates once per path, keeping the
-report line-per-page. The 25 authenticated pages currently scanned (path → the heading that must
+report line-per-page. The 26 authenticated pages currently scanned (path → the heading that must
 be visible before scanning):
 
 - `/` → Dashboard
@@ -51,6 +51,7 @@ be visible before scanning):
 - `/succession/new` → New succession plan
 - `/days-off/new` → New days-off request
 - `/feature-flags` → Feature flags
+- `/integration-clients` → Integration clients
 
 1. The administrator signs in (the session is re-minted per test — the serial unit is the spec
    file, not a shared browser context).

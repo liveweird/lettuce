@@ -7250,8 +7250,9 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 100
-          description: Single-line display label for the client (trimmed; control characters rejected).
+          description: Single-line display label for the client (trimmed; control characters rejected; blank rejected).
 
     IntegrationClientResponse:
       type: object

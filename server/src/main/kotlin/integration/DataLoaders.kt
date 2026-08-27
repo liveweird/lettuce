@@ -63,6 +63,10 @@ private fun DataLoaderRegistry.registerDaysOffLoaders(services: IntegrationServi
             }
         },
     )
+    // The ONE loader whose SDL field is non-null (User.daysOffBudget!): safe because budgets()
+    // pins "a row for every existing user id" (see its KDoc) and every User parent is an
+    // existing row — the mapNotNull below can therefore never leave a key unmapped (checkup
+    // #30, B-M3; the invariant is documented on both sides on purpose).
     register(
         "budgetByUserYear",
         mappedLoader(scope) { keys: Set<Pair<Long, Int>> ->

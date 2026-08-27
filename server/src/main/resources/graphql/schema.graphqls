@@ -6,6 +6,10 @@ integration-client API key; every read is unscoped by design (no per-caller auth
 scope changes are additive, deprecations carry @deprecated(reason), removals need a major version.
 Conventions: ids are unsigned 31-bit Int; dates are ISO strings (YYYY-MM-DD, months YYYY-MM);
 timestamps are epoch milliseconds (Long). There is deliberately no Mutation type.
+Dangling references: records retain the ids/names of soft-deleted users and teams (data is
+never destroyed), so an embedded id may not resolve via user(id)/team(id) and may be absent
+from the users/teams roots — mirrors that enforce referential integrity must treat embedded
+ids as historical labels, not foreign keys.
 """
 schema {
   query: Query
@@ -114,28 +118,56 @@ type TeamKpiPage {
 # ---- Enums (mirror the server's Kotlin enums by name).
 
 "Additional global roles; a user with neither is a regular user."
-enum UserRole { ADMIN HR }
+enum UserRole {
+  "Management role: user/team/template/alert administration." ADMIN
+  "Read-only auditor role with org-wide read access." HR
+}
 
 "Whether a days-off request consumes the paid budget."
-enum DaysOffType { PAID UNPAID }
+enum DaysOffType {
+  "Deducted from the yearly paid budget." PAID
+  "Not budget-relevant." UNPAID
+}
 
 "The days-off request lifecycle."
-enum DaysOffStatus { REQUESTED ACCEPTED REJECTED CANCELLED }
+enum DaysOffStatus {
+  "Awaiting a manager's decision (counts as reserved budget)." REQUESTED
+  "Approved by a manager (counts as used budget)." ACCEPTED
+  "Declined by a manager." REJECTED
+  "Withdrawn by the owner or a chain manager." CANCELLED
+}
 
 "Whether a budget correction adds or subtracts days."
-enum DaysOffCorrectionOperation { ADD SUBTRACT }
+enum DaysOffCorrectionOperation {
+  "Grants extra days." ADD
+  "Removes days." SUBTRACT
+}
 
 "The performance-review lifecycle."
-enum PerformanceReviewStatus { DRAFT CALIBRATION PUBLISHED }
+enum PerformanceReviewStatus {
+  "Private to its author in the product; readable here." DRAFT
+  "Under cross-manager calibration." CALIBRATION
+  "Final and visible to the subordinate." PUBLISHED
+}
 
 "How a team KPI's value is expressed."
-enum TeamKpiType { NUMBER PERCENTAGE }
+enum TeamKpiType {
+  "A plain numeric series." NUMBER
+  "A 0-100 percentage series." PERCENTAGE
+}
 
 "The team-KPI lifecycle."
-enum TeamKpiStatus { DRAFT ACTIVE ARCHIVED }
+enum TeamKpiStatus {
+  "Being defined; private to managers in the product." DRAFT
+  "Live and collecting data points." ACTIVE
+  "Closed with a summary (may be reopened)." ARCHIVED
+}
 
 "Which side of the KPI target is good."
-enum TargetDirection { AT_LEAST AT_MOST }
+enum TargetDirection {
+  "Values at or above the target are good." AT_LEAST
+  "Values at or below the target are good." AT_MOST
+}
 
 # ---- Object types.
 
@@ -165,10 +197,10 @@ type User {
   "Current seniority level, from the latest career position; null when none." seniorityLevel: DictionaryEntry
   "The full chronological career-position timeline (start ascending)." careerHistory: [CareerPosition!]!
   "Teams this user is currently a member of (name ascending)." teams: [TeamRef!]!
-  "The user's days-off requests, optionally limited to startDates of one calendar year." daysOff("Calendar year filter (e.g. 2026)." year: Int): [DaysOff!]!
-  "The user's paid-days-off budget for a year (closed-form; null never occurs — an unconfigured allowance yields a zero budget)." daysOffBudget("The budget year." year: Int!): DaysOffBudget!
-  "Manager corrections of the user's paid budget, optionally limited to one year." daysOffCorrections("The correction year." year: Int): [DaysOffCorrection!]!
-  "Performance reviews where this user is the subordinate (every status)." performanceReviews: [PerformanceReview!]!
+  "The user's days-off requests, id ascending, optionally limited to startDates of one calendar year (2000..2100)." daysOff("Calendar year filter (e.g. 2026)." year: Int): [DaysOff!]!
+  "The user's paid-days-off budget for a year (closed-form; null never occurs — an unconfigured allowance yields a zero budget)." daysOffBudget("The budget year (2000..2100)." year: Int!): DaysOffBudget!
+  "Manager corrections of the user's paid budget, newest year (then newest row) first, optionally limited to one year (2000..2100)." daysOffCorrections("The correction year (2000..2100)." year: Int): [DaysOffCorrection!]!
+  "Performance reviews where this user is the subordinate (every status), id ascending." performanceReviews: [PerformanceReview!]!
 }
 
 "A lightweight team reference."
@@ -187,7 +219,7 @@ type UserRef {
 type Team {
   "The team id." id: Int!
   "The team name." name: String!
-  "The team's current manager." manager: UserRef!
+  "The team's current manager (may be a since-deleted user — see the schema note)." manager: UserRef!
   "Current members with display names." members: [UserRef!]!
   "The team's KPIs (every status)." kpis: [TeamKpi!]!
 }
@@ -207,8 +239,8 @@ type CareerPosition {
 "A days-off request with its frozen cost and resolution/cancellation trail."
 type DaysOff {
   "The request id." id: Int!
-  "The owner's user id." userId: Int!
-  "The owner's display name." userName: String!
+  "The owner's user id (may reference a since-deleted user — see the schema note)." userId: Int!
+  "The owner's display name (retained even if the user was deleted)." userName: String!
   "PAID or UNPAID." type: DaysOffType!
   "Current lifecycle status." status: DaysOffStatus!
   "ISO YYYY-MM-DD first day." startDate: String!
@@ -229,8 +261,8 @@ type DaysOff {
 
 "A user's paid-days-off budget for one year (closed-form: remaining = carriedOver + allowance + corrected - reserved - used)."
 type DaysOffBudget {
-  "The owner's user id." userId: Int!
-  "The owner's display name." userName: String!
+  "The owner's user id (may reference a since-deleted user — see the schema note)." userId: Int!
+  "The owner's display name (retained even if the user was deleted)." userName: String!
   "The budget year." year: Int!
   "The chain-manager-set yearly allowance in days; null = never configured (zero paid budget)." allowance: Int
   "Days carried over from the previous year." carriedOver: Float!
@@ -270,9 +302,9 @@ type CategoryAssessment {
 "A performance review (four rated categories; content decrypted for integration clients)."
 type PerformanceReview {
   "The review id." id: Int!
-  "The authoring manager's user id." managerId: Int!
-  "The authoring manager's display name." managerName: String!
-  "The subordinate's user id." subordinateId: Int!
+  "The authoring manager's user id (may reference a since-deleted user — see the schema note)." managerId: Int!
+  "The authoring manager's display name (retained even if the user was deleted)." managerName: String!
+  "The subordinate's user id (may reference a since-deleted user — see the schema note)." subordinateId: Int!
   "The subordinate's display name." subordinateName: String!
   "The attached review period's id." periodId: Int!
   "The period's ISO YYYY-MM first month." periodStartMonth: String!
@@ -289,8 +321,8 @@ type PerformanceReview {
 "A team KPI with its recorded data-point series."
 type TeamKpi {
   "The KPI id." id: Int!
-  "The owning team's id." teamId: Int!
-  "The owning team's name." teamName: String!
+  "The owning team's id (may reference a since-deleted team — see the schema note)." teamId: Int!
+  "The owning team's name (retained even if the team was deleted)." teamName: String!
   "The team's current manager's user id (resolved at read time, never stored)." managerId: Int!
   "The team's current manager's display name." managerName: String!
   "The KPI title." title: String!
