@@ -96,8 +96,11 @@ fun Application.configureIntegration() {
                     "integration.request",
                     "clientId" to principal.clientId.toLong(),
                     "clientName" to principal.name,
-                    "operationName" to body.operationName,
-                    // The answered root fields (response keys) — never the query text/variables.
+                    // Client-chosen, so length-capped (checkup #30, A-L7).
+                    "operationName" to body.operationName?.take(MAX_AUDITED_OPERATION_NAME),
+                    // The answered RESPONSE KEYS — never the query text/variables. Under aliases
+                    // these are the alias names, not the underlying fields (identifier-charset
+                    // bounded either way) — a documented trade-off, not an oversight.
                     "rootFields" to ((specification["data"] as? Map<*, *>)?.keys?.joinToString(",") ?: ""),
                 )
                 // Executed documents always answer 200; query-level failures live in `errors`
@@ -108,6 +111,24 @@ fun Application.configureIntegration() {
     }
 }
 
+private const val MAX_AUDITED_OPERATION_NAME = 200
+
+/**
+ * The ONE parser of the integration credential, shared by the auth guard below and the
+ * RateLimit bucket's requestKey (auth/AuthRoutes.kt) so both see the same normalized token —
+ * pre-#30 the bucket hashed the RAW header, letting rotated garbage headers mint fresh buckets
+ * (limit bypass + unbounded limiter registry) while case/whitespace variants of one valid key
+ * multiplied its quota (checkup #30, A-H1). Exactly one Authorization header is accepted
+ * (A-L9); anything that doesn't parse to a `lettuce_int_…` token returns null.
+ */
+internal fun integrationBearerToken(call: ApplicationCall): String? =
+    call.request.headers.getAll(HttpHeaders.Authorization)
+        ?.singleOrNull()
+        ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+        ?.drop("Bearer ".length)
+        ?.trim()
+        ?.takeIf { it.startsWith(API_KEY_PREFIX) }
+
 /**
  * The integration guard (the authz/Guards.kt shape — a plain function, not an auth provider):
  * validates the `Authorization: Bearer lettuce_int_…` key against the non-revoked client
@@ -117,12 +138,8 @@ fun Application.configureIntegration() {
 private suspend fun ApplicationCall.integrationCaller(
     clients: IntegrationClientService,
 ): IntegrationClientPrincipal {
-    val header = request.headers[HttpHeaders.Authorization]
-    val token = header
-        ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
-        ?.drop("Bearer ".length)
-        ?.trim()
-    if (token.isNullOrBlank() || !token.startsWith(API_KEY_PREFIX)) {
+    val token = integrationBearerToken(this)
+    if (token == null) {
         audit("integration.auth_failed", "reason" to "missing_or_malformed")
         throw UnauthorizedException("Missing or invalid integration API key")
     }

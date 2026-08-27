@@ -25,10 +25,16 @@ data class GraphQLHttpRequest(
  * plain numbers. Enums become their names (GraphQL enum output coercion accepts them).
  */
 inline fun <reified T> T.toGraphQL(): Map<String, Any?> {
-    val element = Json.encodeToJsonElement(this)
+    val element = graphQlJson.encodeToJsonElement(this)
     @Suppress("UNCHECKED_CAST")
     return element.toAnyValue() as Map<String, Any?>
 }
+
+/** encodeDefaults = true so a DTO property with a Kotlin default (the TeamKpiResponse.canManage
+ *  class) still lands in the map — the bare Json companion would silently drop the key, turning
+ *  a future non-null SDL field into a runtime null error (checkup #30, A-L6). */
+@PublishedApi
+internal val graphQlJson: Json = Json { encodeDefaults = true }
 
 /** JsonElement → plain Kotlin values (maps/lists/Long/Double/Boolean/String/null). Integral
  *  numbers become Long — graphql-java's Int coercion accepts any in-range Number, and the
@@ -39,7 +45,10 @@ fun JsonElement.toAnyValue(): Any? = when (this) {
         isString -> content
         content == "true" -> true
         content == "false" -> false
-        else -> content.toLongOrNull() ?: content.toDouble()
+        // The lenient default Json accepts unquoted tokens as non-string primitives — fall
+        // back to the raw content instead of a NumberFormatException that would escape the
+        // transport as a 500 (checkup #30, A-M3).
+        else -> content.toLongOrNull() ?: content.toDoubleOrNull() ?: content
     }
     is JsonArray -> map { it.toAnyValue() }
     is JsonObject -> mapValues { (_, v) -> v.toAnyValue() }

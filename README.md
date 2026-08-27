@@ -159,7 +159,7 @@ curl -s http://localhost:8080/integration/graphql \
 
 **Discover the schema.** Introspection is enabled, and
 `GET /integration/graphql/schema` (same auth) returns the SDL — every type,
-field, and argument carries a description. The committed contract is
+field, argument, and enum value carries a description. The committed contract is
 [`server/src/main/resources/graphql/schema.graphqls`](server/src/main/resources/graphql/schema.graphqls);
 it evolves additively (deprecations before removals), governed by
 [`api-guidelines/GRAPHQL-GUIDELINES.md`](api-guidelines/GRAPHQL-GUIDELINES.md).
@@ -169,7 +169,7 @@ Semantics worth knowing: paged collections mirror the REST lists
 filters); ids are 31-bit integers, dates ISO strings, timestamps epoch-millis
 (`Long` scalar). Transport failures (bad key → `401`, malformed JSON → `400`)
 are RFC 7807 problem bodies; anything after that — validation, query-shape
-limits (max depth 10, complexity 300), resolver errors — answers `200` with a
+limits (max depth 15, pageSize-weighted complexity 1000), resolver errors — answers `200` with a
 GraphQL `errors` array. Requests are rate-limited per key (default 120/min)
 and recorded in the audit trail (client, operation name, root fields — never
 query text).

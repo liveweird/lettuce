@@ -40,8 +40,8 @@ goals, impact log, pulse, notifications, alerts, templates.
   `configureAuthRoutes` (bucket before wrapper) and before `configureRouting`. The OpenAPI
   conformance test plugin skips non-`/api/` paths, so GraphQL traffic is contract-checked by
   its own gates instead: `IntegrationSchemaContractTest` (Docker-free — parses the committed
-  SDL, pins read-only/no-Mutation, the exact root-field surface, and full documentation
-  coverage).
+  SDL, pins read-only/no-Mutation, the exact root-field surface, full documentation coverage
+  incl. enum values, and the no-capability-flags/secrets field walk).
 - **Execution model** (`integration/GraphQLFactory.kt` + `Fetchers.kt` + `DataLoaders.kt` +
   `GraphQLJson.kt`): SDL-first graphql-java (pure Java — chosen over graphql-kotlin's
   kotlin-reflect schema generation, which both inverts the hand-maintained-contract philosophy
@@ -53,8 +53,10 @@ goals, impact log, pulse, notifications, alerts, templates.
   the DTOs themselves: Kotlin name-mangles UInt-property getters, so `PropertyDataFetcher`
   reflection would silently null every id; hand-built maps (team(id), UserRef) must convert
   UInt→Long explicitly. Nested lists batch through a per-request `DataLoaderRegistry` (~10
-  mapped loaders, one service call per (loader, arg-set)). Guardrails: depth 10 + complexity
-  300 → 200 + errors; `SanitizingExceptionHandler` passes through `BadRequestException`
+  mapped loaders, one service call per (loader, arg-set)). Guardrails: depth 15 (above the standard
+  introspection query's 12 — checkup #30 A-H2) + complexity 1000 under the pageSize-weighted
+  calculator (subtree × ceil(pageSize/20), cap 5; a variable pageSize charges the cap —
+  checkup #30 A-M5) → 200 + errors; `SanitizingExceptionHandler` passes through `BadRequestException`
   messages, everything else logs + "Internal error" (no FQCNs — MT-007). Error split:
   transport = ProblemDetail (401 key, 400 malformed JSON via StatusPages — app-wide), executed
   documents = 200 + `errors`. Introspection stays ON (authenticated contract discovery). Two
@@ -89,6 +91,21 @@ goals, impact log, pulse, notifications, alerts, templates.
   once in a warning panel via `RevealablePassword` (no toast — the panel IS the confirmation,
   the CreateUser precedent), Revoke behind the ConfirmDeleteModal flow with a "Revoke" confirm
   label. API wrapper `api/integrationClients.ts`.
+- **Checkup #30 hardening (v3.0.1)**: the RateLimit bucket keys on the SHA-256 of the
+  NORMALIZED token via the shared `integrationBearerToken()` parse (raw-header keying let
+  rotated garbage headers mint fresh buckets — limit bypass + unbounded limiter registry;
+  non-parsing headers share the per-host bucket, exactly ONE Authorization header accepted);
+  `daysOff(from/to)` are strict-ISO-validated and every `year` argument is bounded 2000..2100
+  (the REST rules — unvalidated bounds silently dropped rows lexicographically / overflowed the
+  budget math); lenient-JSON tokens in `variables` fall back to strings instead of a 500;
+  revoke and the `last_used_at` stamp are race-safe conditional updates; `toGraphQL()` uses
+  `encodeDefaults = true`; the SDL documents every enum value, the dangling-reference rule
+  (soft-deleted users/teams stay embedded as historical labels — the `*Deleted` flag fields
+  remain a REGISTERED FUTURE ADDITIVE addition), and the three previously order-silent nested
+  lists; audit `rootFields` are RESPONSE KEYS (alias names under aliases — documented
+  trade-off) and `operationName` is length-capped. Deferred (registered): the `*Deleted`
+  boolean fields on DaysOff/PerformanceReview/Team/TeamKpi, the careerHistory loader's second
+  transaction when the batch is empty, the SPA's failed-create alert lingering while editing.
 - **Tests**: `IntegrationClientTest` (CRUD/403 incl. HR/validation/audit),
   `IntegrationGraphQlTest` (config gate, uniform 401 matrix incl. revoked, per-family reads
   asserting decryption + the DRAFT bypass, nesting/loaders, paging semantics, guardrails,

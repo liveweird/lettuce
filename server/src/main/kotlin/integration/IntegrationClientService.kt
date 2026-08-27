@@ -75,10 +75,14 @@ class IntegrationClientService(val database: R2dbcDatabase) {
             .singleOrNull()
             ?: return@suspendTransaction RevokeOutcome.NOT_FOUND
         if (row[IntegrationClients.revokedAt] != null) return@suspendTransaction RevokeOutcome.ALREADY_REVOKED
-        IntegrationClients.update({ IntegrationClients.id eq id }) {
+        // Conditional on the flag so a concurrent revoke loses cleanly: the second caller's
+        // update matches zero rows and answers 409 instead of double-stamping (checkup #30, A-L1).
+        val updated = IntegrationClients.update({
+            (IntegrationClients.id eq id) and IntegrationClients.revokedAt.isNull()
+        }) {
             it[IntegrationClients.revokedAt] = System.currentTimeMillis()
         }
-        RevokeOutcome.REVOKED
+        if (updated == 0) RevokeOutcome.ALREADY_REVOKED else RevokeOutcome.REVOKED
     }
 
     /** The bearer-provider lookup: non-revoked hash match → principal (stamping `last_used_at`), else null. */
@@ -88,7 +92,11 @@ class IntegrationClientService(val database: R2dbcDatabase) {
             .singleOrNull()
             ?: return@suspendTransaction null
         val clientId = row[IntegrationClients.id].value
-        IntegrationClients.update({ IntegrationClients.id eq clientId }) {
+        // Conditional on non-revoked so a revoke committing between the select and this update
+        // is never recorded as a post-revocation "use" (checkup #30, A-L2).
+        IntegrationClients.update({
+            (IntegrationClients.id eq clientId) and IntegrationClients.revokedAt.isNull()
+        }) {
             it[lastUsedAt] = System.currentTimeMillis()
         }
         IntegrationClientPrincipal(clientId = clientId, name = row[IntegrationClients.name])
