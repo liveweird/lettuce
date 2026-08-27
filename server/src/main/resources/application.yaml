@@ -43,7 +43,11 @@ ktor:
       - ch.nokillswit.dictionaries.DictionaryRoutesKt.configureDictionaryRoutes
       - ch.nokillswit.notifications.NotificationRoutesKt.configureNotificationRoutes
       - ch.nokillswit.alerts.AlertRoutesKt.configureAlertRoutes
+      - ch.nokillswit.integration.IntegrationClientRoutesKt.configureIntegrationClientRoutes
       - ch.nokillswit.auth.AuthRoutesKt.configureAuthRoutes
+      # — integration API (after AuthRoutes: its route wrapper needs the RateLimit bucket
+      #   AuthRoutes' single install registers; registers nothing when integration.enabled=false)
+      - ch.nokillswit.integration.IntegrationKt.configureIntegration
       # — catch-all router
       - ch.nokillswit.plugins.RoutingKt.configureRouting
 
@@ -148,6 +152,17 @@ mail:
   # Optional absolute URL of this deployment (e.g. https://lettuce.example.com);
   # when set, outbound emails include a sign-in link.
   appUrl: "$MAIL_APP_URL:"
+
+integration:
+  # The read-only integration GraphQL API at POST /integration/graphql (contract:
+  # server/src/main/resources/graphql/schema.graphqls; see
+  # .claude/docs/features/integration-api.md). Default OFF — a deployment opts in
+  # explicitly; when disabled the routes are not registered at all (404). The admin
+  # key management at /api/v1/integration-clients works regardless of this flag,
+  # so keys can be prepared before enabling the endpoint.
+  enabled: "$INTEGRATION_ENABLED:false"
+  # Per-API-key token bucket (requests/minute) on the /integration endpoints.
+  rateLimitPerMinute: "$INTEGRATION_RATE_LIMIT_PER_MINUTE:120"
 
 postgres:
   jdbcUrl: "$POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/lettuce"

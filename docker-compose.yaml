@@ -63,6 +63,9 @@ services:
       SMTP_STARTTLS: "false"
       MAIL_FROM: lettuce@localhost
       MAIL_APP_URL: http://localhost:8080
+      # The read-only integration GraphQL API (v3.0.0) — on in the local demo so it can be
+      # tried (and e2e-exercised) out of the box; the shipped image default is OFF.
+      INTEGRATION_ENABLED: "true"
     ports:
       - "8080:8080"
     # Ceiling for the tuned JVM (SerialGC + -Xmx256m + C1, baked into bin/server): ~270 MiB RSS

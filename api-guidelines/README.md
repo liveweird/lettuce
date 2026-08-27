@@ -17,6 +17,7 @@ conformance. Everything except the known-gaps register is stack-agnostic and por
 | [`API-GUIDELINES.md`](./API-GUIDELINES.md) | The normative rulebook. Every rule has a stable ID (e.g. `API-LIST-002`), a MUST/SHOULD statement, and a concrete check. Ends with the [known-gaps register](./API-GUIDELINES.md#appendix-known-gaps-register). |
 | [`api-guidelines.spectral.yaml`](./api-guidelines.spectral.yaml) | A [Spectral](https://stoplight.io/open-source/spectral) ruleset encoding the machine-checkable subset, runnable against any OpenAPI 3.x spec. |
 | [`examples/conformant.yaml`](./examples/conformant.yaml) | A minimal spec that lints fully clean — including the gap-register hints — the reference for "conformant" and a copy-paste starting point for a new resource. |
+| [`GRAPHQL-GUIDELINES.md`](./GRAPHQL-GUIDELINES.md) | The sibling rulebook for the read-only GraphQL integration API (v3.0.0) — `GQL-*-NNN` rule IDs; its contract artifact is the committed SDL (`server/src/main/resources/graphql/schema.graphqls`), enforced by `IntegrationSchemaContractTest`/`IntegrationGraphQlTest` instead of Spectral. |
 
 ## How to validate an API against it
 

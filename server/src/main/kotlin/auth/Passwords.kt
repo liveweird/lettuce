@@ -35,3 +35,11 @@ internal fun generatePassword(length: Int = 16): String =
 /** The 6-digit email-MFA code (leading zeros kept) — guess-resistance comes from the challenge
  *  attempt cap, not the code length (see auth/MfaChallenges.kt). */
 internal fun generateMfaCode(): String = "%06d".format(secureRandom.nextInt(1_000_000))
+
+/** Recognizable prefix of every integration API key — lets operators identify leaked
+ *  credentials at a glance and lets the bearer provider fail fast on foreign tokens. */
+const val API_KEY_PREFIX = "lettuce_int_"
+
+/** Integration API key (v3.0.0): prefix + 43 alphabet chars = ~258 bits of entropy.
+ *  Shown once at creation; only the SHA-256 digest is stored (see integration/). */
+internal fun generateApiKey(): String = API_KEY_PREFIX + generatePassword(length = 43)

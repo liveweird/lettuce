@@ -1,0 +1,315 @@
+"""
+Lettuce read-only integration API v1 (v3.0.0). THE hand-maintained contract for
+POST /integration/graphql (the documentation.yaml sibling — see api-guidelines/GRAPHQL-GUIDELINES.md;
+IntegrationSchemaContractTest pins the runtime schema to this file). Authenticated by an
+integration-client API key; every read is unscoped by design (no per-caller authorization) —
+scope changes are additive, deprecations carry @deprecated(reason), removals need a major version.
+Conventions: ids are unsigned 31-bit Int; dates are ISO strings (YYYY-MM-DD, months YYYY-MM);
+timestamps are epoch milliseconds (Long). There is deliberately no Mutation type.
+"""
+schema {
+  query: Query
+}
+
+"64-bit signed integer (epoch-millisecond timestamps exceed 32-bit Int)."
+scalar Long
+
+"The read-only root: paged bulk-sync collections per family plus id-addressed single reads."
+type Query {
+  "Page through all non-deleted users. Filters AND together; name/email are case- and accent-insensitive substring matches."
+  users(
+    "1-based page number (>= 1)." page: Int = 1
+    "Rows per page (1..100)." pageSize: Int = 20
+    "Substring filter on the display name." name: String
+    "Substring filter on the email." email: String
+    "true = only deactivated accounts, false = only active ones; omit for both." deactivated: Boolean
+  ): UserPage!
+
+  "A single non-deleted user, or null when the id is unknown or soft-deleted."
+  user("The user id." id: Int!): User
+
+  "Page through all non-deleted teams."
+  teams(
+    "1-based page number (>= 1)." page: Int = 1
+    "Rows per page (1..100)." pageSize: Int = 20
+    "Case- and accent-insensitive substring filter on the team name." name: String
+  ): TeamPage!
+
+  "A single non-deleted team, or null when the id is unknown or soft-deleted."
+  team("The team id." id: Int!): Team
+
+  "The global, admin-curated review-period registry (small, unpaged, chronological)."
+  reviewPeriods: [ReviewPeriod!]!
+
+  "Page through all days-off requests (bulk sync). from/to bound startDate (ISO YYYY-MM-DD, inclusive)."
+  daysOff(
+    "1-based page number (>= 1)." page: Int = 1
+    "Rows per page (1..100)." pageSize: Int = 20
+    "Lower startDate bound, ISO YYYY-MM-DD inclusive." from: String
+    "Upper startDate bound, ISO YYYY-MM-DD inclusive." to: String
+    "Only requests in this status." status: DaysOffStatus
+    "Only requests owned by this user." userId: Int
+  ): DaysOffPage!
+
+  "Page through all performance reviews (bulk sync), every status including DRAFT."
+  performanceReviews(
+    "1-based page number (>= 1)." page: Int = 1
+    "Rows per page (1..100)." pageSize: Int = 20
+    "Only reviews attached to this review period." periodId: Int
+    "Only reviews about this subordinate." subordinateId: Int
+  ): PerformanceReviewPage!
+
+  "Page through all team KPIs (bulk sync), every status including DRAFT."
+  teamKpis(
+    "1-based page number (>= 1)." page: Int = 1
+    "Rows per page (1..100)." pageSize: Int = 20
+    "Only KPIs of this team." teamId: Int
+    "Only KPIs in this status." status: TeamKpiStatus
+  ): TeamKpiPage!
+}
+
+# ---- Paging envelopes (the REST list convention: items/page/pageSize/total; total is the
+# ---- row count after filters, before pagination).
+
+"One page of users."
+type UserPage {
+  "The page's rows, id-ascending." items: [User!]!
+  "The 1-based page number echoed back." page: Int!
+  "The page size echoed back." pageSize: Int!
+  "Row count after filters, before pagination." total: Long!
+}
+
+"One page of teams."
+type TeamPage {
+  "The page's rows, id-ascending." items: [Team!]!
+  "The 1-based page number echoed back." page: Int!
+  "The page size echoed back." pageSize: Int!
+  "Row count after filters, before pagination." total: Long!
+}
+
+"One page of days-off requests."
+type DaysOffPage {
+  "The page's rows, id-ascending." items: [DaysOff!]!
+  "The 1-based page number echoed back." page: Int!
+  "The page size echoed back." pageSize: Int!
+  "Row count after filters, before pagination." total: Long!
+}
+
+"One page of performance reviews."
+type PerformanceReviewPage {
+  "The page's rows, id-ascending." items: [PerformanceReview!]!
+  "The 1-based page number echoed back." page: Int!
+  "The page size echoed back." pageSize: Int!
+  "Row count after filters, before pagination." total: Long!
+}
+
+"One page of team KPIs."
+type TeamKpiPage {
+  "The page's rows, id-ascending." items: [TeamKpi!]!
+  "The 1-based page number echoed back." page: Int!
+  "The page size echoed back." pageSize: Int!
+  "Row count after filters, before pagination." total: Long!
+}
+
+# ---- Enums (mirror the server's Kotlin enums by name).
+
+"Additional global roles; a user with neither is a regular user."
+enum UserRole { ADMIN HR }
+
+"Whether a days-off request consumes the paid budget."
+enum DaysOffType { PAID UNPAID }
+
+"The days-off request lifecycle."
+enum DaysOffStatus { REQUESTED ACCEPTED REJECTED CANCELLED }
+
+"Whether a budget correction adds or subtracts days."
+enum DaysOffCorrectionOperation { ADD SUBTRACT }
+
+"The performance-review lifecycle."
+enum PerformanceReviewStatus { DRAFT CALIBRATION PUBLISHED }
+
+"How a team KPI's value is expressed."
+enum TeamKpiType { NUMBER PERCENTAGE }
+
+"The team-KPI lifecycle."
+enum TeamKpiStatus { DRAFT ACTIVE ARCHIVED }
+
+"Which side of the KPI target is good."
+enum TargetDirection { AT_LEAST AT_MOST }
+
+# ---- Object types.
+
+"A career-dictionary entry (career path / specialization / seniority level), resolved at read time."
+type DictionaryEntry {
+  "The dictionary entry id." id: Int!
+  "The entry's translations, one per language." values: [DictionaryValue!]!
+}
+
+"One language's display text of a dictionary entry."
+type DictionaryValue {
+  "ISO language code (e.g. en, pl)." language: String!
+  "The display text in that language." value: String!
+}
+
+"A user account with the career profile and per-user sub-collections."
+type User {
+  "The user id." id: Int!
+  "Display name." name: String!
+  "Login email (canonical lower-case)." email: String!
+  "Optional organization-assigned unique id (employee id); null when not set." uniqueId: String
+  "Additional global roles; empty for a regular user." roles: [UserRole!]!
+  "true = the account is administratively deactivated (cannot log in; data remains)." deactivated: Boolean!
+  "The user's UI/email language code." language: String!
+  "Current career path, from the latest career position; null when none." careerPath: DictionaryEntry
+  "Current specialization, from the latest career position; null when none." careerSpecialization: DictionaryEntry
+  "Current seniority level, from the latest career position; null when none." seniorityLevel: DictionaryEntry
+  "The full chronological career-position timeline (start ascending)." careerHistory: [CareerPosition!]!
+  "Teams this user is currently a member of (name ascending)." teams: [TeamRef!]!
+  "The user's days-off requests, optionally limited to startDates of one calendar year." daysOff("Calendar year filter (e.g. 2026)." year: Int): [DaysOff!]!
+  "The user's paid-days-off budget for a year (closed-form; null never occurs — an unconfigured allowance yields a zero budget)." daysOffBudget("The budget year." year: Int!): DaysOffBudget!
+  "Manager corrections of the user's paid budget, optionally limited to one year." daysOffCorrections("The correction year." year: Int): [DaysOffCorrection!]!
+  "Performance reviews where this user is the subordinate (every status)." performanceReviews: [PerformanceReview!]!
+}
+
+"A lightweight team reference."
+type TeamRef {
+  "The team id." id: Int!
+  "The team name." name: String!
+}
+
+"A lightweight user reference."
+type UserRef {
+  "The user id." id: Int!
+  "The display name." name: String!
+}
+
+"A team with its manager, roster, and KPIs."
+type Team {
+  "The team id." id: Int!
+  "The team name." name: String!
+  "The team's current manager." manager: UserRef!
+  "Current members with display names." members: [UserRef!]!
+  "The team's KPIs (every status)." kpis: [TeamKpi!]!
+}
+
+"One row of a user's career timeline."
+type CareerPosition {
+  "The position row id." id: Int!
+  "ISO YYYY-MM-DD start." startDate: String!
+  "Derived end (day before the next row starts, or the stored deactivation end); null = the open-ended current position." endDate: String
+  "Career path at this position; null when not set." careerPath: DictionaryEntry
+  "Specialization at this position; null when not set." careerSpecialization: DictionaryEntry
+  "Seniority level at this position; null when not set." seniorityLevel: DictionaryEntry
+  "Row creation timestamp." createdAt: Long!
+  "Last modification timestamp." lastModified: Long!
+}
+
+"A days-off request with its frozen cost and resolution/cancellation trail."
+type DaysOff {
+  "The request id." id: Int!
+  "The owner's user id." userId: Int!
+  "The owner's display name." userName: String!
+  "PAID or UNPAID." type: DaysOffType!
+  "Current lifecycle status." status: DaysOffStatus!
+  "ISO YYYY-MM-DD first day." startDate: String!
+  "ISO YYYY-MM-DD last day (same calendar year as startDate)." endDate: String!
+  "true = the first day is a half day." startHalf: Boolean!
+  "true = the last day is a half day." endHalf: Boolean!
+  "Frozen working-day cost in days (0.5 steps; weekends/holidays cost nothing)." days: Float!
+  "Request creation timestamp." createdAt: Long!
+  "The resolving manager's user id; null while REQUESTED." resolvedById: Int
+  "The resolving manager's display name; null while REQUESTED." resolvedByName: String
+  "Resolution timestamp; null while REQUESTED." resolvedAt: Long
+  "Cancellation timestamp; null unless CANCELLED." cancelledAt: Long
+  "The cancelling actor's user id; null unless CANCELLED (and on pre-v2.31.0 rows)." cancelledById: Int
+  "The cancelling actor's display name; null unless CANCELLED (and on pre-v2.31.0 rows)." cancelledByName: String
+  "The mandatory cancellation reason (stored encrypted at rest); null unless CANCELLED (and on pre-v2.31.0 rows)." cancelReason: String
+  "Last modification timestamp." lastModified: Long!
+}
+
+"A user's paid-days-off budget for one year (closed-form: remaining = carriedOver + allowance + corrected - reserved - used)."
+type DaysOffBudget {
+  "The owner's user id." userId: Int!
+  "The owner's display name." userName: String!
+  "The budget year." year: Int!
+  "The chain-manager-set yearly allowance in days; null = never configured (zero paid budget)." allowance: Int
+  "Days carried over from the previous year." carriedOver: Float!
+  "The year's net manager corrections in days (signed)." corrected: Float!
+  "REQUESTED (pending) paid days in the year." reserved: Float!
+  "ACCEPTED paid days in the year." used: Float!
+  "Remaining paid days (may be negative)." remaining: Float!
+}
+
+"A manager's correction of a user's paid-days-off entitlement."
+type DaysOffCorrection {
+  "The correction id." id: Int!
+  "The corrected user's id." userId: Int!
+  "The authoring manager's user id." authorId: Int!
+  "The authoring manager's display name." authorName: String!
+  "The budget year the correction applies to." year: Int!
+  "ADD or SUBTRACT." operation: DaysOffCorrectionOperation!
+  "The correction size in days (0.5 steps)." days: Float!
+  "The mandatory reasoning (stored encrypted at rest)." comment: String!
+  "Correction creation timestamp." createdAt: Long!
+  "Last modification timestamp." lastModified: Long!
+}
+
+"One admin-curated review period (inclusive ISO month bounds)."
+type ReviewPeriod {
+  "The period id." id: Int!
+  "ISO YYYY-MM first month." startMonth: String!
+  "ISO YYYY-MM last month." endMonth: String!
+}
+
+"One rated category of a performance review (both fields stored encrypted at rest)."
+type CategoryAssessment {
+  "The 1..6 rating; null while unset." rating: Int
+  "The category summary text; null while unset." summary: String
+}
+
+"A performance review (four rated categories; content decrypted for integration clients)."
+type PerformanceReview {
+  "The review id." id: Int!
+  "The authoring manager's user id." managerId: Int!
+  "The authoring manager's display name." managerName: String!
+  "The subordinate's user id." subordinateId: Int!
+  "The subordinate's display name." subordinateName: String!
+  "The attached review period's id." periodId: Int!
+  "The period's ISO YYYY-MM first month." periodStartMonth: String!
+  "The period's ISO YYYY-MM last month." periodEndMonth: String!
+  "Current lifecycle status (DRAFTs are visible to integration clients)." status: PerformanceReviewStatus!
+  "The attitude category." attitude: CategoryAssessment!
+  "The delivery category." delivery: CategoryAssessment!
+  "The skills category." skills: CategoryAssessment!
+  "The overall category." overall: CategoryAssessment!
+  "Review creation timestamp." createdAt: Long!
+  "Last modification timestamp." lastModified: Long!
+}
+
+"A team KPI with its recorded data-point series."
+type TeamKpi {
+  "The KPI id." id: Int!
+  "The owning team's id." teamId: Int!
+  "The owning team's name." teamName: String!
+  "The team's current manager's user id (resolved at read time, never stored)." managerId: Int!
+  "The team's current manager's display name." managerName: String!
+  "The KPI title." title: String!
+  "The KPI description (stored encrypted at rest)." description: String!
+  "NUMBER or PERCENTAGE." type: TeamKpiType!
+  "Current lifecycle status (DRAFTs are visible to integration clients)." status: TeamKpiStatus!
+  "The target value." targetValue: Float!
+  "Which side of the target is good." targetDirection: TargetDirection!
+  "The latest recorded value (0 when none recorded)." currentValue: Float!
+  "ISO YYYY-MM-DD date of the latest recorded value; null when none." currentValueDate: String
+  "The archive summary (stored encrypted at rest); non-null once archived at least once." summary: String
+  "KPI creation timestamp." createdAt: Long!
+  "Last modification timestamp." lastModified: Long!
+  "Recorded data points, date descending." values: [TeamKpiValue!]!
+}
+
+"One recorded team-KPI data point."
+type TeamKpiValue {
+  "The data-point id." id: Int!
+  "ISO YYYY-MM-DD measurement date." date: String!
+  "The measured value." value: Float!
+}

@@ -44,6 +44,12 @@ data class PerformanceReviewListResult(
     val total: Long,
 )
 
+/** The integration API's full-document page (v3.0.0) — see [PerformanceReviewService.listAllFull]. */
+data class PerformanceReviewFullListResult(
+    val items: List<PerformanceReviewResponse>,
+    val total: Long,
+)
+
 /** A manager's latest authored review for one subordinate — see [PerformanceReviewService.latestReviewsBySubordinate]. */
 data class LatestReviewStats(
     val reviewId: UInt,
@@ -160,6 +166,43 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
             .map { it.toResponse() }
             .singleOrNull()
     }
+
+    /**
+     * Unscoped full-document page for the integration API (v3.0.0 — no caller, no view
+     * scoping, DRAFTs included by design; see integration/). Rows decrypt like [read] —
+     * summaries included, unlike the ratings-only [list] rows — bounded by the page size.
+     */
+    suspend fun listAllFull(
+        periodId: UInt?,
+        subordinateId: UInt?,
+        paging: PageRequest,
+    ): PerformanceReviewFullListResult = suspendTransaction(database) {
+        var predicate: Op<Boolean> = active()
+        periodId?.let { predicate = predicate and (Reviews.periodId eq it) }
+        subordinateId?.let { predicate = predicate and (Reviews.subordinateId eq it) }
+        val total = joined().selectAll().where { predicate }.count()
+        val items = joined().selectAll()
+            .where { predicate }
+            .applyPaging(paging, SORTABLE_COLUMNS)
+            .map { it.toResponse() }
+            .toList()
+        PerformanceReviewFullListResult(items = items, total = total)
+    }
+
+    /**
+     * Batch for the integration API (v3.0.0): subordinate id → their reviews (every status),
+     * fully decrypted; subordinates without reviews are absent from the map.
+     */
+    suspend fun listBySubordinateIds(ids: Set<UInt>): Map<UInt, List<PerformanceReviewResponse>> =
+        if (ids.isEmpty()) emptyMap()
+        else suspendTransaction(database) {
+            joined().selectAll()
+                .where { (Reviews.subordinateId inList ids) and active() }
+                .orderBy(Reviews.id to SortOrder.ASC)
+                .map { it.toResponse() }
+                .toList()
+                .groupBy { it.subordinateId }
+        }
 
     /**
      * Replaces the eight assessment values (never parties, period, or status). Accepted while

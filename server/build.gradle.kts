@@ -90,6 +90,7 @@ dependencies {
     implementation(libs.exposed.r2dbc)
     implementation(libs.flyway.core)
     implementation(libs.flyway.database.postgresql)
+    implementation(libs.graphql.java)
     implementation(libs.logback.classic)
     implementation(libs.opentelemetry.logbackAppender)
     implementation(libs.postgresql)

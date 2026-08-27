@@ -106,6 +106,7 @@ scenario file is the design.
 - [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08); admin gets no audit surface.
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
 - [`impact-log.spec.ts`](scenarios/impact-log.md) — the accomplishment journal (v2.36.0): owner creates/edits/deletes with History, the manager reads via My subordinates' journals and the person-card Impact-log drill-down (v2.38.0).
+- [`integration-clients.spec.ts`](scenarios/integration-clients.md) — the v3.0.0 integration API: admin mints a show-once key, a machine client reads via GraphQL, revoke kills it, non-admins see nothing.
 - [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
 - [`manager-oversight.spec.ts`](scenarios/manager-oversight.md) — the My team feedback tab and the per-user two-way screen.

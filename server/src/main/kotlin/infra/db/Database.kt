@@ -25,6 +25,8 @@ import ch.nokillswit.impactlog.ImpactLogServiceKey
 import ch.nokillswit.infra.crypto.FieldCipherKey
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
+import ch.nokillswit.integration.IntegrationClientService
+import ch.nokillswit.integration.IntegrationClientServiceKey
 import ch.nokillswit.notifications.NotificationEmailer
 import ch.nokillswit.notifications.NotificationService
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -97,6 +99,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(ImpactLogEventServiceKey, ImpactLogEventService(database))
     attributes.put(SuccessionPlanServiceKey, SuccessionPlanService(database, attributes[FieldCipherKey]))
     attributes.put(SuccessionEventServiceKey, SuccessionEventService(database))
+    attributes.put(IntegrationClientServiceKey, IntegrationClientService(database))
     // The email mirror (v2.3.0): configureMail runs before this module, so the transport and
     // appUrl are readable; the Application is the CoroutineScope its fire-and-forget sends
     // ride on (the password-reset launch precedent).

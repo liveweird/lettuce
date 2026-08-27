@@ -8,6 +8,8 @@ import ch.nokillswit.infra.mail.Mailer
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
+import ch.nokillswit.integration.INTEGRATION_RATE_LIMIT
+import ch.nokillswit.integration.apiKeyHash
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
@@ -22,6 +24,7 @@ import ch.nokillswit.users.UserServiceKey
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
@@ -44,6 +47,7 @@ private const val LOGIN_RATE_LIMIT = "login"
 private const val REFRESH_RATE_LIMIT = "refresh"
 private const val PASSWORD_RESET_RATE_LIMIT = "password-reset"
 private const val MFA_RATE_LIMIT = "mfa"
+private const val DEFAULT_INTEGRATION_RATE_LIMIT = 120
 
 @Serializable
 data class LoginRequest(val email: String, val password: String)
@@ -250,6 +254,9 @@ fun Application.configureAuthRoutes() {
     val loginLimit = environment.config.propertyOrNull("security.rateLimit.loginPerMinute")
         ?.getString()?.takeIf { it.isNotBlank() }?.toInt()
         ?: if (developmentMode) 1000 else 10
+    val integrationLimit = environment.config.propertyOrNull("integration.rateLimitPerMinute")
+        ?.getString()?.takeIf { it.isNotBlank() }?.toInt()
+        ?: DEFAULT_INTEGRATION_RATE_LIMIT
 
     // Throttle login to blunt password brute-forcing, and refresh to blunt token abuse: a token
     // bucket per client host.
@@ -269,6 +276,18 @@ fun Application.configureAuthRoutes() {
         register(RateLimitName(MFA_RATE_LIMIT)) {
             rateLimiter(limit = 10, refillPeriod = 60.seconds)
             requestKey { call -> call.request.origin.remoteHost }
+        }
+        // The integration API's per-key bucket (v3.0.0) lives in this install because RateLimit
+        // is a single application-level plugin — the routes it throttles are registered by
+        // configureIntegration (which runs after this module; see integration/Integration.kt).
+        // Keyed on the SHA-256 of the presented bearer credential (per key, works before auth
+        // runs, no key material held in memory); keyless requests fall back to the host.
+        register(RateLimitName(INTEGRATION_RATE_LIMIT)) {
+            rateLimiter(limit = integrationLimit, refillPeriod = 60.seconds)
+            requestKey { call ->
+                call.request.headers[HttpHeaders.Authorization]?.let { apiKeyHash(it) }
+                    ?: call.request.origin.remoteHost
+            }
         }
     }
 

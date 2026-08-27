@@ -1,0 +1,33 @@
+{
+  "title": "Integration clients",
+  "hint": "Technical clients holding API keys for the read-only integration API at /integration/graphql. A key is shown exactly once, at creation — store it in a secret manager. Revoking a key is terminal; create a new client to rotate.",
+  "loadError": "Failed to load the integration clients",
+  "empty": "No integration clients yet.",
+  "name": "Client name",
+  "addClient": "Add client",
+  "keyPanelTitle": "API key for \"{{name}}\" — shown only once",
+  "keyPanelWarning": "Copy this key now and store it securely. It cannot be displayed again — only its digest is stored.",
+  "createdBy": "Created by {{name}}",
+  "lastUsed": "Last used {{time}}",
+  "neverUsed": "Never used",
+  "badge": {
+    "active": "Active",
+    "revoked": "Revoked"
+  },
+  "revoke": "Revoke",
+  "revokeAria": "Revoke API key of {{name}}",
+  "revokeTitle": "Revoke this API key?",
+  "revokeMessage": "The key of \"{{name}}\" will stop working immediately and cannot be re-enabled. Create a new client to restore access.",
+  "revokeFailed": "Revoke failed",
+  "toast": {
+    "revoked": "API key revoked"
+  },
+  "error": {
+    "actionPermission": "You are not allowed to manage integration clients.",
+    "invalidName": "The client name is invalid — it must be a non-empty single line of at most 100 characters.",
+    "gone": "This client no longer exists.",
+    "alreadyRevoked": "This client is already revoked.",
+    "saveFailedStatus": "Saving failed (HTTP {{status}}). Please try again.",
+    "saveFailed": "Saving failed. Check your connection and try again."
+  }
+}
