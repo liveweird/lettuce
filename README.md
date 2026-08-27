@@ -19,6 +19,9 @@ peer-feedback tool now covers:
   (admin, read-only HR auditor), per-user feature flags, opt-in email MFA, in-app
   notifications mirrored by email, admin broadcast alerts, dictionary-backed
   career profiles, and a bilingual (English/Polish) UI with a guided tour.
+- **Integration API** — a read-only GraphQL endpoint for other systems (data
+  warehouses, BI, HR tooling) with admin-issued API keys; see
+  [Integration API](#integration-api-read-only-for-other-apps) below.
 
 The stack:
 
@@ -29,8 +32,9 @@ The stack:
   bilingual (English/Polish) via react-i18next.
 
 Architecture, conventions, and the full endpoint/authorization model are
-documented in [CLAUDE.md](CLAUDE.md). The API contract lives at
-`server/src/main/resources/openapi/documentation.yaml`.
+documented in [CLAUDE.md](CLAUDE.md). The REST API contract lives at
+`server/src/main/resources/openapi/documentation.yaml`; the integration
+GraphQL contract at `server/src/main/resources/graphql/schema.graphqls`.
 
 
 ## Running the whole stack (one command)
@@ -123,6 +127,52 @@ If the server starts successfully, you'll see the following output:
 2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
 2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
 ```
+
+## Integration API (read-only, for other apps)
+
+Other systems can read lettuce data — users with career history, teams with
+members and KPIs, days off with budgets and corrections, performance reviews,
+review periods — through a single GraphQL endpoint. It is **read-only by
+construction** (the schema declares no mutations), and reads are deliberately
+**unscoped**: an integration client sees everything in scope, without the
+per-user authorization rules of the product API (succession plans and personal
+feedback are excluded from the schema by design).
+
+**Enable it.** The endpoint is off by default. Set `INTEGRATION_ENABLED=true`
+on the server (the bundled `docker-compose.yaml` already does, so the local
+demo has it live).
+
+**Get a key.** An administrator opens **Config → Integration clients** in the
+app (or `POST /api/v1/integration-clients`), registers a client, and receives
+its API key **exactly once** — only a SHA-256 digest is stored, so copy it into
+a secret manager immediately. A key can be revoked at any time (terminal and
+immediate); rotate by creating a new client.
+
+**Call it.** Send the key as a bearer token:
+
+```sh
+curl -s http://localhost:8080/integration/graphql \
+  -H "Authorization: Bearer lettuce_int_..." \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ users(pageSize: 50) { total items { id name email teams { name } daysOffBudget(year: 2026) { remaining } } } }"}'
+```
+
+**Discover the schema.** Introspection is enabled, and
+`GET /integration/graphql/schema` (same auth) returns the SDL — every type,
+field, and argument carries a description. The committed contract is
+[`server/src/main/resources/graphql/schema.graphqls`](server/src/main/resources/graphql/schema.graphqls);
+it evolves additively (deprecations before removals), governed by
+[`api-guidelines/GRAPHQL-GUIDELINES.md`](api-guidelines/GRAPHQL-GUIDELINES.md).
+
+Semantics worth knowing: paged collections mirror the REST lists
+(`page`/`pageSize`, 1-based, default 20, max 100, `total` = row count after
+filters); ids are 31-bit integers, dates ISO strings, timestamps epoch-millis
+(`Long` scalar). Transport failures (bad key → `401`, malformed JSON → `400`)
+are RFC 7807 problem bodies; anything after that — validation, query-shape
+limits (max depth 10, complexity 300), resolver errors — answers `200` with a
+GraphQL `errors` array. Requests are rate-limited per key (default 120/min)
+and recorded in the audit trail (client, operation name, root fields — never
+query text).
 
 ## License
 

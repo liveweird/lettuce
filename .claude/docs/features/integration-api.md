@@ -18,6 +18,7 @@ performance reviews, review periods. **NOT in scope** (deliberate, each addition
 decision): succession plans (invisible-to-subjects is the product rule), feedbacks, 1:1s,
 goals, impact log, pulse, notifications, alerts, templates.
 
+- **Consumer-facing docs**: the root `README.md` section "Integration API (read-only, for other apps)" is the integrator quick-start (enable flag, get a key, curl example, schema discovery, semantics) — keep it in sync with behavior changes here.
 - **Clients & keys** (`integration/IntegrationClient*.kt`): `/api/v1/integration-clients` —
   ADMIN-only INCLUDING reads (the alerts posture), ungated by `integration.enabled` (keys can
   be prepared before enabling). `GET` list (unpaged registry) + `GET {id}` + `POST` create +
