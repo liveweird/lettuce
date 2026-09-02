@@ -197,6 +197,23 @@ describe("ViewFeedback page", () => {
     );
   });
 
+  test("the people line lists every recipient, the caller among them as You", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        subjects: [
+          { id: 8, name: "Mona", deleted: false },
+          { id: 7, name: "Myself", deleted: false },
+        ],
+      }),
+    );
+    renderViewFeedback();
+
+    expect(await screen.findByText("Mona")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.queryByText("Myself")).toBeNull();
+  });
+
   test("the requester sees 'You' in the people line", async () => {
     // Caller (7) is the requester → "You", regardless of the resolved requesterName.
     mockFetch.mockResolvedValue(

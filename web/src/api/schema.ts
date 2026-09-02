@@ -788,7 +788,10 @@ export interface paths {
          * @description Lists feedback records scoped by `view`. Scoping is always relative to the caller —
          *     including ADMIN callers — except `view=user`, the HR auditor view.
          *
-         *     - `view=received` (the default): rows where the caller is the **subject**, scoped exactly
+         *     Since v3.1.0 a feedback may address up to four people (`subjects`); "the subject" below
+         *     means ANY of a row's recipients. `sort=subjectName` orders by the FIRST recipient.
+         *
+         *     - `view=received` (the default): rows where the caller is a **subject**, scoped exactly
          *       like the single-GET read rules (every listed row is also openable): (a) the caller is
          *       the requester and `visibility` is `PROVIDER_REQUESTER`/`PROVIDER_REQUESTER_SUBJECT`
          *       (any status); (b) otherwise (no requester, or someone else's request) `visibility` is
@@ -829,11 +832,11 @@ export interface paths {
          *     - Filters (all optional, all whitelisted):
          *       - `requesterName` — case- and accent-insensitive substring match against the requester's name.
          *         Rows without a requester never match when this filter is set.
-         *       - `subjectName` — case- and accent-insensitive substring match against the subject's name.
+         *       - `subjectName` — case- and accent-insensitive substring match against ANY recipient's name.
          *       - `providerName` — case- and accent-insensitive substring match against the provider's name.
          *       - `providerId` — exact match against the provider's user id. Combined with
          *         `view=received`, this scopes the list to feedbacks a specific person gave the caller.
-         *       - `subjectId` — exact match against the subject's user id. Combined with
+         *       - `subjectId` — matches rows whose recipients include the user id. Combined with
          *         `view=provided`, this scopes the list to feedbacks the caller gave a specific person.
          *       - `visibility` — exact match against the visibility enum.
          *       - `status` — exact match against the status enum.
@@ -850,7 +853,7 @@ export interface paths {
         put?: never;
         /**
          * Create a feedback record
-         * @description Any authenticated user may create a feedback record they are a party to. The provider must NOT equal the subject (`400`) — feedback about yourself (the retired self-reflection feature, v2.36.0) is no longer creatable; pre-existing provider == subject rows remain readable, editable, and transitionable. Creation is rejected with `409` while a feedback with the same (subject, provider, requester) triple — a null requester matches only null — is still in progress (active `DRAFT` or `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check`. Creation involving a **deactivated** party (provider, requester, or subject) is rejected with `400`.
+         * @description Any authenticated user may create a feedback record they are a party to. A feedback may address up to FOUR people (`subjectId` + `additionalSubjectIds`, v3.1.0 — distinct, fixed at creation; a requested feedback addresses exactly one). The provider must NOT be among the recipients (`400`) — feedback about yourself (the retired self-reflection feature, v2.36.0) is no longer creatable; pre-existing provider == subject rows remain readable, editable, and transitionable. Creation is rejected with `409` while a feedback by the same provider for the same requester — a null requester matches only null — whose recipients include ANY of the new recipients is still in progress (active `DRAFT` or `REQUESTED`); the `ProblemDetail.instance` carries `/api/v1/feedbacks/{id}` of the existing record. Clients should pre-check via `GET /api/v1/feedbacks/duplicate-check` (once per recipient). Creation involving a **deactivated** party (provider, requester, or any recipient) is rejected with `400`.
          */
         post: operations["createFeedback"];
         delete?: never;
@@ -4410,8 +4413,18 @@ export interface components {
         FeedbackRequest: {
             /** Format: int32 */
             requesterId?: number | null;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description The first recipient (the sort/name anchor); see `additionalSubjectIds`.
+             */
             subjectId: number;
+            /**
+             * @description Further recipients in position order (v3.1.0; omitted = one recipient) — a feedback may address up to FOUR
+             *     people in total (`subjectId` + these), all distinct and none the provider (`400`
+             *     otherwise). Forbidden together with `requesterId`: a requested feedback (ask-for /
+             *     request-for) addresses exactly one person (`400`). The set is fixed at creation.
+             */
+            additionalSubjectIds?: number[];
             /** Format: int32 */
             providerId: number;
             /** @enum {string} */
@@ -4426,6 +4439,14 @@ export interface components {
              *     with `400` (unknown keys are not accepted).
              */
             requesterMessage?: string | null;
+        };
+        /** @description One recipient of a feedback (position-ordered lists, v3.1.0). */
+        FeedbackSubject: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            /** @description True when the user has been soft-deleted. */
+            deleted: boolean;
         };
         FeedbackResponse: {
             /** Format: int32 */
@@ -4458,10 +4479,12 @@ export interface components {
             lastModified: number;
             /** @description Display name of the requester; null when there is no requester. Server-resolved, read-only. */
             requesterName?: string | null;
-            /** @description Display name of the subject. Server-resolved, read-only. */
+            /** @description Display name of the first recipient (`subjectId`). Server-resolved, read-only. */
             subjectName?: string | null;
             /** @description Display name of the provider. Server-resolved, read-only. */
             providerName?: string | null;
+            /** @description Every recipient in position order (v3.1.0); the first entry is the `subjectId`/`subjectName` pair. Server-resolved, read-only. */
+            subjects: components["schemas"]["FeedbackSubject"][];
         };
         FeedbackListItem: {
             /** Format: int32 */
@@ -4472,11 +4495,16 @@ export interface components {
             requesterName?: string | null;
             /** @description True when the user referenced by `requesterId` has been soft-deleted. False when there is no requester. */
             requesterDeleted: boolean;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description The first recipient — the sort anchor for `sort=subjectName`; see `subjects`.
+             */
             subjectId: number;
             subjectName: string;
             /** @description True when the user referenced by `subjectId` has been soft-deleted. */
             subjectDeleted: boolean;
+            /** @description Every recipient in position order (v3.1.0); the first entry is the `subjectId`/`subjectName`/`subjectDeleted` triple. */
+            subjects: components["schemas"]["FeedbackSubject"][];
             /** Format: int32 */
             providerId: number;
             providerName: string;
@@ -8073,7 +8101,7 @@ export interface operations {
                 providerName?: string;
                 /** @description Exact match against the provider's user id. */
                 providerId?: number;
-                /** @description Exact match against the subject's user id. */
+                /** @description Rows whose recipients (`subjects`) include this user id. */
                 subjectId?: number;
                 /** @description Exact match against the record's visibility. */
                 visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
@@ -8135,7 +8163,7 @@ export interface operations {
                     "application/json": components["schemas"]["FeedbackResponse"];
                 };
             };
-            /** @description Validation error (provider ≠ subject — feedback about yourself is not supported; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester) or referenced user does not exist */
+            /** @description Validation error (provider ∉ recipients — feedback about yourself is not supported; at most 4 distinct recipients; a requested feedback has exactly one recipient; requester ≠ provider; REQUESTED requires a requester; a feedback with a requester may not use PROVIDER_SUBJECT visibility; PROVIDER_REQUESTER visibility requires a requester; a deactivated party) or referenced user does not exist */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -23,7 +23,7 @@ import { createPublicHoliday, deletePublicHoliday, listPublicHolidays } from "..
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
-import { formatIsoDate, todayIsoDate } from "../utils/datetime";
+import { formatIsoDate, formatIsoWeekday, todayIsoDate } from "../utils/datetime";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 
@@ -117,9 +117,14 @@ export default function PublicHolidays() {
                 <Paper key={h.id} withBorder p="sm" radius="md">
                   <Group justify="space-between" wrap="nowrap">
                     <Group gap="sm" wrap="nowrap">
-                      <Text size="sm" fw={500} style={{ whiteSpace: "nowrap" }}>
-                        {formatIsoDate(h.date, i18n.language)}
-                      </Text>
+                      <Group gap={6} wrap="nowrap">
+                        <Text size="sm" fw={500} style={{ whiteSpace: "nowrap" }}>
+                          {formatIsoDate(h.date, i18n.language)}
+                        </Text>
+                        <Text size="xs" c="dimmed" span>
+                          {formatIsoWeekday(h.date, i18n.language)}
+                        </Text>
+                      </Group>
                       <Text size="sm" c="dimmed" lineClamp={1}>
                         {h.name}
                       </Text>

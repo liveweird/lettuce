@@ -36,9 +36,17 @@ suspend fun transitiveSubordinateIds(managerId: UInt): Set<UInt> {
  * visited set, and a caller is never considered their own manager.
  * Runs in the caller's transaction.
  */
-suspend fun isInManagementChain(managerId: UInt, subjectId: UInt): Boolean {
-    if (managerId == subjectId) return false
-    var frontier = setOf(subjectId)
+suspend fun isInManagementChain(managerId: UInt, subjectId: UInt): Boolean =
+    isInManagementChain(managerId, setOf(subjectId))
+
+/**
+ * True iff [managerId] is in the management chain of ANY of [subjectIds] — one upward walk
+ * seeded with the whole set (a multi-recipient feedback's read rule, v3.1.0). The manager
+ * themselves never counts as a subject.
+ * Runs in the caller's transaction.
+ */
+suspend fun isInManagementChain(managerId: UInt, subjectIds: Set<UInt>): Boolean {
+    var frontier = subjectIds - managerId
     val visited = mutableSetOf<UInt>()
     while (frontier.isNotEmpty()) {
         val managers = managersOf(frontier)

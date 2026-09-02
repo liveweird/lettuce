@@ -3,6 +3,7 @@ import {
   addIsoDays,
   currentIsoMonth,
   formatIsoMonth,
+  formatIsoWeekday,
   formatMonthRange,
   formatRelativeTime,
   formatTimestamp,
@@ -11,6 +12,18 @@ import {
   lastModifiedCutoff,
   nextIsoMonth,
 } from "./datetime";
+
+describe("formatIsoWeekday", () => {
+  test("renders the localized short weekday of an ISO date", () => {
+    expect(formatIsoWeekday("2026-01-06", "en")).toBe("Tue");
+    expect(formatIsoWeekday("2026-01-06", "pl")).toBe("wt.");
+    expect(formatIsoWeekday("2099-03-02", "en")).toBe("Mon");
+  });
+
+  test("renders an empty string for malformed input", () => {
+    expect(formatIsoWeekday("garbage", "en")).toBe("");
+  });
+});
 
 describe("day arithmetic (the pyramid time slider)", () => {
   test("isoDayDiff and addIsoDays are inverse, across month and year bounds", () => {

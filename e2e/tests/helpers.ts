@@ -359,3 +359,18 @@ export async function pickSelectOption(page: Page, label: string, optionName: st
   await input.fill(optionName);
   await page.getByRole("option", { name: optionName }).click();
 }
+
+/**
+ * Pick several options in a searchable Mantine MultiSelect (the feedback recipients picker,
+ * v3.1.0). A MultiSelect keeps its dropdown open after every pick, so it is closed with Escape
+ * at the end — otherwise it stays over the buttons below and swallows the next click.
+ */
+export async function pickMultiSelectOptions(page: Page, label: string, optionNames: string[]): Promise<void> {
+  const input = page.getByRole("combobox", { name: label });
+  await input.click();
+  for (const optionName of optionNames) {
+    await input.fill(optionName);
+    await page.getByRole("option", { name: optionName }).click();
+  }
+  await input.press("Escape");
+}

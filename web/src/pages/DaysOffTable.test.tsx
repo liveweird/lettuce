@@ -197,4 +197,12 @@ describe("DaysOffTable", () => {
     await screen.findByText("2.5");
     expect(screen.getByText("½")).toBeInTheDocument();
   });
+
+  test("the From/To cells carry the weekday next to the date", async () => {
+    // 2099-03-02 is a Monday, 2099-03-04 a Wednesday (v3.1.0).
+    setupList([row({ id: 52, startDate: "2099-03-02", endDate: "2099-03-04" })]);
+    renderWithProviders(<DaysOffTable view="own" />);
+    expect(await screen.findByText("Mon")).toBeInTheDocument();
+    expect(screen.getByText("Wed")).toBeInTheDocument();
+  });
 });

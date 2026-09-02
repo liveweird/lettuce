@@ -26,19 +26,19 @@ internal fun feedbackTransitionNotifications(
     // very person, so the subject/provider-directed notifications below would tell the acting
     // user about their own action — they are filtered out at the end. Requester-directed ones
     // (a requested self-reflection) survive, worded via the `self` i18next context.
-    val isSelfReflection = next.subjectId == next.providerId
+    val isSelfReflection = next.providerId in next.subjectIds
     val selfParams = if (isSelfReflection) mapOf("self" to "self") else emptyMap()
 
     val to = next.status
     val provider = nameById.nameOf(next.providerId)
-    val subject = nameById.nameOf(next.subjectId)
+    val subject = next.subjectLabel(nameById)
     val requester = next.requesterId?.let { nameById.nameOf(it) }
 
     val notifications = mutableListOf<Notification>()
 
     when {
         from == FeedbackStatus.DRAFT && to == FeedbackStatus.SENT -> {
-            notifications += sentToSubjectNote(feedbackId, next, nameById)
+            notifications += sentToSubjectNotes(feedbackId, next, nameById)
             notifications += sentToProviderNote(feedbackId, next, nameById)
             notifications += sentToManagerNotes(feedbackId, next, nameById, subjectManagerNames, selfParams)
         }
@@ -62,11 +62,14 @@ internal fun feedbackTransitionNotifications(
         // either way; both paths notify identically (an abandoned draft must not appear
         // there silently).
         (from == FeedbackStatus.SENT || from == FeedbackStatus.DRAFT) && to == FeedbackStatus.WITHDRAWN -> {
-            notifications += Notification(
-                recipientId = next.subjectId,
-                type = NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT,
-                params = mapOf("provider" to provider, "subject" to subject),
-            )
+            // One note per recipient, each carrying their own name (the sentToSubjectNotes rule).
+            next.subjectIds.forEach { subjectId ->
+                notifications += Notification(
+                    recipientId = subjectId,
+                    type = NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT,
+                    params = mapOf("provider" to provider, "subject" to nameById.nameOf(subjectId)),
+                )
+            }
             if (next.requesterId != null) {
                 notifications += Notification(
                     recipientId = next.requesterId,
@@ -115,10 +118,9 @@ internal fun feedbackCreationNotifications(
         // a standalone self row ("save & send" about yourself) notifies no party (the acting
         // user is every recipient) — though the subject's managers, who are not the actor,
         // are still told; a requested one notifies only the requester, self-worded.
-        val isSelfReflection = created.subjectId == created.providerId
+        val isSelfReflection = created.providerId in created.subjectIds
         val selfParams = if (isSelfReflection) mapOf("self" to "self") else emptyMap()
-        val notifications = listOfNotNull(
-            sentToSubjectNote(feedbackId, created, nameById),
+        val notifications = sentToSubjectNotes(feedbackId, created, nameById) + listOfNotNull(
             sentToProviderNote(feedbackId, created, nameById),
             sentToRequesterNote(feedbackId, created, nameById, selfParams),
         ) + sentToManagerNotes(feedbackId, created, nameById, subjectManagerNames, selfParams)
@@ -133,20 +135,21 @@ internal fun feedbackCreationNotifications(
     val requesterId = created.requesterId ?: return emptyList()
     val requester = nameById.nameOf(requesterId)
     val provider = nameById.nameOf(created.providerId)
-    val subject = nameById.nameOf(created.subjectId)
+    // A REQUESTED feedback has exactly one recipient (validateSubjects), so this is one name.
+    val subject = created.subjectLabel(nameById)
 
     // The requester is confirmed their request went out; no link (nothing to open yet). The wording
     // differs when they asked for feedback about themselves (subject == requester, `self` context)
     // or asked the subject for a self-reflection (subject == provider, `reflection` context) —
     // the `self` param's VALUE drives the i18next context suffix in the SPA.
     val requesterNote = when {
-        created.subjectId == requesterId ->
+        requesterId in created.subjectIds ->
             Notification(
                 recipientId = requesterId,
                 type = NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
                 params = mapOf("provider" to provider, "self" to "self"),
             )
-        created.subjectId == created.providerId ->
+        created.providerId in created.subjectIds ->
             Notification(
                 recipientId = requesterId,
                 type = NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
@@ -163,7 +166,7 @@ internal fun feedbackCreationNotifications(
     // The provider is asked to write; when they ARE the subject (a requested self-reflection),
     // the `self` context words it as "asked you for a self-reflection".
     val providerSelf =
-        if (created.subjectId == created.providerId) mapOf("self" to "self") else emptyMap()
+        if (created.providerId in created.subjectIds) mapOf("self" to "self") else emptyMap()
 
     return listOf(
         Notification(
@@ -191,10 +194,10 @@ internal fun feedbackDeletionNotifications(
 ): List<Notification> {
     val requesterId = deleted.requesterId ?: return emptyList()
     val provider = nameById.nameOf(deleted.providerId)
-    val subject = nameById.nameOf(deleted.subjectId)
+    val subject = deleted.subjectLabel(nameById)
     // A deleted requested self-reflection is worded via the `self` context, like the transitions.
     val selfParams =
-        if (deleted.subjectId == deleted.providerId) mapOf("self" to "self") else emptyMap()
+        if (deleted.providerId in deleted.subjectIds) mapOf("self" to "self") else emptyMap()
     return listOf(
         Notification(
             recipientId = requesterId,
@@ -204,22 +207,32 @@ internal fun feedbackDeletionNotifications(
     )
 }
 
+// The `subject` param rule for a multi-recipient feedback (v3.1.0): a note addressed TO a
+// recipient carries that recipient's own name; every other note carries all recipients' names
+// joined in position order — identical to today's value for one recipient, so the i18n
+// templates and email texts interpolate unchanged.
+private fun Feedback.subjectLabel(nameById: Map<UInt, String>): String =
+    subjectIds.joinToString(", ") { nameById.nameOf(it) }
+
 // The notes minted whenever a feedback lands in SENT — shared by the DRAFT -> SENT transition
 // and a feedback created directly as SENT ("save & send"), so the two paths can never drift.
 
-private fun sentToSubjectNote(
+/** One note per recipient, each naming the recipient themselves. */
+private fun sentToSubjectNotes(
     feedbackId: UInt,
     feedback: Feedback,
     nameById: Map<UInt, String>,
-): Notification = Notification(
-    recipientId = feedback.subjectId,
-    type = NotificationType.FEEDBACK_SENT_TO_SUBJECT,
-    params = mapOf(
-        "provider" to nameById.nameOf(feedback.providerId),
-        "subject" to nameById.nameOf(feedback.subjectId),
-    ),
-    link = "/feedback/$feedbackId/view".takeIf { subjectCanRead(feedback.visibility) },
-)
+): List<Notification> = feedback.subjectIds.map { subjectId ->
+    Notification(
+        recipientId = subjectId,
+        type = NotificationType.FEEDBACK_SENT_TO_SUBJECT,
+        params = mapOf(
+            "provider" to nameById.nameOf(feedback.providerId),
+            "subject" to nameById.nameOf(subjectId),
+        ),
+        link = "/feedback/$feedbackId/view".takeIf { subjectCanRead(feedback.visibility) },
+    )
+}
 
 // The provider (sender) is confirmed their feedback went out; they can always read their own
 // feedback, so the view link is unconditional.
@@ -230,14 +243,14 @@ private fun sentToProviderNote(
 ): Notification = Notification(
     recipientId = feedback.providerId,
     type = NotificationType.FEEDBACK_SENT_TO_PROVIDER,
-    params = mapOf("subject" to nameById.nameOf(feedback.subjectId)),
+    params = mapOf("subject" to feedback.subjectLabel(nameById)),
     link = "/feedback/$feedbackId/view",
 )
 
 /**
- * One note per direct manager of the subject — they gain read access when the feedback is
+ * One note per direct manager of any recipient — they gain read access when the feedback is
  * delivered, and that read is not visibility-gated, so the view link is unconditional. Managers
- * who are themselves a party (provider/subject/requester) are excluded: they are the actor or
+ * who are themselves a party (provider/recipient/requester) are excluded: they are the actor or
  * already notified in that role. Self-reflections keep these notes (the manager is never the
  * acting user), worded via the `self` context.
  */
@@ -248,14 +261,14 @@ private fun sentToManagerNotes(
     managerNames: Map<UInt, String>,
     selfParams: Map<String, String>,
 ): List<Notification> {
-    val parties = setOfNotNull(feedback.providerId, feedback.subjectId, feedback.requesterId)
+    val parties = setOfNotNull(feedback.providerId, feedback.requesterId) + feedback.subjectIds
     return managerNames.keys.filter { it !in parties }.map { managerId ->
         Notification(
             recipientId = managerId,
             type = NotificationType.FEEDBACK_SENT_TO_MANAGER,
             params = mapOf(
                 "provider" to nameById.nameOf(feedback.providerId),
-                "subject" to nameById.nameOf(feedback.subjectId),
+                "subject" to feedback.subjectLabel(nameById),
             ) + selfParams,
             link = "/feedback/$feedbackId/view",
         )
@@ -274,7 +287,7 @@ private fun sentToRequesterNote(
         type = NotificationType.FEEDBACK_SENT_TO_REQUESTER,
         params = mapOf(
             "provider" to nameById.nameOf(feedback.providerId),
-            "subject" to nameById.nameOf(feedback.subjectId),
+            "subject" to feedback.subjectLabel(nameById),
             "requester" to nameById.nameOf(requesterId),
         ) + selfParams,
         link = "/feedback/$feedbackId/view".takeIf { requesterCanRead(feedback.visibility) },

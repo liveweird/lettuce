@@ -21,6 +21,26 @@ internal fun validateFeedbackTexts(content: String, requesterMessage: String? = 
     }
 }
 
+// A feedback may address up to four people (v3.1.0). The set is fixed at creation.
+const val MAX_FEEDBACK_SUBJECTS = 4
+
+/**
+ * The recipient-set rules, checked at creation only (the set is immutable afterwards): at most
+ * [MAX_FEEDBACK_SUBJECTS] distinct people, and a requested feedback (ask-for / request-for)
+ * addresses exactly one — the request flows are single-recipient by design. provider ∉ subjects
+ * is the ROUTE's rule (legacy self-reflection rows must stay serviceable — see FeedbackRoutes).
+ */
+internal fun validateSubjects(feedback: Feedback) {
+    val ids = feedback.subjectIds
+    if (ids.size > MAX_FEEDBACK_SUBJECTS) {
+        throw BadRequestException("A feedback may have at most $MAX_FEEDBACK_SUBJECTS subjects")
+    }
+    if (ids.toSet().size != ids.size) throw BadRequestException("Subjects must be distinct")
+    if (feedback.requesterId != null && ids.size > 1) {
+        throw BadRequestException("A requested feedback must have exactly one subject")
+    }
+}
+
 @Serializable
 enum class FeedbackVisibility {
     PROVIDER_SUBJECT,
@@ -56,6 +76,8 @@ data class FeedbackContentUpdate(
 data class FeedbackCreateRequest(
     val requesterId: UInt? = null,
     val subjectId: UInt,
+    // Further recipients in position order (v3.1.0); subjectId is always the first one.
+    val additionalSubjectIds: List<UInt> = emptyList(),
     val providerId: UInt,
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
@@ -65,6 +87,7 @@ data class FeedbackCreateRequest(
     fun toFeedback() = Feedback(
         requesterId = requesterId,
         subjectId = subjectId,
+        additionalSubjectIds = additionalSubjectIds,
         providerId = providerId,
         visibility = visibility,
         status = status,
@@ -76,7 +99,10 @@ data class FeedbackCreateRequest(
 @Serializable
 data class Feedback(
     val requesterId: UInt? = null,
+    // The first recipient — the sort/name anchor (feedbacks.subject_id); see subjectIds.
     val subjectId: UInt,
+    // The further recipients in position order (v3.1.0, feedback_subjects); empty = one recipient.
+    val additionalSubjectIds: List<UInt> = emptyList(),
     val providerId: UInt,
     val visibility: FeedbackVisibility,
     val status: FeedbackStatus,
@@ -85,6 +111,18 @@ data class Feedback(
     val requesterMessage: String? = null,
     // Server-managed: set on every create/update; never part of a request body (see FeedbackCreateRequest).
     val lastModified: Long = 0L,
+) {
+    /** Every recipient, position-ordered — the membership set every authorization question uses. */
+    val subjectIds: List<UInt>
+        get() = listOf(subjectId) + additionalSubjectIds
+}
+
+/** One recipient of a feedback as it rides the responses (position-ordered lists). */
+@Serializable
+data class FeedbackSubject(
+    val id: UInt,
+    val name: String,
+    val deleted: Boolean = false,
 )
 
 @Serializable
@@ -102,12 +140,15 @@ data class FeedbackResponse(
     val requesterName: String? = null,
     val subjectName: String? = null,
     val providerName: String? = null,
+    // Every recipient in position order; subjects[0] is subjectId/subjectName (v3.1.0).
+    val subjects: List<FeedbackSubject> = emptyList(),
 )
 
 fun Feedback.toResponse(
     id: UInt,
     names: Map<UInt, String> = emptyMap(),
     includeContent: Boolean = true,
+    subjects: List<FeedbackSubject>? = null,
 ) =
     FeedbackResponse(
         id, requesterId, subjectId, providerId, visibility, status,
@@ -117,6 +158,7 @@ fun Feedback.toResponse(
         requesterName = requesterId?.let { names[it] },
         subjectName = names[subjectId],
         providerName = names[providerId],
+        subjects = subjects ?: subjectIds.map { FeedbackSubject(it, names[it] ?: "#$it") },
     )
 
 @Serializable
@@ -128,6 +170,8 @@ data class FeedbackListItem(
     val subjectId: UInt,
     val subjectName: String,
     val subjectDeleted: Boolean,
+    // Every recipient in position order; subjects[0] is the subjectId/subjectName pair (v3.1.0).
+    val subjects: List<FeedbackSubject> = emptyList(),
     val providerId: UInt,
     val providerName: String,
     val providerDeleted: Boolean,

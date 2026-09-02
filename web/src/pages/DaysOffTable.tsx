@@ -20,7 +20,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { formatDate, formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { formatDate, formatIsoDate, formatIsoWeekday, formatTimestamp } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
@@ -294,6 +294,9 @@ export default function DaysOffTable({
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
                   <Group gap={4} wrap="nowrap">
                     <Text size="sm">{formatIsoDate(r.startDate, i18n.language)}</Text>
+                    <Text size="xs" c="dimmed" span>
+                      {formatIsoWeekday(r.startDate, i18n.language)}
+                    </Text>
                     {r.startHalf && (
                       <Text size="xs" c="dimmed" span>
                         {t("daysOff.halfMarker")}
@@ -304,6 +307,9 @@ export default function DaysOffTable({
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
                   <Group gap={4} wrap="nowrap">
                     <Text size="sm">{formatIsoDate(r.endDate, i18n.language)}</Text>
+                    <Text size="xs" c="dimmed" span>
+                      {formatIsoWeekday(r.endDate, i18n.language)}
+                    </Text>
                     {r.endHalf && (
                       <Text size="xs" c="dimmed" span>
                         {t("daysOff.halfMarker")}

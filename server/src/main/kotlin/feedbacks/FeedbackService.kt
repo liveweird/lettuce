@@ -103,7 +103,33 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
 
+    /**
+     * The recipient set (v3.1.0, V72): position-ordered, fixed at creation. `Feedbacks.subjectId`
+     * is by construction the position-0 row and stays the sort/name anchor; every membership
+     * question goes through [subjectIn].
+     */
+    object FeedbackSubjects : Table("feedback_subjects") {
+        val feedbackId = reference("feedback_id", Feedbacks)
+        val userId = reference("user_id", UserService.Users)
+        val position = integer("position")
+        override val primaryKey = PrimaryKey(feedbackId, userId)
+    }
+
     private fun active(): Op<Boolean> = Feedbacks.markedAsDeleted eq false
+
+    /**
+     * Rows whose recipient set contains ANY of [userIds]: the position-0 anchor column OR the join
+     * table (the anchor keeps the single-recipient majority on the subject_id index, and rows
+     * inserted below [create] — legacy/test seeds without join rows — stay visible).
+     */
+    private fun subjectIn(userIds: Collection<UInt>): Op<Boolean> =
+        (Feedbacks.subjectId inList userIds) or
+            (
+                Feedbacks.id inSubQuery FeedbackSubjects.select(FeedbackSubjects.feedbackId)
+                    .where { FeedbackSubjects.userId inList userIds }
+            )
+
+    private fun isSubject(userId: UInt): Op<Boolean> = subjectIn(listOf(userId))
 
     /**
      * Inserts the feedback and returns its id together with any notifications its creation should
@@ -116,10 +142,11 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         // legacy rows (and tests seed them through it), and the shared validate() below also
         // runs on content edits, which must keep working for pre-existing self rows.
         validate(feedback)
-        // No-duplicate invariant: while a feedback with the same (subject, provider, requester)
-        // triple is still in progress (DRAFT or REQUESTED), a second one may not be created —
-        // finish or discard the existing one instead (the 409's instance points at it).
-        findOpenDuplicateInTx(feedback.subjectId, feedback.providerId, feedback.requesterId)?.let { (dupId, _) ->
+        // No-duplicate invariant, per recipient: while a feedback by the same provider for the
+        // same requester that includes ANY of the new recipients is still in progress (DRAFT or
+        // REQUESTED), a second one may not be created — finish or discard the existing one
+        // instead (the 409's instance points at it).
+        findOpenDuplicateInTx(feedback.subjectIds, feedback.providerId, feedback.requesterId)?.let { (dupId, _) ->
             throw ConflictException(
                 "A feedback for this subject, provider and requester is already in progress",
                 instance = "/api/v1/feedbacks/$dupId",
@@ -136,6 +163,13 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             it[lastModified] = System.currentTimeMillis()
         }
         val id = newRecord[Feedbacks.id].value
+        feedback.subjectIds.forEachIndexed { index, userId ->
+            FeedbackSubjects.insert {
+                it[feedbackId] = id
+                it[FeedbackSubjects.userId] = userId
+                it[position] = index
+            }
+        }
         // The pure mapping decides per status (REQUESTED and direct-SENT notify; DRAFT doesn't).
         val notifications = feedbackCreationNotifications(
             id,
@@ -158,11 +192,71 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         lastModified = this[Feedbacks.lastModified],
     )
 
-    suspend fun read(id: UInt): Feedback? = suspendTransaction(database) {
-        Feedbacks.selectAll()
+    /**
+     * The active row as a [Feedback] with its full recipient set (the join rows beyond the
+     * anchor, position-ordered); null when missing/deleted. Must run inside the caller's
+     * transaction — every read path funnels through it so guards and notifications always see
+     * every recipient.
+     */
+    private suspend fun readInTx(id: UInt): Feedback? {
+        val row = Feedbacks.selectAll()
             .where { (Feedbacks.id eq id) and active() }
             .map { it.toFeedback() }
             .singleOrNull()
+            ?: return null
+        return row.copy(additionalSubjectIds = additionalSubjectIdsOf(id, row.subjectId))
+    }
+
+    // A row inserted below create() (legacy/test seeds) has no join rows → empty, i.e. the
+    // anchor alone — the same fallback the list and subjectsOf apply.
+    private suspend fun additionalSubjectIdsOf(feedbackId: UInt, anchor: UInt): List<UInt> =
+        FeedbackSubjects.select(FeedbackSubjects.userId)
+            .where { FeedbackSubjects.feedbackId eq feedbackId }
+            .orderBy(FeedbackSubjects.position to SortOrder.ASC)
+            .map { it[FeedbackSubjects.userId].value }
+            .toList()
+            .filter { it != anchor }
+
+    suspend fun read(id: UInt): Feedback? = suspendTransaction(database) { readInTx(id) }
+
+    /**
+     * The recipient list as it rides the responses (names + soft-delete flags, position order)
+     * for one feedback; [feedback] + [names] (the resolved party names) supply the fallback for
+     * a row without join rows.
+     */
+    suspend fun subjectsOf(id: UInt, feedback: Feedback, names: Map<UInt, String>): List<FeedbackSubject> =
+        suspendTransaction(database) {
+            subjectsByFeedbackIds(listOf(id))[id]
+                ?: feedback.subjectIds.map { FeedbackSubject(it, names[it] ?: "#$it") }
+        }
+
+    /** feedback id → its recipients (position-ordered), one grouped query per batch. */
+    private suspend fun subjectsByFeedbackIds(ids: Collection<UInt>): Map<UInt, List<FeedbackSubject>> {
+        if (ids.isEmpty()) return emptyMap()
+        return FeedbackSubjects
+            .join(
+                UserService.Users,
+                JoinType.INNER,
+                onColumn = FeedbackSubjects.userId,
+                otherColumn = UserService.Users.id,
+            )
+            .select(
+                FeedbackSubjects.feedbackId,
+                UserService.Users.id,
+                UserService.Users.name,
+                UserService.Users.markedAsDeleted,
+            )
+            .where { FeedbackSubjects.feedbackId inList ids.toList() }
+            .orderBy(FeedbackSubjects.feedbackId to SortOrder.ASC, FeedbackSubjects.position to SortOrder.ASC)
+            .map { row ->
+                row[FeedbackSubjects.feedbackId].value to FeedbackSubject(
+                    id = row[UserService.Users.id].value,
+                    name = row[UserService.Users.name],
+                    deleted = row[UserService.Users.markedAsDeleted],
+                )
+            }
+            .toList()
+            .groupBy({ it.first }, { it.second })
     }
 
     /**
@@ -172,11 +266,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     suspend fun editContent(id: UInt, content: String, visibility: FeedbackVisibility): Int {
         validateFeedbackTexts(content)
         return suspendTransaction(database) {
-            val current = Feedbacks.selectAll()
-                .where { (Feedbacks.id eq id) and active() }
-                .map { it.toFeedback() }
-                .singleOrNull()
-                ?: return@suspendTransaction 0
+            val current = readInTx(id) ?: return@suspendTransaction 0
             requireCoherentVisibility(current.requesterId, visibility)
             Feedbacks.update({ (Feedbacks.id eq id) and (Feedbacks.markedAsDeleted eq false) }) {
                 it[this.content] = cipher.encrypt(content)
@@ -194,11 +284,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      */
     suspend fun transition(id: UInt, target: FeedbackStatus): List<Notification>? {
         return suspendTransaction(database) {
-            val current = Feedbacks.selectAll()
-                .where { (Feedbacks.id eq id) and active() }
-                .map { it.toFeedback() }
-                .singleOrNull()
-                ?: return@suspendTransaction null
+            val current = readInTx(id) ?: return@suspendTransaction null
             if (!isAllowedTransition(current.status, target)) {
                 throw ConflictException("Invalid status transition: ${current.status} -> $target")
             }
@@ -207,7 +293,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 // already exists (reachable only with duplicates predating the create-time
                 // no-duplicate invariant).
                 findOpenDuplicateInTx(
-                    current.subjectId,
+                    current.subjectIds,
                     current.providerId,
                     current.requesterId,
                     statuses = listOf(FeedbackStatus.DRAFT),
@@ -234,13 +320,13 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     }
 
     /**
-     * id → name of the subject's direct managers, resolved only when the feedback lands in SENT
-     * (the moment they gain read access — see feedbackTransitionNotifications); empty otherwise,
-     * so non-SENT paths pay no extra queries. Soft-deleted managers are skipped.
+     * id → name of the direct managers of EVERY recipient, resolved only when the feedback lands
+     * in SENT (the moment they gain read access — see feedbackTransitionNotifications); empty
+     * otherwise, so non-SENT paths pay no extra queries. Soft-deleted managers are skipped.
      */
     private suspend fun resolveSubjectManagerNames(feedback: Feedback): Map<UInt, String> {
         if (feedback.status != FeedbackStatus.SENT) return emptyMap()
-        val managerIds = directManagerIds(feedback.subjectId)
+        val managerIds = feedback.subjectIds.flatMapTo(mutableSetOf()) { directManagerIds(it) }
         if (managerIds.isEmpty()) return emptyMap()
         return UserService.Users
             .select(UserService.Users.id, UserService.Users.name)
@@ -255,19 +341,21 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
 
     /**
      * The in-progress duplicate of a prospective feedback, if any: the oldest active row in
-     * DRAFT or REQUESTED status with the same (subject, provider, requester) triple — a null
-     * requester matches only null. Backs the create/pick-up no-duplicate invariant and the
-     * `duplicate-check` endpoint's early warning. Returns id + status, or null.
+     * DRAFT or REQUESTED status by the same provider for the same requester (a null requester
+     * matches only null) whose recipient set includes the subject — per recipient, so an open
+     * multi-recipient draft blocks a new single one for any of its people and vice versa. Backs
+     * the create/pick-up no-duplicate invariant and the `duplicate-check` endpoint's early
+     * warning (single-subject: the SPA probes once per picked recipient). Returns id + status.
      */
     suspend fun findOpenDuplicate(
         subjectId: UInt,
         providerId: UInt,
         requesterId: UInt?,
     ): Pair<UInt, FeedbackStatus>? =
-        suspendTransaction(database) { findOpenDuplicateInTx(subjectId, providerId, requesterId) }
+        suspendTransaction(database) { findOpenDuplicateInTx(listOf(subjectId), providerId, requesterId) }
 
     private suspend fun findOpenDuplicateInTx(
-        subjectId: UInt,
+        subjectIds: Collection<UInt>,
         providerId: UInt,
         requesterId: UInt?,
         statuses: List<FeedbackStatus> = OPEN_STATUSES,
@@ -275,7 +363,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         Feedbacks
             .select(Feedbacks.id, Feedbacks.status)
             .where {
-                (Feedbacks.subjectId eq subjectId) and
+                subjectIn(subjectIds) and
                     (Feedbacks.providerId eq providerId) and
                     (
                         if (requesterId == null) Feedbacks.requesterId.isNull()
@@ -294,7 +382,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         suspendTransaction(database) { resolvePartyNames(feedback) }
 
     private suspend fun resolvePartyNames(feedback: Feedback): Map<UInt, String> {
-        val ids = listOfNotNull(feedback.subjectId, feedback.providerId, feedback.requesterId)
+        val ids = feedback.subjectIds + listOfNotNull(feedback.providerId, feedback.requesterId)
         return UserService.Users
             .select(UserService.Users.id, UserService.Users.name)
             .where { UserService.Users.id inList ids }
@@ -320,9 +408,9 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     }
 
     /**
-     * The Received-list visibility scope for [callerUserId] — the caller's inbox (subjectId ==
-     * caller), scoped exactly like canReadFeedback (authz/Guards.kt) so every listed row is also
-     * openable:
+     * The Received-list visibility scope for [callerUserId] — the caller's inbox (the caller is
+     * one of the recipients), scoped exactly like canReadFeedback (authz/Guards.kt) so every
+     * listed row is also openable:
      * - as the requester of their own feedback: any status under a requester-readable visibility
      *   (an unfinished one has its content preview redacted in list());
      * - as a plain subject (no requester, or someone else's request): only once delivered
@@ -341,7 +429,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                     ((Feedbacks.visibility inList SUBJECT_VISIBILITIES) and
                         (Feedbacks.status inList DELIVERED_STATUSES)) or publicSent
                 )
-        return (Feedbacks.subjectId eq callerUserId) and (iAmRequester or asSubjectOnly)
+        return isSubject(callerUserId) and (iAmRequester or asSubjectOnly)
     }
 
     /**
@@ -363,28 +451,37 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * caller is the provider and always sees their own feedback, so a row whose visibility hides
      * it from the subject (e.g. PROVIDER_REQUESTER) still counts. Self-reflections (provider ==
      * subject) would qualify, but neither consumer (the managed and member team views) ever
-     * lists the caller themselves. Subjects with no qualifying feedback are absent from the map.
+     * lists the caller themselves. A multi-recipient feedback counts for EACH of its recipients
+     * (keyed through the join table). Subjects with no qualifying feedback are absent from the map.
      */
     suspend fun lastProvidedTo(providerId: UInt, subjectIds: Set<UInt>): Map<UInt, Long> =
         if (subjectIds.isEmpty()) emptyMap()
         else lastSentAtBy(
-            Feedbacks.subjectId,
-            (Feedbacks.providerId eq providerId) and (Feedbacks.subjectId inList subjectIds),
+            FeedbackSubjects.userId,
+            (Feedbacks.providerId eq providerId) and (FeedbackSubjects.userId inList subjectIds),
+            source = Feedbacks.join(
+                FeedbackSubjects,
+                JoinType.INNER,
+                onColumn = Feedbacks.id,
+                otherColumn = FeedbackSubjects.feedbackId,
+            ),
         )
 
     /**
      * Per [keyColumn] value, the newest SENT moment among the currently-SENT, non-deleted
-     * feedbacks matching [scope]. SENT is reachable at most once per feedback (SENT → WITHDRAWN
-     * is terminal), so "the" SENT event is well-defined. Feedbacks predating the events table
-     * (pre-V15) have no SENT event and fall back to lastModified — an upper bound of the true
-     * sent moment (content edits bump it), better than a false "never".
+     * feedbacks matching [scope] over [source] (the feedbacks table, or a join onto it whose
+     * key column multiplies a feedback per recipient). SENT is reachable at most once per
+     * feedback (SENT → WITHDRAWN is terminal), so "the" SENT event is well-defined. Feedbacks
+     * predating the events table (pre-V15) have no SENT event and fall back to lastModified —
+     * an upper bound of the true sent moment (content edits bump it), better than a false "never".
      */
     private suspend fun lastSentAtBy(
         keyColumn: Column<EntityID<UInt>>,
         scope: Op<Boolean>,
+        source: ColumnSet = Feedbacks,
     ): Map<UInt, Long> =
         suspendTransaction(database) {
-            val candidates = Feedbacks
+            val candidates = source
                 .select(Feedbacks.id, keyColumn, Feedbacks.lastModified)
                 .where { scope and (Feedbacks.status eq FeedbackStatus.SENT) and active() }
                 .map { Triple(it[Feedbacks.id].value, it[keyColumn].value, it[Feedbacks.lastModified]) }
@@ -463,43 +560,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
         includeIndirect: Boolean = false,
         targetUserId: UInt? = null,
     ): FeedbackListResult = suspendTransaction(database) {
-        val scope: Op<Boolean> = when (view) {
-            FeedbackListView.RECEIVED -> receivedScope(callerUserId)
-            FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
-            FeedbackListView.USER -> {
-                // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
-                // feedback the target is a party to, at every status and visibility.
-                // The route guarantees a non-null userId.
-                val target = requireNotNull(targetUserId) { "view=user requires userId" }
-                (Feedbacks.subjectId eq target) or
-                    (Feedbacks.providerId eq target) or
-                    (Feedbacks.requesterId eq target)
-            }
-            FeedbackListView.KUDOS -> {
-                // The org-wide Kudos wall: exactly the rows canReadFeedback's PUBLIC+SENT branch
-                // already grants every authenticated caller, so the scope needs no caller anchor.
-                (Feedbacks.visibility eq FeedbackVisibility.PUBLIC) and
-                    (Feedbacks.status eq FeedbackStatus.SENT)
-            }
-            FeedbackListView.TEAM -> {
-                // Direct reports by default; with includeIndirect the whole transitive
-                // management chain (members of teams the caller manages, plus recursively
-                // the members of teams those members manage).
-                val subordinateIds =
-                    if (includeIndirect) transitiveSubordinateIds(callerUserId)
-                    else directSubordinateIds(callerUserId)
-                // I see a subordinate's feedback if I'm a party (provider or requester) for any
-                // status; otherwise only once it's delivered (SENT/WITHDRAWN).
-                val iAmParty = (Feedbacks.providerId eq callerUserId) or
-                    (Feedbacks.requesterId eq callerUserId)
-                if (subordinateIds.isEmpty()) {
-                    Op.FALSE
-                } else {
-                    (Feedbacks.subjectId inList subordinateIds) and
-                        (iAmParty or (Feedbacks.status inList DELIVERED_STATUSES))
-                }
-            }
-        }
+        val scope = viewScope(view, callerUserId, includeIndirect, targetUserId)
         val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
         val join = Feedbacks
             .join(
@@ -540,69 +601,142 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             )
             .where { predicate }
             .applyPaging(paging, SORTABLE_COLUMNS)
-            .map { row ->
-                // Mirror canReadFeedbackContent: a requester watching an unfinished feedback sees
-                // that it exists but not its content. The provider short-circuit matches the
-                // guard's — today it is unreachable (validate() rejects requesterId == providerId),
-                // but the redaction must not silently depend on that distant invariant. The auditor
-                // view is never redacted — the HR read includes content (canReadFeedbackContent);
-                // this is deliberately NARROWER than the guard's role-based HR branch: an HR caller
-                // browsing the ordinary views reads content only via the audited view=user.
-                val unfinished = row[Feedbacks.status] == FeedbackStatus.DRAFT ||
-                    row[Feedbacks.status] == FeedbackStatus.REQUESTED
-                val redactContent = view != FeedbackListView.USER &&
-                    row[Feedbacks.providerId].value != callerUserId &&
-                    unfinished && row[Feedbacks.requesterId]?.value == callerUserId
-                val decrypted = if (redactContent) "" else cipher.decrypt(row[Feedbacks.content])
-                FeedbackListItem(
-                    id = row[Feedbacks.id].value,
-                    requesterId = row[Feedbacks.requesterId]?.value,
-                    requesterName = row.getOrNull(requesterUsers[UserService.Users.name]),
-                    requesterDeleted = row.getOrNull(requesterUsers[UserService.Users.markedAsDeleted]) ?: false,
-                    subjectId = row[Feedbacks.subjectId].value,
-                    subjectName = row[subjectUsers[UserService.Users.name]],
-                    subjectDeleted = row[subjectUsers[UserService.Users.markedAsDeleted]],
-                    providerId = row[Feedbacks.providerId].value,
-                    providerName = row[providerUsers[UserService.Users.name]],
-                    providerDeleted = row[providerUsers[UserService.Users.markedAsDeleted]],
-                    visibility = row[Feedbacks.visibility],
-                    status = row[Feedbacks.status],
-                    contentPreview = decrypted.take(CONTENT_PREVIEW_LENGTH),
-                    // The Kudos wall renders full content inline (expand-on-click), and every
-                    // kudos row is PUBLIC+SENT — never redacted — so only that view carries it.
-                    content = if (view == FeedbackListView.KUDOS) decrypted else null,
-                    lastModified = row[Feedbacks.lastModified],
-                )
-            }
+            .map { row -> row.toListItem(view, callerUserId) }
             .toList()
-        FeedbackListResult(items = rows, total = total)
+        // The recipient lists, one grouped query per page (the users-list `teams` idiom); a row
+        // without join rows (inserted below create()) falls back to its anchor.
+        val subjects = subjectsByFeedbackIds(rows.map { it.id })
+        val items = rows.map { row ->
+            row.copy(
+                subjects = subjects[row.id]
+                    ?: listOf(FeedbackSubject(row.subjectId, row.subjectName, row.subjectDeleted)),
+            )
+        }
+        FeedbackListResult(items = items, total = total)
+    }
+
+    /** The per-view row scope of [list]; runs in the caller's transaction (the chain walks). */
+    private suspend fun viewScope(
+        view: FeedbackListView,
+        callerUserId: UInt,
+        includeIndirect: Boolean,
+        targetUserId: UInt?,
+    ): Op<Boolean> =
+        when (view) {
+            FeedbackListView.RECEIVED -> receivedScope(callerUserId)
+            FeedbackListView.PROVIDED -> Feedbacks.providerId eq callerUserId
+            FeedbackListView.USER -> {
+                // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
+                // feedback the target is a party to, at every status and visibility.
+                // The route guarantees a non-null userId.
+                val target = requireNotNull(targetUserId) { "view=user requires userId" }
+                isSubject(target) or
+                    (Feedbacks.providerId eq target) or
+                    (Feedbacks.requesterId eq target)
+            }
+            FeedbackListView.KUDOS -> {
+                // The org-wide Kudos wall: exactly the rows canReadFeedback's PUBLIC+SENT branch
+                // already grants every authenticated caller, so the scope needs no caller anchor.
+                (Feedbacks.visibility eq FeedbackVisibility.PUBLIC) and
+                    (Feedbacks.status eq FeedbackStatus.SENT)
+            }
+            FeedbackListView.TEAM -> {
+                // Direct reports by default; with includeIndirect the whole transitive
+                // management chain (members of teams the caller manages, plus recursively
+                // the members of teams those members manage).
+                val subordinateIds =
+                    if (includeIndirect) transitiveSubordinateIds(callerUserId)
+                    else directSubordinateIds(callerUserId)
+                // I see a subordinate's feedback (any recipient of it is my subordinate) if I'm
+                // a party (provider or requester) for any status; otherwise only once it's
+                // delivered (SENT/WITHDRAWN).
+                val iAmParty = (Feedbacks.providerId eq callerUserId) or
+                    (Feedbacks.requesterId eq callerUserId)
+                if (subordinateIds.isEmpty()) {
+                    Op.FALSE
+                } else {
+                    subjectIn(subordinateIds) and
+                        (iAmParty or (Feedbacks.status inList DELIVERED_STATUSES))
+                }
+            }
+        }
+
+    // The list row mapping (the `subjects` list is attached afterwards, per page).
+    private fun ResultRow.toListItem(view: FeedbackListView, callerUserId: UInt): FeedbackListItem {
+        val row = this
+        // Mirror canReadFeedbackContent: a requester watching an unfinished feedback sees
+        // that it exists but not its content. The provider short-circuit matches the
+        // guard's — today it is unreachable (validate() rejects requesterId == providerId),
+        // but the redaction must not silently depend on that distant invariant. The auditor
+        // view is never redacted — the HR read includes content (canReadFeedbackContent);
+        // this is deliberately NARROWER than the guard's role-based HR branch: an HR caller
+        // browsing the ordinary views reads content only via the audited view=user.
+        val unfinished = row[Feedbacks.status] == FeedbackStatus.DRAFT ||
+            row[Feedbacks.status] == FeedbackStatus.REQUESTED
+        val redactContent = view != FeedbackListView.USER &&
+            row[Feedbacks.providerId].value != callerUserId &&
+            unfinished && row[Feedbacks.requesterId]?.value == callerUserId
+        val decrypted = if (redactContent) "" else cipher.decrypt(row[Feedbacks.content])
+        return FeedbackListItem(
+            id = row[Feedbacks.id].value,
+            requesterId = row[Feedbacks.requesterId]?.value,
+            requesterName = row.getOrNull(requesterUsers[UserService.Users.name]),
+            requesterDeleted = row.getOrNull(requesterUsers[UserService.Users.markedAsDeleted]) ?: false,
+            subjectId = row[Feedbacks.subjectId].value,
+            subjectName = row[subjectUsers[UserService.Users.name]],
+            subjectDeleted = row[subjectUsers[UserService.Users.markedAsDeleted]],
+            providerId = row[Feedbacks.providerId].value,
+            providerName = row[providerUsers[UserService.Users.name]],
+            providerDeleted = row[providerUsers[UserService.Users.markedAsDeleted]],
+            visibility = row[Feedbacks.visibility],
+            status = row[Feedbacks.status],
+            contentPreview = decrypted.take(CONTENT_PREVIEW_LENGTH),
+            // The Kudos wall renders full content inline (expand-on-click), and every
+            // kudos row is PUBLIC+SENT — never redacted — so only that view carries it.
+            content = if (view == FeedbackListView.KUDOS) decrypted else null,
+            lastModified = row[Feedbacks.lastModified],
+        )
     }
 
     /**
-     * True iff [managerId] is in [subjectId]'s management chain — the manager of a non-deleted
-     * team the subject belongs to, or, transitively, the manager of such a manager, and so on.
-     * Mirrors the widest ([FeedbackListView.TEAM] with includeIndirect=true) list scope so a
-     * manager who can list a subordinate's feedback can also read the individual record
-     * (the list's direct-only default is a narrower slice of the same right, not a separate
-     * authorization). The walk itself lives in teams/ManagementChain.kt ([isInManagementChain])
-     * and is shared with the 1:1 meetings feature.
+     * True iff [managerId] is in the management chain of ANY of [subjectIds] — the manager of a
+     * non-deleted team a recipient belongs to, or, transitively, the manager of such a manager,
+     * and so on. Mirrors the widest ([FeedbackListView.TEAM] with includeIndirect=true) list
+     * scope so a manager who can list a subordinate's feedback can also read the individual
+     * record (the list's direct-only default is a narrower slice of the same right, not a
+     * separate authorization). The walk itself lives in teams/ManagementChain.kt
+     * ([isInManagementChain]) and is shared with the 1:1 meetings feature.
      */
-    suspend fun managesSubject(managerId: UInt, subjectId: UInt): Boolean =
-        suspendTransaction(database) { isInManagementChain(managerId, subjectId) }
+    suspend fun managesAnySubject(managerId: UInt, subjectIds: Collection<UInt>): Boolean =
+        suspendTransaction(database) { isInManagementChain(managerId, subjectIds.toSet()) }
 
     private fun buildPredicate(filter: FeedbackListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.requesterName?.takeIf { it.isNotBlank() }?.let {
             op = op and (requesterUsers[UserService.Users.name].containsNormalized(it))
         }
-        filter.subjectName?.takeIf { it.isNotBlank() }?.let {
-            op = op and (subjectUsers[UserService.Users.name].containsNormalized(it))
+        // Any recipient's name: the anchor alias OR the join table's users (the unaliased Users
+        // inside the subquery does not clash with the three outer aliases).
+        filter.subjectName?.takeIf { it.isNotBlank() }?.let { needle ->
+            val matching = FeedbackSubjects
+                .join(
+                    UserService.Users,
+                    JoinType.INNER,
+                    onColumn = FeedbackSubjects.userId,
+                    otherColumn = UserService.Users.id,
+                )
+                .select(FeedbackSubjects.feedbackId)
+                .where { UserService.Users.name.containsNormalized(needle) }
+            op = op and (
+                subjectUsers[UserService.Users.name].containsNormalized(needle) or
+                    (Feedbacks.id inSubQuery matching)
+                )
         }
         filter.providerName?.takeIf { it.isNotBlank() }?.let {
             op = op and (providerUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.providerId?.let { op = op and (Feedbacks.providerId eq it) }
-        filter.subjectId?.let { op = op and (Feedbacks.subjectId eq it) }
+        filter.subjectId?.let { op = op and isSubject(it) }
         filter.visibility?.let { op = op and (Feedbacks.visibility eq it) }
         filter.status?.let { op = op and (Feedbacks.status eq it) }
         filter.lastModifiedGte?.let { op = op and (Feedbacks.lastModified greaterEq it) }
@@ -635,6 +769,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             throw BadRequestException("Requester cannot also be the provider")
         }
         validateFeedbackTexts(next.content, next.requesterMessage)
+        validateSubjects(next)
         requireCoherentVisibility(next.requesterId, next.visibility)
         if (next.status == FeedbackStatus.REQUESTED && next.requesterId == null) {
             throw BadRequestException("Requested status requires a requester")

@@ -94,6 +94,28 @@ describe("CreateFeedback in kudo mode (/kudos/new)", () => {
     expect(options).toEqual(["Alice Able", "Mona Manager"]);
   });
 
+  test("the picker is labelled Recipients and submits every pick", async () => {
+    const user = userEvent.setup();
+    renderCreateKudo();
+
+    // The label also labels Mantine's listbox — assert presence, not uniqueness.
+    expect(screen.getAllByLabelText("Recipients").length).toBeGreaterThan(0);
+    await pickRecipient(user, "Alice Able");
+    await user.click(await screen.findByRole("option", { name: "Mona Manager", hidden: true }));
+    await user.type(screen.getByLabelText("Content"), "Team kudo");
+    await user.click(screen.getByRole("button", { name: /save & send/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/kudos"));
+    const postCall = mockFetch.mock.calls.find(
+      ([url, init]) =>
+        url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+    );
+    const body = JSON.parse((postCall![1] as RequestInit).body as string);
+    expect(body.subjectId).toBe(9);
+    expect(body.additionalSubjectIds).toEqual([5]);
+    expect(body.visibility).toBe("PUBLIC");
+  });
+
   test("visibility is fixed to Public and not editable", () => {
     renderCreateKudo();
     expect(screen.getByText("Visibility")).toBeInTheDocument();

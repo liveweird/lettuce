@@ -62,6 +62,66 @@ class FeedbackNotificationsTest {
         assertEquals("/feedback/42/view", toRequester.link)
     }
 
+    // ── Multi-recipient feedback (v3.1.0) ─────────────────────────────────────
+
+    private val multiNames = names + (4u to "Subject Sue") + (9u to "Mia Manager") + (8u to "Max Manager")
+
+    private fun multi(status: FeedbackStatus) = Feedback(
+        requesterId = null,
+        subjectId = 2u,
+        additionalSubjectIds = listOf(4u),
+        providerId = 1u,
+        visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+        status = status,
+    )
+
+    @Test
+    fun `sending a multi-recipient feedback notes each recipient by their own name and joins the rest`() {
+        val managers = mapOf(9u to "Mia Manager", 8u to "Max Manager", 4u to "Subject Sue")
+        val result = feedbackTransitionNotifications(42u, FeedbackStatus.DRAFT, multi(FeedbackStatus.SENT), multiNames, managers)
+
+        val toSam = result.single { it.recipientId == 2u && it.type == NotificationType.FEEDBACK_SENT_TO_SUBJECT }
+        val toSue = result.single { it.recipientId == 4u && it.type == NotificationType.FEEDBACK_SENT_TO_SUBJECT }
+        assertEquals(sam, toSam.params["subject"])
+        assertEquals("Subject Sue", toSue.params["subject"])
+        assertEquals("/feedback/42/view", toSue.link)
+        // Every other note carries the joined list, in position order.
+        val toProvider = result.single { it.type == NotificationType.FEEDBACK_SENT_TO_PROVIDER }
+        assertEquals("Subject Sam, Subject Sue", toProvider.params["subject"])
+        val managerNotes = result.filter { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }
+        // Sue (4u) manages Sam but is a recipient herself — no manager note for her.
+        assertEquals(setOf(9u, 8u), managerNotes.map { it.recipientId }.toSet())
+        assertTrue(managerNotes.all { it.params["subject"] == "Subject Sam, Subject Sue" })
+        assertEquals(5, result.size)
+    }
+
+    @Test
+    fun `withdrawing and creating as SENT fan out to every recipient`() {
+        val withdrawn = feedbackTransitionNotifications(42u, FeedbackStatus.SENT, multi(FeedbackStatus.WITHDRAWN), multiNames)
+        assertEquals(setOf(2u, 4u), withdrawn.map { it.recipientId }.toSet())
+        assertTrue(withdrawn.all { it.type == NotificationType.FEEDBACK_WITHDRAWN_TO_SUBJECT })
+        assertEquals("Subject Sue", withdrawn.single { it.recipientId == 4u }.params["subject"])
+
+        val created = feedbackCreationNotifications(42u, multi(FeedbackStatus.SENT), multiNames)
+        assertEquals(2, created.count { it.type == NotificationType.FEEDBACK_SENT_TO_SUBJECT })
+        assertEquals("Subject Sam, Subject Sue", created.single { it.recipientId == 1u }.params["subject"])
+    }
+
+    @Test
+    fun `a legacy self row is detected when the provider is any recipient`() {
+        // provider 1u appears as the SECOND recipient: still a self row — nothing to the actor.
+        val self = Feedback(
+            subjectId = 2u,
+            additionalSubjectIds = listOf(1u),
+            providerId = 1u,
+            visibility = FeedbackVisibility.PROVIDER_SUBJECT,
+            status = FeedbackStatus.SENT,
+        )
+        val result = feedbackTransitionNotifications(7u, FeedbackStatus.DRAFT, self, multiNames)
+        assertTrue(result.none { it.recipientId == 1u })
+        assertEquals(listOf(2u), result.map { it.recipientId })
+    }
+
     @Test
     fun `self-reflection transitions produce no notifications when there is no requester`() {
         // provider == subject, no requester: every recipient would be the acting user.

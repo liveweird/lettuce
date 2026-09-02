@@ -60,6 +60,22 @@ class GuardsTest {
     // ── canReadFeedback ────────────────────────────────────────────────────────
 
     @Test
+    fun `an extra recipient reads like the first subject — delivered and subject-inclusive only`() {
+        val extra = stranger // 9u is NOT the anchor subject; it becomes a recipient via the join list.
+        val multi = feedback(FeedbackStatus.SENT, FeedbackVisibility.PROVIDER_SUBJECT)
+            .copy(additionalSubjectIds = listOf(extra.userId))
+        assertTrue(canReadFeedback(extra, multi))
+        assertTrue(canReadFeedback(subject, multi))
+        assertFalse(canReadFeedback(extra, multi.copy(status = FeedbackStatus.DRAFT)))
+        assertFalse(
+            canReadFeedback(
+                extra,
+                multi.copy(visibility = FeedbackVisibility.PROVIDER_REQUESTER, requesterId = 3u),
+            ),
+        )
+    }
+
+    @Test
     fun `the subject may read a withdrawn feedback under a subject-inclusive visibility`() {
         // WITHDRAWN is terminal but stays readable, exactly like SENT.
         assertTrue(canReadFeedback(subject, feedback(FeedbackStatus.WITHDRAWN, FeedbackVisibility.PROVIDER_SUBJECT)))
@@ -284,7 +300,7 @@ class GuardsTest {
         runBlocking {
             // DRAFT with a private visibility — nobody but the provider (and ADMIN) could read it.
             val draft = feedback(FeedbackStatus.DRAFT, FeedbackVisibility.PROVIDER_SUBJECT)
-            requireFeedbackReadAllowingManager(hr, draft, feedbackId = 30u, managesSubject = neverWalkChain)
+            requireFeedbackReadAllowingManager(hr, draft, feedbackId = 30u, managesAnySubject = neverWalkChain)
             // A plain stranger still cannot (chain walk allowed to run and say no).
             assertFailsWith<ForbiddenException> {
                 requireFeedbackReadAllowingManager(stranger, draft, feedbackId = 30u) { false }

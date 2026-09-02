@@ -24,7 +24,7 @@ import ReadOnlyField from "./ReadOnlyField";
 import { MAX_FEEDBACK_CONTENT_LENGTH } from "../utils/feedbackForm";
 import { NO_REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import FeedbackLifecycle from "./FeedbackLifecycle";
-import FeedbackMeta from "./FeedbackMeta";
+import FeedbackMeta, { type PartyDisplay } from "./FeedbackMeta";
 import RequesterMessage from "./RequesterMessage";
 
 // The WYSIWYG editor pulls in MDXEditor/Lexical (~0.5 MB minified) — load it on demand so
@@ -39,11 +39,11 @@ type FormValues = {
 
 type FeedbackFormProps = {
   title: string;
-  // Omitted while the subject is still being picked (the kudo create flow) — the meta line
-  // then shows only the provider until `subjectControl`'s pick resolves a name.
-  subjectDisplay?: string;
-  // The subject IS the caller (self-reflection flows) — renders plain instead of a chip.
-  subjectIsYou?: boolean;
+  // The recipients for the people line (up to four, v3.1.0). Omitted/empty while the
+  // subjects are still being picked (the picker-mode create flows) — the meta line then
+  // shows only the provider until `subjectControl`'s picks resolve names. A legacy
+  // self-reflection subject renders plain via its `isYou` flag.
+  subjects?: PartyDisplay[];
   initialVisibility: FeedbackVisibility;
   initialContent: string;
   submitting: FeedbackStatus | null;
@@ -87,8 +87,7 @@ type FeedbackFormProps = {
 
 export default function FeedbackForm({
   title,
-  subjectDisplay,
-  subjectIsYou,
+  subjects,
   initialVisibility,
   initialContent,
   submitting,
@@ -277,8 +276,7 @@ export default function FeedbackForm({
               status={currentStatus}
               providerDisplay={t("common.state.you")}
               providerIsYou
-              subjectDisplay={subjectDisplay}
-              subjectIsYou={subjectIsYou}
+              subjects={subjects}
               requesterDisplay={requesterDisplay}
               lastModified={lastModified}
             />
