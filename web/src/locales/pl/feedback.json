@@ -54,6 +54,9 @@
   "requesterMessagePlaceholder": "Opcjonalnie wyjaśnij, dlaczego prosisz i czego oczekujesz…",
   "requesterMessageView": "Wiadomość od proszącego",
   "addProvider": "Dodaj wystawiającego",
+  "recipientsLabel": "Odbiorcy",
+  "recipientsHint": "Maksymalnie {{max}} osoby",
+  "removeRecipient": "Usuń {{name}}",
   "pickUser": "Wybierz użytkownika",
   "noUsersAvailable": "Brak dostępnych użytkowników",
   "add": "Dodaj",
@@ -100,6 +103,7 @@
   "duplicate": {
     "draft": "Szkic tego feedbacku już istnieje.",
     "requested": "O ten feedback już poproszono — czeka na wystawiającego.",
+    "forRecipient": "{{name}}:",
     "open": "Otwórz istniejący feedback"
   },
   "error": {

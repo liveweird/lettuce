@@ -17,7 +17,7 @@ type FetchMock = ReturnType<typeof vi.fn>;
 
 const baseProps = {
   title: "Edit feedback",
-  subjectDisplay: "Sam Subject",
+  subjects: [{ display: "Sam Subject" }],
   initialVisibility: "PROVIDER_SUBJECT" as const,
   initialContent: "",
   submitting: null,
@@ -57,6 +57,18 @@ describe("FeedbackForm", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.clear();
+  });
+
+  test("lists every recipient in the people line", () => {
+    renderWithProviders(
+      <FeedbackForm
+        {...baseProps}
+        subjects={[{ display: "Sam Subject" }, { display: "Sue Second" }]}
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Sam Subject")).toBeInTheDocument();
+    expect(screen.getByText("Sue Second")).toBeInTheDocument();
   });
 
   test("renders the title and subject and calls onSubmit with DRAFT / SENT", async () => {

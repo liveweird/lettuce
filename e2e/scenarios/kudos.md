@@ -14,7 +14,8 @@
 1. AAA Two signs in, opens the **Kudos** page, and clicks the sticky header's **New kudo**
    button — landing on the wall's own create screen.
    - *Expected*: Visibility is pinned to **Public** and read-only (a badge, not a picker).
-2. They pick **AAA Three** as the recipient (the picker offers everyone but themselves), write a
+2. They pick **AAA Three** in the Recipients picker (a multi-recipient picker since v3.1.0 —
+   one pick suffices here; it offers everyone but themselves), write a
    long unique-marked body (long enough to overflow the three-line preview clamp, so the expand
    toggle will appear), and send it in one step with **Save & send** — created directly as SENT,
    no open window.

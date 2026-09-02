@@ -29,6 +29,7 @@ import { getUserId, hasFeature } from "../api/session";
 import { getFeedback, pickUpFeedback, sendFeedback, withdrawFeedback, type FeedbackStatus } from "../api/feedbacks";
 import FeedbackHistory from "../components/FeedbackHistory";
 import FeedbackMeta from "../components/FeedbackMeta";
+import { subjectDisplays } from "../utils/feedbackSubjects";
 import FeedbackLifecycle from "../components/FeedbackLifecycle";
 import MarkdownView from "../components/MarkdownView";
 import RequesterMessage from "../components/RequesterMessage";
@@ -96,7 +97,6 @@ export default function ViewFeedback() {
   // (REJECTED). The server also redacts the content field for these cases; hiding the section here
   // avoids rendering an empty Content box.
   const isRequester = data != null && data.requesterId != null && getUserId() === data.requesterId;
-  const isSubject = data != null && getUserId() === data.subjectId;
   const hideContent =
     isRequester &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
@@ -188,12 +188,7 @@ export default function ViewFeedback() {
                     : (data!.providerName ?? `#${data!.providerId}`)
                 }
                 providerIsYou={isProvider}
-                subjectDisplay={
-                  isSubject
-                    ? t("common.state.you")
-                    : (data!.subjectName ?? `#${data!.subjectId}`)
-                }
-                subjectIsYou={isSubject}
+                subjects={subjectDisplays(data!, getUserId(), t)}
                 requesterDisplay={
                   data!.requesterId != null
                     ? isRequester

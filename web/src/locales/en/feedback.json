@@ -54,6 +54,9 @@
   "requesterMessagePlaceholder": "Optionally explain why you're asking and what you'd like feedback on…",
   "requesterMessageView": "Message from the requester",
   "addProvider": "Add a provider",
+  "recipientsLabel": "Recipients",
+  "recipientsHint": "Up to {{max}} people",
+  "removeRecipient": "Remove {{name}}",
   "pickUser": "Pick a user",
   "noUsersAvailable": "No users available",
   "add": "Add",
@@ -100,6 +103,7 @@
   "duplicate": {
     "draft": "A draft of this feedback already exists.",
     "requested": "This feedback has already been requested and is waiting for the provider.",
+    "forRecipient": "{{name}}:",
     "open": "Open the existing feedback"
   },
   "error": {

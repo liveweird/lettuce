@@ -23,6 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
+import { subjectDisplays } from "../utils/feedbackSubjects";
 import { deleteFeedback, getFeedback, pickUpFeedback, rejectFeedback, sendFeedback, updateFeedback, type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import FeedbackForm from "../components/FeedbackForm";
@@ -284,14 +285,9 @@ export default function EditFeedback() {
         title={t("feedback.editTitle")}
         feedbackId={data!.id}
         currentStatus={data!.status}
-        subjectDisplay={
-          // Self-reflection: the caller edits feedback about themselves — the subject renders
-          // as the same plain "You" FeedbackForm uses for the provider side.
-          getUserId() === data!.subjectId
-            ? t("common.state.you")
-            : (data!.subjectName ?? `#${data!.subjectId}`)
-        }
-        subjectIsYou={getUserId() === data!.subjectId}
+        // A legacy self-reflection (the caller among the recipients) renders as the same
+        // plain "You" FeedbackForm uses for the provider side — subjectDisplays' isYou flag.
+        subjects={subjectDisplays(data!, getUserId(), t)}
         initialVisibility={clampVisibility(data!.visibility, hasRequester)}
         visibilityOptions={visibilityOptions}
         requesterDisplay={hasRequester ? (data!.requesterName ?? `#${data!.requesterId}`) : undefined}

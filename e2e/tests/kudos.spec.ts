@@ -2,7 +2,7 @@ import {
   test,
   expect,
   login,
-  pickSelectOption,
+  pickMultiSelectOptions,
   typeContent,
   uniqueText,
   AAA_TWO,
@@ -31,7 +31,7 @@ test("a kudo created from the wall's New kudo screen lands there for a non-party
   await expect(page.getByRole("combobox", { name: "Visibility" })).toHaveCount(0);
   await expect(page.getByText("Public", { exact: true })).toBeVisible();
 
-  await pickSelectOption(page, "Recipient", "AAA Three");
+  await pickMultiSelectOptions(page, "Recipients", ["AAA Three"]);
   await typeContent(page, body);
   await Promise.all([
     page.waitForResponse(

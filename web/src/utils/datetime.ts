@@ -39,6 +39,15 @@ export function formatIsoDate(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(d);
 }
 
+// ISO "YYYY-MM-DD" -> the localized short weekday ("Tue" / "wt."), rendered dimmed next to
+// formatIsoDate on the days-off and public-holiday lists (v3.1.0). Same local-time pinning;
+// malformed input renders as "" so the caller's slot stays empty rather than "Invalid Date".
+export function formatIsoWeekday(iso: string, locale: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat(locale, { weekday: "short" }).format(d);
+}
+
 // ISO "YYYY-MM" -> a localized month ("January 2026" / "styczeń 2026"). The -01T00:00:00
 // suffix pins parsing to local time (the formatIsoDate rationale). Malformed input renders
 // as-is rather than "Invalid Date".

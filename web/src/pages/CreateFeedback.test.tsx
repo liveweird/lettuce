@@ -309,6 +309,73 @@ describe("CreateFeedback page", () => {
     });
   });
 
+  test("picking several recipients submits them in order and names each in the meta line", async () => {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url) === "/api/v1/feedbacks" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse(201, { id: 104 }));
+      }
+      return Promise.resolve(pickerHandler(String(url)));
+    });
+    const user = userEvent.setup();
+    renderCreateFeedback("");
+
+    // The picker-mode label is "Recipients" (v3.1.0) with the cap in its description.
+    expect(screen.getByText("Up to 4 people")).toBeInTheDocument();
+    await user.click(screen.getByPlaceholderText("Pick a user"));
+    await user.click(await screen.findByRole("option", { name: "Alice Able", hidden: true }));
+    // A MultiSelect keeps its dropdown open after a pick; the second option is right there.
+    await user.click(await screen.findByRole("option", { name: "Mona Manager", hidden: true }));
+    // Both picks show as pills with a named remove button, and both names reach the meta line.
+    expect(screen.getByRole("button", { name: "Remove Alice Able" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Mona Manager" })).toBeInTheDocument();
+    expect((await screen.findAllByText("Mona Manager")).length).toBeGreaterThanOrEqual(2);
+
+    await user.type(screen.getByLabelText("Content"), "Team feedback");
+    await user.click(screen.getByRole("button", { name: /^save draft$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
+    const postCall = mockFetch.mock.calls.find(
+      ([url, init]) =>
+        url === "/api/v1/feedbacks" && (init as RequestInit | undefined)?.method === "POST",
+    );
+    expect(JSON.parse((postCall![1] as RequestInit).body as string)).toEqual({
+      subjectId: 9,
+      additionalSubjectIds: [5],
+      providerId: 7,
+      visibility: "PROVIDER_SUBJECT",
+      status: "DRAFT",
+      content: "Team feedback",
+    });
+    // One duplicate probe per picked recipient.
+    const probes = mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("duplicate-check"));
+    expect(probes.some((u) => u.includes("subjectId=9"))).toBe(true);
+    expect(probes.some((u) => u.includes("subjectId=5"))).toBe(true);
+  });
+
+  test("a duplicate for one of several recipients is named in its warning", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.startsWith("/api/v1/feedbacks/duplicate-check")) {
+        return Promise.resolve(
+          u.includes("subjectId=5")
+            ? jsonResponse(200, { existingId: 42, existingStatus: "DRAFT" })
+            : jsonResponse(200, { existingId: null, existingStatus: null }),
+        );
+      }
+      return Promise.resolve(pickerHandler(u));
+    });
+    const user = userEvent.setup();
+    renderCreateFeedback("");
+
+    await user.click(screen.getByPlaceholderText("Pick a user"));
+    await user.click(await screen.findByRole("option", { name: "Alice Able", hidden: true }));
+    await user.click(await screen.findByRole("option", { name: "Mona Manager", hidden: true }));
+
+    expect(await screen.findByText("Mona Manager:")).toBeInTheDocument();
+    expect(screen.getByText("A draft of this feedback already exists.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^save draft$/i })).toBeDisabled();
+  });
+
   test("the duplicate probe fires with the picked subject and disables saving", async () => {
     mockFetch.mockImplementation((url: string) => {
       if (String(url).startsWith("/api/v1/feedbacks/duplicate-check")) {

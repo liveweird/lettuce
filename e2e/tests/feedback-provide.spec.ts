@@ -2,7 +2,7 @@ import {
   test,
   expect,
   login,
-  pickSelectOption,
+  pickMultiSelectOptions,
   typeContent,
   uniqueText,
   AAA_ONE,
@@ -13,17 +13,18 @@ import {
 // row regardless of any other data in the shared database.
 test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
   const body = uniqueText("E2E provide");
-  // AAA One provides about AAA Two: the provider lifecycle is provider-generic, and under
-  // parallel workers this file must own its (subject, provider) pair exclusively (see README).
+  // AAA One provides about AAA Two AND AAA Three (a multi-recipient feedback, v3.1.0): the
+  // provider lifecycle is provider-generic, and under parallel workers this file must own its
+  // (recipients, provider) pairs exclusively (see README).
   await login(page, AAA_ONE);
 
   // Enter via the "New feedback" button under the Provided list (v2.28.1 placement) and pick
-  // AAA Two in the subject picker — the picker-mode create screen (the users-row "Provide
-  // feedback" entry stays covered by manager-oversight.spec / templates.spec).
+  // both recipients in the Recipients picker — the picker-mode create screen (the users-row
+  // "Provide feedback" entry stays covered by manager-oversight.spec / templates.spec).
   await page.goto("/feedback?tab=provided");
   await page.getByRole("link", { name: "New feedback" }).click();
   await expect(page).toHaveURL(/\/feedback\/new/);
-  await pickSelectOption(page, "Subject", "AAA Two");
+  await pickMultiSelectOptions(page, "Recipients", ["AAA Two", "AAA Three"]);
   await typeContent(page, body);
   const [created] = await Promise.all([
     page.waitForResponse(
@@ -42,10 +43,12 @@ test("provider drafts, sends, and withdraws a feedback", async ({ page }) => {
     page.getByRole("button", { name: "Save & send" }).click(),
   ]);
 
-  // The now-Sent feedback shows our content read-only.
+  // The now-Sent feedback shows our content read-only, and its people line names BOTH recipients.
   await page.goto(`/feedback/${id}/view`);
   await expect(page.getByText(body)).toBeVisible();
   await expect(page.getByLabel("Status")).toHaveText("Sent");
+  await expect(page.getByText("AAA Two", { exact: true })).toBeVisible();
+  await expect(page.getByText("AAA Three", { exact: true })).toBeVisible();
 
   // Withdraw it (POST /withdraw) via the confirmation modal.
   await page.getByRole("button", { name: "Withdraw" }).click();

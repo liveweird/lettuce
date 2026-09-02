@@ -24,6 +24,7 @@ type FeedbackItem = {
   visibility: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
   status: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN";
   contentPreview: string;
+  subjects?: { id: number; name: string; deleted: boolean }[];
 };
 
 
@@ -368,6 +369,28 @@ describe("FeedbackTable (provided view)", () => {
     const urls = feedbackUrls(mockFetch);
     expect(urls[0]).toContain("view=provided");
     expect(urls[0]).toContain("sort=subjectName");
+  });
+
+  test("lists every recipient of a multi-recipient row and names them all in the action aria", async () => {
+    setupMocks(
+      mockFetch,
+      feedbacksPage([
+        {
+          ...SEED_FEEDBACKS[0],
+          subjects: [
+            { id: 7, name: "Sam Subject", deleted: false },
+            { id: 12, name: "Ben Buddy", deleted: false },
+          ],
+        },
+      ]),
+    );
+    renderWithProviders(<FeedbackTable view="provided" />);
+
+    expect(await screen.findByText("Sam Subject")).toBeInTheDocument();
+    expect(screen.getByText("Ben Buddy")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View feedback for Sam Subject, Ben Buddy" }),
+    ).toBeInTheDocument();
   });
 
   test("shows 'You' in the Subject column when the subject is the current user", async () => {

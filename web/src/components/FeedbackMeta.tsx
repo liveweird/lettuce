@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Group, Stack, Text, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { FeedbackStatus, FeedbackVisibility } from "../api/feedbacks";
@@ -5,9 +6,12 @@ import { formatTimestamp } from "../utils/datetime";
 import { StatusBadge, VisibilityBadge } from "./FeedbackBadges";
 import PersonaChip from "./PersonaChip";
 
+/** One party in the people line: its display name, and whether it is the current user. */
+export type PartyDisplay = { display: string; isYou?: boolean };
+
 /**
  * The compact metadata header shared by the feedback view and edit screens: title with
- * status/visibility badges, a one-line "who" summary (provider → subject, requested by …),
+ * status/visibility badges, a one-line "who" summary (provider → recipients, requested by …),
  * and a dimmed last-modified line. Replaces the old 2×3 grid of disabled inputs so the
  * Content tab below gets the bulk of the viewport.
  *
@@ -20,8 +24,7 @@ export default function FeedbackMeta({
   visibility,
   providerDisplay,
   providerIsYou,
-  subjectDisplay,
-  subjectIsYou,
+  subjects,
   requesterDisplay,
   requesterIsYou,
   lastModified,
@@ -31,10 +34,9 @@ export default function FeedbackMeta({
   visibility?: FeedbackVisibility;
   providerDisplay: string;
   providerIsYou?: boolean;
-  // Omitted while the subject is not resolved yet (the kudo create flow before a recipient
-  // is picked) — the arrow and subject slot are skipped.
-  subjectDisplay?: string;
-  subjectIsYou?: boolean;
+  // The recipients in position order (up to four, v3.1.0). Omitted or empty while none is
+  // resolved yet (the create flows before a pick) — the arrow and the slot are skipped.
+  subjects?: PartyDisplay[];
   requesterDisplay?: string;
   requesterIsYou?: boolean;
   lastModified?: number;
@@ -58,12 +60,15 @@ export default function FeedbackMeta({
       </Group>
       <Group gap={8} wrap="wrap">
         {party(providerDisplay, providerIsYou)}
-        {subjectDisplay != null && (
+        {subjects != null && subjects.length > 0 && (
           <>
             <Text size="sm" c="dimmed">
               →
             </Text>
-            {party(subjectDisplay, subjectIsYou)}
+            {subjects.map((s, index) => (
+              // Position is the identity here (a name may legitimately repeat).
+              <Fragment key={index}>{party(s.display, s.isYou)}</Fragment>
+            ))}
           </>
         )}
         {requesterDisplay != null && (

@@ -4,6 +4,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Button,
+  Group,
   Select,
   Stack,
   Table,
@@ -35,6 +36,7 @@ import {
 } from "../utils/datetime";
 import { ALL_VISIBILITIES } from "../utils/feedbackVisibility";
 import { feedbackEditLink, feedbackViewLink } from "../utils/feedbackLinks";
+import { feedbackSubjectNames, feedbackSubjects, type FeedbackSubjectRef } from "../utils/feedbackSubjects";
 import { loadErrorMessage } from "../utils/saveError";
 
 const SORT_FIELDS = [
@@ -57,32 +59,27 @@ const STATUS_VALUES: FeedbackStatus[] = [
   "REJECTED",
 ];
 
-// A filterable + sortable person column (the first column is always the requester).
+// A filterable + sortable person column (the first column is always the requester). A column
+// may hold several people — the Subject column lists every recipient (up to four, v3.1.0).
 type PersonColumn = {
   field: "providerName" | "subjectName";
   labelKey: ParseKeys;
   clearFilterLabelKey: ParseKeys;
-  id: (f: FeedbackRow) => number;
-  name: (f: FeedbackRow) => string;
-  deleted: (f: FeedbackRow) => boolean;
+  people: (f: FeedbackRow) => FeedbackSubjectRef[];
 };
 
 const PROVIDER_COLUMN: PersonColumn = {
   field: "providerName",
   labelKey: "common.field.provider",
   clearFilterLabelKey: "feedback.clearProviderFilter",
-  id: (f) => f.providerId,
-  name: (f) => f.providerName,
-  deleted: (f) => f.providerDeleted,
+  people: (f) => [{ id: f.providerId, name: f.providerName, deleted: f.providerDeleted }],
 };
 
 const SUBJECT_COLUMN: PersonColumn = {
   field: "subjectName",
   labelKey: "common.field.subject",
   clearFilterLabelKey: "feedback.clearSubjectFilter",
-  id: (f) => f.subjectId,
-  name: (f) => f.subjectName,
-  deleted: (f) => f.subjectDeleted,
+  people: (f) => feedbackSubjects(f),
 };
 
 // What the per-view action renderers get from the component.
@@ -135,7 +132,7 @@ const VIEW_CONFIG: Record<
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
-          aria-label={t("feedback.editFor", { name: f.subjectName })}
+          aria-label={t("feedback.editFor", { name: feedbackSubjectNames(f) })}
         >
           {t("common.action.edit")}
         </Button>
@@ -146,7 +143,7 @@ const VIEW_CONFIG: Record<
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}
-          aria-label={t("feedback.viewFor", { name: f.subjectName })}
+          aria-label={t("feedback.viewFor", { name: feedbackSubjectNames(f) })}
         >
           {t("common.action.view")}
         </Button>
@@ -164,7 +161,7 @@ const VIEW_CONFIG: Record<
         variant="subtle"
         size="xs"
         leftSection={<IconEye size={14} />}
-        aria-label={t("feedback.viewFor", { name: f.subjectName })}
+        aria-label={t("feedback.viewFor", { name: feedbackSubjectNames(f) })}
       >
         {t("common.action.view")}
       </Button>
@@ -181,7 +178,7 @@ const VIEW_CONFIG: Record<
           variant="subtle"
           size="xs"
           leftSection={<IconPencil size={14} />}
-          aria-label={t("feedback.editFor", { name: f.subjectName })}
+          aria-label={t("feedback.editFor", { name: feedbackSubjectNames(f) })}
         >
           {t("common.action.edit")}
         </Button>
@@ -192,7 +189,7 @@ const VIEW_CONFIG: Record<
           variant="subtle"
           size="xs"
           leftSection={<IconEye size={14} />}
-          aria-label={t("feedback.viewFor", { name: f.subjectName })}
+          aria-label={t("feedback.viewFor", { name: feedbackSubjectNames(f) })}
         >
           {t("common.action.view")}
         </Button>
@@ -462,12 +459,17 @@ export default function FeedbackTable({
                 </Table.Td>
                 {config.personColumns.map((col) => (
                   <Table.Td key={col.field}>
-                    <PersonCell
-                      userId={col.id(f)}
-                      name={col.name(f)}
-                      deleted={col.deleted(f)}
-                      currentUserId={currentUserId}
-                    />
+                    <Group gap={4} wrap="wrap">
+                      {col.people(f).map((person) => (
+                        <PersonCell
+                          key={person.id}
+                          userId={person.id}
+                          name={person.name}
+                          deleted={person.deleted}
+                          currentUserId={currentUserId}
+                        />
+                      ))}
+                    </Group>
                   </Table.Td>
                 ))}
                 {/* maxWidth so `truncate` engages inside the auto-layout table. Redacted rows

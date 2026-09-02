@@ -26,6 +26,7 @@ import MarkdownView from "../components/MarkdownView";
 import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { feedbackSubjects } from "../utils/feedbackSubjects";
 import { loadErrorMessage } from "../utils/saveError";
 import classes from "./Kudos.module.css";
 
@@ -62,12 +63,15 @@ function KudosCard({ item }: { item: KudosItem }) {
         <Text size="sm" c="dimmed">
           →
         </Text>
-        <PersonCell
-          userId={item.subjectId}
-          name={item.subjectName}
-          deleted={item.subjectDeleted}
-          currentUserId={userId}
-        />
+        {feedbackSubjects(item).map((subject) => (
+          <PersonCell
+            key={subject.id}
+            userId={subject.id}
+            name={subject.name}
+            deleted={subject.deleted}
+            currentUserId={userId}
+          />
+        ))}
       </Group>
       <Text size="xs" c="dimmed" title={formatTimestamp(item.lastModified)}>
         {formatRelativeTime(item.lastModified, i18n.language)}

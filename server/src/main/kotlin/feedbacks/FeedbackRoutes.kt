@@ -93,7 +93,7 @@ fun Application.configureFeedbackRoutes() {
         val feedback = feedbackService.read(feedbackId)
             ?: throw NotFoundException("Feedback not found")
         requireFeedbackReadAllowingManager(caller, feedback, feedbackId) {
-            feedbackService.managesSubject(caller.userId, feedback.subjectId)
+            feedbackService.managesAnySubject(caller.userId, feedback.subjectIds)
         }
         return feedback
     }
@@ -205,14 +205,19 @@ fun Application.configureFeedbackRoutes() {
                 // Feedback about yourself (the retired self-reflection feature, v2.36.0) is
                 // rejected at CREATE only — legacy provider == subject rows stay fully
                 // readable, editable, and transitionable (the Impact log is the replacement).
-                if (feedback.providerId == feedback.subjectId) {
+                // Since v3.1.0 a feedback may address several people: none may be the provider.
+                if (feedback.providerId in feedback.subjectIds) {
                     throw BadRequestException("Feedback about yourself is not supported")
                 }
+                // The recipient-set rules (≤4, distinct, requested ⇒ exactly one) — also run by
+                // the service's validate(), but here BEFORE the deactivation check so a
+                // malformed set is reported as such rather than by a member it names twice.
+                validateSubjects(feedback)
                 // After the authz guard (403 wins over 400): no NEW feedback involving a
                 // deactivated party. The caller is one of them and holds a session, so this
                 // can only trip on the OTHER parties — including them all is simplest.
                 userService.requireNoDeactivatedUsers(
-                    setOfNotNull(feedback.providerId, feedback.requesterId, feedback.subjectId),
+                    setOfNotNull(feedback.providerId, feedback.requesterId) + feedback.subjectIds,
                 )
                 val result = requireValidReferences("Referenced user does not exist") {
                     feedbackService.create(feedback)
@@ -226,7 +231,10 @@ fun Application.configureFeedbackRoutes() {
                 // Audit: record the creation against the acting caller.
                 feedbackEventService.create(feedbackCreationEvent(created).toEvent(id, caller.userId))
                 val names = feedbackService.partyNames(created)
-                call.respond(HttpStatusCode.Created, created.toResponse(id, names))
+                call.respond(
+                    HttpStatusCode.Created,
+                    created.toResponse(id, names, subjects = feedbackService.subjectsOf(id, created, names)),
+                )
             }
             get<Feedbacks.Id> { route ->
                 val feedback = readGuardedFeedback(call, route.id)
@@ -237,6 +245,7 @@ fun Application.configureFeedbackRoutes() {
                         route.id,
                         names,
                         includeContent = canReadFeedbackContent(call.caller(), feedback),
+                        subjects = feedbackService.subjectsOf(route.id, feedback, names),
                     ),
                 )
             }

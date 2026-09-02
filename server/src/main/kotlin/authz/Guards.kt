@@ -181,17 +181,17 @@ fun canReadFeedback(
             feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT)
     ) return true
 
-    // what SUBJECT sees
-    // Subject can see the feedback if:
+    // what a SUBJECT sees (ANY of the recipients — a feedback may address up to four, v3.1.0)
+    // A subject can see the feedback if:
     // - visibility: provider-subject, or provider-requester-subject
     // - status: Sent, Withdawn
-    if (caller.userId == feedback.subjectId &&
+    if (caller.userId in feedback.subjectIds &&
         (feedback.visibility == FeedbackVisibility.PROVIDER_SUBJECT ||
             feedback.visibility == FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT) &&
         feedback.status.isDelivered
     ) return true
 
-    // The SUBJECT's MANAGEMENT CHAIN (their manager, that manager's manager, and so on —
+    // The MANAGEMENT CHAIN of ANY subject (their manager, that manager's manager, and so on —
     // transitive) is handled outside this function: requireFeedbackReadAllowingManager grants a
     // managing caller read once the feedback is delivered (SENT/WITHDRAWN) after these cheap
     // rules miss — matching the team list scope; a provider's DRAFT stays private.
@@ -214,17 +214,17 @@ suspend fun requireFeedbackReadAllowingManager(
     caller: CallerPrincipal,
     feedback: Feedback,
     feedbackId: UInt,
-    managesSubject: suspend () -> Boolean,
+    managesAnySubject: suspend () -> Boolean,
 ) {
     if (canReadFeedback(caller, feedback)) return // cheap rules first
     // HR auditor: reads everything (drafts included), audit-logged. Before the chain walk —
     // no DB hit for HR.
     if (grantHrRead(caller, "feedback", feedbackId)) return
-    // Any manager in the subject's management chain (direct or transitive — their manager's
-    // manager, and so on) may read only once the feedback is delivered (SENT/WITHDRAWN),
-    // matching the team list scope — a provider's DRAFT/REQUESTED work stays private to the
-    // parties involved.
-    if (feedback.status.isDelivered && managesSubject()) return // DB hit only if needed
+    // Any manager in the management chain of ANY recipient (direct or transitive — their
+    // manager's manager, and so on) may read only once the feedback is delivered
+    // (SENT/WITHDRAWN), matching the team list scope — a provider's DRAFT/REQUESTED work stays
+    // private to the parties involved.
+    if (feedback.status.isDelivered && managesAnySubject()) return // DB hit only if needed
     throw ForbiddenException("Caller may not read this feedback")
 }
 

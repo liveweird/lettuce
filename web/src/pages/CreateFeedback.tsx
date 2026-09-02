@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Select } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
@@ -8,8 +8,9 @@ import { createFeedback, type FeedbackStatus, type FeedbackVisibility } from "..
 import { invalidateFeedback } from "../utils/feedbackQueries";
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
+import RecipientsMultiSelect from "../components/RecipientsMultiSelect";
 import { useAllUsers } from "../hooks/useAllUsers";
-import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
+import { useFeedbackDuplicates } from "../hooks/useFeedbackDuplicate";
 import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
 import { PROVIDE_ERROR_KEYS } from "../utils/feedbackForm";
@@ -30,7 +31,8 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
-  const [subjectPick, setSubjectPick] = useState<string | null>(null);
+  // Picker mode's recipients, in pick order (the MultiSelect contract: ids as strings).
+  const [subjectPicks, setSubjectPicks] = useState<string[]>([]);
 
   const urlSubjectId = Number(searchParams.get("subjectId"));
   // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the default return
@@ -40,11 +42,12 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   const providerId = getUserId();
 
   // Two modes (v2.28.0): a valid subjectId in the URL fixes the subject (the deep-link path —
-  // users-row actions, person cards); without one the page renders the subject picker instead
-  // of redirecting (the /feedback header's "New feedback" entry). Kudo mode is always the
-  // picker — the wall has no per-person entry point. The pool ALWAYS loads (v2.35.0): a
-  // URL-carried subject resolves its display name against it — never from a URL param — and
-  // an id matching no user falls back to the picker once the pool settles.
+  // users-row actions, person cards; exactly ONE recipient, no adding); without one the page
+  // renders the recipient picker instead of redirecting (the /feedback header's "New feedback"
+  // entry) — since v3.1.0 a MultiSelect for up to four people. Kudo mode is always the picker
+  // — the wall has no per-person entry point. The pool ALWAYS loads (v2.35.0): a URL-carried
+  // subject resolves its display name against it — never from a URL param — and an id
+  // matching no user falls back to the picker once the pool settles.
   const urlSubjectRequested = !kudo && Number.isFinite(urlSubjectId) && urlSubjectId > 0;
   const { userPool, usersError, usersReady } = useAllUsers(true);
   // A URL-crafted SELF subject resolves to nothing (feedback about yourself is gone since
@@ -53,15 +56,16 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
     ? (userPool ?? []).find((u) => u.id === urlSubjectId && u.id !== providerId)
     : undefined;
   const pickerMode = !urlSubjectRequested || (usersReady && !urlSubject);
-  const subjectId =
-    urlSubject?.id ?? (pickerMode && subjectPick != null ? Number(subjectPick) : null);
+  const subjectIds: number[] = urlSubject
+    ? [urlSubject.id]
+    : pickerMode
+      ? subjectPicks.map(Number)
+      : [];
 
-  // Warn about an in-progress duplicate before the user types anything; in picker mode the
-  // probe re-keys per picked subject (null while nothing is picked). Hook order: before the
-  // redirect early-return.
-  const duplicate = useFeedbackDuplicate(
-    subjectId != null && providerId != null ? { subjectId, providerId } : null,
-  );
+  // Warn about in-progress duplicates before the user types anything — one probe per picked
+  // recipient (the rule is per recipient: an open draft naming ANY of them blocks the create).
+  // Hook order: before the redirect early-return.
+  const duplicates = useFeedbackDuplicates(subjectIds, providerId);
 
   // Picking praises/reviews OTHERS: the caller is excluded — feedback about yourself is not
   // supported (the self-reflection feature was retired in v2.36.0; the Impact log replaces it).
@@ -78,23 +82,25 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (providerId == null) return <Navigate to="/" replace />;
 
-  const subjectDisplay = !pickerMode
+  const nameOf = (id: number) => (userPool ?? []).find((u) => u.id === id)?.name;
+  const subjects = !pickerMode
     ? // The `#id` placeholder shows only until the pool resolves the canonical name.
-      (urlSubject?.name ?? `#${urlSubjectId}`)
-    : subjectId != null
-      ? (userPool ?? []).find((u) => u.id === subjectId)?.name
-      : undefined;
+      [{ display: urlSubject?.name ?? `#${urlSubjectId}` }]
+    : subjectIds.map((id) => ({ display: nameOf(id) ?? `#${id}` }));
+  const duplicateHits = duplicates.filter((d) => d.result.existingId != null);
 
   async function submit(
     status: FeedbackStatus,
     values: { visibility: FeedbackVisibility; content: string },
   ) {
-    if (subjectId == null) return;
+    if (subjectIds.length === 0) return;
     setError(null);
     setSubmitting(status);
     try {
+      const [subjectId, ...additionalSubjectIds] = subjectIds;
       await createFeedback({
         subjectId,
+        ...(additionalSubjectIds.length > 0 ? { additionalSubjectIds } : {}),
         providerId: providerId!,
         // Kudo mode pins PUBLIC — `values.visibility` is PUBLIC too (read-only), but the
         // contract of that screen is explicit.
@@ -120,7 +126,7 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
       // wording ("New kudo" / "New feedback"); a deep link with a fixed subject keeps
       // "Provide feedback".
       title={kudo ? t("kudos.createTitle") : pickerMode ? t("feedback.newFeedback") : t("feedback.provideTitle")}
-      subjectDisplay={subjectDisplay}
+      subjects={subjects}
       initialVisibility={kudo ? "PUBLIC" : "PROVIDER_SUBJECT"}
       initialContent=""
       submitting={submitting}
@@ -132,29 +138,30 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
       discardMessage={t("feedback.discardCreateMessage")}
       subjectControl={
         pickerMode ? (
-          <Select
-            label={kudo ? t("kudos.recipientLabel") : t("common.field.subject")}
-            placeholder={t("feedback.pickUser")}
-            data={subjectOptions}
-            value={subjectPick}
-            onChange={setSubjectPick}
-            searchable
-            clearable
-            nothingFoundMessage={t("feedback.noUsersAvailable")}
+          <RecipientsMultiSelect
+            label={kudo ? t("kudos.recipientsLabel") : t("feedback.recipientsLabel")}
+            options={subjectOptions}
+            value={subjectPicks}
+            onChange={setSubjectPicks}
             error={usersError ? t("common.error.optionsFailed") : undefined}
-            w={280}
           />
         ) : undefined
       }
       visibilityReadOnly={kudo}
-      submitDisabled={subjectId == null}
+      submitDisabled={subjectIds.length === 0}
       duplicate={
-        duplicate.existingId != null ? (
-          // The caller is the provider, so the edit route (or its triage screen) is theirs.
-          <DuplicateFeedbackAlert
-            status={duplicate.existingStatus ?? "DRAFT"}
-            to={feedbackEditLink(duplicate.existingId)}
-          />
+        duplicateHits.length > 0 ? (
+          <Stack gap="xs">
+            {duplicateHits.map(({ subjectId, result }) => (
+              // The caller is the provider, so the edit route (or its triage screen) is theirs.
+              <DuplicateFeedbackAlert
+                key={subjectId}
+                status={result.existingStatus ?? "DRAFT"}
+                to={feedbackEditLink(result.existingId!)}
+                recipientName={pickerMode ? (nameOf(subjectId) ?? `#${subjectId}`) : undefined}
+              />
+            ))}
+          </Stack>
         ) : undefined
       }
     />

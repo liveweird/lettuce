@@ -24,6 +24,7 @@ type KudosRow = {
   contentPreview: string;
   content: string;
   lastModified: number;
+  subjects?: { id: number; name: string; deleted: boolean }[];
 };
 
 function row(id: number, over: Partial<KudosRow> = {}): KudosRow {
@@ -142,6 +143,26 @@ describe("Kudos wall", () => {
 
     await screen.findByText("Paula Provider");
     expect(screen.getByRole("link", { name: /new kudo/i })).toHaveAttribute("href", "/kudos/new");
+  });
+
+  test("a kudo with several recipients names each of them after the arrow", async () => {
+    setupMocks({
+      1: {
+        items: [
+          row(1, {
+            subjects: [
+              { id: 30, name: "Sam Subject", deleted: false },
+              { id: 31, name: "Sue Second", deleted: false },
+            ],
+          }),
+        ],
+        total: 1,
+      },
+    });
+    renderPage();
+
+    expect(await screen.findByText("Sam Subject")).toBeInTheDocument();
+    expect(screen.getByText("Sue Second")).toBeInTheDocument();
   });
 
   test("the current user renders as plain You instead of a chip", async () => {
