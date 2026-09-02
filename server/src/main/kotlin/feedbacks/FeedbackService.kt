@@ -137,10 +137,11 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * persists them, mirroring [transition].
      */
     suspend fun create(feedback: Feedback): FeedbackCreateResult = suspendTransaction(database) {
-        // NOTE: provider == subject (the retired self-reflection shape, v2.36.0) is rejected by
+        // NOTE: provider ∈ subjects (the retired self-reflection shape, v2.36.0) is rejected by
         // the ROUTE's create handler, deliberately not here — the service stays able to carry
-        // legacy rows (and tests seed them through it), and the shared validate() below also
-        // runs on content edits, which must keep working for pre-existing self rows.
+        // legacy rows (and tests seed them through it). validate() runs on CREATE only:
+        // editContent deliberately re-checks just the texts and the visibility coherence, so a
+        // pre-existing self row (or any legacy party set) stays editable.
         validate(feedback)
         // No-duplicate invariant, per recipient: while a feedback by the same provider for the
         // same requester that includes ANY of the new recipients is still in progress (DRAFT or
@@ -171,11 +172,13 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             }
         }
         // The pure mapping decides per status (REQUESTED and direct-SENT notify; DRAFT doesn't).
+        val managers = resolveSubjectManagers(feedback)
         val notifications = feedbackCreationNotifications(
             id,
             feedback,
             resolvePartyNames(feedback),
-            subjectManagerNames = resolveSubjectManagerNames(feedback),
+            subjectManagerNames = managers.names,
+            recipientsByManager = managers.recipientsByManager,
         )
         FeedbackCreateResult(id, notifications)
     }
@@ -221,16 +224,26 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
 
     /**
      * The recipient list as it rides the responses (names + soft-delete flags, position order)
-     * for one feedback; [feedback] + [names] (the resolved party names) supply the fallback for
-     * a row without join rows.
+     * for one feedback: the anchor (`feedbacks.subject_id`, resolved here with its soft-delete
+     * flag) always first, then the join rows — the same "anchor OR join" rule every membership
+     * predicate uses, so what a response SHOWS can never disagree with what the guard GRANTS.
      */
-    suspend fun subjectsOf(id: UInt, feedback: Feedback, names: Map<UInt, String>): List<FeedbackSubject> =
+    suspend fun subjectsOf(id: UInt, feedback: Feedback): List<FeedbackSubject> =
         suspendTransaction(database) {
-            subjectsByFeedbackIds(listOf(id))[id]
-                ?: feedback.subjectIds.map { FeedbackSubject(it, names[it] ?: "#$it") }
+            val anchor = UserService.Users
+                .select(UserService.Users.name, UserService.Users.markedAsDeleted)
+                .where { UserService.Users.id eq feedback.subjectId }
+                .map { FeedbackSubject(feedback.subjectId, it[UserService.Users.name], it[UserService.Users.markedAsDeleted]) }
+                .singleOrNull()
+                ?: FeedbackSubject(feedback.subjectId, "#${feedback.subjectId}")
+            anchorFirst(anchor, subjectsByFeedbackIds(listOf(id))[id].orEmpty())
         }
 
-    /** feedback id → its recipients (position-ordered), one grouped query per batch. */
+    /** The anchor at position 0 (whether or not the join rows carry it), then the rest in order. */
+    private fun anchorFirst(anchor: FeedbackSubject, joined: List<FeedbackSubject>): List<FeedbackSubject> =
+        listOf(anchor) + joined.filter { it.id != anchor.id }
+
+    /** feedback id → its join-row recipients (position-ordered), one grouped query per batch. */
     private suspend fun subjectsByFeedbackIds(ids: Collection<UInt>): Map<UInt, List<FeedbackSubject>> {
         if (ids.isEmpty()) return emptyMap()
         return FeedbackSubjects
@@ -309,34 +322,53 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 it[lastModified] = System.currentTimeMillis()
             }
             val next = current.copy(status = target)
+            val managers = resolveSubjectManagers(next)
             feedbackTransitionNotifications(
                 id,
                 current.status,
                 next,
                 resolvePartyNames(next),
-                subjectManagerNames = resolveSubjectManagerNames(next),
+                subjectManagerNames = managers.names,
+                recipientsByManager = managers.recipientsByManager,
             )
         }
     }
 
+    /** The recipients' direct managers: id → name, plus which recipients each one manages. */
+    private data class SubjectManagers(
+        val names: Map<UInt, String>,
+        val recipientsByManager: Map<UInt, Set<UInt>>,
+    ) {
+        companion object {
+            val NONE = SubjectManagers(emptyMap(), emptyMap())
+        }
+    }
+
     /**
-     * id → name of the direct managers of EVERY recipient, resolved only when the feedback lands
-     * in SENT (the moment they gain read access — see feedbackTransitionNotifications); empty
-     * otherwise, so non-SENT paths pay no extra queries. Soft-deleted managers are skipped.
+     * The direct managers of EVERY recipient, resolved only when the feedback lands in SENT (the
+     * moment they gain read access — see feedbackTransitionNotifications); empty otherwise, so
+     * non-SENT paths pay no extra queries. One chain query per recipient (≤4 by rule — the
+     * per-recipient grouping is what the manager notes need). Soft-deleted managers are skipped.
      */
-    private suspend fun resolveSubjectManagerNames(feedback: Feedback): Map<UInt, String> {
-        if (feedback.status != FeedbackStatus.SENT) return emptyMap()
-        val managerIds = feedback.subjectIds.flatMapTo(mutableSetOf()) { directManagerIds(it) }
-        if (managerIds.isEmpty()) return emptyMap()
-        return UserService.Users
+    private suspend fun resolveSubjectManagers(feedback: Feedback): SubjectManagers {
+        if (feedback.status != FeedbackStatus.SENT) return SubjectManagers.NONE
+        val recipientsByManager = mutableMapOf<UInt, MutableSet<UInt>>()
+        feedback.subjectIds.forEach { subjectId ->
+            directManagerIds(subjectId).forEach { managerId ->
+                recipientsByManager.getOrPut(managerId) { mutableSetOf() } += subjectId
+            }
+        }
+        if (recipientsByManager.isEmpty()) return SubjectManagers.NONE
+        val names = UserService.Users
             .select(UserService.Users.id, UserService.Users.name)
             .where {
-                (UserService.Users.id inList managerIds) and
+                (UserService.Users.id inList recipientsByManager.keys) and
                     (UserService.Users.markedAsDeleted eq false)
             }
             .map { it[UserService.Users.id].value to it[UserService.Users.name] }
             .toList()
             .toMap()
+        return SubjectManagers(names, recipientsByManager)
     }
 
     /**
@@ -454,9 +486,16 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * lists the caller themselves. A multi-recipient feedback counts for EACH of its recipients
      * (keyed through the join table). Subjects with no qualifying feedback are absent from the map.
      */
-    suspend fun lastProvidedTo(providerId: UInt, subjectIds: Set<UInt>): Map<UInt, Long> =
-        if (subjectIds.isEmpty()) emptyMap()
-        else lastSentAtBy(
+    suspend fun lastProvidedTo(providerId: UInt, subjectIds: Set<UInt>): Map<UInt, Long> {
+        if (subjectIds.isEmpty()) return emptyMap()
+        // The anchor OR join rule, as two keyed queries merged by max: the anchor column keeps
+        // rows without join rows (the legacy/test shape) counting, the join adds the further
+        // recipients of a multi-recipient feedback.
+        val byAnchor = lastSentAtBy(
+            Feedbacks.subjectId,
+            (Feedbacks.providerId eq providerId) and (Feedbacks.subjectId inList subjectIds),
+        )
+        val byJoin = lastSentAtBy(
             FeedbackSubjects.userId,
             (Feedbacks.providerId eq providerId) and (FeedbackSubjects.userId inList subjectIds),
             source = Feedbacks.join(
@@ -466,6 +505,8 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 otherColumn = FeedbackSubjects.feedbackId,
             ),
         )
+        return (byAnchor.keys + byJoin.keys).associateWith { maxOf(byAnchor[it] ?: 0L, byJoin[it] ?: 0L) }
+    }
 
     /**
      * Per [keyColumn] value, the newest SENT moment among the currently-SENT, non-deleted
@@ -488,7 +529,8 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 .toList()
             if (candidates.isEmpty()) return@suspendTransaction emptyMap()
 
-            val sentAt = sentMoments(candidates.map { it.first })
+            // A joined source repeats a feedback per recipient — dedupe the id list.
+            val sentAt = sentMoments(candidates.mapTo(mutableSetOf()) { it.first })
 
             candidates
                 .groupBy({ it.second }) { sentAt[it.first] ?: it.third } // pre-V15 fallback: lastModified
@@ -603,13 +645,15 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .applyPaging(paging, SORTABLE_COLUMNS)
             .map { row -> row.toListItem(view, callerUserId) }
             .toList()
-        // The recipient lists, one grouped query per page (the users-list `teams` idiom); a row
-        // without join rows (inserted below create()) falls back to its anchor.
+        // The recipient lists, one grouped query per page (the users-list `teams` idiom): the
+        // anchor (already on the row from the alias join) first, then the join rows.
         val subjects = subjectsByFeedbackIds(rows.map { it.id })
         val items = rows.map { row ->
             row.copy(
-                subjects = subjects[row.id]
-                    ?: listOf(FeedbackSubject(row.subjectId, row.subjectName, row.subjectDeleted)),
+                subjects = anchorFirst(
+                    FeedbackSubject(row.subjectId, row.subjectName, row.subjectDeleted),
+                    subjects[row.id].orEmpty(),
+                ),
             )
         }
         FeedbackListResult(items = items, total = total)
@@ -761,10 +805,10 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
     }
 
     private fun validate(next: Feedback) {
-        // provider == subject (a legacy SELF-REFLECTION row) is deliberately NOT rejected here:
-        // the ROUTE blocks NEW ones since v2.36.0, but pre-existing rows must stay editable —
-        // this validator also runs on content edits. requester ≠ provider (below) prevents
-        // requesting feedback from yourself.
+        // provider ∈ subjects (a legacy SELF-REFLECTION row) is deliberately NOT rejected here:
+        // the ROUTE blocks NEW ones since v2.36.0; this validator runs on create only (never on
+        // editContent), so legacy rows stay serviceable either way. requester ≠ provider (below)
+        // prevents requesting feedback from yourself.
         if (next.requesterId != null && next.requesterId == next.providerId) {
             throw BadRequestException("Requester cannot also be the provider")
         }

@@ -96,6 +96,22 @@ class FeedbackNotificationsTest {
     }
 
     @Test
+    fun `a manager's note names only the recipients who report to them`() {
+        val managers = mapOf(9u to "Mia Manager", 8u to "Max Manager")
+        // Mia manages Sam only, Max manages both.
+        val byManager = mapOf(9u to setOf(2u), 8u to setOf(2u, 4u))
+        val result = feedbackTransitionNotifications(
+            42u, FeedbackStatus.DRAFT, multi(FeedbackStatus.SENT), multiNames, managers, byManager,
+        )
+        val notes = result.filter { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }.associateBy { it.recipientId }
+        assertEquals("Subject Sam", notes.getValue(9u).params["subject"])
+        assertEquals("Subject Sam, Subject Sue", notes.getValue(8u).params["subject"])
+        // Position order, not map order: a manager of Sue then Sam still reads "Sam, Sue".
+        val reversed = feedbackCreationNotifications(42u, multi(FeedbackStatus.SENT), multiNames, managers, mapOf(8u to setOf(4u, 2u)))
+        assertEquals("Subject Sam, Subject Sue", reversed.single { it.recipientId == 8u }.params["subject"])
+    }
+
+    @Test
     fun `withdrawing and creating as SENT fan out to every recipient`() {
         val withdrawn = feedbackTransitionNotifications(42u, FeedbackStatus.SENT, multi(FeedbackStatus.WITHDRAWN), multiNames)
         assertEquals(setOf(2u, 4u), withdrawn.map { it.recipientId }.toSet())

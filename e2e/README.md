@@ -41,9 +41,9 @@ only sound because **every spec file owns its server-side state exclusively** �
 for any new or edited spec:
 
 - **Shared read-mostly actor**: `Manager CCC` signs in from `goals.spec.ts` (the skip-level chain create), `kudos.spec.ts`, and `pulse.spec.ts` — none of them mutates CCC's own account/team state, so no collision exists today; a future spec giving Manager CCC owned mutable state must check these three first.
-- **Feedbacks**: each file owns its `(subject, provider, requester)` triples outright — the server
+- **Feedbacks**: each file owns its provider × recipient pairs outright (the server's per-recipient no-duplicate rule since v3.1.0 — a draft from P naming X blocks every other open P→X draft, whatever the other recipients) — the server
   409s a create while an *open* (DRAFT/REQUESTED) duplicate exists, and identically-worded bell
-  cards collide. Current ownership: delivery = (AAA One ← AAA Two), provide = (AAA Two ← AAA One),
+  cards collide. Current ownership: delivery = (AAA One ← AAA Two), provide = (AAA Two + AAA Three ← AAA One — one two-recipient draft),
   lifecycle-rest = (AAA Two ← Manager AAA), hr = (AAA Three ← Manager AAA), manager-oversight =
   (AAA One ← Manager AAA, created directly as SENT — no open window), triage = the two
   self-requested (AAA One/Two ← Manager AAA) triples, third-party = (AAA One ← AAA Three, req.

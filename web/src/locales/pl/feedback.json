@@ -56,6 +56,7 @@
   "addProvider": "Dodaj wystawiającego",
   "recipientsLabel": "Odbiorcy",
   "recipientsHint": "Maksymalnie {{max}} osoby",
+  "recipientsMaxReached": "Osiągnięto maksimum {{max}} osób — usuń kogoś, aby wybrać kolejną osobę",
   "removeRecipient": "Usuń {{name}}",
   "pickUser": "Wybierz użytkownika",
   "noUsersAvailable": "Brak dostępnych użytkowników",

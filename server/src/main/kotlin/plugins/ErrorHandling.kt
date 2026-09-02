@@ -84,6 +84,11 @@ private fun Throwable.hasSqlState(state: String): Boolean {
 // Internal (not private): the user-import loop classifies per-row duplicates with it.
 internal fun Throwable.isUniqueViolation(): Boolean = hasSqlState(PG_UNIQUE_VIOLATION)
 
+private const val PG_FOREIGN_KEY_VIOLATION = "23503"
+
+/** A client-supplied id that references no row (the requireValidReferences 400 class). */
+internal fun Throwable.isForeignKeyViolation(): Boolean = hasSqlState(PG_FOREIGN_KEY_VIOLATION)
+
 internal fun Throwable.isCharacterNotInRepertoire(): Boolean = hasSqlState(PG_CHARACTER_NOT_IN_REPERTOIRE)
 
 private suspend fun ApplicationCall.respondConflict() =

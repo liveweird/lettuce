@@ -56,6 +56,7 @@
   "addProvider": "Add a provider",
   "recipientsLabel": "Recipients",
   "recipientsHint": "Up to {{max}} people",
+  "recipientsMaxReached": "Maximum of {{max}} people reached — remove one to pick another",
   "removeRecipient": "Remove {{name}}",
   "pickUser": "Pick a user",
   "noUsersAvailable": "No users available",

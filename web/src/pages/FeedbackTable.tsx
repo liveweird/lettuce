@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Box,
   Button,
   Group,
   Select,
@@ -458,16 +459,19 @@ export default function FeedbackTable({
                   />
                 </Table.Td>
                 {config.personColumns.map((col) => (
-                  <Table.Td key={col.field}>
-                    <Group gap={4} wrap="wrap">
+                  <Table.Td key={col.field} style={{ maxWidth: 280 }}>
+                    {/* maxWidth caps the column; each chip is a shrinkable flex item (min-width 0)
+                        so PersonaChip's own truncation still engages inside the wrapping row. */}
+                    <Group gap={4} wrap="wrap" style={{ minWidth: 0 }}>
                       {col.people(f).map((person) => (
-                        <PersonCell
-                          key={person.id}
-                          userId={person.id}
-                          name={person.name}
-                          deleted={person.deleted}
-                          currentUserId={currentUserId}
-                        />
+                        <Box key={person.id} style={{ minWidth: 0, maxWidth: "100%" }}>
+                          <PersonCell
+                            userId={person.id}
+                            name={person.name}
+                            deleted={person.deleted}
+                            currentUserId={currentUserId}
+                          />
+                        </Box>
                       ))}
                     </Group>
                   </Table.Td>

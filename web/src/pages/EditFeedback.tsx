@@ -191,12 +191,11 @@ export default function EditFeedback() {
   // the request → DRAFT, then reload as the editor). Only `REQUESTED → DRAFT` and
   // `REQUESTED → REJECTED` are valid transitions, so "Save & send" must not be offered here.
   if (data!.status === "REQUESTED" && getUserId() === data!.providerId) {
-    // A requested self-reflection: the caller (provider) is also the subject — render the
-    // app-wide plain "You" instead of their own avatar chip, and word the triage line for it.
-    const selfSubject = data!.subjectId === getUserId();
-    const subjectDisplay = selfSubject
-      ? t("common.state.you")
-      : (data!.subjectName ?? `#${data!.subjectId}`);
+    // A REQUESTED feedback has exactly one recipient (the server rule) — read it through the
+    // shared subjects reader. A requested self-reflection (legacy rows): the caller (provider)
+    // is also the subject — the reader renders the app-wide plain "You" instead of their own
+    // avatar chip, and the triage line is worded for it.
+    const [{ display: subjectDisplay, isYou: selfSubject }] = subjectDisplays(data!, getUserId(), t);
     const requesterDisplay =
       data!.requesterName ??
       (data!.requesterId != null ? `#${data!.requesterId}` : t("feedback.unknown"));

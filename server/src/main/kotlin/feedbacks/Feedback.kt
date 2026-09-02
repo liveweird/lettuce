@@ -21,14 +21,18 @@ internal fun validateFeedbackTexts(content: String, requesterMessage: String? = 
     }
 }
 
-// A feedback may address up to four people (v3.1.0). The set is fixed at creation.
+// A feedback may address up to four people (v3.1.0). The set is fixed at creation. KEEP IN
+// SYNC with V72's `CHECK (position BETWEEN 0 AND 3)` and the spec's `maxItems` on
+// `FeedbackRequest.additionalSubjectIds` (= this − 1) / `subjects` (= this) — OpenApiSpecTest
+// pins the spec half; a DB CHECK violation would surface as a 500, not a client error.
 const val MAX_FEEDBACK_SUBJECTS = 4
 
 /**
- * The recipient-set rules, checked at creation only (the set is immutable afterwards): at most
- * [MAX_FEEDBACK_SUBJECTS] distinct people, and a requested feedback (ask-for / request-for)
- * addresses exactly one — the request flows are single-recipient by design. provider ∉ subjects
- * is the ROUTE's rule (legacy self-reflection rows must stay serviceable — see FeedbackRoutes).
+ * The recipient-set rules, checked at creation only (the set is immutable afterwards — the
+ * service's validate() never runs on content edits): at most [MAX_FEEDBACK_SUBJECTS] distinct
+ * people, and a requested feedback (ask-for / request-for) addresses exactly one — the request
+ * flows are single-recipient by design. provider ∉ subjects is the ROUTE's rule (legacy
+ * self-reflection rows must stay serviceable — see FeedbackRoutes).
  */
 internal fun validateSubjects(feedback: Feedback) {
     val ids = feedback.subjectIds

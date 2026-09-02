@@ -31,8 +31,11 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
-  // Picker mode's recipients, in pick order (the MultiSelect contract: ids as strings).
-  const [subjectPicks, setSubjectPicks] = useState<string[]>([]);
+  // Picker mode's recipients, in pick order (the MultiSelect contract: ids as strings). The
+  // raw picks are filtered against the live pool below, so a pick whose user has since left
+  // the pool (deactivated/deleted between refetches) vanishes instead of lingering as a raw-id
+  // pill the server would reject.
+  const [rawPicks, setRawPicks] = useState<string[]>([]);
 
   const urlSubjectId = Number(searchParams.get("subjectId"));
   // An explicit `back` (e.g. the per-manager feedbacks screen) overrides the default return
@@ -56,16 +59,6 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
     ? (userPool ?? []).find((u) => u.id === urlSubjectId && u.id !== providerId)
     : undefined;
   const pickerMode = !urlSubjectRequested || (usersReady && !urlSubject);
-  const subjectIds: number[] = urlSubject
-    ? [urlSubject.id]
-    : pickerMode
-      ? subjectPicks.map(Number)
-      : [];
-
-  // Warn about in-progress duplicates before the user types anything — one probe per picked
-  // recipient (the rule is per recipient: an open draft naming ANY of them blocks the create).
-  // Hook order: before the redirect early-return.
-  const duplicates = useFeedbackDuplicates(subjectIds, providerId);
 
   // Picking praises/reviews OTHERS: the caller is excluded — feedback about yourself is not
   // supported (the self-reflection feature was retired in v2.36.0; the Impact log replaces it).
@@ -77,6 +70,20 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
         .sort((a, b) => a.label.localeCompare(b.label)),
     [userPool, providerId],
   );
+  const subjectPicks = useMemo(
+    () => (usersReady ? rawPicks.filter((p) => subjectOptions.some((o) => o.value === p)) : rawPicks),
+    [usersReady, rawPicks, subjectOptions],
+  );
+  const subjectIds: number[] = urlSubject
+    ? [urlSubject.id]
+    : pickerMode
+      ? subjectPicks.map(Number)
+      : [];
+
+  // Warn about in-progress duplicates before the user types anything — one probe per picked
+  // recipient (the rule is per recipient: an open draft naming ANY of them blocks the create).
+  // Hook order: before the redirect early-return.
+  const duplicates = useFeedbackDuplicates(subjectIds, providerId);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
@@ -142,7 +149,7 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
             label={kudo ? t("kudos.recipientsLabel") : t("feedback.recipientsLabel")}
             options={subjectOptions}
             value={subjectPicks}
-            onChange={setSubjectPicks}
+            onChange={setRawPicks}
             error={usersError ? t("common.error.optionsFailed") : undefined}
           />
         ) : undefined

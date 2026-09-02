@@ -871,7 +871,7 @@ export interface paths {
         };
         /**
          * Check for an in-progress duplicate of a prospective feedback
-         * @description Returns the active `DRAFT`/`REQUESTED` feedback matching the given (subject, provider, requester) triple, if any — the create screens call this up-front so the user is warned (with a link) before filling the form. A null/omitted `requesterId` matches only rows without a requester. The caller must be the prospective provider or requester — the same party rule as creation, so a matching row always has the caller as a party and no unrelated draft's existence can be probed.
+         * @description Returns the active `DRAFT`/`REQUESTED` feedback by the given provider for the given requester whose recipients include `subjectId`, if any (for single-recipient rows: the (subject, provider, requester) triple) — the create screens call this up-front, once per picked recipient, so the user is warned (with a link) before filling the form. A null/omitted `requesterId` matches only rows without a requester. The caller must be the prospective provider or requester — the same party rule as creation, so a matching row always has the caller as a party and no unrelated draft's existence can be probed.
          */
         get: operations["checkFeedbackDuplicate"];
         put?: never;
@@ -8182,7 +8182,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description A feedback with the same (subject, provider, requester) triple is already in progress (`DRAFT` or `REQUESTED`); `instance` is the existing record's API path. */
+            /** @description A feedback by the same provider for the same requester whose recipients include ANY of the new recipients is already in progress (`DRAFT` or `REQUESTED`) — for one recipient that is the classic (subject, provider, requester) triple; `instance` is the existing record's API path. */
             409: {
                 headers: {
                     [name: string]: unknown;
