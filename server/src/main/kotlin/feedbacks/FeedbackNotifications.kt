@@ -10,9 +10,13 @@ import ch.nokillswit.notifications.NotificationType
  *
  * @param next the feedback after the update (its ids/visibility are the source of truth).
  * @param nameById display names for the parties (provider/subject/requester).
- * @param subjectManagerNames id → name of the subject's direct managers; they gain read access
+ * @param subjectManagerNames id → name of the recipients' direct managers; they gain read access
  *   when the feedback is delivered, so a SENT landing notifies them too. Pass empty (the
  *   default) on transitions that cannot land in SENT — no query needed.
+ * @param recipientsByManager manager id → the recipient ids THAT manager directly manages
+ *   (v3.1.1): a manager's note names only their own people — the "who reports to you" wording
+ *   must not claim the other recipients. A manager absent from the map falls back to the full
+ *   recipient list (the single-recipient callers need not pass it).
  */
 internal fun feedbackTransitionNotifications(
     feedbackId: UInt,
@@ -20,6 +24,7 @@ internal fun feedbackTransitionNotifications(
     next: Feedback,
     nameById: Map<UInt, String>,
     subjectManagerNames: Map<UInt, String> = emptyMap(),
+    recipientsByManager: Map<UInt, Set<UInt>> = emptyMap(),
 ): List<Notification> {
     // provider == subject is a LEGACY SELF-REFLECTION row (new ones are rejected at create
     // since v2.36.0, but stored rows still transition). Its transitions are performed by that
@@ -40,7 +45,9 @@ internal fun feedbackTransitionNotifications(
         from == FeedbackStatus.DRAFT && to == FeedbackStatus.SENT -> {
             notifications += sentToSubjectNotes(feedbackId, next, nameById)
             notifications += sentToProviderNote(feedbackId, next, nameById)
-            notifications += sentToManagerNotes(feedbackId, next, nameById, subjectManagerNames, selfParams)
+            notifications += sentToManagerNotes(
+                feedbackId, next, nameById, subjectManagerNames, recipientsByManager, selfParams,
+            )
         }
 
         from == FeedbackStatus.REQUESTED && to == FeedbackStatus.REJECTED && next.requesterId != null ->
@@ -104,14 +111,17 @@ internal fun feedbackTransitionNotifications(
  * @param feedbackId the id assigned by the insert (drives the edit/view links).
  * @param created the feedback as persisted.
  * @param nameById display names for the parties (requester/subject).
- * @param subjectManagerNames id → name of the subject's direct managers (SENT creations only —
+ * @param subjectManagerNames id → name of the recipients' direct managers (SENT creations only —
  *   see [feedbackTransitionNotifications]).
+ * @param recipientsByManager manager id → the recipient ids they manage (see
+ *   [feedbackTransitionNotifications]).
  */
 internal fun feedbackCreationNotifications(
     feedbackId: UInt,
     created: Feedback,
     nameById: Map<UInt, String>,
     subjectManagerNames: Map<UInt, String> = emptyMap(),
+    recipientsByManager: Map<UInt, Set<UInt>> = emptyMap(),
 ): List<Notification> {
     if (created.status == FeedbackStatus.SENT) {
         // Mirror the DRAFT -> SENT transition exactly, including the self-reflection rule:
@@ -123,7 +133,7 @@ internal fun feedbackCreationNotifications(
         val notifications = sentToSubjectNotes(feedbackId, created, nameById) + listOfNotNull(
             sentToProviderNote(feedbackId, created, nameById),
             sentToRequesterNote(feedbackId, created, nameById, selfParams),
-        ) + sentToManagerNotes(feedbackId, created, nameById, subjectManagerNames, selfParams)
+        ) + sentToManagerNotes(feedbackId, created, nameById, subjectManagerNames, recipientsByManager, selfParams)
         return if (isSelfReflection) {
             notifications.filter { it.recipientId != created.providerId }
         } else {
@@ -208,11 +218,14 @@ internal fun feedbackDeletionNotifications(
 }
 
 // The `subject` param rule for a multi-recipient feedback (v3.1.0): a note addressed TO a
-// recipient carries that recipient's own name; every other note carries all recipients' names
-// joined in position order — identical to today's value for one recipient, so the i18n
-// templates and email texts interpolate unchanged.
-private fun Feedback.subjectLabel(nameById: Map<UInt, String>): String =
-    subjectIds.joinToString(", ") { nameById.nameOf(it) }
+// recipient carries that recipient's own name; a MANAGER's note names only the recipients who
+// report to them (v3.1.1 — the template says "who reports to you"); every other note carries
+// all recipients' names joined in position order — identical to today's value for one
+// recipient, so the i18n templates and email texts interpolate unchanged. Only the provider
+// and manager notes can ever see several names: every requester-related note rides a
+// requested feedback, which is single-recipient by rule.
+private fun Feedback.subjectLabel(nameById: Map<UInt, String>, only: Set<UInt>? = null): String =
+    subjectIds.filter { only == null || it in only }.joinToString(", ") { nameById.nameOf(it) }
 
 // The notes minted whenever a feedback lands in SENT — shared by the DRAFT -> SENT transition
 // and a feedback created directly as SENT ("save & send"), so the two paths can never drift.
@@ -259,16 +272,20 @@ private fun sentToManagerNotes(
     feedback: Feedback,
     nameById: Map<UInt, String>,
     managerNames: Map<UInt, String>,
+    recipientsByManager: Map<UInt, Set<UInt>>,
     selfParams: Map<String, String>,
 ): List<Notification> {
     val parties = setOfNotNull(feedback.providerId, feedback.requesterId) + feedback.subjectIds
     return managerNames.keys.filter { it !in parties }.map { managerId ->
+        // Only the recipients who report to THIS manager (an unmapped manager — the
+        // single-recipient callers — gets the whole list, which is that one recipient).
+        val own = recipientsByManager[managerId]?.takeIf { it.isNotEmpty() }
         Notification(
             recipientId = managerId,
             type = NotificationType.FEEDBACK_SENT_TO_MANAGER,
             params = mapOf(
                 "provider" to nameById.nameOf(feedback.providerId),
-                "subject" to feedback.subjectLabel(nameById),
+                "subject" to feedback.subjectLabel(nameById, only = own),
             ) + selfParams,
             link = "/feedback/$feedbackId/view",
         )

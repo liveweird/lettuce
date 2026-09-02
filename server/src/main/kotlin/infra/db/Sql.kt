@@ -1,6 +1,6 @@
 package ch.nokillswit.infra.db
 
-import ch.nokillswit.plugins.isUniqueViolation
+import ch.nokillswit.plugins.isForeignKeyViolation
 import io.ktor.server.plugins.BadRequestException
 import io.r2dbc.spi.R2dbcException
 import org.jetbrains.exposed.v1.core.CustomFunction
@@ -55,20 +55,25 @@ internal fun containsPattern(raw: String): LikePattern {
 }
 
 /**
- * Runs [block], translating low-level SQL failures (FK violations from client-supplied ids, on
- * either the JDBC or R2DBC path) into a 400 with [message]. Unique violations (23505) are
- * RETHROWN so the global StatusPages 23505→409 mapping keeps working — a wrapped block whose
- * table carries unique indexes (succession nominations, performance reviews) must answer 409
- * on the concurrent-duplicate race, not a misleading reference 400 (checkup-29 fix).
+ * Runs [block], translating a foreign-key violation (23503 — a client-supplied id that
+ * references no row, on either the JDBC or R2DBC path) into a 400 with [message]. Every other
+ * SQL failure is RETHROWN: unique violations (23505) keep the global StatusPages 23505→409
+ * mapping — a wrapped block whose table carries unique indexes (succession nominations,
+ * performance reviews) must answer 409 on the concurrent-duplicate race (checkup-29 fix) — and
+ * anything else (a CHECK violation, say) is a server bug that must surface as a 500, never as
+ * a misleading reference 400 (checkup-31 fix).
  */
 suspend fun <T> requireValidReferences(message: String, block: suspend () -> T): T =
     try {
         block()
     } catch (e: ExposedSQLException) {
-        if (e.isUniqueViolation()) throw e
+        // Only a foreign-key violation (23503) is the client's bad id; a unique violation stays
+        // the 409 above, and anything else (a CHECK violation, say) is a server bug → 500,
+        // never a misleading "referenced X does not exist" (checkup #31).
+        if (!e.isForeignKeyViolation()) throw e
         throw BadRequestException(message, e)
     } catch (e: R2dbcException) {
-        if (e.isUniqueViolation()) throw e
+        if (!e.isForeignKeyViolation()) throw e
         throw BadRequestException(message, e)
     }
 

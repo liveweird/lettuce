@@ -1,5 +1,6 @@
 package ch.nokillswit
 
+import ch.nokillswit.feedbacks.MAX_FEEDBACK_SUBJECTS
 import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import kotlin.test.Test
@@ -43,6 +44,27 @@ class OpenApiSpecTest {
             "documentation.yaml contains OpenAPI 3.1-only constructs, but conformance validation " +
                 "relabels it to 3.0.3 (see OpenApiConformance.kt) — use the 3.0 idiom (e.g. nullable:) instead",
         )
+    }
+
+    /**
+     * The recipient cap lives in three places — `MAX_FEEDBACK_SUBJECTS`, V72's position CHECK,
+     * and the spec's `maxItems` pair — with no mechanical link; this pins the spec half so a
+     * constant bump cannot leave the contract stale (checkup #31).
+     */
+    @Test
+    fun `the feedback recipient cap in the spec matches MAX_FEEDBACK_SUBJECTS`() {
+        val openApi = OpenAPIV3Parser()
+            .readContents(OpenApiSpec.validatorYaml, null, ParseOptions().apply { isResolve = true })
+            .openAPI
+        val schemas = openApi.components.schemas
+        assertEquals(
+            MAX_FEEDBACK_SUBJECTS - 1,
+            schemas.getValue("FeedbackRequest").properties.getValue("additionalSubjectIds").maxItems,
+        )
+        for (schema in listOf("FeedbackResponse", "FeedbackListItem")) {
+            assertEquals(MAX_FEEDBACK_SUBJECTS, schemas.getValue(schema).properties.getValue("subjects").maxItems, schema)
+            assertEquals(1, schemas.getValue(schema).properties.getValue("subjects").minItems, schema)
+        }
     }
 
     @Test

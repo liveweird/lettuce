@@ -233,7 +233,7 @@ fun Application.configureFeedbackRoutes() {
                 val names = feedbackService.partyNames(created)
                 call.respond(
                     HttpStatusCode.Created,
-                    created.toResponse(id, names, subjects = feedbackService.subjectsOf(id, created, names)),
+                    created.toResponse(id, names, subjects = feedbackService.subjectsOf(id, created)),
                 )
             }
             get<Feedbacks.Id> { route ->
@@ -245,7 +245,7 @@ fun Application.configureFeedbackRoutes() {
                         route.id,
                         names,
                         includeContent = canReadFeedbackContent(call.caller(), feedback),
-                        subjects = feedbackService.subjectsOf(route.id, feedback, names),
+                        subjects = feedbackService.subjectsOf(route.id, feedback),
                     ),
                 )
             }

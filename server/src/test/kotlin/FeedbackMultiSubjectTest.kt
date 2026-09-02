@@ -1,5 +1,6 @@
 package ch.nokillswit
 
+import ch.nokillswit.dashboard.DashboardSummary
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackPageResponse
@@ -17,6 +18,7 @@ import ch.nokillswit.teams.TeamMemberPageResponse
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -150,8 +152,9 @@ class FeedbackMultiSubjectTest {
             HttpStatusCode.NoContent,
             authedClient(admin.email, "pw").post("/api/v1/users/${ids[2]}/deactivate").status,
         )
-        val deactivated = client.createFeedback(ids[0], listOf(ids[1], ids[2]), provider.id)
-        assertEquals(HttpStatusCode.BadRequest, deactivated.status)
+        expect400("User ${ids[2]} is deactivated and cannot be newly assigned") {
+            client.createFeedback(ids[0], listOf(ids[1], ids[2]), provider.id)
+        }
     }
 
     @Test
@@ -306,8 +309,9 @@ class FeedbackMultiSubjectTest {
         }
         val toProvider = notificationsOf(provider.email).single { it.type == NotificationType.FEEDBACK_SENT_TO_PROVIDER }
         assertEquals("Ann A, Ben B", toProvider.params["subject"])
+        // A manager's note names only THEIR report — "…, who reports to you" (checkup #31 HIGH).
         val toManager = notificationsOf(managerOfA.email).single { it.type == NotificationType.FEEDBACK_SENT_TO_MANAGER }
-        assertEquals("Ann A, Ben B", toManager.params["subject"])
+        assertEquals("Ann A", toManager.params["subject"])
 
         // Withdrawing notifies every recipient again, each by their own name.
         assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/feedbacks/${created.id}/withdraw").status)
@@ -378,31 +382,49 @@ class FeedbackMultiSubjectTest {
             .schemas(schema)
             .apply { if (target != null) target(target) }
             .load()
+        // The throwaway schema never touches the suite's `public` schema: `unaccent` is a
+        // database-wide extension (V43's IF NOT EXISTS is a no-op once it exists) and the drop
+        // below runs in `finally` so a failed assertion leaves nothing behind.
         flyway("71").migrate()
         DriverManager.getConnection(PostgresTestSupport.jdbcUrl, PostgresTestSupport.user, PostgresTestSupport.password).use { conn ->
-            conn.createStatement().use { it.execute("SET search_path TO $schema") }
-            conn.createStatement().use {
-                it.execute(
-                    "INSERT INTO users (name, email, password_hash) VALUES ('Legacy Subject', 'legacy-subject@x', 'h')",
-                )
-                it.execute(
-                    "INSERT INTO feedbacks (subject_id, provider_id, visibility, status, content, last_modified) " +
-                        "SELECT u.id, 1, 'PROVIDER_SUBJECT', 'SENT', 'legacy', 0 FROM users u WHERE u.email = 'legacy-subject@x'",
-                )
-            }
-            flyway(null).migrate()
-            conn.createStatement().use { st ->
-                st.executeQuery(
-                    "SELECT f.id, f.subject_id, s.user_id, s.position FROM feedbacks f " +
-                        "JOIN feedback_subjects s ON s.feedback_id = f.id",
-                ).use { rs ->
-                    assertTrue(rs.next(), "the backfill row exists")
-                    assertEquals(rs.getLong("subject_id"), rs.getLong("user_id"))
-                    assertEquals(0, rs.getInt("position"))
-                    assertTrue(!rs.next(), "exactly one join row per legacy feedback")
+            try {
+                conn.createStatement().use { it.execute("SET search_path TO $schema") }
+                conn.createStatement().use {
+                    it.execute(
+                        "INSERT INTO users (name, email, password_hash) VALUES " +
+                            "('Legacy Subject', 'legacy-subject@x', 'h'), ('Legacy Provider', 'legacy-provider@x', 'h')",
+                    )
+                    it.execute(
+                        "INSERT INTO feedbacks (subject_id, provider_id, visibility, status, content, last_modified) " +
+                            "SELECT s.id, p.id, 'PROVIDER_SUBJECT', 'SENT', 'legacy', 0 FROM users s, users p " +
+                            "WHERE s.email = 'legacy-subject@x' AND p.email = 'legacy-provider@x'",
+                    )
                 }
+                flyway(null).migrate()
+                conn.createStatement().use { st ->
+                    st.executeQuery(
+                        "SELECT f.id, f.subject_id, s.user_id, s.position FROM feedbacks f " +
+                            "JOIN feedback_subjects s ON s.feedback_id = f.id",
+                    ).use { rs ->
+                        assertTrue(rs.next(), "the backfill row exists")
+                        assertEquals(rs.getLong("subject_id"), rs.getLong("user_id"))
+                        assertEquals(0, rs.getInt("position"))
+                        assertTrue(!rs.next(), "exactly one join row per legacy feedback")
+                    }
+                }
+                // The DB-level guards behind MAX_FEEDBACK_SUBJECTS: a fifth position is refused.
+                val overflow = runCatching {
+                    conn.createStatement().use {
+                        it.execute(
+                            "INSERT INTO feedback_subjects (feedback_id, user_id, position) " +
+                                "SELECT f.id, f.provider_id, 4 FROM feedbacks f",
+                        )
+                    }
+                }
+                assertTrue(overflow.isFailure, "position 4 violates the CHECK")
+            } finally {
+                conn.createStatement().use { it.execute("DROP SCHEMA IF EXISTS $schema CASCADE") }
             }
-            conn.createStatement().use { it.execute("DROP SCHEMA $schema CASCADE") }
         }
     }
 
@@ -423,6 +445,157 @@ class FeedbackMultiSubjectTest {
         ).id
         assertEquals(listOf(a.id, b.id), TestServices.feedbacks.read(id)!!.subjectIds)
         val stored = TestServices.feedbacks.read(id)!!
-        assertEquals(listOf("Ann A", "Ben B"), TestServices.feedbacks.subjectsOf(id, stored, emptyMap()).map { it.name })
+        assertEquals(listOf("Ann A", "Ben B"), TestServices.feedbacks.subjectsOf(id, stored).map { it.name })
+    }
+
+    @Test
+    fun `two in-scope recipients list ONE row, and a recipient-manager reads only once delivered`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val a = seedParty("a", "Ann Teamster")
+        val b = seedParty("b", "Ben Teamster")
+        val both = seedParty("both", "Mia Manager")
+        teamOf(both.id, a.id, b.id)
+        // B manages A AND is a recipient: a DRAFT stays private (the chain walk is skipped for
+        // undelivered rows, the recipient branch needs delivery) — 403 until sent.
+        teamOf(b.id, a.id)
+        val client = authedClient(provider.email, "pw")
+        val draft = client.createFeedback(a.id, listOf(b.id), provider.id, status = FeedbackStatus.DRAFT).body<FeedbackResponse>()
+        assertEquals(HttpStatusCode.Forbidden, authedClient(b.email, "pw").get("/api/v1/feedbacks/${draft.id}").status)
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/feedbacks/${draft.id}/send").status)
+        assertEquals(HttpStatusCode.OK, authedClient(b.email, "pw").get("/api/v1/feedbacks/${draft.id}").status)
+
+        // Membership goes through IN (subquery), never a join: two in-scope recipients = ONE row.
+        val team = authedClient(both.email, "pw").get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
+        assertEquals(1, team.items.count { it.id == draft.id })
+        assertEquals(1L, team.total)
+        // Both recipients match the substring — still one row, and total agrees.
+        val byName = client.get("/api/v1/feedbacks?view=provided&subjectName=teamster").body<FeedbackPageResponse>()
+        assertEquals(1, byName.items.count { it.id == draft.id })
+        assertEquals(1L, byName.total)
+    }
+
+    @Test
+    fun `an extra recipient keeps reading a WITHDRAWN row and the stats count it while SENT`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val a = seedParty("a", "Ann A")
+        val b = seedParty("b", "Ben B")
+        val manager = seedParty("mgr", "Mia Manager")
+        teamOf(manager.id, provider.id, a.id, b.id)
+        val client = authedClient(provider.email, "pw")
+        val bClient = authedClient(b.email, "pw")
+        val created = client.createFeedback(a.id, listOf(b.id), provider.id).body<FeedbackResponse>()
+
+        // The extra recipient's received-side stats: dashboard 30-day count + "last feedback received".
+        val summary = bClient.get("/api/v1/dashboard/summary").body<DashboardSummary>()
+        assertEquals(1L, summary.feedbackReceived30d)
+        val members = bClient.get("/api/v1/teams/members?view=member&pageSize=100").body<TeamMemberPageResponse>()
+        assertNotNull(members.items.first { it.userId == provider.id }.lastFeedbackReceivedAt)
+
+        assertEquals(HttpStatusCode.NoContent, client.post("/api/v1/feedbacks/${created.id}/withdraw").status)
+        assertEquals(HttpStatusCode.OK, bClient.get("/api/v1/feedbacks/${created.id}").status)
+        assertTrue(bClient.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items.any { it.id == created.id })
+    }
+
+    @Test
+    fun `a PUBLIC group feedback rides the kudos wall with every recipient, and PROVIDER_REQUESTER_SUBJECT works too`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val people = (1..4).map { seedParty("p$it", "Person $it") }
+        val stranger = seedParty("stranger", "Stan Stranger")
+        val client = authedClient(provider.email, "pw")
+        val kudo = client.createFeedback(
+            people[0].id, people.drop(1).map { it.id }, provider.id,
+            visibility = FeedbackVisibility.PUBLIC, content = "Kudos to the four of you",
+        ).body<FeedbackResponse>()
+        // The wall is org-wide — scope it to this provider: on the shared test database an
+        // unfiltered page can include PUBLIC rows another test left encrypted under a rotated
+        // key (FeedbackEncryptionTest), which the list would then fail to decrypt.
+        val wall = authedClient(stranger.email, "pw")
+            .get("/api/v1/feedbacks?view=kudos&providerId=${provider.id}&sort=-lastModified")
+            .body<FeedbackPageResponse>()
+        val row = wall.items.single { it.id == kudo.id }
+        assertEquals(people.map { it.name }, row.subjects.map { it.name })
+        assertEquals("Kudos to the four of you", row.content)
+
+        // PROVIDER_REQUESTER_SUBJECT without a requester is coherent and every recipient reads it —
+        // the position-3 recipient included.
+        val prs = client.createFeedback(
+            people[0].id, people.drop(1).map { it.id }, provider.id,
+            visibility = FeedbackVisibility.PROVIDER_REQUESTER_SUBJECT, content = "PRS",
+        )
+        assertEquals(HttpStatusCode.Created, prs.status)
+        val prsId = prs.body<FeedbackResponse>().id
+        val fourth = authedClient(people[3].email, "pw")
+        assertEquals(HttpStatusCode.OK, fourth.get("/api/v1/feedbacks/$prsId").status)
+        assertTrue(fourth.get("/api/v1/feedbacks?view=received").body<FeedbackPageResponse>().items.any { it.id == prsId })
+    }
+
+    @Test
+    fun `a manager of only the fourth recipient lists it under view=team`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val people = (1..4).map { seedParty("p$it", "Person $it") }
+        val manager = seedParty("mgr", "Mia Manager")
+        teamOf(manager.id, people[3].id)
+        val created = authedClient(provider.email, "pw")
+            .createFeedback(people[0].id, people.drop(1).map { it.id }, provider.id).body<FeedbackResponse>()
+        val team = authedClient(manager.email, "pw").get("/api/v1/feedbacks?view=team").body<FeedbackPageResponse>()
+        assertEquals(people.map { it.id }, team.items.single { it.id == created.id }.subjects.map { it.id })
+    }
+
+    @Test
+    fun `validation order — the set rules answer before the members are inspected`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val people = (1..5).map { seedParty("p$it", "Person $it") }
+        val admin = seedParty("admin", "Ada Admin", roles = setOf(UserRole.ADMIN))
+        assertEquals(HttpStatusCode.NoContent, authedClient(admin.email, "pw").post("/api/v1/users/${people[4].id}/deactivate").status)
+        val client = authedClient(provider.email, "pw")
+        // 5 recipients incl. a deactivated one → the count rule.
+        val five = client.createFeedback(people[0].id, people.drop(1).map { it.id }, provider.id)
+        assertEquals("A feedback may have at most 4 subjects", five.body<ProblemDetail>().detail)
+        // 5 recipients incl. the provider → the self rule wins.
+        val self = client.createFeedback(people[0].id, people.drop(1).dropLast(1).map { it.id } + provider.id, provider.id)
+        assertEquals("Feedback about yourself is not supported", self.body<ProblemDetail>().detail)
+    }
+
+    @Test
+    fun `a soft-deleted recipient carries deleted=true on the list and the single GET`() = testApplication {
+        usePostgresTestcontainer()
+        val provider = seedParty("provider", "Pat Provider")
+        val a = seedParty("a", "Ann A")
+        val b = seedParty("b", "Ben B")
+        val admin = seedParty("admin", "Ada Admin", roles = setOf(UserRole.ADMIN))
+        val client = authedClient(provider.email, "pw")
+        val created = client.createFeedback(a.id, listOf(b.id), provider.id).body<FeedbackResponse>()
+        assertEquals(HttpStatusCode.NoContent, authedClient(admin.email, "pw").delete("/api/v1/users/${b.id}").status)
+
+        val single = client.get("/api/v1/feedbacks/${created.id}").body<FeedbackResponse>()
+        assertEquals(listOf(false, true), single.subjects.map { it.deleted })
+        val row = client.get("/api/v1/feedbacks?view=provided").body<FeedbackPageResponse>().items.single { it.id == created.id }
+        assertEquals(listOf(false, true), row.subjects.map { it.deleted })
+    }
+
+    @Test
+    fun `lastFeedbackGivenAt still counts a row without join rows through its anchor`() = testApplication {
+        usePostgresTestcontainer()
+        val caller = seedParty("caller", "Cal Caller")
+        val peer = seedParty("peer", "Peer One")
+        val manager = seedParty("mgr", "Mia Manager")
+        teamOf(manager.id, caller.id, peer.id)
+        suspendTransaction(TestServices.feedbacks.database) {
+            FeedbackService.Feedbacks.insert {
+                it[subjectId] = peer.id
+                it[providerId] = caller.id
+                it[visibility] = FeedbackVisibility.PROVIDER_SUBJECT
+                it[status] = FeedbackStatus.SENT
+                it[content] = "legacy"
+                it[lastModified] = System.currentTimeMillis()
+            }
+        }
+        val page = authedClient(caller.email, "pw").get("/api/v1/teams/members?view=member&pageSize=100").body<TeamMemberPageResponse>()
+        assertNotNull(page.items.first { it.userId == peer.id }.lastFeedbackGivenAt)
     }
 }
