@@ -304,4 +304,25 @@ describe("CreateDaysOff", () => {
         .length,
     ).toBeGreaterThan(0);
   });
+
+  test("a PAID submit waits for the pool rows — a failed budgets load blocks it, Unpaid still goes through (v3.2.1)", async () => {
+    setupMocks();
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if ((init?.method ?? "GET") === "POST") return Promise.resolve(jsonResponse(201, { id: 77 }));
+      if (u.includes("/api/v1/days-off/budgets")) return Promise.resolve(jsonResponse(500, {}));
+      return Promise.resolve(jsonResponse(200, { items: [] }));
+    });
+    renderPage();
+    await pickRange(MONDAY, TUESDAY);
+    // No pool row resolved: the picker shows its placeholder, never a misleading "Unpaid".
+    const picker = screen.getByRole("combobox", { name: "Type" });
+    expect(picker).toHaveValue("");
+    expect(picker).toHaveAttribute("placeholder", "Loading pools…");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled());
+    // An explicit Unpaid needs no budget.
+    await userEvent.click(picker);
+    await userEvent.click(await screen.findByRole("option", { name: "Unpaid" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Submit request" })).toBeEnabled());
+  });
 });

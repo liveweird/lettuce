@@ -11,6 +11,19 @@ import ch.nokillswit.notifications.NotificationType
  * There is deliberately no per-request detail page in the SPA, so links land on the list tabs.
  */
 
+/** The days-off request params shared by the review/recorded notes: `type` (the enum name,
+ * localized client-side) plus, for PAID (v3.2.1), `pool` — the paid pool's name, which the
+ * SPA/email render IN PLACE of the bare "Paid" (the manager needs to know which pool a
+ * 10-day absence draws on); UNPAID rows carry no `pool`. */
+private fun requestParams(type: DaysOffType, poolName: String?, days: String, startDate: String, endDate: String) =
+    buildMap {
+        put("type", type.name)
+        poolName?.let { put("pool", it) }
+        put("days", days)
+        put("startDate", startDate)
+        put("endDate", endDate)
+    }
+
 /** Creation: each current direct manager of the owner is asked to review the request. A user
  * with no manager (top of chain) notifies nobody — documented limitation. */
 internal fun daysOffRequestedNotifications(
@@ -20,17 +33,12 @@ internal fun daysOffRequestedNotifications(
     days: String,
     startDate: String,
     endDate: String,
+    poolName: String? = null,
 ): List<Notification> = managerIds.map { managerId ->
     Notification(
         recipientId = managerId,
         type = NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER,
-        params = mapOf(
-            "requester" to requesterName,
-            "type" to type.name,
-            "days" to days,
-            "startDate" to startDate,
-            "endDate" to endDate,
-        ),
+        params = mapOf("requester" to requesterName) + requestParams(type, poolName, days, startDate, endDate),
         link = "/days-off?tab=team",
     )
 }
@@ -49,29 +57,18 @@ internal fun daysOffRecordedNotifications(
     days: String,
     startDate: String,
     endDate: String,
+    poolName: String? = null,
 ): List<Notification> = listOf(
     Notification(
         recipientId = ownerId,
         type = NotificationType.DAYS_OFF_RECORDED_TO_OWNER,
-        params = mapOf(
-            "manager" to managerName,
-            "type" to type.name,
-            "days" to days,
-            "startDate" to startDate,
-            "endDate" to endDate,
-        ),
+        params = mapOf("manager" to managerName) + requestParams(type, poolName, days, startDate, endDate),
         link = "/days-off?tab=requests",
     ),
     Notification(
         recipientId = managerId,
         type = NotificationType.DAYS_OFF_RECORDED_TO_MANAGER,
-        params = mapOf(
-            "requester" to ownerName,
-            "type" to type.name,
-            "days" to days,
-            "startDate" to startDate,
-            "endDate" to endDate,
-        ),
+        params = mapOf("requester" to ownerName) + requestParams(type, poolName, days, startDate, endDate),
         link = "/days-off?tab=team",
     ),
 )

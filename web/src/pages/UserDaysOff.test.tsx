@@ -274,4 +274,13 @@ describe("UserDaysOff", () => {
     const listCall = mockFetch.mock.calls.find(([u]) => String(u).includes("view=user"));
     expect(String(listCall?.[0])).toContain("userId=9");
   });
+
+  test("Add pool with every kind already granted offers nothing and keeps the Add button disabled (v3.2.1)", async () => {
+    setupMocks(BUDGET, [STUDY_POOL, { ...STUDY_POOL, poolId: 43, poolTypeId: 8, poolName: "Maternal leave" }]);
+    renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
+    await userEvent.click(await screen.findByLabelText("Add a paid pool for Riley Report"));
+    await userEvent.click(await screen.findByRole("combobox", { name: /^Pool kind/ }));
+    expect(await screen.findByText("Every pool kind is already granted.")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Add pool" })).toBeDisabled();
+  });
 });

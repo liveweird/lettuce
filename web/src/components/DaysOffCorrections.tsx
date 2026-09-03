@@ -21,6 +21,7 @@ import { formatDate } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { invalidateDaysOffCorrections } from "../utils/daysOffQueries";
 import { saveErrorMessage } from "../utils/saveError";
+import ReadOnlyField from "./ReadOnlyField";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "./ConfirmActionModal";
 
@@ -58,20 +59,18 @@ export default function DaysOffCorrections({
   defaultYear,
   canManage,
   pools = [],
-  defaultPoolTypeId = null,
 }: {
   userId: number;
   /** The year the add form pre-selects — the budget view's currently shown year. */
   defaultYear: number;
   canManage: boolean;
-  /** The user's non-archived pools (from their budget rows) — the add form's Pool options. */
+  /** The user's non-archived pools (from their budget rows) — the add form's Pool options;
+   * the add form pre-selects the default (first) one. */
   pools?: { id: number; name: string }[];
-  /** The pool the add form pre-selects (the row the modal was opened from); null = default. */
-  defaultPoolTypeId?: number | null;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft(defaultYear, defaultPoolTypeId));
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(defaultYear, null));
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +82,10 @@ export default function DaysOffCorrections({
   });
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => String(defaultYear - 3 + i));
+  // Rows name their pool once more than one pool is in play — offered or already corrected
+  // (a single-pool person's rows stay unlabelled, an archived pool's rows keep their name).
+  const poolsInPlay = new Set([...pools.map((p) => p.id), ...(data ?? []).map((c) => c.poolTypeId)]).size > 1;
+  const editingPoolName = editingId != null ? data?.find((c) => c.id === editingId)?.poolName : undefined;
   const draftValid =
     draft.days !== "" && draft.days > 0 && (draft.days * 2) % 1 === 0 && draft.comment.trim().length > 0;
 
@@ -93,7 +96,7 @@ export default function DaysOffCorrections({
       await action();
       await invalidateDaysOffCorrections(queryClient, userId);
       showSuccessToast(t(successKey));
-      setDraft(emptyDraft(defaultYear, defaultPoolTypeId));
+      setDraft(emptyDraft(defaultYear, null));
       setEditingId(null);
       setDeleteTarget(null);
     } catch (err) {
@@ -169,7 +172,7 @@ export default function DaysOffCorrections({
                     <Text size="sm" fw={500} span>
                       {c.year}
                     </Text>
-                    {pools.length !== 1 && (
+                    {poolsInPlay && (
                       <Text size="sm" c="dimmed" span>
                         {c.poolName}
                       </Text>
@@ -228,14 +231,20 @@ export default function DaysOffCorrections({
             {t(editingId != null ? "daysOff.corrections.editTitle" : "daysOff.corrections.addTitle")}
           </Text>
           <Group align="flex-end" gap="md" wrap="wrap">
-            {pools.length > 1 && (
+            {/* The pool is create-only: a read-only label while editing (an archived pool's
+                correction would otherwise show a blank Select), the picker while adding. */}
+            {editingId != null && poolsInPlay && (
+              <ReadOnlyField label={t("daysOff.pool.label")}>
+                <Text size="sm">{editingPoolName}</Text>
+              </ReadOnlyField>
+            )}
+            {editingId == null && pools.length > 1 && (
               <Select
                 label={t("daysOff.pool.label")}
                 data={pools.map((p) => ({ value: String(p.id), label: p.name }))}
-                value={draft.poolTypeId != null ? String(draft.poolTypeId) : (pools[0] ? String(pools[0].id) : null)}
+                value={draft.poolTypeId != null ? String(draft.poolTypeId) : String(pools[0].id)}
                 onChange={(v) => v && setDraft((d) => ({ ...d, poolTypeId: Number(v) }))}
                 allowDeselect={false}
-                disabled={editingId != null}
                 w={180}
               />
             )}
@@ -282,7 +291,7 @@ export default function DaysOffCorrections({
                 disabled={submitting}
                 onClick={() => {
                   setEditingId(null);
-                  setDraft(emptyDraft(defaultYear, defaultPoolTypeId));
+                  setDraft(emptyDraft(defaultYear, null));
                 }}
               >
                 {t("common.action.cancel")}

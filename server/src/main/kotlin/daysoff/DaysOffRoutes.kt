@@ -2,6 +2,7 @@ package ch.nokillswit.daysoff
 
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ConflictException
+import ch.nokillswit.authz.DaysOffReadGrant
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
@@ -156,6 +157,7 @@ fun Application.configureDaysOffRoutes() {
             "requestId" to requestId.toLong(),
             "fromStatus" to existing.status.name,
             "type" to existing.type.name,
+            "poolTypeId" to existing.poolTypeId?.toLong(),
             "startDate" to existing.startDate,
             "endDate" to existing.endDate,
             "days" to existing.days,
@@ -288,13 +290,16 @@ fun Application.configureDaysOffRoutes() {
                 val caller = call.daysOffCaller()
                 val request = daysOffService.read(route.id)
                     ?: throw NotFoundException("Days-off request not found")
-                requireDaysOffRead(
+                val grant = requireDaysOffRead(
                     caller,
                     request,
                     managesOwner = { daysOffService.managesOwner(caller.userId, request.userId) },
                     sharesTeam = { daysOffService.sharesTeam(caller.userId, request.userId) },
                 )
-                call.respond(HttpStatusCode.OK, request)
+                // Calendar parity (v3.2.1): a teammate learns THAT a colleague is off, never the
+                // paid pool ("Maternal leave") — the pool identity is redacted on that grant.
+                val visible = if (grant == DaysOffReadGrant.TEAMMATE) request.redactPool() else request
+                call.respond(HttpStatusCode.OK, visible)
             }
             post<DaysOff.Id.Accept> { route -> transitionTo(call, route.parent.id, DaysOffStatus.ACCEPTED) }
             post<DaysOff.Id.Reject> { route -> transitionTo(call, route.parent.id, DaysOffStatus.REJECTED) }
@@ -360,6 +365,11 @@ fun Application.configureDaysOffRoutes() {
                 val existing = writeGuardedCorrection(call, route.id)
                 val write = call.receive<DaysOffCorrectionWrite>()
                 validateDaysOffCorrection(write)
+                // The pool is create-only (v3.2.1 — a differing kind is refused, never silently
+                // kept: the API-RES-004 lost-write shape; re-homing is delete + create).
+                if (write.poolTypeId != null && write.poolTypeId != existing.poolTypeId) {
+                    throw BadRequestException("The pool of a correction is immutable — delete and re-create it")
+                }
                 if (daysOffService.updateCorrection(route.id, write) == 0) {
                     throw NotFoundException("Days-off correction not found")
                 }
@@ -518,9 +528,8 @@ fun Application.configureDaysOffRoutes() {
                 val write = call.receive<DaysOffPoolTypeWrite>()
                     .let { it.copy(name = sanitizeSingleLine(it.name, "Pool name")) }
                 validatePoolTypeName(write.name)
-                if (daysOffService.updatePoolType(route.id, write) == 0) {
-                    throw NotFoundException("Days-off pool type not found")
-                }
+                val grantsAffected = daysOffService.updatePoolType(route.id, write)
+                    ?: throw NotFoundException("Days-off pool type not found")
                 val fields = mutableListOf<Pair<String, Any?>>(
                     "byUserId" to caller.userId.toLong(),
                     "poolTypeId" to route.id.toLong(),
@@ -530,8 +539,11 @@ fun Application.configureDaysOffRoutes() {
                     fields += "nameTo" to write.name
                 }
                 if (existing.carriesOver != write.carriesOver) {
+                    // A carry-over flip recomputes EVERY holder's history — the audit records
+                    // how many active grants moved (v3.2.1, the grantsArchived precedent).
                     fields += "carriesOverFrom" to existing.carriesOver
                     fields += "carriesOverTo" to write.carriesOver
+                    fields += "grantsAffected" to grantsAffected.toLong()
                 }
                 audit("days_off_pool_type.updated", *fields.toTypedArray())
                 call.respond(HttpStatusCode.NoContent)

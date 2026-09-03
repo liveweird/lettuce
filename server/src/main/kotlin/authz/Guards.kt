@@ -506,16 +506,23 @@ suspend fun requireDaysOffRead(
     request: DaysOffResponse,
     managesOwner: suspend () -> Boolean,
     sharesTeam: suspend () -> Boolean,
-) {
-    if (caller.userId == request.userId) return // the owner — cheap rule first
+): DaysOffReadGrant {
+    if (caller.userId == request.userId) return DaysOffReadGrant.OWNER // the owner — cheap rule first
     // HR auditor: reads everything, audit-logged. Before the chain walk — no DB hit for HR.
-    if (grantHrRead(caller, "daysOff", request.id)) return
-    if (managesOwner()) return // DB hit only if needed
+    if (grantHrRead(caller, "daysOff", request.id)) return DaysOffReadGrant.HR
+    if (managesOwner()) return DaysOffReadGrant.CHAIN // DB hit only if needed
     val teammateVisible =
         request.status == DaysOffStatus.REQUESTED || request.status == DaysOffStatus.ACCEPTED
-    if (teammateVisible && sharesTeam()) return
+    if (teammateVisible && sharesTeam()) return DaysOffReadGrant.TEAMMATE
     throw ForbiddenException("Caller may not read this days-off request")
 }
+
+/**
+ * Which rule granted a days-off read (v3.2.1): the route redacts the paid pool's identity on
+ * the TEAMMATE grant — calendar parity discloses that a colleague is off, never the category of
+ * leave ("Maternal leave"); owner, chain, and HR see the pool.
+ */
+enum class DaysOffReadGrant { OWNER, HR, CHAIN, TEAMMATE }
 
 /**
  * Accept/reject (and the corrections writes riding the same right): any manager in the owner's

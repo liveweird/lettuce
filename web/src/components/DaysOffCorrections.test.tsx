@@ -138,13 +138,15 @@ describe("DaysOffCorrections", () => {
         defaultYear={2026}
         canManage
         pools={[{ id: 1, name: "Paid days off" }, { id: 7, name: "Study leave" }]}
-        defaultPoolTypeId={7}
       />,
     );
 
-    // The row names its pool once the person holds more than one.
+    // The row names its pool once the person holds more than one; the add form pre-selects
+    // the default pool and the manager picks the extra one (v3.2.1 — the production path).
     expect(await screen.findByText("Paid days off")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Pool" })).toHaveValue("Study leave");
+    expect(screen.getByRole("combobox", { name: "Pool" })).toHaveValue("Paid days off");
+    await userEvent.click(screen.getByRole("combobox", { name: "Pool" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Study leave" }));
     await userEvent.type(screen.getByLabelText("Days"), "2");
     await userEvent.type(screen.getByLabelText("Comment"), "Course days");
     await userEvent.click(screen.getByRole("button", { name: "Add correction" }));
@@ -154,5 +156,33 @@ describe("DaysOffCorrections", () => {
         userId: 9, year: 2026, operation: "ADD", days: 2, comment: "Course days", poolTypeId: 7,
       });
     });
+  });
+
+  test("editing shows the correction's pool read-only — an archived pool's name included (v3.2.1)", async () => {
+    setupMocks([{ ...CORRECTION, poolTypeId: 9, poolName: "Retired pool" }]);
+    renderWithProviders(
+      <DaysOffCorrections
+        userId={9}
+        defaultYear={2026}
+        canManage
+        pools={[{ id: 1, name: "Paid days off" }, { id: 7, name: "Study leave" }]}
+      />,
+    );
+    await userEvent.click(await screen.findByLabelText("Edit the correction for 2026"));
+    // No Select while editing (the pool is create-only) — the stored pool's name instead.
+    expect(screen.queryByRole("combobox", { name: "Pool" })).toBeNull();
+    expect(screen.getByText("Retired pool", { selector: "p" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      const put = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "PUT");
+      expect(JSON.parse(String((put?.[1] as RequestInit).body))).not.toHaveProperty("poolTypeId");
+    });
+  });
+
+  test("a single-pool person's rows carry no pool label (v3.2.1)", async () => {
+    setupMocks();
+    renderWithProviders(<DaysOffCorrections userId={9} defaultYear={2026} canManage={false} />);
+    expect(await screen.findByText("Overtime compensation")).toBeInTheDocument();
+    expect(screen.queryByText("Paid days off")).toBeNull();
   });
 });

@@ -416,6 +416,140 @@ class DaysOffPoolTest {
         assertEquals(11.0, card.daysOffRemaining)
     }
 
+    @Test
+    fun `checkup-32 rules - teammate redaction, archived-kind grants, immutable correction pools, and the 400s`() = testApplication {
+        usePostgresTestcontainer()
+        // G manages M; M manages S and T (teammates); A admin, H HR; F has DAYS_OFF disabled.
+        val aEmail = uniqueEmail("pool-c32-a")
+        val hEmail = uniqueEmail("pool-c32-h")
+        val gEmail = uniqueEmail("pool-c32-g")
+        val mEmail = uniqueEmail("pool-c32-m")
+        val sEmail = uniqueEmail("pool-c32-s")
+        val tEmail = uniqueEmail("pool-c32-t")
+        val fEmail = uniqueEmail("pool-c32-f")
+        TestUsers.seed(aEmail, "pw", roles = setOf(UserRole.ADMIN))
+        TestUsers.seed(hEmail, "pw", roles = setOf(UserRole.HR))
+        val gId = TestUsers.seed(gEmail, "pw", name = "C32 Grand", roles = emptySet())
+        val mId = TestUsers.seed(mEmail, "pw", name = "C32 Mgr", roles = emptySet())
+        val sId = TestUsers.seed(sEmail, "pw", name = "C32 Sub", roles = emptySet())
+        val tId = TestUsers.seed(tEmail, "pw", name = "C32 Mate", roles = emptySet())
+        val fId = TestUsers.seed(fEmail, "pw", roles = emptySet())
+        TestServices.users.setDisabledFeatures(fId, setOf(ch.nokillswit.users.Feature.DAYS_OFF, ch.nokillswit.users.Feature.MFA))
+        val teamY = TestServices.teams.create(Team(name = "pool-c32-y-${UUID.randomUUID()}", managerId = gId))
+        TestServices.teams.addMember(teamY, mId)
+        val teamX = TestServices.teams.create(Team(name = "pool-c32-x-${UUID.randomUUID()}", managerId = mId))
+        TestServices.teams.addMember(teamX, sId)
+        TestServices.teams.addMember(teamX, tId)
+        val a = authedClient(aEmail, "pw")
+        val h = authedClient(hEmail, "pw")
+        val g = authedClient(gEmail, "pw")
+        val m = authedClient(mEmail, "pw")
+        val s = authedClient(sEmail, "pw")
+        val t = authedClient(tEmail, "pw")
+        val f = authedClient(fEmail, "pw")
+        val extra = a.freshKind("Maternal", carriesOver = false)
+        TestDaysOff.setAllowance(sId, 20)
+        TestDaysOff.setAllowance(tId, 5)
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            // The registry read is feature-gated like every days-off route.
+            assertEquals(HttpStatusCode.Forbidden, f.get("/api/v1/days-off/pool-types").status)
+            // ADMIN and HR never write a grant, extra kind or not (the chain-only right).
+            assertEquals(HttpStatusCode.Forbidden, a.putAllowance(sId, 3, poolTypeId = extra.id).status)
+            assertEquals(HttpStatusCode.Forbidden, h.putAllowance(sId, 3, poolTypeId = extra.id).status)
+            // The grand-manager (chain) grants the extra pool; the list filter rejects junk.
+            assertEquals(HttpStatusCode.NoContent, g.putAllowance(sId, 3, poolTypeId = extra.id).status)
+            assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off?poolTypeId=abc").status)
+
+            // A request in the extra pool: the owner, the chain, and HR see the pool; the
+            // TEAMMATE (calendar parity) sees the absence with the pool REDACTED — on the
+            // single GET and on the member-scope calendar (the caller's own bars keep it).
+            val mon = monday(2086)
+            val created = s.createDaysOff(mon, poolTypeId = extra.id).body<DaysOffResponse>()
+            assertEquals(extra.name, created.poolName)
+            for (reader in listOf(s, m, g, h)) {
+                val seen = reader.get("/api/v1/days-off/${created.id}").body<DaysOffResponse>()
+                assertEquals(extra.id, seen.poolTypeId)
+                assertEquals(extra.name, seen.poolName)
+            }
+            val mateView = t.get("/api/v1/days-off/${created.id}").body<DaysOffResponse>()
+            assertEquals(DaysOffType.PAID, mateView.type)
+            assertNull(mateView.poolTypeId)
+            assertNull(mateView.poolName)
+            assertEquals(HttpStatusCode.Created, t.createDaysOff(mon.plusWeeks(1)).status)
+            val month = mon.toString().substring(0, 7)
+            val mateCalendar = t.get("/api/v1/days-off/calendar?month=$month&scope=member")
+                .body<ch.nokillswit.daysoff.DaysOffCalendarResponse>()
+            assertNull(mateCalendar.users.single { it.userId == sId }.entries.first().poolName)
+            assertEquals("Paid days off", mateCalendar.users.single { it.userId == tId }.entries.first().poolName)
+            val ownCalendar = s.get("/api/v1/days-off/calendar?month=$month&scope=member")
+                .body<ch.nokillswit.daysoff.DaysOffCalendarResponse>()
+            assertEquals(extra.name, ownCalendar.users.single { it.userId == sId }.entries.first().poolName)
+            val managedCalendar = m.get("/api/v1/days-off/calendar?month=$month&scope=managed")
+                .body<ch.nokillswit.daysoff.DaysOffCalendarResponse>()
+            assertEquals(extra.name, managedCalendar.users.single { it.userId == sId }.entries.first().poolName)
+
+            // The corrections' pool is immutable on PUT: null = unchanged, a differing kind = 400.
+            val corr = m.post("/api/v1/days-off/corrections") {
+                contentType(ContentType.Application.Json)
+                setBody(DaysOffCorrectionWrite(sId, 2086, DaysOffCorrectionOperation.ADD, 1.0, "c32", poolTypeId = extra.id))
+            }.body<DaysOffCorrectionResponse>()
+            suspend fun putCorrection(poolTypeId: UInt?) = m.put("/api/v1/days-off/corrections/${corr.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(DaysOffCorrectionWrite(sId, 2086, DaysOffCorrectionOperation.ADD, 2.0, "c32 edited", poolTypeId = poolTypeId))
+            }.status
+            assertEquals(HttpStatusCode.BadRequest, putCorrection(TestDaysOff.DEFAULT_POOL_TYPE_ID))
+            assertEquals(HttpStatusCode.NoContent, putCorrection(null))
+            assertEquals(HttpStatusCode.NoContent, putCorrection(extra.id))
+
+            // A non-carry pool's correction in ANOTHER year never enters this year's row; a
+            // correction alone (no request) keeps an archived pool's history row visible.
+            assertEquals(HttpStatusCode.Created, m.post("/api/v1/days-off/corrections") {
+                contentType(ContentType.Application.Json)
+                setBody(DaysOffCorrectionWrite(sId, 2085, DaysOffCorrectionOperation.ADD, 5.0, "c32 prior", poolTypeId = extra.id))
+            }.status)
+            val row2086 = s.budgets("?year=2086").single { it.poolTypeId == extra.id }
+            assertEquals(2.0, row2086.corrected)
+            assertEquals(0.0, row2086.carriedOver)
+            assertEquals(4.0, row2086.remaining) // 3 + 2 − 1 reserved; 2085's +5 never flows in
+            val row2085 = s.budgets("?year=2085").single { it.poolTypeId == extra.id }
+            assertEquals(8.0, row2085.remaining)
+            val grantId = row2086.poolId!!
+            assertEquals(HttpStatusCode.NoContent, m.delete("/api/v1/days-off/pools/$grantId").status)
+            assertTrue(s.budgets("?year=2085").single { it.poolTypeId == extra.id }.poolArchived)
+
+            // A grant whose KIND was archived under it (the archive × upsert race, simulated
+            // through the raw fixture) renders as history, never as a live pool.
+            val raced = a.freshKind("Raced", carriesOver = true)
+            assertEquals(HttpStatusCode.NoContent, a.delete("/api/v1/days-off/pool-types/${raced.id}").status)
+            TestDaysOff.setAllowance(sId, 2, poolTypeId = raced.id)
+            assertEquals(HttpStatusCode.BadRequest, s.createDaysOff(mon.plusWeeks(2), poolTypeId = raced.id).status)
+            val racedRow = s.budgets("?year=2086").singleOrNull { it.poolTypeId == raced.id }
+            assertTrue(racedRow == null || racedRow.poolArchived, "an archived kind's grant is never a live pool")
+
+            // The audits: the on-behalf recording names the pool, and a carry-over flip on a
+            // kind records how many active grants it moved.
+            assertEquals(HttpStatusCode.Created, m.createDaysOff(mon.plusWeeks(3), forUserId = sId).status)
+            val recorded = appender.events.last { it.message == "days_off.recorded" }
+            assertEquals(TestDaysOff.DEFAULT_POOL_TYPE_ID.toLong(), recorded.keyValuePairs.first { it.key == "poolTypeId" }.value)
+            val flipped = a.freshKind("Flip", carriesOver = true)
+            TestDaysOff.setAllowance(sId, 1, poolTypeId = flipped.id)
+            TestDaysOff.setAllowance(tId, 1, poolTypeId = flipped.id)
+            assertEquals(
+                HttpStatusCode.NoContent,
+                a.put("/api/v1/days-off/pool-types/${flipped.id}") {
+                    contentType(ContentType.Application.Json)
+                    setBody(DaysOffPoolTypeWrite(name = flipped.name, carriesOver = false))
+                }.status,
+            )
+            val flip = appender.events.last { it.message == "days_off_pool_type.updated" }
+            assertEquals(2L, flip.keyValuePairs.first { it.key == "grantsAffected" }.value)
+            assertTrue(flip.keyValuePairs.none { it.key == "nameFrom" })
+        } finally {
+            appender.detach()
+        }
+    }
+
     /** A pre-V74 request row (no pool column yet) for the backfill fixture. */
     private fun legacyRequest(type: String, date: String, email: String): String =
         "INSERT INTO days_off_requests " +
@@ -501,15 +635,25 @@ class DaysOffPoolTest {
                     }.isFailure,
                     "PAID without a pool violates the CHECK",
                 )
+                assertTrue(
+                    runCatching {
+                        conn.createStatement().use {
+                            it.execute(
+                                "UPDATE days_off_requests SET pool_type_id = (SELECT id FROM days_off_pool_types WHERE is_default) " +
+                                    "WHERE type = 'UNPAID'",
+                            )
+                        }
+                    }.isFailure,
+                    "UNPAID with a pool violates the CHECK",
+                )
                 // The sequence advanced past the seed: a second kind gets id 2, not a clash.
                 conn.createStatement().use { st ->
-                    st.execute(
+                    st.executeQuery(
                         "INSERT INTO days_off_pool_types (name, carries_over, created_at, last_modified) " +
-                            "VALUES ('Second', false, 0, 0)",
-                    )
-                    st.executeQuery("SELECT COUNT(*) FROM days_off_pool_types").use { rs ->
+                            "VALUES ('Second', false, 0, 0) RETURNING id",
+                    ).use { rs ->
                         rs.next()
-                        assertEquals(2, rs.getInt(1))
+                        assertEquals(2L, rs.getLong("id"))
                     }
                 }
             } finally {

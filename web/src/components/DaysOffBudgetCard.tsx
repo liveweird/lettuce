@@ -26,7 +26,7 @@ function PoolStats({ pool, titled }: { pool: DaysOffBudget; titled: boolean }) {
   const { t, i18n } = useTranslation();
   const days = (v: number) => formatDays(v, i18n.language);
   return (
-    <Stack gap={4}>
+    <Stack gap={4} role="group" aria-label={pool.poolName}>
       {titled && (
         <Group gap="xs" align="center">
           <Text size="sm" fw={500}>
@@ -111,8 +111,12 @@ export default function DaysOffBudgetCard({ year }: { year: number }) {
             </Button>
           )}
         </Group>
-        {isLoading || pools.length === 0 ? (
+        {isLoading ? (
           <Skeleton height={44} />
+        ) : pools.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            {t("daysOff.budget.noPools")}
+          </Text>
         ) : (
           pools.map((pool) => <PoolStats key={pool.poolTypeId} pool={pool} titled={pools.length > 1} />)
         )}

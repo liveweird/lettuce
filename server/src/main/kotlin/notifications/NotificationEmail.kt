@@ -73,8 +73,15 @@ private fun subjectFor(type: NotificationType): LocalizedText = if (
 /** Missing-param fallback: render "?" rather than fail the whole email. */
 private fun Map<String, String>.v(key: String): String = this[key] ?: "?"
 
-/** The paid pool's name (v3.2.0); rows minted before the pools existed name the only pool there was. */
-private fun poolLabel(p: Map<String, String>): String = p["pool"] ?: "Paid days off"
+/** The paid pool's name (v3.2.0); rows minted before the pools existed name the only pool
+ * there was — a per-language fallback (v3.2.1), never an English literal in a Polish sentence. */
+private fun poolLabel(p: Map<String, String>): LocalizedText =
+    p["pool"]?.let { LocalizedText(en = it, pl = it) } ?: LocalizedText(en = "Paid days off", pl = "Płatne dni wolne")
+
+/** The request's kind for the review/recorded wordings: the paid pool's name when the row
+ * carries one (v3.2.1), else the localized type word. */
+private fun daysOffKind(p: Map<String, String>): LocalizedText =
+    p["pool"]?.let { LocalizedText(en = it, pl = it) } ?: daysOffType(p.v("type"))
 
 private fun daysOffType(value: String): LocalizedText = when (value) {
     "PAID" -> LocalizedText(en = "Paid", pl = "Płatne")
@@ -241,9 +248,9 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
     )
     NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER -> LocalizedText(
         en = "${p.v("requester")} requested time off ${p.v("startDate")} – ${p.v("endDate")} " +
-            "(${daysOffType(p.v("type")).en}, ${p.v("days")} day(s)).",
+            "(${daysOffKind(p).en}, ${p.v("days")} day(s)).",
         pl = "${p.v("requester")} złożył/złożyła wniosek o dni wolne ${p.v("startDate")} – ${p.v("endDate")} " +
-            "(${daysOffType(p.v("type")).pl}, dni: ${p.v("days")}).",
+            "(${daysOffKind(p).pl}, dni: ${p.v("days")}).",
     )
     NotificationType.DAYS_OFF_ACCEPTED_TO_OWNER -> LocalizedText(
         en = "${p.v("manager")} accepted your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
@@ -273,36 +280,36 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
         )
     NotificationType.DAYS_OFF_RECORDED_TO_OWNER -> LocalizedText(
         en = "${p.v("manager")} recorded days off on your behalf, already accepted: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).en}, ${p.v("days")} day(s)).",
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).en}, ${p.v("days")} day(s)).",
         pl = "${p.v("manager")} zapisał/zapisała w Twoim imieniu dni wolne, od razu zaakceptowane: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).pl}, dni: ${p.v("days")}).",
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).pl}, dni: ${p.v("days")}).",
     )
     NotificationType.DAYS_OFF_RECORDED_TO_MANAGER -> LocalizedText(
         en = "You recorded days off on behalf of ${p.v("requester")}, already accepted: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).en}, ${p.v("days")} day(s)).",
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).en}, ${p.v("days")} day(s)).",
         pl = "Zapisałeś/aś w imieniu ${p.v("requester")} dni wolne, od razu zaakceptowane: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).pl}, dni: ${p.v("days")}).",
+            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).pl}, dni: ${p.v("days")}).",
     )
     NotificationType.DAYS_OFF_CORRECTED_TO_OWNER ->
         // `pool` (v3.2.0) names the adjusted paid pool; pre-v3.2.0 rows carry none.
         if (p["operation"] == "SUBTRACT") LocalizedText(
-            en = "${p.v("manager")} subtracted ${p.v("days")} day(s) from your \"${poolLabel(p)}\" budget for ${p.v("year")}.",
-            pl = "${p.v("manager")} odjął/odjęła ${p.v("days")} dni z Twojej puli „${poolLabel(p)}” na rok ${p.v("year")}.",
+            en = "${p.v("manager")} subtracted ${p.v("days")} day(s) from your \"${poolLabel(p).en}\" budget for ${p.v("year")}.",
+            pl = "${p.v("manager")} odjął/odjęła ${p.v("days")} dni z Twojej puli „${poolLabel(p).pl}” na rok ${p.v("year")}.",
         ) else LocalizedText(
-            en = "${p.v("manager")} added ${p.v("days")} day(s) to your \"${poolLabel(p)}\" budget for ${p.v("year")}.",
-            pl = "${p.v("manager")} dodał/dodała ${p.v("days")} dni do Twojej puli „${poolLabel(p)}” na rok ${p.v("year")}.",
+            en = "${p.v("manager")} added ${p.v("days")} day(s) to your \"${poolLabel(p).en}\" budget for ${p.v("year")}.",
+            pl = "${p.v("manager")} dodał/dodała ${p.v("days")} dni do Twojej puli „${poolLabel(p).pl}” na rok ${p.v("year")}.",
         )
     NotificationType.DAYS_OFF_ALLOWANCE_CHANGED ->
         // `from` is absent on a first assignment (the audit-delta idiom); `pool` (v3.2.0)
         // names the paid pool.
         if (p["from"] != null) LocalizedText(
-            en = "${p.v("manager")} changed your annual \"${poolLabel(p)}\" allowance " +
+            en = "${p.v("manager")} changed your annual \"${poolLabel(p).en}\" allowance " +
                 "from ${p.v("from")} to ${p.v("to")} day(s).",
-            pl = "${p.v("manager")} zmienił/zmieniła Twój roczny limit puli „${poolLabel(p)}” " +
+            pl = "${p.v("manager")} zmienił/zmieniła Twój roczny limit puli „${poolLabel(p).pl}” " +
                 "z ${p.v("from")} na ${p.v("to")} dni.",
         ) else LocalizedText(
-            en = "${p.v("manager")} set your annual \"${poolLabel(p)}\" allowance to ${p.v("to")} day(s).",
-            pl = "${p.v("manager")} ustawił/ustawiła Twój roczny limit puli „${poolLabel(p)}” na ${p.v("to")} dni.",
+            en = "${p.v("manager")} set your annual \"${poolLabel(p).en}\" allowance to ${p.v("to")} day(s).",
+            pl = "${p.v("manager")} ustawił/ustawiła Twój roczny limit puli „${poolLabel(p).pl}” na ${p.v("to")} dni.",
         )
     NotificationType.PULSE_CYCLE_SCHEDULED -> LocalizedText(
         en = "A pulse survey is scheduled to open on ${p.v("openDate")}.",

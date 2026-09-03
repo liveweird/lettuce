@@ -281,6 +281,25 @@ describe("NotificationsButton", () => {
         },
       },
       {
+        // v3.2.1: a PAID request names its pool in place of the type word.
+        ...base,
+        id: 151,
+        type: "DAYS_OFF_REQUESTED_TO_MANAGER",
+        link: "/days-off?tab=team",
+        params: {
+          requester: "Riley Report", type: "PAID", pool: "Maternal leave", days: "3",
+          startDate: "2026-09-07", endDate: "2026-09-09",
+        },
+      },
+      {
+        // A pre-pool allowance row (no `pool`) reads as the default pool.
+        ...base,
+        id: 152,
+        type: "DAYS_OFF_ALLOWANCE_CHANGED",
+        link: "/days-off?tab=requests",
+        params: { manager: "Mona Manager", to: "30" },
+      },
+      {
         ...base,
         id: 52,
         type: "DAYS_OFF_ACCEPTED_TO_OWNER",
@@ -374,6 +393,19 @@ describe("NotificationsButton", () => {
 
     expect(
       await screen.findByText(
+        "Riley Report requested time off Aug 10, 2026 – Aug 11, 2026 (Paid, 1.5 day(s)).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Riley Report requested time off Sep 7, 2026 – Sep 9, 2026 (Maternal leave, 3 day(s)).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Mona Manager set your yearly "Paid days off" allowance to 30 day(s).'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
         "Riley Report requested time off Aug 10, 2026 – Aug 11, 2026 (Paid, 1.5 day(s)).",
       ),
     ).toBeInTheDocument();

@@ -121,6 +121,7 @@
     "loadError": "Could not load the budget",
     "noReports": "No direct reports.",
     "corrected": "Corrections",
+    "noPools": "No paid pools yet.",
     "userTitle": "Paid days off of {{name}} in {{year}}",
     "notAReport": "This person is not among the people you manage (anymore) — the budget is not available.",
     "allowanceModalTitle": "{{pool}} allowance — {{name}}",
@@ -170,6 +171,8 @@
     "archiveTypeMessage": "\"{{name}}\" will be archived for everyone: nobody can request days from it anymore and every user's grant of it is archived. Past requests stay counted under its name.",
     "archiveFailed": "Archiving the pool kind failed",
     "toastAdded": "Pool kind added",
+    "toastTypeArchived": "Pool kind archived",
+    "loadingPools": "Loading pools…",
     "toastUpdated": "Pool kind updated"
   },
   "holidays": {

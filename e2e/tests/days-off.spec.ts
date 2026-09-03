@@ -219,8 +219,11 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await page.getByLabel("Pool name").fill(POOL_NAME);
   await page.getByLabel("Unused days carry over to the next year").uncheck();
   await page.getByRole("button", { name: "Add pool kind" }).click();
-  await expect(page.getByText("Pool kind added")).toBeVisible();
-  await expect(page.getByText(POOL_NAME)).toBeVisible();
+  // The holiday leg's duplicate tolerance: a stranded kind (a sweep race) answers 409.
+  await expect(
+    page.getByText("Pool kind added").or(page.getByText("A pool kind with that name already exists.")),
+  ).toBeVisible();
+  await expect(page.getByText(POOL_NAME).first()).toBeVisible();
 
   await logout(page);
 
@@ -259,8 +262,10 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await addPool.getByLabel(/^Allowance \(days per year\)/).fill("3");
   await addPool.getByRole("button", { name: "Add pool", exact: true }).click();
   await expect(page.getByText("Pool added")).toBeVisible();
-  // The new strip renders beside the default one, flagged as a yearly-reset pool.
-  await expect(page.getByText(POOL_NAME)).toBeVisible();
+  // The new strip renders beside the default one, flagged as a yearly-reset pool (first():
+  // the managed table below prints pool names too, and an earlier run's cancelled row can
+  // share this run's Monday — the 40-minute window repeats).
+  await expect(page.getByText(POOL_NAME).first()).toBeVisible();
   await expect(page.getByText("resets yearly")).toBeVisible();
   await logout(page);
 
@@ -554,7 +559,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await page.goto("/days-off-pools");
   await page.getByLabel(`Archive the ${POOL_NAME} pool kind`).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
-  await expect(page.getByText("Pool archived")).toBeVisible();
+  await expect(page.getByText("Pool kind archived")).toBeVisible();
   await expect(page.getByText(POOL_NAME)).toHaveCount(0);
   await page.goto("/public-holidays");
   const holidayRow = page

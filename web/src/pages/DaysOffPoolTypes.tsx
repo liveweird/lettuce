@@ -139,7 +139,7 @@ export default function DaysOffPoolTypes() {
       await queryClient.invalidateQueries({ queryKey: ["daysOffPoolTypes"] });
       queryClient.invalidateQueries({ queryKey: ["daysOffBudgets"] });
     },
-    successMessage: t("daysOff.pool.toastArchived"),
+    successMessage: t("daysOff.pool.toastTypeArchived"),
   });
 
   const admin = isAdmin();
@@ -264,10 +264,14 @@ export default function DaysOffPoolTypes() {
               <TextInput
                 label={t("daysOff.pool.name")}
                 value={name}
-                onChange={(e) => setName(e.currentTarget.value)}
+                onChange={(e) => {
+                  setName(e.currentTarget.value);
+                  setError(null);
+                }}
                 maxLength={MAX_NAME}
                 description={charCountDescription(name.length, MAX_NAME)}
                 inputWrapperOrder={["label", "input", "description", "error"]}
+                withAsterisk
                 w={260}
               />
               <Checkbox
