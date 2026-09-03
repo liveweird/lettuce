@@ -29,6 +29,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:8080',
+      // The integration GraphQL endpoint lives outside /api (see the integration-api doc); the
+      // e2e integration-clients spec calls it through the SPA origin in the SPA-only posture.
+      // Anchored: a bare '/integration' prefix would also swallow the SPA route /integration-clients.
+      '^/integration/': 'http://localhost:8080',
     },
   },
   build: {

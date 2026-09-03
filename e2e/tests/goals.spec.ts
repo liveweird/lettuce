@@ -208,7 +208,7 @@ test("the Goals-I've-set tab: Reports widens from own goals to goals set down th
   await expect(page.getByRole("tab", { name: "Goals I've set" })).toBeVisible();
   // Scope the walk to the unique title (a shared database may hold other goals), and let the
   // filtered response land before asserting absence — direct scope must not leak the chain goal.
-  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("title=") && r.ok()),
     page.getByLabel("Title").fill(title),
@@ -266,7 +266,7 @@ test("a chain manager creates a goal for a skip-level report via the widened pic
   // The creator IS the goal's manager: the draft sits in Manager CCC's own "Goals I've set"
   // list at the DIRECT scope — no widening needed to see one's own authored goal.
   await page.goto("/goals?tab=managed");
-  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("title=") && r.ok()),
     page.getByLabel("Title").fill(title),

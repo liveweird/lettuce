@@ -286,7 +286,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await newRequest(page, FRIDAY_ISO, FRIDAY_ISO, "1", false, POOL_NAME);
   // The page-1 rule again (far-future residue outranks this run's rows in the -startDate
   // sort): filter to Requested before looking for the fresh row (step 10 re-sets the filter).
-  const poolFilters = page.getByRole("button", { name: "Filters" });
+  const poolFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await poolFilters.getAttribute("aria-expanded")) !== "true") await poolFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
   await page.getByRole("option", { name: "Requested" }).click();
@@ -310,7 +310,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // Mondays that outrank this run's rows in the From-sorted table — once they fill page 1,
   // the fresh pending rows fall off it. Filter the team view to Requested (the sweep already
   // cancelled any stranded pending rows, so only this run's two remain).
-  const teamFilters = page.getByRole("button", { name: "Filters" });
+  const teamFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await teamFilters.getAttribute("aria-expanded")) !== "true") await teamFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
   await page.getByRole("option", { name: "Requested" }).click();
@@ -341,7 +341,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // Residue-proof (v1.52.0): the drill-down table pages at 20 From-desc, and far-future
   // rejected/cancelled residue from earlier runs fills page 1 — filter to Accepted before
   // asserting (the page-1 rule for shared-DB tables).
-  const drillFilters = page.getByRole("button", { name: "Filters" });
+  const drillFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await drillFilters.getAttribute("aria-expanded")) !== "true") await drillFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
   await page.getByRole("option", { name: "Accepted" }).click();
@@ -373,7 +373,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // Residue-proof (v1.52.0): same page-1 rule on the own-requests table. Check Rejected
   // first, then leave the filter on Accepted so the cancel step below still finds its row
   // (the stored filter survives the re-goto).
-  const ownFilters = page.getByRole("button", { name: "Filters" });
+  const ownFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await ownFilters.getAttribute("aria-expanded")) !== "true") await ownFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
   await page.getByRole("option", { name: "Rejected" }).click();
@@ -412,7 +412,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   const budgetBefore = await budgetStrip.innerText();
   await newRequest(page, WEDNESDAY_ISO, WEDNESDAY_ISO, "1", true);
   // The stored Status filter still says Accepted — flip it to Requested to see the fresh row.
-  const unpaidFilters = page.getByRole("button", { name: "Filters" });
+  const unpaidFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await unpaidFilters.getAttribute("aria-expanded")) !== "true") await unpaidFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
   await page.getByRole("option", { name: "Requested" }).click();
@@ -495,7 +495,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
   await page.goto("/days-off?tab=team");
-  const cleanupFilters = page.getByRole("button", { name: "Filters" });
+  const cleanupFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await cleanupFilters.getAttribute("aria-expanded")) !== "true") await cleanupFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
   await page.getByRole("option", { name: "Accepted" }).click();
