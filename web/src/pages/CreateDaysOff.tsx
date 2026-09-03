@@ -301,7 +301,7 @@ export default function CreateDaysOff() {
                   </Text>
                 )}
                 {type === "PAID" && budget != null && budget.allowance == null && (
-                  <Text size="xs" c="orange">
+                  <Text size="xs" c="var(--lettuce-ink-warning)">
                     {t(onBehalf ? "daysOff.budget.noAllowanceOnBehalf" : "daysOff.budget.noAllowance")}
                   </Text>
                 )}

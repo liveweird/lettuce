@@ -85,7 +85,7 @@ export default function AlertsBanner() {
         h={ALERTS_BAR_HEIGHT}
         px="md"
         bg="orange"
-        c="white"
+        c="var(--mantine-color-black)"
         aria-hidden={!hidden || undefined}
       >
         {hidden && (
@@ -96,7 +96,7 @@ export default function AlertsBanner() {
             </Text>
             <ActionIcon
               variant="transparent"
-              c="white"
+              c="var(--mantine-color-black)"
               size="sm"
               aria-label={t("alerts.banner.show")}
               onClick={() => toggleHidden(false)}
@@ -116,6 +116,7 @@ export default function AlertsBanner() {
             <Alert
               color="orange"
               variant="filled"
+              autoContrast
               icon={<IconSpeakerphone size={20} />}
               radius={0}
               styles={{
@@ -137,7 +138,7 @@ export default function AlertsBanner() {
                     style={{
                       display: "inline-block",
                       backgroundColor: "var(--mantine-color-white)",
-                      color: "var(--mantine-color-orange-filled)",
+                      color: "var(--lettuce-ink-warning)",
                       borderRadius: "var(--mantine-radius-sm)",
                     }}
                   >
@@ -148,7 +149,7 @@ export default function AlertsBanner() {
                   <Group gap={4} wrap="nowrap">
                     <ActionIcon
                       variant="transparent"
-                      c="white"
+                      c="var(--mantine-color-black)"
                       size="sm"
                       className={classes.pagerButton}
                       disabled={index <= 0}
@@ -165,7 +166,7 @@ export default function AlertsBanner() {
                     </Text>
                     <ActionIcon
                       variant="transparent"
-                      c="white"
+                      c="var(--mantine-color-black)"
                       size="sm"
                       className={classes.pagerButton}
                       disabled={index >= items.length - 1}
@@ -178,7 +179,7 @@ export default function AlertsBanner() {
                 )}
                 <ActionIcon
                   variant="transparent"
-                  c="white"
+                  c="var(--mantine-color-black)"
                   size="sm"
                   aria-label={t("alerts.banner.hide")}
                   onClick={() => toggleHidden(true)}

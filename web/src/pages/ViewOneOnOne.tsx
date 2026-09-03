@@ -172,7 +172,7 @@ export default function ViewOneOnOne() {
                                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                                   <Badge
                                     variant="light"
-                                    color={item.resolved ? "green" : "yellow"}
+                                    color={item.resolved ? "teal" : "yellow"}
                                     style={{ minWidth: "max-content" }}
                                   >
                                     {item.resolved ? t("oneOnOne.resolved") : t("oneOnOne.open")}

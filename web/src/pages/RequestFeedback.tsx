@@ -256,7 +256,7 @@ export default function RequestFeedback() {
                               to={feedbackViewLink(dup.existingId)}
                               size="xs"
                               fw={600}
-                              c="orange"
+                              c="var(--lettuce-ink-warning)"
                             >
                               {t("feedback.duplicate.open")}
                             </Anchor>

@@ -332,7 +332,7 @@ export default function NotificationsButton() {
         inline
         size={18}
         offset={4}
-        color="red"
+        color="red.8"
         label={unreadCount > 99 ? "99+" : unreadCount}
         disabled={unreadCount === 0}
       >

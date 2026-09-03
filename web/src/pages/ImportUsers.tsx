@@ -26,7 +26,7 @@ import { importUsers, type UserImportResult, type UserImportRow } from "../api/u
 import { invalidateUser } from "../utils/userQueries";
 
 const STATUS_COLOR: Record<UserImportRow["status"], string> = {
-  CREATED: "green",
+  CREATED: "teal",
   DUPLICATE: "yellow",
   PARSE_ERROR: "red",
   EMAIL_FAILED: "orange",

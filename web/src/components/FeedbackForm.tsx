@@ -177,7 +177,7 @@ export default function FeedbackForm({
         onChange={(md) => form.setFieldValue("content", md)}
       />
       {form.errors.content && (
-        <Text size="sm" c="red">
+        <Text size="sm" c="var(--lettuce-ink-error)">
           {form.errors.content}
         </Text>
       )}

@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 // A deliberately mixed file (the auth.tsx precedent): the goal value/overdue helpers and their
 // small presentational components share one home, at the cost of Fast Refresh for it.
-import { Badge, Group, Progress, Stack, Text } from "@mantine/core";
+import { Group, Progress, Stack, Text } from "@mantine/core";
+import StatusPill from "../components/StatusPill";
 import { useTranslation } from "react-i18next";
 import type { GoalResponse, GoalStatus, GoalType, TargetDirection } from "../api/goals";
 import ReadOnlyField from "../components/ReadOnlyField";
@@ -18,9 +19,9 @@ export function isGoalOverdue(status: GoalStatus, dueDate: string): boolean {
 export function OverdueBadge() {
   const { t } = useTranslation();
   return (
-    <Badge variant="light" color="orange" style={{ minWidth: "max-content" }}>
+    <StatusPill color="orange" dot>
       {t("goal.overdue")}
-    </Badge>
+    </StatusPill>
   );
 }
 
@@ -82,13 +83,9 @@ export function TargetDelta({
   locale: string;
 }) {
   return (
-    <Badge
-      variant="light"
-      color={meetsTarget(direction, value, target) ? "teal" : "red"}
-      style={{ minWidth: "max-content" }}
-    >
+    <StatusPill color={meetsTarget(direction, value, target) ? "teal" : "red"} dot>
       {formatTargetDelta(type, value, target, locale)}
-    </Badge>
+    </StatusPill>
   );
 }
 

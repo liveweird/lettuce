@@ -38,7 +38,7 @@ export default function ActionItemHistoryModal({
           <Loader size="sm" />
         </Center>
       ) : isError ? (
-        <Text c="red" size="sm">
+        <Text c="var(--lettuce-ink-error)" size="sm">
           {t("oneOnOne.itemHistoryError")}
         </Text>
       ) : !data || data.length === 0 ? (
@@ -54,7 +54,7 @@ export default function ActionItemHistoryModal({
             >
               <Text size="sm">{entry.content}</Text>
               <Group gap="xs" mt={4}>
-                <Badge variant="light" color={entry.resolved ? "green" : "yellow"}>
+                <Badge variant="light" color={entry.resolved ? "teal" : "yellow"}>
                   {entry.resolved ? t("oneOnOne.resolved") : t("oneOnOne.open")}
                 </Badge>
                 <Text size="xs" c="dimmed">

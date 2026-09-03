@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Button,
   Group,
   Menu,
@@ -28,8 +27,10 @@ import {
   IconUserCog,
   IconUserOff,
   IconUsersGroup,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import PersonaChip from "../components/PersonaChip";
+import StatusPill from "../components/StatusPill";
 import { getUserId, hasFeature, isAdmin, USER_ROLES, type UserRole } from "../api/session";
 import { logout } from "../api/auth";
 import { deactivateUser, deleteUser, listUsers, reactivateUser } from "../api/users";
@@ -321,9 +322,7 @@ export default function Users() {
                         deactivated user renders exactly like an active one. Gray on purpose:
                         neither the brand accent nor a semantic state color. */}
                     {u.deactivated && (
-                      <Badge variant="light" color="gray" style={{ minWidth: "max-content" }}>
-                        {t("users.inactiveBadge")}
-                      </Badge>
+                      <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>
                     )}
                   </Group>
                 </Table.Td>
@@ -338,32 +337,32 @@ export default function Users() {
                       {u.uniqueId}
                     </Text>
                   ) : (
-                    /* Orange = warning, actionable-missing (the career "Not set" idiom):
-                       the id is optional but should be filled ASAP. */
-                    <Badge
-                      size="sm"
-                      variant="light"
-                      color="orange"
-                      style={{ minWidth: "max-content" }}
-                      aria-label={t("users.uniqueId")}
-                    >
-                      {t("users.uniqueIdMissingBadge")}
-                    </Badge>
+                    /* The quiet admin cue (v2.19.0, restyled v3.3.0): a warning-coloured icon
+                       beside dimmed text — the id is optional but should be filled ASAP, and
+                       the "Missing only" filter finds every such row. */
+                    <Group gap={4} wrap="nowrap">
+                      <IconAlertCircle
+                        size={14}
+                        aria-hidden="true"
+                        style={{ color: "var(--lettuce-ink-warning)", flexShrink: 0 }}
+                      />
+                      <Text size="sm" c="dimmed" fs="italic" aria-label={t("users.uniqueId")}>
+                        {t("users.uniqueIdMissingBadge")}
+                      </Text>
+                    </Group>
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.roles.length > 0 ? (
                     <Group gap={4} wrap="nowrap">
                       {u.roles.map((role) => (
-                        <Badge
+                        <StatusPill
                           key={role}
-                          variant="filled"
                           color={role === "HR" ? "cyan" : "grape"}
-                          style={{ minWidth: "max-content" }}
-                          aria-label={t("common.field.roles")}
+                          ariaLabel={t("common.field.roles")}
                         >
                           {t(`common.role.${role}`)}
-                        </Badge>
+                        </StatusPill>
                       ))}
                     </Group>
                   ) : (

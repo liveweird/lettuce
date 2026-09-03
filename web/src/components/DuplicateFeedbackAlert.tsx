@@ -30,7 +30,7 @@ export default function DuplicateFeedbackAlert({
         </>
       )}
       {status === "DRAFT" ? t("feedback.duplicate.draft") : t("feedback.duplicate.requested")}{" "}
-      <Anchor component={RouterLink} to={to} fw={600} c="orange">
+      <Anchor component={RouterLink} to={to} fw={600} c="var(--lettuce-ink-warning)">
         {t("feedback.duplicate.open")}
       </Anchor>
     </Alert>
