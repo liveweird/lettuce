@@ -36,9 +36,9 @@ export const DARK_TOKENS = {
  *  own 3/4-shades, which already clear 6:1 on their tints). */
 export const LIGHT_VARIANT_INKS = {
   lettuce: "#166534",
-  teal: "#087f5b",
+  teal: "#087255",
   orange: "#b23a0a",
-  red: "#c92a2a",
+  red: "#b91c1c",
   yellow: "#8a4800",
   gray: "#495057",
   blue: "#1864ab",

@@ -15,21 +15,10 @@ function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 }
-/** A translucent colour composited over an opaque ground (Mantine's light-variant tint is the
- *  hue's 6-shade at 10% over the surface). */
-function blend(fg: string, alpha: number, bg: string): string {
-  const mix = (offset: number) => {
-    const f = Number.parseInt(fg.slice(offset, offset + 2), 16);
-    const b = Number.parseInt(bg.slice(offset, offset + 2), 16);
-    return Math.round(f * alpha + b * (1 - alpha))
-      .toString(16)
-      .padStart(2, "0");
-  };
-  return `#${mix(1)}${mix(3)}${mix(5)}`;
-}
-
 const WHITE = "#ffffff";
-const LETTUCE_6 = "#16a34a";
+// Mantine 9 paints a light-variant surface with the hue's SOLID 1-shade in the light scheme
+// (`--mantine-color-<hue>-light: var(--mantine-color-<hue>-1)`) — the ink must clear AA on it.
+const LETTUCE_1 = "#dcfce7";
 const AA = 4.5;
 
 describe("theme colour tokens (WCAG AA)", () => {
@@ -40,12 +29,13 @@ describe("theme colour tokens (WCAG AA)", () => {
     }
   });
 
-  it("every light-variant ink clears 4.5:1 on its hue tint", () => {
+  it("every light-variant ink clears 4.5:1 on its hue's light surface (the 1-shade)", () => {
     for (const [hue, ink] of Object.entries(LIGHT_VARIANT_INKS)) {
-      const base = hue === "lettuce" ? LETTUCE_6 : DEFAULT_THEME.colors[hue][6];
-      expect(base, `unknown hue ${hue}`).toBeDefined();
-      const tint = blend(base, 0.1, WHITE);
-      expect(contrast(ink, tint), `${hue} ink ${ink} on tint ${tint}`).toBeGreaterThanOrEqual(AA);
+      const surface = hue === "lettuce" ? LETTUCE_1 : DEFAULT_THEME.colors[hue][1];
+      expect(surface, `unknown hue ${hue}`).toBeDefined();
+      expect(contrast(ink, surface), `${hue} ink ${ink} on ${surface}`).toBeGreaterThanOrEqual(AA);
+      // The same ink also sits on white/canvas surfaces (links, filled-on-light text).
+      expect(contrast(ink, WHITE), `${hue} ink ${ink} on white`).toBeGreaterThanOrEqual(AA);
     }
   });
 

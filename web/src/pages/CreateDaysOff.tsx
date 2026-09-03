@@ -292,7 +292,7 @@ export default function CreateDaysOff() {
                   })}
                 </Text>
                 {type === "PAID" && budget != null && (
-                  <Text size="sm" c={overBudget ? "red" : "dimmed"}>
+                  <Text size="sm" c={overBudget ? "var(--lettuce-ink-error)" : "dimmed"}>
                     {t("daysOff.remainingPreview", {
                       days: formatDays(budget.remaining, i18n.language),
                       pool: budget.poolName,

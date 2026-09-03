@@ -8,16 +8,12 @@ import { ADMIN, expect, login, test } from "./helpers";
 
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
-// Conscious waiver, not a fix backlog: the theme's dimmed/muted text and brand surfaces
-// (v1.35.0 design language) sit below the 4.5:1 AA ratio by design across every page.
-// Revisit only as a deliberate theme-wide design pass — never by patching single elements.
-const WAIVED_RULES = ["color-contrast"];
+// No waived rules since v3.3.0: the theme-wide colour pass (themeVariables.ts) brought every
+// text/badge/link colour to the 4.5:1 AA ratio in both schemes, so color-contrast runs
+// un-waived — a regression here is a token bug, never a reason to re-waive the rule.
 
 async function scan(page: Parameters<typeof login>[0]): Promise<void> {
-  const results = await new AxeBuilder({ page })
-    .withTags(AXE_TAGS)
-    .disableRules(WAIVED_RULES)
-    .analyze();
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
   // Keep the assert readable on failure: one line per violation with the offending nodes.
   const summary = results.violations.map((v) => ({
     id: v.id,
@@ -77,3 +73,25 @@ for (const { path, heading } of AUTHED_PAGES) {
     await scan(page);
   });
 }
+
+// The two chrome states the page list cannot reach (v3.3.0): the open notifications panel
+// and the collapsed icon rail (icon-only links, groups as menus).
+test("the open notifications panel has no WCAG A/AA violations", async ({ page }) => {
+  await login(page, ADMIN);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: "Notifications" })).toBeVisible();
+  // Let the panel's enter transition settle — axe would otherwise measure the mid-fade opacity.
+  await page.waitForTimeout(500);
+  await scan(page);
+});
+
+test("the collapsed icon rail has no WCAG A/AA violations", async ({ page }) => {
+  await login(page, ADMIN);
+  await page.goto("/users");
+  await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+  await page.getByRole("button", { name: "Show or hide the navigation" }).click();
+  await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+  await scan(page);
+});
