@@ -1,5 +1,5 @@
-import { Box, Button, Menu } from "@mantine/core";
-import { IconCheck, IconChevronDown, IconLanguage } from "@tabler/icons-react";
+import { ActionIcon, Box, Menu, Tooltip } from "@mantine/core";
+import { IconCheck, IconLanguage } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { setUserLanguage } from "../api/users";
@@ -8,7 +8,7 @@ import { asSupportedLanguage, NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from 
 /**
  * The header language menu (a SegmentedControl until v2.20.0 — a Menu scales past two
  * languages). Entries are the languages' NATIVE names, readable before switching; the
- * trigger shows the current code. Since v2.21.0 this is also the self-service writer of the
+ * trigger's tooltip shows the current code. Since v2.21.0 this is also the self-service writer of the
  * SERVER-side user language (one synced language: it drives the UI at sign-in and every
  * email sent to the user) — the save is fire-and-forget: the UI switches regardless, and a
  * failed sync self-heals at the next switch or stays visible only in email language.
@@ -29,15 +29,13 @@ export default function LanguageSwitcher() {
   return (
     <Menu position="bottom-end" withinPortal>
       <Menu.Target>
-        <Button
-          variant="default"
-          size="xs"
-          aria-label={t("common.language.label")}
-          leftSection={<IconLanguage size={14} />}
-          rightSection={<IconChevronDown size={12} />}
-        >
-          {current.toUpperCase()}
-        </Button>
+        {/* One of the header's uniform icon controls (v3.3.0); the current code rides the
+            tooltip, the menu marks it with a check. */}
+        <Tooltip label={`${t("common.language.label")} · ${current.toUpperCase()}`}>
+          <ActionIcon variant="subtle" color="gray" size="lg" aria-label={t("common.language.label")}>
+            <IconLanguage size={18} />
+          </ActionIcon>
+        </Tooltip>
       </Menu.Target>
       <Menu.Dropdown>
         {SUPPORTED_LANGUAGES.map((lng) => (

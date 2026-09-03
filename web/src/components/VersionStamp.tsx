@@ -8,11 +8,13 @@ import { APP_VERSION } from "../changelog/version";
 // avoids timezone re-interpretation. APP_VERSION is the newest changelog entry.
 // With `to` set, the stamp renders as a router link (the navbar instance points
 // at /changelog); without it, plain text (the login screen, where /changelog is
-// behind auth).
-export default function VersionStamp({ to, ...props }: TextProps & { to?: string }) {
+// behind auth). `compact` shows the version only (the icon rail, v3.3.0).
+export default function VersionStamp({ to, compact = false, ...props }: TextProps & { to?: string; compact?: boolean }) {
   const { t } = useTranslation();
   const time = __APP_COMMIT_TIME__.slice(0, 16).replace("T", " ");
-  const stamp = (
+  const stamp = compact ? (
+    `v${APP_VERSION}`
+  ) : (
     <>
       {`v${APP_VERSION} · ${__APP_COMMIT__}`}
       {time && ` · ${time}`}

@@ -4,7 +4,7 @@ import { IconDotsVertical } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 
-export type RowActionItem = {
+type RowActionItem = {
   /** The visible tooltip / menu text. */
   label: string;
   /** The accessible name when it must differ from the label (the templated per-row arias,
@@ -22,7 +22,7 @@ export type RowActionItem = {
   dividerBefore?: boolean;
 };
 
-export type RowActionMenu = {
+type RowActionMenu = {
   /** The trigger's accessible name (e.g. "Feedback actions for {{name}}"). */
   label: string;
   icon: ReactNode;

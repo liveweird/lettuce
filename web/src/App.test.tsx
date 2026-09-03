@@ -319,6 +319,44 @@ describe("App shell", () => {
       expect(screen.queryByTitle("What's new")).not.toBeInTheDocument();
     });
 
+    test("the navigation is grouped into labelled sections with the account items in the footer", async () => {
+      renderApp("/");
+      expect(await screen.findByRole("group", { name: "Overview" })).toBeInTheDocument();
+      const myWork = screen.getByRole("group", { name: "My work" });
+      expect(within(myWork).getByRole("link", { name: /^feedback$/i })).toHaveAttribute("href", "/feedback");
+      const team = screen.getByRole("group", { name: "Team" });
+      expect(within(team).getByRole("link", { name: /^team kpis$/i })).toHaveAttribute("href", "/team-kpis");
+      // Succession plans is manager-only — the probe answers nothing here, so it stays hidden.
+      expect(within(team).queryByRole("link", { name: /succession/i })).not.toBeInTheDocument();
+      const admin = screen.getByRole("group", { name: "Administration" });
+      expect(within(admin).getByRole("button", { name: /^config$/i })).toBeInTheDocument();
+      // The account items are no section's business: they live in the footer with the stamp.
+      expect(within(myWork).queryByRole("link", { name: /^changelog$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /^changelog$/i })).toHaveAttribute("href", "/changelog");
+    });
+
+    test("the collapsed navbar is an icon rail that keeps every link name and turns groups into menus", async () => {
+      const NAV_KEY = "lettuce.viewSettings.appShell.navCollapsed";
+      localStorage.setItem(NAV_KEY, "true");
+      try {
+        const user = userEvent.setup();
+        renderApp("/");
+        expect(await screen.findByRole("link", { name: /^dashboard$/i })).toHaveAttribute("href", "/");
+        expect(screen.getByRole("link", { name: /^feedback$/i })).toHaveAttribute("href", "/feedback");
+        // No visible section labels in rail mode, but the groups keep their accessible names.
+        expect(screen.queryByText("My work")).not.toBeInTheDocument();
+        expect(screen.getByRole("group", { name: "My work" })).toBeInTheDocument();
+        // A group is a menu trigger; its leaves are menu items that still carry their targets.
+        await user.click(screen.getByRole("button", { name: /^config$/i }));
+        expect(await screen.findByRole("menuitem", { name: /^users$/i })).toHaveAttribute("href", "/users");
+        // The footer keeps the account links and the (compact) version stamp.
+        expect(screen.getByRole("link", { name: /^changelog$/i })).toHaveAttribute("href", "/changelog");
+        expect(screen.getByTitle("Build version")).toHaveTextContent(`v${APP_VERSION}`);
+      } finally {
+        localStorage.removeItem(NAV_KEY);
+      }
+    });
+
     test("the desktop navbar toggle collapses, persists, and restores across remounts", async () => {
       const NAV_KEY = "lettuce.viewSettings.appShell.navCollapsed";
       // The sidebar toggle exposes its state via data-expanded (set while the navbar shows).
