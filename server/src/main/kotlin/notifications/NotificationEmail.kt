@@ -73,6 +73,9 @@ private fun subjectFor(type: NotificationType): LocalizedText = if (
 /** Missing-param fallback: render "?" rather than fail the whole email. */
 private fun Map<String, String>.v(key: String): String = this[key] ?: "?"
 
+/** The paid pool's name (v3.2.0); rows minted before the pools existed name the only pool there was. */
+private fun poolLabel(p: Map<String, String>): String = p["pool"] ?: "Paid days off"
+
 private fun daysOffType(value: String): LocalizedText = when (value) {
     "PAID" -> LocalizedText(en = "Paid", pl = "Płatne")
     "UNPAID" -> LocalizedText(en = "Unpaid", pl = "Bezpłatne")
@@ -281,23 +284,25 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
             "${p.v("startDate")} – ${p.v("endDate")} (${daysOffType(p.v("type")).pl}, dni: ${p.v("days")}).",
     )
     NotificationType.DAYS_OFF_CORRECTED_TO_OWNER ->
+        // `pool` (v3.2.0) names the adjusted paid pool; pre-v3.2.0 rows carry none.
         if (p["operation"] == "SUBTRACT") LocalizedText(
-            en = "${p.v("manager")} subtracted ${p.v("days")} day(s) from your paid days-off budget for ${p.v("year")}.",
-            pl = "${p.v("manager")} odjął/odjęła ${p.v("days")} dni z Twojego budżetu płatnych dni na rok ${p.v("year")}.",
+            en = "${p.v("manager")} subtracted ${p.v("days")} day(s) from your \"${poolLabel(p)}\" budget for ${p.v("year")}.",
+            pl = "${p.v("manager")} odjął/odjęła ${p.v("days")} dni z Twojej puli „${poolLabel(p)}” na rok ${p.v("year")}.",
         ) else LocalizedText(
-            en = "${p.v("manager")} added ${p.v("days")} day(s) to your paid days-off budget for ${p.v("year")}.",
-            pl = "${p.v("manager")} dodał/dodała ${p.v("days")} dni do Twojego budżetu płatnych dni na rok ${p.v("year")}.",
+            en = "${p.v("manager")} added ${p.v("days")} day(s) to your \"${poolLabel(p)}\" budget for ${p.v("year")}.",
+            pl = "${p.v("manager")} dodał/dodała ${p.v("days")} dni do Twojej puli „${poolLabel(p)}” na rok ${p.v("year")}.",
         )
     NotificationType.DAYS_OFF_ALLOWANCE_CHANGED ->
-        // `from` is absent on a first assignment (the audit-delta idiom).
+        // `from` is absent on a first assignment (the audit-delta idiom); `pool` (v3.2.0)
+        // names the paid pool.
         if (p["from"] != null) LocalizedText(
-            en = "${p.v("manager")} changed your annual paid days-off allowance " +
+            en = "${p.v("manager")} changed your annual \"${poolLabel(p)}\" allowance " +
                 "from ${p.v("from")} to ${p.v("to")} day(s).",
-            pl = "${p.v("manager")} zmienił/zmieniła Twój roczny limit płatnych dni wolnych " +
+            pl = "${p.v("manager")} zmienił/zmieniła Twój roczny limit puli „${poolLabel(p)}” " +
                 "z ${p.v("from")} na ${p.v("to")} dni.",
         ) else LocalizedText(
-            en = "${p.v("manager")} set your annual paid days-off allowance to ${p.v("to")} day(s).",
-            pl = "${p.v("manager")} ustawił/ustawiła Twój roczny limit płatnych dni wolnych na ${p.v("to")} dni.",
+            en = "${p.v("manager")} set your annual \"${poolLabel(p)}\" allowance to ${p.v("to")} day(s).",
+            pl = "${p.v("manager")} ustawił/ustawiła Twój roczny limit puli „${poolLabel(p)}” na ${p.v("to")} dni.",
         )
     NotificationType.PULSE_CYCLE_SCHEDULED -> LocalizedText(
         en = "A pulse survey is scheduled to open on ${p.v("openDate")}.",

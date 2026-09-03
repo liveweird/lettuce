@@ -1,8 +1,10 @@
 package ch.nokillswit.daysoff
 
 import ch.nokillswit.audit.audit
+import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffCancel
@@ -20,6 +22,7 @@ import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
+import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
@@ -77,6 +80,27 @@ class DaysOffCorrections {
     @Serializable
     @Resource("{id}")
     class Id(val parent: DaysOffCorrections = DaysOffCorrections(), val id: UInt)
+}
+
+// The per-user paid pools (v3.2.0): a DELETE-only sub-resource — grants are created/updated
+// through PUT /days-off/allowance and read as GET /days-off/budgets rows (which carry the
+// grant id as `poolId`).
+@Serializable
+@Resource("/api/v1/days-off/pools")
+class DaysOffPools {
+    @Serializable
+    @Resource("{id}")
+    class Id(val parent: DaysOffPools = DaysOffPools(), val id: UInt)
+}
+
+// The org-wide pool kinds registry (v3.2.0): everyone reads, ADMIN writes — the
+// public-holidays shape.
+@Serializable
+@Resource("/api/v1/days-off/pool-types")
+class DaysOffPoolTypes {
+    @Serializable
+    @Resource("{id}")
+    class Id(val parent: DaysOffPoolTypes = DaysOffPoolTypes(), val id: UInt)
 }
 
 // The gated caller (V46): every days-off handler (requests, calendar, budgets, corrections)
@@ -194,6 +218,7 @@ fun Application.configureDaysOffRoutes() {
                     userName = params.optionalString("userName"),
                     userId = if (view == DaysOffListView.USER) null else userId,
                     type = params.optionalEnum<DaysOffType>("type"),
+                    poolTypeId = params.optionalUInt("poolTypeId"),
                     status = params.optionalEnum<DaysOffStatus>("status"),
                     startDateGte = startDateGte,
                     startDateLte = startDateLte,
@@ -251,6 +276,7 @@ fun Application.configureDaysOffRoutes() {
                         "targetUserId" to targetId.toLong(),
                         "requestId" to id.toLong(),
                         "type" to request.type.name,
+                        "poolTypeId" to created.poolTypeId?.toLong(),
                         "startDate" to request.startDate,
                         "endDate" to request.endDate,
                         "days" to created.days,
@@ -404,8 +430,9 @@ fun Application.configureDaysOffRoutes() {
                     write.userId != caller.userId && daysOffService.managesOwner(caller.userId, write.userId)
                 }
                 validateDaysOffAllowance(write)
-                val result = userService.setPaidDaysOffAllowance(write.userId, write.allowance)
-                    ?: throw NotFoundException("User not found")
+                // v3.2.0: an upsert of the (user, pool kind) grant — the default kind when
+                // poolTypeId is omitted; an unknown/archived kind is 400 (after the guard).
+                val result = daysOffService.upsertPool(write.userId, write.poolTypeId, write.allowance)
                 if (result.previous != write.allowance) {
                     // A chain manager reshaped a subordinate's paid budget — audited like the
                     // corrections; the owner hears about it (idempotent re-PUTs stay silent).
@@ -413,6 +440,7 @@ fun Application.configureDaysOffRoutes() {
                         daysOffAllowanceChangedNotification(
                             ownerId = write.userId,
                             managerName = userService.read(caller.userId)?.name ?: "?",
+                            poolName = result.kind.name,
                             from = result.previous,
                             to = write.allowance,
                         ),
@@ -420,11 +448,113 @@ fun Application.configureDaysOffRoutes() {
                     val auditFields = mutableListOf<Pair<String, Any?>>(
                         "byUserId" to caller.userId.toLong(),
                         "targetUserId" to write.userId.toLong(),
+                        "poolTypeId" to result.kind.id.toLong(),
                     )
                     result.previous?.let { auditFields += "allowanceFrom" to it.toLong() }
                     auditFields += "allowanceTo" to write.allowance.toLong()
                     audit("days_off.allowance_changed", *auditFields.toTypedArray())
                 }
+                call.respond(HttpStatusCode.NoContent)
+            }
+            // ── Paid pools (v3.2.0) ─────────────────────────────────────────────────────────
+            delete<DaysOffPools.Id> { route ->
+                // Archive a grant: the correction-write preamble (feature 403 → read 404 →
+                // the resolve right against the ROW's user), then the default-kind refusal
+                // (409 — the default pool is only ever overwritten, never removed).
+                val caller = call.daysOffCaller()
+                val existing = daysOffService.readPool(route.id)
+                    ?: throw NotFoundException("Days-off pool not found")
+                requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
+                if (existing.kind.isDefault) {
+                    throw ConflictException("The default days-off pool cannot be archived")
+                }
+                if (daysOffService.archivePool(route.id) == 0) {
+                    throw NotFoundException("Days-off pool not found")
+                }
+                // No notification (the correction edit/delete precedent — the budget rows are
+                // live); audited like the allowance change.
+                audit(
+                    "days_off_pool.archived",
+                    "byUserId" to caller.userId.toLong(),
+                    "targetUserId" to existing.userId.toLong(),
+                    "poolId" to route.id.toLong(),
+                    "poolTypeId" to existing.kind.id.toLong(),
+                    "allowance" to existing.allowance.toLong(),
+                )
+                call.respond(HttpStatusCode.NoContent)
+            }
+            // ── The pool kinds registry (v3.2.0) ────────────────────────────────────────────
+            get<DaysOffPoolTypes> {
+                // Any authenticated caller (the create form's pool picker and the list filter
+                // need it) — active kinds only, the public-holidays shape.
+                call.daysOffCaller()
+                call.respond(HttpStatusCode.OK, DaysOffPoolTypeList(daysOffService.listPoolTypes()))
+            }
+            post<DaysOffPoolTypes> {
+                val caller = call.daysOffCaller()
+                requireAdmin(caller)
+                val write = call.receive<DaysOffPoolTypeWrite>()
+                    .let { it.copy(name = sanitizeSingleLine(it.name, "Pool name")) }
+                validatePoolTypeName(write.name)
+                // A duplicate active name is the DB's partial unique index → 23505 → 409.
+                val id = daysOffService.createPoolType(write)
+                call.response.header(HttpHeaders.Location, call.application.href(DaysOffPoolTypes.Id(id = id)))
+                audit(
+                    "days_off_pool_type.created",
+                    "byUserId" to caller.userId.toLong(),
+                    "poolTypeId" to id.toLong(),
+                    "name" to write.name,
+                    "carriesOver" to write.carriesOver,
+                )
+                val created = daysOffService.readPoolType(id)
+                    .orVanished("Days-off pool type", id)
+                call.respond(HttpStatusCode.Created, created)
+            }
+            put<DaysOffPoolTypes.Id> { route ->
+                val caller = call.daysOffCaller()
+                requireAdmin(caller)
+                val existing = daysOffService.readPoolType(route.id)
+                    ?: throw NotFoundException("Days-off pool type not found")
+                val write = call.receive<DaysOffPoolTypeWrite>()
+                    .let { it.copy(name = sanitizeSingleLine(it.name, "Pool name")) }
+                validatePoolTypeName(write.name)
+                if (daysOffService.updatePoolType(route.id, write) == 0) {
+                    throw NotFoundException("Days-off pool type not found")
+                }
+                val fields = mutableListOf<Pair<String, Any?>>(
+                    "byUserId" to caller.userId.toLong(),
+                    "poolTypeId" to route.id.toLong(),
+                )
+                if (existing.name != write.name) {
+                    fields += "nameFrom" to existing.name
+                    fields += "nameTo" to write.name
+                }
+                if (existing.carriesOver != write.carriesOver) {
+                    fields += "carriesOverFrom" to existing.carriesOver
+                    fields += "carriesOverTo" to write.carriesOver
+                }
+                audit("days_off_pool_type.updated", *fields.toTypedArray())
+                call.respond(HttpStatusCode.NoContent)
+            }
+            delete<DaysOffPoolTypes.Id> { route ->
+                val caller = call.daysOffCaller()
+                requireAdmin(caller)
+                val existing = daysOffService.readPoolType(route.id)
+                    ?: throw NotFoundException("Days-off pool type not found")
+                if (existing.isDefault) {
+                    throw ConflictException("The default days-off pool type cannot be archived")
+                }
+                // Archive (soft delete) — cascades to every active grant of the kind in the
+                // same transaction; history keeps its label.
+                val grantsArchived = daysOffService.archivePoolType(route.id)
+                    ?: throw NotFoundException("Days-off pool type not found")
+                audit(
+                    "days_off_pool_type.archived",
+                    "byUserId" to caller.userId.toLong(),
+                    "poolTypeId" to route.id.toLong(),
+                    "name" to existing.name,
+                    "grantsArchived" to grantsArchived.toLong(),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
         }

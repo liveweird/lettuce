@@ -21,6 +21,8 @@ type DaysOffListQuery = {
   sort?: string;
   userName?: string;
   type?: DaysOffType;
+  /** The paid pool kind (v3.2.0) — implies PAID. */
+  poolTypeId?: number;
   status?: DaysOffStatus;
   startDateGte?: string;
   startDateLte?: string;
@@ -38,6 +40,7 @@ export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
     sort: q.sort,
     userName: q.userName,
     type: q.type,
+    poolTypeId: q.poolTypeId,
     status: q.status,
     "startDate[gte]": q.startDateGte,
     "startDate[lte]": q.startDateLte,
@@ -98,9 +101,12 @@ export type DaysOffBudget =
   paths["/api/v1/days-off/budgets"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
 export type DaysOffBudgetView = "own" | "managed";
 
-/** Per-user paid-days budget rows for a calendar year (own = one row, managed = direct
- * reports, or the whole transitive subtree with includeIndirect — v2.32.0). Each row carries
- * `canCorrect` — whether the caller may write corrections for that user (direct reports only). */
+/** Paid-days budget rows for a calendar year — since v3.2.0 ONE ROW PER (user, paid pool):
+ * the default pool's row always (default-first per user), then the user's extra pools by name
+ * (own = the caller's rows, managed = direct reports', or the whole transitive subtree with
+ * includeIndirect — v2.32.0). Each row carries `canCorrect` — whether the caller may write
+ * corrections for that user — and the pool (`poolTypeId`/`poolName`/`carriesOver`/`isDefault`,
+ * the active grant's `poolId`, and `poolArchived` for history-only rows). */
 export async function listDaysOffBudgets(
   view: DaysOffBudgetView,
   year: number,
@@ -110,13 +116,52 @@ export async function listDaysOffBudgets(
   return (await jsonRequest<{ items: DaysOffBudget[] }>(`/api/v1/days-off/budgets?${params}`)).items;
 }
 
-/** A chain manager sets a report's annual paid allowance (v2.32.0) — whole days 0–365; the
- * current value applies to every year, and the target user is notified on an actual change. */
-export async function setDaysOffAllowance(userId: number, allowance: number): Promise<void> {
+/** A chain manager sets a report's annual allowance in ONE paid pool (v2.32.0; per pool since
+ * v3.2.0 — `poolTypeId` omitted = the default pool; an upsert that also grants a pool the user
+ * did not hold yet) — whole days 0–365; the current value applies to every year, and the target
+ * user is notified on an actual change. */
+export async function setDaysOffAllowance(userId: number, allowance: number, poolTypeId?: number): Promise<void> {
   await voidRequest("/api/v1/days-off/allowance", {
     method: "PUT",
-    body: JSON.stringify({ userId, allowance }),
+    body: JSON.stringify({ userId, allowance, ...(poolTypeId != null ? { poolTypeId } : {}) }),
   });
+}
+
+/** Archives a user's extra paid pool (v3.2.0) — the budget row's `poolId`; chain managers
+ * only, the default pool never (409). History keeps counting under the pool's name. */
+export async function archiveDaysOffPool(poolId: number): Promise<void> {
+  await voidRequest(`/api/v1/days-off/pools/${poolId}`, { method: "DELETE" });
+}
+
+export type DaysOffPoolType =
+  paths["/api/v1/days-off/pool-types"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
+export type DaysOffPoolTypeWrite =
+  paths["/api/v1/days-off/pool-types"]["post"]["requestBody"]["content"]["application/json"];
+
+/** The active paid pool kinds (v3.2.0), default first then by name — unpaged, everyone reads. */
+export async function listDaysOffPoolTypes(): Promise<DaysOffPoolType[]> {
+  return (await jsonRequest<{ items: DaysOffPoolType[] }>("/api/v1/days-off/pool-types")).items;
+}
+
+// ADMIN-only; a duplicate active name is 409.
+export async function createDaysOffPoolType(body: DaysOffPoolTypeWrite): Promise<DaysOffPoolType> {
+  return jsonRequest<DaysOffPoolType>("/api/v1/days-off/pool-types", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// ADMIN-only; rename + carry-over flag (the default kind included).
+export async function updateDaysOffPoolType(id: number, body: DaysOffPoolTypeWrite): Promise<void> {
+  await voidRequest(`/api/v1/days-off/pool-types/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+// ADMIN-only; archives the kind AND every user's grant of it (the default kind is 409).
+export async function archiveDaysOffPoolType(id: number): Promise<void> {
+  await voidRequest(`/api/v1/days-off/pool-types/${id}`, { method: "DELETE" });
 }
 
 export type DaysOffCorrection =

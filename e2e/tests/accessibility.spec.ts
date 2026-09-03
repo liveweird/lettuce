@@ -65,6 +65,8 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   { path: "/days-off/new", heading: "New days-off request" },
   { path: "/feature-flags", heading: "Feature flags" },
   { path: "/integration-clients", heading: "Integration clients" },
+  // The v3.2.0 paid pool kinds registry (Config → Paid-leave pools).
+  { path: "/days-off-pools", heading: "Paid-leave pools" },
 ];
 
 for (const { path, heading } of AUTHED_PAGES) {

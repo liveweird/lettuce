@@ -146,7 +146,7 @@ class NotificationEmailTest {
             "R", NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
             allParams + ("operation" to "SUBTRACT"), null, null, "en",
         )!!
-        assertTrue("subtracted 4.5 day(s) from your paid days-off budget" in subtract.body)
+        assertTrue("subtracted 4.5 day(s) from your \"Paid days off\" budget" in subtract.body, subtract.body)
 
         val add = notificationEmailContent(
             "R", NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
@@ -184,7 +184,7 @@ class NotificationEmailTest {
             "R", NotificationType.DAYS_OFF_ALLOWANCE_CHANGED,
             allParams - "from", null, null, "en",
         )!!
-        assertTrue("set your annual paid days-off allowance to 25 day(s)." in firstSet.body, firstSet.body)
+        assertTrue("set your annual \"Paid days off\" allowance to 25 day(s)." in firstSet.body, firstSet.body)
         val changedPl = notificationEmailContent(
             "R", NotificationType.DAYS_OFF_ALLOWANCE_CHANGED, allParams, null, null, "pl",
         )!!

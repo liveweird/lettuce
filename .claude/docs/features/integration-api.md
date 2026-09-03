@@ -13,7 +13,7 @@ contract cannot drift), governed by **`api-guidelines/GRAPHQL-GUIDELINES.md`** (
 admin-issued API key. **The deliberate product rule: integration reads bypass ALL per-caller
 authorization** — every family in scope is readable in full (DRAFTs included, encrypted content
 decrypted), and per-user feature flags don't apply (caller-side gates). Scope v1: users +
-career timelines, teams + memberships + KPIs, days off (requests/budgets/corrections),
+career timelines, teams + memberships + KPIs, days off (requests/budgets — per paid pool since v3.2.0 — /corrections, plus the pool kinds registry),
 performance reviews, review periods. **NOT in scope** (deliberate, each addition is its own
 decision): succession plans (invisible-to-subjects is the product rule), feedbacks, 1:1s,
 goals, impact log, pulse, notifications, alerts, templates.
@@ -77,9 +77,11 @@ goals, impact log, pulse, notifications, alerts, templates.
   declares them.
 - **Schema v1 roots** (all documented in the SDL): `users(page, pageSize, name, email,
   deactivated)` / `user(id)` (+ nested careerHistory, teams, daysOff(year),
-  daysOffBudget(year!), daysOffCorrections(year), performanceReviews), `teams(page, pageSize,
+  daysOffBudget(year!) — the DEFAULT paid pool's row since v3.2.0 — daysOffBudgets(year!) — every
+  pool, v3.2.0 — daysOffCorrections(year), performanceReviews), `teams(page, pageSize,
   name)` / `team(id)` (+ manager, members, kpis → values), `reviewPeriods`, and the bulk-sync
-  roots `daysOff(from, to, status, userId)`, `performanceReviews(periodId, subordinateId)`,
+  roots `daysOff(from, to, status, userId)`, `daysOffPoolTypes` (v3.2.0 — the active paid pool
+  kinds, default first), `performanceReviews(periodId, subordinateId)`,
   `teamKpis(teamId, status)` — REST-mirroring `{items, page, pageSize, total}` envelopes,
   ids `Int`, dates ISO strings, timestamps the one custom `Long` scalar.
 - **Audit**: every executed request → `integration.request` (clientId, clientName,

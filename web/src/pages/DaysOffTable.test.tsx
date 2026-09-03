@@ -16,6 +16,8 @@ function row(overrides: Partial<DaysOffListItem>): DaysOffListItem {
     userName: "Riley Report",
     userDeleted: false,
     type: "PAID",
+    poolTypeId: 1,
+    poolName: "Paid days off",
     status: "REQUESTED",
     startDate: "2099-03-02",
     endDate: "2099-03-04",
@@ -40,6 +42,16 @@ describe("DaysOffTable", () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
       if (method === "POST") return Promise.resolve(new Response(null, { status: 204 }));
+      if (url.includes("/api/v1/days-off/pool-types")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [
+              { id: 1, name: "Paid days off", carriesOver: true, isDefault: true },
+              { id: 7, name: "Study leave", carriesOver: false, isDefault: false },
+            ],
+          }),
+        );
+      }
       if (url.includes("/api/v1/days-off")) {
         return Promise.resolve(jsonResponse(200, { items, page: 1, pageSize: 20, total: items.length }));
       }
@@ -204,5 +216,26 @@ describe("DaysOffTable", () => {
     renderWithProviders(<DaysOffTable view="own" />);
     expect(await screen.findByText("Mon")).toBeInTheDocument();
     expect(screen.getByText("Wed")).toBeInTheDocument();
+  });
+
+  test("a paid row names its pool and the Type filter offers every pool kind (v3.2.0)", async () => {
+    setupList([
+      row({ id: 1, poolTypeId: 7, poolName: "Study leave" }),
+      row({ id: 2, type: "UNPAID", poolTypeId: null, poolName: null, startDate: "2099-04-06", endDate: "2099-04-06" }),
+    ]);
+    renderWithProviders(<DaysOffTable view="own" />);
+
+    expect(await screen.findByText("Study leave")).toBeInTheDocument();
+    expect(screen.getByText("Unpaid")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual(["Any", "Paid", "— Paid days off", "— Study leave", "Unpaid"]);
+    await userEvent.click(screen.getByRole("option", { name: "— Study leave" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.includes("poolTypeId=7"));
+      expect(call).toBeDefined();
+      expect(call).toContain("type=PAID");
+    });
   });
 });

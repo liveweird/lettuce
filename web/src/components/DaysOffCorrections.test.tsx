@@ -15,6 +15,8 @@ const CORRECTION: DaysOffCorrection = {
   authorId: 3,
   authorName: "Mona Manager",
   authorDeleted: false,
+  poolTypeId: 1,
+  poolName: "Paid days off",
   year: 2026,
   operation: "ADD",
   days: 4.5,
@@ -125,6 +127,32 @@ describe("DaysOffCorrections", () => {
         "/api/v1/days-off/corrections/11",
         expect.objectContaining({ method: "DELETE" }),
       );
+    });
+  });
+
+  test("with several pools the add form carries a Pool select and posts the picked kind (v3.2.0)", async () => {
+    setupMocks();
+    renderWithProviders(
+      <DaysOffCorrections
+        userId={9}
+        defaultYear={2026}
+        canManage
+        pools={[{ id: 1, name: "Paid days off" }, { id: 7, name: "Study leave" }]}
+        defaultPoolTypeId={7}
+      />,
+    );
+
+    // The row names its pool once the person holds more than one.
+    expect(await screen.findByText("Paid days off")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Pool" })).toHaveValue("Study leave");
+    await userEvent.type(screen.getByLabelText("Days"), "2");
+    await userEvent.type(screen.getByLabelText("Comment"), "Course days");
+    await userEvent.click(screen.getByRole("button", { name: "Add correction" }));
+    await waitFor(() => {
+      const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
+      expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
+        userId: 9, year: 2026, operation: "ADD", days: 2, comment: "Course days", poolTypeId: 7,
+      });
     });
   });
 });

@@ -13,9 +13,9 @@ const DATA: DaysOffCalendarResponse = {
       userName: "Alice Example",
       userDeleted: false,
       entries: [
-        { requestId: 3, date: "2026-01-05", type: "PAID", status: "ACCEPTED", half: true },
-        { requestId: 3, date: "2026-01-07", type: "PAID", status: "ACCEPTED", half: false },
-        { requestId: 4, date: "2026-01-12", type: "UNPAID", status: "REQUESTED", half: false },
+        { requestId: 3, date: "2026-01-05", type: "PAID", poolName: "Paid days off", status: "ACCEPTED", half: true },
+        { requestId: 3, date: "2026-01-07", type: "PAID", poolName: "Paid days off", status: "ACCEPTED", half: false },
+        { requestId: 4, date: "2026-01-12", type: "UNPAID", poolName: null, status: "REQUESTED", half: false },
       ],
     },
     { userId: 8, userName: "Bob Empty", userDeleted: false, entries: [] },
@@ -37,9 +37,10 @@ describe("DaysOffMonthGrid", () => {
     // The holiday name rides the column header tooltip (and the empty cells in its column).
     expect(screen.getAllByTitle("Epiphany").length).toBeGreaterThan(0);
 
-    // Entry cells carry accessible descriptions (type, status, amount).
+    // Entry cells carry accessible descriptions (the pool name for paid days — v3.2.0 —,
+    // status, amount).
     expect(
-      screen.getByTitle("Alice Example — 2026-01-05: Paid, Accepted (0.5 day)"),
+      screen.getByTitle("Alice Example — 2026-01-05: Paid days off, Accepted (0.5 day)"),
     ).toBeInTheDocument();
     expect(
       screen.getByTitle("Alice Example — 2026-01-12: Unpaid, Requested (1 day)"),

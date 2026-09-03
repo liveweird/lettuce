@@ -296,19 +296,37 @@ class IntegrationGraphQlTest {
         assertEquals(HttpStatusCode.Created, created.status)
         val restDays = created.body<ch.nokillswit.daysoff.DaysOffResponse>().days
 
+        // An extra pool (v3.2.0) must not displace the default one on the single-budget field.
+        val extraKind = TestDaysOff.createPoolType("gql-extra")
+        TestDaysOff.setAllowance(ownerId, 5, poolTypeId = extraKind)
+
         val user = jsonClient().graphql(
             key,
             """{ user(id: ${ownerId.toInt()}) {
-                 daysOff(year: 2062) { status type days userName }
-                 daysOffBudget(year: 2062) { allowance reserved remaining }
-                 daysOffCorrections { id } } }""",
+                 daysOff(year: 2062) { status type poolTypeId poolName days userName }
+                 daysOffBudget(year: 2062) { allowance reserved remaining isDefault poolName carriesOver }
+                 daysOffBudgets(year: 2062) { poolTypeId allowance isDefault }
+                 daysOffCorrections { id poolTypeId } } }""",
         ).data()["user"]!!.jsonObject
         val request = user["daysOff"]!!.jsonArray.single().jsonObject
         assertEquals("REQUESTED", request["status"]!!.jsonPrimitive.content)
         assertEquals(restDays, request["days"]!!.jsonPrimitive.content.toDouble())
+        assertEquals(1, request["poolTypeId"]!!.jsonPrimitive.content.toInt())
+        assertEquals("Paid days off", request["poolName"]!!.jsonPrimitive.content)
         val budget = user["daysOffBudget"]!!.jsonObject
         assertEquals(30, budget["allowance"]!!.jsonPrimitive.content.toInt())
         assertEquals(restDays, budget["reserved"]!!.jsonPrimitive.content.toDouble())
+        assertEquals(true, budget["isDefault"]!!.jsonPrimitive.content.toBoolean())
+        assertEquals(true, budget["carriesOver"]!!.jsonPrimitive.content.toBoolean())
+        val budgets = user["daysOffBudgets"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(listOf(true, false), budgets.map { it["isDefault"]!!.jsonPrimitive.content.toBoolean() })
+        assertEquals(5, budgets[1]["allowance"]!!.jsonPrimitive.content.toInt())
+        assertEquals(extraKind.toInt(), budgets[1]["poolTypeId"]!!.jsonPrimitive.content.toInt())
+        // The registry root lists the seeded default first.
+        val kinds = jsonClient().graphql(key, "{ daysOffPoolTypes { id name carriesOver isDefault } }")
+            .data()["daysOffPoolTypes"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(true, kinds.first()["isDefault"]!!.jsonPrimitive.content.toBoolean())
+        assertTrue(kinds.any { it["id"]!!.jsonPrimitive.content.toInt() == extraKind.toInt() })
 
         // The bulk root sees the same request under its filters.
         val bulk = jsonClient().graphql(

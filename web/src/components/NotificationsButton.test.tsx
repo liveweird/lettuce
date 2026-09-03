@@ -345,7 +345,7 @@ describe("NotificationsButton", () => {
         id: 56,
         type: "DAYS_OFF_CORRECTED_TO_OWNER",
         link: "/days-off?tab=requests",
-        params: { manager: "Mona Manager", year: "2027", operation: "SUBTRACT", days: "1" },
+        params: { manager: "Mona Manager", pool: "Study leave", year: "2027", operation: "SUBTRACT", days: "1" },
       },
       {
         ...base,
@@ -396,12 +396,13 @@ describe("NotificationsButton", () => {
     expect(
       screen.getByText("You cancelled your days-off request (Aug 14, 2026 – Aug 15, 2026)."),
     ).toBeInTheDocument();
-    // The correction kind words ADD/SUBTRACT via i18next context (v1.43.0).
+    // The correction kind words ADD/SUBTRACT via i18next context (v1.43.0) and names the
+    // pool (v3.2.0) — a pre-pool row without `pool` reads as the default pool.
     expect(
-      screen.getByText("Mona Manager added 4.5 day(s) to your paid days-off budget for 2026."),
+      screen.getByText('Mona Manager added 4.5 day(s) to your "Paid days off" budget for 2026.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Mona Manager subtracted 1 day(s) from your paid days-off budget for 2027."),
+      screen.getByText('Mona Manager subtracted 1 day(s) from your "Study leave" budget for 2027.'),
     ).toBeInTheDocument();
     // The on-behalf recorded pair (v2.29.0): the owner and the acting manager.
     expect(

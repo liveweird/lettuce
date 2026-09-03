@@ -64,18 +64,32 @@ private fun DataLoaderRegistry.registerDaysOffLoaders(services: IntegrationServi
         },
     )
     // The ONE loader whose SDL field is non-null (User.daysOffBudget!): safe because budgets()
-    // pins "a row for every existing user id" (see its KDoc) and every User parent is an
-    // existing row — the mapNotNull below can therefore never leave a key unmapped (checkup
-    // #30, B-M3; the invariant is documented on both sides on purpose).
+    // pins "a (default-pool) row for every existing user id" (see its KDoc) and every User
+    // parent is an existing row — the mapNotNull below can therefore never leave a key
+    // unmapped (checkup #30, B-M3; the invariant is documented on both sides on purpose).
+    // Since v3.2.0 the field is the DEFAULT pool's row (defaultBudgets — one row per user;
+    // the multi-pool budgets() would make associateBy keep the LAST pool row).
     register(
         "budgetByUserYear",
         mappedLoader(scope) { keys: Set<Pair<Long, Int>> ->
             val byYear = keys.groupBy({ it.second }, { it.first }).mapValues { (year, ids) ->
-                services.daysOff.budgets(ids.toUIntSet(), year).associateBy { it.userId }
+                services.daysOff.defaultBudgets(ids.toUIntSet(), year).associateBy { it.userId }
             }
             keys.mapNotNull { key ->
                 byYear.getValue(key.second)[key.first.toUInt()]?.let { key to it.toGraphQL() }
             }.toMap()
+        },
+    )
+    // Every pool of the user (v3.2.0) — a list field, the daysOffByUser shape.
+    register(
+        "budgetsByUserYear",
+        mappedLoader(scope) { keys: Set<Pair<Long, Int>> ->
+            val byYear = keys.groupBy({ it.second }, { it.first }).mapValues { (year, ids) ->
+                services.daysOff.budgets(ids.toUIntSet(), year).groupBy { it.userId }
+            }
+            keys.associateWith { (userId, year) ->
+                byYear.getValue(year)[userId.toUInt()].orEmpty().map { it.toGraphQL() }
+            }
         },
     )
     register(

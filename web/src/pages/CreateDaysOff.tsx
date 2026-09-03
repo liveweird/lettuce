@@ -17,7 +17,13 @@ import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "reac
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
-import { createDaysOff, listDaysOffBudgets, listPublicHolidays, type DaysOffType } from "../api/daysoff";
+import {
+  createDaysOff,
+  listDaysOffBudgets,
+  listPublicHolidays,
+  type DaysOffBudget,
+  type DaysOffType,
+} from "../api/daysoff";
 import { todayIsoDate } from "../utils/datetime";
 import { costHalfDays, formatDays } from "../utils/daysOffCost";
 import { daysOffListLink } from "../utils/daysOffLinks";
@@ -27,13 +33,35 @@ import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import { safeBackParam } from "../utils/url";
 
-const TYPES = ["PAID", "UNPAID"] as const;
+// The picker's UNPAID sentinel; every other option value is a paid pool kind's id (v3.2.0).
+const UNPAID_PICK = "UNPAID";
+
+// The pool picker's derived state (v3.2.0): the person's non-archived pool rows (the default
+// first), the effective pick (null = the default pool), the resulting type, and the picked
+// row backing the budget preview.
+function resolvePoolPick(
+  rows: DaysOffBudget[] | undefined,
+  onBehalf: boolean,
+  subjectId: number | null,
+  pick: string | null,
+): { pools: DaysOffBudget[]; pickValue: string | null; type: DaysOffType; budget: DaysOffBudget | undefined } {
+  // On behalf, no pools until a report is picked (the managed rows span every report).
+  const pools = onBehalf && subjectId == null
+    ? []
+    : (rows ?? []).filter((b) => (subjectId == null || b.userId === subjectId) && !b.poolArchived);
+  const defaultPool = pools.find((b) => b.isDefault);
+  const pickValue = pick ?? (defaultPool ? String(defaultPool.poolTypeId) : null);
+  const type: DaysOffType = pickValue === UNPAID_PICK ? "UNPAID" : "PAID";
+  const budget = type === "PAID" ? pools.find((b) => String(b.poolTypeId) === pickValue) : undefined;
+  return { pools, pickValue, type, budget };
+}
 
 /**
- * The create-request form: one consecutive period, optional half-day edges, PAID (budgeted) or
- * UNPAID. The cost preview mirrors the server's working-day math over the live holiday
- * registry; a PAID request that would not fit the remaining budget is blocked client-side (the
- * server enforces the same rule with a 409).
+ * The create-request form: one consecutive period, optional half-day edges, and the pool —
+ * one of the person's paid pools (v3.2.0 — budgeted; the default pool pre-picked) or UNPAID.
+ * The cost preview mirrors the server's working-day math over the live holiday registry; a
+ * PAID request that would not fit the picked pool's remaining budget is blocked client-side
+ * (the server enforces the same rule with a 409).
  *
  * With `?onBehalf=1` (v2.29.0, the CreateFeedback picker-mode precedent — no separate route)
  * the same form becomes the manager-side recording screen: a report picker over the caller's
@@ -51,7 +79,8 @@ export default function CreateDaysOff() {
   // admitted protocol-relative "//evil.example" values.
   const backTo = safeBackParam(searchParams) ?? daysOffListLink(onBehalf ? "team" : "requests");
 
-  const [type, setType] = useState<DaysOffType>("PAID");
+  // null = the default pool (resolved from the budget rows once they arrive).
+  const [pick, setPick] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(todayIsoDate());
   const [endDate, setEndDate] = useState(todayIsoDate());
   const [startHalf, setStartHalf] = useState(false);
@@ -83,9 +112,12 @@ export default function CreateDaysOff() {
     queryFn: () => listDaysOffBudgets(budgetView, year, onBehalf ? { includeIndirect: true } : undefined),
     enabled: Number.isFinite(year),
   });
-  const budget = onBehalf
-    ? budgetQuery.data?.find((b) => b.userId === subjectId)
-    : budgetQuery.data?.[0];
+  // The person's pool rows (v3.2.0): the default first; archived history never offered.
+  const { pools, pickValue, type, budget } = resolvePoolPick(budgetQuery.data, onBehalf, subjectId, pick);
+  const poolOptions = [
+    ...pools.map((b) => ({ value: String(b.poolTypeId), label: b.poolName })),
+    { value: UNPAID_PICK, label: t("daysOff.type.UNPAID") },
+  ];
 
   const singleDay = startDate === endDate;
   const sameYear = startDate.slice(0, 4) === endDate.slice(0, 4);
@@ -112,6 +144,7 @@ export default function CreateDaysOff() {
     try {
       await createDaysOff({
         type,
+        ...(type === "PAID" && budget ? { poolTypeId: budget.poolTypeId } : {}),
         startDate,
         endDate,
         startHalf,
@@ -162,7 +195,11 @@ export default function CreateDaysOff() {
               placeholder={t("daysOff.pickReport")}
               data={reportOptions}
               value={subjectPick}
-              onChange={setSubjectPick}
+              onChange={(v) => {
+                setSubjectPick(v);
+                // A new person, their own pools — back to their default.
+                setPick(null);
+              }}
               searchable
               clearable
               nothingFoundMessage={t("daysOff.budget.noReports")}
@@ -171,13 +208,15 @@ export default function CreateDaysOff() {
             />
           )}
 
+          {/* The pool picker (v3.2.0): the person's paid pools + Unpaid; "Type" stays the
+              label — the answer is still "which kind of days off". */}
           <Select
             label={t("daysOff.type.label")}
-            data={TYPES.map((v) => ({ value: v, label: t(`daysOff.type.${v}`) }))}
-            value={type}
-            onChange={(v) => v && setType(v as DaysOffType)}
+            data={poolOptions}
+            value={pickValue ?? UNPAID_PICK}
+            onChange={(v) => v && setPick(v)}
             allowDeselect={false}
-            w={220}
+            w={260}
           />
 
           <Group align="flex-end" gap="md" wrap="wrap">
@@ -249,6 +288,7 @@ export default function CreateDaysOff() {
                   <Text size="sm" c={overBudget ? "red" : "dimmed"}>
                     {t("daysOff.remainingPreview", {
                       days: formatDays(budget.remaining, i18n.language),
+                      pool: budget.poolName,
                       year,
                     })}
                   </Text>

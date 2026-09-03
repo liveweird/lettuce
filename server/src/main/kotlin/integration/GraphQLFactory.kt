@@ -159,6 +159,10 @@ private fun TypeRuntimeWiring.Builder.queryFetchers(services: IntegrationService
         suspendFetcher { _ -> services.reviewPeriods.list().map { it.toGraphQL() } },
     )
     .dataFetcher(
+        "daysOffPoolTypes",
+        suspendFetcher { _ -> services.daysOff.listPoolTypes().map { it.toGraphQL() } },
+    )
+    .dataFetcher(
         "daysOff",
         suspendFetcher { env ->
             val paging = env.pageRequest()
@@ -217,6 +221,11 @@ private fun TypeRuntimeWiring.Builder.userFetchers(): TypeRuntimeWiring.Builder 
     }
     .dataFetcher("daysOffBudget") { env ->
         val loader: DataLoader<Pair<Long, Int>, Map<String, Any?>> = checkNotNull(env.getDataLoader("budgetByUserYear"))
+        loader.load(env.parentId() to requireNotNull(env.yearArgument("year")) { "year is non-null in the schema" })
+    }
+    .dataFetcher("daysOffBudgets") { env ->
+        val loader: DataLoader<Pair<Long, Int>, List<Map<String, Any?>>> =
+            checkNotNull(env.getDataLoader("budgetsByUserYear"))
         loader.load(env.parentId() to requireNotNull(env.yearArgument("year")) { "year is non-null in the schema" })
     }
 

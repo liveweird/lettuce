@@ -57,8 +57,9 @@ for any new or edited spec:
   recipient (`notifications.spec` is the template) — seed bells receive concurrent traffic.
 - **Global documents/registries have one writer file each**: dictionaries — `dictionaries.spec`
   edits `seniority-levels`, `user-career.spec` edits `career-paths`; review periods —
-  `performance-reviews.spec`; public holidays + AAA Two's days-off/allowance/corrections —
-  `days-off.spec`; templates — `templates.spec` (unique names).
+  `performance-reviews.spec`; public holidays + the paid-leave pool kinds ("E2E Pool") + AAA
+  Two's days-off/pools/allowances/corrections — `days-off.spec`; templates — `templates.spec`
+  (unique names).
 - **Residue sweep + the marker contract (v2.34.0)**: `global-setup.ts` sweeps PREVIOUS runs'
   throwaway entities off the shared volume before any worker starts (`sweep-residue.ts` —
   soft-deletes teams whose name contains `E2E`, then users whose email contains `e2e`; teams
@@ -87,12 +88,12 @@ owned state, numbered steps, expected outcomes). **A new or behaviorally changed
 its scenario file and its line below in the same commit** — this list is the coverage map, the
 scenario file is the design.
 
-- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 26 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, the v2.36.0 impact-log pair, the v2.42.0 succession pair, and the v3.0.0 `/integration-clients`); `color-contrast` consciously waived.
+- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 27 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, the v2.36.0 impact-log pair, the v2.42.0 succession pair, the v3.0.0 `/integration-clients`, and the v3.2.0 `/days-off-pools` registry); `color-contrast` consciously waived.
 - [`alerts.spec.ts`](scenarios/alerts.md) — admin broadcast alert: banner, hide/re-show, deactivate, delete (own serial phase).
 - [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
 - [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL (PL leg on a throwaway user — the switch persists server-side).
 - [`dashboard-my-teams.spec.ts`](scenarios/dashboard-my-teams.md) — the My teams tab, team-details drill-down round-trip, non-manager empty state.
-- [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), the manager-set yearly allowance on the drill-down with the owner's bell (v2.32.0 — the admin edit page lost the field), manager accept/reject, calendar, budgets + corrections, the mandatory-reason cancel — owner-side AND the manager-side chain cancel with the reason popover + bell receipt (v2.31.0) — and the manager's on-behalf auto-accepted recording (v2.29.0).
+- [`days-off.spec.ts`](scenarios/days-off.md) — requests (paid/unpaid, half-days), the manager-set yearly allowance on the drill-down with the owner's bell (v2.32.0 — the admin edit page lost the field), manager accept/reject, calendar, budgets + corrections, the mandatory-reason cancel — owner-side AND the manager-side chain cancel with the reason popover + bell receipt (v2.31.0) — the manager's on-behalf auto-accepted recording (v2.29.0), and the paid pools (v3.2.0): the admin's pool-kind registry, the manager's Add pool grant + archive on the drill-down, and a request booked from the extra pool via the Type picker.
 - [`dictionaries.spec.ts`](scenarios/dictionaries.md) — the whole-list dictionary editor (add/reorder/rename, multilingual — EN required, translations optional) + the read-only view with EN fallback.
 - [`email-notifications.spec.ts`](scenarios/email-notifications.md) — the per-user email-mirror opt-out toggle (self + the admin-for-another-user branch, 2026-08).
 - [`error-handling.spec.ts`](scenarios/error-handling.md) — the SPA's failure surfaces under injected network faults (the suite's first `page.route` interception specs, v2.34.0): load-error alerts, save-error inline alerts, and the refresh transient-vs-rejected split.

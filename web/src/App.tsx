@@ -24,6 +24,7 @@ import {
   IconCalendarEvent,
   IconBeach,
   IconCalendarOff,
+  IconStack2,
   IconCalendarStats,
   IconChevronDown,
   IconClipboardText,
@@ -133,6 +134,7 @@ const UserCareer = lazy(() => import("./pages/UserCareer"));
 const Pulse = lazy(() => import("./pages/Pulse"));
 const PulseCycles = lazy(() => import("./pages/PulseCycles"));
 const PublicHolidays = lazy(() => import("./pages/PublicHolidays"));
+const DaysOffPoolTypes = lazy(() => import("./pages/DaysOffPoolTypes"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CreateUser = lazy(() => import("./pages/CreateUser"));
@@ -240,6 +242,8 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
       { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats, feature: "PERFORMANCE_REVIEWS" },
       // Same posture: the registry read is open, adding/deleting is ADMIN-only.
       { to: "/public-holidays", label: "appShell.nav.publicHolidays", icon: IconCalendarOff, feature: "DAYS_OFF" },
+      // The paid pool kinds registry (v3.2.0) — the same everyone-reads/admin-writes posture.
+      { to: "/days-off-pools", label: "appShell.nav.daysOffPools", icon: IconStack2, feature: "DAYS_OFF" },
     ],
   },
   // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
@@ -691,6 +695,7 @@ export default function App() {
             <Route path="users/:userId/days-off" element={<UserDaysOff />} />
             <Route path="users/:userId/career" element={<UserCareer />} />
             <Route path="public-holidays" element={<PublicHolidays />} />
+            <Route path="days-off-pools" element={<DaysOffPoolTypes />} />
             <Route path="teams/:teamId/kpis" element={<TeamKpis />} />
             <Route path="templates" element={<Templates />} />
             <Route path="templates/new" element={<CreateTemplate />} />

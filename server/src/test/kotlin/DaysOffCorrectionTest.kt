@@ -318,6 +318,7 @@ class DaysOffCorrectionTest {
             ch.nokillswit.daysoff.DaysOffService.Corrections.insert {
                 it[ch.nokillswit.daysoff.DaysOffService.Corrections.userId] = subId
                 it[ch.nokillswit.daysoff.DaysOffService.Corrections.authorId] = mgrId
+                it[ch.nokillswit.daysoff.DaysOffService.Corrections.poolTypeId] = TestDaysOff.DEFAULT_POOL_TYPE_ID
                 it[ch.nokillswit.daysoff.DaysOffService.Corrections.year] = 2078
                 it[ch.nokillswit.daysoff.DaysOffService.Corrections.amountHalfDays] = 4
                 it[ch.nokillswit.daysoff.DaysOffService.Corrections.comment] = "legacy plaintext comment"

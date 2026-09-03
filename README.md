@@ -11,8 +11,9 @@ peer-feedback tool now covers:
   lifecycles, progress tracking, and history.
 - **Performance reviews** — rated, encrypted-at-rest reviews over an admin-managed
   review-period timeline, with a calibration phase before publishing.
-- **Days off** — leave requests with manager approval, budgets with carry-over and
-  corrections, a team calendar, and a public-holiday registry.
+- **Days off** — leave requests with manager approval, several paid pools per person
+  (an admin-curated registry of pool kinds, each carrying over or resetting yearly) with
+  budgets, carry-over and corrections, a team calendar, and a public-holiday registry.
 - **Pulse surveys** — anonymous eNPS cycles with k≥3 anonymity, team-tree results,
   and trends.
 - **Around it all** — teams with a transitive management chain, layered RBAC
@@ -131,7 +132,7 @@ If the server starts successfully, you'll see the following output:
 ## Integration API (read-only, for other apps)
 
 Other systems can read lettuce data — users with career history, teams with
-members and KPIs, days off with budgets and corrections, performance reviews,
+members and KPIs, days off with per-pool budgets and corrections, performance reviews,
 review periods — through a single GraphQL endpoint. It is **read-only by
 construction** (the schema declares no mutations), and reads are deliberately
 **unscoped**: an integration client sees everything in scope, without the

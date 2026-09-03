@@ -2779,30 +2779,39 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Paid-days budgets for a calendar year
-         * @description One budget row per user for the given calendar year: the configured **allowance**
-         *     (null = not configured = zero budget), the **carriedOver** days from previous years,
+         * Paid-days budgets for a calendar year, per pool
+         * @description Since v3.2.0 **one budget row per (user, paid pool)** for the given calendar year —
+         *     every user has the **default pool** (its row is always present; `allowance` null =
+         *     no grant = zero budget) and may hold extra named pools granted by a chain manager
+         *     (PUT /days-off/allowance with `poolTypeId`). Per row: the pool (`poolTypeId`,
+         *     `poolName`, `carriesOver`, `isDefault`, the active grant's `poolId`, and
+         *     `poolArchived` — a non-default pool with history in this year but no active grant:
+         *     it renders, but takes no new requests), the configured **allowance**, the
+         *     **carriedOver** days from previous years (always 0 for a non-carry-over pool kind),
          *     the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, the year's
          *     net manager **corrections**, and the **remaining** balance
          *     (`carriedOver + allowance + corrected − reserved − used`, may be negative after a
          *     retroactive allowance cut).
          *
-         *     Carry-over is automatic: unused budget in one calendar year transfers to the next.
-         *     The accumulation is anchored at the year of the user's earliest counting PAID
-         *     request (REQUESTED/ACCEPTED) **or budget correction**, whichever is earlier (the
-         *     allowance never phantom-accumulates over empty historical years),
-         *     and the CURRENT allowance value applies to every year — an allowance change (a chain
-         *     manager's, via PUT /days-off/allowance — v2.32.0) recomputes history (documented
-         *     behavior). REJECTED and CANCELLED requests never count.
+         *     Carry-over (pool kinds with `carriesOver`): unused budget in one calendar year
+         *     transfers to the next. The accumulation is anchored at the year of the pool's
+         *     earliest counting PAID request (REQUESTED/ACCEPTED) **or budget correction**,
+         *     whichever is earlier (the allowance never phantom-accumulates over empty historical
+         *     years), and the CURRENT allowance value applies to every year — an allowance change
+         *     (a chain manager's, via PUT /days-off/allowance — v2.32.0) recomputes history
+         *     (documented behavior). A non-carry-over kind resets every January:
+         *     `remaining = allowance + corrected − reserved − used` over that year alone.
+         *     REJECTED and CANCELLED requests never count.
          *
-         *     Views (both caller-relative): `view=own` (the default) — the caller's single row;
-         *     `view=managed` — one row per **direct report** (the manager's budget overview; empty
-         *     for a caller who manages no team), or per user in the caller's whole **transitive
-         *     subtree** with `includeIndirect=true` (v2.32.0 — the drill-down's chain mode; strict
-         *     boolean, 400 with any other view). Rows sort by name. Each row carries the
-         *     server-computed `canCorrect` capability — whether the CALLER may write budget
-         *     corrections for that user (chain-wide since v2.33.0, so true on every managed-view
-         *     row; always false on view=own).
+         *     Views (both caller-relative): `view=own` (the default) — the caller's rows;
+         *     `view=managed` — the rows of every **direct report** (the manager's budget overview;
+         *     empty for a caller who manages no team), or of every user in the caller's whole
+         *     **transitive subtree** with `includeIndirect=true` (v2.32.0 — the drill-down's chain
+         *     mode; strict boolean, 400 with any other view). Rows sort by user name, then the
+         *     default pool first, then pool name. Each row carries the server-computed
+         *     `canCorrect` capability — whether the CALLER may write budget corrections for that
+         *     user (chain-wide since v2.33.0, so true on every managed-view row; always false on
+         *     view=own).
          */
         get: operations["listDaysOffBudgets"];
         put?: never;
@@ -2822,9 +2831,14 @@ export interface paths {
         };
         get?: never;
         /**
-         * Set a user's annual paid days-off allowance
-         * @description Sets the target user's annual paid days-off allowance in whole days (v2.32.0 — the
-         *     right moved here from the ADMIN-only users PUT). Allowed for any **manager in the
+         * Set a user's annual allowance in one paid days-off pool
+         * @description Sets the target user's annual allowance in whole days in ONE paid pool — the pool
+         *     kind named by `poolTypeId`, or the **default** kind when omitted (v3.2.0; before that
+         *     the single pool — v2.32.0 moved the right here from the ADMIN-only users PUT). The
+         *     write is an **upsert of the (user, pool kind) grant**: it creates the user's pool
+         *     when they hold none of that kind (a fresh grant after an archive included — the
+         *     pool's history continues) and overwrites the allowance otherwise. An unknown or
+         *     archived pool kind is 400 (after the guard). Allowed for any **manager in the
          *     target's transitive management chain** (the cancellation-right rationale: the yearly
          *     budget is the chain's shared prerogative — since v2.33.0 the corrections write
          *     matches under the chain rule) — and for **nobody else**: not the user themselves, not ADMIN,
@@ -2833,14 +2847,113 @@ export interface paths {
          *     soft-deleted, or self-targeted id answers the same uniform 403 as a non-manager.
          *
          *     The CURRENT value applies to every calendar year — a change recomputes the
-         *     closed-form carry-over retroactively (see GET /days-off/budgets). Clearing is
-         *     inexpressible: a set allowance is only ever overwritten. Idempotent — re-PUTting the
-         *     current value is a silent 204 (no audit event, no notification); an actual change is
-         *     audited (`days_off.allowance_changed`) and notifies the target user.
+         *     closed-form carry-over retroactively (see GET /days-off/budgets). The default pool
+         *     can never be cleared (a set allowance is only ever overwritten); an extra pool is
+         *     removed by archiving it (DELETE /days-off/pools/{id}). Idempotent — re-PUTting the
+         *     current value is a silent 204 (no audit event, no notification); an actual change
+         *     (a fresh grant included) is audited (`days_off.allowance_changed`) and notifies the
+         *     target user.
          */
         put: operations["setDaysOffAllowance"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/pools/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Archive a user's extra paid days-off pool
+         * @description Archives (soft-deletes) one per-user pool grant (v3.2.0): the pool takes no new
+         *     requests or corrections, its history keeps counting under its label, and its budget
+         *     row keeps rendering (as `poolArchived`) in every year where it still has counting
+         *     requests or corrections. Re-granting the same kind via PUT /days-off/allowance
+         *     creates a fresh grant whose history continues. Pool ids ride the budget rows
+         *     (`poolId`) — this is the only endpoint addressing a grant directly. Only a
+         *     **manager in the owner's transitive management chain** may archive (read first:
+         *     unknown/archived → 404, then the guard); the **default pool is never archivable**
+         *     (409). Notifies nobody (the budget rows are live); audited `days_off_pool.archived`.
+         */
+        delete: operations["archiveDaysOffPool"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/pool-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The paid days-off pool kinds registry
+         * @description The org-wide, ADMIN-curated registry of paid pool kinds (v3.2.0) — **active kinds
+         *     only**, unpaged (the public-holidays shape), the default kind first then by name.
+         *     Any authenticated caller may read it (the create form's pool picker and the list
+         *     filter need it). Each kind carries `carriesOver` — whether unused days transfer to
+         *     the next year (the closed-form carry-over) or the pool resets every January — and
+         *     `isDefault` for the one seeded kind every pre-v3.2.0 paid request maps to.
+         */
+        get: operations["listDaysOffPoolTypes"];
+        put?: never;
+        /**
+         * Add a paid days-off pool kind
+         * @description ADMIN only. Adds a kind to the registry; a chain manager may then grant it to users
+         *     (PUT /days-off/allowance with `poolTypeId`). The name is canonicalized (trimmed,
+         *     control characters rejected) and must be unique among active kinds (409 on a
+         *     clash). Never the default — the seeded kind is the only one. Audited
+         *     `days_off_pool_type.created`.
+         */
+        post: operations["createDaysOffPoolType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/days-off/pool-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename or re-flag a paid days-off pool kind
+         * @description ADMIN only. Replaces the kind's name and carry-over flag — the default kind
+         *     included (its `isDefault` flag itself is immutable; no endpoint moves it). Flipping
+         *     `carriesOver` recomputes every affected budget (the allowance-change precedent — the
+         *     CURRENT rule applies to every year). A name clash with another active kind is 409.
+         *     Audited `days_off_pool_type.updated` with the deltas.
+         */
+        put: operations["updateDaysOffPoolType"];
+        post?: never;
+        /**
+         * Archive a paid days-off pool kind
+         * @description ADMIN only. Archives (soft-deletes) a kind AND every user's active grant of it in
+         *     one transaction — nobody keeps a pool of a retired kind; every request and
+         *     correction stays counted under the kind's name. The **default kind is never
+         *     archivable** (409). Audited `days_off_pool_type.archived` with the archived-grant
+         *     count.
+         */
+        delete: operations["archiveDaysOffPoolType"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2875,6 +2988,8 @@ export interface paths {
          *     (display-only — edit rights follow the current chain). A SUBTRACT may push
          *     a year's balance negative (the deficit carries forward — the allowance-cut
          *     precedent); only *request creation* is budget-gated. The subordinate is notified.
+         *     Since v3.2.0 a correction adjusts ONE paid pool — `poolTypeId`, or the default kind
+         *     when omitted; an extra kind needs an active grant of the subordinate (400 otherwise).
          */
         post: operations["createDaysOffCorrection"];
         delete?: never;
@@ -2895,8 +3010,9 @@ export interface paths {
         get?: never;
         /**
          * Edit a paid-days budget correction
-         * @description Replaces a correction's year, amount, and comment. The **target user is immutable**
-         *     (the payload's `userId` is ignored). Only a **manager in the correction's
+         * @description Replaces a correction's year, amount, and comment. The **target user and the pool
+         *     are immutable** (the payload's `userId`/`poolTypeId` are ignored — re-homing a
+         *     correction is delete + create). Only a **manager in the correction's
          *     subordinate's transitive management chain** (chain-wide since v2.33.0) may edit —
          *     regardless of who authored it. Edits notify
          *     nobody (the budget numbers are live).
@@ -5877,10 +5993,15 @@ export interface components {
         };
         DaysOffCreateRequest: {
             /**
-             * @description PAID draws on the owner's paid-days budget; UNPAID is unlimited.
+             * @description PAID draws on one of the owner's paid pools; UNPAID is unlimited.
              * @enum {string}
              */
             type: "PAID" | "UNPAID";
+            /**
+             * Format: int32
+             * @description The paid pool kind a PAID request draws on (v3.2.0); omitted/null = the default kind. 400 with UNPAID, for an unknown/archived kind, or for an extra kind the owner holds no active pool of (the default kind needs no grant — an ungranted default is a zero budget, i.e. 409 over budget).
+             */
+            poolTypeId?: number | null;
             /**
              * Format: date
              * @description First day of the period, strict zero-padded ISO YYYY-MM-DD.
@@ -5919,6 +6040,13 @@ export interface components {
             userName: string;
             /** @enum {string} */
             type: "PAID" | "UNPAID";
+            /**
+             * Format: int32
+             * @description The paid pool kind (v3.2.0); null for UNPAID.
+             */
+            poolTypeId: number | null;
+            /** @description The paid pool kind's current name (v3.2.0); null for UNPAID. Archived kinds keep labelling their history. */
+            poolName: string | null;
             /**
              * @description REQUESTED → ACCEPTED | REJECTED (a chain manager resolves), plus terminal CANCELLED (the owner or a chain manager withdraws it, with a mandatory reason — v2.31.0). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
              * @enum {string}
@@ -5976,6 +6104,13 @@ export interface components {
             userDeleted: boolean;
             /** @enum {string} */
             type: "PAID" | "UNPAID";
+            /**
+             * Format: int32
+             * @description The paid pool kind (v3.2.0); null for UNPAID.
+             */
+            poolTypeId: number | null;
+            /** @description The paid pool kind's current name (v3.2.0); null for UNPAID. */
+            poolName: string | null;
             /** @enum {string} */
             status: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
             /** Format: date */
@@ -6021,6 +6156,8 @@ export interface components {
             date: string;
             /** @enum {string} */
             type: "PAID" | "UNPAID";
+            /** @description The paid pool kind's name (v3.2.0) — the cell tooltip; null for UNPAID. */
+            poolName: string | null;
             /**
              * @description Only counting statuses appear on the calendar; REQUESTED renders as tentative.
              * @enum {string}
@@ -6050,11 +6187,29 @@ export interface components {
             userName: string;
             userDeleted: boolean;
             year: number;
-            /** @description The configured annual allowance in whole days (set by a chain manager via PUT /days-off/allowance since v2.32.0); null = not configured = zero budget. */
+            /**
+             * Format: int32
+             * @description The ACTIVE grant row's id (v3.2.0) — the DELETE /days-off/pools/{id} handle; null = no active grant (the ungranted default pool, or a history-only archived pool).
+             */
+            poolId: number | null;
+            /**
+             * Format: int32
+             * @description The pool kind (v3.2.0).
+             */
+            poolTypeId: number;
+            /** @description The pool kind's current name (v3.2.0). */
+            poolName: string;
+            /** @description Whether unused days of this pool carry over year to year (v3.2.0). */
+            carriesOver: boolean;
+            /** @description Whether this is the default pool — always present per user, never archivable (v3.2.0). */
+            isDefault: boolean;
+            /** @description A non-default pool with counting requests or corrections in this year but no active grant (v3.2.0) — history renders, no new requests may target it. */
+            poolArchived: boolean;
+            /** @description The configured annual allowance in whole days (set by a chain manager via PUT /days-off/allowance since v2.32.0); null = no active grant = zero budget. */
             allowance: number | null;
             /**
              * Format: double
-             * @description Days carried in from previous years (0 for a user with no earlier usage).
+             * @description Days carried in from previous years (0 with no earlier usage, and always 0 for a non-carry-over pool kind).
              */
             carriedOver: number;
             /**
@@ -6091,6 +6246,28 @@ export interface components {
             userId: number;
             /** @description The annual paid days-off allowance in whole days. Applies to every calendar year (a change recomputes carry-over retroactively). */
             allowance: number;
+            /**
+             * Format: int32
+             * @description The paid pool kind the allowance belongs to (v3.2.0); omitted/null = the default kind. An unknown or archived kind is 400.
+             */
+            poolTypeId?: number | null;
+        };
+        DaysOffPoolType: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            /** @description Unused days transfer to the next year (the closed-form carry-over); false = the pool resets every January. */
+            carriesOver: boolean;
+            /** @description The one seeded default kind — every pre-v3.2.0 paid request maps to it; renameable, never archivable. */
+            isDefault: boolean;
+        };
+        DaysOffPoolTypeList: {
+            items: components["schemas"]["DaysOffPoolType"][];
+        };
+        DaysOffPoolTypeWrite: {
+            /** @description Canonicalized single line (trimmed, no control characters); unique among active kinds (409). */
+            name: string;
+            carriesOver: boolean;
         };
         DaysOffCorrectionWrite: {
             /**
@@ -6108,6 +6285,11 @@ export interface components {
             days: number;
             /** @description The mandatory reasoning — non-blank; stored encrypted at rest. */
             comment: string;
+            /**
+             * Format: int32
+             * @description The adjusted paid pool kind (v3.2.0); omitted/null = the default kind. Create-only — immutable on PUT (ignored there). An extra kind needs an active grant of the subordinate (400 otherwise).
+             */
+            poolTypeId?: number | null;
         };
         DaysOffCorrection: {
             /** Format: int32 */
@@ -6121,6 +6303,13 @@ export interface components {
             authorId: number;
             authorName: string;
             authorDeleted: boolean;
+            /**
+             * Format: int32
+             * @description The adjusted pool kind (v3.2.0).
+             */
+            poolTypeId: number;
+            /** @description The adjusted pool kind's current name (v3.2.0). */
+            poolName: string;
             year: number;
             /** @enum {string} */
             operation: "ADD" | "SUBTRACT";
@@ -10839,6 +11028,8 @@ export interface operations {
                 userName?: string;
                 /** @description Exact type match. */
                 type?: "PAID" | "UNPAID";
+                /** @description Exact paid-pool-kind match (v3.2.0) — only PAID requests carry one, so the filter implies type=PAID. */
+                poolTypeId?: number;
                 /** @description Exact status match. */
                 status?: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
                 /** @description Lower bound (inclusive) on the start date, ISO YYYY-MM-DD. */
@@ -11004,7 +11195,15 @@ export interface operations {
                 };
                 content?: never;
             };
-            400: components["responses"]["BadRequest"];
+            /** @description Validation error (allowance out of range, unknown or archived pool kind) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             /** @description Caller is not a manager in the target user's transitive management chain (or the target is unknown, soft-deleted, or the caller themselves — uniformly), or the caller's DAYS_OFF feature is disabled */
             403: {
@@ -11016,6 +11215,174 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    archiveDaysOffPool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["DaysOffNotChainManager"];
+            404: components["responses"]["NotFound"];
+            /** @description The pool is the user's default pool */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listDaysOffPoolTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The active pool kinds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffPoolTypeList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createDaysOffPoolType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaysOffPoolTypeWrite"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new pool-kind resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffPoolType"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description An active pool kind with that name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateDaysOffPoolType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaysOffPoolTypeWrite"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description An active pool kind with that name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    archiveDaysOffPoolType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The kind is the default pool kind */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -11080,7 +11447,7 @@ export interface operations {
                     "application/json": components["schemas"]["DaysOffCorrection"];
                 };
             };
-            /** @description Validation error (year out of range, days not a positive 0.5-step, blank or oversized comment) */
+            /** @description Validation error (year out of range, days not a positive 0.5-step, blank or oversized comment, unknown/archived pool kind or one the user holds no pool of) */
             400: {
                 headers: {
                     [name: string]: unknown;

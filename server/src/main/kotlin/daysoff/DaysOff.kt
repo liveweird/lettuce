@@ -27,16 +27,59 @@ const val MAX_PAID_DAYS_OFF_ALLOWANCE = 365
 
 /**
  * Body of `PUT /days-off/allowance` (v2.32.0 — the allowance moved off the ADMIN users PUT):
- * a chain manager sets [userId]'s annual paid allowance. Required and rangeless of history —
+ * a chain manager sets [userId]'s annual paid allowance in ONE pool — [poolTypeId] names the
+ * pool kind (v3.2.0; null = the default kind). The write is an upsert of the (user, kind)
+ * grant: it creates the pool when the user holds none of that kind (a fresh grant after an
+ * archive included) and overwrites the allowance otherwise. Required and rangeless of history —
  * the CURRENT value applies to every calendar year (a change recomputes the closed-form
- * budget retroactively, documented on the budgets endpoint). Clearing stays inexpressible
- * (no null) — a set allowance is only ever overwritten.
+ * budget retroactively, documented on the budgets endpoint). The default pool can never be
+ * cleared (no null); an extra pool is removed by archiving it (`DELETE /days-off/pools/{id}`).
  */
 @Serializable
 data class DaysOffAllowanceWrite(
     val userId: UInt,
     val allowance: Int,
+    val poolTypeId: UInt? = null,
 )
+
+const val MAX_POOL_TYPE_NAME_LENGTH = 100
+
+/**
+ * One kind of paid days-off pool (v3.2.0, V74) — the ORG-WIDE registry row an admin curates
+ * (the public-holidays posture): its [name], whether unused days [carriesOver] year to year
+ * (the closed-form carry-over) or the pool resets every January, and whether it is the seeded
+ * default kind ([isDefault] — every pre-v3.2.0 PAID row/correction/allowance maps to it; it can
+ * be renamed but never archived, and no endpoint moves the flag).
+ */
+@Serializable
+data class DaysOffPoolType(
+    val id: UInt,
+    val name: String,
+    val carriesOver: Boolean,
+    val isDefault: Boolean,
+)
+
+@Serializable
+data class DaysOffPoolTypeList(
+    val items: List<DaysOffPoolType>,
+)
+
+/** Body of `POST /days-off/pool-types` and `PUT /days-off/pool-types/{id}` (ADMIN). */
+@Serializable
+data class DaysOffPoolTypeWrite(
+    val name: String,
+    val carriesOver: Boolean,
+)
+
+/** Validates a pool kind's name (400s): non-blank, bounded — the team-name class. The route
+ * has already canonicalized it via `sanitizeSingleLine`; uniqueness among active kinds is the
+ * DB's partial unique index (23505 → the central 409 mapping — no pre-check by design). */
+internal fun validatePoolTypeName(name: String) {
+    if (name.isBlank()) throw BadRequestException("Pool name must not be blank")
+    if (name.length > MAX_POOL_TYPE_NAME_LENGTH) {
+        throw BadRequestException("Pool name must be at most $MAX_POOL_TYPE_NAME_LENGTH characters")
+    }
+}
 
 /** Range rule for the allowance (whole days). Runs AFTER the chain guard — 403 wins over 400. */
 internal fun validateDaysOffAllowance(write: DaysOffAllowanceWrite) {
@@ -54,6 +97,10 @@ internal fun validateDaysOffAllowance(write: DaysOffAllowanceWrite) {
  * Edge half-days: [startHalf]/[endHalf] mark the first/last day of the period as half days; a
  * single-day request uses [startHalf] alone ([endHalf] must stay false — see
  * [validateDaysOffCreate]).
+ * [poolTypeId] (v3.2.0) names the paid pool a PAID request draws on — null = the default kind;
+ * an UNPAID request must not carry one (400, [validateDaysOffCreate]). The owner must hold an
+ * ACTIVE grant of an extra kind (400 otherwise — checked in [DaysOffService.create]); the
+ * default kind needs none (an ungranted default is simply a zero budget → 409 over budget).
  */
 @Serializable
 data class DaysOffCreateRequest(
@@ -63,6 +110,7 @@ data class DaysOffCreateRequest(
     val startHalf: Boolean = false,
     val endHalf: Boolean = false,
     val userId: UInt? = null,
+    val poolTypeId: UInt? = null,
 )
 
 /** The mandatory reasoning for a cancellation (v2.31.0) — validated by [validateDaysOffCancel]. */
@@ -77,6 +125,10 @@ data class DaysOffResponse(
     val userId: UInt,
     val userName: String,
     val type: DaysOffType,
+    // The paid pool kind this request draws on (v3.2.0) — both null for UNPAID; the name is
+    // the kind's CURRENT name (archived kinds keep labelling their history).
+    val poolTypeId: UInt?,
+    val poolName: String?,
     val status: DaysOffStatus,
     // ISO YYYY-MM-DD, immutable after create; startDate <= endDate, same calendar year.
     val startDate: String,
@@ -109,6 +161,9 @@ data class DaysOffListItem(
     val userName: String,
     val userDeleted: Boolean,
     val type: DaysOffType,
+    // The paid pool kind (v3.2.0) — null for UNPAID (see DaysOffResponse).
+    val poolTypeId: UInt?,
+    val poolName: String?,
     val status: DaysOffStatus,
     val startDate: String,
     val endDate: String,
@@ -139,6 +194,8 @@ data class DaysOffCalendarEntry(
     val requestId: UInt,
     val date: String,
     val type: DaysOffType,
+    // The paid pool kind's name (v3.2.0) — null for UNPAID; the grid's cell tooltip.
+    val poolName: String?,
     val status: DaysOffStatus,
     val half: Boolean,
 )
@@ -164,8 +221,11 @@ data class DaysOffCalendarResponse(
 )
 
 /**
- * One user's paid-days budget for one calendar year. All day values are in days (0.5 steps);
- * `remaining = carriedOver + allowance + corrected - reserved - used` holds by construction ([remainingHalfDays]).
+ * One user's budget in ONE paid pool for one calendar year (v3.2.0 — one row per (user, pool
+ * kind, year); the default kind's row is always present, extra kinds' rows for every active
+ * grant plus history-only rows of archived pools). All day values are in days (0.5 steps);
+ * `remaining = carriedOver + allowance + corrected - reserved - used` holds by construction
+ * ([remainingHalfDays]; `carriedOver` is always 0 for a non-carry-over kind).
  */
 @Serializable
 data class DaysOffBudget(
@@ -173,7 +233,18 @@ data class DaysOffBudget(
     val userName: String,
     val userDeleted: Boolean,
     val year: Int,
-    // Null = not configured by a chain manager (v2.32.0; ADMIN-set before) = zero paid budget.
+    // The pool (v3.2.0): the ACTIVE grant row's id (null = no active grant — the ungranted
+    // default kind, or a history-only archived pool), the kind, its current name, whether it
+    // carries unused days over, whether it is the default kind, and `poolArchived` = a
+    // non-default pool that still has counting requests/corrections in this year but no
+    // active grant (renders as history; no new requests).
+    val poolId: UInt?,
+    val poolTypeId: UInt,
+    val poolName: String,
+    val carriesOver: Boolean,
+    val isDefault: Boolean,
+    val poolArchived: Boolean,
+    // Null = no active grant of this kind (the ungranted default = zero paid budget).
     val allowance: Int?,
     val carriedOver: Double,
     // The year's net manager corrections in days (signed; 0 when none) — v1.43.0.
@@ -218,6 +289,9 @@ internal fun validateDaysOffCreate(request: DaysOffCreateRequest) {
     }
     if (start == end && request.endHalf) {
         throw BadRequestException("A single-day request expresses a half day via startHalf only")
+    }
+    if (request.type == DaysOffType.UNPAID && request.poolTypeId != null) {
+        throw BadRequestException("An UNPAID request draws on no pool — omit poolTypeId")
     }
 }
 
@@ -275,18 +349,21 @@ internal fun daysOffCostHalfDays(
  * enforces `>= 0`, so a deficit only ever arises from admin/manager edits (documented).
  *
  * [usedByYear] maps year → summed half-day cost of the user's counting (REQUESTED/ACCEPTED)
- * PAID requests in that year; [correctionsByYear] maps year → the summed SIGNED half-day
- * amount of the manager corrections attributed to it (v1.43.0).
+ * PAID requests in that year — of ONE pool since v3.2.0, like [correctionsByYear], which maps
+ * year → the summed SIGNED half-day amount of the manager corrections attributed to it
+ * (v1.43.0). A non-carry-over pool ([carriesOver] false, v3.2.0) anchors at [year] itself:
+ * the form collapses to `2·allowance + corrections[year] − used[year]` — every January resets.
  */
 internal fun remainingHalfDays(
     allowanceDays: Int?,
     year: Int,
     usedByYear: Map<Int, Int>,
     correctionsByYear: Map<Int, Int> = emptyMap(),
+    carriesOver: Boolean = true,
 ): Int {
     val allowanceH = 2 * (allowanceDays ?: 0)
     val earliest = (usedByYear.keys + correctionsByYear.keys).minOrNull() ?: year
-    val anchor = minOf(earliest, year)
+    val anchor = if (carriesOver) minOf(earliest, year) else year
     val usedH = usedByYear.filterKeys { it in anchor..year }.values.sum()
     val correctedH = correctionsByYear.filterKeys { it in anchor..year }.values.sum()
     return allowanceH * (year - anchor + 1) + correctedH - usedH
@@ -296,14 +373,16 @@ internal fun remainingHalfDays(
  * The half-day units carried into [year] from previous years: [remainingHalfDays] of `year − 1`,
  * or 0 when no counting usage or correction exists before [year] — the anchor rule again: with
  * no history the previous year contributes nothing, so a fresh user's budget is exactly the
- * allowance.
+ * allowance. Always 0 for a non-carry-over pool ([carriesOver] false, v3.2.0).
  */
 internal fun carriedOverHalfDays(
     allowanceDays: Int?,
     year: Int,
     usedByYear: Map<Int, Int>,
     correctionsByYear: Map<Int, Int> = emptyMap(),
+    carriesOver: Boolean = true,
 ): Int {
+    if (!carriesOver) return 0
     if ((usedByYear.keys + correctionsByYear.keys).none { it < year }) return 0
     return remainingHalfDays(allowanceDays, year - 1, usedByYear, correctionsByYear)
 }
@@ -323,7 +402,9 @@ const val MAX_CANCEL_REASON_LENGTH = 1000
 /**
  * Body of `POST /days-off/corrections` and (minus [userId], which is create-only and immutable)
  * `PUT /days-off/corrections/{id}`. The amount travels as a positive [days] value (0.5 steps)
- * plus the [operation]; storage is one signed half-day integer.
+ * plus the [operation]; storage is one signed half-day integer. [poolTypeId] (v3.2.0) names
+ * the paid pool the correction adjusts — null = the default kind; like a request, an extra
+ * kind needs an ACTIVE grant of the user (400 otherwise — the service checks).
  */
 @Serializable
 data class DaysOffCorrectionWrite(
@@ -332,6 +413,7 @@ data class DaysOffCorrectionWrite(
     val operation: DaysOffCorrectionOperation,
     val days: Double,
     val comment: String,
+    val poolTypeId: UInt? = null,
 )
 
 @Serializable
@@ -343,6 +425,9 @@ data class DaysOffCorrectionResponse(
     val authorId: UInt,
     val authorName: String,
     val authorDeleted: Boolean,
+    // The adjusted paid pool kind (v3.2.0) and its current name.
+    val poolTypeId: UInt,
+    val poolName: String,
     val year: Int,
     val operation: DaysOffCorrectionOperation,
     val days: Double,
