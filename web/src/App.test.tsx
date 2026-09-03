@@ -106,6 +106,11 @@ describe("App shell", () => {
         "href",
         "/public-holidays",
       );
+      // The paid pool kinds registry (v3.2.0) — the same everyone-reads posture.
+      expect(screen.getByRole("link", { name: /^paid-leave pools$/i })).toHaveAttribute(
+        "href",
+        "/days-off-pools",
+      );
     });
 
     test("an admin's Config group additionally lists Alerts", async () => {

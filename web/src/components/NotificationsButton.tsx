@@ -165,6 +165,10 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
   if (!key) return n.type; // forward-compat: an unknown kind → show the raw type
   const params: Record<string, string | undefined> = { ...(n.params ?? {}) };
   const spec = PARAM_FORMAT[key] ?? {};
+  // Rows minted before the paid pools (v3.2.0) carry no `pool` — they concerned the only pool.
+  if ((key === "daysOffCorrected" || key === "daysOffAllowanceChanged") && params.pool == null) {
+    params.pool = t("daysOff.pool.legacyDefault");
+  }
   // Anything unparseable passes through raw (the wire value beats "Invalid Date"/NaN).
   const kpiType = params.kpiType === "PERCENTAGE" ? "PERCENTAGE" : "NUMBER";
   for (const k of spec.kpiValueParams ?? []) {

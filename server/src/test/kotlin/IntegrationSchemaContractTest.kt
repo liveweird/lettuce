@@ -38,7 +38,10 @@ class IntegrationSchemaContractTest {
         // Additive evolution is the rule (GQL-CON-003): extending this list is fine — do it
         // consciously, together with the SDL, the resolvers, and the feature doc.
         assertEquals(
-            listOf("daysOff", "performanceReviews", "reviewPeriods", "team", "teamKpis", "teams", "user", "users"),
+            listOf(
+                "daysOff", "daysOffPoolTypes", "performanceReviews", "reviewPeriods",
+                "team", "teamKpis", "teams", "user", "users",
+            ),
             roots,
         )
     }

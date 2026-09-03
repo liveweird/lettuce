@@ -81,8 +81,8 @@ class UserService(val database: R2dbcDatabase) {
         // The V33 career ref columns were dropped by V57 — the triple now derives from the
         // user's latest career position (users/CareerPositionService.kt).
 
-        // Annual paid days-off allowance in whole days (V38); null = not configured.
-        val paidDaysOffAllowance = integer("paid_days_off_allowance").nullable()
+        // (The V38 paid days-off allowance column was moved into days_off_pools by V74 —
+        // the per-user paid pools, see daysoff/DaysOffService.kt.)
 
         // Email-notification opt-out (V51): true = in-app notifications are mirrored by email.
         val emailNotificationsEnabled = bool("email_notifications_enabled").default(true)
@@ -164,8 +164,8 @@ class UserService(val database: R2dbcDatabase) {
             it[uniqueId] = user.uniqueId
             // Deliberately NO language write: the whole-user PUT never flips it (V61) —
             // PUT /users/{id}/language via setLanguage is the only writer after create.
-            // Likewise NO paidDaysOffAllowance write (v2.32.0): setPaidDaysOffAllowance
-            // (the chain-manager right behind PUT /days-off/allowance) is the only writer.
+            // Likewise nothing about paid days off (v2.32.0/v3.2.0): the per-user pools live
+            // in days_off_pools behind PUT /days-off/allowance (a chain-manager right).
         }
         if (affected > 0) {
             // Wholesale replace — the set is tiny and this is idempotent and diff-free.
@@ -263,33 +263,6 @@ class UserService(val database: R2dbcDatabase) {
             it[Users.language] = language
         }
     }
-
-    /** The [setPaidDaysOffAllowance] result: the value before the write (null = was unset),
-     * so the route can detect a no-op re-PUT (audit/notification only on an actual change). */
-    data class AllowanceUpdate(val previous: Int?)
-
-    /**
-     * Set the paid days-off allowance (V38) — since v2.32.0 the ONLY writer of the column
-     * (the whole-user create/update no longer touch it): a chain-manager right behind
-     * PUT /days-off/allowance. Returns null when the id is unknown or soft-deleted (in
-     * practice unreachable — the route's chain guard already implies an active target).
-     * Idempotent like [setLanguage]; the read and conditional write share one transaction.
-     */
-    suspend fun setPaidDaysOffAllowance(id: UInt, allowance: Int): AllowanceUpdate? =
-        suspendTransaction(database) {
-            val row = Users.select(Users.paidDaysOffAllowance)
-                .where { (Users.id eq id) and active() }
-                .toList()
-                .singleOrNull()
-                ?: return@suspendTransaction null
-            val previous = row[Users.paidDaysOffAllowance]
-            if (previous != allowance) {
-                Users.update({ (Users.id eq id) and active() }) {
-                    it[paidDaysOffAllowance] = allowance
-                }
-            }
-            AllowanceUpdate(previous)
-        }
 
     /**
      * Which of [ids] are deactivated (active, non-soft-deleted) users — one SELECT, backing the

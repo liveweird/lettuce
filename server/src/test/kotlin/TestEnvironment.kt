@@ -418,10 +418,15 @@ object TestPerformanceReviewEvents {
 }
 
 // Days-off test support: the allowance is chain-manager-assignable via PUT /days-off/allowance
-// (v2.32.0), but tests set it directly (no manager relationship needed for a fixture); the
-// days-off service reads the column straight from the users table (clearing back to null is
-// only possible here — the API deliberately can't). Direct service access rides TestServices.
+// (v2.32.0), but tests set it directly (no manager relationship needed for a fixture). Since
+// v3.2.0/V74 an allowance is a per-user POOL grant (days_off_pools, one per pool kind): the
+// helper upserts the active grant of [poolTypeId] (default = the seeded default kind, id 1),
+// and `null` hard-deletes it — clearing is only possible here (the API archives instead).
+// Direct service access rides TestServices.
 object TestDaysOff {
+    /** The V74-seeded default pool kind's id (the first row of a fresh registry). */
+    const val DEFAULT_POOL_TYPE_ID: UInt = 1u
+
     val service: ch.nokillswit.daysoff.DaysOffService by lazy {
         ch.nokillswit.daysoff.DaysOffService(sharedTestDatabase, TestServices.cipher)
     }
@@ -429,10 +434,37 @@ object TestDaysOff {
         ch.nokillswit.daysoff.PublicHolidayService(sharedTestDatabase)
     }
 
-    suspend fun setAllowance(userId: UInt, days: Int?) {
+    /** A fresh extra pool kind (unique name — the registry is suite-shared); returns its id. */
+    suspend fun createPoolType(prefix: String, carriesOver: Boolean = true): UInt =
+        service.createPoolType(
+            ch.nokillswit.daysoff.DaysOffPoolTypeWrite(
+                name = "$prefix ${java.util.UUID.randomUUID().toString().take(8)}",
+                carriesOver = carriesOver,
+            ),
+        )
+
+    suspend fun setAllowance(userId: UInt, days: Int?, poolTypeId: UInt = DEFAULT_POOL_TYPE_ID) {
+        val pools = ch.nokillswit.daysoff.DaysOffService.Pools
         suspendTransaction(sharedTestDatabase) {
-            UserService.Users.update({ UserService.Users.id eq userId }) {
-                it[UserService.Users.paidDaysOffAllowance] = days
+            val activeGrant = (pools.userId eq userId) and (pools.poolTypeId eq poolTypeId) and
+                (pools.markedAsDeleted eq false)
+            if (days == null) {
+                pools.deleteWhere { activeGrant }
+                return@suspendTransaction
+            }
+            val updated = pools.update({ activeGrant }) {
+                it[pools.allowance] = days
+                it[pools.lastModified] = System.currentTimeMillis()
+            }
+            if (updated == 0) {
+                val now = System.currentTimeMillis()
+                pools.insert {
+                    it[pools.userId] = userId
+                    it[pools.poolTypeId] = poolTypeId
+                    it[pools.allowance] = days
+                    it[pools.createdAt] = now
+                    it[pools.lastModified] = now
+                }
             }
         }
     }

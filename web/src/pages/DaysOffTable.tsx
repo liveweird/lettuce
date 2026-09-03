@@ -7,7 +7,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId } from "../api/session";
-import { acceptDaysOff, cancelDaysOff, listDaysOff, rejectDaysOff, type DaysOffListItem, type DaysOffListView, type DaysOffStatus, type DaysOffType } from "../api/daysoff";
+import { acceptDaysOff, cancelDaysOff, listDaysOff, rejectDaysOff, type DaysOffListItem, type DaysOffListView, type DaysOffStatus, type DaysOffType, listDaysOffPoolTypes } from "../api/daysoff";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import DaysOffCancelModal from "../components/DaysOffCancelModal";
@@ -30,7 +30,10 @@ const BASE_SORT_FIELDS = ["startDate", "endDate", "days", "type", "status", "cre
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "userName";
 
 const STATUS_VALUES = ["REQUESTED", "ACCEPTED", "REJECTED", "CANCELLED"] as const;
-const TYPE_VALUES = ["PAID", "UNPAID"] as const;
+// The Type filter (v3.2.0): any, all paid pools, one paid pool ("pool:<kind id>"), or unpaid.
+const POOL_PICK_PREFIX = "pool:";
+const isTypeFilter = (v: unknown): v is string | null =>
+  v === null || v === "PAID" || v === "UNPAID" || (typeof v === "string" && /^pool:\d+$/.test(v));
 
 // A confirmation-gated row action in flight (reject/cancel open the modal first).
 type PendingAction = { kind: "reject" | "cancel"; id: number };
@@ -67,9 +70,16 @@ export default function DaysOffTable({
 
   const storeKey = settingsKey ?? `daysOff.${view}`;
   const [userFilter, setUserFilter] = useStoredState(`${storeKey}.filter.user`, "", isString);
-  const [typeFilter, setTypeFilter] = useStoredState<DaysOffType | null>(
-    `${storeKey}.filter.type`, null, isOneOfOrNull(TYPE_VALUES),
+  const [typeFilter, setTypeFilter] = useStoredState<string | null>(
+    `${storeKey}.filter.type`, null, isTypeFilter,
   );
+  const poolTypeFilter = typeFilter?.startsWith(POOL_PICK_PREFIX)
+    ? Number(typeFilter.slice(POOL_PICK_PREFIX.length))
+    : undefined;
+  const { data: poolTypes } = useQuery({
+    queryKey: ["daysOffPoolTypes"],
+    queryFn: listDaysOffPoolTypes,
+  });
   const [statusFilter, setStatusFilter] = useStoredState<DaysOffStatus | null>(
     `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
   );
@@ -101,7 +111,8 @@ export default function DaysOffTable({
         pageSize,
         sort: sortParam,
         userName: (personVisible && debouncedUser) || undefined,
-        type: typeFilter ?? undefined,
+        type: poolTypeFilter != null ? "PAID" : ((typeFilter as DaysOffType | null) ?? undefined),
+        poolTypeId: poolTypeFilter,
         status: statusFilter ?? undefined,
         userId,
         includeIndirect,
@@ -210,12 +221,14 @@ export default function DaysOffTable({
           label={t("daysOff.type.label")}
           data={[
             { value: "", label: t("common.state.any") },
-            ...TYPE_VALUES.map((v) => ({ value: v, label: t(`daysOff.type.${v}`) })),
+            { value: "PAID", label: t("daysOff.type.PAID") },
+            ...(poolTypes ?? []).map((k) => ({ value: `${POOL_PICK_PREFIX}${k.id}`, label: `— ${k.name}` })),
+            { value: "UNPAID", label: t("daysOff.type.UNPAID") },
           ]}
           value={typeFilter ?? ""}
-          onChange={(v) => setTypeFilter((v as DaysOffType) || null)}
+          onChange={(v) => setTypeFilter(v || null)}
           allowDeselect={false}
-          w={160}
+          w={200}
         />
         <Select
           label={t("common.field.status")}
@@ -320,7 +333,10 @@ export default function DaysOffTable({
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
                   {formatDays(r.days, i18n.language)}
                 </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>{t(`daysOff.type.${r.type}`)}</Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  {/* A paid row names its pool (v3.2.0); pre-pool rows and UNPAID keep the type word. */}
+                  {r.type === "PAID" ? (r.poolName ?? t("daysOff.type.PAID")) : t("daysOff.type.UNPAID")}
+                </Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap" }}>
                   <Group gap={4} wrap="nowrap">
                     <DaysOffStatusBadge status={r.status} />

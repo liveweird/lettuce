@@ -25,7 +25,10 @@ import type { APIRequestContext, Page } from "@playwright/test";
 // and is cancelled too. The manager also records a day ON BEHALF of AAA Two (v2.29.0, born
 // Accepted, both bells notified), which the MANAGER cancels at the end (v2.31.0 — cancellation
 // is owner-or-chain and always carries a mandatory reason; the cancelled row grows a reason
-// popover and the acting manager keeps a bell receipt).
+// popover and the acting manager keeps a bell receipt). Since v3.2.0 the paid days come in
+// POOLS: the admin adds a run-specific "E2E Pool" kind on the Config registry, the manager
+// grants it to AAA Two (Add pool on the drill-down), AAA Two books a day from it (the Type
+// picker lists the pool), and both the grant and the kind are archived again at the end.
 //
 // The request window is a run-specific future Monday (weeks vary per run), so residue from a
 // failed earlier run rarely collides via the overlap rule — but the sweep below is what
@@ -68,8 +71,8 @@ function pickMonday(): Date {
   const windowBlocked = (m: Date) =>
     m.getFullYear() !== addDays(m, 8).getFullYear() ||
     // Offsets 0/1 + 7/8 are the two Mon–Tue requests; 2 is the UNPAID leg's Wednesday;
-    // 3 is the manager's on-behalf Thursday (v2.29.0).
-    [0, 1, 2, 3, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
+    // 3 is the manager's on-behalf Thursday (v2.29.0); 4 is the extra-pool Friday (v3.2.0).
+    [0, 1, 2, 3, 4, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
   while (windowBlocked(monday)) {
     monday = addDays(monday, 7);
   }
@@ -85,11 +88,14 @@ const WEDNESDAY_ISO = isoDate(addDays(MONDAY, 2));
 // The manager's on-behalf leg (v2.29.0) books this day for AAA Two — same booked week, no
 // overlap (the earlier requests are cancelled/rejected by then, and those rows are inert).
 const THURSDAY_ISO = isoDate(addDays(MONDAY, 3));
+// The extra-pool leg (v3.2.0) books this day from the run's own pool kind.
+const FRIDAY_ISO = isoDate(addDays(MONDAY, 4));
+const POOL_NAME = `E2E Pool ${MONDAY_ISO}`;
 const MONDAY2_ISO = isoDate(addDays(MONDAY, 7));
 const TUESDAY2_ISO = isoDate(addDays(MONDAY, 8));
 
 // How the calendar cell describes the accepted Tuesday (the raw ISO date rides the title).
-const TUESDAY_CELL_TITLE = `AAA Two — ${TUESDAY_ISO}: Paid, Accepted (1 day)`;
+const TUESDAY_CELL_TITLE = `AAA Two — ${TUESDAY_ISO}: Paid days off, Accepted (1 day)`;
 
 async function sweepResidue(request: APIRequestContext) {
   // Admin: drop every stranded spec-created holiday, wherever a failed run left it.
@@ -102,15 +108,30 @@ async function sweepResidue(request: APIRequestContext) {
       await request.delete(`/api/v1/public-holidays/${h.id}`, { headers: adminAuth });
     }
   }
+  // Admin: archive every stranded spec-created pool kind (v3.2.0) — archiving a kind also
+  // archives every user's grant of it, so AAA Two's stranded pool goes with it, and the
+  // kind's name is free for this run (the unique index covers active kinds only).
+  const kinds = (await (
+    await request.get("/api/v1/days-off/pool-types", { headers: adminAuth })
+  ).json()) as { items: { id: number; name: string }[] };
+  for (const k of kinds.items) {
+    if (k.name.startsWith("E2E Pool")) {
+      await request.delete(`/api/v1/days-off/pool-types/${k.id}`, { headers: adminAuth });
+    }
+  }
 
   // Owner: cancel AAA Two's stranded counting requests. Cancellation is date-free since
   // v2.31.0 (REQUESTED or ACCEPTED, past included) and always carries a mandatory reason.
+  // Queried PER COUNTING STATUS (v3.2.0): the unfiltered own list sorts -startDate and pages
+  // at 100, and the inert rejected/cancelled residue of earlier runs (windows spread over a
+  // year) grew past that — this run's rows fell off page 1 and a pending pool request was
+  // stranded (its archived pool then rendered as a second history strip).
   const ownAuth = authHeader(await apiToken(request, AAA_TWO));
-  const requests = (await (
-    await request.get("/api/v1/days-off?view=own&pageSize=100", { headers: ownAuth })
-  ).json()) as { items: { id: number; status: string; startDate: string }[] };
-  for (const r of requests.items) {
-    if (r.status === "REQUESTED" || r.status === "ACCEPTED") {
+  for (const status of ["REQUESTED", "ACCEPTED"]) {
+    const requests = (await (
+      await request.get(`/api/v1/days-off?view=own&status=${status}&pageSize=100`, { headers: ownAuth })
+    ).json()) as { items: { id: number }[] };
+    for (const r of requests.items) {
       await request.post(`/api/v1/days-off/${r.id}/cancel`, {
         headers: ownAuth,
         data: { reason: "e2e residue sweep" },
@@ -144,12 +165,21 @@ async function sweepResidue(request: APIRequestContext) {
   }
 }
 
-async function newRequest(page: Page, from: string, to: string, expectedCost: string, unpaid = false) {
+async function newRequest(
+  page: Page,
+  from: string,
+  to: string,
+  expectedCost: string,
+  unpaid = false,
+  poolName?: string,
+) {
   await page.getByRole("link", { name: "New request" }).click();
   await expect(page).toHaveURL(/\/days-off\/new/);
-  if (unpaid) {
+  // The Type picker (v3.2.0) lists the person's paid pools beside Unpaid; the default pool
+  // is pre-picked, so PAID-from-the-default touches nothing.
+  if (unpaid || poolName) {
     await page.getByRole("combobox", { name: "Type" }).click();
-    await page.getByRole("option", { name: "Unpaid" }).click();
+    await page.getByRole("option", { name: unpaid ? "Unpaid" : poolName, exact: true }).click();
   }
   await page.getByLabel("From", { exact: true }).fill(from);
   await page.getByLabel("To", { exact: true }).fill(to);
@@ -183,6 +213,15 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   ).toBeVisible();
   await expect(page.getByText(`E2E Holiday ${MONDAY_ISO}`).first()).toBeVisible();
 
+  // ── Admin: the run's own paid pool kind (v3.2.0) — a non-carry-over one. ──
+  await page.goto("/days-off-pools");
+  await expect(page.getByRole("heading", { name: "Paid-leave pools" })).toBeVisible();
+  await page.getByLabel("Pool name").fill(POOL_NAME);
+  await page.getByLabel("Unused days carry over to the next year").uncheck();
+  await page.getByRole("button", { name: "Add pool kind" }).click();
+  await expect(page.getByText("Pool kind added")).toBeVisible();
+  await expect(page.getByText(POOL_NAME)).toBeVisible();
+
   await logout(page);
 
   // ── Manager AAA: sets AAA Two's yearly allowance on the drill-down (v2.32.0 — the field
@@ -200,17 +239,29 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
     .click();
   await expect(page).toHaveURL(/\/users\/\d+\/days-off/);
   await expect(page.getByText(/Paid days off of AAA Two in \d{4}/)).toBeVisible();
-  await page.getByLabel("Edit the paid days-off allowance of AAA Two").click();
+  await page.getByLabel("Edit the Paid days off allowance of AAA Two").click();
   await page.getByLabel(/^Allowance \(days per year\)/).fill("299");
   await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Allowance saved")).toBeVisible();
-  await page.getByLabel("Edit the paid days-off allowance of AAA Two").click();
+  await page.getByLabel("Edit the Paid days off allowance of AAA Two").click();
   const allowanceInput = page.getByLabel(/^Allowance \(days per year\)/);
   await expect(allowanceInput).toHaveValue("299");
   await allowanceInput.fill("300");
   await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
   // The first toast may still be on screen (autoClose 2.5s) — first() dodges strict mode.
   await expect(page.getByText("Allowance saved").first()).toBeVisible();
+
+  // ── Manager AAA: grants AAA Two the run's pool kind with 3 days (v3.2.0 — Add pool). ──
+  await page.getByLabel("Add a paid pool for AAA Two").click();
+  const addPool = page.getByRole("dialog");
+  await addPool.getByRole("combobox", { name: /^Pool kind/ }).click();
+  await page.getByRole("option", { name: POOL_NAME, exact: true }).click();
+  await addPool.getByLabel(/^Allowance \(days per year\)/).fill("3");
+  await addPool.getByRole("button", { name: "Add pool", exact: true }).click();
+  await expect(page.getByText("Pool added")).toBeVisible();
+  // The new strip renders beside the default one, flagged as a yearly-reset pool.
+  await expect(page.getByText(POOL_NAME)).toBeVisible();
+  await expect(page.getByText("resets yearly")).toBeVisible();
   await logout(page);
 
   // ── AAA Two: two requests — Mon(holiday)+Tue = 1 day, next Mon+Tue = 2 days. ──
@@ -223,6 +274,25 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await newRequest(page, MONDAY2_ISO, TUESDAY2_ISO, "2");
   // Both rows sit in My requests as pending.
   await expect(page.locator("tr", { hasText: "Requested" }).first()).toBeVisible();
+  // ── The extra-pool leg (v3.2.0): the own budget card lists the granted pool, the Type
+  // picker offers it, the row names it — then it is cancelled again (the pool's history
+  // stays counted but a cancelled row is inert). ──
+  await expect(page.getByText(POOL_NAME).first()).toBeVisible();
+  await newRequest(page, FRIDAY_ISO, FRIDAY_ISO, "1", false, POOL_NAME);
+  // The page-1 rule again (far-future residue outranks this run's rows in the -startDate
+  // sort): filter to Requested before looking for the fresh row (step 10 re-sets the filter).
+  const poolFilters = page.getByRole("button", { name: "Filters" });
+  if ((await poolFilters.getAttribute("aria-expanded")) !== "true") await poolFilters.click();
+  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Requested" }).click();
+  await expect(page.locator("tr", { hasText: POOL_NAME }).first()).toBeVisible();
+  await page.getByLabel(`Cancel your days-off request starting ${FRIDAY_ISO}`).click();
+  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Pool leg done — e2e");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel the request", exact: true })
+    .click();
+  await expect(page.getByText("Request cancelled")).toBeVisible();
   await logout(page);
 
   // ── Manager AAA: the bell heard about it; accept one, reject the other. ──
@@ -286,7 +356,11 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // The allowance change (v2.32.0) told the owner too — the 299→300 save is an actual
   // change every run, so this run always minted a fresh card.
   await expect(
-    notificationCard(ownBell, "Manager AAA set your yearly paid days-off allowance to 300"),
+    notificationCard(ownBell, 'Manager AAA set your yearly "Paid days off" allowance to 300'),
+  ).toBeVisible();
+  // The extra-pool grant (v3.2.0) is the same event naming its pool.
+  await expect(
+    notificationCard(ownBell, `Manager AAA set your yearly "${POOL_NAME}" allowance to 3`),
   ).toBeVisible();
   await page.keyboard.press("Escape");
 
@@ -393,7 +467,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await collapseAlertsBanner(page);
   const corrBell = await openBell(page);
   await expect(
-    notificationCard(corrBell, "added 2 day(s) to your paid days-off budget"),
+    notificationCard(corrBell, 'added 2 day(s) to your "Paid days off" budget'),
   ).toBeVisible();
   // The on-behalf recording (v2.29.0) also reached the owner's bell.
   await expect(
@@ -458,10 +532,30 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await page.getByRole("button", { name: "Delete", exact: true }).last().click();
   await expect(page.getByText("Correction deleted")).toBeVisible();
   await page.keyboard.press("Escape");
+  // The manager archives AAA Two's extra pool on the drill-down (v3.2.0 — the default pool
+  // has no such control); the cancelled Friday leaves no counting history, so the strip
+  // simply disappears.
+  await page.goto("/?tab=subordinates");
+  await page
+    .locator("li", { hasText: "AAA Two" })
+    .first()
+    .getByRole("link", { name: "Days off of AAA Two" })
+    .click();
+  await page.getByLabel(`Archive the ${POOL_NAME} pool of AAA Two`).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
+  await expect(page.getByText("Pool archived")).toBeVisible();
+  await expect(page.getByLabel("Edit the Paid days off allowance of AAA Two")).toBeVisible();
+  await expect(page.getByLabel(`Archive the ${POOL_NAME} pool of AAA Two`)).toHaveCount(0);
   await logout(page);
 
   await login(page, ADMIN);
   await collapseAlertsBanner(page);
+  // The admin archives the run's pool kind (the registry's archive confirm).
+  await page.goto("/days-off-pools");
+  await page.getByLabel(`Archive the ${POOL_NAME} pool kind`).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
+  await expect(page.getByText("Pool archived")).toBeVisible();
+  await expect(page.getByText(POOL_NAME)).toHaveCount(0);
   await page.goto("/public-holidays");
   const holidayRow = page
     .locator("div.mantine-Paper-root", { hasText: `E2E Holiday ${MONDAY_ISO}` })

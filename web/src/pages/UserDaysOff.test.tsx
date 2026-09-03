@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -14,6 +14,12 @@ const BUDGET = {
   userName: "Riley Report",
   userDeleted: false,
   year: new Date().getFullYear(),
+  poolId: 41,
+  poolTypeId: 1,
+  poolName: "Paid days off",
+  carriesOver: true,
+  isDefault: true,
+  poolArchived: false,
   allowance: 20,
   carriedOver: 1,
   corrected: 2.5,
@@ -21,6 +27,22 @@ const BUDGET = {
   used: 3,
   remaining: 20,
   canCorrect: true,
+};
+
+// An extra, non-carry-over pool of the same report (v3.2.0).
+const STUDY_POOL = {
+  ...BUDGET,
+  poolId: 42,
+  poolTypeId: 7,
+  poolName: "Study leave",
+  carriesOver: false,
+  isDefault: false,
+  allowance: 3,
+  carriedOver: 0,
+  corrected: 0,
+  reserved: 1,
+  used: 0,
+  remaining: 2,
 };
 
 const ROW = {
@@ -58,14 +80,25 @@ function renderPage(route: string) {
 describe("UserDaysOff", () => {
   let mockFetch: FetchMock;
 
-  function setupMocks(budget: typeof BUDGET = BUDGET) {
+  function setupMocks(budget: typeof BUDGET = BUDGET, extraPools: (typeof BUDGET)[] = []) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
-      if (u.includes("/api/v1/days-off/allowance")) {
+      if (u.includes("/api/v1/days-off/allowance") || u.includes("/api/v1/days-off/pools/")) {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
+      if (u.includes("/api/v1/days-off/pool-types")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [
+              { id: 1, name: "Paid days off", carriesOver: true, isDefault: true },
+              { id: 7, name: "Study leave", carriesOver: false, isDefault: false },
+              { id: 8, name: "Maternal leave", carriesOver: false, isDefault: false },
+            ],
+          }),
+        );
+      }
       if (u.includes("/api/v1/days-off/budgets")) {
-        return Promise.resolve(jsonResponse(200, { items: [budget] }));
+        return Promise.resolve(jsonResponse(200, { items: [budget, ...extraPools] }));
       }
       if (u.includes("/api/v1/days-off/corrections")) {
         return Promise.resolve(jsonResponse(200, { items: [] }));
@@ -131,7 +164,7 @@ describe("UserDaysOff", () => {
     renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
 
     await userEvent.click(
-      await screen.findByLabelText("Edit the paid days-off allowance of Riley Report"),
+      await screen.findByLabelText("Edit the Paid days off allowance of Riley Report"),
     );
     // withAsterisk joins the * into the accessible name — prefix-match (the house gotcha).
     const input = await screen.findByLabelText(/^Allowance \(days per year\)/);
@@ -154,11 +187,64 @@ describe("UserDaysOff", () => {
     renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
 
     expect(
-      await screen.findByLabelText("Edit the paid days-off allowance of Riley Report"),
+      await screen.findByLabelText("Edit the Paid days off allowance of Riley Report"),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByLabelText("Budget corrections of Riley Report"));
     expect(await screen.findByText("No corrections yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add correction" })).toBeInTheDocument();
+  });
+
+  test("extra pools get their own strips with a pool-scoped allowance PUT and an Archive action (v3.2.0)", async () => {
+    setupMocks(BUDGET, [STUDY_POOL]);
+    renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
+
+    // Both strips render; the extra pool names itself and flags the yearly reset.
+    expect(await screen.findByText("Study leave")).toBeInTheDocument();
+    expect(screen.getByText("resets yearly")).toBeInTheDocument();
+    expect(screen.getByText("Default")).toBeInTheDocument();
+    // The extra pool's pencil PUTs with its kind id.
+    await userEvent.click(screen.getByLabelText("Edit the Study leave allowance of Riley Report"));
+    const input = await screen.findByLabelText(/^Allowance \(days per year\)/);
+    expect(input).toHaveValue("3");
+    await userEvent.clear(input);
+    await userEvent.type(input, "4");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/v1/days-off/allowance",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ userId: 9, allowance: 4, poolTypeId: 7 }) }),
+      );
+    });
+    // Archive: the default pool has no archive control, the extra one confirms then DELETEs.
+    expect(screen.queryByLabelText("Archive the Paid days off pool of Riley Report")).toBeNull();
+    await userEvent.click(screen.getByLabelText("Archive the Study leave pool of Riley Report"));
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/v1/days-off/pools/42",
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  test("Add pool offers the ungranted kinds and PUTs the picked one (v3.2.0)", async () => {
+    setupMocks(BUDGET, [STUDY_POOL]);
+    renderPage("/users/9/days-off?name=Riley%20Report&from=subordinates");
+
+    await userEvent.click(await screen.findByLabelText("Add a paid pool for Riley Report"));
+    await userEvent.click(await screen.findByRole("combobox", { name: /^Pool kind/ }));
+    // The default and the already-granted Study leave are not offered.
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual(["Maternal leave"]);
+    await userEvent.click(screen.getByRole("option", { name: "Maternal leave" }));
+    await userEvent.type(screen.getByLabelText(/^Allowance \(days per year\)/), "5");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add pool" }));
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/v1/days-off/allowance",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ userId: 9, allowance: 5, poolTypeId: 8 }) }),
+      );
+    });
   });
 
   test("a caller with no manager origin and no audit mode redirects to /days-off", async () => {

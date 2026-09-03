@@ -114,7 +114,7 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
                           ? t("daysOff.calendar.cellTitle", {
                               name: user.userName,
                               date: iso,
-                              type: t(`daysOff.type.${entry.type}`),
+                              type: entry.poolName ?? t(`daysOff.type.${entry.type}`),
                               status: t(`daysOff.status.${entry.status}`),
                               amount: formatDays(entry.half ? 0.5 : 1, i18n.language),
                             })

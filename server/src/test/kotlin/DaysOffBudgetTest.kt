@@ -104,3 +104,22 @@ class DaysOffBudgetTest {
         assertEquals(-4, carriedOverHalfDays(10, 2031, used, corrections))
     }
 }
+
+/** The non-carry-over pool kind (v3.2.0): the closed form anchored at the target year itself. */
+class DaysOffNonCarryBudgetTest {
+
+    @Test
+    fun `a non-carry pool is exactly this year's allowance plus this year's corrections minus this year's usage`() {
+        val used = mapOf(2030 to 2, 2031 to 6)
+        val corrections = mapOf(2030 to 4, 2031 to -1)
+        // 2031 alone: 20 − 6 − 1 = 13, regardless of 2030's unused 22 half-units.
+        assertEquals(13, remainingHalfDays(10, 2031, used, corrections, carriesOver = false))
+        assertEquals(35, remainingHalfDays(10, 2031, used, corrections, carriesOver = true))
+        // Nothing carries in, whatever the history.
+        assertEquals(0, carriedOverHalfDays(10, 2031, used, corrections, carriesOver = false))
+        assertEquals(22, carriedOverHalfDays(10, 2031, used, corrections, carriesOver = true))
+        // An empty year is the bare allowance; null allowance = zero.
+        assertEquals(20, remainingHalfDays(10, 2040, used, corrections, carriesOver = false))
+        assertEquals(-6, remainingHalfDays(null, 2031, used, emptyMap(), carriesOver = false))
+    }
+}

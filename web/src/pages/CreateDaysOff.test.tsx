@@ -18,9 +18,16 @@ const TUESDAY = "2099-06-02";
 function budget(remaining: number, allowance: number | null = 20) {
   return {
     userId: 5, userName: "Me", userDeleted: false, year: YEAR,
-    allowance, carriedOver: 0, reserved: 0, used: 0, remaining,
+    poolId: 41, poolTypeId: 1, poolName: "Paid days off", carriesOver: true, isDefault: true, poolArchived: false,
+    allowance, carriedOver: 0, corrected: 0, reserved: 0, used: 0, remaining, canCorrect: false,
   };
 }
+
+// An extra, non-carry-over pool (v3.2.0) the picker offers beside the default one.
+const STUDY_POOL = {
+  ...budget(2, 3),
+  poolId: 42, poolTypeId: 7, poolName: "Study leave", carriesOver: false, isDefault: false,
+};
 
 function renderPage(entry = "/days-off/new") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -47,6 +54,7 @@ describe("CreateDaysOff", () => {
     holidays = [] as { id: number; date: string; name: string }[],
     createStatus = 201,
     createBody = {} as unknown,
+    extraPools = [] as (typeof STUDY_POOL)[],
   } = {}) {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const u = String(url);
@@ -72,7 +80,7 @@ describe("CreateDaysOff", () => {
             }),
           );
         }
-        return Promise.resolve(jsonResponse(200, { items: [budget(remaining, allowance)] }));
+        return Promise.resolve(jsonResponse(200, { items: [budget(remaining, allowance), ...extraPools] }));
       }
       if (u.includes("/api/v1/teams/members")) {
         const row = (userId: number, name: string) => ({
@@ -115,8 +123,53 @@ describe("CreateDaysOff", () => {
     await pickRange(MONDAY, "2099-06-05"); // Mon..Fri with a Tuesday holiday
     expect(await screen.findByText("This request costs 4 working days.")).toBeInTheDocument();
     expect(
-      screen.getByText(`Remaining paid-days budget for ${YEAR}: 10.`),
+      screen.getByText(`Remaining "Paid days off" budget for ${YEAR}: 10.`),
     ).toBeInTheDocument();
+  });
+
+  test("the pool picker offers every pool plus Unpaid; an extra pool posts its id and previews its own budget", async () => {
+    setupMocks({ remaining: 10, extraPools: [STUDY_POOL] });
+    renderPage();
+
+    await pickRange(MONDAY, TUESDAY);
+    // The default pool is pre-picked.
+    expect(await screen.findByText(`Remaining "Paid days off" budget for ${YEAR}: 10.`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual(["Paid days off", "Study leave", "Unpaid"]);
+    await userEvent.click(screen.getByRole("option", { name: "Study leave" }));
+    expect(await screen.findByText(`Remaining "Study leave" budget for ${YEAR}: 2.`)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
+    const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
+    expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
+      type: "PAID",
+      poolTypeId: 7,
+      startDate: MONDAY,
+      endDate: TUESDAY,
+      startHalf: false,
+      endHalf: false,
+    });
+  });
+
+  test("Unpaid posts no pool and skips the budget preview", async () => {
+    setupMocks();
+    renderPage();
+    await pickRange(MONDAY, TUESDAY);
+    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Unpaid" }));
+    expect(screen.queryByText(/Remaining "/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
+    const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
+    expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
+      type: "UNPAID",
+      startDate: MONDAY,
+      endDate: TUESDAY,
+      startHalf: false,
+      endHalf: false,
+    });
   });
 
   test("the last-day half checkbox is disabled on a single-day request", async () => {
@@ -166,6 +219,7 @@ describe("CreateDaysOff", () => {
     const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
     expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
       type: "PAID",
+      poolTypeId: 1,
       startDate: MONDAY,
       endDate: TUESDAY,
       startHalf: false,
@@ -196,7 +250,7 @@ describe("CreateDaysOff", () => {
     expect(submit).toBeEnabled();
     // The budget preview reads the PICKED report's managed-budget row.
     expect(
-      await screen.findByText(`Remaining paid-days budget for ${YEAR}: 10.`),
+      await screen.findByText(`Remaining "Paid days off" budget for ${YEAR}: 10.`),
     ).toBeInTheDocument();
     // Both on-behalf fetches run in chain mode (v2.33.0), so a subtree pick still resolves.
     const membersCall = mockFetch.mock.calls.find(([u]) => String(u).includes("/api/v1/teams/members"));
@@ -222,6 +276,7 @@ describe("CreateDaysOff", () => {
     const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
     expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
       type: "PAID",
+      poolTypeId: 1,
       startDate: MONDAY,
       endDate: TUESDAY,
       startHalf: false,

@@ -32,10 +32,12 @@ type Draft = {
   operation: DaysOffCorrectionOperation;
   days: number | "";
   comment: string;
+  /** The paid pool kind (v3.2.0); null = the default pool. */
+  poolTypeId: number | null;
 };
 
-function emptyDraft(defaultYear: number): Draft {
-  return { year: defaultYear, operation: "ADD", days: "", comment: "" };
+function emptyDraft(defaultYear: number, poolTypeId: number | null): Draft {
+  return { year: defaultYear, operation: "ADD", days: "", comment: "", poolTypeId };
 }
 
 function signedDays(c: DaysOffCorrection, locale: string): string {
@@ -47,21 +49,29 @@ function signedDays(c: DaysOffCorrection, locale: string): string {
  * The one corrections UI (rendered inside a Modal by the budget surfaces): the read-only list
  * for every permitted viewer (subordinate, chain, HR), plus — with [canManage] (a manager in
  * the subordinate's chain, v2.33.0) — an add form and per-row edit/soft-delete. A correction
- * adjusts the paid budget of its year immediately; there is no approval workflow.
+ * adjusts the paid budget of ONE pool (v3.2.0 — the Pool select appears once the user holds
+ * more than one; the pool is fixed on edit) for its year immediately; there is no approval
+ * workflow.
  */
 export default function DaysOffCorrections({
   userId,
   defaultYear,
   canManage,
+  pools = [],
+  defaultPoolTypeId = null,
 }: {
   userId: number;
   /** The year the add form pre-selects — the budget view's currently shown year. */
   defaultYear: number;
   canManage: boolean;
+  /** The user's non-archived pools (from their budget rows) — the add form's Pool options. */
+  pools?: { id: number; name: string }[];
+  /** The pool the add form pre-selects (the row the modal was opened from); null = default. */
+  defaultPoolTypeId?: number | null;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft(defaultYear));
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(defaultYear, defaultPoolTypeId));
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +93,7 @@ export default function DaysOffCorrections({
       await action();
       await invalidateDaysOffCorrections(queryClient, userId);
       showSuccessToast(t(successKey));
-      setDraft(emptyDraft(defaultYear));
+      setDraft(emptyDraft(defaultYear, defaultPoolTypeId));
       setEditingId(null);
       setDeleteTarget(null);
     } catch (err) {
@@ -110,6 +120,8 @@ export default function DaysOffCorrections({
       operation: draft.operation,
       days: draft.days,
       comment: draft.comment.trim(),
+      // The pool is create-only (immutable on PUT, ignored server-side like userId).
+      ...(editingId == null && draft.poolTypeId != null ? { poolTypeId: draft.poolTypeId } : {}),
     };
     if (editingId != null) {
       void run(() => updateDaysOffCorrection(editingId, body), "daysOff.corrections.toastUpdated");
@@ -120,7 +132,7 @@ export default function DaysOffCorrections({
 
   function startEdit(c: DaysOffCorrection) {
     setEditingId(c.id);
-    setDraft({ year: c.year, operation: c.operation, days: c.days, comment: c.comment });
+    setDraft({ year: c.year, operation: c.operation, days: c.days, comment: c.comment, poolTypeId: c.poolTypeId });
   }
 
   return (
@@ -157,6 +169,11 @@ export default function DaysOffCorrections({
                     <Text size="sm" fw={500} span>
                       {c.year}
                     </Text>
+                    {pools.length !== 1 && (
+                      <Text size="sm" c="dimmed" span>
+                        {c.poolName}
+                      </Text>
+                    )}
                   </Group>
                   <Text size="sm" style={{ wordBreak: "break-word" }}>
                     {c.comment}
@@ -211,6 +228,17 @@ export default function DaysOffCorrections({
             {t(editingId != null ? "daysOff.corrections.editTitle" : "daysOff.corrections.addTitle")}
           </Text>
           <Group align="flex-end" gap="md" wrap="wrap">
+            {pools.length > 1 && (
+              <Select
+                label={t("daysOff.pool.label")}
+                data={pools.map((p) => ({ value: String(p.id), label: p.name }))}
+                value={draft.poolTypeId != null ? String(draft.poolTypeId) : (pools[0] ? String(pools[0].id) : null)}
+                onChange={(v) => v && setDraft((d) => ({ ...d, poolTypeId: Number(v) }))}
+                allowDeselect={false}
+                disabled={editingId != null}
+                w={180}
+              />
+            )}
             <Select
               label={t("daysOff.budget.year")}
               data={yearOptions}
@@ -254,7 +282,7 @@ export default function DaysOffCorrections({
                 disabled={submitting}
                 onClick={() => {
                   setEditingId(null);
-                  setDraft(emptyDraft(defaultYear));
+                  setDraft(emptyDraft(defaultYear, defaultPoolTypeId));
                 }}
               >
                 {t("common.action.cancel")}

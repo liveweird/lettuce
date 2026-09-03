@@ -64,8 +64,8 @@ data class User(
     // The career triple no longer lives on the user (v2.15.0): it derives from the LATEST
     // career position (users/CareerPositionService.kt) and is resolved response-side.
     // The paid days-off allowance likewise no longer lives on the domain object (v2.32.0):
-    // the V38 column is written only by UserService.setPaidDaysOffAllowance (chain-manager
-    // right, PUT /days-off/allowance) and read only by the days-off budget math.
+    // since V74 the per-user paid pools live in days_off_pools (DaysOffService.upsertPool,
+    // the chain-manager right behind PUT /days-off/allowance).
     // Email-notification opt-out (V51): true (default) = every in-app notification is also
     // mirrored to the user's inbox. Never client-settable via PUT — flipped only by
     // PUT /users/{id}/email-notifications (target user or ADMIN).

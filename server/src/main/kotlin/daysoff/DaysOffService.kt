@@ -38,6 +38,8 @@ data class DaysOffListFilter(
     val userName: String? = null,
     val userId: UInt? = null,
     val type: DaysOffType? = null,
+    // The paid pool kind (v3.2.0) — an equality filter; composes with type=PAID trivially.
+    val poolTypeId: UInt? = null,
     val status: DaysOffStatus? = null,
     val startDateGte: String? = null,
     val startDateLte: String? = null,
@@ -53,6 +55,17 @@ data class DaysOffFullListResult(
     val items: List<DaysOffResponse>,
     val total: Long,
 )
+
+/** A pool kind as resolved in-transaction for a write (v3.2.0) — see [DaysOffService.resolvePoolKind]. */
+data class PoolKind(val id: UInt, val name: String, val carriesOver: Boolean, val isDefault: Boolean)
+
+/** One active per-user grant row (v3.2.0) — the `DELETE /days-off/pools/{id}` read preamble. */
+data class DaysOffPoolRow(val id: UInt, val userId: UInt, val kind: PoolKind, val allowance: Int)
+
+/** The [DaysOffService.upsertPool] result: the allowance before the write (null = the user
+ * held no active pool of that kind — a fresh grant) plus the resolved kind, so the route can
+ * detect a no-op re-PUT and name the pool in the audit/notification. */
+data class PoolUpsert(val previous: Int?, val kind: PoolKind)
 
 private val ownerUsers = UserService.Users.alias("owner_users")
 private val cancelUsers = UserService.Users.alias("cancel_users")
@@ -71,18 +84,46 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 )
 
 /**
- * Days-off requests (see V40) and their budget corrections (V42). Two encrypted-at-rest
- * columns (the 1:1-notes pattern — the cipher wraps every write and unwraps every read; never
- * filter/sort on them in SQL): the correction COMMENT and, since V63, the request's
- * CANCEL_REASON (the mandatory cancellation reasoning). Request dates and costs are immutable
- * after create; only the status (and its resolution/cancellation stamps) ever changes.
+ * Days-off requests (see V40), their budget corrections (V42), and — since v3.2.0/V74 — the
+ * paid pools: the ORG-WIDE kinds registry ([PoolTypes], ADMIN-managed) and the PER-USER grants
+ * ([Pools], a chain manager's right). Two encrypted-at-rest columns (the 1:1-notes pattern —
+ * the cipher wraps every write and unwraps every read; never filter/sort on them in SQL): the
+ * correction COMMENT and, since V63, the request's CANCEL_REASON (the mandatory cancellation
+ * reasoning). Request dates, costs, and pool are immutable after create; only the status (and
+ * its resolution/cancellation stamps) ever changes. Every PAID request and every correction
+ * references its pool KIND (never the grant row), so a pool's history is keyed on
+ * (user, kind) and survives archive/re-grant cycles of the grant.
  */
 class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokillswit.infra.crypto.FieldCipher) : EncryptedAtRest {
     override val encryptedRowLabel = "days-off"
 
+    /** The org-wide pool kinds registry (V74). Soft-deleting = "archived": name lookups for
+     * history never filter on the flag; grants/requests/corrections require an ACTIVE kind. */
+    object PoolTypes : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_pool_types") {
+        val name = varchar("name", MAX_POOL_TYPE_NAME_LENGTH)
+        val carriesOver = bool("carries_over")
+        val isDefault = bool("is_default").default(false)
+        val createdAt = long("created_at")
+        val lastModified = long("last_modified")
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
+    }
+
+    /** The per-user grants (V74): (user, kind) → allowance; soft-deleting = "archived" (an
+     * archived grant is invisible everywhere — a re-grant inserts a fresh row). */
+    object Pools : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_pools") {
+        val userId = reference("user_id", UserService.Users)
+        val poolTypeId = reference("pool_type_id", PoolTypes)
+        val allowance = integer("allowance")
+        val createdAt = long("created_at")
+        val lastModified = long("last_modified")
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
+    }
+
     object Requests : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_requests") {
         val userId = reference("user_id", UserService.Users)
         val type = enumerationByName("type", 10, DaysOffType::class)
+        // V74: the paid pool kind — NOT NULL iff PAID (the DB CHECK pins the pairing).
+        val poolTypeId = reference("pool_type_id", PoolTypes).nullable()
         val status = enumerationByName("status", 20, DaysOffStatus::class)
         val startDate = varchar("start_date", 10)
         val endDate = varchar("end_date", 10)
@@ -104,6 +145,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     object Corrections : org.jetbrains.exposed.v1.core.dao.id.UIntIdTable("days_off_corrections") {
         val userId = reference("user_id", UserService.Users)
         val authorId = reference("author_id", UserService.Users)
+        // V74: the adjusted pool kind (backfilled to the default kind).
+        val poolTypeId = reference("pool_type_id", PoolTypes)
         val year = integer("year")
         val amountHalfDays = integer("amount_half_days")
         val comment = text("comment")
@@ -115,6 +158,10 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     private fun active(): Op<Boolean> = Requests.markedAsDeleted eq false
 
     private fun correctionActive(): Op<Boolean> = Corrections.markedAsDeleted eq false
+
+    private fun poolActive(): Op<Boolean> = Pools.markedAsDeleted eq false
+
+    private fun poolTypeActive(): Op<Boolean> = PoolTypes.markedAsDeleted eq false
 
     private fun counting(): Op<Boolean> = Requests.status inList COUNTING_STATUSES
 
@@ -163,14 +210,19 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             if (cost == 0) {
                 throw BadRequestException("The period contains no working days")
             }
-            if (request.type == DaysOffType.PAID) {
-                val allowance = allowanceOf(userId)
-                val corrections = correctionsByYear(userId)
-                val usedByYear = countingPaidCostsByYear(userId).toMutableMap()
+            // PAID (v3.2.0): resolve the pool kind + the owner's grant (400s for an unknown/
+            // archived kind or an extra kind without an active grant), then sweep THAT pool's
+            // history only; a non-carry-over pool resets every January, so only the request's
+            // own year can go negative.
+            val pool = if (request.type == DaysOffType.PAID) resolvePoolKind(userId, request.poolTypeId) else null
+            if (pool != null) {
+                val (kind, allowance) = pool
+                val corrections = correctionsByYear(userId, kind.id)
+                val usedByYear = countingPaidCostsByYear(userId, kind.id).toMutableMap()
                 usedByYear[year] = (usedByYear[year] ?: 0) + cost
-                val lastYear = maxOf(usedByYear.keys.max(), year)
+                val lastYear = if (kind.carriesOver) maxOf(usedByYear.keys.max(), year) else year
                 for (y in year..lastYear) {
-                    if (remainingHalfDays(allowance, y, usedByYear, corrections) < 0) {
+                    if (remainingHalfDays(allowance, y, usedByYear, corrections, kind.carriesOver) < 0) {
                         throw ConflictException("Insufficient paid days-off budget for year $y")
                     }
                 }
@@ -179,6 +231,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             val id = Requests.insert {
                 it[this.userId] = userId
                 it[type] = request.type
+                it[poolTypeId] = pool?.first?.id
                 it[status] = if (recordedBy != null) DaysOffStatus.ACCEPTED else DaysOffStatus.REQUESTED
                 it[startDate] = request.startDate
                 it[endDate] = request.endDate
@@ -234,6 +287,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             userId = row[Requests.userId].value,
             userName = row[ownerUsers[UserService.Users.name]],
             type = row[Requests.type],
+            poolTypeId = row[Requests.poolTypeId]?.value,
+            poolName = row.getOrNull(PoolTypes.name),
             status = row[Requests.status],
             startDate = row[Requests.startDate],
             endDate = row[Requests.endDate],
@@ -424,6 +479,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 Requests.id,
                 Requests.userId,
                 Requests.type,
+                Requests.poolTypeId,
                 Requests.status,
                 Requests.startDate,
                 Requests.endDate,
@@ -437,6 +493,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 ownerUsers[UserService.Users.name],
                 ownerUsers[UserService.Users.markedAsDeleted],
                 cancelUsers[UserService.Users.name],
+                PoolTypes.name,
             )
             .where { predicate }
             .applyPaging(paging, SORTABLE_COLUMNS)
@@ -447,6 +504,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     userName = row[ownerUsers[UserService.Users.name]],
                     userDeleted = row[ownerUsers[UserService.Users.markedAsDeleted]],
                     type = row[Requests.type],
+                    poolTypeId = row[Requests.poolTypeId]?.value,
+                    poolName = row.getOrNull(PoolTypes.name),
                     status = row[Requests.status],
                     startDate = row[Requests.startDate],
                     endDate = row[Requests.endDate],
@@ -507,9 +566,11 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             emptyMap()
         } else {
             Requests
+                .join(PoolTypes, JoinType.LEFT, onColumn = Requests.poolTypeId, otherColumn = PoolTypes.id)
                 .select(
                     Requests.id, Requests.userId, Requests.type, Requests.status,
                     Requests.startDate, Requests.endDate, Requests.startHalf, Requests.endHalf,
+                    PoolTypes.name,
                 )
                 .where {
                     (Requests.userId inList userIds) and active() and counting() and
@@ -552,15 +613,21 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     }
 
     /**
-     * One budget row per user in [userIds] for [year] (see [DaysOffBudget]): the closed-form
-     * carry-over over the user's counting PAID requests up to [year] (one fetch, grouped in
-     * Kotlin — no SQL arithmetic on R2DBC), split into the year's reserved (REQUESTED) and used
-     * (ACCEPTED) days. Users without any requests still get a row. Sorted by name.
+     * The budget rows of [userIds] for [year] (see [DaysOffBudget]) — since v3.2.0 ONE ROW PER
+     * (user, pool kind): the closed-form carry-over over that pool's counting PAID requests up
+     * to [year] (one grouped fetch per table, joined in Kotlin on (user, kind) — no SQL
+     * arithmetic on R2DBC), split into the year's reserved (REQUESTED) and used (ACCEPTED)
+     * days. Per user: the default kind's row ALWAYS (allowance null when ungranted — today's
+     * "not configured = zero budget"), then one row per active extra grant, then history-only
+     * rows (`poolArchived`) for extra kinds with a counting request or correction IN [year]
+     * but no active grant; extras sort by kind name. Users without any requests still get
+     * their default row. Sorted by user name.
      * PINNED CONTRACT (checkup #30, B-M3): the result is driven off the `users` table with
      * NO deleted/deactivated filter — EVERY id in [userIds] that names an existing user row
-     * yields a budget. The integration API's non-null `User.daysOffBudget` GraphQL field
-     * depends on this; adding an `active()` filter here would turn it into a hard error
-     * for soft-deleted users reachable through that graph.
+     * yields (at least) its default-kind budget. The integration API's non-null
+     * `User.daysOffBudget` GraphQL field depends on this (through [defaultBudgets]); adding
+     * an `active()` filter here would turn it into a hard error for soft-deleted users
+     * reachable through that graph.
      * [correctable] stamps every row's `canCorrect` capability flag: since v2.33.0 the
      * corrections write is chain-wide, so every managed-view row (the caller's subtree by
      * construction) is correctable and view=own rows never are — decided route-side.
@@ -572,8 +639,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     ): List<DaysOffBudget> = suspendTransaction(database) {
         if (userIds.isEmpty()) return@suspendTransaction emptyList()
         data class CountingRow(val year: Int, val status: DaysOffStatus, val costH: Int)
-        val rowsByUser: Map<UInt, List<CountingRow>> = Requests
-            .select(Requests.userId, Requests.startDate, Requests.status, Requests.costHalfDays)
+        val rowsByUserPool: Map<Pair<UInt, UInt>, List<CountingRow>> = Requests
+            .select(Requests.userId, Requests.poolTypeId, Requests.startDate, Requests.status, Requests.costHalfDays)
             .where {
                 (Requests.userId inList userIds) and active() and counting() and
                     (Requests.type eq DaysOffType.PAID) and
@@ -581,7 +648,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             }
             .map { it }
             .toList()
-            .groupBy({ it[Requests.userId].value }) { row ->
+            .groupBy({ it[Requests.userId].value to requireNotNull(it[Requests.poolTypeId]).value }) { row ->
                 CountingRow(
                     // Same-year requests (app-enforced), so the start date names the budget year.
                     year = row[Requests.startDate].substring(0, 4).toInt(),
@@ -591,51 +658,253 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             }
         // One grouped fetch of the whole set's active corrections (no year cap — the anchor
         // may sit before [year], and later ones never enter the filtered sums anyway).
-        val correctionsByUser: Map<UInt, Map<Int, Int>> = Corrections
-            .select(Corrections.userId, Corrections.year, Corrections.amountHalfDays)
+        val correctionsByUserPool: Map<Pair<UInt, UInt>, Map<Int, Int>> = Corrections
+            .select(Corrections.userId, Corrections.poolTypeId, Corrections.year, Corrections.amountHalfDays)
             .where { (Corrections.userId inList userIds) and correctionActive() }
             .map { it }
             .toList()
-            .groupBy { it[Corrections.userId].value }
+            .groupBy { it[Corrections.userId].value to it[Corrections.poolTypeId].value }
             .mapValues { (_, rows) ->
                 rows.groupBy({ it[Corrections.year] }) { it[Corrections.amountHalfDays] }
                     .mapValues { (_, amounts) -> amounts.sum() }
             }
+        // The active grants: (user, kind) → (grant id, allowance).
+        val grants: Map<Pair<UInt, UInt>, Pair<UInt, Int>> = Pools
+            .select(Pools.id, Pools.userId, Pools.poolTypeId, Pools.allowance)
+            .where { (Pools.userId inList userIds) and poolActive() }
+            .map { (it[Pools.userId].value to it[Pools.poolTypeId].value) to (it[Pools.id].value to it[Pools.allowance]) }
+            .toList()
+            .toMap()
+        // Every kind, archived ones included — they still label their history.
+        val kinds: Map<UInt, PoolKind> = PoolTypes
+            .selectAll()
+            .map { it.toPoolKind() }
+            .toList()
+            .associateBy { it.id }
+        val defaultKind = defaultKind()
         UserService.Users
-            .select(
-                UserService.Users.id,
-                UserService.Users.name,
-                UserService.Users.markedAsDeleted,
-                UserService.Users.paidDaysOffAllowance,
-            )
+            .select(UserService.Users.id, UserService.Users.name, UserService.Users.markedAsDeleted)
             .where { UserService.Users.id inList userIds }
             .orderBy(UserService.Users.name to SortOrder.ASC, UserService.Users.id to SortOrder.ASC)
             .map { row ->
                 val userId = row[UserService.Users.id].value
-                val allowance = row[UserService.Users.paidDaysOffAllowance]
-                val countingRows = rowsByUser[userId] ?: emptyList()
-                val usedByYear = countingRows.groupBy { it.year }.mapValues { (_, r) -> r.sumOf { it.costH } }
-                val corrections = correctionsByUser[userId] ?: emptyMap()
-                val reservedH = countingRows.filter { it.year == year && it.status == DaysOffStatus.REQUESTED }
-                    .sumOf { it.costH }
-                val usedH = countingRows.filter { it.year == year && it.status == DaysOffStatus.ACCEPTED }
-                    .sumOf { it.costH }
-                DaysOffBudget(
-                    userId = userId,
-                    userName = row[UserService.Users.name],
-                    userDeleted = row[UserService.Users.markedAsDeleted],
-                    year = year,
-                    allowance = allowance,
-                    carriedOver = carriedOverHalfDays(allowance, year, usedByYear, corrections) / 2.0,
-                    corrected = (corrections[year] ?: 0) / 2.0,
-                    reserved = reservedH / 2.0,
-                    used = usedH / 2.0,
-                    remaining = remainingHalfDays(allowance, year, usedByYear, corrections) / 2.0,
-                    canCorrect = correctable,
-                )
+                val userName = row[UserService.Users.name]
+                val userDeleted = row[UserService.Users.markedAsDeleted]
+                val activeKindIds = grants.keys.filter { it.first == userId }.map { it.second }
+                val historyKindIds = (rowsByUserPool.keys + correctionsByUserPool.keys)
+                    .filter { it.first == userId }
+                    .map { it.second }
+                    .filter { kindId ->
+                        rowsByUserPool[userId to kindId].orEmpty().any { it.year == year } ||
+                            correctionsByUserPool[userId to kindId].orEmpty().containsKey(year)
+                    }
+                val extraKindIds = (activeKindIds + historyKindIds).toSet() - defaultKind.id
+                val orderedKinds = listOf(defaultKind) +
+                    extraKindIds.map { kinds.getValue(it) }.sortedWith(compareBy({ it.name }, { it.id }))
+                orderedKinds.map { kind ->
+                    val grant = grants[userId to kind.id]
+                    val allowance = grant?.second
+                    val countingRows = rowsByUserPool[userId to kind.id].orEmpty()
+                    val usedByYear = countingRows.groupBy { it.year }.mapValues { (_, r) -> r.sumOf { it.costH } }
+                    val corrections = correctionsByUserPool[userId to kind.id].orEmpty()
+                    val reservedH = countingRows.filter { it.year == year && it.status == DaysOffStatus.REQUESTED }
+                        .sumOf { it.costH }
+                    val usedH = countingRows.filter { it.year == year && it.status == DaysOffStatus.ACCEPTED }
+                        .sumOf { it.costH }
+                    DaysOffBudget(
+                        userId = userId,
+                        userName = userName,
+                        userDeleted = userDeleted,
+                        year = year,
+                        poolId = grant?.first,
+                        poolTypeId = kind.id,
+                        poolName = kind.name,
+                        carriesOver = kind.carriesOver,
+                        isDefault = kind.isDefault,
+                        poolArchived = !kind.isDefault && grant == null,
+                        allowance = allowance,
+                        carriedOver = carriedOverHalfDays(allowance, year, usedByYear, corrections, kind.carriesOver) / 2.0,
+                        corrected = (corrections[year] ?: 0) / 2.0,
+                        reserved = reservedH / 2.0,
+                        used = usedH / 2.0,
+                        remaining = remainingHalfDays(allowance, year, usedByYear, corrections, kind.carriesOver) / 2.0,
+                        canCorrect = correctable,
+                    )
+                }
             }
             .toList()
+            .flatten()
     }
+
+    /** The default kind's row per user (v3.2.0) — the one-row-per-user slice behind the
+     * `/teams/members` card stat and the GraphQL `User.daysOffBudget` field (whose non-null
+     * pin rides [budgets]' per-user default row). */
+    suspend fun defaultBudgets(userIds: Set<UInt>, year: Int): List<DaysOffBudget> =
+        budgets(userIds, year).filter { it.isDefault }
+
+    // ── Paid pools (v3.2.0) ─────────────────────────────────────────────────────────────────
+
+    /** The active kinds registry, default first then name (the unpaged registry read). */
+    suspend fun listPoolTypes(): List<DaysOffPoolType> = suspendTransaction(database) {
+        PoolTypes.selectAll()
+            .where { poolTypeActive() }
+            .orderBy(PoolTypes.isDefault to SortOrder.DESC, PoolTypes.name to SortOrder.ASC, PoolTypes.id to SortOrder.ASC)
+            .map { it.toPoolKind().toResponse() }
+            .toList()
+    }
+
+    suspend fun readPoolType(id: UInt): DaysOffPoolType? = suspendTransaction(database) {
+        PoolTypes.selectAll()
+            .where { (PoolTypes.id eq id) and poolTypeActive() }
+            .map { it.toPoolKind().toResponse() }
+            .singleOrNull()
+    }
+
+    /** Inserts a kind (name pre-validated by the route). A duplicate active name raises 23505 →
+     * the central 409 mapping. Never the default — the seed row is the only one. */
+    suspend fun createPoolType(write: DaysOffPoolTypeWrite): UInt = suspendTransaction(database) {
+        val now = System.currentTimeMillis()
+        PoolTypes.insert {
+            it[name] = write.name
+            it[carriesOver] = write.carriesOver
+            it[createdAt] = now
+            it[lastModified] = now
+        }[PoolTypes.id].value
+    }
+
+    /** Renames / re-flags a kind (the default included — `isDefault` itself never moves).
+     * 0 → missing/archived → 404. */
+    suspend fun updatePoolType(id: UInt, write: DaysOffPoolTypeWrite): Int = suspendTransaction(database) {
+        PoolTypes.update({ (PoolTypes.id eq id) and poolTypeActive() }) {
+            it[name] = write.name
+            it[carriesOver] = write.carriesOver
+            it[lastModified] = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * Archives a kind (soft delete) AND every active grant of it in the same transaction —
+     * no user keeps a pool of a retired kind; their history stays labelled (name lookups
+     * never filter on the flag). The route has already refused the default kind (409).
+     * Returns the archived-grant count, or null when the kind is missing/archived (→ 404).
+     */
+    suspend fun archivePoolType(id: UInt): Int? = suspendTransaction(database) {
+        val archived = PoolTypes.update({ (PoolTypes.id eq id) and poolTypeActive() }) {
+            it[markedAsDeleted] = true
+            it[lastModified] = System.currentTimeMillis()
+        }
+        if (archived == 0) return@suspendTransaction null
+        Pools.update({ (Pools.poolTypeId eq id) and poolActive() }) {
+            it[markedAsDeleted] = true
+            it[lastModified] = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * The `PUT /days-off/allowance` write (v3.2.0 shape): upserts [userId]'s grant of the
+     * [poolTypeId] kind (null = the default kind) — overwriting the active grant's allowance,
+     * or inserting a fresh grant when the user holds none (a re-grant after an archive
+     * included: the partial unique index only guards ACTIVE rows). 400 for an unknown or
+     * archived kind. Returns the previous allowance (null = fresh grant) plus the kind.
+     */
+    suspend fun upsertPool(userId: UInt, poolTypeId: UInt?, allowance: Int): PoolUpsert =
+        suspendTransaction(database) {
+            val kind = activeKind(poolTypeId ?: defaultKind().id)
+                ?: throw BadRequestException("Unknown or archived days-off pool type")
+            val now = System.currentTimeMillis()
+            val existing = Pools
+                .select(Pools.id, Pools.allowance)
+                .where { (Pools.userId eq userId) and (Pools.poolTypeId eq kind.id) and poolActive() }
+                .map { it[Pools.id].value to it[Pools.allowance] }
+                .singleOrNull()
+            if (existing == null) {
+                Pools.insert {
+                    it[this.userId] = userId
+                    it[this.poolTypeId] = kind.id
+                    it[this.allowance] = allowance
+                    it[createdAt] = now
+                    it[lastModified] = now
+                }
+            } else if (existing.second != allowance) {
+                Pools.update({ Pools.id eq existing.first }) {
+                    it[this.allowance] = allowance
+                    it[lastModified] = now
+                }
+            }
+            PoolUpsert(previous = existing?.second, kind = kind)
+        }
+
+    /** The active grant row (the `DELETE /days-off/pools/{id}` read preamble — 404 when
+     * missing or archived). */
+    suspend fun readPool(id: UInt): DaysOffPoolRow? = suspendTransaction(database) {
+        Pools
+            .join(PoolTypes, JoinType.INNER, onColumn = Pools.poolTypeId, otherColumn = PoolTypes.id)
+            .selectAll()
+            .where { (Pools.id eq id) and poolActive() }
+            .map {
+                DaysOffPoolRow(
+                    id = it[Pools.id].value,
+                    userId = it[Pools.userId].value,
+                    kind = it.toPoolKind(),
+                    allowance = it[Pools.allowance],
+                )
+            }
+            .singleOrNull()
+    }
+
+    /** Archives a grant (soft delete): no new requests/corrections in that pool; its history
+     * keeps counting and its label. The route has already refused the default kind (409).
+     * 0 → missing/archived → 404. */
+    suspend fun archivePool(id: UInt): Int = suspendTransaction(database) {
+        Pools.update({ (Pools.id eq id) and poolActive() }) {
+            it[markedAsDeleted] = true
+            it[lastModified] = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * Resolves the pool kind a PAID request or a correction targets (in-transaction):
+     * [poolTypeId] or the default kind; 400 when unknown/archived; the user's ACTIVE grant
+     * supplies the allowance (null = ungranted). An extra kind without an active grant is 400
+     * ("no such pool for this user") — the default kind needs none (ungranted = zero budget,
+     * the pre-v3.2.0 rule, so the create sweep answers 409 there).
+     */
+    private suspend fun resolvePoolKind(userId: UInt, poolTypeId: UInt?): Pair<PoolKind, Int?> {
+        val kind = activeKind(poolTypeId ?: defaultKind().id)
+            ?: throw BadRequestException("Unknown or archived days-off pool type")
+        val allowance = Pools
+            .select(Pools.allowance)
+            .where { (Pools.userId eq userId) and (Pools.poolTypeId eq kind.id) and poolActive() }
+            .map { it[Pools.allowance] }
+            .singleOrNull()
+        if (!kind.isDefault && allowance == null) {
+            throw BadRequestException("The user holds no active \"${kind.name}\" days-off pool")
+        }
+        return kind to allowance
+    }
+
+    private suspend fun activeKind(id: UInt): PoolKind? =
+        PoolTypes.selectAll()
+            .where { (PoolTypes.id eq id) and poolTypeActive() }
+            .map { it.toPoolKind() }
+            .singleOrNull()
+
+    /** The seeded default kind (V74 guarantees exactly one active). Runs in the caller's transaction. */
+    private suspend fun defaultKind(): PoolKind =
+        PoolTypes.selectAll()
+            .where { (PoolTypes.isDefault eq true) and poolTypeActive() }
+            .map { it.toPoolKind() }
+            .singleOrNull()
+            ?: error("The default days-off pool type is missing")
+
+    private fun ResultRow.toPoolKind() = PoolKind(
+        id = this[PoolTypes.id].value,
+        name = this[PoolTypes.name],
+        carriesOver = this[PoolTypes.carriesOver],
+        isDefault = this[PoolTypes.isDefault],
+    )
+
+    private fun PoolKind.toResponse() = DaysOffPoolType(id = id, name = name, carriesOver = carriesOver, isDefault = isDefault)
 
     // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────────────
 
@@ -644,19 +913,23 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         suspendTransaction(database) {
             var predicate: Op<Boolean> = (Corrections.userId eq userId) and correctionActive()
             year?.let { predicate = predicate and (Corrections.year eq it) }
-            Corrections
-                .join(
-                    ownerUsers,
-                    JoinType.INNER,
-                    onColumn = Corrections.authorId,
-                    otherColumn = ownerUsers[UserService.Users.id],
-                )
+            correctionsJoined()
                 .selectAll()
                 .where { predicate }
                 .orderBy(Corrections.year to SortOrder.DESC, Corrections.id to SortOrder.DESC)
                 .map { it.toCorrection() }
                 .toList()
         }
+
+    /** Author name + the pool kind's current name (archived kinds keep labelling history). */
+    private fun correctionsJoined() = Corrections
+        .join(
+            ownerUsers,
+            JoinType.INNER,
+            onColumn = Corrections.authorId,
+            otherColumn = ownerUsers[UserService.Users.id],
+        )
+        .join(PoolTypes, JoinType.INNER, onColumn = Corrections.poolTypeId, otherColumn = PoolTypes.id)
 
     /**
      * Batch for the integration API (v3.0.0): user id → their active corrections (newest year,
@@ -671,13 +944,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         else suspendTransaction(database) {
             var predicate: Op<Boolean> = (Corrections.userId inList userIds) and correctionActive()
             year?.let { predicate = predicate and (Corrections.year eq it) }
-            Corrections
-                .join(
-                    ownerUsers,
-                    JoinType.INNER,
-                    onColumn = Corrections.authorId,
-                    otherColumn = ownerUsers[UserService.Users.id],
-                )
+            correctionsJoined()
                 .selectAll()
                 .where { predicate }
                 .orderBy(Corrections.year to SortOrder.DESC, Corrections.id to SortOrder.DESC)
@@ -687,13 +954,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         }
 
     suspend fun readCorrection(id: UInt): DaysOffCorrectionResponse? = suspendTransaction(database) {
-        Corrections
-            .join(
-                ownerUsers,
-                JoinType.INNER,
-                onColumn = Corrections.authorId,
-                otherColumn = ownerUsers[UserService.Users.id],
-            )
+        correctionsJoined()
             .selectAll()
             .where { (Corrections.id eq id) and correctionActive() }
             .map { it.toCorrection() }
@@ -701,14 +962,17 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     }
 
     /** Inserts a correction (shape pre-validated by the route; no budget gate — a SUBTRACT may
-     * push a year negative, the allowance-cut precedent) and returns the id plus the owner's
-     * notification. */
+     * push a year negative, the allowance-cut precedent) against the resolved pool kind
+     * (v3.2.0 — 400 for an unknown/archived kind or an extra kind the user holds no active
+     * grant of) and returns the id plus the owner's notification. */
     suspend fun createCorrection(authorId: UInt, write: DaysOffCorrectionWrite): Pair<UInt, Notification> =
         suspendTransaction(database) {
+            val (kind, _) = resolvePoolKind(write.userId, write.poolTypeId)
             val now = System.currentTimeMillis()
             val id = Corrections.insert {
                 it[userId] = write.userId
                 it[this.authorId] = authorId
+                it[poolTypeId] = kind.id
                 it[year] = write.year
                 it[amountHalfDays] = correctionHalfDays(write)
                 it[comment] = cipher.encrypt(write.comment)
@@ -718,14 +982,16 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             id to daysOffCorrectionNotification(
                 ownerId = write.userId,
                 managerName = userName(authorId),
+                poolName = kind.name,
                 year = write.year,
                 operation = write.operation,
                 days = formatHalfDaysParam((write.days * 2).toInt()),
             )
         }
 
-    /** Updates a correction's year/amount/comment (the target user is immutable — [write]'s
-     * userId is ignored here; the route guards against the ROW's user). 0 → missing → 404. */
+    /** Updates a correction's year/amount/comment (the target user AND the pool are immutable —
+     * [write]'s userId/poolTypeId are ignored here; the route guards against the ROW's user;
+     * re-homing a correction is delete + create). 0 → missing → 404. */
     suspend fun updateCorrection(id: UInt, write: DaysOffCorrectionWrite): Int = suspendTransaction(database) {
         Corrections.update({ (Corrections.id eq id) and (Corrections.markedAsDeleted eq false) }) {
             it[year] = write.year
@@ -741,11 +1007,12 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         }
     }
 
-    /** Year → summed SIGNED half-day corrections of [userId]. Runs in the caller's transaction. */
-    private suspend fun correctionsByYear(userId: UInt): Map<Int, Int> =
+    /** Year → summed SIGNED half-day corrections of [userId] in ONE pool kind. Runs in the
+     * caller's transaction. */
+    private suspend fun correctionsByYear(userId: UInt, poolTypeId: UInt): Map<Int, Int> =
         Corrections
             .select(Corrections.year, Corrections.amountHalfDays)
-            .where { (Corrections.userId eq userId) and correctionActive() }
+            .where { (Corrections.userId eq userId) and (Corrections.poolTypeId eq poolTypeId) and correctionActive() }
             .map { it[Corrections.year] to it[Corrections.amountHalfDays] }
             .toList()
             .groupBy({ it.first }) { it.second }
@@ -759,6 +1026,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             authorId = this[Corrections.authorId].value,
             authorName = this[ownerUsers[UserService.Users.name]],
             authorDeleted = this[ownerUsers[UserService.Users.markedAsDeleted]],
+            poolTypeId = this[Corrections.poolTypeId].value,
+            poolName = this[PoolTypes.name],
             year = this[Corrections.year],
             operation = if (halfDays >= 0) DaysOffCorrectionOperation.ADD else DaysOffCorrectionOperation.SUBTRACT,
             days = kotlin.math.abs(halfDays) / 2.0,
@@ -808,10 +1077,12 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 .mapValues { (_, starts) -> starts.min() }
         }
 
-    /** Per user, the current remaining paid-days budget for [year] — the budgets math, keyed.
-     * Backs the managed-card stat only (budgets stay manager/self-scoped). */
+    /** Per user, the current remaining budget of the DEFAULT paid pool for [year] (v3.2.0 —
+     * the card stat is a one-number summary, so it stays the default kind's; extra pools
+     * surface on the drill-down) — the budgets math, keyed. Backs the managed-card stat only
+     * (budgets stay manager/self-scoped). */
     suspend fun remainingByUserIds(userIds: Set<UInt>, year: Int): Map<UInt, Double> =
-        budgets(userIds, year).associate { it.userId to it.remaining }
+        defaultBudgets(userIds, year).associate { it.userId to it.remaining }
 
     /** True iff [callerId] is anywhere in [ownerId]'s transitive management chain — the read
      * right, and since v2.33.0 (the chain rule) also the resolve/record/correction/allowance
@@ -850,20 +1121,14 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             .toList()
             .toSet()
 
-    private suspend fun allowanceOf(userId: UInt): Int? =
-        UserService.Users
-            .select(UserService.Users.paidDaysOffAllowance)
-            .where { UserService.Users.id eq userId }
-            .map { it[UserService.Users.paidDaysOffAllowance] }
-            .singleOrNull()
-
-    /** Year → summed half-day cost of [userId]'s counting PAID requests (every year). */
-    private suspend fun countingPaidCostsByYear(userId: UInt): Map<Int, Int> =
+    /** Year → summed half-day cost of [userId]'s counting PAID requests in ONE pool kind
+     * (every year). */
+    private suspend fun countingPaidCostsByYear(userId: UInt, poolTypeId: UInt): Map<Int, Int> =
         Requests
             .select(Requests.startDate, Requests.costHalfDays)
             .where {
                 (Requests.userId eq userId) and active() and counting() and
-                    (Requests.type eq DaysOffType.PAID)
+                    (Requests.poolTypeId eq poolTypeId)
             }
             .map { it[Requests.startDate].substring(0, 4).toInt() to it[Requests.costHalfDays] }
             .toList()
@@ -883,6 +1148,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 requestId = row[Requests.id].value,
                 date = date,
                 type = row[Requests.type],
+                poolName = row.getOrNull(PoolTypes.name),
                 status = row[Requests.status],
                 half = (date == start && row[Requests.startHalf]) || (date == end && row[Requests.endHalf]),
             )
@@ -906,6 +1172,9 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             onColumn = Requests.cancelledBy,
             otherColumn = cancelUsers[UserService.Users.id],
         )
+        // The pool kind's current name (v3.2.0) — LEFT: UNPAID rows have none; archived kinds
+        // still label their history (no active filter on purpose).
+        .join(PoolTypes, JoinType.LEFT, onColumn = Requests.poolTypeId, otherColumn = PoolTypes.id)
 
     private fun buildPredicate(filter: DaysOffListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
@@ -914,6 +1183,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         }
         filter.userId?.let { op = op and (Requests.userId eq it) }
         filter.type?.let { op = op and (Requests.type eq it) }
+        filter.poolTypeId?.let { op = op and (Requests.poolTypeId eq it) }
         filter.status?.let { op = op and (Requests.status eq it) }
         filter.startDateGte?.let { op = op and (Requests.startDate greaterEq it) }
         filter.startDateLte?.let { op = op and (Requests.startDate lessEq it) }
