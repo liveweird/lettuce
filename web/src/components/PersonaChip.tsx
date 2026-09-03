@@ -15,7 +15,9 @@ export default function PersonaChip({
   ariaLabel?: string;
 }) {
   return (
-    <Group gap={6} wrap="nowrap">
+    // The chip itself must be able to shrink inside a flex/table cell (min-width: auto would
+    // let a long name paint into the next column — the v3.3.0 truncation fix).
+    <Group gap={6} wrap="nowrap" style={{ minWidth: 0, maxWidth: "100%" }}>
       <Avatar name={name} color="initials" size={22} radius="xl" />
       {/* minWidth 0 lets the flex child actually shrink so `truncate` can engage. */}
       {to ? (

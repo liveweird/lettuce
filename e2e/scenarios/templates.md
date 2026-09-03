@@ -22,8 +22,8 @@
    - *Expected*: the feedback content editor now contains the template's body — the one place
      templates are consumed.
 6. They "Cancel" the editor and "Discard" the draft — nothing from this detour persists.
-7. Back on the templates list, they filter by the renamed name and delete the template,
-   confirming the "Delete" dialog.
+7. Back on the templates list, they filter by the renamed name and delete the template from
+   the row's "More actions" menu, confirming the "Delete" dialog.
 8. They load the templates list fresh and filter by the renamed name again. Why a fresh load:
    the in-place list can lose a refetch race against a stale in-flight response (seen once in
    CI-style runs; the server row was correctly deleted).

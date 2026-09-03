@@ -223,7 +223,11 @@ describe("Templates page", () => {
     const editLinks = screen.getAllByRole("link", { name: /^edit /i });
     expect(editLinks).toHaveLength(2);
     expect(editLinks[0]).toHaveAttribute("href", "/templates/1/edit");
-    expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
+    // Delete lives in each row's ⋯ menu (v3.3.0) — never a red button on every row.
+    const user = userEvent.setup();
+    expect(screen.getAllByRole("button", { name: /^more actions for /i })).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: /more actions for welcome/i }));
+    expect(screen.getByRole("menuitem", { name: /^delete welcome$/i })).toBeInTheDocument();
   });
 
   test("non-admin sees neither Create, Edit, nor Delete controls", async () => {
@@ -234,7 +238,7 @@ describe("Templates page", () => {
     await screen.findByRole("cell", { name: "Welcome" });
     expect(screen.queryByRole("link", { name: /new template/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^more actions for /i })).not.toBeInTheDocument();
   });
 
   test("non-admin sees a View link per row pointing at the view route", async () => {
@@ -262,7 +266,8 @@ describe("Templates page", () => {
     const user = userEvent.setup();
     renderTemplates();
 
-    await user.click(await screen.findByRole("button", { name: /delete farewell/i }));
+    await user.click(await screen.findByRole("button", { name: /more actions for farewell/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete farewell/i }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));
@@ -291,7 +296,8 @@ describe("Templates page", () => {
     const user = userEvent.setup();
     renderTemplates();
 
-    await user.click(await screen.findByRole("button", { name: /delete farewell/i }));
+    await user.click(await screen.findByRole("button", { name: /more actions for farewell/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete farewell/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -323,7 +329,8 @@ describe("Templates page", () => {
     const user = userEvent.setup();
     renderTemplates();
 
-    await user.click(await screen.findByRole("button", { name: /delete farewell/i }));
+    await user.click(await screen.findByRole("button", { name: /more actions for farewell/i }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete farewell/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 

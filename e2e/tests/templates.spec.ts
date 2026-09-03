@@ -69,7 +69,9 @@ test("admin creates, edits, views, inserts, and deletes a template", async ({ pa
   await page.goto("/templates");
   await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(renamed);
-  await page.getByRole("button", { name: `Delete ${renamed}` }).click();
+  // Delete lives in the row's ⋯ menu (v3.3.0 RowActions).
+  await page.getByRole("button", { name: `More actions for ${renamed}` }).click();
+  await page.getByRole("menuitem", { name: `Delete ${renamed}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith(`/templates/${id}`) && r.request().method() === "DELETE" && r.ok(),
