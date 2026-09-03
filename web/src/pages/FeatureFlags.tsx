@@ -291,7 +291,7 @@ export default function FeatureFlags() {
         </Button>
       </Group>
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>

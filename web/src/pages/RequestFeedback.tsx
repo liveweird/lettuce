@@ -231,7 +231,7 @@ export default function RequestFeedback() {
             </Button>
           </Group>
 
-          <Table withTableBorder>
+          <Table>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>{t("common.field.provider")}</Table.Th>

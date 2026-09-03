@@ -182,7 +182,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
           {t("teamKpi.noValues")}
         </Text>
       ) : (
-        <Table withTableBorder>
+        <Table>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{t("teamKpi.date")}</Table.Th>

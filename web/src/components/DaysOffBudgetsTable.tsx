@@ -63,7 +63,7 @@ export default function DaysOffBudgetsTable() {
         </Alert>
       )}
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>{t("daysOff.calendar.personColumn")}</Table.Th>

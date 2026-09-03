@@ -129,7 +129,7 @@ export default function ViewOneOnOne() {
                       empty={t("oneOnOne.noActionItems")}
                     >
                       {data.actionItems.length > 0 && (
-                        <Table withTableBorder verticalSpacing="sm">
+                        <Table>
                           <Table.Thead>
                             <Table.Tr>
                               <Table.Th style={{ width: 1 }}>{t("common.table.position")}</Table.Th>

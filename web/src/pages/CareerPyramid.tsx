@@ -290,7 +290,7 @@ export default function CareerPyramid() {
         </Suspense>
       ) : (
         <>
-          <Table highlightOnHover withTableBorder verticalSpacing="sm">
+          <Table>
             <Table.Thead>
               <Table.Tr>
                 {columns.map((c) => (

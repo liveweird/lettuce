@@ -126,7 +126,7 @@ export default function ImportUsers() {
                   {t("users.importPasswordsOnce")}
                 </Alert>
               )}
-              <Table highlightOnHover withTableBorder verticalSpacing="sm">
+              <Table>
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{t("users.importLine")}</Table.Th>

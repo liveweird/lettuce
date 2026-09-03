@@ -295,7 +295,7 @@ export default function ReviewsDashboard() {
           exceed the viewport (PL labels especially), so it scrolls inside its own container
           instead of widening the page body (2026-08 audit round). */}
       <Table.ScrollContainer minWidth={1100}>
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>

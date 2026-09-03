@@ -117,7 +117,7 @@ export default function PulseCycleTable({
           <EmptyState icon={<IconHeartRateMonitor size={32} />} label={t("pulse.admin.noCycles")} />
         )}
         {rows.length > 0 && (
-          <Table verticalSpacing="sm">
+          <Table>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>{t("common.field.status")}</Table.Th>

@@ -280,7 +280,7 @@ export default function TeamDetails() {
         </Alert>
       )}
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>{t("common.field.name")}</Table.Th>

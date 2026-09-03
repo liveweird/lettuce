@@ -215,7 +215,7 @@ export default function PulseTeamResultCard({
             </Group>
 
             {data.drivers && (
-              <Table verticalSpacing="xs">
+              <Table>
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{t("pulse.results.question")}</Table.Th>

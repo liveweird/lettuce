@@ -13,6 +13,7 @@ import App from "./App.tsx";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { shouldRetryQuery } from "./api/http";
 import { theme } from "./theme";
+import { cssVariablesResolver } from "./themeVariables";
 
 const queryClient = new QueryClient({
   // Never retry a 4xx; up to two retries for transient failures (see shouldRetryQuery).
@@ -36,7 +37,7 @@ window.addEventListener("vite:preloadError", (event) => {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ColorSchemeScript defaultColorScheme="auto" />
-    <MantineProvider theme={theme} defaultColorScheme="auto">
+    <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="auto">
       {/* The success-toast host (utils/toast.tsx is the only writer). Top-center on purpose:
           bottom-right would cover PaginationBar and form footers, top-right the header
           user-menu/bell cluster. Deliberately mounted here, not in App — tests never see it. */}
