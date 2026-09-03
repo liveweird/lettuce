@@ -18,11 +18,14 @@ export default function DateCell({
   mode = "relative",
   size = "sm",
   emptyLabel = "—",
+  dimmed = false,
 }: {
   value: number | string | null | undefined;
   mode?: DateCellMode;
   size?: MantineSize;
   emptyLabel?: string;
+  /** Secondary lines (a row's timestamp under its text). */
+  dimmed?: boolean;
 }) {
   const { i18n } = useTranslation();
   if (value == null || value === "") {
@@ -32,9 +35,10 @@ export default function DateCell({
       </Text>
     );
   }
+  const color = dimmed ? "dimmed" : undefined;
   if (mode === "date") {
     return (
-      <Text size={size} component="span">
+      <Text size={size} component="span" c={color}>
         {formatIsoDate(String(value), i18n.language)}
       </Text>
     );
@@ -42,7 +46,7 @@ export default function DateCell({
   const ms = Number(value);
   const exact = formatTimestamp(ms);
   return (
-    <Text size={size} component="span" title={mode === "relative" ? exact : undefined}>
+    <Text size={size} component="span" c={color} title={mode === "relative" ? exact : undefined}>
       {mode === "relative" ? formatRelativeTime(ms, i18n.language) : exact}
     </Text>
   );
