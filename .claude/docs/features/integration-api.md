@@ -78,7 +78,7 @@ goals, impact log, pulse, notifications, alerts, templates.
 - **Schema v1 roots** (all documented in the SDL): `users(page, pageSize, name, email,
   deactivated)` / `user(id)` (+ nested careerHistory, teams, daysOff(year),
   daysOffBudget(year!) — the DEFAULT paid pool's row since v3.2.0 — daysOffBudgets(year!) — every
-  pool, v3.2.0 — daysOffCorrections(year), performanceReviews), `teams(page, pageSize,
+  pool, v3.2.0, with `poolArchived` since v3.2.1 — daysOffCorrections(year), performanceReviews), `teams(page, pageSize,
   name)` / `team(id)` (+ manager, members, kpis → values), `reviewPeriods`, and the bulk-sync
   roots `daysOff(from, to, status, userId)`, `daysOffPoolTypes` (v3.2.0 — the active paid pool
   kinds, default first), `performanceReviews(periodId, subordinateId)`,

@@ -61,7 +61,7 @@ describe("DaysOffPoolTypes page", () => {
     renderWithProviders(<DaysOffPoolTypes />);
 
     await screen.findByText("Study leave");
-    await userEvent.type(screen.getByLabelText("Pool name"), "  Maternal leave ");
+    await userEvent.type(screen.getByLabelText(/^Pool name/), "  Maternal leave ");
     await userEvent.click(screen.getByLabelText("Unused days carry over to the next year"));
     await userEvent.click(screen.getByRole("button", { name: "Add pool kind" }));
     await waitFor(() => {
@@ -75,7 +75,7 @@ describe("DaysOffPoolTypes page", () => {
     });
 
     setupMocks({ createStatus: 409 });
-    await userEvent.type(screen.getByLabelText("Pool name"), "Study leave");
+    await userEvent.type(screen.getByLabelText(/^Pool name/), "Study leave");
     await userEvent.click(screen.getByRole("button", { name: "Add pool kind" }));
     expect(await screen.findByText("A pool kind with that name already exists.")).toBeInTheDocument();
   });
@@ -130,5 +130,19 @@ describe("DaysOffPoolTypes page", () => {
     setupMocks();
     renderWithProviders(<DaysOffPoolTypes />);
     await waitFor(() => expect(screen.queryByText("Paid-leave pools")).toBeNull());
+  });
+
+  test("a duplicate name on edit reads as such and keeps the modal open (v3.2.1)", async () => {
+    setupMocks();
+    mockFetch.mockImplementation((_url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      if (method === "PUT") return Promise.resolve(jsonResponse(409, {}));
+      return Promise.resolve(jsonResponse(200, { items: KINDS }));
+    });
+    renderWithProviders(<DaysOffPoolTypes />);
+    await userEvent.click(await screen.findByLabelText("Edit the Study leave pool kind"));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByText("A pool kind with that name already exists.")).toBeInTheDocument();
   });
 });

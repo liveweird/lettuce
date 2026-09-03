@@ -73,18 +73,24 @@ export default function DaysOffTable({
   const [typeFilter, setTypeFilter] = useStoredState<string | null>(
     `${storeKey}.filter.type`, null, isTypeFilter,
   );
-  const poolTypeFilter = typeFilter?.startsWith(POOL_PICK_PREFIX)
-    ? Number(typeFilter.slice(POOL_PICK_PREFIX.length))
-    : undefined;
   const { data: poolTypes } = useQuery({
     queryKey: ["daysOffPoolTypes"],
     queryFn: listDaysOffPoolTypes,
   });
+  // A stored pool pick whose kind was archived since (the registry lists active kinds only)
+  // reads as "any" once the registry has loaded, instead of a blank control over a filtered
+  // list (v3.2.1).
+  const storedPoolId = typeFilter?.startsWith(POOL_PICK_PREFIX)
+    ? Number(typeFilter.slice(POOL_PICK_PREFIX.length))
+    : undefined;
+  const stalePool = storedPoolId != null && poolTypes != null && !poolTypes.some((k) => k.id === storedPoolId);
+  const effectiveTypeFilter = stalePool ? null : typeFilter;
+  const poolTypeFilter = stalePool ? undefined : storedPoolId;
   const [statusFilter, setStatusFilter] = useStoredState<DaysOffStatus | null>(
     `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
   );
   const activeFilterCount =
-    (personVisible && userFilter.trim() ? 1 : 0) + (typeFilter ? 1 : 0) + (statusFilter ? 1 : 0);
+    (personVisible && userFilter.trim() ? 1 : 0) + (effectiveTypeFilter ? 1 : 0) + (statusFilter ? 1 : 0);
   const [debouncedUser] = useDebouncedValue(userFilter, 300);
 
   const [pending, setPending] = useState<PendingAction | null>(null);
@@ -102,7 +108,7 @@ export default function DaysOffTable({
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
       "daysOff", view, userId, includeIndirect, page, pageSize, sortParam, debouncedUser,
-      typeFilter, statusFilter,
+      effectiveTypeFilter, statusFilter,
     ],
     queryFn: () =>
       listDaysOff({
@@ -111,13 +117,15 @@ export default function DaysOffTable({
         pageSize,
         sort: sortParam,
         userName: (personVisible && debouncedUser) || undefined,
-        type: poolTypeFilter != null ? "PAID" : ((typeFilter as DaysOffType | null) ?? undefined),
+        type: poolTypeFilter != null ? "PAID" : ((effectiveTypeFilter as DaysOffType | null) ?? undefined),
         poolTypeId: poolTypeFilter,
         status: statusFilter ?? undefined,
         userId,
         includeIndirect,
       }),
     placeholderData: keepPreviousData,
+    // A stored pool pick waits for the registry (one fetch, never a stale-filtered first page).
+    enabled: storedPoolId == null || poolTypes !== undefined,
   });
 
   async function runAction(
@@ -225,7 +233,7 @@ export default function DaysOffTable({
             ...(poolTypes ?? []).map((k) => ({ value: `${POOL_PICK_PREFIX}${k.id}`, label: `— ${k.name}` })),
             { value: "UNPAID", label: t("daysOff.type.UNPAID") },
           ]}
-          value={typeFilter ?? ""}
+          value={effectiveTypeFilter ?? ""}
           onChange={(v) => setTypeFilter(v || null)}
           allowDeselect={false}
           w={200}

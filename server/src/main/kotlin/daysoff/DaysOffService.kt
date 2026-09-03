@@ -56,8 +56,10 @@ data class DaysOffFullListResult(
     val total: Long,
 )
 
-/** A pool kind as resolved in-transaction for a write (v3.2.0) — see [DaysOffService.resolvePoolKind]. */
-data class PoolKind(val id: UInt, val name: String, val carriesOver: Boolean, val isDefault: Boolean)
+/** A pool kind as resolved in-transaction (v3.2.0) — see [DaysOffService.resolvePoolKind];
+ * [archived] rides along for the budgets rows (a grant whose kind was archived under it —
+ * the archive × upsert race — renders as history, v3.2.1). */
+data class PoolKind(val id: UInt, val name: String, val carriesOver: Boolean, val isDefault: Boolean, val archived: Boolean = false)
 
 /** One active per-user grant row (v3.2.0) — the `DELETE /days-off/pools/{id}` read preamble. */
 data class DaysOffPoolRow(val id: UInt, val userId: UInt, val kind: PoolKind, val allowance: Int)
@@ -252,6 +254,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     managerId = recordedBy,
                     managerName = userName(recordedBy),
                     type = request.type,
+                    poolName = pool?.first?.name,
                     days = formatHalfDaysParam(cost),
                     startDate = request.startDate,
                     endDate = request.endDate,
@@ -261,6 +264,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     managerIds = directManagerIds(userId),
                     requesterName = userName(userId),
                     type = request.type,
+                    poolName = pool?.first?.name,
                     days = formatHalfDaysParam(cost),
                     startDate = request.startDate,
                     endDate = request.endDate,
@@ -579,7 +583,10 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 .map { it }
                 .toList()
                 .groupBy({ it[Requests.userId].value }) { row ->
-                    expandEntries(row, monthStart, monthEnd)
+                    // Calendar parity (v3.2.1): the member scope shows teammates THAT someone
+                    // is off, never which paid pool; the caller's own bars keep the name.
+                    val redact = scope == DaysOffCalendarScope.MEMBER && row[Requests.userId].value != callerUserId
+                    expandEntries(row, monthStart, monthEnd, redactPool = redact)
                 }
                 .mapValues { (_, lists) -> lists.flatten().sortedBy { it.date } }
         }
@@ -682,6 +689,15 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             .toList()
             .associateBy { it.id }
         val defaultKind = defaultKind()
+        // Pre-grouped per user once (v3.2.1 — the per-user re-scan of every (user, kind) key was
+        // O(users × keys) on the includeIndirect managed view).
+        val activeKindsByUser = grants.keys.groupBy({ it.first }, { it.second })
+        val historyKindsByUser = (rowsByUserPool.keys + correctionsByUserPool.keys)
+            .filter { (userId, kindId) ->
+                rowsByUserPool[userId to kindId].orEmpty().any { it.year == year } ||
+                    correctionsByUserPool[userId to kindId].orEmpty().containsKey(year)
+            }
+            .groupBy({ it.first }, { it.second })
         UserService.Users
             .select(UserService.Users.id, UserService.Users.name, UserService.Users.markedAsDeleted)
             .where { UserService.Users.id inList userIds }
@@ -690,14 +706,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 val userId = row[UserService.Users.id].value
                 val userName = row[UserService.Users.name]
                 val userDeleted = row[UserService.Users.markedAsDeleted]
-                val activeKindIds = grants.keys.filter { it.first == userId }.map { it.second }
-                val historyKindIds = (rowsByUserPool.keys + correctionsByUserPool.keys)
-                    .filter { it.first == userId }
-                    .map { it.second }
-                    .filter { kindId ->
-                        rowsByUserPool[userId to kindId].orEmpty().any { it.year == year } ||
-                            correctionsByUserPool[userId to kindId].orEmpty().containsKey(year)
-                    }
+                val activeKindIds = activeKindsByUser[userId].orEmpty()
+                val historyKindIds = historyKindsByUser[userId].orEmpty()
                 val extraKindIds = (activeKindIds + historyKindIds).toSet() - defaultKind.id
                 val orderedKinds = listOf(defaultKind) +
                     extraKindIds.map { kinds.getValue(it) }.sortedWith(compareBy({ it.name }, { it.id }))
@@ -721,7 +731,9 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                         poolName = kind.name,
                         carriesOver = kind.carriesOver,
                         isDefault = kind.isDefault,
-                        poolArchived = !kind.isDefault && grant == null,
+                        // History-only (no active grant) — or a grant whose kind was archived
+                        // under it (the archive × upsert race, v3.2.1): both render as archived.
+                        poolArchived = !kind.isDefault && (grant == null || kind.archived),
                         allowance = allowance,
                         carriedOver = carriedOverHalfDays(allowance, year, usedByYear, corrections, kind.carriesOver) / 2.0,
                         corrected = (corrections[year] ?: 0) / 2.0,
@@ -773,13 +785,16 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     }
 
     /** Renames / re-flags a kind (the default included — `isDefault` itself never moves).
-     * 0 → missing/archived → 404. */
-    suspend fun updatePoolType(id: UInt, write: DaysOffPoolTypeWrite): Int = suspendTransaction(database) {
-        PoolTypes.update({ (PoolTypes.id eq id) and poolTypeActive() }) {
+     * Returns the number of ACTIVE grants of the kind (the budgets a carry-over flip
+     * recomputes — the audit's `grantsAffected`), or null when missing/archived (→ 404). */
+    suspend fun updatePoolType(id: UInt, write: DaysOffPoolTypeWrite): Long? = suspendTransaction(database) {
+        val updated = PoolTypes.update({ (PoolTypes.id eq id) and poolTypeActive() }) {
             it[name] = write.name
             it[carriesOver] = write.carriesOver
             it[lastModified] = System.currentTimeMillis()
         }
+        if (updated == 0) return@suspendTransaction null
+        Pools.selectAll().where { (Pools.poolTypeId eq id) and poolActive() }.count()
     }
 
     /**
@@ -902,6 +917,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         name = this[PoolTypes.name],
         carriesOver = this[PoolTypes.carriesOver],
         isDefault = this[PoolTypes.isDefault],
+        archived = this[PoolTypes.markedAsDeleted],
     )
 
     private fun PoolKind.toResponse() = DaysOffPoolType(id = id, name = name, carriesOver = carriesOver, isDefault = isDefault)
@@ -1135,7 +1151,12 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             .groupBy({ it.first }) { it.second }
             .mapValues { (_, costs) -> costs.sum() }
 
-    private fun expandEntries(row: ResultRow, monthStart: String, monthEnd: String): List<DaysOffCalendarEntry> {
+    private fun expandEntries(
+        row: ResultRow,
+        monthStart: String,
+        monthEnd: String,
+        redactPool: Boolean = false,
+    ): List<DaysOffCalendarEntry> {
         val start = row[Requests.startDate]
         val end = row[Requests.endDate]
         val from = LocalDate.parse(maxOf(start, monthStart))
@@ -1148,7 +1169,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 requestId = row[Requests.id].value,
                 date = date,
                 type = row[Requests.type],
-                poolName = row.getOrNull(PoolTypes.name),
+                poolName = if (redactPool) null else row.getOrNull(PoolTypes.name),
                 status = row[Requests.status],
                 half = (date == start && row[Requests.startHalf]) || (date == end && row[Requests.endHalf]),
             )

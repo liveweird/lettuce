@@ -123,6 +123,7 @@
     "loadError": "Nie udało się wczytać budżetu",
     "noReports": "Brak bezpośrednich podwładnych.",
     "corrected": "Korekty",
+    "noPools": "Brak pul płatnych dni.",
     "userTitle": "Płatne dni wolne — {{name}}, rok {{year}}",
     "notAReport": "Ta osoba nie należy (już) do osób, którymi zarządzasz — budżet jest niedostępny.",
     "allowanceModalTitle": "Limit puli „{{pool}}” — {{name}}",
@@ -172,6 +173,8 @@
     "archiveTypeMessage": "Rodzaj „{{name}}” zostanie zarchiwizowany dla wszystkich: nikt nie złoży już z niego wniosku, a każde jego przyznanie zostanie zarchiwizowane. Dotychczasowe wnioski nadal liczą się pod tą nazwą.",
     "archiveFailed": "Archiwizacja rodzaju puli nie powiodła się",
     "toastAdded": "Rodzaj puli dodany",
+    "toastTypeArchived": "Rodzaj puli zarchiwizowany",
+    "loadingPools": "Wczytywanie pul…",
     "toastUpdated": "Rodzaj puli zaktualizowany"
   },
   "holidays": {

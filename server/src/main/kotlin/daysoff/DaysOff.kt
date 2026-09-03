@@ -188,6 +188,10 @@ data class DaysOffListItem(
 
 typealias DaysOffPageResponse = PageResponse<DaysOffListItem>
 
+/** The teammate view of a request (v3.2.1): the paid pool's identity withheld (calendar
+ * parity discloses the absence, never the category of leave). */
+internal fun DaysOffResponse.redactPool(): DaysOffResponse = copy(poolTypeId = null, poolName = null)
+
 /** One marked day of the calendar payload; [half] is true on a half-day edge day. */
 @Serializable
 data class DaysOffCalendarEntry(

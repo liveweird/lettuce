@@ -153,6 +153,27 @@ class NotificationEmailTest {
             allParams + ("operation" to "ADD"), null, null, "pl",
         )!!
         assertTrue("dodał/dodała 4.5 dni" in add.body)
+        // The pool-present path (v3.2.1): the request wording names the pool in place of the
+        // bare type word, and the correction wording quotes it — in both languages; a
+        // pre-pool row falls back to a PER-LANGUAGE default name (never English in Polish).
+        val pooled = allParams + ("pool" to "Maternal leave")
+        val requestedPooledEn = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER, pooled, null, null, "en",
+        )!!
+        assertTrue("(Maternal leave, 4.5 day(s))" in requestedPooledEn.body, requestedPooledEn.body)
+        val requestedPooledPl = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER, pooled, null, null, "pl",
+        )!!
+        assertTrue("(Maternal leave, dni: 4.5)" in requestedPooledPl.body, requestedPooledPl.body)
+        val addPooledPl = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_CORRECTED_TO_OWNER, pooled + ("operation" to "ADD"), null, null, "pl",
+        )!!
+        assertTrue("do Twojej puli „Maternal leave” na rok 2026" in addPooledPl.body, addPooledPl.body)
+        val addLegacyPl = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_CORRECTED_TO_OWNER, allParams + ("operation" to "ADD"), null, null, "pl",
+        )!!
+        assertTrue("do Twojej puli „Płatne dni wolne” na rok 2026" in addLegacyPl.body, addLegacyPl.body)
+        assertTrue("Paid days off" !in addLegacyPl.body, addLegacyPl.body)
     }
 
     @Test

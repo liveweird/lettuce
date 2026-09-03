@@ -202,7 +202,7 @@ type User {
   "Teams this user is currently a member of (name ascending)." teams: [TeamRef!]!
   "The user's days-off requests, id ascending, optionally limited to startDates of one calendar year (2000..2100)." daysOff("Calendar year filter (e.g. 2026)." year: Int): [DaysOff!]!
   "The user's DEFAULT paid pool budget for a year (closed-form; null never occurs — an unconfigured allowance yields a zero budget). Since v3.2.0 one of possibly several pools — see daysOffBudgets." daysOffBudget("The budget year (2000..2100)." year: Int!): DaysOffBudget!
-  "The user's budgets in EVERY paid pool for a year (v3.2.0): the default pool first, then active extra pools by name, then archived pools that still hold history in that year." daysOffBudgets("The budget year (2000..2100)." year: Int!): [DaysOffBudget!]!
+  "The user's budgets in EVERY paid pool for a year (v3.2.0): the default pool first, then every other pool by name — active grants and archived pools that still hold history in that year alike (see poolArchived)." daysOffBudgets("The budget year (2000..2100)." year: Int!): [DaysOffBudget!]!
   "Manager corrections of the user's paid budget, newest year (then newest row) first, optionally limited to one year (2000..2100)." daysOffCorrections("The correction year (2000..2100)." year: Int): [DaysOffCorrection!]!
   "Performance reviews where this user is the subordinate (every status), id ascending." performanceReviews: [PerformanceReview!]!
 }
@@ -274,6 +274,7 @@ type DaysOffBudget {
   "The pool kind's current name (v3.2.0)." poolName: String!
   "Whether unused days of this pool carry over year to year (v3.2.0)." carriesOver: Boolean!
   "Whether this is the seeded default pool kind (v3.2.0)." isDefault: Boolean!
+  "A non-default pool with history in this year but no active grant (or a grant whose kind was archived) — renders as history, takes no new requests (v3.2.1)." poolArchived: Boolean!
   "The chain-manager-set yearly allowance in days; null = no active grant of this pool (zero budget)." allowance: Int
   "Days carried over from the previous year." carriedOver: Float!
   "The year's net manager corrections in days (signed)." corrected: Float!

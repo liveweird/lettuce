@@ -238,4 +238,23 @@ describe("DaysOffTable", () => {
       expect(call).toContain("type=PAID");
     });
   });
+
+  test("Paid filters every pool (type=PAID, no poolTypeId) and a stale stored pool pick reads as Any (v3.2.1)", async () => {
+    localStorage.setItem("lettuce.viewSettings.daysOff.own.filter.type", JSON.stringify("pool:999"));
+    setupList([row({ id: 1 })]);
+    renderWithProviders(<DaysOffTable view="own" />);
+    expect(await screen.findByText("Paid days off")).toBeInTheDocument();
+    // The archived kind's pick is neither sent nor shown.
+    const stale = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.includes("poolTypeId=999"));
+    expect(stale).toBeUndefined();
+    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
+    expect(screen.getByRole("combobox", { name: "Type" })).toHaveValue("Any");
+    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Paid" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.includes("type=PAID"));
+      expect(call).toBeDefined();
+      expect(call).not.toContain("poolTypeId");
+    });
+  });
 });

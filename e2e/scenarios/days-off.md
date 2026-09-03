@@ -31,7 +31,8 @@ comment). The suite thus self-heals on the next run no matter where a run died.
    "Unused days carry over to the next year" unchecked (a yearly-reset pool, v3.2.0).
    - *Expected*: "Public holiday added" (a residual holiday from a failed run answers "A holiday
      already exists on this date." instead — either way the date is now covered), and the
-     holiday appears in the list; "Pool kind added" and the kind is listed.
+     holiday appears in the list; "Pool kind added" (or, after a sweep race, "A pool kind with
+     that name already exists.") and the kind is listed.
 2. Manager AAA signs in, opens the Dashboard's subordinates tab, and follows AAA Two's
    "Days off" card link to the per-user drill-down. Beside the default pool strip's Allowance
    figure, the pencil opens the allowance editor; the manager saves 299, reopens the editor,
@@ -115,6 +116,6 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 **Cleanup** (in-test, through the UI): Manager AAA deletes the correction ("Correction
 deleted") and archives AAA Two's "E2E Pool" grant on the drill-down ("Pool archived" — the
 default pool has no archive control, and the strip disappears since the cancelled Friday left
-no counting history); the admin archives the pool kind on Config → Paid-leave pools ("Pool
+no counting history); the admin archives the pool kind on Config → Paid-leave pools ("Pool kind
 archived") and deletes the holiday ("Public holiday deleted") — nothing this run created
 persists on the seed accounts or the registries.

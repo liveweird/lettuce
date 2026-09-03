@@ -116,6 +116,9 @@ type ParamFormatSpec = {
   enumParams?: Record<string, string>;
   /** The param whose value picks the i18next context variant (default "self"). */
   contextParam?: string;
+  /** The paid pool's name (v3.2.1): when present it replaces the `type` enum word in the
+   * rendered text (a PAID request names its pool; UNPAID rows carry none). */
+  poolNameParam?: string;
 };
 
 // The team-KPI data-point kinds are the only ones carrying numeric values; the rest localize
@@ -128,6 +131,7 @@ const REVIEW_PERIOD_SPEC: ParamFormatSpec = { monthParams: ["startMonth", "endMo
 const DAYS_OFF_SPEC: ParamFormatSpec = {
   dateParams: ["startDate", "endDate"],
   enumParams: { type: "daysOff.type" },
+  poolNameParam: "pool",
 };
 // The cancel pair additionally words the actor (OWNER/MANAGER) via i18next context on `by`
 // (v2.31.0); rows minted before the rework carry no `by` and fall back to the base key.
@@ -183,7 +187,13 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
   for (const k of spec.monthParams ?? []) {
     if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
   }
-  for (const [k, prefix] of Object.entries(spec.enumParams ?? {})) {
+  const enumParams = { ...(spec.enumParams ?? {}) };
+  const poolName = spec.poolNameParam ? params[spec.poolNameParam] : undefined;
+  if (poolName != null) {
+    params.type = poolName;
+    delete enumParams.type;
+  }
+  for (const [k, prefix] of Object.entries(enumParams)) {
     if (params[k] != null) params[k] = t(dynamicKey(`${prefix}.${params[k]}`));
   }
   const context = params[spec.contextParam ?? "self"];

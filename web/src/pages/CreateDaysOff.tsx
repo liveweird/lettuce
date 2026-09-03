@@ -12,7 +12,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -111,6 +111,9 @@ export default function CreateDaysOff() {
       : ["daysOffBudgets", budgetView, year],
     queryFn: () => listDaysOffBudgets(budgetView, year, onBehalf ? { includeIndirect: true } : undefined),
     enabled: Number.isFinite(year),
+    // A year change re-keys the query; keeping the previous rows means the picked pool never
+    // blinks out (and a submit never silently loses its poolTypeId) mid-refetch (v3.2.1).
+    placeholderData: keepPreviousData,
   });
   // The person's pool rows (v3.2.0): the default first; archived history never offered.
   const { pools, pickValue, type, budget } = resolvePoolPick(budgetQuery.data, onBehalf, subjectId, pick);
@@ -131,8 +134,11 @@ export default function CreateDaysOff() {
   const overBudget =
     type === "PAID" && costDays != null && budget != null && costDays > budget.remaining;
   const zeroCost = costH === 0;
+  // A PAID submit needs its pool row resolved (v3.2.1): with no rows yet — loading, a failed
+  // load, or no report picked — nothing is bookable except an explicit Unpaid.
+  const poolResolved = type === "UNPAID" || budget != null;
   const submittable =
-    ordered && sameYear && costH != null && costH > 0 && !overBudget && !submitting &&
+    ordered && sameYear && costH != null && costH > 0 && !overBudget && !submitting && poolResolved &&
     (!onBehalf || subjectId != null);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
@@ -213,7 +219,8 @@ export default function CreateDaysOff() {
           <Select
             label={t("daysOff.type.label")}
             data={poolOptions}
-            value={pickValue ?? UNPAID_PICK}
+            value={pickValue}
+            placeholder={t(onBehalf && subjectId == null ? "daysOff.pickReport" : "daysOff.pool.loadingPools")}
             onChange={(v) => v && setPick(v)}
             allowDeselect={false}
             w={260}

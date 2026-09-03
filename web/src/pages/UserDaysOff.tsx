@@ -207,7 +207,7 @@ function AddPoolModal({
           data={options}
           value={kind}
           onChange={setKind}
-          nothingFoundMessage={t("daysOff.pool.noKindsLeft")}
+          nothingFoundMessage={kinds ? t("daysOff.pool.noKindsLeft") : undefined}
           error={kindsError ? t("common.error.optionsFailed") : undefined}
           withAsterisk
           data-autofocus
@@ -263,7 +263,7 @@ function PoolStrip({
   const { t, i18n } = useTranslation();
   const days = (v: number) => formatDays(v, i18n.language);
   return (
-    <Stack gap={4}>
+    <Stack gap={4} role="group" aria-label={pool.poolName}>
       <Group gap="xs" align="center">
         <Text size="sm" fw={600}>
           {pool.poolName}
@@ -357,7 +357,10 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
   const grantedTypeIds = pools.filter((b) => b.poolId != null).map((b) => b.poolTypeId);
 
   async function archive() {
-    if (!archiving?.poolId) return;
+    if (!archiving?.poolId) {
+      setArchiveError(t("daysOff.error.gone"));
+      return;
+    }
     setArchiveBusy(true);
     setArchiveError(null);
     try {

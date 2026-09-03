@@ -2689,6 +2689,7 @@ export interface paths {
          *         precedent), required with `view=user`, rejected with `view=own` (`400` — own is
          *         caller-implied).
          *       - `type` / `status` — exact enum-name match.
+         *       - `poolTypeId` — exact paid-pool-kind match (v3.2.0; implies PAID).
          *       - `startDate[gte]` / `startDate[lte]` — inclusive ISO-date bounds on the start date.
          *
          *     Malformed query parameters (unknown view, unknown sort field, out-of-range
@@ -2881,10 +2882,14 @@ export interface paths {
          *     row keeps rendering (as `poolArchived`) in every year where it still has counting
          *     requests or corrections. Re-granting the same kind via PUT /days-off/allowance
          *     creates a fresh grant whose history continues. Pool ids ride the budget rows
-         *     (`poolId`) — this is the only endpoint addressing a grant directly. Only a
-         *     **manager in the owner's transitive management chain** may archive (read first:
-         *     unknown/archived → 404, then the guard); the **default pool is never archivable**
-         *     (409). Notifies nobody (the budget rows are live); audited `days_off_pool.archived`.
+         *     (`poolId`) — this is the only endpoint addressing a grant directly (a registered
+         *     deviation from the collection/item shape, see the guidelines' known-gaps register).
+         *     Only a **manager in the owner's transitive management chain** may archive — read
+         *     first, then the guard (unknown/archived → 404, someone else's → 403: the corrections
+         *     idiom, deliberately unlike the guard-first allowance PUT, since a grant id is only
+         *     ever learned from a budgets row the caller could already read); the **default pool
+         *     is never archivable** (409 — the invariant, not a race: the 409 is deliberate).
+         *     Notifies nobody (the budget rows are live); audited `days_off_pool.archived`.
          */
         delete: operations["archiveDaysOffPool"];
         options?: never;
@@ -2940,7 +2945,8 @@ export interface paths {
          * @description ADMIN only. Replaces the kind's name and carry-over flag — the default kind
          *     included (its `isDefault` flag itself is immutable; no endpoint moves it). Flipping
          *     `carriesOver` recomputes every affected budget (the allowance-change precedent — the
-         *     CURRENT rule applies to every year). A name clash with another active kind is 409.
+         *     CURRENT rule applies to every year; the audit records the count of active grants it
+         *     moved as `grantsAffected`, v3.2.1). A name clash with another active kind is 409.
          *     Audited `days_off_pool_type.updated` with the deltas.
          */
         put: operations["updateDaysOffPoolType"];
@@ -2950,8 +2956,8 @@ export interface paths {
          * @description ADMIN only. Archives (soft-deletes) a kind AND every user's active grant of it in
          *     one transaction — nobody keeps a pool of a retired kind; every request and
          *     correction stays counted under the kind's name. The **default kind is never
-         *     archivable** (409). Audited `days_off_pool_type.archived` with the archived-grant
-         *     count.
+         *     archivable** (409 — the invariant, not a race: the 409 is deliberate). Audited
+         *     `days_off_pool_type.archived` with the archived-grant count.
          */
         delete: operations["archiveDaysOffPoolType"];
         options?: never;
@@ -3010,9 +3016,10 @@ export interface paths {
         get?: never;
         /**
          * Edit a paid-days budget correction
-         * @description Replaces a correction's year, amount, and comment. The **target user and the pool
-         *     are immutable** (the payload's `userId`/`poolTypeId` are ignored — re-homing a
-         *     correction is delete + create). Only a **manager in the correction's
+         * @description Replaces a correction's year, amount, and comment. The **target user is immutable**
+         *     (the payload's `userId` is ignored) and so is the **pool** — a `poolTypeId` that differs
+         *     from the stored one is refused with 400 (v3.2.1, never silently kept; omitted/null
+         *     means unchanged); re-homing a correction is delete + create. Only a **manager in the correction's
          *     subordinate's transitive management chain** (chain-wide since v2.33.0) may edit —
          *     regardless of who authored it. Edits notify
          *     nobody (the budget numbers are live).
@@ -4503,8 +4510,9 @@ export interface components {
             nextVacationStart?: string | null;
             /**
              * Format: double
-             * @description The row user's remaining paid-days budget for the current calendar year
-             *     (carry-over and corrections included). Populated ONLY for `view=managed` —
+             * @description The row user's remaining budget in their DEFAULT paid pool for the current
+             *     calendar year (carry-over and corrections included; extra pools — v3.2.0 — are on
+             *     GET /days-off/budgets). Populated ONLY for `view=managed` —
              *     budgets are manager/self-scoped, so peer and manager rows never carry it.
              */
             daysOffRemaining?: number | null;
@@ -6045,7 +6053,7 @@ export interface components {
              * @description The paid pool kind (v3.2.0); null for UNPAID.
              */
             poolTypeId: number | null;
-            /** @description The paid pool kind's current name (v3.2.0); null for UNPAID. Archived kinds keep labelling their history. */
+            /** @description The paid pool kind's current name (v3.2.0); null for UNPAID. Archived kinds keep labelling their history. Both pool fields are REDACTED (null) when the reader is a teammate seeing the request by calendar parity (v3.2.1 — the absence is shared, the category of leave is not); owner, chain managers, and HR see them. */
             poolName: string | null;
             /**
              * @description REQUESTED → ACCEPTED | REJECTED (a chain manager resolves), plus terminal CANCELLED (the owner or a chain manager withdraws it, with a mandatory reason — v2.31.0). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
@@ -6156,7 +6164,7 @@ export interface components {
             date: string;
             /** @enum {string} */
             type: "PAID" | "UNPAID";
-            /** @description The paid pool kind's name (v3.2.0) — the cell tooltip; null for UNPAID. */
+            /** @description The paid pool kind's name (v3.2.0) — the cell tooltip; null for UNPAID, and null on OTHER people's entries in the member scope (v3.2.1 — teammates see the absence, not the category of leave; the caller's own bars and the managed scope keep it). */
             poolName: string | null;
             /**
              * @description Only counting statuses appear on the calendar; REQUESTED renders as tentative.
@@ -6203,7 +6211,7 @@ export interface components {
             carriesOver: boolean;
             /** @description Whether this is the default pool — always present per user, never archivable (v3.2.0). */
             isDefault: boolean;
-            /** @description A non-default pool with counting requests or corrections in this year but no active grant (v3.2.0) — history renders, no new requests may target it. */
+            /** @description A non-default pool with counting requests or corrections in this year but no active grant — or an active grant whose KIND was archived under it (v3.2.1) — history renders, no new requests may target it. Its `allowance` is null, so `remaining` shows the (typically negative) residual of the year's usage. */
             poolArchived: boolean;
             /** @description The configured annual allowance in whole days (set by a chain manager via PUT /days-off/allowance since v2.32.0); null = no active grant = zero budget. */
             allowance: number | null;
@@ -6287,7 +6295,7 @@ export interface components {
             comment: string;
             /**
              * Format: int32
-             * @description The adjusted paid pool kind (v3.2.0); omitted/null = the default kind. Create-only — immutable on PUT (ignored there). An extra kind needs an active grant of the subordinate (400 otherwise).
+             * @description The adjusted paid pool kind (v3.2.0); omitted/null = the default kind on create. Immutable on PUT: omitted/null = unchanged, a differing kind = 400. An extra kind needs an active grant of the subordinate (400 otherwise).
              */
             poolTypeId?: number | null;
         };
@@ -11028,7 +11036,7 @@ export interface operations {
                 userName?: string;
                 /** @description Exact type match. */
                 type?: "PAID" | "UNPAID";
-                /** @description Exact paid-pool-kind match (v3.2.0) — only PAID requests carry one, so the filter implies type=PAID. */
+                /** @description Exact paid-pool-kind match (v3.2.0) — only PAID requests carry one, so the filter implies type=PAID (a non-integer value is 400). */
                 poolTypeId?: number;
                 /** @description Exact status match. */
                 status?: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
@@ -11214,7 +11222,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            404: components["responses"]["NotFound"];
+            /** @description Two concurrent FIRST grants of the same pool to the same user raced — the second insert hit the active-grant uniqueness index (v3.2.1: declared, the create-race class; retry reads the winner's grant and overwrites it). Never on a re-PUT of an existing grant. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

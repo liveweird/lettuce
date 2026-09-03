@@ -41,6 +41,16 @@ class DaysOffNotificationsTest {
             assertEquals("/days-off?tab=team", it.link)
         }
         assertTrue(daysOffRequestedNotifications(emptySet(), "Riley", DaysOffType.PAID, "1", "a", "b").isEmpty())
+        // A PAID request names its pool (v3.2.1); UNPAID carries none.
+        val pooled = daysOffRequestedNotifications(
+            setOf(7u), "Riley", DaysOffType.PAID, "1", "2030-03-04", "2030-03-04", poolName = "Maternal leave",
+        ).single()
+        assertEquals("Maternal leave", pooled.params["pool"])
+        assertEquals("PAID", pooled.params["type"])
+        val unpaid = daysOffRequestedNotifications(
+            setOf(7u), "Riley", DaysOffType.UNPAID, "1", "2030-03-04", "2030-03-04", poolName = null,
+        ).single()
+        assertEquals(null, unpaid.params["pool"])
     }
 
     @Test

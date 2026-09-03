@@ -668,6 +668,7 @@ prioritized. Reviewers cite these as "registered gap"; the Spectral ruleset carr
 | API-HTTP-001 | HTTP/1.1 only (Netty defaults; no edge HTTP/2) | Configure HTTP/2 at the TLS-terminating ingress when one exists |
 | API-META-001/002 | No `x-sla`, no `info.termsOfService` in the spec | Add both to `documentation.yaml` when commitments/terms exist to publish |
 | API-DOC-004 | Some generic error declarations are inline duplicates rather than `$ref`s | Fold pure duplicates into `#/components/responses` opportunistically; keep case-specific descriptions inline |
+| API-RES-001/003, API-OK-001 | The per-user paid days-off pool grant (v3.2.0) has no collection resource: it is created/updated by the body-keyed `PUT /days-off/allowance` (`204`, no `Location`), read only as `GET /days-off/budgets` rows (`poolId`), and addressed directly only by `DELETE /days-off/pools/{id}` | Add `POST /days-off/pools` (`201` + `Location` + the grant body) and `GET /days-off/pools/{id}` if a client ever needs the grant id from the write; the SPA reads it off the budgets rows it already renders |
 
 ### Lost-update inventory (the API-CACHE-003 row's per-write record)
 
