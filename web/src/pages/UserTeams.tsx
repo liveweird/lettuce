@@ -199,7 +199,7 @@ export default function UserTeams() {
         </Alert>
       )}
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>{t("users.team")}</Table.Th>

@@ -144,7 +144,7 @@ export default function ImpactEntryWizard({
             />
           </Suspense>
           {form.errors[SECTIONS[step].field] && (
-            <Text size="sm" c="red">
+            <Text size="sm" c="var(--lettuce-ink-error)">
               {form.errors[SECTIONS[step].field]}
             </Text>
           )}

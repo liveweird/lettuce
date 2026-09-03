@@ -26,7 +26,7 @@ import { importUsers, type UserImportResult, type UserImportRow } from "../api/u
 import { invalidateUser } from "../utils/userQueries";
 
 const STATUS_COLOR: Record<UserImportRow["status"], string> = {
-  CREATED: "green",
+  CREATED: "teal",
   DUPLICATE: "yellow",
   PARSE_ERROR: "red",
   EMAIL_FAILED: "orange",
@@ -126,7 +126,7 @@ export default function ImportUsers() {
                   {t("users.importPasswordsOnce")}
                 </Alert>
               )}
-              <Table highlightOnHover withTableBorder verticalSpacing="sm">
+              <Table>
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{t("users.importLine")}</Table.Th>

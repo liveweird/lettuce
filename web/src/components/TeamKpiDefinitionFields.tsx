@@ -48,7 +48,7 @@ export default function TeamKpiDefinitionFields({
           />
         </Suspense>
         {form.errors.description && (
-          <Text size="sm" c="red">
+          <Text size="sm" c="var(--lettuce-ink-error)">
             {form.errors.description}
           </Text>
         )}
@@ -85,7 +85,7 @@ export default function TeamKpiDefinitionFields({
         />
       </Group>
       {typeChangeWarning && (
-        <Text size="sm" c="orange">
+        <Text size="sm" c="var(--lettuce-ink-warning)">
           {t("teamKpi.typeChangeWarning")}
         </Text>
       )}

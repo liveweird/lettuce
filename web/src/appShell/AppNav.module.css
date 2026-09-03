@@ -1,0 +1,30 @@
+/* The grouped navigation (AppNav.tsx, v3.3.0). */
+.sectionLabel {
+  padding: 0 10px;
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+}
+
+/* The account/changelog leaves in the footer: same NavLink, a step quieter. */
+.quietLink {
+  font-size: var(--mantine-font-size-xs);
+}
+
+/* The 64px icon rail: icon-only links (the label lives in the tooltip + aria-label). */
+.railLink {
+  justify-content: center;
+  padding: 8px;
+}
+
+.railLink :global(.mantine-NavLink-section) {
+  margin: 0;
+}
+
+.railLink :global(.mantine-NavLink-body) {
+  display: none;
+}
+
+.footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--mantine-color-default-border);
+}

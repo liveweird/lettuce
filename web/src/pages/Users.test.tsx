@@ -313,13 +313,15 @@ describe("Users page", () => {
 
     await screen.findByText("Alice");
     const toggle = screen.getByRole("button", { name: /filters/i });
-    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
+    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden;
+    // the Name quick search stays in the toolbar regardless (v3.3.0).
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
 
     // Toggling again collapses it.
     await user.click(toggle);
@@ -337,8 +339,15 @@ describe("Users page", () => {
     expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
 
     await user.click(toggle);
+    // The quick search (Name) is not a panel filter — only the panel's own inputs count.
     await user.type(screen.getByLabelText("Name"), "Ali");
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Email"), "ali");
     expect(within(toggle).getByText("1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByLabelText("Email")).toHaveValue("");
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
   });
 
   test("typing the Email filter refetches with email=", async () => {

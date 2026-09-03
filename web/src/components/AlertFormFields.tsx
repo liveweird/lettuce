@@ -108,7 +108,7 @@ export default function AlertFormFields({ form }: { form: UseFormReturnType<Aler
       </Suspense>
       {/* MarkdownEditor is not a form-bound input, so its validation error renders here. */}
       {form.errors.content && (
-        <Text size="sm" c="red">
+        <Text size="sm" c="var(--lettuce-ink-error)">
           {form.errors.content}
         </Text>
       )}

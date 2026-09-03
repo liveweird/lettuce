@@ -52,11 +52,15 @@
     "firstPage": "Pierwsza strona",
     "previousPage": "Poprzednia strona",
     "nextPage": "Następna strona",
-    "lastPage": "Ostatnia strona"
+    "lastPage": "Ostatnia strona",
+    "moreActions": "Więcej akcji",
+    "moreActionsFor": "Więcej akcji: {{name}}"
   },
   "filter": {
     "contains": "zawiera…",
-    "title": "Filtry"
+    "title": "Filtry",
+    "clear": "Wyczyść filtry",
+    "search": "Szukaj…"
   },
   "reportsScope": {
     "label": "Podwładni",

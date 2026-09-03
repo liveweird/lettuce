@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Button, Stack, Tabs, Text } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
+import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "managed"] as const;
 type GoalsTab = (typeof TABS)[number];
@@ -41,7 +42,20 @@ export default function MyGoals() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("goal.sectionTitle")}</Title>
+      <PageHeader
+        title={t("goal.sectionTitle")}
+        actions={
+          isManager && (
+            <Button
+              component={RouterLink}
+              to={goalCreateLink(undefined, "/goals?tab=managed")}
+              leftSection={<IconPlus size={16} />}
+            >
+              {t("goal.newGoal")}
+            </Button>
+          )
+        }
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="own" data-tour="goals-own">
@@ -70,18 +84,6 @@ export default function MyGoals() {
                 {t("goal.managedGoalsHint")}
               </Text>
               <GoalTable view="managed" withReportsScope backTo="/goals?tab=managed" />
-              {/* The create entry point sits below the list — the house footer convention
-                  (the MyTeamKpis/UserGoals pattern); CreateGoal's direct-report picker
-                  handles the unprefilled case. */}
-              <Group justify="flex-end">
-                <Button
-                  component={RouterLink}
-                  to={goalCreateLink(undefined, "/goals?tab=managed")}
-                  leftSection={<IconPlus size={16} />}
-                >
-                  {t("goal.newGoal")}
-                </Button>
-              </Group>
             </Stack>
           </Tabs.Panel>
         )}

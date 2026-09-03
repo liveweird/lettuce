@@ -1,0 +1,24 @@
+/* The page header block (PageHeader.tsx, v3.3.0): every page opens with it, so the title
+   rank, the description measure, and the action placement are decided once here. */
+.title {
+  letter-spacing: -0.01em;
+}
+
+/* Sticky variant (the Kudos wall): the document is the scroll container (AppShell.Main has
+   no overflow constraint), so plain sticky pins the header right under the app header; the
+   offset var is Mantine's and tracks the dynamic header height (alerts bar included). */
+.sticky {
+  position: sticky;
+  top: var(--app-shell-header-offset, 56px);
+  z-index: 10;
+  background-color: var(--lettuce-canvas);
+  padding-block: var(--mantine-spacing-sm);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+/* Below the sm breakpoint the actions drop under the title as a full-width row. */
+@media (max-width: $mantine-breakpoint-sm) {
+  .actions {
+    width: 100%;
+  }
+}

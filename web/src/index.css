@@ -25,3 +25,10 @@ body,
 #main-content:focus {
   outline: none;
 }
+
+/* The canvas colour before Mantine's variables mount (public/color-scheme.js stamps the
+   scheme attribute first, so a dark-scheme user never sees a white flash). */
+html {
+  color-scheme: light dark;
+  background-color: light-dark(#f8f9fb, #1f1f1f);
+}

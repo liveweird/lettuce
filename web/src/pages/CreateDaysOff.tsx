@@ -292,7 +292,7 @@ export default function CreateDaysOff() {
                   })}
                 </Text>
                 {type === "PAID" && budget != null && (
-                  <Text size="sm" c={overBudget ? "red" : "dimmed"}>
+                  <Text size="sm" c={overBudget ? "var(--lettuce-ink-error)" : "dimmed"}>
                     {t("daysOff.remainingPreview", {
                       days: formatDays(budget.remaining, i18n.language),
                       pool: budget.poolName,
@@ -301,7 +301,7 @@ export default function CreateDaysOff() {
                   </Text>
                 )}
                 {type === "PAID" && budget != null && budget.allowance == null && (
-                  <Text size="xs" c="orange">
+                  <Text size="xs" c="var(--lettuce-ink-warning)">
                     {t(onBehalf ? "daysOff.budget.noAllowanceOnBehalf" : "daysOff.budget.noAllowance")}
                   </Text>
                 )}

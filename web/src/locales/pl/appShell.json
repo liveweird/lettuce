@@ -37,5 +37,11 @@
     "succession": "Plany sukcesji",
     "pulseCycles": "Cykle pulsu",
     "pulseRotatingQuestions": "Pytania pulsu"
+  },
+  "navSection": {
+    "overview": "Przegląd",
+    "myWork": "Moja praca",
+    "team": "Zespół",
+    "administration": "Administracja"
   }
 }

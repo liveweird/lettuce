@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Button, Stack, Tabs, Text } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { impactEntryCreateLink } from "../utils/impactLogLinks";
 import ImpactLogTable from "./ImpactLogTable";
+import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "managed"] as const;
 type ImpactLogTab = (typeof TABS)[number];
@@ -40,7 +41,18 @@ export default function ImpactLog() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("impactLog.sectionTitle")}</Title>
+      <PageHeader
+        title={t("impactLog.sectionTitle")}
+        actions={
+          <Button
+            component={RouterLink}
+            to={impactEntryCreateLink("/impact-log")}
+            leftSection={<IconPlus size={16} />}
+          >
+            {t("impactLog.newEntry")}
+          </Button>
+        }
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="own">{t("impactLog.tab.own")}</Tabs.Tab>
@@ -53,16 +65,6 @@ export default function ImpactLog() {
               {t("impactLog.myJournalHint")}
             </Text>
             <ImpactLogTable view="own" />
-            {/* The create entry point sits below the list — the house footer convention. */}
-            <Group justify="flex-end">
-              <Button
-                component={RouterLink}
-                to={impactEntryCreateLink("/impact-log")}
-                leftSection={<IconPlus size={16} />}
-              >
-                {t("impactLog.newEntry")}
-              </Button>
-            </Group>
           </Stack>
         </Tabs.Panel>
         {isManager && (

@@ -4,15 +4,13 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Button,
   Group,
   Menu,
   Select,
   Stack,
   Table,
-  Text,
-  Title,
+  Text
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,8 +26,10 @@ import {
   IconUserCog,
   IconUserOff,
   IconUsersGroup,
+  IconAlertCircle
 } from "@tabler/icons-react";
 import PersonaChip from "../components/PersonaChip";
+import StatusPill from "../components/StatusPill";
 import { getUserId, hasFeature, isAdmin, USER_ROLES, type UserRole } from "../api/session";
 import { logout } from "../api/auth";
 import { deactivateUser, deleteUser, listUsers, reactivateUser } from "../api/users";
@@ -44,13 +44,14 @@ import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { invalidateUser } from "../utils/userQueries";
+import PageHeader from "../components/PageHeader";
 
 const SORT_FIELDS = ["name", "email", "uniqueId"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -66,7 +67,7 @@ export default function Users() {
   const { t } = useTranslation();
   const ROLE_OPTIONS = USER_ROLES.map((value) => ({
     value,
-    label: t(`common.role.${value}`),
+    label: t(`common.role.${value}`)
   }));
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
   const [emailFilter, setEmailFilter] = useStoredState(`${SETTINGS_KEY}.filter.email`, "", isString);
@@ -93,13 +94,21 @@ export default function Users() {
     null,
     isOneOfOrNull(["true", "false"]),
   );
+  // The Name filter is the toolbar's quick search (v3.3.0); the badge counts the panel's own
+  // filters, and "Clear filters" resets exactly those.
   const activeFilterCount =
-    (nameFilter.trim() ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0) +
     (roleFilter ? 1 : 0) +
     (statusFilter ? 1 : 0) +
     (uniqueIdFilter.trim() ? 1 : 0) +
     (uniqueIdMissingFilter ? 1 : 0);
+  function clearPanelFilters() {
+    setEmailFilter("");
+    setRoleFilter(null);
+    setStatusFilter(null);
+    setUniqueIdFilter("");
+    setUniqueIdMissingFilter(null);
+  }
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -116,7 +125,7 @@ export default function Users() {
       [debouncedName, debouncedEmail, roleFilter, statusFilter, debouncedUniqueId, uniqueIdMissingFilter],
       {
         key: SETTINGS_KEY,
-        sortFields: SORT_FIELDS,
+        sortFields: SORT_FIELDS
       },
     );
 
@@ -143,9 +152,9 @@ export default function Users() {
         role: roleFilter ?? undefined,
         deactivated: statusFilter == null ? undefined : statusFilter === "true",
         uniqueId: debouncedUniqueId || undefined,
-        uniqueIdMissing: uniqueIdMissingFilter == null ? undefined : uniqueIdMissingFilter === "true",
+        uniqueIdMissing: uniqueIdMissingFilter == null ? undefined : uniqueIdMissingFilter === "true"
       }),
-    placeholderData: keepPreviousData,
+    placeholderData: keepPreviousData
   });
 
   const deleteConfirm = useDeleteConfirm<UserRow>({
@@ -163,7 +172,7 @@ export default function Users() {
       }
       await invalidateUser(queryClient);
       showSuccessToast(t("users.toast.deleted"));
-    },
+    }
   });
 
   // Deactivate asks for confirmation (it kicks the user out at the next refresh); reactivate
@@ -185,7 +194,7 @@ export default function Users() {
         saveErrorMessage(err, t, {
           forbidden: "users.transitionForbidden",
           failedStatus: "users.transitionFailedStatus",
-          failed: "users.transitionFailed",
+          failed: "users.transitionFailed"
         }),
       );
       setDeactivateTarget(null);
@@ -199,15 +208,41 @@ export default function Users() {
 
   return (
     <Stack gap="md">
-      <Title order={2} data-tour="config-users">{t("users.title")}</Title>
+      <PageHeader
+        title={t("users.title")}
+        tourId="config-users"
+        actions={
+          admin && (
+            <>
+              <Button
+                component={RouterLink}
+                to="/users/import"
+                variant="default"
+                leftSection={<IconUpload size={16} />}
+              >
+                {t("users.massImport")}
+              </Button>
+              <Button component={RouterLink} to="/users/new" leftSection={<IconPlus size={16} />}>
+                {t("users.createUser")}
+              </Button>
+            </>
+          )
+        }
+      />
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
-        <ClearableTextInput
-          label={t("common.field.name")}
-          value={nameFilter}
-          onChange={setNameFilter}
-          clearLabel={t("users.clearNameFilter")}
-        />
+      <ListToolbar
+        search={{
+          label: t("common.field.name"),
+          value: nameFilter,
+          onChange: setNameFilter,
+          clearLabel: t("users.clearNameFilter"),
+        }}
+        filters={{
+          activeCount: activeFilterCount,
+          storageKey: SETTINGS_KEY,
+          onClear: clearPanelFilters,
+          children: (
+            <>
         <ClearableTextInput
           label={t("common.field.email")}
           value={emailFilter}
@@ -250,7 +285,10 @@ export default function Users() {
           onChange={(v) => setUniqueIdMissingFilter((v as BooleanFilter) ?? null)}
           clearable
         />
-      </FilterPanel>
+            </>
+          ),
+        }}
+      />
 
       {isError && (
         <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
@@ -264,7 +302,7 @@ export default function Users() {
         </Alert>
       )}
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>
@@ -321,9 +359,7 @@ export default function Users() {
                         deactivated user renders exactly like an active one. Gray on purpose:
                         neither the brand accent nor a semantic state color. */}
                     {u.deactivated && (
-                      <Badge variant="light" color="gray" style={{ minWidth: "max-content" }}>
-                        {t("users.inactiveBadge")}
-                      </Badge>
+                      <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>
                     )}
                   </Group>
                 </Table.Td>
@@ -338,32 +374,32 @@ export default function Users() {
                       {u.uniqueId}
                     </Text>
                   ) : (
-                    /* Orange = warning, actionable-missing (the career "Not set" idiom):
-                       the id is optional but should be filled ASAP. */
-                    <Badge
-                      size="sm"
-                      variant="light"
-                      color="orange"
-                      style={{ minWidth: "max-content" }}
-                      aria-label={t("users.uniqueId")}
-                    >
-                      {t("users.uniqueIdMissingBadge")}
-                    </Badge>
+                    /* The quiet admin cue (v2.19.0, restyled v3.3.0): a warning-coloured icon
+                       beside dimmed text — the id is optional but should be filled ASAP, and
+                       the "Missing only" filter finds every such row. */
+                    <Group gap={4} wrap="nowrap">
+                      <IconAlertCircle
+                        size={14}
+                        aria-hidden="true"
+                        style={{ color: "var(--lettuce-ink-warning)", flexShrink: 0 }}
+                      />
+                      <Text size="sm" c="dimmed" fs="italic" aria-label={t("users.uniqueId")}>
+                        {t("users.uniqueIdMissingBadge")}
+                      </Text>
+                    </Group>
                   )}
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {u.roles.length > 0 ? (
                     <Group gap={4} wrap="nowrap">
                       {u.roles.map((role) => (
-                        <Badge
+                        <StatusPill
                           key={role}
-                          variant="filled"
                           color={role === "HR" ? "cyan" : "grape"}
-                          style={{ minWidth: "max-content" }}
-                          aria-label={t("common.field.roles")}
+                          ariaLabel={t("common.field.roles")}
                         >
                           {t(`common.role.${role}`)}
-                        </Badge>
+                        </StatusPill>
                       ))}
                     </Group>
                   ) : (
@@ -503,26 +539,6 @@ export default function Users() {
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="users.rowsPerPage"
       />
-
-      {admin && (
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to="/users/import"
-            variant="default"
-            leftSection={<IconUpload size={16} />}
-          >
-            {t("users.massImport")}
-          </Button>
-          <Button
-            component={RouterLink}
-            to="/users/new"
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("users.createUser")}
-          </Button>
-        </Group>
-      )}
 
       <ConfirmActionModal
         opened={deactivateTarget != null}

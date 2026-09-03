@@ -88,7 +88,7 @@ owned state, numbered steps, expected outcomes). **A new or behaviorally changed
 its scenario file and its line below in the same commit** — this list is the coverage map, the
 scenario file is the design.
 
-- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 27 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, the v2.36.0 impact-log pair, the v2.42.0 succession pair, the v3.0.0 `/integration-clients`, and the v3.2.0 `/days-off-pools` registry); `color-contrast` consciously waived.
+- [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 27 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, the v2.36.0 impact-log pair, the v2.42.0 succession pair, the v3.0.0 `/integration-clients`, and the v3.2.0 `/days-off-pools` registry) + the two v3.3.0 chrome states (the open notifications panel, the collapsed icon rail); no waived rules since the v3.3.0 colour pass.
 - [`alerts.spec.ts`](scenarios/alerts.md) — admin broadcast alert: banner, hide/re-show, deactivate, delete (own serial phase).
 - [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
 - [`changelog.spec.ts`](scenarios/changelog.md) — the bundled release history renders versioned entries in EN and PL (PL leg on a throwaway user — the switch persists server-side).

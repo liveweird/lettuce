@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Button, Stack, Tabs, Text } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { successionPlanCreateLink } from "../utils/successionLinks";
 import SuccessionPlanTable from "./SuccessionPlanTable";
+import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "team"] as const;
 type SuccessionTab = (typeof TABS)[number];
@@ -44,7 +45,20 @@ export default function SuccessionPlans() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("succession.sectionTitle")}</Title>
+      <PageHeader
+        title={t("succession.sectionTitle")}
+        actions={
+          isManager && (
+            <Button
+              component={RouterLink}
+              to={successionPlanCreateLink("/succession")}
+              leftSection={<IconPlus size={16} />}
+            >
+              {t("succession.newPlan")}
+            </Button>
+          )
+        }
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="own">{t("succession.tab.own")}</Tabs.Tab>
@@ -57,18 +71,6 @@ export default function SuccessionPlans() {
               {t("succession.ownHint")}
             </Text>
             <SuccessionPlanTable view="own" backTo="/succession" />
-            {/* The create entry point sits below the list — the house footer convention. */}
-            {isManager && (
-              <Group justify="flex-end">
-                <Button
-                  component={RouterLink}
-                  to={successionPlanCreateLink("/succession")}
-                  leftSection={<IconPlus size={16} />}
-                >
-                  {t("succession.newPlan")}
-                </Button>
-              </Group>
-            )}
           </Stack>
         </Tabs.Panel>
         {isManager && (

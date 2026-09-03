@@ -63,31 +63,32 @@
 }
 
 .paid {
-  background: var(--mantine-color-teal-6);
+  background: light-dark(var(--mantine-color-teal-6), var(--mantine-color-teal-7));
 }
 
 .unpaid {
-  background: var(--mantine-color-gray-5);
+  background: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
 }
 
-/* REQUESTED renders as tentative: the same hue, striped. */
+/* REQUESTED renders as tentative: the same hue, striped. The light stripe follows the
+   scheme (v3.3.0 dark-mode audit) so the pattern stays visible on the dark surface. */
 .tentativePaid {
   background: repeating-linear-gradient(
     45deg,
-    var(--mantine-color-teal-6),
-    var(--mantine-color-teal-6) 4px,
-    var(--mantine-color-teal-2) 4px,
-    var(--mantine-color-teal-2) 8px
+    light-dark(var(--mantine-color-teal-6), var(--mantine-color-teal-7)),
+    light-dark(var(--mantine-color-teal-6), var(--mantine-color-teal-7)) 4px,
+    light-dark(var(--mantine-color-teal-2), var(--mantine-color-teal-9)) 4px,
+    light-dark(var(--mantine-color-teal-2), var(--mantine-color-teal-9)) 8px
   );
 }
 
 .tentativeUnpaid {
   background: repeating-linear-gradient(
     45deg,
-    var(--mantine-color-gray-5),
-    var(--mantine-color-gray-5) 4px,
-    var(--mantine-color-gray-2) 4px,
-    var(--mantine-color-gray-2) 8px
+    light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3)),
+    light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3)) 4px,
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5)) 4px,
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5)) 8px
   );
 }
 

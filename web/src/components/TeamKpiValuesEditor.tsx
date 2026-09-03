@@ -170,7 +170,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
             {t("teamKpi.addValue")}
           </Button>
           {addError && (
-            <Text size="sm" c="red">
+            <Text size="sm" c="var(--lettuce-ink-error)">
               {addError}
             </Text>
           )}
@@ -182,7 +182,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
           {t("teamKpi.noValues")}
         </Text>
       ) : (
-        <Table withTableBorder>
+        <Table>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{t("teamKpi.date")}</Table.Th>
@@ -214,7 +214,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                       {...valueInputProps}
                     />
                     {draftError && (
-                      <Text size="sm" c="red">
+                      <Text size="sm" c="var(--lettuce-ink-error)">
                         {draftError}
                       </Text>
                     )}

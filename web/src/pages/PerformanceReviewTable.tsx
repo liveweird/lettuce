@@ -236,7 +236,7 @@ export default function PerformanceReviewTable({
         </Alert>
       )}
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             {visibleColumns.map((c) => (

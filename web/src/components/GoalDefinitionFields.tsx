@@ -49,7 +49,7 @@ export default function GoalDefinitionFields({
           />
         </Suspense>
         {form.errors.description && (
-          <Text size="sm" c="red">
+          <Text size="sm" c="var(--lettuce-ink-error)">
             {form.errors.description}
           </Text>
         )}
@@ -99,7 +99,7 @@ export default function GoalDefinitionFields({
       </Group>
       {form.values.type === "PLAN" && <GoalMilestonesEditor form={form} />}
       {typeChangeWarning && (
-        <Text size="sm" c="orange">
+        <Text size="sm" c="var(--lettuce-ink-warning)">
           {t("goal.typeChangeWarning")}
         </Text>
       )}

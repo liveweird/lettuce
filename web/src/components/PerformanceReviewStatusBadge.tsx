@@ -1,6 +1,6 @@
-import { Badge } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { PerformanceReviewStatus } from "../api/reviews";
+import StatusPill from "./StatusPill";
 
 // One color per lifecycle stage: draft = neutral, calibration = in-progress attention,
 // published = delivered (the GoalStatusBadge idiom).
@@ -15,12 +15,12 @@ export default function PerformanceReviewStatusBadge({
   size,
 }: {
   status: PerformanceReviewStatus;
-  size?: string;
+  size?: "sm" | "md";
 }) {
   const { t } = useTranslation();
   return (
-    <Badge variant="light" color={STATUS_COLORS[status]} size={size} style={{ minWidth: "max-content" }}>
+    <StatusPill color={STATUS_COLORS[status]} size={size} dot>
       {t(`performanceReview.status.${status}`)}
-    </Badge>
+    </StatusPill>
   );
 }

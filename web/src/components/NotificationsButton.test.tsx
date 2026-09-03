@@ -484,6 +484,18 @@ describe("NotificationsButton", () => {
     }
   });
 
+  test("the panel opens as a dialog with a named close button (v3.3.0 Drawer)", async () => {
+    setupMocks(mockFetch, [], 0);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />);
+    await user.click(await screen.findByRole("button", { name: /^Notifications/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Notifications")).toBeInTheDocument();
+    expect(await within(dialog).findByText("No notifications.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
   test("'Mark all as seen' posts seen-all and clears the badge", async () => {
     let unread = 2;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {

@@ -1,0 +1,9 @@
+/* The hue dot inside a status pill (StatusPill.tsx): the hue's mid shade in light mode, a
+   lighter one on the dark tint — the colour rides an inline custom property. */
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--pill-dot);
+}

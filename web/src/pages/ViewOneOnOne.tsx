@@ -129,7 +129,7 @@ export default function ViewOneOnOne() {
                       empty={t("oneOnOne.noActionItems")}
                     >
                       {data.actionItems.length > 0 && (
-                        <Table withTableBorder verticalSpacing="sm">
+                        <Table>
                           <Table.Thead>
                             <Table.Tr>
                               <Table.Th style={{ width: 1 }}>{t("common.table.position")}</Table.Th>
@@ -172,7 +172,7 @@ export default function ViewOneOnOne() {
                                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                                   <Badge
                                     variant="light"
-                                    color={item.resolved ? "green" : "yellow"}
+                                    color={item.resolved ? "teal" : "yellow"}
                                     style={{ minWidth: "max-content" }}
                                   >
                                     {item.resolved ? t("oneOnOne.resolved") : t("oneOnOne.open")}

@@ -4,13 +4,9 @@ import {
   Alert,
   Box,
   Button,
-  Center,
   Group,
   Indicator,
-  Loader,
-  Modal,
-  Pagination,
-  ScrollArea,
+  Drawer,
   Stack,
   Text,
   ThemeIcon,
@@ -21,6 +17,7 @@ import {
   IconArrowBackUp,
   IconBeach,
   IconBell,
+  IconBellOff,
   IconCalendarEvent,
   IconChartLine,
   IconCheck,
@@ -45,10 +42,17 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useNavigate } from "react-router-dom";
 import { deleteNotification, listNotifications, markAllNotificationsSeen, markNotificationSeen, markNotificationUnseen, type NotificationItem } from "../api/notifications";
-import { formatIsoDate, formatIsoMonth, formatTimestamp } from "../utils/datetime";
+import {
+  formatIsoDate,
+  formatIsoMonth,
+} from "../utils/datetime";
 import { formatGoalValue } from "../utils/goalValues";
 import { toRelativePath } from "../utils/url";
 import { loadErrorMessage } from "../utils/saveError";
+import CenteredLoader from "./CenteredLoader";
+import DateCell from "./DateCell";
+import EmptyState from "./EmptyState";
+import PaginationBar from "./PaginationBar";
 
 // The i18n key per notification type. The message is rendered in the viewer's language from
 // notifications.event.* with the party names (proper nouns) interpolated from `params`.
@@ -266,7 +270,7 @@ export default function NotificationsButton() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  function openModal() {
+  function openPanel() {
     setPage(1); // always reopen on the newest page
     open();
   }
@@ -332,7 +336,7 @@ export default function NotificationsButton() {
         inline
         size={18}
         offset={4}
-        color="red"
+        color="red.8"
         label={unreadCount > 99 ? "99+" : unreadCount}
         disabled={unreadCount === 0}
       >
@@ -340,21 +344,21 @@ export default function NotificationsButton() {
           variant="subtle"
           color="gray"
           size="lg"
-          onClick={openModal}
+          onClick={openPanel}
           aria-label={`${t("notifications.title")} (${t("notifications.unread", { count: unreadCount })})`}
         >
           <IconBell size={18} />
         </ActionIcon>
       </Indicator>
 
-      {/* Composition API instead of the `title` prop so "Mark all as seen" can live in the
-          header row itself (title left, bulk action + close right) rather than as a detached
-          strip above the list. */}
-      <Modal.Root opened={opened} onClose={close} centered size="lg">
-        <Modal.Overlay />
-        <Modal.Content>
-          <Modal.Header>
-            <Modal.Title>{t("notifications.title")}</Modal.Title>
+      {/* A right-hand panel (v3.3.0 — a Drawer instead of the centered Modal): the composed
+          header keeps "Mark all as seen" beside the close button, the list scrolls inside the
+          panel, and the compact PaginationBar pages it. */}
+      <Drawer.Root opened={opened} onClose={close} position="right" size={440}>
+        <Drawer.Overlay />
+        <Drawer.Content>
+          <Drawer.Header>
+            <Drawer.Title>{t("notifications.title")}</Drawer.Title>
             <Group gap="sm">
               {unreadCount > 0 && (
                 <Button
@@ -367,120 +371,115 @@ export default function NotificationsButton() {
                   {t("notifications.markAllSeen")}
                 </Button>
               )}
-              <Modal.CloseButton />
+              <Drawer.CloseButton aria-label={t("common.action.close")} />
             </Group>
-          </Modal.Header>
-          <Modal.Body>
+          </Drawer.Header>
+          <Drawer.Body>
             {listQuery.isLoading ? (
-              <Center py="xl">
-                <Loader />
-              </Center>
+              <CenteredLoader />
             ) : listQuery.isError ? (
               <Alert color="red" variant="light" title={t("notifications.loadError")}>
                 {loadErrorMessage(listQuery.error, t)}
               </Alert>
             ) : (listQuery.data?.items.length ?? 0) === 0 ? (
-              <Text c="dimmed" ta="center" py="xl">
-                {t("notifications.empty")}
-              </Text>
+              <EmptyState
+                icon={<IconBellOff size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                label={t("notifications.empty")}
+              />
             ) : (
-              <ScrollArea.Autosize mah="60vh" offsetScrollbars>
-                {/* Semantic list (rows are <li>) — also the stable hook the e2e helpers use. */}
-                <Box component="ul" m={0} p={0} style={{ listStyle: "none" }}>
-                  {listQuery.data!.items.map((n, i) => {
-                    const meta = TYPE_META[n.type] ?? { icon: IconBell, color: "gray" };
-                    const TypeIcon = meta.icon;
-                    return (
-                      <Box
-                        key={n.id}
-                        component="li"
-                        py="sm"
-                        px={4}
-                        style={{
-                          borderTop:
-                            i > 0 ? "1px solid var(--mantine-color-default-border)" : undefined,
-                        }}
-                      >
-                        <Group align="flex-start" wrap="nowrap" gap="sm">
-                          {/* The blue dot is decorative — seen-state is conveyed by the bold
-                              text and the offered action. */}
-                          <Indicator size={9} offset={3} disabled={n.wasSeen}>
-                            <ThemeIcon variant="light" color={meta.color} radius="xl" size="lg">
-                              <TypeIcon size={16} />
-                            </ThemeIcon>
-                          </Indicator>
-                          <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
-                            <Text size="sm" fw={n.wasSeen ? 400 : 600} c={n.wasSeen ? "dimmed" : undefined}>
-                              {describeNotification(n, t, i18n.language)}
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                              {formatTimestamp(n.timestamp)}
-                            </Text>
-                          </Stack>
-                          <Group gap={4} wrap="nowrap">
-                            {!n.wasSeen && (
-                              <Tooltip label={t("notifications.markSeen")}>
-                                <ActionIcon
-                                  variant="subtle"
-                                  onClick={() => markSeen.mutate(n.id)}
-                                  loading={markSeen.isPending && markSeen.variables === n.id}
-                                  aria-label={t("notifications.markSeenAria", { id: n.id })}
-                                >
-                                  <IconCheck size={16} />
-                                </ActionIcon>
-                              </Tooltip>
-                            )}
-                            {n.wasSeen && (
-                              <Tooltip label={t("notifications.markUnseen")}>
-                                <ActionIcon
-                                  variant="subtle"
-                                  color="gray"
-                                  onClick={() => markUnseen.mutate(n.id)}
-                                  loading={markUnseen.isPending && markUnseen.variables === n.id}
-                                  aria-label={t("notifications.markUnseenAria", { id: n.id })}
-                                >
-                                  <IconEyeOff size={16} />
-                                </ActionIcon>
-                              </Tooltip>
-                            )}
-                            {n.link && (
-                              <Tooltip label={t("notifications.goTo")}>
-                                <ActionIcon
-                                  variant="subtle"
-                                  onClick={() => goTo(n)}
-                                  aria-label={t("notifications.goToAria", { id: n.id })}
-                                >
-                                  <IconExternalLink size={16} />
-                                </ActionIcon>
-                              </Tooltip>
-                            )}
-                            <Tooltip label={t("notifications.delete")}>
+              /* Semantic list (rows are <li>) — also the stable hook the e2e helpers use. */
+              <Box component="ul" m={0} p={0} style={{ listStyle: "none" }}>
+                {listQuery.data!.items.map((n, i) => {
+                  const meta = TYPE_META[n.type] ?? { icon: IconBell, color: "gray" };
+                  const TypeIcon = meta.icon;
+                  return (
+                    <Box
+                      key={n.id}
+                      component="li"
+                      py="sm"
+                      px={4}
+                      style={{
+                        borderTop:
+                          i > 0 ? "1px solid var(--mantine-color-default-border)" : undefined,
+                      }}
+                    >
+                      <Group align="flex-start" wrap="nowrap" gap="sm">
+                        {/* The blue dot is decorative — seen-state is conveyed by the bold
+                            text and the offered action. */}
+                        <Indicator size={9} offset={3} disabled={n.wasSeen}>
+                          <ThemeIcon variant="light" color={meta.color} radius="xl" size="lg">
+                            <TypeIcon size={16} />
+                          </ThemeIcon>
+                        </Indicator>
+                        <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+                          <Text size="sm" fw={n.wasSeen ? 400 : 600} c={n.wasSeen ? "dimmed" : undefined}>
+                            {describeNotification(n, t, i18n.language)}
+                          </Text>
+                          <DateCell value={n.timestamp} mode="relative" size="xs" dimmed />
+                        </Stack>
+                        <Group gap={4} wrap="nowrap">
+                          {!n.wasSeen && (
+                            <Tooltip label={t("notifications.markSeen")}>
                               <ActionIcon
                                 variant="subtle"
-                                color="red"
-                                onClick={() => remove.mutate(n.id)}
-                                loading={remove.isPending && remove.variables === n.id}
-                                aria-label={t("notifications.deleteAria", { id: n.id })}
+                                onClick={() => markSeen.mutate(n.id)}
+                                loading={markSeen.isPending && markSeen.variables === n.id}
+                                aria-label={t("notifications.markSeenAria", { id: n.id })}
                               >
-                                <IconTrash size={16} />
+                                <IconCheck size={16} />
                               </ActionIcon>
                             </Tooltip>
-                          </Group>
+                          )}
+                          {n.wasSeen && (
+                            <Tooltip label={t("notifications.markUnseen")}>
+                              <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                onClick={() => markUnseen.mutate(n.id)}
+                                loading={markUnseen.isPending && markUnseen.variables === n.id}
+                                aria-label={t("notifications.markUnseenAria", { id: n.id })}
+                              >
+                                <IconEyeOff size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                          {n.link && (
+                            <Tooltip label={t("notifications.goTo")}>
+                              <ActionIcon
+                                variant="subtle"
+                                onClick={() => goTo(n)}
+                                aria-label={t("notifications.goToAria", { id: n.id })}
+                              >
+                                <IconExternalLink size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                          <Tooltip label={t("notifications.delete")}>
+                            <ActionIcon
+                              variant="subtle"
+                              color="red"
+                              onClick={() => remove.mutate(n.id)}
+                              loading={remove.isPending && remove.variables === n.id}
+                              aria-label={t("notifications.deleteAria", { id: n.id })}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Tooltip>
                         </Group>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </ScrollArea.Autosize>
+                      </Group>
+                    </Box>
+                  );
+                })}
+              </Box>
             )}
             {totalPages > 1 && (
-              <Group justify="flex-end" mt="sm">
-                <Pagination size="sm" value={page} onChange={setPage} total={totalPages} />
-              </Group>
+              <Box mt="sm">
+                <PaginationBar total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
+              </Box>
             )}
-          </Modal.Body>
-        </Modal.Content>
-      </Modal.Root>
+          </Drawer.Body>
+        </Drawer.Content>
+      </Drawer.Root>
     </>
   );
 }

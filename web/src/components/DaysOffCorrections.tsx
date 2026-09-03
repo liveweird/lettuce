@@ -166,7 +166,12 @@ export default function DaysOffCorrections({
               <Group justify="space-between" align="flex-start" wrap="nowrap">
                 <Stack gap={2} style={{ minWidth: 0 }}>
                   <Group gap="xs" wrap="nowrap">
-                    <Text size="sm" fw={700} c={c.operation === "ADD" ? "teal" : "red"} span>
+                    <Text
+                      size="sm"
+                      fw={700}
+                      c={c.operation === "ADD" ? "var(--mantine-color-teal-light-color)" : "var(--lettuce-ink-error)"}
+                      span
+                    >
                       {signedDays(c, i18n.language)}
                     </Text>
                     <Text size="sm" fw={500} span>

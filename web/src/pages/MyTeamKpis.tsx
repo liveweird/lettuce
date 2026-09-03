@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Button, Stack, Tabs, Text } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { teamKpiCreateLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
+import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "managed"] as const;
 type TeamKpisTab = (typeof TABS)[number];
@@ -44,7 +45,20 @@ export default function MyTeamKpis() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("teamKpi.sectionTitle")}</Title>
+      <PageHeader
+        title={t("teamKpi.sectionTitle")}
+        actions={
+          isManager && (
+            <Button
+              component={RouterLink}
+              to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}
+              leftSection={<IconPlus size={16} />}
+            >
+              {t("teamKpi.newKpi")}
+            </Button>
+          )
+        }
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="own" data-tour="team-kpis-own">
@@ -73,17 +87,6 @@ export default function MyTeamKpis() {
                 {t("teamKpi.managedKpisHint")}
               </Text>
               <TeamKpiTable view="managed" withReportsScope backTo="/team-kpis?tab=managed" />
-              {/* The create entry point sits below the list — the house footer convention
-                  (the UserGoals pattern). */}
-              <Group justify="flex-end">
-                <Button
-                  component={RouterLink}
-                  to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}
-                  leftSection={<IconPlus size={16} />}
-                >
-                  {t("teamKpi.newKpi")}
-                </Button>
-              </Group>
             </Stack>
           </Tabs.Panel>
         )}

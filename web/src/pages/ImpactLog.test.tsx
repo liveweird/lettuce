@@ -84,8 +84,12 @@ describe("ImpactLog page", () => {
         mockFetch.mock.calls.some(([u]) => String(u).includes("view=managed")),
       ).toBe(true);
     });
-    // The managed view is read-only — no create entry point on this tab.
-    expect(screen.queryByRole("link", { name: "New entry" })).toBeNull();
+    // The managed view is read-only, but the create entry point lives in the page header
+    // (v3.3.0) — it always creates in the caller's OWN journal, whichever tab is open.
+    expect(screen.getByRole("link", { name: "New entry" })).toHaveAttribute(
+      "href",
+      "/impact-log/new?back=%2Fimpact-log",
+    );
   });
 
   test("?tab=managed is ignored for a non-manager (falls back to own)", async () => {

@@ -5,6 +5,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { theme } from "../theme";
+import { cssVariablesResolver } from "../themeVariables";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
   route?: string;
@@ -17,7 +18,7 @@ export function renderWithProviders(ui: ReactElement, options: Options = {}) {
   });
   return render(ui, {
     wrapper: ({ children }) => (
-      <MantineProvider env="test" theme={theme}>
+      <MantineProvider env="test" theme={theme} cssVariablesResolver={cssVariablesResolver}>
         <QueryClientProvider client={queryClient}>
           <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
         </QueryClientProvider>

@@ -278,7 +278,7 @@ export default function OneOnOneTable({
         </Alert>
       )}
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             <Table.Th>
@@ -345,7 +345,7 @@ export default function OneOnOneTable({
                   ) : (
                     <Badge
                       variant="light"
-                      color={m.openActionItemCount > 0 ? "yellow" : "green"}
+                      color={m.openActionItemCount > 0 ? "yellow" : "teal"}
                       style={{ minWidth: "max-content" }}
                     >
                       {t("oneOnOne.openOfTotal", {

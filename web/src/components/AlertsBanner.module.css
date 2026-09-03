@@ -1,7 +1,7 @@
-/* Mantine's generic disabled look (grey on grey) is unreadable on the filled orange
-   banner; keep the end-of-list affordance but render it as dimmed white. Mantine's own
-   disabled rule is zero-specificity (`:where(...)`), so this plain class rule wins. */
+/* The pager arrows on the orange banner: Mantine's disabled ActionIcon would paint a gray
+   pill; keep them transparent with a dimmed dark ink instead (the banner ink is black since
+   v3.3.0 — white on orange-6 was 2.6:1). */
 .pagerButton:disabled {
   background-color: transparent;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(0, 0, 0, 0.4);
 }

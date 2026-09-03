@@ -5,6 +5,10 @@
   flex-direction: column;
   border: 1px solid var(--mantine-color-default-border);
   border-radius: var(--mantine-radius-default);
+  /* The box is ours (MDXEditor's dark-theme class themes only its own toolbar/content), so
+     the surface must follow the scheme explicitly (v3.3.0 dark-mode audit). */
+  background-color: var(--mantine-color-body);
+  color: var(--mantine-color-text);
 }
 
 /* The contenteditable region stretches to the space the form gives the editor (with a
@@ -37,4 +41,20 @@
 :global(.mdxeditor-popup-container) {
   border: 0 !important;
   min-height: 0 !important;
+}
+
+/* MDXEditor ships its own light-gray placeholder and block-type trigger inks (≈3:1); pull
+   both onto the theme's AA tokens (v3.3.0 — the axe scan runs color-contrast un-waived). */
+.editor :global([class*="_placeholder_"]) {
+  color: var(--mantine-color-dimmed);
+}
+
+.editor :global([class*="_selectTrigger_"]) {
+  color: var(--mantine-color-text);
+}
+
+/* The block-type select's own placeholder span ("Block type") ships a 2.3:1 gray from a
+   higher-specificity MDXEditor rule — !important, as for the popup host above. */
+.editor :global([class*="_selectTrigger_"]) > span {
+  color: var(--mantine-color-dimmed) !important;
 }

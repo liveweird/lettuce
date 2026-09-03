@@ -262,7 +262,7 @@ export default function DaysOffTable({
         </Alert>
       )}
 
-      <Table highlightOnHover withTableBorder verticalSpacing="sm">
+      <Table>
         <Table.Thead>
           <Table.Tr>
             {personVisible && (

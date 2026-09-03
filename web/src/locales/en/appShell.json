@@ -37,5 +37,11 @@
     "succession": "Succession plans",
     "pulseCycles": "Pulse cycles",
     "pulseRotatingQuestions": "Pulse questions"
+  },
+  "navSection": {
+    "overview": "Overview",
+    "myWork": "My work",
+    "team": "Team",
+    "administration": "Administration"
   }
 }

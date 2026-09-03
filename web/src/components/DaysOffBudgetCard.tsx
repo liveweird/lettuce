@@ -61,7 +61,7 @@ function PoolStats({ pool, titled }: { pool: DaysOffBudget; titled: boolean }) {
         <Stat label={t("daysOff.budget.remaining")} value={days(pool.remaining)} strong />
       </Group>
       {pool.isDefault && pool.allowance == null && (
-        <Text size="xs" c="orange">
+        <Text size="xs" c="var(--lettuce-ink-warning)">
           {t("daysOff.budget.noAllowance")}
         </Text>
       )}

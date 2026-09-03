@@ -7,16 +7,16 @@
   the main chromium phase safely: that includes scanning the /alerts and /pulse *management
   lists* (reading them mutates nothing the later alerts/pulse phases own)
 
-Every scan runs axe with the WCAG 2.0/2.1 A and AA rule tags. **`color-contrast` is a conscious
-waiver, not a fix backlog**: the theme's dimmed/muted text and brand surfaces (the v1.35.0
-design language) sit below the 4.5:1 AA ratio by design across every page — revisit only as a
-deliberate theme-wide design pass, never by patching single elements. Consequently any new
-violation this spec reports is a regression in names, roles, or structure.
+Every scan runs axe with the WCAG 2.0/2.1 A and AA rule tags and **no waived rules** (since
+v3.3.0): the theme-wide colour pass brought every text/badge/link colour to the 4.5:1 AA ratio
+in both schemes, so `color-contrast` runs like every other rule — a contrast finding is a token
+bug in `themeVariables.ts`, never a reason to re-waive. Any other violation is a regression in
+names, roles, or structure.
 
 ## Scenario: login screen has no WCAG A/AA violations
 
 1. Open the sign-in screen (unauthenticated) and wait for the "Sign in" button.
-2. Run the axe scan (WCAG A/AA tags, `color-contrast` waived).
+2. Run the axe scan (WCAG A/AA tags, nothing waived).
    - *Expected*: zero violations, reported one line per violation with the offending elements
      when it fails.
 
@@ -73,3 +73,20 @@ be visible before scanning):
   Chrome only, with no mobile project or screenshot comparison; layout relies on Mantine
   semantics plus the role/label-based locators every spec uses. This axe smoke covers
   structural rules only.
+
+## Scenario: the open notifications panel has no WCAG A/AA violations
+
+1. Sign in as the Administrator, open the dashboard, and open the notifications bell — the
+   right-hand panel (a dialog titled "Notifications") appears.
+2. Run the axe scan with the panel open.
+   - *Expected*: zero violations — the panel's close button, per-row actions, and pager are all
+     named.
+
+## Scenario: the collapsed icon rail has no WCAG A/AA violations
+
+1. Sign in as the Administrator, open the Users page, and collapse the navigation with "Show
+   or hide the navigation" — the navbar becomes the 64px icon rail (the Dashboard link stays
+   visible, icon-only).
+2. Run the axe scan.
+   - *Expected*: zero violations — every rail link keeps its name via `aria-label`, and the
+     Config/Dictionaries groups are named menu triggers.

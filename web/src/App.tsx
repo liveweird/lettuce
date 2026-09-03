@@ -1,17 +1,15 @@
-import type { ParseKeys } from "i18next";
-import { lazy, Suspense, useState } from "react";
+import {
+  lazy,
+  Suspense,
+} from "react";
 import {
   ActionIcon,
   AppShell,
   Avatar,
   Burger,
   Button,
-  Center,
   Group,
-  Indicator,
-  Loader,
   Menu,
-  NavLink,
   ScrollArea,
   Text,
   useMantineColorScheme,
@@ -19,43 +17,15 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-  IconBook2,
-  IconBriefcase,
-  IconCalendarEvent,
-  IconBeach,
-  IconCalendarOff,
-  IconStack2,
-  IconCalendarStats,
   IconChevronDown,
-  IconClipboardText,
-  IconConfetti,
-  IconFileText,
   IconHelp,
-  IconHeartRateMonitor,
-  IconHierarchy,
-  IconHistory,
-  IconRoute,
-  IconPlugConnected,
-  IconSpeakerphone,
-  IconToggleLeft,
-  IconChartLine,
   IconKey,
-  IconLayoutDashboard,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconLogout,
   IconMail,
-  IconMessageCircle,
   IconMoon,
-  IconNotebook,
-  IconSettings,
-  IconStairs,
-  IconStairsUp,
   IconSun,
-  IconTargetArrow,
-  IconUserShield,
-  IconUsers,
-  IconUsersGroup,
 } from "@tabler/icons-react";
 import {
   Link as RouterLink,
@@ -72,20 +42,22 @@ import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature, isAdmin } from "./api/session";
 import { logout } from "./api/auth";
 import { getCurrentUser } from "./api/users";
-import type { Feature } from "./api/session";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
 import AlertsBanner from "./components/AlertsBanner";
 import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "./hooks/useVisibleAlerts";
 import BrandLogo from "./components/BrandLogo";
 import NotificationsButton from "./components/NotificationsButton";
 import LanguageSwitcher from "./components/LanguageSwitcher";
-import VersionStamp from "./components/VersionStamp";
 import { useChangelogUnseen } from "./hooks/useChangelogSeen";
 import { isBoolean, useStoredState } from "./hooks/useStoredState";
 import { useIsManager } from "./hooks/useIsManager";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 import { RouteErrorBoundary } from "./components/ErrorBoundary";
+import CenteredLoader from "./components/CenteredLoader";
+import { AppNav, NavFooter } from "./appShell/AppNav";
+import { activeLeaf, resolveNav } from "./appShell/navModel";
+import { HEADER_HEIGHT, NAV_WIDTH, RAIL_WIDTH } from "./appShell/layout";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Kudos = lazy(() => import("./pages/Kudos"));
@@ -176,102 +148,9 @@ const EditAlert = lazy(() => import("./pages/EditAlert"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function RouteFallback() {
-  return (
-    <Center mih={200}>
-      <Loader />
-    </Center>
-  );
+  return <CenteredLoader mih={200} />;
 }
 
-type NavLeaf = {
-  to: string;
-  label: ParseKeys;
-  icon: typeof IconLayoutDashboard;
-  tourId?: string;
-  // When set, the leaf renders only while the session user has the feature enabled (v1.53.0).
-  feature?: Feature;
-  // When set, the leaf renders only for callers who manage a team (v2.42.0 — Succession
-  // plans). Resolved via useIsManager() in Shell, an ASYNC query: unlike the synchronous
-  // feature/admin gates the leaf pops in once the managed-teams probe answers.
-  managerOnly?: boolean;
-};
-type NavGroup = { label: ParseKeys; icon: typeof IconLayoutDashboard; children: NavLeaf[]; tourId?: string };
-type NavEntry = NavLeaf | NavGroup;
-const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
-
-// `label` holds an i18n key, resolved with t() at render time. `tourId` (when set) becomes a
-// `data-tour` attribute the guided tour anchors to.
-const NAV_ITEMS: ReadonlyArray<NavEntry> = [
-  { to: "/", label: "appShell.nav.dashboard", icon: IconLayoutDashboard, tourId: "nav-dashboard" },
-  { to: "/feedback", label: "appShell.nav.feedback", icon: IconMessageCircle, tourId: "nav-feedback", feature: "FEEDBACKS" },
-  { to: "/kudos", label: "appShell.nav.kudos", icon: IconConfetti, tourId: "nav-kudos", feature: "FEEDBACKS" },
-  { to: "/one-on-ones", label: "appShell.nav.oneOnOnes", icon: IconCalendarEvent, tourId: "nav-one-on-ones", feature: "ONE_ON_ONES" },
-  { to: "/goals", label: "appShell.nav.goals", icon: IconTargetArrow, tourId: "nav-my-goals", feature: "GOALS" },
-  { to: "/impact-log", label: "appShell.nav.impactLog", icon: IconNotebook, tourId: "nav-impact-log", feature: "IMPACT_LOG" },
-  { to: "/team-kpis", label: "appShell.nav.teamKpis", icon: IconChartLine, tourId: "nav-team-kpis", feature: "TEAM_KPIS" },
-  {
-    to: "/performance",
-    label: "appShell.nav.performance",
-    icon: IconClipboardText,
-    tourId: "nav-performance",
-    feature: "PERFORMANCE_REVIEWS",
-  },
-  // Deliberately feature-UNGATED — the whole career area is (FEATURE_OF.career = null).
-  { to: "/career", label: "appShell.nav.career", icon: IconStairsUp, tourId: "nav-career" },
-  { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off", feature: "DAYS_OFF" },
-  { to: "/pulse", label: "appShell.nav.pulse", icon: IconHeartRateMonitor, tourId: "nav-pulse", feature: "PULSE_SURVEYS" },
-  {
-    to: "/succession",
-    label: "appShell.nav.succession",
-    icon: IconUserShield,
-    tourId: "nav-succession",
-    feature: "SUCCESSION_PLANS",
-    managerOnly: true,
-  },
-  {
-    label: "appShell.nav.config",
-    icon: IconSettings,
-    tourId: "nav-config",
-    children: [
-      { to: "/users", label: "appShell.nav.users", icon: IconUsers },
-      { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
-      { to: "/org", label: "appShell.nav.orgChart", icon: IconHierarchy },
-      { to: "/templates", label: "appShell.nav.templates", icon: IconFileText },
-      // Readable by everyone since v1.34.1 (the Templates precedent) — the page itself
-      // renders read-only for non-admins; append/delete stay ADMIN-gated.
-      { to: "/review-periods", label: "appShell.nav.reviewPeriods", icon: IconCalendarStats, feature: "PERFORMANCE_REVIEWS" },
-      // Same posture: the registry read is open, adding/deleting is ADMIN-only.
-      { to: "/public-holidays", label: "appShell.nav.publicHolidays", icon: IconCalendarOff, feature: "DAYS_OFF" },
-      // The paid pool kinds registry (v3.2.0) — the same everyone-reads/admin-writes posture.
-      { to: "/days-off-pools", label: "appShell.nav.daysOffPools", icon: IconStack2, feature: "DAYS_OFF" },
-    ],
-  },
-  // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
-  {
-    label: "appShell.nav.dictionaries",
-    icon: IconBook2,
-    // One group-level tour step stands in for all four leaves (they are the same editor over
-    // different lists), unlike Config, whose leaves are genuinely distinct screens.
-    tourId: "nav-dictionaries",
-    children: [
-      { to: "/dictionaries/career-paths", label: "appShell.nav.careerPaths", icon: IconRoute },
-      { to: "/dictionaries/career-specializations", label: "appShell.nav.careerSpecializations", icon: IconBriefcase },
-      { to: "/dictionaries/seniority-levels", label: "appShell.nav.seniorityLevels", icon: IconStairs },
-      // Feature-tagged in the NAV only — the dictionaries area itself stays ungated
-      // server-side (the career dictionaries posture).
-      {
-        to: "/dictionaries/pulse-rotating-questions",
-        label: "appShell.nav.pulseRotatingQuestions",
-        icon: IconHeartRateMonitor,
-        feature: "PULSE_SURVEYS",
-      },
-    ],
-  },
-];
-
-// Rendered last, directly above the version stamp it pairs with (after the per-user dynamic
-// items), rather than inside NAV_ITEMS.
-const CHANGELOG_NAV: NavLeaf = { to: "/changelog", label: "appShell.nav.changelog", icon: IconHistory, tourId: "nav-changelog" };
 
 /** The header account menu: avatar + name trigger opening email / change-password / logout.
  *  Always rendered (even before — or without — the profile query resolving), so the Logout
@@ -284,7 +163,7 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
     queryFn: getCurrentUser,
     enabled: userId !== null,
     staleTime: 5 * 60 * 1000,
-    retry: false,
+    retry: false
   });
   return (
     <Menu position="bottom-end" withinPortal>
@@ -366,60 +245,6 @@ function ReplayTourButton() {
   );
 }
 
-/** A collapsible navbar group. Controlled so it auto-expands when one of its child routes becomes
- *  active (e.g. programmatic navigation from the guided tour), while staying manually toggleable. */
-function NavGroupLink({
-  entry,
-  activeTo,
-  onNavigate,
-}: {
-  entry: NavGroup;
-  activeTo: string | null;
-  onNavigate: () => void;
-}) {
-  const { t } = useTranslation();
-  const childActive = entry.children.some((c) => c.to === activeTo);
-  const [opened, setOpened] = useState(childActive);
-  // Auto-expand when a child route becomes active, while staying manually collapsible afterwards.
-  // Adjust-state-during-render (the React-docs alternative to a setState-in-effect): the change
-  // check keeps it a one-shot on the transition, and React re-renders before committing.
-  const [wasChildActive, setWasChildActive] = useState(childActive);
-  if (childActive !== wasChildActive) {
-    setWasChildActive(childActive);
-    if (childActive) setOpened(true);
-  }
-  const GroupIcon = entry.icon;
-  return (
-    // component="button": the default polymorphic root is an <a> without href,
-    // which is not keyboard-focusable — the group would be unreachable by Tab.
-    <NavLink
-      component="button"
-      label={t(entry.label)}
-      leftSection={<GroupIcon size={18} stroke={1.5} />}
-      opened={opened}
-      onChange={setOpened}
-      childrenOffset={28}
-      data-tour={entry.tourId}
-    >
-      {entry.children.map(({ to, label, icon: Icon }) => {
-        const active = to === activeTo;
-        return (
-          <NavLink
-            key={to}
-            component={RouterLink}
-            to={to}
-            active={active}
-            aria-current={active ? "page" : undefined}
-            label={t(label)}
-            leftSection={<Icon size={18} stroke={1.5} />}
-            onClick={onNavigate}
-          />
-        );
-      })}
-    </NavLink>
-  );
-}
-
 function Shell() {
   const { t } = useTranslation();
   const [opened, { toggle, close }] = useDisclosure();
@@ -432,48 +257,14 @@ function Shell() {
   const queryClient = useQueryClient();
   const userId = getUserId();
   const { pathname } = useLocation();
-  const dynamicItems: NavLeaf[] =
-    userId !== null
-      ? [
-          { to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword", icon: IconKey, tourId: "nav-change-password" },
-        ]
-      : [];
-  // Alert management is ADMIN-only end to end (reads included), so non-admins don't get
-  // the menu entry.
-  const staticItems: NavEntry[] = NAV_ITEMS.map((e) =>
-    isGroup(e) && e.label === "appShell.nav.config" && isAdmin()
-      ? {
-          ...e,
-          children: [
-            ...e.children,
-            {
-              to: "/pulse-cycles",
-              label: "appShell.nav.pulseCycles",
-              icon: IconHeartRateMonitor,
-              feature: "PULSE_SURVEYS",
-            },
-            { to: "/feature-flags", label: "appShell.nav.featureFlags", icon: IconToggleLeft },
-            { to: "/integration-clients", label: "appShell.nav.integrationClients", icon: IconPlugConnected },
-            { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
-          ],
-        }
-      : e,
-  );
-  // Per-user feature flags (v1.53.0): drop leaves whose feature is disabled for the session
-  // user (and any group thereby emptied) BEFORE leafTos, so active-highlight stays coherent.
-  const leafVisible = (leaf: NavLeaf) =>
-    (!leaf.feature || hasFeature(leaf.feature)) && (!leaf.managerOnly || isManager);
-  const allEntries: NavEntry[] = [...staticItems, ...dynamicItems, CHANGELOG_NAV]
-    .map((e) => (isGroup(e) ? { ...e, children: e.children.filter(leafVisible) } : e))
-    .filter((e) => (isGroup(e) ? e.children.length > 0 : leafVisible(e)));
+  // The grouped navigation (v3.3.0, appShell/appNav.ts): feature/manager/admin gates applied
+  // BEFORE the active-leaf lookup, so active-highlight stays coherent.
+  const nav = resolveNav({ isAdmin: isAdmin(), isManager, hasFeature }, userId);
   const changelogUnseen = useChangelogUnseen();
-  const leafTos = allEntries.flatMap((e) =>
-    isGroup(e) ? e.children.map((c) => c.to) : [e.to],
-  );
-  const matches = (to: string) =>
-    to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
-  const activeTo =
-    leafTos.filter(matches).sort((a, b) => b.length - a.length)[0] ?? null;
+  const activeTo = activeLeaf(nav.leafTos, pathname);
+  // The icon rail: the desktop toggle narrows the navbar to icons; the mobile overlay keeps
+  // full labels (`opened` is only ever true below the sm breakpoint, where the Burger lives).
+  const rail = navCollapsed && !opened;
 
   async function handleLogout() {
     await logout();
@@ -492,8 +283,12 @@ function Shell() {
     // The tour targets navbar items — expanding on start keeps every step's anchor visible.
     <TourProvider onStart={() => setNavCollapsed(false)}>
     <AppShell
-      header={{ height: 56 + alertsBarHeight }}
-      navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !opened, desktop: navCollapsed } }}
+      header={{ height: HEADER_HEIGHT + alertsBarHeight }}
+      navbar={{
+        width: { base: NAV_WIDTH, sm: rail ? RAIL_WIDTH : NAV_WIDTH },
+        breakpoint: "sm",
+        collapsed: { mobile: !opened, desktop: false },
+      }}
       padding="md"
     >
       <AppShell.Header>
@@ -527,7 +322,7 @@ function Shell() {
               {t("appShell.brand")}
             </Text>
           </Group>
-          <Group gap="sm">
+          <Group gap="xs">
             <span data-tour="language" style={{ display: "inline-flex" }}>
               <LanguageSwitcher />
             </span>
@@ -543,49 +338,27 @@ function Shell() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="sm">
-        {/* The link list scrolls when expanded groups outgrow the viewport; the version
-            stamp below stays pinned. */}
-        <AppShell.Section grow component={ScrollArea} type="hover" scrollbarSize={6} offsetScrollbars>
-        {allEntries.map((entry) => {
-          if (!isGroup(entry)) {
-            const active = entry.to === activeTo;
-            const Icon = entry.icon;
-            return (
-              <NavLink
-                key={entry.to}
-                component={RouterLink}
-                to={entry.to}
-                active={active}
-                aria-current={active ? "page" : undefined}
-                label={t(entry.label)}
-                leftSection={<Icon size={18} stroke={1.5} />}
-                data-tour={entry.tourId}
-                onClick={close}
-              />
-            );
-          }
-          return (
-            <NavGroupLink
-              key={entry.label}
-              entry={entry}
-              activeTo={activeTo}
-              onNavigate={close}
-            />
-          );
-        })}
+      <AppShell.Navbar p={rail ? "xs" : "sm"}>
+        {/* The link list scrolls when expanded groups outgrow the viewport (min-height 0 lets
+            the flex child actually shrink — without it the list grew under the pinned footer
+            and the last leaves looked clipped); the footer below stays pinned. */}
+        <AppShell.Section
+          grow
+          component={ScrollArea}
+          type="hover"
+          scrollbarSize={6}
+          offsetScrollbars
+          style={{ minHeight: 0 }}
+        >
+          <AppNav sections={nav.sections} activeTo={activeTo} rail={rail} onNavigate={close} />
         </AppShell.Section>
-        {/* The title carries the accessible "what's new" name only while the dot is shown. */}
-        <AppShell.Section pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
-          <Indicator
-            color="red"
-            size={8}
-            disabled={!changelogUnseen}
-            title={changelogUnseen ? t("changelog.whatsNew") : undefined}
-          >
-            <VersionStamp to="/changelog" ta="center" pt={4} />
-          </Indicator>
-        </AppShell.Section>
+        <NavFooter
+          items={nav.footer}
+          activeTo={activeTo}
+          rail={rail}
+          changelogUnseen={changelogUnseen}
+          onNavigate={close}
+        />
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1}>

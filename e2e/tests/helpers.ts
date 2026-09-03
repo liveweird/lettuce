@@ -217,7 +217,7 @@ export function rowByTitle(page: Page, title: string): Locator {
  * revisited page restores the panel open — a blind toggle click would close it again.
  */
 export async function openFilters(page: Page): Promise<void> {
-  const toggle = page.getByRole("button", { name: "Filters" });
+  const toggle = page.getByRole("button", { name: /^Filters/ });
   await expect(toggle).toBeVisible();
   if ((await toggle.getAttribute("aria-expanded")) !== "true") {
     await toggle.click();

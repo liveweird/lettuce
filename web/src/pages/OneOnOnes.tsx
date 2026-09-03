@@ -1,10 +1,11 @@
-import { Button, Group, Stack, Tabs, Title } from "@mantine/core";
+import { Button, Stack, Tabs } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import OneOnOneTable from "./OneOnOneTable";
+import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "managed", "team"] as const;
 type OneOnOneTab = (typeof TABS)[number];
@@ -36,7 +37,16 @@ export default function OneOnOnes() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("oneOnOne.sectionTitle")}</Title>
+      <PageHeader
+        title={t("oneOnOne.sectionTitle")}
+        actions={
+          isManager && (
+            <Button component={RouterLink} to="/one-on-ones/new" leftSection={<IconPlus size={16} />}>
+              {t("oneOnOne.newMeeting")}
+            </Button>
+          )
+        }
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           {isManager && (
@@ -68,17 +78,6 @@ export default function OneOnOnes() {
           </Tabs.Panel>
         )}
       </Tabs>
-      {isManager && (
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to="/one-on-ones/new"
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("oneOnOne.newMeeting")}
-          </Button>
-        </Group>
-      )}
     </Stack>
   );
 }

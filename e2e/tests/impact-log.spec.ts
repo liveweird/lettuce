@@ -103,7 +103,7 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   await login(page, MANAGER_AAA);
   await page.getByRole("link", { name: "Impact log" }).click();
   await page.getByRole("tab", { name: "My subordinates' journals" }).click();
-  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await page.getByLabel("Author").fill("AAA Two");
   const managedRow = page.locator("tr", { hasText: title });
   await expect(managedRow).toBeVisible();

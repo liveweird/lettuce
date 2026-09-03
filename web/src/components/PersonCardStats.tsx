@@ -57,9 +57,9 @@ function TimeStat({ at }: { at: number | null }) {
   );
 }
 
-// One career value: the entry's text in the viewer's language, or the orange "Not set"
-// badge — orange = warning (the missing state is legitimate but should be acted on),
-// consistent with the edit form.
+// One career value: the entry's text in the viewer's language, or a quiet dimmed "Not set"
+// (v3.3.0 — the former orange badge made every empty profile read as an error; the admin
+// users list keeps the warning cue for the unique id, where it is actionable).
 function CareerValue({ entry }: { entry: LocalizedEntry | null }) {
   const { t, i18n } = useTranslation();
   return entry ? (
@@ -67,9 +67,9 @@ function CareerValue({ entry }: { entry: LocalizedEntry | null }) {
       {pickLocalized(entry.values, i18n.resolvedLanguage)}
     </Text>
   ) : (
-    <Badge size="sm" variant="light" color="orange" style={{ minWidth: "max-content" }}>
+    <Text size="xs" c="dimmed" fs="italic">
       {t("users.profile.missingBadge")}
-    </Badge>
+    </Text>
   );
 }
 

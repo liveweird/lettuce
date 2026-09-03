@@ -5,7 +5,9 @@ import { PAGE_SIZE_OPTIONS } from "../hooks/usePagedSort";
 
 // The footer under every list table: total count, rows-per-page picker, pager.
 // `rowsPerPageLabelKey` is the page-local i18n key for the picker's aria-label
-// (e.g. "users.rowsPerPage") — passed in so each page keeps its existing key.
+// (e.g. "users.rowsPerPage") — passed in so each page keeps its existing key. Leave both
+// `onPageSizeChange` and `rowsPerPageLabelKey` out for the compact form (a fixed page size —
+// the notifications drawer): total + pager only, the arrows still named.
 export default function PaginationBar({
   total,
   page,
@@ -18,8 +20,8 @@ export default function PaginationBar({
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  rowsPerPageLabelKey: ParseKeys;
+  onPageSizeChange?: (size: number) => void;
+  rowsPerPageLabelKey?: ParseKeys;
 }) {
   const { t } = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -29,21 +31,23 @@ export default function PaginationBar({
         {t("common.table.total", { count: total })}
       </Text>
       <Group gap="sm" align="center">
-        <Select
-          size="xs"
-          aria-label={t(rowsPerPageLabelKey)}
-          data={PAGE_SIZE_OPTIONS.map((n) => ({
-            value: String(n),
-            label: t("common.table.perPage", { count: n }),
-          }))}
-          value={String(pageSize)}
-          onChange={(v) => {
-            if (!v) return;
-            onPageSizeChange(Number(v));
-          }}
-          allowDeselect={false}
-          w={110}
-        />
+        {onPageSizeChange && rowsPerPageLabelKey && (
+          <Select
+            size="xs"
+            aria-label={t(rowsPerPageLabelKey)}
+            data={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: t("common.table.perPage", { count: n }),
+            }))}
+            value={String(pageSize)}
+            onChange={(v) => {
+              if (!v) return;
+              onPageSizeChange(Number(v));
+            }}
+            allowDeselect={false}
+            w={110}
+          />
+        )}
         <Pagination
           value={page}
           onChange={onPageChange}

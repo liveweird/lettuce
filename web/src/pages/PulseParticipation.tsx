@@ -95,7 +95,7 @@ export default function PulseParticipation() {
           {teams.map((team) => (
             <Stack key={team.teamId} gap="xs">
               <Title order={5}>{team.teamName}</Title>
-              <Table verticalSpacing="xs">
+              <Table>
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{t("pulse.participation.person")}</Table.Th>
