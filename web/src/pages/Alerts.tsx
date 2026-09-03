@@ -7,8 +7,7 @@ import {
   Select,
   Stack,
   Table,
-  Text,
-  Title,
+  Text
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +27,7 @@ import { isAdmin } from "../api/session";
 import { deleteAlert, listAlerts } from "../api/alerts";
 import { formatTimestamp } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
+import PageHeader from "../components/PageHeader";
 
 const SORT_FIELDS = ["id", "title", "startsAt", "endsAt"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -63,7 +63,7 @@ export default function Alerts() {
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>("id", [debouncedTitle, activeFilter], {
       key: SETTINGS_KEY,
-      sortFields: SORT_FIELDS,
+      sortFields: SORT_FIELDS
     });
 
   const { data, isLoading, isError, error } = useQuery({
@@ -74,10 +74,10 @@ export default function Alerts() {
         pageSize,
         sort: sortParam,
         title: debouncedTitle || undefined,
-        isActive: activeFilter === null ? undefined : activeFilter === "true",
+        isActive: activeFilter === null ? undefined : activeFilter === "true"
       }),
     placeholderData: keepPreviousData,
-    enabled: isAdmin(),
+    enabled: isAdmin()
   });
 
   const deleteConfirm = useDeleteConfirm<AlertRow>({
@@ -86,7 +86,7 @@ export default function Alerts() {
       queryClient.invalidateQueries({ queryKey: ["alerts"] });
       queryClient.invalidateQueries({ queryKey: ["visibleAlerts"] });
     },
-    successMessage: t("alerts.toast.deleted"),
+    successMessage: t("alerts.toast.deleted")
   });
 
   if (!isAdmin()) return <Navigate to="/" replace />;
@@ -96,9 +96,15 @@ export default function Alerts() {
 
   return (
     <Stack gap="md">
-      <Title order={2} data-tour="config-alerts">
-        {t("alerts.title")}
-      </Title>
+      <PageHeader
+        title={t("alerts.title")}
+        tourId="config-alerts"
+        actions={
+          <Button component={RouterLink} to="/alerts/new" leftSection={<IconPlus size={16} />}>
+            {t("alerts.create")}
+          </Button>
+        }
+      />
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
@@ -234,12 +240,6 @@ export default function Alerts() {
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="alerts.rowsPerPage"
       />
-
-      <Group justify="flex-end">
-        <Button component={RouterLink} to="/alerts/new" leftSection={<IconPlus size={16} />}>
-          {t("alerts.create")}
-        </Button>
-      </Group>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

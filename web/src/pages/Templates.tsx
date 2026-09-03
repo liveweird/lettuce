@@ -5,8 +5,7 @@ import {
   Group,
   Stack,
   Table,
-  Text,
-  Title,
+  Text
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +24,7 @@ import { isString, useStoredState } from "../hooks/useStoredState";
 import { isAdmin } from "../api/session";
 import { deleteTemplate, listTemplates } from "../api/templates";
 import { loadErrorMessage } from "../utils/saveError";
+import PageHeader from "../components/PageHeader";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -46,7 +46,7 @@ export default function Templates() {
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>("name", [debouncedName], {
       key: SETTINGS_KEY,
-      sortFields: SORT_FIELDS,
+      sortFields: SORT_FIELDS
     });
 
   const { data, isLoading, isError, error } = useQuery({
@@ -56,15 +56,15 @@ export default function Templates() {
         page,
         pageSize,
         sort: sortParam,
-        name: debouncedName || undefined,
+        name: debouncedName || undefined
       }),
-    placeholderData: keepPreviousData,
+    placeholderData: keepPreviousData
   });
 
   const deleteConfirm = useDeleteConfirm<TemplateRow>({
     mutationFn: (row) => deleteTemplate(row.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["templates"] }),
-    successMessage: t("templates.toast.deleted"),
+    successMessage: t("templates.toast.deleted")
   });
 
   const total = data?.total ?? 0;
@@ -72,7 +72,17 @@ export default function Templates() {
 
   return (
     <Stack gap="md">
-      <Title order={2} data-tour="config-templates">{t("templates.title")}</Title>
+      <PageHeader
+        title={t("templates.title")}
+        tourId="config-templates"
+        actions={
+          admin && (
+            <Button component={RouterLink} to="/templates/new" leftSection={<IconPlus size={16} />}>
+              {t("templates.create")}
+            </Button>
+          )
+        }
+      />
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
@@ -185,18 +195,6 @@ export default function Templates() {
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="templates.rowsPerPage"
       />
-
-      {admin && (
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to="/templates/new"
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("templates.create")}
-          </Button>
-        </Group>
-      )}
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

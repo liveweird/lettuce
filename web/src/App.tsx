@@ -6,16 +6,14 @@ import {
   Avatar,
   Burger,
   Button,
-  Center,
   Group,
   Indicator,
-  Loader,
   Menu,
   NavLink,
   ScrollArea,
   Text,
   useMantineColorScheme,
-  useComputedColorScheme,
+  useComputedColorScheme
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -55,7 +53,7 @@ import {
   IconTargetArrow,
   IconUserShield,
   IconUsers,
-  IconUsersGroup,
+  IconUsersGroup
 } from "@tabler/icons-react";
 import {
   Link as RouterLink,
@@ -65,7 +63,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
-  useParams,
+  useParams
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -86,6 +84,7 @@ import { useIsManager } from "./hooks/useIsManager";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 import { RouteErrorBoundary } from "./components/ErrorBoundary";
+import CenteredLoader from "./components/CenteredLoader";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Kudos = lazy(() => import("./pages/Kudos"));
@@ -176,11 +175,7 @@ const EditAlert = lazy(() => import("./pages/EditAlert"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function RouteFallback() {
-  return (
-    <Center mih={200}>
-      <Loader />
-    </Center>
-  );
+  return <CenteredLoader mih={200} />;
 }
 
 type NavLeaf = {
@@ -214,7 +209,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
     label: "appShell.nav.performance",
     icon: IconClipboardText,
     tourId: "nav-performance",
-    feature: "PERFORMANCE_REVIEWS",
+    feature: "PERFORMANCE_REVIEWS"
   },
   // Deliberately feature-UNGATED — the whole career area is (FEATURE_OF.career = null).
   { to: "/career", label: "appShell.nav.career", icon: IconStairsUp, tourId: "nav-career" },
@@ -226,7 +221,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
     icon: IconUserShield,
     tourId: "nav-succession",
     feature: "SUCCESSION_PLANS",
-    managerOnly: true,
+    managerOnly: true
   },
   {
     label: "appShell.nav.config",
@@ -244,7 +239,7 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
       { to: "/public-holidays", label: "appShell.nav.publicHolidays", icon: IconCalendarOff, feature: "DAYS_OFF" },
       // The paid pool kinds registry (v3.2.0) — the same everyone-reads/admin-writes posture.
       { to: "/days-off-pools", label: "appShell.nav.daysOffPools", icon: IconStack2, feature: "DAYS_OFF" },
-    ],
+    ]
   },
   // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
   {
@@ -263,9 +258,9 @@ const NAV_ITEMS: ReadonlyArray<NavEntry> = [
         to: "/dictionaries/pulse-rotating-questions",
         label: "appShell.nav.pulseRotatingQuestions",
         icon: IconHeartRateMonitor,
-        feature: "PULSE_SURVEYS",
+        feature: "PULSE_SURVEYS"
       },
-    ],
+    ]
   },
 ];
 
@@ -284,7 +279,7 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
     queryFn: getCurrentUser,
     enabled: userId !== null,
     staleTime: 5 * 60 * 1000,
-    retry: false,
+    retry: false
   });
   return (
     <Menu position="bottom-end" withinPortal>
@@ -371,7 +366,7 @@ function ReplayTourButton() {
 function NavGroupLink({
   entry,
   activeTo,
-  onNavigate,
+  onNavigate
 }: {
   entry: NavGroup;
   activeTo: string | null;
@@ -450,12 +445,12 @@ function Shell() {
               to: "/pulse-cycles",
               label: "appShell.nav.pulseCycles",
               icon: IconHeartRateMonitor,
-              feature: "PULSE_SURVEYS",
+              feature: "PULSE_SURVEYS"
             },
             { to: "/feature-flags", label: "appShell.nav.featureFlags", icon: IconToggleLeft },
             { to: "/integration-clients", label: "appShell.nav.integrationClients", icon: IconPlugConnected },
             { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone },
-          ],
+          ]
         }
       : e,
   );

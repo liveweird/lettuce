@@ -4,16 +4,14 @@ import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams }
 import {
   Alert,
   Button,
-  Center,
   Container,
   Group,
   Input,
-  Loader,
   Paper,
   Stack,
   Tabs,
   Text,
-  Title,
+  Title
 } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +34,7 @@ import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 import { safeBackParam } from "../utils/url";
+import CenteredLoader from "../components/CenteredLoader";
 
 // The manager's lifecycle actions per status. The view screen is their single home — ARCHIVED
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
@@ -47,7 +46,7 @@ const ACTIONS: Record<GoalStatus, { labelKey: ParseKeys; successKey: ParseKeys; 
     { labelKey: "goal.action.deactivate", successKey: "goal.toast.deactivated", run: deactivateGoal, primary: false },
     { labelKey: "goal.action.close", successKey: "goal.toast.archived", close: true, primary: true },
   ],
-  ARCHIVED: [{ labelKey: "goal.action.reopen", successKey: "goal.toast.reopened", run: reopenGoal, primary: true }],
+  ARCHIVED: [{ labelKey: "goal.action.reopen", successKey: "goal.toast.reopened", run: reopenGoal, primary: true }]
 };
 
 /** The goal document: read-only for everyone, plus the manager's lifecycle actions. */
@@ -78,7 +77,7 @@ export default function ViewGoal() {
     queryKey: ["goal", id],
     queryFn: () => getGoal(id),
     enabled: idIsValid,
-    retry: false,
+    retry: false
   });
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
@@ -116,7 +115,7 @@ export default function ViewGoal() {
           invalid: "goal.error.activateOverdue",
           conflict: "goal.error.invalidTransition",
           forbidden: "goal.error.savePermission",
-          failed: "goal.error.updateFailed",
+          failed: "goal.error.updateFailed"
         }),
       );
       setSubmitting(null);
@@ -136,9 +135,7 @@ export default function ViewGoal() {
             {data && <GoalStatusBadge status={data.status} />}
           </Group>
           {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
+            <CenteredLoader />
           ) : isError ? (
             <Alert color="red" variant="light">
               {errorMessage}

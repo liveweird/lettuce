@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Tabs, Title } from "@mantine/core";
+import { Button, Stack, Tabs } from "@mantine/core";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { feedbackCreateLink } from "../utils/feedbackLinks";
 import FeedbackTable from "./FeedbackTable";
+import PageHeader from "../components/PageHeader";
 
 const TABS = ["received", "provided", "team"] as const;
 type FeedbackTab = (typeof TABS)[number];
@@ -39,7 +40,18 @@ export default function Feedback() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("feedback.sectionTitle")}</Title>
+      <PageHeader
+        title={t("feedback.sectionTitle")}
+        actions={
+          <Button
+            component={RouterLink}
+            to={feedbackCreateLink("/feedback?tab=provided")}
+            leftSection={<IconPlus size={16} />}
+          >
+            {t("feedback.newFeedback")}
+          </Button>
+        }
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="received" data-tour="feedback-received">
@@ -58,22 +70,10 @@ export default function Feedback() {
         <Tabs.Panel value="received" pt="md">
           <FeedbackTable view="received" />
         </Tabs.Panel>
+        {/* /feedback/new with NO subjectId renders the subject picker; the created (or
+            drafted) feedback lands on the Provided tab. */}
         <Tabs.Panel value="provided" pt="md">
-          <Stack gap="md">
-            <FeedbackTable view="provided" />
-            {/* The create entry point sits below the list — the house footer convention
-                (the MyTeamKpis/UserGoals pattern). /feedback/new with NO subjectId renders
-                the subject picker; the created (or drafted) feedback lands on this tab. */}
-            <Group justify="flex-end">
-              <Button
-                component={RouterLink}
-                to={feedbackCreateLink("/feedback?tab=provided")}
-                leftSection={<IconPlus size={16} />}
-              >
-                {t("feedback.newFeedback")}
-              </Button>
-            </Group>
-          </Stack>
+          <FeedbackTable view="provided" />
         </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="team" pt="md">

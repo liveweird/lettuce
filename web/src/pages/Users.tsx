@@ -10,8 +10,7 @@ import {
   Select,
   Stack,
   Table,
-  Text,
-  Title,
+  Text
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +26,7 @@ import {
   IconUserCog,
   IconUserOff,
   IconUsersGroup,
-  IconAlertCircle,
+  IconAlertCircle
 } from "@tabler/icons-react";
 import PersonaChip from "../components/PersonaChip";
 import StatusPill from "../components/StatusPill";
@@ -52,6 +51,7 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { invalidateUser } from "../utils/userQueries";
+import PageHeader from "../components/PageHeader";
 
 const SORT_FIELDS = ["name", "email", "uniqueId"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -67,7 +67,7 @@ export default function Users() {
   const { t } = useTranslation();
   const ROLE_OPTIONS = USER_ROLES.map((value) => ({
     value,
-    label: t(`common.role.${value}`),
+    label: t(`common.role.${value}`)
   }));
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
   const [emailFilter, setEmailFilter] = useStoredState(`${SETTINGS_KEY}.filter.email`, "", isString);
@@ -117,7 +117,7 @@ export default function Users() {
       [debouncedName, debouncedEmail, roleFilter, statusFilter, debouncedUniqueId, uniqueIdMissingFilter],
       {
         key: SETTINGS_KEY,
-        sortFields: SORT_FIELDS,
+        sortFields: SORT_FIELDS
       },
     );
 
@@ -144,9 +144,9 @@ export default function Users() {
         role: roleFilter ?? undefined,
         deactivated: statusFilter == null ? undefined : statusFilter === "true",
         uniqueId: debouncedUniqueId || undefined,
-        uniqueIdMissing: uniqueIdMissingFilter == null ? undefined : uniqueIdMissingFilter === "true",
+        uniqueIdMissing: uniqueIdMissingFilter == null ? undefined : uniqueIdMissingFilter === "true"
       }),
-    placeholderData: keepPreviousData,
+    placeholderData: keepPreviousData
   });
 
   const deleteConfirm = useDeleteConfirm<UserRow>({
@@ -164,7 +164,7 @@ export default function Users() {
       }
       await invalidateUser(queryClient);
       showSuccessToast(t("users.toast.deleted"));
-    },
+    }
   });
 
   // Deactivate asks for confirmation (it kicks the user out at the next refresh); reactivate
@@ -186,7 +186,7 @@ export default function Users() {
         saveErrorMessage(err, t, {
           forbidden: "users.transitionForbidden",
           failedStatus: "users.transitionFailedStatus",
-          failed: "users.transitionFailed",
+          failed: "users.transitionFailed"
         }),
       );
       setDeactivateTarget(null);
@@ -200,7 +200,27 @@ export default function Users() {
 
   return (
     <Stack gap="md">
-      <Title order={2} data-tour="config-users">{t("users.title")}</Title>
+      <PageHeader
+        title={t("users.title")}
+        tourId="config-users"
+        actions={
+          admin && (
+            <>
+              <Button
+                component={RouterLink}
+                to="/users/import"
+                variant="default"
+                leftSection={<IconUpload size={16} />}
+              >
+                {t("users.massImport")}
+              </Button>
+              <Button component={RouterLink} to="/users/new" leftSection={<IconPlus size={16} />}>
+                {t("users.createUser")}
+              </Button>
+            </>
+          )
+        }
+      />
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
@@ -502,26 +522,6 @@ export default function Users() {
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="users.rowsPerPage"
       />
-
-      {admin && (
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to="/users/import"
-            variant="default"
-            leftSection={<IconUpload size={16} />}
-          >
-            {t("users.massImport")}
-          </Button>
-          <Button
-            component={RouterLink}
-            to="/users/new"
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("users.createUser")}
-          </Button>
-        </Group>
-      )}
 
       <ConfirmActionModal
         opened={deactivateTarget != null}

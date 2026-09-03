@@ -9,8 +9,7 @@ import {
   Select,
   Stack,
   Tabs,
-  Text,
-  Title,
+  Text
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +26,7 @@ import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime
 import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
 import { loadErrorMessage } from "../utils/saveError";
+import PageHeader from "../components/PageHeader";
 
 const TABS = ["calendar", "requests", "team"] as const;
 type DaysOffTab = (typeof TABS)[number];
@@ -48,7 +48,7 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["daysOffCalendar", scope, month],
-    queryFn: () => getDaysOffCalendar(month, scope),
+    queryFn: () => getDaysOffCalendar(month, scope)
   });
 
   return (
@@ -133,7 +133,30 @@ export default function DaysOff() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("daysOff.sectionTitle")}</Title>
+      <PageHeader
+        title={t("daysOff.sectionTitle")}
+        actions={
+          <>
+            {isManager && (
+              <Button
+                component={RouterLink}
+                to={daysOffCreateLink(daysOffListLink("team"), true)}
+                variant="default"
+                leftSection={<IconPlus size={16} />}
+              >
+                {t("daysOff.newForReport")}
+              </Button>
+            )}
+            <Button
+              component={RouterLink}
+              to={daysOffCreateLink(daysOffListLink("requests"))}
+              leftSection={<IconPlus size={16} />}
+            >
+              {t("daysOff.newRequest")}
+            </Button>
+          </>
+        }
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="calendar" data-tour="days-off-calendar">
@@ -157,15 +180,6 @@ export default function DaysOff() {
           <Stack gap="md">
             <DaysOffBudgetCard year={new Date().getFullYear()} />
             <DaysOffTable view="own" />
-            <Group justify="flex-end">
-              <Button
-                component={RouterLink}
-                to={daysOffCreateLink(daysOffListLink("requests"))}
-                leftSection={<IconPlus size={16} />}
-              >
-                {t("daysOff.newRequest")}
-              </Button>
-            </Group>
           </Stack>
         </Tabs.Panel>
 
@@ -176,17 +190,6 @@ export default function DaysOff() {
                 {t("daysOff.teamHint")}
               </Text>
               <DaysOffTable view="managed" />
-              {/* The on-behalf recording entry (v2.29.0) sits below the request list — the
-                  house footer convention; the entry is born ACCEPTED, so it lands right here. */}
-              <Group justify="flex-end">
-                <Button
-                  component={RouterLink}
-                  to={daysOffCreateLink(daysOffListLink("team"), true)}
-                  leftSection={<IconPlus size={16} />}
-                >
-                  {t("daysOff.newForReport")}
-                </Button>
-              </Group>
               <DaysOffBudgetsTable />
             </Stack>
           </Tabs.Panel>

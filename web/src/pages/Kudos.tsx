@@ -5,15 +5,12 @@ import {
   Anchor,
   Box,
   Button,
-  Center,
   Container,
   Group,
-  Loader,
   Paper,
   Stack,
   Text,
-  Timeline,
-  Title,
+  Timeline
 } from "@mantine/core";
 import { useIntersection } from "@mantine/hooks";
 import { IconConfetti, IconPlus } from "@tabler/icons-react";
@@ -28,7 +25,8 @@ import ProseBox from "../components/ProseBox";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { feedbackSubjects } from "../utils/feedbackSubjects";
 import { loadErrorMessage } from "../utils/saveError";
-import classes from "./Kudos.module.css";
+import PageHeader from "../components/PageHeader";
+import CenteredLoader from "../components/CenteredLoader";
 
 const PAGE_SIZE = 20;
 const PREVIEW_LINES = 3;
@@ -88,7 +86,7 @@ function KudosCard({ item }: { item: KudosItem }) {
                   display: "-webkit-box",
                   WebkitLineClamp: PREVIEW_LINES,
                   WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
+                  overflow: "hidden"
                 }
           }
         >
@@ -125,7 +123,7 @@ export default function Kudos() {
       queryFn: ({ pageParam }) =>
         listFeedbacks({ view: "kudos", sort: "-lastModified", page: pageParam, pageSize: PAGE_SIZE }),
       initialPageParam: 1,
-      getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
+      getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined)
     });
   // rootMargin pre-loads the next page shortly before the sentinel actually scrolls into view.
   const { ref: sentinelRef, entry } = useIntersection({ rootMargin: "200px" });
@@ -141,21 +139,19 @@ export default function Kudos() {
 
   return (
     <Container size="md" px={0}>
-      {/* The sticky page header (v2.27.0): title, hint, and the create entry point stay
-          pinned under the app header while the wall scrolls (Kudos.module.css). */}
-      <Paper withBorder shadow="sm" p="md" radius="md" mb="md" className={classes.stickyHeader}>
-        <Group justify="space-between" align="flex-start" wrap="wrap">
-          <Stack gap={4}>
-            <Title order={2}>{t("kudos.title")}</Title>
-            <Text size="sm" c="dimmed">
-              {t("kudos.hint")}
-            </Text>
-          </Stack>
+      {/* The sticky page header (v2.27.0; PageHeader since v3.3.0): title, hint, and the
+          create entry point stay pinned under the app header while the wall scrolls. */}
+      <PageHeader
+        sticky
+        mb="md"
+        title={t("kudos.title")}
+        description={t("kudos.hint")}
+        actions={
           <Button component={RouterLink} to="/kudos/new" leftSection={<IconPlus size={16} />}>
             {t("kudos.newButton")}
           </Button>
-        </Group>
-      </Paper>
+        }
+      />
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack gap="md">
           {isError && (
@@ -163,11 +159,7 @@ export default function Kudos() {
               {loadErrorMessage(error, t)}
             </Alert>
           )}
-          {isLoading && (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          )}
+          {isLoading && <CenteredLoader />}
 
           {data && items.length === 0 && (
             <EmptyState
@@ -187,11 +179,7 @@ export default function Kudos() {
 
           {/* The scroll sentinel: entering the viewport fetches the next (older) page. */}
           {hasNextPage && !isFetchingNextPage && <Box ref={sentinelRef} h={1} data-testid="kudos-sentinel" />}
-          {isFetchingNextPage && (
-            <Center py="md">
-              <Loader size="sm" />
-            </Center>
-          )}
+          {isFetchingNextPage && <CenteredLoader size="sm" />}
         </Stack>
       </Paper>
     </Container>

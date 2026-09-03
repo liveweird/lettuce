@@ -4,12 +4,10 @@ import {
   Alert,
   Anchor,
   Button,
-  Group,
   Select,
   Stack,
   Table,
-  Text,
-  Title,
+  Text
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +15,7 @@ import {
   IconPencil,
   IconPlus,
   IconTrash,
-  IconUsers,
+  IconUsers
 } from "@tabler/icons-react";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
@@ -36,6 +34,7 @@ import { deleteTeam, listTeams } from "../api/teams";
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
 import { loadErrorMessage } from "../utils/saveError";
+import PageHeader from "../components/PageHeader";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -63,7 +62,7 @@ export default function Teams() {
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>("name", [debouncedName, managerIdFilter], {
       key: SETTINGS_KEY,
-      sortFields: SORT_FIELDS,
+      sortFields: SORT_FIELDS
     });
 
   const { data, isLoading, isError, error } = useQuery({
@@ -74,9 +73,9 @@ export default function Teams() {
         pageSize,
         sort: sortParam,
         name: debouncedName || undefined,
-        managerId: managerIdFilter ?? undefined,
+        managerId: managerIdFilter ?? undefined
       }),
-    placeholderData: keepPreviousData,
+    placeholderData: keepPreviousData
   });
 
   const { managerOptions, managersLoading } = useManagerOptions();
@@ -84,7 +83,7 @@ export default function Teams() {
   const deleteConfirm = useDeleteConfirm<TeamRow>({
     mutationFn: (row) => deleteTeam(row.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
-    successMessage: t("teams.toast.deleted"),
+    successMessage: t("teams.toast.deleted")
   });
 
   const total = data?.total ?? 0;
@@ -94,7 +93,17 @@ export default function Teams() {
 
   return (
     <Stack gap="md">
-      <Title order={2} data-tour="config-teams">{t("teams.title")}</Title>
+      <PageHeader
+        title={t("teams.title")}
+        tourId="config-teams"
+        actions={
+          admin && (
+            <Button component={RouterLink} to="/teams/new" leftSection={<IconPlus size={16} />}>
+              {t("teams.createTeam")}
+            </Button>
+          )
+        }
+      />
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
         <ClearableTextInput
@@ -203,7 +212,7 @@ export default function Teams() {
                         deleteConfirm.requestDelete({
                           id: team.id,
                           name: team.name,
-                          managerName: team.managerName,
+                          managerName: team.managerName
                         })
                       }
                       aria-label={t("teams.deleteAria", { name: team.name })}
@@ -235,18 +244,6 @@ export default function Teams() {
         onPageSizeChange={setPageSize}
         rowsPerPageLabelKey="teams.rowsPerPage"
       />
-
-      {admin && (
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to="/teams/new"
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("teams.createTeam")}
-          </Button>
-        </Group>
-      )}
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}
