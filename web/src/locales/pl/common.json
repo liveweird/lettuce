@@ -56,7 +56,9 @@
   },
   "filter": {
     "contains": "zawiera…",
-    "title": "Filtry"
+    "title": "Filtry",
+    "clear": "Wyczyść filtry",
+    "search": "Szukaj…"
   },
   "reportsScope": {
     "label": "Podwładni",

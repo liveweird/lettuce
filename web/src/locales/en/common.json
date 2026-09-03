@@ -56,7 +56,9 @@
   },
   "filter": {
     "contains": "contains…",
-    "title": "Filters"
+    "title": "Filters",
+    "clear": "Clear filters",
+    "search": "Search…"
   },
   "reportsScope": {
     "label": "Reports",

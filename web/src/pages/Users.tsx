@@ -44,7 +44,7 @@ import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
@@ -94,13 +94,21 @@ export default function Users() {
     null,
     isOneOfOrNull(["true", "false"]),
   );
+  // The Name filter is the toolbar's quick search (v3.3.0); the badge counts the panel's own
+  // filters, and "Clear filters" resets exactly those.
   const activeFilterCount =
-    (nameFilter.trim() ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0) +
     (roleFilter ? 1 : 0) +
     (statusFilter ? 1 : 0) +
     (uniqueIdFilter.trim() ? 1 : 0) +
     (uniqueIdMissingFilter ? 1 : 0);
+  function clearPanelFilters() {
+    setEmailFilter("");
+    setRoleFilter(null);
+    setStatusFilter(null);
+    setUniqueIdFilter("");
+    setUniqueIdMissingFilter(null);
+  }
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -222,13 +230,19 @@ export default function Users() {
         }
       />
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
-        <ClearableTextInput
-          label={t("common.field.name")}
-          value={nameFilter}
-          onChange={setNameFilter}
-          clearLabel={t("users.clearNameFilter")}
-        />
+      <ListToolbar
+        search={{
+          label: t("common.field.name"),
+          value: nameFilter,
+          onChange: setNameFilter,
+          clearLabel: t("users.clearNameFilter"),
+        }}
+        filters={{
+          activeCount: activeFilterCount,
+          storageKey: SETTINGS_KEY,
+          onClear: clearPanelFilters,
+          children: (
+            <>
         <ClearableTextInput
           label={t("common.field.email")}
           value={emailFilter}
@@ -271,7 +285,10 @@ export default function Users() {
           onChange={(v) => setUniqueIdMissingFilter((v as BooleanFilter) ?? null)}
           clearable
         />
-      </FilterPanel>
+            </>
+          ),
+        }}
+      />
 
       {isError && (
         <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
