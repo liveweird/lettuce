@@ -1,13 +1,10 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Group, Menu, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Group, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import {
-  IconAdjustments,
   IconArchive,
   IconArrowBackUp,
-  IconChevronDown,
   IconEye,
   IconPencil,
   IconTargetArrow,
@@ -20,6 +17,7 @@ import { archiveGoal, deactivateGoal, listGoals, type GoalListItem, type GoalLis
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import GoalCloseModal from "../components/GoalCloseModal";
 import GoalStatusBadge from "../components/GoalStatusBadge";
@@ -431,73 +429,52 @@ export default function GoalTable({
                       locale={i18n.language}
                     />
                   </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap" justify="flex-end">
-                      {isRowManager && g.status === "ACTIVE" && (
-                        <Menu position="bottom-end" withinPortal>
-                          <Menu.Target>
-                            <Button
-                              variant="subtle"
-                              size="xs"
-                              leftSection={<IconAdjustments size={14} />}
-                              rightSection={<IconChevronDown size={14} />}
-                              aria-label={t("goal.lifecycleFor", { title: g.title })}
-                              disabled={acting}
-                            >
-                              {t("goal.action.lifecycle")}
-                            </Button>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            <Menu.Item
-                              leftSection={<IconArrowBackUp size={14} />}
-                              onClick={() => setPendingDeactivate(g)}
-                            >
-                              {t("goal.action.deactivate")}
-                            </Menu.Item>
-                            <Menu.Item
-                              leftSection={<IconArchive size={14} />}
-                              onClick={() => setPendingArchive(g)}
-                            >
-                              {t("goal.action.close")}
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      )}
-                      {canEditDraft ? (
-                        <Button
-                          component={RouterLink}
-                          to={goalEditLink(g.id, view, backParam)}
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconPencil size={14} />}
-                          aria-label={t("goal.editAria", { title: g.title })}
-                        >
-                          {t("common.action.edit")}
-                        </Button>
-                      ) : canUpdate ? (
-                        <Button
-                          component={RouterLink}
-                          to={goalEditLink(g.id, view, backParam)}
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconPencil size={14} />}
-                          aria-label={t("goal.updateAria", { title: g.title })}
-                        >
-                          {t("goal.action.update")}
-                        </Button>
-                      ) : (
-                        <Button
-                          component={RouterLink}
-                          to={goalViewLink(g.id, view, backParam)}
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconEye size={14} />}
-                          aria-label={t("goal.viewAria", { title: g.title })}
-                        >
-                          {t("common.action.view")}
-                        </Button>
-                      )}
-                    </Group>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    <RowActions
+                      name={g.title}
+                      primary={
+                        canEditDraft
+                          ? {
+                              icon: <IconPencil size={16} />,
+                              label: t("common.action.edit"),
+                              ariaLabel: t("goal.editAria", { title: g.title }),
+                              to: goalEditLink(g.id, view, backParam),
+                            }
+                          : canUpdate
+                            ? {
+                                icon: <IconPencil size={16} />,
+                                label: t("goal.action.update"),
+                                ariaLabel: t("goal.updateAria", { title: g.title }),
+                                to: goalEditLink(g.id, view, backParam),
+                              }
+                            : {
+                                icon: <IconEye size={16} />,
+                                label: t("common.action.view"),
+                                ariaLabel: t("goal.viewAria", { title: g.title }),
+                                to: goalViewLink(g.id, view, backParam),
+                              }
+                      }
+                      // The ACTIVE goal's lifecycle menu keeps its asserted trigger name.
+                      menuLabel={t("goal.lifecycleFor", { title: g.title })}
+                      items={
+                        isRowManager && g.status === "ACTIVE"
+                          ? [
+                              {
+                                icon: <IconArrowBackUp size={14} />,
+                                label: t("goal.action.deactivate"),
+                                onClick: () => setPendingDeactivate(g),
+                                disabled: acting,
+                              },
+                              {
+                                icon: <IconArchive size={14} />,
+                                label: t("goal.action.close"),
+                                onClick: () => setPendingArchive(g),
+                                disabled: acting,
+                              },
+                            ]
+                          : []
+                      }
+                    />
                   </Table.Td>
                 </Table.Tr>
               );

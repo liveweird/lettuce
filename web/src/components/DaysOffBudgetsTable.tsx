@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Group, Modal, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Group, Modal, Select, Stack, Table, Text } from "@mantine/core";
 import { IconAdjustments, IconBeach } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -8,6 +8,7 @@ import { listDaysOffBudgets, type DaysOffBudget } from "../api/daysoff";
 import { formatDays } from "../utils/daysOffCost";
 import DaysOffCorrections from "./DaysOffCorrections";
 import EmptyState from "./EmptyState";
+import RowActions from "./RowActions";
 import PersonCell from "./PersonCell";
 import TableLoadingRow from "./TableLoadingRow";
 
@@ -115,19 +116,18 @@ export default function DaysOffBudgetsTable() {
                     {days(b.remaining)}
                   </Text>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {/* ONE corrections entry per person (on their default row — the modal's Pool
                       select reaches the extra pools), so the action label stays unique. */}
                   {b.isDefault && (
-                    <Button
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconAdjustments size={14} />}
-                      onClick={() => setCorrectionsFor(b)}
-                      aria-label={t("daysOff.corrections.openAria", { name: b.userName })}
-                    >
-                      {t("daysOff.corrections.title")}
-                    </Button>
+                    <RowActions
+                      primary={{
+                        icon: <IconAdjustments size={16} />,
+                        label: t("daysOff.corrections.title"),
+                        ariaLabel: t("daysOff.corrections.openAria", { name: b.userName }),
+                        onClick: () => setCorrectionsFor(b),
+                      }}
+                    />
                   )}
                 </Table.Td>
               </Table.Tr>

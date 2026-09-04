@@ -46,5 +46,5 @@
      that report — the entry's row is listed and the Author column is absent (the pin names
      the person).
 8. Manager AAA signs out; AAA Two signs back in and deletes the entry from "My journal"
-   (confirming the "Delete entry?" dialog).
+   via the row's "More actions" menu (confirming the "Delete entry?" dialog).
    - *Expected*: a "Journal entry deleted" toast and the row is gone from the journal.

@@ -44,6 +44,7 @@
   "rejectAria": "Odrzuć wniosek o dni wolne — {{name}}, od {{date}}",
   "cancelAria": "Anuluj swój wniosek o dni wolne od {{date}}",
   "cancelForAria": "Anuluj wniosek o dni wolne {{name}} od {{date}}",
+  "moreActionsAria": "Więcej akcji: wniosek o dni wolne — {{name}}, od {{date}}",
   "cancelReasonLabel": "Powód",
   "cancelReasonPlaceholder": "Dlaczego ten wniosek jest anulowany?",
   "cancelReasonRequired": "Powód anulowania jest wymagany",

@@ -319,7 +319,10 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
     .click();
   await expect(page.getByText("Request accepted")).toBeVisible();
   await page
-    .getByLabel(`Reject the days-off request of AAA Two starting ${MONDAY2_ISO}`)
+    .getByLabel(`More actions for the days-off request of AAA Two starting ${MONDAY2_ISO}`)
+    .click();
+  await page
+    .getByRole("menuitem", { name: `Reject the days-off request of AAA Two starting ${MONDAY2_ISO}` })
     .click();
   await page.getByRole("dialog").getByRole("button", { name: "Reject", exact: true }).click();
   await expect(page.getByText("Request rejected")).toBeVisible();

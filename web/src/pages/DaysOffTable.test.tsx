@@ -149,6 +149,12 @@ describe("DaysOffTable", () => {
     setupList([row({ id: 31, status: "REQUESTED", canResolve: true })]);
     renderWithProviders(<DaysOffTable view="managed" />);
 
+    // Reject sits in the per-request ⋯ menu (v3.4.0); the item keeps its accessible name.
+    await userEvent.click(
+      await screen.findByLabelText(
+        "More actions for the days-off request of Riley Report starting 2099-03-02",
+      ),
+    );
     await userEvent.click(
       await screen.findByLabelText("Reject the days-off request of Riley Report starting 2099-03-02"),
     );

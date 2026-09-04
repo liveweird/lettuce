@@ -44,6 +44,7 @@
   "rejectAria": "Reject the days-off request of {{name}} starting {{date}}",
   "cancelAria": "Cancel your days-off request starting {{date}}",
   "cancelForAria": "Cancel {{name}}'s days-off request starting {{date}}",
+  "moreActionsAria": "More actions for the days-off request of {{name}} starting {{date}}",
   "cancelReasonLabel": "Reason",
   "cancelReasonPlaceholder": "Why is this request being cancelled?",
   "cancelReasonRequired": "A cancellation reason is required",

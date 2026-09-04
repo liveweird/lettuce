@@ -62,7 +62,8 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 6. On Days off → Team, the manager filters the table to status Requested (why: far-future
    rejected/cancelled leftovers from earlier runs outrank this run's rows in the date-sorted
    table on the shared database — the filter keeps the fresh pending rows on page 1), then
-   Accepts the first request and Rejects the second (confirming the Reject dialog).
+   Accepts the first request and Rejects the second from its row's **More actions** menu
+   (confirming the Reject dialog).
    - *Expected*: "Request accepted", then "Request rejected".
 7. The manager opens the Dashboard's subordinates tab and looks at AAA Two's card.
    - *Expected*: "Next vacation" with the accepted Monday's date, and "Days-off budget left".

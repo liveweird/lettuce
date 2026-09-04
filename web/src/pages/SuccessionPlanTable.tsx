@@ -1,5 +1,4 @@
-import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Group, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconTrash, IconUserShield } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +12,7 @@ import {
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
@@ -257,31 +257,29 @@ export default function SuccessionPlanTable({
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(plan.lastReviewedAt)}>
                     <Text size="sm">{formatRelativeTime(plan.lastReviewedAt, i18n.language)}</Text>
                   </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap" justify="flex-end">
-                      <Button
-                        component={RouterLink}
-                        to={successionPlanViewLink(plan.id, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("succession.reviewAria", { name: plan.userName })}
-                      >
-                        {t("succession.review")}
-                      </Button>
-                      {isOwner && (
-                        <Button
-                          variant="subtle"
-                          size="xs"
-                          color="red"
-                          leftSection={<IconTrash size={14} />}
-                          aria-label={t("succession.deleteAria", { name: plan.userName })}
-                          onClick={() => deleteConfirm.requestDelete(plan)}
-                        >
-                          {t("common.action.delete")}
-                        </Button>
-                      )}
-                    </Group>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    <RowActions
+                      name={plan.userName}
+                      primary={{
+                        icon: <IconEye size={16} />,
+                        label: t("succession.review"),
+                        ariaLabel: t("succession.reviewAria", { name: plan.userName }),
+                        to: successionPlanViewLink(plan.id, backParam),
+                      }}
+                      items={
+                        isOwner
+                          ? [
+                              {
+                                icon: <IconTrash size={14} />,
+                                label: t("common.action.delete"),
+                                ariaLabel: t("succession.deleteAria", { name: plan.userName }),
+                                color: "red",
+                                onClick: () => deleteConfirm.requestDelete(plan),
+                              },
+                            ]
+                          : []
+                      }
+                    />
                   </Table.Td>
                 </Table.Tr>
               );

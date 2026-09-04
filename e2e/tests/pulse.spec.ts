@@ -304,7 +304,9 @@ test("cancelling a scheduled cycle is confirmed and leaves the registry terminal
   await expect(page.getByLabel("Open date", { exact: true })).not.toHaveValue("");
   await page.getByRole("button", { name: "Schedule cycle" }).click();
   await expect(page.getByText("Cycle scheduled")).toBeVisible();
-  await page.getByRole("button", { name: /Cancel cycle \d+/ }).first().click();
+  // The fresh cycle is the only non-terminal one, so the only row with a ⋯ menu.
+  await page.getByRole("button", { name: /More actions for cycle \d+/ }).click();
+  await page.getByRole("menuitem", { name: /Cancel cycle \d+/ }).click();
   await expect(page.getByText(/Submitted answers are kept for audit/)).toBeVisible();
   await page.getByRole("button", { name: "Cancel cycle", exact: true }).click();
   await expect(page.getByText("Cycle cancelled")).toBeVisible();
