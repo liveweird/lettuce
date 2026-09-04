@@ -459,6 +459,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
 
   // ── Manager: a +2 budget correction for AAA Two (v1.43.0). ──
   await page.goto("/days-off?tab=team");
+  await page.getByRole("radio", { name: "Budgets" }).click();
   await page.getByLabel("Budget corrections of AAA Two").click();
   const correctionsModal = page.getByRole("dialog");
   await expect(correctionsModal.getByText("Add correction").first()).toBeVisible();
@@ -498,6 +499,8 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
   await page.goto("/days-off?tab=team");
+  // The team view is remembered per device — the Budgets pick above would still hold.
+  await page.getByRole("radio", { name: "Requests" }).click();
   const cleanupFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await cleanupFilters.getAttribute("aria-expanded")) !== "true") await cleanupFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
@@ -558,16 +561,15 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
 
   await login(page, ADMIN);
   await collapseAlertsBanner(page);
-  // The admin archives the run's pool kind (the registry's archive confirm).
+  // The admin archives the run's pool kind (the row's ⋯ menu → the registry's archive confirm).
   await page.goto("/days-off-pools");
-  await page.getByLabel(`Archive the ${POOL_NAME} pool kind`).click();
+  await page.getByRole("button", { name: `More actions for ${POOL_NAME}` }).click();
+  await page.getByRole("menuitem", { name: `Archive the ${POOL_NAME} pool kind` }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
   await expect(page.getByText("Pool kind archived")).toBeVisible();
   await expect(page.getByText(POOL_NAME)).toHaveCount(0);
   await page.goto("/public-holidays");
-  const holidayRow = page
-    .locator("div.mantine-Paper-root", { hasText: `E2E Holiday ${MONDAY_ISO}` })
-    .last();
+  const holidayRow = page.locator("tr", { hasText: `E2E Holiday ${MONDAY_ISO}` }).last();
   await holidayRow.getByRole("button", { name: /^Delete the holiday/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Public holiday deleted")).toBeVisible();

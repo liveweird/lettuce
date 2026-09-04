@@ -21,7 +21,6 @@ import { listFeedbacks, type FeedbackPage } from "../api/feedbacks";
 import EmptyState from "../components/EmptyState";
 import MarkdownView from "../components/MarkdownView";
 import PersonCell from "../components/PersonCell";
-import ProseBox from "../components/ProseBox";
 import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { feedbackSubjects } from "../utils/feedbackSubjects";
 import { loadErrorMessage } from "../utils/saveError";
@@ -74,9 +73,9 @@ function KudosCard({ item }: { item: KudosItem }) {
       <Text size="xs" c="dimmed" title={formatTimestamp(item.lastModified)}>
         {formatRelativeTime(item.lastModified, i18n.language)}
       </Text>
-      {/* Always the rendered markdown in the shared read-only frame; collapsing only clamps
-          the same rendering to the preview lines instead of swapping to raw text. */}
-      <ProseBox minHeightLines={1}>
+      {/* Always the rendered markdown; collapsing only clamps the same rendering to the
+          preview lines instead of swapping to raw text. The kudo's own bordered card is the
+          frame (v3.4.0) — no inner ProseBox. */}
         <Box
           ref={clampRef}
           style={
@@ -92,7 +91,6 @@ function KudosCard({ item }: { item: KudosItem }) {
         >
           <MarkdownView>{content}</MarkdownView>
         </Box>
-      </ProseBox>
       {(overflowing || expanded) && (
         <Anchor
           component="button"
@@ -152,7 +150,6 @@ export default function Kudos() {
           </Button>
         }
       />
-      <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack gap="md">
           {isError && (
             <Alert color="red" variant="light" title={t("kudos.loadError")}>
@@ -171,7 +168,9 @@ export default function Kudos() {
             <Timeline bulletSize={12} lineWidth={2}>
               {items.map((item) => (
                 <Timeline.Item key={item.id}>
-                  <KudosCard item={item} />
+                  <Paper withBorder radius="md" p="md">
+                    <KudosCard item={item} />
+                  </Paper>
                 </Timeline.Item>
               ))}
             </Timeline>
@@ -181,7 +180,6 @@ export default function Kudos() {
           {hasNextPage && !isFetchingNextPage && <Box ref={sentinelRef} h={1} data-testid="kudos-sentinel" />}
           {isFetchingNextPage && <CenteredLoader size="sm" />}
         </Stack>
-      </Paper>
     </Container>
   );
 }

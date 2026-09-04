@@ -3,6 +3,7 @@
   "newRequest": "Nowy wniosek",
   "newForReport": "Nowe dni wolne",
   "teamHint": "Wnioski o dni wolne Twoich bezpośrednich podwładnych — zaakceptuj lub odrzuć oczekujące — oraz ich roczne budżety.",
+  "teamView": { "label": "Widok zespołu", "requests": "Wnioski", "budgets": "Budżety" },
   "tab": {
     "calendar": "Kalendarz",
     "requests": "Moje wnioski",
@@ -142,7 +143,6 @@
     "default": "Domyślna",
     "archived": "Zarchiwizowana",
     "resetsShort": "zeruje się co rok",
-    "carriesOverShort": "przechodzi na kolejny rok",
     "legacyDefault": "Płatne dni wolne",
     "add": "Dodaj pulę",
     "addAria": "Dodaj pulę płatnych dni dla {{name}}",
@@ -167,6 +167,9 @@
     "name": "Nazwa puli",
     "carriesOver": "Niewykorzystane dni przechodzą na kolejny rok",
     "carriesOverHint": "Odznaczone: pula zeruje się każdego stycznia. Zmiana przelicza wszystkie dotknięte budżety.",
+    "column": {
+      "carryOver": "Przenoszenie na kolejny rok"
+    },
     "addType": "Dodaj rodzaj puli",
     "editTitle": "Edytuj rodzaj puli",
     "editAria": "Edytuj rodzaj puli {{name}}",
@@ -183,7 +186,7 @@
     "title": "Święta",
     "hint": "W te dni wszyscy mają wolne i nic nie jest odejmowane z budżetów płatnych dni. Koszty już złożonych wniosków nigdy się nie zmieniają.",
     "hintReadOnly": "W te dni wszyscy mają wolne i nic nie jest odejmowane z budżetów płatnych dni. Listę prowadzą administratorzy.",
-    "empty": "Nie ma jeszcze żadnych świąt — dodaj pierwsze poniżej.",
+    "empty": "Nie ma jeszcze żadnych świąt — dodaj pierwsze powyżej.",
     "emptyReadOnly": "Nie skonfigurowano jeszcze żadnych świąt.",
     "loadError": "Nie udało się wczytać listy świąt",
     "date": "Data",
