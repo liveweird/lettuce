@@ -136,9 +136,9 @@ export default function CreateUser() {
     : undefined;
 
   return (
-    <Container size="sm" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("users.createUser")} />
+    <>
+      <PageHeader title={t("users.createUser")} mb="lg" />
+      <Container size="sm" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
@@ -164,7 +164,7 @@ export default function CreateUser() {
             </Stack>
           </form>
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
 
@@ -201,6 +201,6 @@ export default function CreateUser() {
           </Stack>
         )}
       </Modal>
-    </Container>
+    </>
   );
 }

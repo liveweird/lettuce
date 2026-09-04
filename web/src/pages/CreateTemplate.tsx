@@ -65,9 +65,9 @@ export default function CreateTemplate() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("templates.create")} />
+    <>
+      <PageHeader title={t("templates.create")} mb="lg" />
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
@@ -88,9 +88,9 @@ export default function CreateTemplate() {
             </Stack>
           </form>
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

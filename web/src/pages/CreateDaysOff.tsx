@@ -216,12 +216,13 @@ export default function CreateDaysOff() {
   }
 
   return (
-    <Container size="sm" px={0}>
-      <Stack gap="md">
-        <PageHeader
-          title={t(onBehalf ? "daysOff.recordTitle" : "daysOff.createTitle")}
-          description={t(onBehalf ? "daysOff.recordHint" : "daysOff.createHint")}
-        />
+    <>
+      <PageHeader
+        title={t(onBehalf ? "daysOff.recordTitle" : "daysOff.createTitle")}
+        description={t(onBehalf ? "daysOff.recordHint" : "daysOff.createHint")}
+        mb="lg"
+      />
+      <Container size="sm" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack gap="md">
             {/* The on-behalf context line (v3.5.0): the report picker keeps its accessible
@@ -369,9 +370,9 @@ export default function CreateDaysOff() {
             </FormFooter>
           </Stack>
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

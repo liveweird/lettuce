@@ -79,9 +79,9 @@ export default function CreateSuccessionPlan() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("succession.createTitle")} description={t("succession.createHint")} />
+    <>
+      <PageHeader title={t("succession.createTitle")} description={t("succession.createHint")} mb="lg" />
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <form onSubmit={form.onSubmit(save)} noValidate>
             <Stack>
@@ -134,9 +134,9 @@ export default function CreateSuccessionPlan() {
             </Stack>
           </form>
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

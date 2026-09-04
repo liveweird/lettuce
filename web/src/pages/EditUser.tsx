@@ -129,9 +129,9 @@ export default function EditUser() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="sm" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("users.editUser")} />
+    <>
+      <PageHeader title={t("users.editUser")} mb="lg" />
+      <Container size="sm" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
@@ -184,9 +184,9 @@ export default function EditUser() {
             </form>
           )}
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

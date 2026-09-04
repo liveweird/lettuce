@@ -107,13 +107,14 @@ export default function ChangeUserPassword() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="sm" px={0}>
-      <Stack gap="md">
-        {/* The header's description names the account once it is known (the former lead-in). */}
-        <PageHeader
-          title={t("users.changePassword")}
-          description={data ? t("users.setNewPassword", { name: data.name, email: data.email }) : undefined}
-        />
+    <>
+      {/* The header's description names the account once it is known (the former lead-in). */}
+      <PageHeader
+        title={t("users.changePassword")}
+        description={data ? t("users.setNewPassword", { name: data.name, email: data.email }) : undefined}
+        mb="lg"
+      />
+      <Container size="sm" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
@@ -182,9 +183,9 @@ export default function ChangeUserPassword() {
             </form>
           )}
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

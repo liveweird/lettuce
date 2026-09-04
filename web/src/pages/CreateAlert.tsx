@@ -64,9 +64,9 @@ export default function CreateAlert() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("alerts.create")} />
+    <>
+      <PageHeader title={t("alerts.create")} mb="lg" />
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
@@ -87,9 +87,9 @@ export default function CreateAlert() {
             </Stack>
           </form>
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

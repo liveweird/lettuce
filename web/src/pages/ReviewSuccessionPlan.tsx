@@ -232,9 +232,9 @@ export default function ReviewSuccessionPlan() {
     : t("succession.closeConfirmMessage");
 
   return (
-    <Container size="md" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("succession.viewTitle")} badge={data && <PlanStatusBadge value={data.status} />} />
+    <>
+      <PageHeader title={t("succession.viewTitle")} badge={data && <PlanStatusBadge value={data.status} />} mb="lg" />
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack>
             {isLoading ? (
@@ -488,7 +488,7 @@ export default function ReviewSuccessionPlan() {
             </FormFooter>
           </Stack>
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal
         opened={closeReviewOpen}
@@ -519,6 +519,6 @@ export default function ReviewSuccessionPlan() {
         errorTitle={t("succession.deleteErrorTitle")}
         body={(target) => t("succession.deleteNominationConfirmMessage", { name: target.candidateName })}
       />
-    </Container>
+    </>
   );
 }

@@ -97,9 +97,9 @@ export default function EditImpactEntry() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("impactLog.editTitle")} />
+    <>
+      <PageHeader title={t("impactLog.editTitle")} mb="lg" />
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
               idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
@@ -146,9 +146,9 @@ export default function EditImpactEntry() {
             </Stack>
           ) : null}
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

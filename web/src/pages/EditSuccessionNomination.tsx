@@ -527,12 +527,13 @@ export default function EditSuccessionNomination() {
     candidateOptions.find((option) => option.value === pendingValues?.candidateId)?.label ?? "";
 
   return (
-    <Container size="md" px={0}>
-      <Stack gap="md">
-        <PageHeader
-          title={editing ? t("succession.editNominationTitle") : t("succession.addNominationTitle")}
-          description={t("succession.nominationHint")}
-        />
+    <>
+      <PageHeader
+        title={editing ? t("succession.editNominationTitle") : t("succession.addNominationTitle")}
+        description={t("succession.nominationHint")}
+        mb="lg"
+      />
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
@@ -572,7 +573,7 @@ export default function EditSuccessionNomination() {
             />
           ) : null}
         </Paper>
-      </Stack>
+      </Container>
 
       <DevelopmentGoalModal
         opened={goalModalOpen}
@@ -600,6 +601,6 @@ export default function EditSuccessionNomination() {
       />
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

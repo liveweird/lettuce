@@ -58,9 +58,9 @@ export default function CreateTeam() {
   }
 
   return (
-    <Container size="sm" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("teams.createTeam")} />
+    <>
+      <PageHeader title={t("teams.createTeam")} mb="lg" />
+      <Container size="sm" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
@@ -81,9 +81,9 @@ export default function CreateTeam() {
             </Stack>
           </form>
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

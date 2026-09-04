@@ -96,9 +96,9 @@ export default function EditTeam() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="sm" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("teams.editTeam")} />
+    <>
+      <PageHeader title={t("teams.editTeam")} mb="lg" />
+      <Container size="sm" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
@@ -149,9 +149,9 @@ export default function EditTeam() {
             </form>
           )}
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }

@@ -106,9 +106,9 @@ export default function EditAlert() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="md" px={0}>
-      <Stack gap="md">
-        <PageHeader title={t("alerts.edit")} />
+    <>
+      <PageHeader title={t("alerts.edit")} mb="lg" />
+      <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
@@ -150,9 +150,9 @@ export default function EditAlert() {
             </form>
           )}
         </Paper>
-      </Stack>
+      </Container>
 
       <ConfirmActionModal {...modalProps} />
-    </Container>
+    </>
   );
 }
