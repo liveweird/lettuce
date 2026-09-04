@@ -1,7 +1,7 @@
 import type { ParseKeys } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Alert, Box, Grid, Group, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useOwnSuccessionPlans } from "../hooks/useOwnSuccessionPlans";
 import { IconUsersGroup } from "@tabler/icons-react";
@@ -9,6 +9,7 @@ import { canAudit, getUserId } from "../api/session";
 import { listUsers, type UserPage } from "../api/users";
 import { listAllTeamMembers, listTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import PersonCard from "../components/PersonCard";
 import PersonCardActions, { type PersonCardActionsProps } from "../components/PersonCardActions";
 import { hasVisibleActions } from "../components/personCardSupport";
@@ -19,7 +20,6 @@ import { loadErrorMessage } from "../utils/saveError";
 
 // Matches the dashboard card grids' v1.34.0 cap (2 per row) so the single details card
 // renders at the same width as its dashboard counterparts.
-const GRID_COLS = { base: 1, sm: 2 };
 const PAGE_SIZE = 100;
 
 type Relationship = "manager" | "subordinate" | "peer";
@@ -231,84 +231,100 @@ export default function UserDetails() {
 
   return (
     <Stack gap="md">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={origin.to} size="sm">
-          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-        </Anchor>
-        <Title order={2}>{name ?? t("users.detailsTitle")}</Title>
-        {relationship && (
-          <Text size="sm" c="dimmed">
-            {t(`users.relationship.${relationship}`)}
-          </Text>
-        )}
-      </Stack>
+      <PageHeader
+        back={{ to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) }}
+        title={name ?? t("users.detailsTitle")}
+        description={relationship ? t(`users.relationship.${relationship}`) : undefined}
+      />
 
       {isError ? (
         <Alert color="red" variant="light" title={t("users.loadUserFailed", { suffix: "" })}>
           {loadErrorMessage(error, t)}
         </Alert>
       ) : isLoading ? (
-        <SimpleGrid cols={GRID_COLS} spacing="md">
-          <Skeleton height={170} radius="md" />
-        </SimpleGrid>
+        <Grid gap="md">
+          <Grid.Col span={{ base: 12, md: 7 }}>
+            <Skeleton height={170} radius="md" />
+          </Grid.Col>
+        </Grid>
       ) : person ? (
-        // The one-card grid keeps the dashboard card's width (and PersonCard's `li` valid).
-        <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} cols={GRID_COLS} spacing="md">
-          <PersonCard
-            name={person.name}
-            email={person.email}
-            teams={person.teams}
-            body={
-              // Only view=managed rows carry the last-review and days-off stats, so those
-              // sections show for a direct report and not for a manager (whose row never
-              // has the data). Self/unrelated get no relationship stats, but the Profile
-              // section always shows.
-              <PersonCardBody
-                person={person}
-                stats={relationship ?? "none"}
-                showSeniorityWhenUnset={relationship === "subordinate" || selfView}
-                showLastReview={relationship === "subordinate"}
-                showDaysOff={relationship === "subordinate"}
-                successionReviewedAt={openPlanByUserId.get(person.userId)?.lastReviewedAt}
-                actions={actions}
+        // The card (stats only) beside its actions panel (v3.4.0) — the dashboard card's
+        // buttons, full-text, in a side column, plus the HR-audit block under them. The
+        // card keeps its `li` (PersonCard renders one) inside a one-item list.
+        <Grid gap="md">
+          <Grid.Col span={{ base: 12, md: 7 }}>
+            <Box component="ul" m={0} p={0} style={{ listStyle: "none" }}>
+              <PersonCard
+                name={person.name}
+                email={person.email}
+                teams={person.teams}
+                body={
+                  // Only view=managed rows carry the last-review and days-off stats, so those
+                  // sections show for a direct report and not for a manager (whose row never
+                  // has the data). Self/unrelated get no relationship stats, but the Profile
+                  // section always shows.
+                  <PersonCardBody
+                    person={person}
+                    stats={relationship ?? "none"}
+                    showSeniorityWhenUnset={relationship === "subordinate" || selfView}
+                    showLastReview={relationship === "subordinate"}
+                    showDaysOff={relationship === "subordinate"}
+                    successionReviewedAt={openPlanByUserId.get(person.userId)?.lastReviewedAt}
+                  />
+                }
               />
-            }
-          />
-        </SimpleGrid>
+            </Box>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 5 }}>
+            <Stack gap="md">
+              {actions != null && (
+                <Paper withBorder p="md" radius="md">
+                  <Stack gap="xs">
+                    <Text size="sm" fw={500}>
+                      {t("users.detailsActions")}
+                    </Text>
+                    <Group gap="xs">
+                      <PersonCardActions {...actions} />
+                    </Group>
+                  </Stack>
+                </Paper>
+              )}
+            {canAudit() && !selfView && person != null && auditBlockHasActions && (
+              // The HR auditor entry point: read-only drill-downs into EVERYTHING this person
+              // is a party to (both directions, every status), regardless of the viewer's own
+              // relationship to them. Server-side this is view=user; HR usage is audit-logged.
+              // Feature flags bind HR too (v1.53.0) — a disabled feature drops its drill-down,
+              // and with all five disabled the whole block goes.
+              <Paper withBorder p="md" radius="md">
+                <Stack gap="xs">
+                  <Text size="sm" fw={500}>
+                    {t("users.audit.title")}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {t("users.audit.hint", { name: person.name })}
+                  </Text>
+                  <Group gap="xs">
+                    <PersonCardActions
+                      userId={person.userId}
+                      name={person.name}
+                      labels="users"
+                      drillFrom="details"
+                      drillBack={backHere}
+                      audit
+                      show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true }}
+                    />
+                  </Group>
+                </Stack>
+              </Paper>
+            )}
+            </Stack>
+          </Grid.Col>
+        </Grid>
       ) : (
         <EmptyState
           icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
           label={t("users.userNotFound")}
         />
-      )}
-
-      {canAudit() && !selfView && person != null && auditBlockHasActions && (
-        // The HR auditor entry point: read-only drill-downs into EVERYTHING this person
-        // is a party to (both directions, every status), regardless of the viewer's own
-        // relationship to them. Server-side this is view=user; HR usage is audit-logged.
-        // Feature flags bind HR too (v1.53.0) — a disabled feature drops its drill-down,
-        // and with all five disabled the whole block goes.
-        <Paper withBorder p="md" radius="md">
-          <Stack gap="xs">
-            <Text size="sm" fw={500}>
-              {t("users.audit.title")}
-            </Text>
-            <Text size="sm" c="dimmed">
-              {t("users.audit.hint", { name: person.name })}
-            </Text>
-            <Group gap="xs">
-              <PersonCardActions
-                userId={person.userId}
-                name={person.name}
-                labels="users"
-                drillFrom="details"
-                drillBack={backHere}
-                audit
-                show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true }}
-              />
-            </Group>
-          </Stack>
-        </Paper>
       )}
     </Stack>
   );

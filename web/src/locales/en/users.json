@@ -5,6 +5,7 @@
   "changePassword": "Change password",
   "detailsFor": "User details for {{name}}",
   "detailsTitle": "User details",
+  "detailsActions": "Actions",
   "relationship": {
     "manager": "One of your managers",
     "subordinate": "One of your subordinates",

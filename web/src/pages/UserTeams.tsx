@@ -25,6 +25,7 @@ import { teamDetailsLink } from "../utils/teamLinks";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
@@ -156,12 +157,10 @@ export default function UserTeams() {
 
   return (
     <Stack gap="md">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to="/users" size="sm">
-          {t("users.backToUsers")}
-        </Anchor>
-        <Title order={2}>{t("users.teams")}{displayName ? ` — ${displayName}` : ""}</Title>
-      </Stack>
+      <PageHeader
+        back={{ to: "/users", label: t("users.backToUsers") }}
+        title={`${t("users.teams")}${displayName ? ` — ${displayName}` : ""}`}
+      />
 
       {canManage && (
         <Group align="flex-end" gap="sm">

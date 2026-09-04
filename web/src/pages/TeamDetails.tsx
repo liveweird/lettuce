@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
-  Anchor,
   Button,
   Center,
   Group,
@@ -31,7 +30,8 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import RowActions from "../components/RowActions";
 import { feedbackRowMenu } from "../components/feedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
-import ReadOnlyField from "../components/ReadOnlyField";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
 import TeamMembersTable from "./TeamMembersTable";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
@@ -185,39 +185,36 @@ export default function TeamDetails() {
 
   return (
     <Stack gap="md">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={backTo} size="sm">
-          {backLabel}
-        </Anchor>
-        <Title order={2}>{t("teams.detailsTitle")}</Title>
-      </Stack>
+      <PageHeader back={{ to: backTo, label: backLabel }} title={t("teams.detailsTitle")} />
 
       {/* The team's identity fields — the name, and the manager as the standard clickable
           persona (the v2.5.2 name-link idiom; deleted and one's own persona stay plain). */}
       {team && (
-        <Group gap="xl">
-          <ReadOnlyField label={t("common.field.name")}>
-            <Text size="sm">{team.name}</Text>
-          </ReadOnlyField>
-          <ReadOnlyField label={t("common.field.manager")}>
-            {team.managerDeleted ? (
-              <Text size="sm" c="dimmed">
-                {team.managerName}
-                {t("teams.deletedSuffix")}
-              </Text>
-            ) : (
-              <PersonaChip
-                name={team.managerName ?? ""}
-                to={
-                  team.managerId !== currentUserId
-                    ? userDetailsLink(team.managerId, team.managerName, "members", id)
-                    : undefined
-                }
-                ariaLabel={t("users.detailsFor", { name: team.managerName })}
-              />
-            )}
-          </ReadOnlyField>
-        </Group>
+        <MetaStrip
+          items={[
+            { key: "name", label: t("common.field.name"), value: <Text size="sm">{team.name}</Text> },
+            {
+              key: "manager",
+              label: t("common.field.manager"),
+              value: team.managerDeleted ? (
+                <Text size="sm" c="dimmed">
+                  {team.managerName}
+                  {t("teams.deletedSuffix")}
+                </Text>
+              ) : (
+                <PersonaChip
+                  name={team.managerName ?? ""}
+                  to={
+                    team.managerId !== currentUserId
+                      ? userDetailsLink(team.managerId, team.managerName, "members", id)
+                      : undefined
+                  }
+                  ariaLabel={t("users.detailsFor", { name: team.managerName })}
+                />
+              ),
+            },
+          ]}
+        />
       )}
 
       {/* The team's manager sees their subordinates as the dashboard card grid (v2.5.5 —
