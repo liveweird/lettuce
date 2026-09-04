@@ -123,14 +123,89 @@ function NextVacationRow({ person }: { person: PersonCardData }) {
 }
 
 // One labeled card section (v1.46.0): a thin divider whose small dimmed caption names the
-// group, then the group's stat rows and/or action buttons. It renders as a fragment, not a
-// wrapper (v1.50.0) — the rows must stay direct children of the body grid for their labels
-// and values to share one column split with every other section's.
+// group, then the group's stat rows (and, in the `buttons` variant, its action row) in the
+// section's own label/value grid (v3.4.0 — the v1.50.0 card-wide grid gave way to the
+// two-column body; see PersonCardStats.module.css).
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <>
+    <div className={classes.section}>
       <Divider label={label} labelPosition="left" className={classes.divider} />
-      {children}
+      <div className={classes.rows}>{children}</div>
+    </div>
+  );
+}
+
+// The Collaboration section's stat rows: the directional 1:1 + feedback + active-goals
+// rows (manager/subordinate flavors) or the peer flavor's two feedback directions.
+function CollaborationRows({
+  person,
+  directional,
+  peer,
+  canOneOnOne,
+  canFeedback,
+  canGoals,
+}: {
+  person: PersonCardData;
+  directional: boolean;
+  peer: boolean;
+  canOneOnOne: boolean;
+  canFeedback: boolean;
+  canGoals: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  return (
+    <>
+      {directional && canOneOnOne && (
+        <StatRow label={t("users.lastOneOnOne")}>
+          {person.lastOneOnOneDate != null ? (
+            <>
+              <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
+                {formatRelativeTime(
+                  new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(),
+                  i18n.language,
+                )}
+              </Text>
+              <Badge
+                size="sm"
+                variant="light"
+                color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
+                style={{ minWidth: "max-content" }}
+              >
+                {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+              </Badge>
+            </>
+          ) : (
+            <NeverText />
+          )}
+        </StatRow>
+      )}
+      {directional && canFeedback && (
+        <StatRow label={t("users.lastFeedback")}>
+          <TimeStat at={person.lastFeedbackAt} />
+        </StatRow>
+      )}
+      {directional && canGoals && (
+        <StatRow label={t("users.activeGoals")}>
+          <Badge
+            size="sm"
+            variant="light"
+            color={(person.activeGoalCount ?? 0) > 0 ? "teal" : "gray"}
+            style={{ minWidth: "max-content" }}
+          >
+            {person.activeGoalCount ?? 0}
+          </Badge>
+        </StatRow>
+      )}
+      {peer && canFeedback && (
+        <>
+          <StatRow label={t("users.feedbackFromMe")}>
+            <TimeStat at={person.lastFeedbackGivenAt} />
+          </StatRow>
+          <StatRow label={t("users.feedbackFromThem")}>
+            <TimeStat at={person.lastFeedbackReceivedAt} />
+          </StatRow>
+        </>
+      )}
     </>
   );
 }
@@ -162,6 +237,7 @@ export default function PersonCardBody({
   showDaysOff = false,
   successionReviewedAt,
   actions,
+  actionsVariant = "buttons",
 }: {
   person: PersonCardData;
   stats: PersonCardStatsVariant;
@@ -175,11 +251,15 @@ export default function PersonCardBody({
   successionReviewedAt?: number;
   /** The card's buttons, rendered inside their sections; undefined = none (the self card). */
   actions?: PersonCardActionsProps;
+  /** `icons` (v3.4.0, the dashboard grids): the sections hold stats only and every action
+   *  sits in one icon footer; `buttons` (default) keeps the captioned per-section rows. */
+  actionsVariant?: "buttons" | "icons";
 }) {
   const { t, i18n } = useTranslation();
 
+  const sectionActions = actionsVariant === "buttons" && actions != null;
   const actionsRow = (subset: readonly ButtonKey[]) =>
-    actions != null && hasVisibleActions(actions, subset) ? (
+    sectionActions && hasVisibleActions(actions, subset) ? (
       <Group gap="xs" wrap="wrap" mt={4} className={classes.actions}>
         <PersonCardActions {...actions} only={subset} />
       </Group>
@@ -199,15 +279,19 @@ export default function PersonCardBody({
   const showCollaboration =
     (directional && (canOneOnOne || canFeedback || canGoals)) ||
     (stats === "peer" && canFeedback) ||
-    (actions != null && hasVisibleActions(actions, OPERATIONAL_ACTIONS));
+    (sectionActions && hasVisibleActions(actions, OPERATIONAL_ACTIONS));
   const showPerformance =
-    (showLastReview && canReviews) || (actions != null && hasVisibleActions(actions, PERFORMANCE_ACTIONS));
+    (showLastReview && canReviews) || (sectionActions && hasVisibleActions(actions, PERFORMANCE_ACTIONS));
   const showVacation = (stats === "peer" || showDaysOff) && canDaysOff;
-  const showDaysOffSection =
-    showVacation || (actions != null && hasVisibleActions(actions, DAYS_OFF_ACTIONS));
+  const showDaysOffSection = showVacation || (sectionActions && hasVisibleActions(actions, DAYS_OFF_ACTIONS));
+  // Two columns once the right-hand one has content (Profile + Performance | Collaboration
+  // + Days off); the CSS only splits from 30rem of card width.
+  const twoCol = showCollaboration || showDaysOffSection;
 
   return (
     <div className={classes.body}>
+      <div className={`${classes.columns}${twoCol ? ` ${classes.twoCol}` : ""}`}>
+      <div className={classes.column}>
       <Section label={t("users.section.profile")}>
         <CareerRows person={person} showSeniorityWhenUnset={showSeniorityWhenUnset} />
         {successionReviewedAt != null && (
@@ -218,63 +302,6 @@ export default function PersonCardBody({
         {/* The career-progression drill-down (v2.15.0) — the profile's own button row. */}
         {actionsRow(PROFILE_ACTIONS)}
       </Section>
-
-      {showCollaboration && (
-        <Section label={t("users.section.collaboration")}>
-          {directional && canOneOnOne && (
-            <StatRow label={t("users.lastOneOnOne")}>
-              {person.lastOneOnOneDate != null ? (
-                <>
-                  <Text size="xs" title={formatIsoDate(person.lastOneOnOneDate, i18n.language)}>
-                    {formatRelativeTime(
-                      new Date(`${person.lastOneOnOneDate}T00:00:00`).getTime(),
-                      i18n.language,
-                    )}
-                  </Text>
-                  <Badge
-                    size="sm"
-                    variant="light"
-                    color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
-                    style={{ minWidth: "max-content" }}
-                  >
-                    {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
-                  </Badge>
-                </>
-              ) : (
-                <NeverText />
-              )}
-            </StatRow>
-          )}
-          {directional && canFeedback && (
-            <StatRow label={t("users.lastFeedback")}>
-              <TimeStat at={person.lastFeedbackAt} />
-            </StatRow>
-          )}
-          {directional && canGoals && (
-            <StatRow label={t("users.activeGoals")}>
-              <Badge
-                size="sm"
-                variant="light"
-                color={(person.activeGoalCount ?? 0) > 0 ? "teal" : "gray"}
-                style={{ minWidth: "max-content" }}
-              >
-                {person.activeGoalCount ?? 0}
-              </Badge>
-            </StatRow>
-          )}
-          {stats === "peer" && canFeedback && (
-            <>
-              <StatRow label={t("users.feedbackFromMe")}>
-                <TimeStat at={person.lastFeedbackGivenAt} />
-              </StatRow>
-              <StatRow label={t("users.feedbackFromThem")}>
-                <TimeStat at={person.lastFeedbackReceivedAt} />
-              </StatRow>
-            </>
-          )}
-          {actionsRow(OPERATIONAL_ACTIONS)}
-        </Section>
-      )}
 
       {showPerformance && (
         <Section label={t("users.section.performance")}>
@@ -303,6 +330,23 @@ export default function PersonCardBody({
         </Section>
       )}
 
+      </div>
+      {twoCol && (
+        <div className={classes.column}>
+      {showCollaboration && (
+        <Section label={t("users.section.collaboration")}>
+          <CollaborationRows
+            person={person}
+            directional={directional}
+            peer={stats === "peer"}
+            canOneOnOne={canOneOnOne}
+            canFeedback={canFeedback}
+            canGoals={canGoals}
+          />
+          {actionsRow(OPERATIONAL_ACTIONS)}
+        </Section>
+      )}
+
       {showDaysOffSection && (
         <Section label={t("users.section.daysOff")}>
           {showVacation && <NextVacationRow person={person} />}
@@ -317,6 +361,14 @@ export default function PersonCardBody({
           )}
           {actionsRow(DAYS_OFF_ACTIONS)}
         </Section>
+      )}
+        </div>
+      )}
+      </div>
+      {actionsVariant === "icons" && actions != null && (
+        <div className={classes.footer}>
+          <PersonCardActions {...actions} variant="icons" />
+        </div>
       )}
     </div>
   );

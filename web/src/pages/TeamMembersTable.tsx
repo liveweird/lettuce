@@ -31,7 +31,7 @@ type SortField = (typeof SORT_FIELDS)[number];
 
 // Capped at 2 per row (v1.34.0, was 3 at lg): the cards carry two stat columns and up to
 // seven action buttons — three columns left no room for a long stat line.
-const GRID_COLS = { base: 1, sm: 2 };
+const GRID_COLS = { base: 1, "44em": 2, "84em": 3 };
 
 // The dashboard "My peers" / "My subordinates" views: a person-card grid (same card language
 // as ManagersTable), keeping the table era's filters, sorting, and pagination. With `teamId`
@@ -216,13 +216,13 @@ export default function TeamMembersTable({
       )}
 
       {isLoading && !data ? (
-        <SimpleGrid cols={GRID_COLS} spacing="md">
+        <SimpleGrid type="container" cols={GRID_COLS} spacing="md">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} height={170} radius="md" />
           ))}
         </SimpleGrid>
       ) : people.length > 0 ? (
-        <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} cols={GRID_COLS} spacing="md">
+        <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} type="container" cols={GRID_COLS} spacing="md">
           {people.map((m) => (
             <PersonCard
               key={m.userId}
@@ -251,6 +251,7 @@ export default function TeamMembersTable({
                   showLastReview={view === "managed" && scopeIsDirect}
                   showDaysOff={view === "managed" && scopeIsDirect}
                   successionReviewedAt={openPlanByUserId.get(m.userId)?.lastReviewedAt}
+                  actionsVariant="icons"
                   actions={{
                     userId: m.userId,
                     name: m.name,

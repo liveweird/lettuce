@@ -1,5 +1,8 @@
-/* Gentle lift on hover — the only motion the cards need. Respects reduced-motion. */
+/* The card is a container (v3.4.0): its body switches to two columns from 30rem of card
+   width (PersonCardStats.module.css), so the layout follows the grid cell, not the viewport.
+   Gentle lift on hover — the only motion the cards need. Respects reduced-motion. */
 .card {
+  container-type: inline-size;
   background-color: var(--mantine-color-body);
   transition: box-shadow 150ms ease;
 }

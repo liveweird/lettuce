@@ -16,7 +16,17 @@ import { getDashboardSummary } from "../api/dashboard";
 import { formatIsoDate } from "../utils/datetime";
 import classes from "./DashboardHero.module.css";
 
+// The loading skeleton's columns; the live grid derives its columns from the visible tile
+// count (v3.4.0) — three tiles fill the row, six become 3×2.
 const GRID_COLS = { base: 2, sm: 3, lg: 5 };
+
+function heroGridCols(tileCount: number) {
+  return {
+    base: Math.max(1, Math.min(tileCount, 2)),
+    sm: Math.max(1, Math.min(tileCount, 3)),
+    lg: tileCount <= 5 ? Math.max(1, tileCount) : Math.ceil(tileCount / 2),
+  };
+}
 
 const signedDelta = (delta: number) => (delta > 0 ? `+${delta}` : String(delta));
 
@@ -110,69 +120,79 @@ export default function DashboardHero() {
   // itself stays ungated, so the counts are present but deliberately unrendered.
   const showReviews = isManager && data.currentPeriodId != null && hasFeature("PERFORMANCE_REVIEWS");
   const showFeedback = hasFeature("FEEDBACKS");
+  const tiles = [
+    showFeedback ? (
+      <StatTile
+        key="requests"
+        label={t("dashboard.hero.pendingRequests")}
+        value={String(data.pendingFeedbackRequests)}
+        to="/feedback?tab=provided"
+        icon={<IconMessage2 size={20} />}
+      />
+    ) : null,
+    hasFeature("GOALS") ? (
+      <StatTile
+        key="goals"
+        label={t("dashboard.hero.activeGoals")}
+        value={String(data.activeGoals)}
+        to="/goals"
+        icon={<IconTargetArrow size={20} />}
+      />
+    ) : null,
+    showFeedback ? (
+      <StatTile
+        key="received"
+        label={t("dashboard.hero.received30d")}
+        value={String(data.feedbackReceived30d)}
+        to="/feedback?tab=received"
+        icon={<IconInbox size={20} />}
+        hint={
+          // Per-field narrowing, NOT part of the shape probe above: an older server without
+          // the field simply renders no trend hint.
+          typeof data.feedbackReceivedPrev30d === "number"
+            ? `${signedDelta(data.feedbackReceived30d - data.feedbackReceivedPrev30d)} ${t("dashboard.hero.vsPrev30d")}`
+            : undefined
+        }
+      />
+    ) : null,
+    isManager ? (
+      <StatTile
+        key="reports"
+        label={t("dashboard.hero.directReports")}
+        value={String(data.directReports)}
+        to="/?tab=subordinates"
+        icon={<IconUsersGroup size={20} />}
+      />
+    ) : null,
+    showReviews ? (
+      <StatTile
+        key="reviews"
+        label={t("dashboard.hero.reviewsDone")}
+        value={`${data.currentPeriodReviewsDone ?? 0}/${data.directReports}`}
+        to="/performance?tab=managed"
+        icon={<IconClipboardText size={20} />}
+      />
+    ) : null,
+    hasFeature("PULSE_SURVEYS") && typeof data.pulseOpenCloseDate === "string" ? (
+      // Only participants of an OPEN cycle get the field (per-field narrowing — an older
+      // server simply renders no tile); the wording flips once they've submitted.
+      <StatTile
+        key="pulse"
+        label={
+          data.pulseSubmitted === true
+            ? t("dashboard.hero.pulseSubmitted")
+            : t("dashboard.hero.pulseOpen")
+        }
+        value={formatIsoDate(data.pulseOpenCloseDate, locale)}
+        to="/pulse?tab=survey"
+        icon={<IconHeartRateMonitor size={20} />}
+      />
+    ) : null,
+  ].filter((tile) => tile != null);
+  if (tiles.length === 0) return null;
   return (
-    <SimpleGrid cols={GRID_COLS} spacing="md">
-      {showFeedback && (
-        <StatTile
-          label={t("dashboard.hero.pendingRequests")}
-          value={String(data.pendingFeedbackRequests)}
-          to="/feedback?tab=provided"
-          icon={<IconMessage2 size={20} />}
-        />
-      )}
-      {hasFeature("GOALS") && (
-        <StatTile
-          label={t("dashboard.hero.activeGoals")}
-          value={String(data.activeGoals)}
-          to="/goals"
-          icon={<IconTargetArrow size={20} />}
-        />
-      )}
-      {showFeedback && (
-        <StatTile
-          label={t("dashboard.hero.received30d")}
-          value={String(data.feedbackReceived30d)}
-          to="/feedback?tab=received"
-          icon={<IconInbox size={20} />}
-          hint={
-            // Per-field narrowing, NOT part of the shape probe above: an older server without
-            // the field simply renders no trend hint.
-            typeof data.feedbackReceivedPrev30d === "number"
-              ? `${signedDelta(data.feedbackReceived30d - data.feedbackReceivedPrev30d)} ${t("dashboard.hero.vsPrev30d")}`
-              : undefined
-          }
-        />
-      )}
-      {isManager && (
-        <StatTile
-          label={t("dashboard.hero.directReports")}
-          value={String(data.directReports)}
-          to="/?tab=subordinates"
-          icon={<IconUsersGroup size={20} />}
-        />
-      )}
-      {showReviews && (
-        <StatTile
-          label={t("dashboard.hero.reviewsDone")}
-          value={`${data.currentPeriodReviewsDone ?? 0}/${data.directReports}`}
-          to="/performance?tab=managed"
-          icon={<IconClipboardText size={20} />}
-        />
-      )}
-      {hasFeature("PULSE_SURVEYS") && typeof data.pulseOpenCloseDate === "string" && (
-        // Only participants of an OPEN cycle get the field (per-field narrowing — an older
-        // server simply renders no tile); the wording flips once they've submitted.
-        <StatTile
-          label={
-            data.pulseSubmitted === true
-              ? t("dashboard.hero.pulseSubmitted")
-              : t("dashboard.hero.pulseOpen")
-          }
-          value={formatIsoDate(data.pulseOpenCloseDate, locale)}
-          to="/pulse?tab=survey"
-          icon={<IconHeartRateMonitor size={20} />}
-        />
-      )}
+    <SimpleGrid cols={heroGridCols(tiles.length)} spacing="md">
+      {tiles}
     </SimpleGrid>
   );
 }

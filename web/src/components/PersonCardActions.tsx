@@ -1,4 +1,4 @@
-import { Button, Menu } from "@mantine/core";
+import { ActionIcon, Button, Group, Menu, Tooltip } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -103,6 +103,9 @@ export type PersonCardActionsProps = {
   audit?: boolean;
   /** Restrict to a subset of buttons (the card body's per-section rendering); order unchanged. */
   only?: readonly ButtonKey[];
+  /** `buttons` (default) = the captioned buttons; `icons` (v3.4.0) = one compact row of icon
+   *  buttons with tooltips — the card footer. The accessible names are identical in both. */
+  variant?: "buttons" | "icons";
 };
 
 export default function PersonCardActions({
@@ -118,6 +121,7 @@ export default function PersonCardActions({
   manages,
   audit,
   only,
+  variant = "buttons",
 }: PersonCardActionsProps) {
   const { t } = useTranslation();
   const drillOpts = { back: drillBack, manages };
@@ -160,6 +164,22 @@ export default function PersonCardActions({
 
   const plainButton = (key: ButtonKey) => {
     const label = labelSource[key]!;
+    if (variant === "icons") {
+      return (
+        <Tooltip key={key} label={t(label.text)}>
+          <ActionIcon
+            component={RouterLink}
+            to={links[key]!}
+            variant={ACTION_KEYS.has(key) ? "light" : "subtle"}
+            color={ACTION_KEYS.has(key) ? undefined : "gray"}
+            size="md"
+            aria-label={t(label.aria, { name })}
+          >
+            {ICONS[key]}
+          </ActionIcon>
+        </Tooltip>
+      );
+    }
     return (
       <Button
         key={key}
@@ -177,7 +197,7 @@ export default function PersonCardActions({
 
   const groupedKeys = new Set<ButtonKey>(ACTION_GROUPS.flatMap((group) => group.keys));
 
-  return (
+  const content = (
     <>
       {ACTION_GROUPS.map((group) => {
         const members = group.keys.filter((key) => visible.includes(key));
@@ -189,15 +209,23 @@ export default function PersonCardActions({
         return (
           <Menu key={group.id} position="bottom-start" withinPortal>
             <Menu.Target>
-              <Button
-                variant="light"
-                size="xs"
-                leftSection={GROUP_ICONS[group.id]}
-                rightSection={<IconChevronDown size={14} />}
-                aria-label={t(groupLabel.aria, { name })}
-              >
-                {t(groupLabel.text)}
-              </Button>
+              {variant === "icons" ? (
+                <Tooltip label={t(groupLabel.text)}>
+                  <ActionIcon variant="light" size="md" aria-label={t(groupLabel.aria, { name })}>
+                    {GROUP_ICONS[group.id]}
+                  </ActionIcon>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="light"
+                  size="xs"
+                  leftSection={GROUP_ICONS[group.id]}
+                  rightSection={<IconChevronDown size={14} />}
+                  aria-label={t(groupLabel.aria, { name })}
+                >
+                  {t(groupLabel.text)}
+                </Button>
+              )}
             </Menu.Target>
             <Menu.Dropdown>
               {members.map((key) => {
@@ -220,5 +248,12 @@ export default function PersonCardActions({
       })}
       {visible.filter((key) => !groupedKeys.has(key)).map(plainButton)}
     </>
+  );
+  return variant === "icons" ? (
+    <Group gap={4} wrap="wrap">
+      {content}
+    </Group>
+  ) : (
+    content
   );
 }
