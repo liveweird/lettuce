@@ -69,12 +69,12 @@ spec:
               value: "true"
             - name: HTTP_PROXY_HOPS
               value: "1"
-            # The read-only GraphQL integration API at /integration/graphql (v3.0.0). Off by
-            # default (fail-closed: no routes registered); enabled here so integration clients
-            # issued via the ADMIN key registry can query it. Per-key rate limit:
-            # INTEGRATION_RATE_LIMIT_PER_MINUTE (default 120).
-            - name: INTEGRATION_ENABLED
-              value: "true"
+            # The read-only GraphQL integration API at /integration/graphql (v3.0.0) is
+            # fail-closed by default (integration.enabled=false → no routes registered).
+            # It stays OFF in this manifest on purpose: enabling an authorization-bypassing
+            # read surface is a per-deployment decision, not a shipped default. To turn it on
+            # for a specific deployment, add `INTEGRATION_ENABLED: "true"` here (the ADMIN key
+            # registry works regardless; per-key limit INTEGRATION_RATE_LIMIT_PER_MINUTE, 120).
             # Outbound email for the self-service password reset. Ships disabled — set
             # "smtp" plus real SMTP_HOST/MAIL_FROM/MAIL_APP_URL to enable (production
             # refuses the `log` transport). SMTP credentials come from the Secret.
