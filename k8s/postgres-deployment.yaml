@@ -26,7 +26,7 @@ spec:
         - env:
             - name: POSTGRES_DB
               value: lettuce
-            # Credentials come from the `lettuce-secrets` Secret (see k8s/secret.yaml) so the
+            # Credentials come from the `lettuce-secrets` Secret (see k8s/templates/secret.yaml) so the
             # same values feed both this container and the app's connection settings.
             - name: POSTGRES_PASSWORD
               valueFrom:

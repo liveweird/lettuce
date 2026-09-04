@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - env:
-            # Secrets come from the `lettuce-secrets` Secret — see k8s/secret.yaml for how to
+            # Secrets come from the `lettuce-secrets` Secret — see k8s/templates/secret.yaml for how to
             # create it (never commit real values). The app fail-closes on placeholder/burned
             # JWT secrets and on unrotated seed passwords, so a misconfigured deploy crash-loops
             # instead of running with a backdoor.
@@ -112,16 +112,27 @@ spec:
           # The image sets WEB_STATIC_DIR, so / serves the SPA. Initial delays
           # cover JVM boot + Flyway; until postgres is ready the app restarts,
           # which the rollout absorbs.
+          # Both probes send X-Forwarded-Proto: https — the header the TLS-terminating
+          # ingress sets (HTTP_BEHIND_PROXY above makes the app trust it). Without it,
+          # production mode answers the plain-HTTP probe with a 301 to https://<pod-ip>/,
+          # which the kubelet FOLLOWS (same host) into a refused :443 — readiness never
+          # passes and liveness restarts the pod every period (the v3.6.1 crash loop).
           readinessProbe:
             httpGet:
               path: /
               port: 8080
+              httpHeaders:
+                - name: X-Forwarded-Proto
+                  value: https
             initialDelaySeconds: 15
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /
               port: 8080
+              httpHeaders:
+                - name: X-Forwarded-Proto
+                  value: https
             initialDelaySeconds: 30
             periodSeconds: 10
       restartPolicy: Always

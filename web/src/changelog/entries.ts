@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.6.1",
+    date: "2026-09-04",
+    en: `A deployment fix round after checking the Kubernetes manifests. The app's health checks now pass in production mode (they used to follow the HTTPS redirect and restart the app every minute), a plain-HTTP request in production mode no longer logs an error for every redirect, and the secrets template moved out of the deployed folder so a routine deploy can no longer overwrite the real secrets. Nothing changes on screen.`,
+    pl: `Runda poprawek wdrożenia po sprawdzeniu manifestów Kubernetes. Kontrole stanu aplikacji przechodzą teraz w trybie produkcyjnym (wcześniej podążały za przekierowaniem na HTTPS i restartowały aplikację co minutę), zwykłe żądanie HTTP w trybie produkcyjnym nie zapisuje już błędu przy każdym przekierowaniu, a szablon sekretów przeniósł się poza wdrażany katalog, więc rutynowe wdrożenie nie nadpisze już prawdziwych sekretów. Na ekranie nic się nie zmienia.`,
+  },
+  {
     version: "3.6.0",
     date: "2026-09-04",
     en: `Unsaved changes are now protected everywhere. Until now only a form's own Cancel button asked before discarding your edits; clicking a sidebar entry, a card link or the browser's Back button while a form was dirty just left, and the work was gone. Every such departure is now held by the same "Discard changes?" question — Keep editing returns you to the form exactly as it was, Discard lets you leave. Saving a form and landing on its list works as before, without a prompt.`,
