@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.5.1",
+    date: "2026-09-04",
+    en: `A new logo. The generic leaf on the green tile became a lettuce leaf — a frilled margin, a midrib and veins — in the app header, on the login card, and as the browser tab icon, in both light and dark mode.`,
+    pl: `Nowe logo. Zwykły listek na zielonym kafelku stał się liściem sałaty — z falistym brzegiem, nerwem głównym i żyłkami — w nagłówku aplikacji, na karcie logowania i jako ikona karty przeglądarki, w trybie jasnym i ciemnym.`,
+  },
+  {
     version: "3.5.0",
     date: "2026-09-04",
     en: `The third and last design release: detail views, forms and dates. Every date field is now a proper date picker — a calendar in your language, Monday first — that still accepts a typed date, and the alert bounds pick a date and a time separately. Timestamps everywhere read in your language ("Sep 3, 2026, 9:07 AM") instead of the old technical format. Forms share one layout: the title and hint above the card, the context line (manager, team member, meeting date) in one row, long forms split into sections, and one Cancel behaviour — it leaves straight away when nothing changed and asks first when something would be lost, also when you close the tab. Detail screens share one layout too: the title with its status pill and actions at the top, the identity row below, then the content tabs, with content boxes sized to what they hold. Every drill-down page links back the same way and shows the person's name even when opened from a bare link.`,
