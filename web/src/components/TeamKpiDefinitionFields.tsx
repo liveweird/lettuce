@@ -34,7 +34,6 @@ export default function TeamKpiDefinitionFields({
         label={t("teamKpi.title")}
         maxLength={MAX_TEAM_KPI_TITLE_LENGTH}
         description={charCountDescription(form.values.title.length, MAX_TEAM_KPI_TITLE_LENGTH)}
-        inputWrapperOrder={["label", "input", "description", "error"]}
         withAsterisk
         {...form.getInputProps("title")}
       />

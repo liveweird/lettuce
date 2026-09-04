@@ -22,6 +22,7 @@
     "yes": "Tak",
     "no": "Nie"
   },
+  "discard": { "title": "Odrzucić zmiany?", "message": "Niezapisane zmiany zostaną utracone." },
   "field": {
     "datePlaceholder": "YYYY-MM-DD",
     "clearDate": "Wyczyść datę",

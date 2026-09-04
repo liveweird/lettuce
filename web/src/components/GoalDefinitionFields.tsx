@@ -36,7 +36,6 @@ export default function GoalDefinitionFields({
         label={t("goal.title")}
         maxLength={MAX_GOAL_TITLE_LENGTH}
         description={charCountDescription(form.values.title.length, MAX_GOAL_TITLE_LENGTH)}
-        inputWrapperOrder={["label", "input", "description", "error"]}
         withAsterisk
         {...form.getInputProps("title")}
       />

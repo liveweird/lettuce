@@ -25,7 +25,6 @@ export default function UserFormFields({ form }: { form: UseFormReturnType<UserF
         autoFocus
         maxLength={MAX_USER_NAME_LENGTH}
         description={charCountDescription(form.values.name.length, MAX_USER_NAME_LENGTH)}
-        inputWrapperOrder={["label", "input", "description", "error"]}
         rightSection={
           form.values.name ? (
             <CloseButton
@@ -46,7 +45,6 @@ export default function UserFormFields({ form }: { form: UseFormReturnType<UserF
         autoComplete="email"
         maxLength={MAX_EMAIL_LENGTH}
         description={charCountDescription(form.values.email.length, MAX_EMAIL_LENGTH)}
-        inputWrapperOrder={["label", "input", "description", "error"]}
         rightSection={
           form.values.email ? (
             <CloseButton
@@ -70,7 +68,6 @@ export default function UserFormFields({ form }: { form: UseFormReturnType<UserF
           charCountDescription(form.values.uniqueId.length, MAX_UNIQUE_ID_LENGTH) ??
           t("users.uniqueIdHint")
         }
-        inputWrapperOrder={["label", "input", "description", "error"]}
         {...form.getInputProps("uniqueId")}
       />
       <RolesMultiSelect {...form.getInputProps("roles")} />

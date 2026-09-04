@@ -21,7 +21,6 @@ export default function TemplateFormFields({ form }: { form: UseFormReturnType<T
         autoFocus
         maxLength={MAX_TEMPLATE_NAME_LENGTH}
         description={charCountDescription(form.values.name.length, MAX_TEMPLATE_NAME_LENGTH)}
-        inputWrapperOrder={["label", "input", "description", "error"]}
         rightSection={
           form.values.name ? (
             <CloseButton

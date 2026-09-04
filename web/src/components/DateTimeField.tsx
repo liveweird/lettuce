@@ -28,7 +28,7 @@ export default function DateTimeField({ label, value = "", onChange, disabled, d
   const { t } = useTranslation();
   const { date, time } = split(value);
   return (
-    <Input.Wrapper description={description} error={error} inputWrapperOrder={["label", "input", "description", "error"]}>
+    <Input.Wrapper description={description} error={error}>
       <Box role="group" aria-label={label}>
         <Group gap="xs" wrap="nowrap" align="flex-start">
           <DateField

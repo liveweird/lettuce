@@ -373,7 +373,6 @@ function DictionaryEditor({
                           form.values.entries[index]?.values[lang].length ?? 0,
                           MAX_DICTIONARY_VALUE_LENGTH,
                         )}
-                        inputWrapperOrder={["label", "input", "description", "error"]}
                         {...form.getInputProps(`entries.${index}.values.${lang}`)}
                       />
                     ))}

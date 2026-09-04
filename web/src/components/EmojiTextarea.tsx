@@ -75,7 +75,6 @@ export default function EmojiTextarea({
       rightSectionProps={{ style: { alignItems: "flex-start", paddingTop: 4 } }}
       rightSectionPointerEvents="all"
       description={composedDescription}
-      inputWrapperOrder={["label", "input", "description", "error"]}
       {...rest}
     />
   );

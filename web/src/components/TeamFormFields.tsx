@@ -20,7 +20,6 @@ export default function TeamFormFields({ form }: { form: UseFormReturnType<TeamF
         autoFocus
         maxLength={MAX_TEAM_NAME_LENGTH}
         description={charCountDescription(form.values.name.length, MAX_TEAM_NAME_LENGTH)}
-        inputWrapperOrder={["label", "input", "description", "error"]}
         rightSection={
           form.values.name ? (
             <CloseButton

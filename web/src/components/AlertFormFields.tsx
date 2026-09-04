@@ -58,7 +58,6 @@ export default function AlertFormFields({ form }: { form: UseFormReturnType<Aler
         autoFocus
         maxLength={MAX_ALERT_TITLE_LENGTH}
         description={charCountDescription(form.values.title.length, MAX_ALERT_TITLE_LENGTH)}
-        inputWrapperOrder={["label", "input", "description", "error"]}
         rightSection={
           form.values.title ? (
             <CloseButton
