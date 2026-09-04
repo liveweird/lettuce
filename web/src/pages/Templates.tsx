@@ -121,17 +121,18 @@ export default function Templates() {
           ) : data && data.items.length > 0 ? (
             data.items.map((tpl) => (
               <Table.Tr key={tpl.id}>
-                <Table.Td>
-                  <Text size="sm" fw={500}>
+                <Table.Td style={{ maxWidth: 320 }}>
+                  <Text size="sm" fw={500} truncate title={tpl.name}>
                     {tpl.name}
                   </Text>
                 </Table.Td>
-                <Table.Td style={{ maxWidth: 420 }}>
+                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
                   <Text size="sm" c="dimmed" truncate>
                     {tpl.contentPreview}
                   </Text>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin ? (
                     <RowActions
                       name={tpl.name}

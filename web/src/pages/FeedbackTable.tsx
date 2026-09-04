@@ -1,10 +1,7 @@
 import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
-import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
-  Box,
-  Button,
   Group,
   Select,
   Stack,
@@ -22,6 +19,7 @@ import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import PersonCell from "../components/PersonCell";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -110,16 +108,15 @@ const VIEW_CONFIG: Record<
     personColumns: [PROVIDER_COLUMN],
     defaultSortField: "providerName",
     renderAction: (f, { t, backTo }) => (
-      <Button
-        component={RouterLink}
-        to={feedbackViewLink(f.id, { back: backTo })}
-        variant="subtle"
-        size="xs"
-        leftSection={<IconEye size={14} />}
-        aria-label={t("feedback.viewFrom", { name: f.providerName })}
-      >
-        {t("common.action.view")}
-      </Button>
+      <RowActions
+        name={feedbackSubjectNames(f)}
+        primary={{
+          icon: <IconEye size={16} />,
+          label: t("common.action.view"),
+          ariaLabel: t("feedback.viewFrom", { name: f.providerName }),
+          to: feedbackViewLink(f.id, { back: backTo }),
+        }}
+      />
     ),
   },
   provided: {
@@ -127,27 +124,25 @@ const VIEW_CONFIG: Record<
     defaultSortField: "subjectName",
     renderAction: (f, { t, backTo }) =>
       f.status === "REQUESTED" || f.status === "DRAFT" ? (
-        <Button
-          component={RouterLink}
-          to={feedbackEditLink(f.id, { back: backTo })}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconPencil size={14} />}
-          aria-label={t("feedback.editFor", { name: feedbackSubjectNames(f) })}
-        >
-          {t("common.action.edit")}
-        </Button>
+        <RowActions
+        name={feedbackSubjectNames(f)}
+        primary={{
+          icon: <IconPencil size={16} />,
+          label: t("common.action.edit"),
+          ariaLabel: t("feedback.editFor", { name: feedbackSubjectNames(f) }),
+          to: feedbackEditLink(f.id, { back: backTo }),
+        }}
+      />
       ) : (
-        <Button
-          component={RouterLink}
-          to={feedbackViewLink(f.id, { as: "provider", back: backTo })}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconEye size={14} />}
-          aria-label={t("feedback.viewFor", { name: feedbackSubjectNames(f) })}
-        >
-          {t("common.action.view")}
-        </Button>
+        <RowActions
+        name={feedbackSubjectNames(f)}
+        primary={{
+          icon: <IconEye size={16} />,
+          label: t("common.action.view"),
+          ariaLabel: t("feedback.viewFor", { name: feedbackSubjectNames(f) }),
+          to: feedbackViewLink(f.id, { as: "provider", back: backTo }),
+        }}
+      />
       ),
   },
   // The HR auditor view (view=user&userId=X): everything X is a party to, read-only —
@@ -156,16 +151,15 @@ const VIEW_CONFIG: Record<
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
     defaultSortField: "lastModified",
     renderAction: (f, { t, backTo }) => (
-      <Button
-        component={RouterLink}
-        to={feedbackViewLink(f.id, { back: backTo })}
-        variant="subtle"
-        size="xs"
-        leftSection={<IconEye size={14} />}
-        aria-label={t("feedback.viewFor", { name: feedbackSubjectNames(f) })}
-      >
-        {t("common.action.view")}
-      </Button>
+      <RowActions
+        name={feedbackSubjectNames(f)}
+        primary={{
+          icon: <IconEye size={16} />,
+          label: t("common.action.view"),
+          ariaLabel: t("feedback.viewFor", { name: feedbackSubjectNames(f) }),
+          to: feedbackViewLink(f.id, { back: backTo }),
+        }}
+      />
     ),
   },
   team: {
@@ -173,27 +167,25 @@ const VIEW_CONFIG: Record<
     defaultSortField: "subjectName",
     renderAction: (f, { t, currentUserId, backTo }) =>
       currentUserId === f.providerId && f.status === "DRAFT" ? (
-        <Button
-          component={RouterLink}
-          to={feedbackEditLink(f.id, { from: "team", back: backTo })}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconPencil size={14} />}
-          aria-label={t("feedback.editFor", { name: feedbackSubjectNames(f) })}
-        >
-          {t("common.action.edit")}
-        </Button>
+        <RowActions
+        name={feedbackSubjectNames(f)}
+        primary={{
+          icon: <IconPencil size={16} />,
+          label: t("common.action.edit"),
+          ariaLabel: t("feedback.editFor", { name: feedbackSubjectNames(f) }),
+          to: feedbackEditLink(f.id, { from: "team", back: backTo }),
+        }}
+      />
       ) : (
-        <Button
-          component={RouterLink}
-          to={feedbackViewLink(f.id, { as: "team", back: backTo })}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconEye size={14} />}
-          aria-label={t("feedback.viewFor", { name: feedbackSubjectNames(f) })}
-        >
-          {t("common.action.view")}
-        </Button>
+        <RowActions
+        name={feedbackSubjectNames(f)}
+        primary={{
+          icon: <IconEye size={16} />,
+          label: t("common.action.view"),
+          ariaLabel: t("feedback.viewFor", { name: feedbackSubjectNames(f) }),
+          to: feedbackViewLink(f.id, { as: "team", back: backTo }),
+        }}
+      />
       ),
   },
 };
@@ -460,25 +452,24 @@ export default function FeedbackTable({
                 </Table.Td>
                 {config.personColumns.map((col) => (
                   <Table.Td key={col.field} style={{ maxWidth: 280 }}>
-                    {/* maxWidth caps the column; each chip is a shrinkable flex item (min-width 0)
-                        so PersonaChip's own truncation still engages inside the wrapping row. */}
+                    {/* maxWidth caps the column; PersonaChip's root is a shrinkable flex item
+                        (min-width 0, v3.3.0), so its own truncation engages inside the wrapping row. */}
                     <Group gap={4} wrap="wrap" style={{ minWidth: 0 }}>
                       {col.people(f).map((person) => (
-                        <Box key={person.id} style={{ minWidth: 0, maxWidth: "100%" }}>
-                          <PersonCell
-                            userId={person.id}
-                            name={person.name}
-                            deleted={person.deleted}
-                            currentUserId={currentUserId}
-                          />
-                        </Box>
+                        <PersonCell
+                          key={person.id}
+                          userId={person.id}
+                          name={person.name}
+                          deleted={person.deleted}
+                          currentUserId={currentUserId}
+                        />
                       ))}
                     </Group>
                   </Table.Td>
                 ))}
-                {/* maxWidth so `truncate` engages inside the auto-layout table. Redacted rows
-                    (a requester's unfinished feedback) arrive with an empty preview. */}
-                <Table.Td style={{ maxWidth: 240 }}>
+                {/* The fluid column (v3.4.0): takes the table's slack and truncates first.
+                    Redacted rows (a requester's unfinished feedback) arrive with an empty preview. */}
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
                   <Text size="sm" c="dimmed" truncate>
                     {f.contentPreview}
                   </Text>
@@ -494,7 +485,7 @@ export default function FeedbackTable({
                 <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(f.lastModified)}>
                   {formatRelativeTime(f.lastModified, i18n.language)}
                 </Table.Td>
-                <Table.Td>{config.renderAction(f, { currentUserId, backTo, t })}</Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{config.renderAction(f, { currentUserId, backTo, t })}</Table.Td>
               </Table.Tr>
             ))
           ) : !isError ? (

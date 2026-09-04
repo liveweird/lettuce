@@ -258,7 +258,7 @@ describe("TeamDetails page", () => {
 
     // No management controls.
     expect(screen.queryByLabelText("Add a user")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^remove /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^more actions for /i })).not.toBeInTheDocument();
 
     // But the Feedback actions menu IS available to non-admins — it is for everyone.
     expect(screen.getByRole("button", { name: "Feedback actions for Carol" })).toBeInTheDocument();
@@ -386,7 +386,9 @@ describe("TeamDetails page", () => {
     const user = userEvent.setup();
     renderTeamDetails(3);
 
-    await user.click(await screen.findByRole("button", { name: /remove carol/i }));
+    // Remove lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Carol" }));
+    await user.click(await screen.findByRole("menuitem", { name: /remove carol/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
 
@@ -520,7 +522,9 @@ describe("TeamDetails page", () => {
     const user = userEvent.setup();
     renderTeamDetails(3);
 
-    await user.click(await screen.findByRole("button", { name: /remove carol/i }));
+    // Remove lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Carol" }));
+    await user.click(await screen.findByRole("menuitem", { name: /remove carol/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
 
@@ -540,7 +544,9 @@ describe("TeamDetails page", () => {
     const user = userEvent.setup();
     renderTeamDetails(3);
 
-    await user.click(await screen.findByRole("button", { name: /remove carol/i }));
+    // Remove lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Carol" }));
+    await user.click(await screen.findByRole("menuitem", { name: /remove carol/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
     expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();

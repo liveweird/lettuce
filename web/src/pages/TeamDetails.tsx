@@ -28,7 +28,8 @@ import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
-import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
+import RowActions from "../components/RowActions";
+import { feedbackRowMenu } from "../components/feedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
 import ReadOnlyField from "../components/ReadOnlyField";
 import TeamMembersTable from "./TeamMembersTable";
@@ -304,34 +305,40 @@ export default function TeamDetails() {
                     ariaLabel={t("users.detailsFor", { name: m.name })}
                   />
                 </Table.Td>
-                <Table.Td style={{ maxWidth: 280 }}>
-                  <Text size="sm" truncate>
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
+                  <Text size="sm" truncate title={m.email}>
                     {m.email}
                   </Text>
                 </Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap" justify="flex-end">
-                    {m.id !== currentUserId && hasFeature("FEEDBACKS") && (
-                      <FeedbackActionsMenu
-                        provideTo={feedbackProvideLink(m.id)}
-                        askTo={feedbackAskLink(m.id, `/teams/${id}/details`)}
-                        listTo={userFeedbacksLink(m.id, m.name, "members", id)}
-                        name={m.name}
-                      />
-                    )}
-                    {canManage && (
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => removeConfirm.requestDelete({ id: m.id, name: m.name })}
-                        aria-label={t("teams.removeAria", { name: m.name })}
-                      >
-                        {t("teams.remove")}
-                      </Button>
-                    )}
-                  </Group>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <RowActions
+                    name={m.name}
+                    menus={
+                      m.id !== currentUserId && hasFeature("FEEDBACKS")
+                        ? [
+                            feedbackRowMenu(t, {
+                              provideTo: feedbackProvideLink(m.id),
+                              askTo: feedbackAskLink(m.id, `/teams/${id}/details`),
+                              listTo: userFeedbacksLink(m.id, m.name, "members", id),
+                              name: m.name,
+                            }),
+                          ]
+                        : []
+                    }
+                    items={
+                      canManage
+                        ? [
+                            {
+                              icon: <IconTrash size={14} />,
+                              label: t("teams.remove"),
+                              ariaLabel: t("teams.removeAria", { name: m.name }),
+                              color: "red",
+                              onClick: () => removeConfirm.requestDelete({ id: m.id, name: m.name }),
+                            },
+                          ]
+                        : []
+                    }
+                  />
                 </Table.Td>
               </Table.Tr>
             ))

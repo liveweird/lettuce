@@ -226,7 +226,9 @@ describe("Alerts page", () => {
     const user = userEvent.setup();
     renderAlerts();
 
-    await user.click(await screen.findByRole("button", { name: /delete old news/i }));
+    // Delete lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Old news" }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete old news/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -246,7 +248,9 @@ describe("Alerts page", () => {
     const user = userEvent.setup();
     renderAlerts();
 
-    await user.click(await screen.findByRole("button", { name: /delete old news/i }));
+    // Delete lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Old news" }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete old news/i }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));

@@ -51,7 +51,8 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
   // Query by text, not cell name — the PersonaChip's avatar initials are part of the cell's
   // accessible name (see the testing note in CLAUDE.md), so an exact cell-name match misses.
   await expect(page.getByRole("table").getByText(userB.name, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: `Remove ${userB.name}` }).click();
+  await page.getByRole("button", { name: `More actions for ${userB.name}` }).click();
+  await page.getByRole("menuitem", { name: `Remove ${userB.name}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes(`/teams/${teamId}/members/`) && r.request().method() === "DELETE" && r.ok(),
