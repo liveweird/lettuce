@@ -29,6 +29,7 @@
   },
   "halfMarker": "½",
   "noRequests": "Nie ma tu jeszcze żadnych wniosków o dni wolne.",
+  "emptyCta": "Złóż swój pierwszy wniosek o dni wolne",
   "rowsPerPage": "Wniosków na stronę",
   "loadListError": "Nie udało się wczytać wniosków o dni wolne",
   "action": {

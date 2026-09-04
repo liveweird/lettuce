@@ -30,8 +30,9 @@ export type RowActionMenu = {
 };
 
 export type RowActionsProps = {
-  /** The row subject — names the default ⋯ trigger ("More actions for {{name}}"). */
-  name: string;
+  /** The row subject — names the default ⋯ trigger ("More actions for {{name}}"); a
+   *  primary-only cell may omit it. */
+  name?: string;
   /** The one action worth a visible icon button. */
   primary?: RowActionItem & { icon: ReactNode };
   /** Named icon-menus rendered before the ⋯ (a topic with its own asserted trigger name,
@@ -99,7 +100,8 @@ function IconButton({ item, size }: { item: RowActionItem & { icon: ReactNode };
  */
 export default function RowActions({ name, primary, menus = [], items = [], menuLabel, size = "sm" }: RowActionsProps) {
   const { t } = useTranslation();
-  const moreLabel = menuLabel ?? t("common.table.moreActionsFor", { name });
+  const moreLabel =
+    menuLabel ?? (name == null ? t("common.table.moreActions") : t("common.table.moreActionsFor", { name }));
   return (
     <Group gap={4} wrap="nowrap" justify="flex-end">
       {primary && <IconButton item={primary} size={size} />}

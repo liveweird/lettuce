@@ -1,7 +1,6 @@
 import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
-import { Link as RouterLink } from "react-router-dom";
-import { Alert, Badge, Button, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconCalendarEvent, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -10,6 +9,7 @@ import { getUserId } from "../api/session";
 import { listOneOnOnes, type OneOnOneListView, type OneOnOnePage } from "../api/oneonones";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -82,16 +82,14 @@ const VIEW_CONFIG: Record<
     // the server answers 409), so old rows get the View affordance instead.
     renderAction: (m, { t, backParam }) =>
       m.isLatest !== false ? (
-        <Button
-          component={RouterLink}
-          to={oneOnOneEditLink(m.id, "managed", backParam)}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconPencil size={14} />}
-          aria-label={t("oneOnOne.editWith", { name: m.subordinateName })}
-        >
-          {t("common.action.edit")}
-        </Button>
+        <RowActions
+          primary={{
+            icon: <IconPencil size={16} />,
+            label: t("common.action.edit"),
+            ariaLabel: t("oneOnOne.editWith", { name: m.subordinateName }),
+            to: oneOnOneEditLink(m.id, "managed", backParam),
+          }}
+        />
       ) : (
         <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.subordinateName })} backParam={backParam} from="managed" />
       ),
@@ -116,16 +114,14 @@ const VIEW_CONFIG: Record<
     personColumns: [MANAGER_COLUMN, SUBORDINATE_COLUMN],
     renderAction: (m, { t, backParam, currentUserId }) =>
       currentUserId != null && m.managerId === currentUserId && m.isLatest !== false ? (
-        <Button
-          component={RouterLink}
-          to={oneOnOneEditLink(m.id, "with", backParam)}
-          variant="subtle"
-          size="xs"
-          leftSection={<IconPencil size={14} />}
-          aria-label={t("oneOnOne.editWith", { name: m.subordinateName })}
-        >
-          {t("common.action.edit")}
-        </Button>
+        <RowActions
+          primary={{
+            icon: <IconPencil size={16} />,
+            label: t("common.action.edit"),
+            ariaLabel: t("oneOnOne.editWith", { name: m.subordinateName }),
+            to: oneOnOneEditLink(m.id, "with", backParam),
+          }}
+        />
       ) : (
         <ViewButton m={m} label={t("common.action.view")} aria={t("oneOnOne.viewWith", { name: m.managerName })} backParam={backParam} from="with" />
       ),
@@ -146,16 +142,14 @@ function ViewButton({
   from?: string;
 }) {
   return (
-    <Button
-      component={RouterLink}
-      to={oneOnOneViewLink(m.id, from ?? "own", backParam)}
-      variant="subtle"
-      size="xs"
-      leftSection={<IconEye size={14} />}
-      aria-label={aria}
-    >
-      {label}
-    </Button>
+    <RowActions
+      primary={{
+        icon: <IconEye size={16} />,
+        label: label,
+        ariaLabel: aria,
+        to: oneOnOneViewLink(m.id, from ?? "own", backParam),
+      }}
+    />
   );
 }
 
@@ -358,7 +352,7 @@ export default function OneOnOneTable({
                 <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(m.lastModified)}>
                   {formatRelativeTime(m.lastModified, i18n.language)}
                 </Table.Td>
-                <Table.Td>{config.renderAction(m, { backParam, currentUserId, t })}</Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{config.renderAction(m, { backParam, currentUserId, t })}</Table.Td>
               </Table.Tr>
             ))
           ) : !isError ? (

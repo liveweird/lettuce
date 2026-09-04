@@ -26,6 +26,7 @@ import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime
 import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
 import { loadErrorMessage } from "../utils/saveError";
+import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
 
 const TABS = ["calendar", "requests", "team"] as const;
@@ -179,7 +180,12 @@ export default function DaysOff() {
         <Tabs.Panel value="requests" pt="md">
           <Stack gap="md">
             <DaysOffBudgetCard year={new Date().getFullYear()} />
-            <DaysOffTable view="own" />
+            <DaysOffTable
+              view="own"
+              emptyAction={
+                <EmptyCtaLink to={daysOffCreateLink(daysOffListLink("requests"))}>{t("daysOff.emptyCta")}</EmptyCtaLink>
+              }
+            />
           </Stack>
         </Tabs.Panel>
 

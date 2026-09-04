@@ -197,6 +197,7 @@ export default function FeedbackTable({
   userId,
   backTo,
   settingsKey,
+  emptyAction,
 }: {
   view: TableView;
   // Optional exact-id scope to a single counterparty (used by the per-manager screen).
@@ -210,6 +211,8 @@ export default function FeedbackTable({
   // embedding the table in another context (the per-manager page) pass their own so their
   // settings don't bleed into the main feedback tabs.
   settingsKey?: string;
+  /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
+  emptyAction?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -494,6 +497,7 @@ export default function FeedbackTable({
                 <EmptyState
                     icon={<IconMessages size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                     label={t("feedback.noFeedback")}
+                    action={emptyAction}
                   />
               </Table.Td>
             </Table.Tr>

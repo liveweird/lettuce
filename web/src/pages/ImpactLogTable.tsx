@@ -3,6 +3,7 @@ import { Alert, Button, Group, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconNotebook, IconPencil, IconTrash } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   deleteImpactEntry,
@@ -44,6 +45,7 @@ export default function ImpactLogTable({
   backTo,
   withReportsScope,
   includeIndirect: includeIndirectProp,
+  emptyAction,
 }: {
   view: ImpactLogListView;
   /**
@@ -58,6 +60,8 @@ export default function ImpactLogTable({
   backTo?: string;
   /** Show the "Reports" direct/all filter and derive includeIndirect from it (managed only). */
   withReportsScope?: boolean;
+  /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
+  emptyAction?: ReactNode;
   /** Fixed chain scope (the pinned drill-down — mutually exclusive with withReportsScope). */
   includeIndirect?: boolean;
 }) {
@@ -288,6 +292,7 @@ export default function ImpactLogTable({
                 <EmptyState
                   icon={<IconNotebook size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("impactLog.noEntries")}
+                  action={emptyAction}
                 />
               </Table.Td>
             </Table.Tr>

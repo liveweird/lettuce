@@ -29,6 +29,7 @@
   },
   "halfMarker": "½",
   "noRequests": "No days-off requests here yet.",
+  "emptyCta": "Request your first days off",
   "rowsPerPage": "Requests per page",
   "loadListError": "Could not load the days-off requests",
   "action": {

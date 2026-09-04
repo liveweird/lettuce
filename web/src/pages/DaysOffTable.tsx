@@ -4,6 +4,7 @@ import { ActionIcon, Alert, Button, Group, Popover, Select, Stack, Table, Text }
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconBeach, IconCheck, IconInfoCircle, IconX } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId } from "../api/session";
@@ -49,6 +50,7 @@ export default function DaysOffTable({
   userId,
   settingsKey,
   includeIndirect,
+  emptyAction,
 }: {
   view: DaysOffListView;
   /** Pin to one user (required with view="user"; the drill-down filter on "managed"). */
@@ -58,6 +60,8 @@ export default function DaysOffTable({
   /** view="managed" only (v2.32.0): widen from direct reports to the whole subtree — the
    * drill-down's chain mode. Row actions stay honest via the server's canResolve/canCancel. */
   includeIndirect?: boolean;
+  /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
+  emptyAction?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -393,6 +397,7 @@ export default function DaysOffTable({
                 <EmptyState
                   icon={<IconBeach size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("daysOff.noRequests")}
+                  action={emptyAction}
                 />
               </Table.Td>
             </Table.Tr>

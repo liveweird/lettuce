@@ -63,4 +63,17 @@ describe("RowActions", () => {
     );
     expect(screen.getByRole("button", { name: "Accept" })).toBeDisabled();
   });
+
+  test("a primary-only cell needs no subject; an overflow without one gets the generic name", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <RowActions
+        primary={{ icon: <IconPencil />, label: "Edit", ariaLabel: "Edit the row", to: "/rows/1/edit" }}
+        items={[{ label: "Delete", onClick: vi.fn(), color: "red" }]}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Edit the row" })).toHaveAttribute("href", "/rows/1/edit");
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+  });
 });

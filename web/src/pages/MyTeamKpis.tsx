@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { teamKpiCreateLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
+import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "managed"] as const;
@@ -86,7 +87,14 @@ export default function MyTeamKpis() {
               <Text size="sm" c="dimmed">
                 {t("teamKpi.managedKpisHint")}
               </Text>
-              <TeamKpiTable view="managed" withReportsScope backTo="/team-kpis?tab=managed" />
+              <TeamKpiTable
+                view="managed"
+                withReportsScope
+                backTo="/team-kpis?tab=managed"
+                emptyAction={
+                  <EmptyCtaLink to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}>{t("teamKpi.emptyCta")}</EmptyCtaLink>
+                }
+              />
             </Stack>
           </Tabs.Panel>
         )}

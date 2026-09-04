@@ -32,6 +32,7 @@
     "saveAndSend": "Save & send"
   },
   "noFeedback": "No feedback",
+  "emptyCta": "Write your first feedback",
   "unknown": "Unknown",
   "rowsPerPage": "Rows per page",
   "loadListError": "Failed to load feedbacks",

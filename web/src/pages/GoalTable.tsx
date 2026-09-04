@@ -13,6 +13,7 @@ import {
   IconTargetArrow,
 } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { archiveGoal, deactivateGoal, listGoals, type GoalListItem, type GoalListView, type GoalStatus } from "../api/goals";
@@ -110,6 +111,7 @@ export default function GoalTable({
   settingsKey,
   backTo,
   withReportsScope,
+  emptyAction,
 }: {
   view: GoalListView;
   /** Scope to one manager's goals (the per-manager drill-down). */
@@ -127,6 +129,8 @@ export default function GoalTable({
    * (the TeamMembersTable pattern) — the manager-side "Goals I've set" tab.
    */
   withReportsScope?: boolean;
+  /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
+  emptyAction?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -504,6 +508,7 @@ export default function GoalTable({
                 <EmptyState
                   icon={<IconTargetArrow size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("goal.noGoals")}
+                  action={emptyAction}
                 />
               </Table.Td>
             </Table.Tr>

@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { impactEntryCreateLink } from "../utils/impactLogLinks";
 import ImpactLogTable from "./ImpactLogTable";
+import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "managed"] as const;
@@ -64,7 +65,12 @@ export default function ImpactLog() {
             <Text size="sm" c="dimmed">
               {t("impactLog.myJournalHint")}
             </Text>
-            <ImpactLogTable view="own" />
+            <ImpactLogTable
+              view="own"
+              emptyAction={
+                <EmptyCtaLink to={impactEntryCreateLink("/impact-log")}>{t("impactLog.emptyCta")}</EmptyCtaLink>
+              }
+            />
           </Stack>
         </Tabs.Panel>
         {isManager && (

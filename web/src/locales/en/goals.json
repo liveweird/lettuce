@@ -35,6 +35,7 @@
   },
   "rowsPerPage": "Goals per page",
   "noGoals": "No goals yet.",
+  "emptyCta": "Create your first goal",
   "loadListError": "Could not load goals",
   "viewAria": "View goal {{title}}",
   "editAria": "Edit goal {{title}}",

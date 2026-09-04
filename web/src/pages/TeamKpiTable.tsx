@@ -1,13 +1,14 @@
-import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconChartLine, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { listTeamKpis, type TeamKpiListView, type TeamKpiStatus } from "../api/teamkpis";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PersonCell from "../components/PersonCell";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -50,6 +51,7 @@ export default function TeamKpiTable({
   settingsKey,
   backTo,
   withReportsScope = false,
+  emptyAction,
 }: {
   view: TeamKpiListView;
   /** Scope to one team's KPIs (the per-team drill-down); hides the Team column. */
@@ -60,6 +62,8 @@ export default function TeamKpiTable({
   backTo?: string;
   /** Managed tab only (v2.26.0): the direct-vs-indirect Reports scope filter. */
   withReportsScope?: boolean;
+  /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
+  emptyAction?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -309,29 +313,25 @@ export default function TeamKpiTable({
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     {formatGoalValue(k.type, k.currentValue, i18n.language)}
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     {canEdit ? (
-                      <Button
-                        component={RouterLink}
-                        to={teamKpiEditLink(k.id, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={t("teamKpi.editAria", { title: k.title })}
-                      >
-                        {t("common.action.edit")}
-                      </Button>
+                      <RowActions
+                        primary={{
+                          icon: <IconPencil size={16} />,
+                          label: t("common.action.edit"),
+                          ariaLabel: t("teamKpi.editAria", { title: k.title }),
+                          to: teamKpiEditLink(k.id, backParam),
+                        }}
+                      />
                     ) : (
-                      <Button
-                        component={RouterLink}
-                        to={teamKpiViewLink(k.id, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("teamKpi.viewAria", { title: k.title })}
-                      >
-                        {t("common.action.view")}
-                      </Button>
+                      <RowActions
+                        primary={{
+                          icon: <IconEye size={16} />,
+                          label: t("common.action.view"),
+                          ariaLabel: t("teamKpi.viewAria", { title: k.title }),
+                          to: teamKpiViewLink(k.id, backParam),
+                        }}
+                      />
                     )}
                   </Table.Td>
                 </Table.Tr>
@@ -343,6 +343,7 @@ export default function TeamKpiTable({
                 <EmptyState
                   icon={<IconChartLine size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("teamKpi.noKpis")}
+                  action={emptyAction}
                 />
               </Table.Td>
             </Table.Tr>

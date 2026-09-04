@@ -1,6 +1,5 @@
 import type { ParseKeys } from "i18next";
-import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconClipboardText, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -9,6 +8,7 @@ import { getUserId } from "../api/session";
 import { listPerformanceReviews, type PerformanceReviewListItem, type PerformanceReviewListView, type PerformanceReviewStatus } from "../api/reviews";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
@@ -324,29 +324,25 @@ export default function PerformanceReviewTable({
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(r.createdAt)}>
                     {formatDate(r.createdAt, i18n.language)}
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     {canEdit ? (
-                      <Button
-                        component={RouterLink}
-                        to={reviewEditLink(r.id, view, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconPencil size={14} />}
-                        aria-label={t("performanceReview.editAria", { name: r.subordinateName })}
-                      >
-                        {t("common.action.edit")}
-                      </Button>
+                      <RowActions
+                        primary={{
+                          icon: <IconPencil size={16} />,
+                          label: t("common.action.edit"),
+                          ariaLabel: t("performanceReview.editAria", { name: r.subordinateName }),
+                          to: reviewEditLink(r.id, view, backParam),
+                        }}
+                      />
                     ) : (
-                      <Button
-                        component={RouterLink}
-                        to={reviewViewLink(r.id, view, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("performanceReview.viewAria", { name: r.subordinateName })}
-                      >
-                        {t("common.action.view")}
-                      </Button>
+                      <RowActions
+                        primary={{
+                          icon: <IconEye size={16} />,
+                          label: t("common.action.view"),
+                          ariaLabel: t("performanceReview.viewAria", { name: r.subordinateName }),
+                          to: reviewViewLink(r.id, view, backParam),
+                        }}
+                      />
                     )}
                   </Table.Td>
                 </Table.Tr>
