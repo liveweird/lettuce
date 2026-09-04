@@ -76,6 +76,17 @@ class ProductionHttpTest {
                 "HSTS rides the secure request",
             )
 
+            // THE hostname question: the redirect target is the name the proxy reported, not the
+            // pod's address — and only the canonical X-Forwarded-Host counts (Ktor's default list
+            // also honoured X-Forwarded-Server, which nothing in front ever overwrites).
+            val named = get("X-Forwarded-Host", "lettuce.example.com")
+            assertEquals(301, named.statusCode())
+            assertEquals("https://lettuce.example.com/", named.headers().firstValue("Location").orElse(null))
+            val spoofed = get("X-Forwarded-Server", "evil.example")
+            assertEquals(301, spoofed.statusCode())
+            val spoofedLocation = assertNotNull(spoofed.headers().firstValue("Location").orElse(null))
+            assertTrue("evil.example" !in spoofedLocation, "X-Forwarded-Server must not set the host: $spoofedLocation")
+
             val unhandled = log.events.filter {
                 it.level == ch.qos.logback.classic.Level.ERROR && it.message.startsWith("Unhandled exception")
             }

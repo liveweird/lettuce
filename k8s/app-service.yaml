@@ -8,10 +8,10 @@ metadata:
     io.kompose.service: app
   name: app
 spec:
-  # OrbStack provisions local LoadBalancers; `kubectl port-forward svc/app` is
-  # the fallback. The host dev server may occupy :8080 — forward to another
-  # local port if so.
-  type: LoadBalancer
+  # ClusterIP: the Ingress (k8s/app-ingress.yaml) fronts the app; for debugging use
+  # `kubectl port-forward svc/app 8081:8080`. Switching a live LoadBalancer Service to
+  # ClusterIP can be rejected (allocated nodePort) — `kubectl delete svc app` first, then apply.
+  type: ClusterIP
   ports:
     - name: "8080"
       port: 8080

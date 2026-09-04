@@ -64,23 +64,39 @@ database volume.
 The `k8s/` directory holds manifests for a local cluster (developed against
 OrbStack, whose Kubernetes shares the Docker image store — no registry needed).
 
-Build (or rebuild) and deploy:
+The app runs in production mode behind a TLS-terminating **ingress-nginx** front door at
+a real hostname (`k8s/app-ingress.yaml`). One-time setup: install the controller, then create
+the two Secrets the manifests reference — `lettuce-secrets` (the command is in
+`k8s/templates/secret.yaml`) and the TLS certificate `lettuce-tls` (self-signed recipe in
+`k8s/templates/tls-secret.yaml`; cert-manager for real deployments):
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.15.1/deploy/static/provider/cloud/deploy.yaml
+kubectl wait -n ingress-nginx --for=condition=ready pod -l app.kubernetes.io/component=controller --timeout=180s
+kubectl get svc -n ingress-nginx ingress-nginx-controller   # its EXTERNAL-IP; e.g. HOST=lettuce.<ip>.nip.io
+```
+
+Build (or rebuild) and deploy — the manifests carry the placeholder host `lettuce.example.com`
+(the Ingress host, `MAIL_APP_URL`, and the certificate SAN must agree):
 
 ```
 docker build -t lettuce-app:latest .
-kubectl apply -f k8s/                      # idempotent; only needed when manifests change
+for f in k8s/app-deployment.yaml k8s/app-ingress.yaml; do sed "s#lettuce.example.com#$HOST#g" $f | kubectl apply -f -; done
+kubectl apply -f k8s/                      # the rest; idempotent, non-recursive (templates stay out)
 kubectl rollout restart deployment/app     # picks up a rebuilt image (tag stays :latest)
 kubectl rollout status deployment/app
+kubectl get ingress app                    # host + address; then browse https://$HOST/
 ```
 
-The `app` Service is a LoadBalancer (`kubectl get svc app` shows its address);
-`kubectl port-forward svc/app 8081:8080` works on any cluster. The same admin
-seed applies as above.
+The `app` Service is ClusterIP (the Ingress fronts it); `kubectl port-forward svc/app 8081:8080`
+reaches the pod directly on any cluster (production mode answers plain HTTP there with a
+redirect — send `X-Forwarded-Proto: https` for API checks). The seed admin's password is the
+`ADMIN_INITIAL_PASSWORD` you put in the Secret; the demo users are disabled in production mode.
 
 Tear down:
 
 ```
-kubectl delete -f k8s/                              # everything, INCLUDING the database volume
+kubectl delete -f k8s/                              # everything, INCLUDING the database volume (Secrets and the ingress controller stay)
 kubectl scale deployment app postgres --replicas=0  # stop workloads, keep the data
 ```
 
