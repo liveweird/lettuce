@@ -15,6 +15,10 @@
   "translationCount_many": "{{count}} języków",
   "translationCount_other": "{{count}} języka",
   "translationsAria": "Języki wpisu {{position}}",
+  "column": {
+    "value": "Wartość",
+    "languages": "Języki"
+  },
   "moveUp": "Przesuń wpis {{position}} w górę",
   "moveDown": "Przesuń wpis {{position}} w dół",
   "removeEntry": "Usuń wpis {{position}}",

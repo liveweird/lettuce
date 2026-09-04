@@ -13,6 +13,10 @@
   "translationCount_one": "{{count}} language",
   "translationCount_other": "{{count}} languages",
   "translationsAria": "Languages of entry {{position}}",
+  "column": {
+    "value": "Value",
+    "languages": "Languages"
+  },
   "moveUp": "Move entry {{position}} up",
   "moveDown": "Move entry {{position}} down",
   "removeEntry": "Remove entry {{position}}",

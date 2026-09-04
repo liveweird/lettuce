@@ -101,7 +101,11 @@ describe("IntegrationClients page", () => {
     expect(screen.getByText("old-reporting")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Revoked")).toBeInTheDocument();
-    expect(screen.getByText(/Never used/)).toBeInTheDocument();
+    // The Created by / Last used columns (v3.4.0): a relative time for a used key, the
+    // "Never used" dash-equivalent for one never presented.
+    expect(screen.getAllByText("Ada Admin")).toHaveLength(2);
+    expect(screen.getByText(/ago$/)).toHaveAttribute("title");
+    expect(screen.getByText("Never used")).toBeInTheDocument();
     // Only the active client offers Revoke.
     expect(screen.getByLabelText("Revoke API key of warehouse-sync")).toBeInTheDocument();
     expect(screen.queryByLabelText("Revoke API key of old-reporting")).toBeNull();

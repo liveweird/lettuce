@@ -23,9 +23,9 @@
    endpoint is machine-to-machine by design).
    - *Expected*: HTTP 200, no GraphQL errors, and a non-zero team total — the unscoped
      integration read works.
-5. The admin presses the row's Revoke button and confirms in the modal (the confirm label is
-   "Revoke", not Delete — keys are immutable, revoke is the terminal removal).
-   - *Expected*: an "API key revoked" toast; the row's badge flips to Revoked; the Revoke
+5. The admin presses the row's Revoke icon button and confirms in the modal (the confirm label
+   is "Revoke", not Delete — keys are immutable, revoke is the terminal removal).
+   - *Expected*: an "API key revoked" toast; the row's status pill flips to Revoked; the Revoke
      button disappears (terminal — no re-enable).
 6. The same GraphQL request is repeated with the revoked key.
    - *Expected*: HTTP 401 — revocation is immediate, and every bad-key shape answers the same

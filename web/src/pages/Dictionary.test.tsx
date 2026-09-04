@@ -92,7 +92,11 @@ describe("Dictionary page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Languages of entry 1" }));
     expect(screen.getByText("Polish")).toBeInTheDocument();
     expect(screen.getByText("Inżynieria")).toBeInTheDocument();
-    // Ordered numbering, but nothing editable and no dictionary actions.
+    // Ordered numbering in the compact table (v3.4.0), but nothing editable and no
+    // dictionary actions.
+    expect(screen.getByRole("columnheader", { name: "Value" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Languages" })).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(3);
     expect(screen.getByText("1.")).toBeInTheDocument();
     expect(screen.getByText("2.")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -117,9 +121,10 @@ describe("Dictionary page", () => {
       await userEvent.click(screen.getByRole("button", { name: "Języki wpisu 1" }));
       expect(screen.getByText("Engineering")).toBeInTheDocument();
       // The EN-only entry falls back to English — rendered once, and with no other filled
-      // language it carries no badge at all.
+      // language it carries no badge at all: the Languages cell is the plain "1 language" count.
       expect(screen.getAllByText("Consulting")).toHaveLength(1);
       expect(screen.queryByRole("button", { name: "Języki wpisu 2" })).not.toBeInTheDocument();
+      expect(screen.getByText("1 język")).toBeInTheDocument();
     } finally {
       await i18n.changeLanguage("en");
     }

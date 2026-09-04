@@ -50,10 +50,14 @@ describe("DaysOffPoolTypes page", () => {
     expect(await screen.findByText("Paid days off")).toBeInTheDocument();
     expect(screen.getByText("Default")).toBeInTheDocument();
     expect(screen.getByText("Study leave")).toBeInTheDocument();
-    expect(screen.getByText("resets yearly")).toBeInTheDocument();
-    expect(screen.getByText("carries over")).toBeInTheDocument();
+    // The Carry-over column (v3.4.0): Yes for the carrying default kind, No for the resetting one.
+    const [defaultRow, studyRow] = screen.getAllByRole("row").slice(1);
+    expect(within(defaultRow).getByText("Yes")).toBeInTheDocument();
+    expect(within(studyRow).getByText("No")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add pool kind" })).toBeNull();
     expect(screen.queryByLabelText(/Archive the/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /^More actions for/ })).toBeNull();
+    expect(screen.queryByLabelText(/^Edit the/)).toBeNull();
   });
 
   test("an admin adds a kind with its carry-over flag; a duplicate name reads as such", async () => {
@@ -85,9 +89,15 @@ describe("DaysOffPoolTypes page", () => {
     renderWithProviders(<DaysOffPoolTypes />);
 
     await screen.findByText("Study leave");
-    // The default kind has no archive control; the extra kind does.
+    // The default kind has no archive control — and hence no ⋯ menu at all (Edit is its only
+    // action); the extra kind's Archive sits in its ⋯ menu (v3.4.0).
+    expect(screen.queryByRole("button", { name: "More actions for Paid days off" })).toBeNull();
     expect(screen.queryByLabelText("Archive the Paid days off pool kind")).toBeNull();
-    expect(screen.getByLabelText("Archive the Study leave pool kind")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "More actions for Study leave" }));
+    expect(
+      await screen.findByRole("menuitem", { name: "Archive the Study leave pool kind" }),
+    ).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
 
     await userEvent.click(screen.getByLabelText("Edit the Study leave pool kind"));
     const dialog = await screen.findByRole("dialog");
@@ -114,7 +124,8 @@ describe("DaysOffPoolTypes page", () => {
     setupMocks();
     renderWithProviders(<DaysOffPoolTypes />);
 
-    await userEvent.click(await screen.findByLabelText("Archive the Study leave pool kind"));
+    await userEvent.click(await screen.findByRole("button", { name: "More actions for Study leave" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Archive the Study leave pool kind" }));
     expect(await screen.findByText("Archive this pool kind?")).toBeInTheDocument();
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Archive" }));
     await waitFor(() => {

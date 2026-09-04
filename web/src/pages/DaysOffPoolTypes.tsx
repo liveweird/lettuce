@@ -3,21 +3,17 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Button,
-  Center,
   Checkbox,
-  Container,
   Group,
-  Loader,
   Modal,
   Paper,
   Stack,
+  Table,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
-import { IconPencil, IconPlus, IconStack2 } from "@tabler/icons-react";
+import { IconArchive, IconPencil, IconPlus, IconStack2 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -32,6 +28,10 @@ import {
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
+import RowActions from "../components/RowActions";
+import StatusPill from "../components/StatusPill";
+import TableLoadingRow from "../components/TableLoadingRow";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 
@@ -119,11 +119,12 @@ function EditPoolTypeModal({
 }
 
 /**
- * The org-wide paid days-off pool kinds registry (v3.2.0 — the PublicHolidays shape): readable
- * by everyone (the create form's pool picker and the list filter draw on it), while adding,
- * renaming/re-flagging, and archiving stay ADMIN-only. Each kind carries whether unused days
- * carry over year to year; the seeded default kind is renameable but never archivable, and a
- * chain manager grants kinds to their reports on the per-user days-off page.
+ * The org-wide paid days-off pool kinds registry (v3.2.0 — the PublicHolidays shape, the
+ * registry list page since v3.4.0): readable by everyone (the create form's pool picker and
+ * the list filter draw on it), while adding, renaming/re-flagging, and archiving stay
+ * ADMIN-only. Each kind carries whether unused days carry over year to year; the seeded
+ * default kind is renameable but never archivable, and a chain manager grants kinds to their
+ * reports on the per-user days-off page.
  */
 export default function DaysOffPoolTypes() {
   const { t } = useTranslation();
@@ -152,6 +153,7 @@ export default function DaysOffPoolTypes() {
   if (!hasFeature("DAYS_OFF")) return <Navigate to="/" replace />;
 
   const nameValid = name.trim().length > 0 && name.trim().length <= MAX_NAME;
+  const columnCount = admin ? 3 : 2;
 
   async function add() {
     setSubmitting(true);
@@ -179,87 +181,16 @@ export default function DaysOffPoolTypes() {
   }
 
   return (
-    <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack gap="md">
-          <Title order={2}>{t("daysOff.pool.typesTitle")}</Title>
-          <Text size="sm" c="dimmed">
-            {t(admin ? "daysOff.pool.typesHint" : "daysOff.pool.typesHintReadOnly")}
-          </Text>
+    <Stack gap="md">
+      <PageHeader
+        title={t("daysOff.pool.typesTitle")}
+        description={t(admin ? "daysOff.pool.typesHint" : "daysOff.pool.typesHintReadOnly")}
+      />
 
-          {isError && (
-            <Alert color="red" variant="light" title={t("daysOff.pool.loadError")}>
-              {loadErrorMessage(loadError, t)}
-            </Alert>
-          )}
-          {isLoading && (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          )}
-
-          {kinds && kinds.length === 0 && (
-            <EmptyState
-              icon={<IconStack2 size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-              label={t("daysOff.pool.empty")}
-            />
-          )}
-          {kinds && kinds.length > 0 && (
-            <Stack gap="xs">
-              {kinds.map((kind) => (
-                <Paper key={kind.id} withBorder p="sm" radius="md">
-                  <Group justify="space-between" wrap="nowrap">
-                    <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                      <Text size="sm" fw={500} lineClamp={1}>
-                        {kind.name}
-                      </Text>
-                      {kind.isDefault && (
-                        <Badge size="xs" variant="light">
-                          {t("daysOff.pool.default")}
-                        </Badge>
-                      )}
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-                        {t(kind.carriesOver ? "daysOff.pool.carriesOverShort" : "daysOff.pool.resetsShort")}
-                      </Text>
-                    </Group>
-                    {admin && (
-                      <Group gap="xs" wrap="nowrap">
-                        <Button
-                          variant="light"
-                          size="xs"
-                          leftSection={<IconPencil size={14} />}
-                          onClick={() => setEditing(kind)}
-                          aria-label={t("daysOff.pool.editAria", { name: kind.name })}
-                        >
-                          {t("common.action.edit")}
-                        </Button>
-                        {!kind.isDefault && (
-                          <Button
-                            color="red"
-                            variant="light"
-                            size="xs"
-                            onClick={() => archiveConfirm.requestDelete(kind)}
-                            aria-label={t("daysOff.pool.archiveAria", { name: kind.name })}
-                          >
-                            {t("daysOff.pool.archive")}
-                          </Button>
-                        )}
-                      </Group>
-                    )}
-                  </Group>
-                </Paper>
-              ))}
-            </Stack>
-          )}
-
-          {error && (
-            <Alert color="red" variant="light">
-              {error}
-            </Alert>
-          )}
-
-          {/* The append form (an in-form adder, hence "Add …" wording) — ADMIN-only. */}
-          {admin && (
+      {/* The add strip (an in-form adder, hence "Add …" wording) — ADMIN-only. */}
+      {admin && (
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
             <Group align="flex-end" gap="md" wrap="wrap">
               <TextInput
                 label={t("daysOff.pool.name")}
@@ -289,9 +220,92 @@ export default function DaysOffPoolTypes() {
                 {t("daysOff.pool.addType")}
               </Button>
             </Group>
-          )}
-        </Stack>
-      </Paper>
+            {error && (
+              <Alert color="red" variant="light">
+                {error}
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
+      {isError && (
+        <Alert color="red" variant="light" title={t("daysOff.pool.loadError")}>
+          {loadErrorMessage(loadError, t)}
+        </Alert>
+      )}
+
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>{t("daysOff.pool.name")}</Table.Th>
+            <Table.Th>{t("daysOff.pool.column.carryOver")}</Table.Th>
+            {admin && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {isLoading ? (
+            <TableLoadingRow colSpan={columnCount} />
+          ) : kinds && kinds.length > 0 ? (
+            kinds.map((kind) => (
+              <Table.Tr key={kind.id}>
+                {/* The fluid column (v3.4.0): takes the table's slack and truncates first; the
+                    Default pill rides beside the name (the Users "Inactive" idiom). */}
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text size="sm" fw={500} truncate title={kind.name}>
+                      {kind.name}
+                    </Text>
+                    {kind.isDefault && (
+                      <StatusPill color="lettuce" size="sm">
+                        {t("daysOff.pool.default")}
+                      </StatusPill>
+                    )}
+                  </Group>
+                </Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <Text size="sm">{t(kind.carriesOver ? "common.state.yes" : "common.state.no")}</Text>
+                </Table.Td>
+                {admin && (
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    <RowActions
+                      name={kind.name}
+                      primary={{
+                        icon: <IconPencil size={16} />,
+                        label: t("common.action.edit"),
+                        ariaLabel: t("daysOff.pool.editAria", { name: kind.name }),
+                        onClick: () => setEditing(kind),
+                      }}
+                      items={
+                        kind.isDefault
+                          ? []
+                          : [
+                              {
+                                icon: <IconArchive size={14} />,
+                                label: t("daysOff.pool.archive"),
+                                ariaLabel: t("daysOff.pool.archiveAria", { name: kind.name }),
+                                color: "red",
+                                onClick: () => archiveConfirm.requestDelete(kind),
+                              },
+                            ]
+                      }
+                    />
+                  </Table.Td>
+                )}
+              </Table.Tr>
+            ))
+          ) : !isError ? (
+            <Table.Tr>
+              <Table.Td colSpan={columnCount}>
+                <EmptyState
+                  icon={<IconStack2 size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                  label={t("daysOff.pool.empty")}
+                />
+              </Table.Td>
+            </Table.Tr>
+          ) : null}
+        </Table.Tbody>
+      </Table>
 
       {/* Keyed on the kind so the modal's local draft resets per row. */}
       {editing && <EditPoolTypeModal key={editing.id} kind={editing} onClose={() => setEditing(null)} />}
@@ -311,6 +325,6 @@ export default function DaysOffPoolTypes() {
           })
         }
       />
-    </Container>
+    </Stack>
   );
 }

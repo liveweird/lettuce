@@ -43,7 +43,7 @@ test("admin creates an integration client, syncs through the GraphQL API with it
   await expect(page.getByText("Revoke this API key?")).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Revoke" }).click();
   await expect(page.getByText("API key revoked")).toBeVisible();
-  const row = page.locator("div").filter({ hasText: name }).getByText("Revoked").first();
+  const row = page.locator("tr", { hasText: name }).getByText("Revoked");
   await expect(row).toBeVisible();
   await expect(page.getByLabel(`Revoke API key of ${name}`)).toHaveCount(0);
   const rejected = await request.post("/integration/graphql", {

@@ -23,8 +23,8 @@
    value, in the same save.
    - *Expected*: after saving, the entries appear swapped — B first, then the renamed A.
 4. AAA One (a regular user) opens the same dictionary.
-   - *Expected*: the read-only numbered view leads with the viewer's language (English under
-     the EN locale), one line per entry; the translated entry carries a language-count badge
+   - *Expected*: the read-only numbered table (# | Value | Languages) leads with the viewer's
+     language (English under the EN locale), one row per entry; the translated entry carries a language-count badge
      whose popover reveals the stored Polish translation, the untranslated entry shows its
      English exactly once with no badge (the fallback); there are no inputs
      and no editor buttons ("Add entry" included).

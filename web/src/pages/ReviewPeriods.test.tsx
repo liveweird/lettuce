@@ -137,9 +137,10 @@ describe("ReviewPeriods page", () => {
       setupMocks();
       renderPage();
 
-      const currentRow = (await screen.findByText("January 2026 – June 2026")).closest("div");
+      // The pill sits in the row's status cell (v3.4.0) — scope by the table row.
+      const currentRow = (await screen.findByText("January 2026 – June 2026")).closest("tr");
       expect(within(currentRow as HTMLElement).getByText("Current")).toBeInTheDocument();
-      const otherRow = screen.getByText("July 2025 – December 2025").closest("div");
+      const otherRow = screen.getByText("July 2025 – December 2025").closest("tr");
       expect(within(otherRow as HTMLElement).queryByText("Current")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -164,7 +165,7 @@ describe("ReviewPeriods page", () => {
     renderPage();
 
     expect(
-      await screen.findByText("No review periods yet — add the first one below."),
+      await screen.findByText("No review periods yet — add the first one above."),
     ).toBeInTheDocument();
     // Two picker pairs: (start month, start year) + (end month, end year).
     expect(screen.getByLabelText("First month", { selector: "input" })).toBeInTheDocument();

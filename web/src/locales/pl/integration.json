@@ -7,8 +7,10 @@
   "addClient": "Dodaj klienta",
   "keyPanelTitle": "Klucz API dla „{{name}}” — wyświetlany tylko raz",
   "keyPanelWarning": "Skopiuj ten klucz teraz i przechowuj go bezpiecznie. Nie da się go wyświetlić ponownie — zapisany jest wyłącznie jego skrót.",
-  "createdBy": "Utworzył/a {{name}}",
-  "lastUsed": "Ostatnio użyty {{time}}",
+  "column": {
+    "createdBy": "Utworzył/a",
+    "lastUsed": "Ostatnio użyty"
+  },
   "neverUsed": "Nigdy nie użyty",
   "badge": {
     "active": "Aktywny",

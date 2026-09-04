@@ -2,21 +2,17 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Box,
   Button,
-  Center,
-  Container,
   Group,
   Input,
-  Loader,
   Paper,
   Select,
   Stack,
+  Table,
   Text,
-  Title,
 } from "@mantine/core";
-import { IconCalendarStats, IconPlus } from "@tabler/icons-react";
+import { IconCalendarStats, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -25,6 +21,10 @@ import { createReviewPeriod, deleteReviewPeriod } from "../api/reviews";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
+import RowActions from "../components/RowActions";
+import StatusPill from "../components/StatusPill";
+import TableLoadingRow from "../components/TableLoadingRow";
 import { useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import {
   addIsoMonths,
@@ -55,7 +55,8 @@ const toIso = (c: MonthChoice) => `${c.year}-${c.month}`;
  * end (shown as plain text with the rule spelled out — not an input); the period's end is
  * picked from month + year dropdowns whose options exclude anything before the start, so a
  * gap or overlap is unpickable, not merely validated. Only the latest, review-free period can
- * be deleted. Periods are immutable — there is no edit.
+ * be deleted. Periods are immutable — there is no edit. Since v3.4.0 the page wears the
+ * registry list-page shape: the append strip above the timeline table.
  */
 export default function ReviewPeriods() {
   const { t, i18n } = useTranslation();
@@ -100,6 +101,7 @@ export default function ReviewPeriods() {
   const endYearOpts = yearOptions(startYearNum, startYearNum + 5);
   const now = new Date().getFullYear();
   const startYearOpts = yearOptions(now - 3, now + 3);
+  const columnCount = admin ? 3 : 2;
 
   async function append() {
     setSubmitting(true);
@@ -126,143 +128,78 @@ export default function ReviewPeriods() {
   }
 
   return (
-    <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack gap="md">
-          <Title order={2} data-tour="config-review-periods">
-            {t("performanceReview.periods.title")}
-          </Title>
-          <Text size="sm" c="dimmed">
-            {t(admin ? "performanceReview.periods.hint" : "performanceReview.periods.hintReadOnly")}
-          </Text>
+    <Stack gap="md">
+      <PageHeader
+        title={t("performanceReview.periods.title")}
+        tourId="config-review-periods"
+        description={t(admin ? "performanceReview.periods.hint" : "performanceReview.periods.hintReadOnly")}
+      />
 
-          {isError && (
-            <Alert color="red" variant="light" title={t("performanceReview.periods.loadError")}>
-              {t("performanceReview.unknownError")}
-            </Alert>
-          )}
-          {isLoading && (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          )}
-
-          {periods && periods.length === 0 && (
-            <EmptyState
-              icon={<IconCalendarStats size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-              label={t(
-                admin ? "performanceReview.periods.empty" : "performanceReview.periods.emptyReadOnly",
-              )}
-            />
-          )}
-          {periods && periods.length > 0 && (
-            <Stack gap="xs">
-              {periods.map((p, index) => {
-                const isLatest = index === periods.length - 1;
-                return (
-                  <Paper key={p.id} withBorder p="sm" radius="md">
-                    <Group justify="space-between" wrap="nowrap">
-                      <Group gap="xs" wrap="nowrap">
-                        <Text size="sm" fw={500}>
-                          {formatMonthRange(p.startMonth, p.endMonth, i18n.language)}
-                        </Text>
-                        {isCurrentPeriod(p.startMonth, p.endMonth) && (
-                          <Badge size="xs" variant="light" color="lettuce">
-                            {t("performanceReview.periods.currentBadge")}
-                          </Badge>
-                        )}
-                      </Group>
-                      {admin && isLatest && (
-                        <Button
-                          color="red"
-                          variant="light"
-                          size="xs"
-                          onClick={() => deleteConfirm.requestDelete(p.id)}
-                          aria-label={t("performanceReview.periods.deleteAria", {
-                            range: formatMonthRange(p.startMonth, p.endMonth, i18n.language),
-                          })}
-                        >
-                          {t("common.action.delete")}
-                        </Button>
-                      )}
-                    </Group>
-                  </Paper>
-                );
-              })}
-            </Stack>
-          )}
-
-          {error && (
-            <Alert color="red" variant="light">
-              {error}
-            </Alert>
-          )}
-
-          {/* The append form (an in-form adder, hence "Add …" wording) — ADMIN-only; the
-              timeline never renders an invalid choice: the fixed start is plain text, and
-              the end pickers only offer months at or after it. */}
-          {admin && periods && (
-            <Stack gap="xs">
-              <Group align="flex-start" gap="md" wrap="wrap">
-                {requiredStart != null ? (
-                  <Input.Wrapper
+      {/* The append strip (an in-form adder, hence "Add …" wording) — ADMIN-only; the
+          timeline never renders an invalid choice: the fixed start is plain text, and
+          the end pickers only offer months at or after it. */}
+      {admin && periods && (
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <Group align="flex-end" gap="md" wrap="wrap">
+              {requiredStart != null ? (
+                <Input.Wrapper
+                  label={t("performanceReview.periods.startMonth")}
+                  description={t("performanceReview.periods.startLocked")}
+                  w={220}
+                >
+                  <Box mih={36} display="flex" style={{ alignItems: "center" }}>
+                    <Text size="sm" fw={500}>
+                      {formatIsoMonth(requiredStart, i18n.language)}
+                    </Text>
+                  </Box>
+                </Input.Wrapper>
+              ) : (
+                <>
+                  <Select
                     label={t("performanceReview.periods.startMonth")}
-                    description={t("performanceReview.periods.startLocked")}
-                    w={220}
-                  >
-                    <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-                      <Text size="sm" fw={500}>
-                        {formatIsoMonth(requiredStart, i18n.language)}
-                      </Text>
-                    </Box>
-                  </Input.Wrapper>
-                ) : (
-                  <>
-                    <Select
-                      label={t("performanceReview.periods.startMonth")}
-                      data={months}
-                      value={startChoice.month}
-                      onChange={(v) => v && setStartChoice((c) => ({ ...c, month: v }))}
-                      allowDeselect={false}
-                      w={160}
-                    />
-                    <Select
-                      label={t("performanceReview.periods.year")}
-                      data={startYearOpts}
-                      value={startChoice.year}
-                      onChange={(v) => v && setStartChoice((c) => ({ ...c, year: v }))}
-                      allowDeselect={false}
-                      w={110}
-                    />
-                  </>
-                )}
-                <Select
-                  label={t("performanceReview.periods.endMonth")}
-                  data={endMonthOpts}
-                  value={endMonth}
-                  onChange={(v) => v && setEndChoice({ month: v, year: endYear })}
-                  allowDeselect={false}
-                  w={160}
-                />
-                <Select
-                  label={t("performanceReview.periods.year")}
-                  data={endYearOpts}
-                  value={endYear}
-                  onChange={(v) => {
-                    if (!v) return;
-                    // Pulling the year down to the start year clamps a now-too-early month up
-                    // to the start month — the selection stays valid instead of snapping back.
-                    const clamped =
-                      Number(v) === startYearNum && endMonth < startMonthValue
-                        ? startMonthValue
-                        : endMonth;
-                    setEndChoice({ month: clamped, year: v });
-                  }}
-                  allowDeselect={false}
-                  w={110}
-                />
-              </Group>
-              <Group justify="space-between" align="center">
+                    data={months}
+                    value={startChoice.month}
+                    onChange={(v) => v && setStartChoice((c) => ({ ...c, month: v }))}
+                    allowDeselect={false}
+                    w={160}
+                  />
+                  <Select
+                    label={t("performanceReview.periods.year")}
+                    data={startYearOpts}
+                    value={startChoice.year}
+                    onChange={(v) => v && setStartChoice((c) => ({ ...c, year: v }))}
+                    allowDeselect={false}
+                    w={110}
+                  />
+                </>
+              )}
+              <Select
+                label={t("performanceReview.periods.endMonth")}
+                data={endMonthOpts}
+                value={endMonth}
+                onChange={(v) => v && setEndChoice({ month: v, year: endYear })}
+                allowDeselect={false}
+                w={160}
+              />
+              <Select
+                label={t("performanceReview.periods.year")}
+                data={endYearOpts}
+                value={endYear}
+                onChange={(v) => {
+                  if (!v) return;
+                  // Pulling the year down to the start year clamps a now-too-early month up
+                  // to the start month — the selection stays valid instead of snapping back.
+                  const clamped =
+                    Number(v) === startYearNum && endMonth < startMonthValue
+                      ? startMonthValue
+                      : endMonth;
+                  setEndChoice({ month: clamped, year: v });
+                }}
+                allowDeselect={false}
+                w={110}
+              />
+              <Group gap="md" align="center" wrap="nowrap" ml="auto" mih={36}>
                 {/* The exact period the Add button will create — no format guesswork. */}
                 <Text size="sm" fw={500}>
                   {t("performanceReview.periods.preview", {
@@ -277,10 +214,86 @@ export default function ReviewPeriods() {
                   {t("performanceReview.periods.addPeriod")}
                 </Button>
               </Group>
-            </Stack>
-          )}
-        </Stack>
-      </Paper>
+            </Group>
+            {error && (
+              <Alert color="red" variant="light">
+                {error}
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
+      {isError && (
+        <Alert color="red" variant="light" title={t("performanceReview.periods.loadError")}>
+          {t("performanceReview.unknownError")}
+        </Alert>
+      )}
+
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>{t("performanceReview.periods.column.period")}</Table.Th>
+            <Table.Th>{t("common.field.status")}</Table.Th>
+            {admin && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {isLoading ? (
+            <TableLoadingRow colSpan={columnCount} />
+          ) : periods && periods.length > 0 ? (
+            periods.map((p, index) => {
+              const isLatest = index === periods.length - 1;
+              const range = formatMonthRange(p.startMonth, p.endMonth, i18n.language);
+              return (
+                <Table.Tr key={p.id}>
+                  {/* The fluid column (v3.4.0): takes the table's slack. */}
+                  <Table.Td style={{ width: "100%" }}>
+                    <Text size="sm" fw={500}>
+                      {range}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    {isCurrentPeriod(p.startMonth, p.endMonth) && (
+                      <StatusPill color="teal" size="sm" dot>
+                        {t("performanceReview.periods.currentBadge")}
+                      </StatusPill>
+                    )}
+                  </Table.Td>
+                  {admin && (
+                    <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                      {/* Only the LATEST period is deletable — the append-only timeline. */}
+                      {isLatest && (
+                        <RowActions
+                          name={range}
+                          primary={{
+                            icon: <IconTrash size={16} />,
+                            label: t("common.action.delete"),
+                            ariaLabel: t("performanceReview.periods.deleteAria", { range }),
+                            color: "red",
+                            onClick: () => deleteConfirm.requestDelete(p.id),
+                          }}
+                        />
+                      )}
+                    </Table.Td>
+                  )}
+                </Table.Tr>
+              );
+            })
+          ) : !isError ? (
+            <Table.Tr>
+              <Table.Td colSpan={columnCount}>
+                <EmptyState
+                  icon={<IconCalendarStats size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                  label={t(
+                    admin ? "performanceReview.periods.empty" : "performanceReview.periods.emptyReadOnly",
+                  )}
+                />
+              </Table.Td>
+            </Table.Tr>
+          ) : null}
+        </Table.Tbody>
+      </Table>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}
@@ -298,6 +311,6 @@ export default function ReviewPeriods() {
               })
         }
       />
-    </Container>
+    </Stack>
   );
 }

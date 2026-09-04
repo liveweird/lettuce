@@ -141,7 +141,7 @@ export default function PulseCycleTable({
                     <Text
                       size="sm"
                       truncate
-                      maw={220}
+                      maw={320}
                       title={cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : undefined}
                     >
                       {cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : "—"}
