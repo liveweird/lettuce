@@ -1,17 +1,20 @@
 import { useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Group, Paper, Select, Stack, Text, Title } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { listAllTeams } from "../api/teams";
 import { activateTeamKpi, createTeamKpi } from "../api/teamkpis";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import CreateActivateModals from "../components/CreateActivateModals";
-import ReadOnlyField from "../components/ReadOnlyField";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
 import TeamKpiDefinitionFields from "../components/TeamKpiDefinitionFields";
 import { useCreateThenActivate } from "../hooks/useCreateThenActivate";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import {
   teamKpiDefinitionValidation,
   toKpiDefinitionBody,
@@ -39,7 +42,6 @@ export default function CreateTeamKpi() {
   const backTo = safeBackParam(searchParams) ?? BACK_TO;
 
   const [picked, setPicked] = useState<string | null>(null);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const flow = useCreateThenActivate({
     area: "teamKpi",
     backTo,
@@ -50,6 +52,13 @@ export default function CreateTeamKpi() {
   const form = useForm<TeamKpiDefinitionFormValues>({
     initialValues: { title: "", description: "", type: "NUMBER", targetValue: "", targetDirection: "AT_LEAST" },
     validate: teamKpiDefinitionValidation(t),
+  });
+  // The one cancel guard (v3.5.0): a picked team or any typed definition is work worth a confirm.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => picked != null || form.isDirty(),
+    to: backTo,
+    title: t("teamKpi.discardTitle"),
+    message: t("teamKpi.discardMessage"),
   });
 
   // The manageable pool ALWAYS loads (v2.35.0) — subtree-wide since v2.26.0 (includeIndirect
@@ -87,70 +96,75 @@ export default function CreateTeamKpi() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(save)} noValidate>
-          <Stack>
-            <Stack gap={4}>
-              <Title order={2}>{t("teamKpi.createTitle")}</Title>
-              <Text c="dimmed" size="sm">
-                {t("teamKpi.createHint")}
-              </Text>
-            </Stack>
+    <>
+      <PageHeader title={t("teamKpi.createTitle")} description={t("teamKpi.createHint")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <form onSubmit={form.onSubmit(save)} noValidate>
+            <Stack>
+              {/* The context line (v3.5.0): the team — the picker keeps its name via aria-label. */}
+              <MetaStrip
+                items={[
+                  {
+                    key: "team",
+                    label: t("teamKpi.team"),
+                    value: showPicker ? (
+                      <Select
+                        aria-label={t("teamKpi.team")}
+                        placeholder={t("teamKpi.pickTeam")}
+                        data={options}
+                        value={picked}
+                        onChange={setPicked}
+                        searchable
+                        clearable
+                        nothingFoundMessage={t("teamKpi.noManagedTeams")}
+                        w={260}
+                      />
+                    ) : (
+                      // The `#id` placeholder shows only until the pool resolves the canonical name.
+                      <Text size="sm" fw={500}>
+                        {preselectedTeam?.name ?? `#${preselectedId}`}
+                      </Text>
+                    ),
+                  },
+                  {
+                    key: "manager",
+                    label: t("teamKpi.manager"),
+                    value: <Text size="sm">{t("common.state.you")}</Text>,
+                  },
+                ]}
+              />
 
-            <Group gap="xl" align="flex-start">
-              {showPicker ? (
-                <Select
-                  label={t("teamKpi.team")}
-                  placeholder={t("teamKpi.pickTeam")}
-                  data={options}
-                  value={picked}
-                  onChange={setPicked}
-                  searchable
-                  clearable
-                  nothingFoundMessage={t("teamKpi.noManagedTeams")}
-                />
-              ) : (
-                // The `#id` placeholder shows only until the pool resolves the canonical name.
-                <ReadOnlyField label={t("teamKpi.team")}>
-                  <Text size="sm" fw={500}>
-                    {preselectedTeam?.name ?? `#${preselectedId}`}
-                  </Text>
-                </ReadOnlyField>
+              <TeamKpiDefinitionFields form={form} />
+
+              {flow.error && (
+                <Alert color="red" variant="light">
+                  {flow.error}
+                </Alert>
               )}
-            </Group>
 
-            <TeamKpiDefinitionFields form={form} />
+              <FormFooter>
+                <Button type="button" variant="default" onClick={requestCancel} disabled={flow.submitting}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button type="submit" loading={flow.submitting} disabled={!teamId || flow.createdId != null}>
+                  {t("common.action.create")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
 
-            {flow.error && (
-              <Alert color="red" variant="light">
-                {flow.error}
-              </Alert>
-            )}
-
-            <Group justify="flex-end" gap="sm">
-              <Button type="button" variant="default" onClick={openCancel} disabled={flow.submitting}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={flow.submitting} disabled={!teamId || flow.createdId != null}>
-                {t("common.action.create")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
-
+      <ConfirmActionModal {...modalProps} />
       <CreateActivateModals
         area="teamKpi"
-        backTo={backTo}
-        cancelOpen={cancelOpen}
-        onCancelClose={closeCancel}
         createdId={flow.createdId}
         promptClosed={flow.promptClosed}
         activating={flow.activating}
         onFinishAsDraft={flow.finishAsDraft}
         onActivate={flow.activateNow}
       />
-    </Container>
+    </>
   );
 }

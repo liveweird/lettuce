@@ -217,7 +217,8 @@ describe("CreateAlert page", () => {
     const user = userEvent.setup();
     renderCreateAlert();
 
-    await screen.findByLabelText("Content");
+    // The guard fires only once something was typed.
+    await user.type(await screen.findByLabelText("Title"), "Maintenance");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
 
     expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();

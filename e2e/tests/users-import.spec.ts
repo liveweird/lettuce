@@ -44,7 +44,7 @@ test("a mixed CSV imports row-by-row and an imported password signs in", async (
   const password = (await codeB.textContent()) ?? "";
   expect(password).toMatch(/^[A-Za-z0-9_-]{16}$/);
 
-  await page.getByRole("link", { name: "Back to users" }).click();
+  await page.getByRole("link", { name: "← Back to Users" }).click();
   await expect(page).toHaveURL(/\/users$/);
   await logout(page);
   await login(page, emailB, password);

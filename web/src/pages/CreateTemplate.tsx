@@ -1,17 +1,8 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  Paper,
-  Stack,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Container, Paper, Stack } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { templateFormValidation, type TemplateFormValues } from "../utils/templateForm";
-import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -19,7 +10,10 @@ import { isAdmin } from "../api/session";
 import { createTemplate } from "../api/templates";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
 import TemplateFormFields from "../components/TemplateFormFields";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { saveErrorMessage } from "../utils/saveError";
 
 export default function CreateTemplate() {
@@ -28,12 +22,17 @@ export default function CreateTemplate() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   // The shared form vocabulary (utils/templateForm.ts).
   const form = useForm<TemplateFormValues>({
     initialValues: { name: "", content: "" },
     validate: templateFormValidation(t),
+  });
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => form.isDirty(),
+    to: "/templates",
+    title: t("templates.discardTitle"),
+    message: t("templates.discardMessage"),
   });
 
   if (!isAdmin()) return <Navigate to="/templates" replace />;
@@ -67,37 +66,31 @@ export default function CreateTemplate() {
 
   return (
     <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(onSubmit)} noValidate>
-          <Stack>
-            <Title order={2}>{t("templates.create")}</Title>
-            <TemplateFormFields form={form} />
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end" gap="sm">
-              <Button type="button" variant="default" onClick={openCancel}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={submitting}>
-                {t("common.action.create")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
+      <Stack gap="md">
+        <PageHeader title={t("templates.create")} />
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <form onSubmit={form.onSubmit(onSubmit)} noValidate>
+            <Stack>
+              <TemplateFormFields form={form} />
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <FormFooter>
+                <Button type="button" variant="default" onClick={requestCancel}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button type="submit" loading={submitting}>
+                  {t("common.action.create")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </form>
+        </Paper>
+      </Stack>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("templates.discardTitle")}
-        message={t("templates.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo="/templates"
-      />
+      <ConfirmActionModal {...modalProps} />
     </Container>
   );
 }

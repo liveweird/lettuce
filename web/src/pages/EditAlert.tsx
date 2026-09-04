@@ -5,14 +5,11 @@ import {
   Button,
   Center,
   Container,
-  Group,
   Loader,
   Paper,
   Stack,
-  Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -21,6 +18,9 @@ import { getAlert, updateAlert } from "../api/alerts";
 import { showSuccessToast } from "../utils/toast";
 import AlertFormFields from "../components/AlertFormFields";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import {
   alertFormValidation,
   emptyAlertFormValues,
@@ -38,11 +38,16 @@ export default function EditAlert() {
   const id = Number(params.id);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<AlertFormValues>({
     initialValues: emptyAlertFormValues(),
     validate: alertFormValidation(t),
+  });
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => form.isDirty(),
+    to: "/alerts",
+    title: t("alerts.discardTitle"),
+    message: t("alerts.discardMessage"),
   });
 
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -102,15 +107,15 @@ export default function EditAlert() {
 
   return (
     <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("alerts.edit")}</Title>
+      <Stack gap="md">
+        <PageHeader title={t("alerts.edit")} />
+        <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
               <Loader />
             </Center>
           ) : isError ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {notFound
                   ? t("alerts.notFound")
@@ -118,12 +123,12 @@ export default function EditAlert() {
                       suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
                     })}
               </Alert>
-              <Group justify="flex-end">
+              <FormFooter>
                 <Button component={RouterLink} to="/alerts" variant="default">
                   {t("alerts.backToAlerts")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : (
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
@@ -133,29 +138,21 @@ export default function EditAlert() {
                     {error}
                   </Alert>
                 )}
-                <Group justify="flex-end" gap="sm">
-                  <Button type="button" variant="default" onClick={openCancel}>
+                <FormFooter>
+                  <Button type="button" variant="default" onClick={requestCancel}>
                     {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
                     {t("common.action.save")}
                   </Button>
-                </Group>
+                </FormFooter>
               </Stack>
             </form>
           )}
-        </Stack>
-      </Paper>
+        </Paper>
+      </Stack>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("alerts.discardTitle")}
-        message={t("alerts.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo="/alerts"
-      />
+      <ConfirmActionModal {...modalProps} />
     </Container>
   );
 }

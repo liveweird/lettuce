@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
+import { Route, Routes } from "react-router-dom";
 import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
 import FeedbackForm from "./FeedbackForm";
 import { formatDateTime } from "../utils/datetime";
@@ -59,7 +60,7 @@ describe("FeedbackForm", () => {
     localStorage.clear();
   });
 
-  test("lists every recipient in the people line", () => {
+  test("lists every recipient in the context strip", () => {
     renderWithProviders(
       <FeedbackForm
         {...baseProps}
@@ -94,11 +95,13 @@ describe("FeedbackForm", () => {
     const { unmount } = renderWithProviders(
       <FeedbackForm {...baseProps} onSubmit={() => {}} lastModified={ts} />,
     );
-    expect(screen.getByText(`Last modified ${formatDateTime(ts, "en")}`)).toBeInTheDocument();
+    // A "Last modified" cell in the context strip (v3.5.0), its value the localized timestamp.
+    expect(screen.getByText("Last modified")).toBeInTheDocument();
+    expect(screen.getByText(formatDateTime(ts, "en"))).toBeInTheDocument();
     unmount();
 
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
-    expect(screen.queryByText(/^Last modified /)).toBeNull();
+    expect(screen.queryByText("Last modified")).toBeNull();
   });
 
   test("with showTemplateInsert, fetches the template picker and gates Insert until a pick", async () => {
@@ -126,16 +129,16 @@ describe("FeedbackForm", () => {
     ).toBe(false);
   });
 
-  test("names the requester in the people line only when requesterDisplay is provided", () => {
+  test("names the requester in the context strip only when requesterDisplay is provided", () => {
     const { unmount } = renderWithProviders(
       <FeedbackForm {...baseProps} onSubmit={() => {}} requesterDisplay="Rita Requester" />,
     );
-    expect(screen.getByText("requested by")).toBeInTheDocument();
+    expect(screen.getByText("Requester")).toBeInTheDocument();
     expect(screen.getByText("Rita Requester")).toBeInTheDocument();
     unmount();
 
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
-    expect(screen.queryByText(/requested by/)).toBeNull();
+    expect(screen.queryByText("Requester")).toBeNull();
   });
 
   test("renders the error prop as an alert", () => {
@@ -273,6 +276,21 @@ describe("FeedbackForm", () => {
     expect(await screen.findByRole("img", { name: /lifecycle/i })).toBeInTheDocument();
   });
 
+  test("Cancel on an untouched form navigates straight to cancelTo without a confirm", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/edit" element={<FeedbackForm {...baseProps} onSubmit={() => {}} />} />
+        <Route path="/feedback" element={<p>the feedback list</p>} />
+      </Routes>,
+      { route: "/edit" },
+    );
+
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(await screen.findByText("the feedback list")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   test("Cancel opens the discard modal; Discard links to cancelTo and Keep editing closes it", async () => {
     const user = userEvent.setup();
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);
@@ -280,6 +298,8 @@ describe("FeedbackForm", () => {
     // Closed initially.
     expect(screen.queryByText("Discard your changes?")).toBeNull();
 
+    // The guard asks only once there is work to lose (v3.5.0).
+    await user.type(screen.getByLabelText("Content", { selector: "textarea" }), "draft words");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(screen.getByText("Discard your changes?")).toBeInTheDocument();
     // Discard is a router link back to cancelTo (we assert the href rather than drive navigation).

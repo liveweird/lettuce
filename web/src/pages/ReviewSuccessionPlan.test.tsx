@@ -321,6 +321,9 @@ describe("ReviewSuccessionPlan page", () => {
     // Chain/HR readers can click through to the person too.
     expect(screen.getByRole("link", { name: "User details for Sam Seat" })).toBeInTheDocument();
     expect(screen.getByText("Critical")).toBeInTheDocument();
+    // The read-only definition renders as two fieldsets (v3.5.0).
+    expect(screen.getByRole("group", { name: "Seat & criticality" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Loss impact" })).toHaveTextContent("Client trust");
     expect(screen.queryByRole("slider", { name: "Role criticality" })).toBeNull();
     expect(screen.getByRole("link", { name: /^Close$/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Complete review" })).toBeNull();

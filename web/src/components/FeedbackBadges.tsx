@@ -3,7 +3,7 @@ import type { FeedbackStatus, FeedbackVisibility } from "../api/feedbacks";
 import StatusPill from "./StatusPill";
 
 // The single source of truth for feedback status colors — shared by the view/edit header
-// (FeedbackMeta) and the list tables, so the pills stay coherent everywhere.
+// (the MetaStrip header) and the list tables, so the pills stay coherent everywhere.
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
   REQUESTED: "blue",
   DRAFT: "gray",

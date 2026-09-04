@@ -212,11 +212,13 @@ describe("CreateImpactEntry page", () => {
     const user = userEvent.setup();
     renderScreen("/impact-log/new?back=%2Fimpact-log");
 
+    // The guard fires only once something was typed; the Discard confirm is a link (v3.5.0).
+    await user.type(await screen.findByLabelText(/^Title/), "Half-written");
     await screen.findByLabelText("What happened");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Discard entry?")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: /^discard$/i }));
+    await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/impact-log"));
     expect(

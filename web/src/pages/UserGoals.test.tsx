@@ -66,6 +66,12 @@ describe("UserGoals page", () => {
       if (String(url).includes("/api/v1/goals?")) {
         return Promise.resolve(jsonResponse(200, page([GOAL_ITEM])));
       }
+      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      if (String(url).startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, page([{ id: 10, name: "Alice", email: "alice@example.com", roles: [] }])),
+        );
+      }
       return Promise.resolve(jsonResponse(200, page([])));
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -141,9 +147,22 @@ describe("UserGoals page", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  test("falls back to a placeholder name when none is provided", async () => {
-    renderScreen("/users/10/goals");
-    expect(await screen.findByText("Goals from user #10")).toBeInTheDocument();
+  test("falls back to a placeholder name when the id is not in the user pool", async () => {
+    renderScreen("/users/99/goals");
+    expect(await screen.findByText("Goals from user #99")).toBeInTheDocument();
+    // Still the fallback once the pool has loaded without the id.
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.startsWith("/api/v1/users?"))).toBe(true);
+    });
+    expect(screen.getByText("Goals from user #99")).toBeInTheDocument();
+  });
+
+  test("the URL's name is only the pre-load hint — the pool's name for the id wins once loaded", async () => {
+    renderScreen("/users/10/goals?name=Mallory&from=managers");
+    expect(screen.getByText("Goals from Mallory")).toBeInTheDocument();
+    expect(await screen.findByText("Goals from Alice")).toBeInTheDocument();
+    expect(screen.queryByText("Goals from Mallory")).not.toBeInTheDocument();
   });
 
   test("the Back to My managers link points at the managers tab", async () => {

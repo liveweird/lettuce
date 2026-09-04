@@ -9,12 +9,16 @@ import {
   Select,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import DateField from "../components/DateField";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import {
@@ -56,6 +60,27 @@ function resolvePoolPick(
   return { pools, pickValue, type, budget };
 }
 
+// The discard guard's dirtiness (v3.5.0): hand-rolled state, so a compare against the fresh
+// form — any pick, any half-day tick, or either date moved off today.
+function isDraftDirty(draft: {
+  pick: string | null;
+  subjectPick: string | null;
+  startHalf: boolean;
+  endHalf: boolean;
+  startDate: string;
+  endDate: string;
+}): boolean {
+  const today = todayIsoDate();
+  return (
+    draft.pick != null ||
+    draft.subjectPick != null ||
+    draft.startHalf ||
+    draft.endHalf ||
+    draft.startDate !== today ||
+    draft.endDate !== today
+  );
+}
+
 /**
  * The create-request form: one consecutive period, optional half-day edges, and the pool —
  * one of the person's paid pools (v3.2.0 — budgeted; the default pool pre-picked) or UNPAID.
@@ -89,6 +114,10 @@ export default function CreateDaysOff() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const subjectId = onBehalf && subjectPick != null ? Number(subjectPick) : null;
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: isDraftDirty({ pick, subjectPick, startHalf, endHalf, startDate, endDate }),
+    to: backTo,
+  });
 
   // On-behalf mode's picker pool: the caller's whole subtree (chain-wide since v2.33.0),
   // minus the caller — a manager on their own roster is 403'd server-side (nobody records
@@ -188,146 +217,161 @@ export default function CreateDaysOff() {
 
   return (
     <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack gap="md">
-          <Title order={2}>{t(onBehalf ? "daysOff.recordTitle" : "daysOff.createTitle")}</Title>
-          <Text size="sm" c="dimmed">
-            {t(onBehalf ? "daysOff.recordHint" : "daysOff.createHint")}
-          </Text>
+      <Stack gap="md">
+        <PageHeader
+          title={t(onBehalf ? "daysOff.recordTitle" : "daysOff.createTitle")}
+          description={t(onBehalf ? "daysOff.recordHint" : "daysOff.createHint")}
+        />
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack gap="md">
+            {/* The on-behalf context line (v3.5.0): the report picker keeps its accessible
+                name via aria-label — the strip's <dt> is the visible label. */}
+            {onBehalf && (
+              <MetaStrip
+                items={[
+                  {
+                    key: "onBehalf",
+                    label: t("daysOff.onBehalfLabel"),
+                    value: (
+                      <Select
+                        aria-label={t("daysOff.onBehalfLabel")}
+                        placeholder={t("daysOff.pickReport")}
+                        data={reportOptions}
+                        value={subjectPick}
+                        onChange={(v) => {
+                          setSubjectPick(v);
+                          // A new person, their own pools — back to their default.
+                          setPick(null);
+                        }}
+                        searchable
+                        clearable
+                        nothingFoundMessage={t("daysOff.budget.noReports")}
+                        error={reportsError ? t("common.error.optionsFailed") : undefined}
+                        w={320}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            )}
 
-          {onBehalf && (
+            {/* The pool picker (v3.2.0): the person's paid pools + Unpaid; "Type" stays the
+                label — the answer is still "which kind of days off". */}
             <Select
-              label={t("daysOff.onBehalfLabel")}
-              placeholder={t("daysOff.pickReport")}
-              data={reportOptions}
-              value={subjectPick}
-              onChange={(v) => {
-                setSubjectPick(v);
-                // A new person, their own pools — back to their default.
-                setPick(null);
-              }}
-              searchable
-              clearable
-              nothingFoundMessage={t("daysOff.budget.noReports")}
-              error={reportsError ? t("common.error.optionsFailed") : undefined}
-              w={320}
+              label={t("daysOff.type.label")}
+              data={poolOptions}
+              value={pickValue}
+              placeholder={t(onBehalf && subjectId == null ? "daysOff.pickReport" : "daysOff.pool.loadingPools")}
+              onChange={(v) => v && setPick(v)}
+              allowDeselect={false}
+              w={260}
             />
-          )}
 
-          {/* The pool picker (v3.2.0): the person's paid pools + Unpaid; "Type" stays the
-              label — the answer is still "which kind of days off". */}
-          <Select
-            label={t("daysOff.type.label")}
-            data={poolOptions}
-            value={pickValue}
-            placeholder={t(onBehalf && subjectId == null ? "daysOff.pickReport" : "daysOff.pool.loadingPools")}
-            onChange={(v) => v && setPick(v)}
-            allowDeselect={false}
-            w={260}
-          />
+            <Group align="flex-end" gap="md" wrap="wrap">
+              <DateField
+                label={t("daysOff.column.startDate")}
+                value={startDate}
+                onChange={(iso) => {
+                  const v = iso;
+                  setStartDate(v);
+                  // Keep the range ordered as the user moves the start forward.
+                  if (v > endDate) setEndDate(v);
+                }}
+                w={180}
+              />
+              <DateField
+                label={t("daysOff.column.endDate")}
+                value={endDate}
+                minIso={startDate}
+                onChange={(iso) => setEndDate(iso)}
+                w={180}
+              />
+            </Group>
+            <Group gap="xl">
+              <Checkbox
+                label={t("daysOff.startHalfLabel")}
+                checked={startHalf}
+                onChange={(e) => setStartHalf(e.currentTarget.checked)}
+              />
+              <Checkbox
+                label={t("daysOff.endHalfLabel")}
+                checked={singleDay ? false : endHalf}
+                onChange={(e) => setEndHalf(e.currentTarget.checked)}
+                disabled={singleDay}
+              />
+            </Group>
 
-          <Group align="flex-end" gap="md" wrap="wrap">
-            <DateField
-              label={t("daysOff.column.startDate")}
-              value={startDate}
-              onChange={(iso) => {
-                const v = iso;
-                setStartDate(v);
-                // Keep the range ordered as the user moves the start forward.
-                if (v > endDate) setEndDate(v);
-              }}
-              w={180}
-            />
-            <DateField
-              label={t("daysOff.column.endDate")}
-              value={endDate}
-              minIso={startDate}
-              onChange={(iso) => setEndDate(iso)}
-              w={180}
-            />
-          </Group>
-          <Group gap="xl">
-            <Checkbox
-              label={t("daysOff.startHalfLabel")}
-              checked={startHalf}
-              onChange={(e) => setStartHalf(e.currentTarget.checked)}
-            />
-            <Checkbox
-              label={t("daysOff.endHalfLabel")}
-              checked={singleDay ? false : endHalf}
-              onChange={(e) => setEndHalf(e.currentTarget.checked)}
-              disabled={singleDay}
-            />
-          </Group>
+            {!ordered && (
+              <Alert color="red" variant="light">
+                {t("daysOff.validation.order")}
+              </Alert>
+            )}
+            {ordered && !sameYear && (
+              <Alert color="red" variant="light">
+                {t("daysOff.validation.sameYear")}
+              </Alert>
+            )}
+            {zeroCost && (
+              <Alert color="orange" variant="light">
+                {t("daysOff.validation.zeroCost")}
+              </Alert>
+            )}
 
-          {!ordered && (
-            <Alert color="red" variant="light">
-              {t("daysOff.validation.order")}
-            </Alert>
-          )}
-          {ordered && !sameYear && (
-            <Alert color="red" variant="light">
-              {t("daysOff.validation.sameYear")}
-            </Alert>
-          )}
-          {zeroCost && (
-            <Alert color="orange" variant="light">
-              {t("daysOff.validation.zeroCost")}
-            </Alert>
-          )}
-
-          {/* The live preview: the request's working-day cost and, for PAID, what remains. */}
-          {costDays != null && costDays > 0 && (
-            <Paper withBorder p="sm" radius="md">
-              <Stack gap={2}>
-                <Text size="sm" fw={600}>
-                  {/* count drives the plural form (PL: dzień/dni robocze/dni roboczych, with
-                      fractional halves on the genitive "dnia roboczego"); days is the
-                      locale-formatted display value. */}
-                  {t("daysOff.costPreview", {
-                    count: costDays,
-                    days: formatDays(costDays, i18n.language),
-                  })}
-                </Text>
-                {type === "PAID" && budget != null && (
-                  <Text size="sm" c={overBudget ? "var(--lettuce-ink-error)" : "dimmed"}>
-                    {t("daysOff.remainingPreview", {
-                      days: formatDays(budget.remaining, i18n.language),
-                      pool: budget.poolName,
-                      year,
+            {/* The live preview: the request's working-day cost and, for PAID, what remains. */}
+            {costDays != null && costDays > 0 && (
+              <Paper withBorder p="sm" radius="md">
+                <Stack gap={2}>
+                  <Text size="sm" fw={600}>
+                    {/* count drives the plural form (PL: dzień/dni robocze/dni roboczych, with
+                        fractional halves on the genitive "dnia roboczego"); days is the
+                        locale-formatted display value. */}
+                    {t("daysOff.costPreview", {
+                      count: costDays,
+                      days: formatDays(costDays, i18n.language),
                     })}
                   </Text>
-                )}
-                {type === "PAID" && budget != null && budget.allowance == null && (
-                  <Text size="xs" c="var(--lettuce-ink-warning)">
-                    {t(onBehalf ? "daysOff.budget.noAllowanceOnBehalf" : "daysOff.budget.noAllowance")}
-                  </Text>
-                )}
-              </Stack>
-            </Paper>
-          )}
-          {overBudget && (
-            <Alert color="red" variant="light">
-              {t(onBehalf ? "daysOff.error.overBudgetOnBehalf" : "daysOff.error.overBudget")}
-            </Alert>
-          )}
+                  {type === "PAID" && budget != null && (
+                    <Text size="sm" c={overBudget ? "var(--lettuce-ink-error)" : "dimmed"}>
+                      {t("daysOff.remainingPreview", {
+                        days: formatDays(budget.remaining, i18n.language),
+                        pool: budget.poolName,
+                        year,
+                      })}
+                    </Text>
+                  )}
+                  {type === "PAID" && budget != null && budget.allowance == null && (
+                    <Text size="xs" c="var(--lettuce-ink-warning)">
+                      {t(onBehalf ? "daysOff.budget.noAllowanceOnBehalf" : "daysOff.budget.noAllowance")}
+                    </Text>
+                  )}
+                </Stack>
+              </Paper>
+            )}
+            {overBudget && (
+              <Alert color="red" variant="light">
+                {t(onBehalf ? "daysOff.error.overBudgetOnBehalf" : "daysOff.error.overBudget")}
+              </Alert>
+            )}
 
-          {error && (
-            <Alert color="red" variant="light">
-              {error}
-            </Alert>
-          )}
+            {error && (
+              <Alert color="red" variant="light">
+                {error}
+              </Alert>
+            )}
 
-          <Group justify="flex-end" gap="sm">
-            <Button component={RouterLink} to={backTo} variant="default" disabled={submitting}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button onClick={() => void submit()} loading={submitting} disabled={!submittable}>
-              {t(onBehalf ? "daysOff.action.submitAutoAccepted" : "daysOff.action.submitRequest")}
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
+            <FormFooter>
+              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                {t("common.action.cancel")}
+              </Button>
+              <Button onClick={() => void submit()} loading={submitting} disabled={!submittable}>
+                {t(onBehalf ? "daysOff.action.submitAutoAccepted" : "daysOff.action.submitRequest")}
+              </Button>
+            </FormFooter>
+          </Stack>
+        </Paper>
+      </Stack>
+
+      <ConfirmActionModal {...modalProps} />
     </Container>
   );
 }

@@ -7,33 +7,26 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import {
-  Alert,
-  Box,
-  Button,
-  Center,
-  Container,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Tabs,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Container, Group, Paper, Stack, Tabs, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getFeedback, pickUpFeedback, sendFeedback, withdrawFeedback, type FeedbackStatus } from "../api/feedbacks";
+import CenteredLoader from "../components/CenteredLoader";
+import DateCell from "../components/DateCell";
+import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import FeedbackHistory from "../components/FeedbackHistory";
-import FeedbackMeta from "../components/FeedbackMeta";
-import { subjectDisplays } from "../utils/feedbackSubjects";
 import FeedbackLifecycle from "../components/FeedbackLifecycle";
 import MarkdownView from "../components/MarkdownView";
+import MetaStrip, { type MetaStripItem } from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonCell from "../components/PersonCell";
+import ProseBox from "../components/ProseBox";
 import RequesterMessage from "../components/RequesterMessage";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import { feedbackSubjects } from "../utils/feedbackSubjects";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { invalidateFeedback } from "../utils/feedbackQueries";
@@ -52,6 +45,14 @@ const NEXT_ACTION: Partial<
   SENT: { labelKey: "feedback.action.withdraw", successKey: "feedback.toast.withdrawn", run: withdrawFeedback, confirm: true },
 };
 
+/**
+ * The feedback document (the v3.5.0 detail layout): the page header carries the status and
+ * visibility pills plus Close and the provider's single lifecycle action; the identity strip
+ * names the parties — provider, every recipient in position order, the requester when there
+ * is one (the app-wide PersonCell rule: a chip for others, plain "You" for the caller) — and
+ * the Content / History / Lifecycle tabs follow, the content in a border-first prose box
+ * sized to the text.
+ */
 export default function ViewFeedback() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -89,14 +90,15 @@ export default function ViewFeedback() {
   if (!hasFeature("FEEDBACKS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={backTo} replace />;
 
+  const currentUserId = getUserId();
   // The provider (not the as=provider display hint) is the only one who can change status.
-  const isProvider = data != null && getUserId() === data.providerId;
+  const isProvider = data != null && currentUserId === data.providerId;
   const action = isProvider ? NEXT_ACTION[data!.status] : undefined;
   // A requester watching a feedback they requested may see that it exists, but not its content
   // while it is unfinished: never drafted (REQUESTED), still a private draft (DRAFT), or declined
   // (REJECTED). The server also redacts the content field for these cases; hiding the section here
   // avoids rendering an empty Content box.
-  const isRequester = data != null && data.requesterId != null && getUserId() === data.requesterId;
+  const isRequester = data != null && data.requesterId != null && currentUserId === data.requesterId;
   const hideContent =
     isRequester &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
@@ -136,141 +138,134 @@ export default function ViewFeedback() {
           ? t("feedback.error.loadFailedStatus", { status: errorStatus })
           : t("feedback.error.loadFailed");
 
+  // The parties, in the people-line order: provider → recipients · requester. The single
+  // response carries no *Deleted flags (unlike the list rows), so deleted parties still chip.
+  const metaItems: MetaStripItem[] = data
+    ? [
+        {
+          key: "provider",
+          label: t("common.field.provider"),
+          value: <PersonCell userId={data.providerId} name={data.providerName} currentUserId={currentUserId} />,
+        },
+        {
+          key: "recipients",
+          label: t("feedback.recipientsLabel"),
+          value: (
+            <Group gap="sm" wrap="wrap">
+              {feedbackSubjects(data).map((subject) => (
+                <PersonCell
+                  key={subject.id}
+                  userId={subject.id}
+                  name={subject.name}
+                  deleted={subject.deleted}
+                  currentUserId={currentUserId}
+                />
+              ))}
+            </Group>
+          ),
+        },
+        ...(data.requesterId != null
+          ? [
+              {
+                key: "requester",
+                label: t("common.field.requester"),
+                value: (
+                  <PersonCell userId={data.requesterId} name={data.requesterName} currentUserId={currentUserId} />
+                ),
+              },
+            ]
+          : []),
+        {
+          key: "lastModified",
+          label: t("common.field.lastModified"),
+          value: <DateCell value={data.lastModified} mode="relative" />,
+        },
+      ]
+    : [];
+
   return (
-    <Container
-      size="md"
-      px={0}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        // Always fill the AppShell.Main content area (header 56px + md padding top & bottom) so the
-        // active tab panel is height-bounded and scrolls internally (incl. when content is redacted).
-        minHeight:
-          "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))",
-      }}
-    >
-      <Paper
-        withBorder
-        shadow="sm"
-        p="xl"
-        radius="md"
-        style={{ flex: 1, display: "flex", flexDirection: "column" }}
-      >
-        <Stack style={{ flex: 1, minHeight: 0 }}>
-          {isLoading ? (
+    <>
+      <Stack gap="md">
+        <PageHeader
+          title={t("feedback.viewTitle")}
+          badge={
+            data && (
+              <Group gap="xs" wrap="nowrap">
+                <StatusBadge status={data.status} />
+                <VisibilityBadge visibility={data.visibility} />
+              </Group>
+            )
+          }
+          actions={
             <>
-              <Title order={2}>{t("feedback.viewTitle")}</Title>
-              <Center py="xl">
-                <Loader />
-              </Center>
+              <Button component={RouterLink} to={backTo} variant="default">
+                {t("common.action.close")}
+              </Button>
+              {action && (
+                <Button
+                  onClick={() =>
+                    action.confirm ? openConfirm() : handleAction(action.run, action.successKey)
+                  }
+                  loading={submitting}
+                >
+                  {t(action.labelKey)}
+                </Button>
+              )}
             </>
-          ) : isError ? (
-            <>
-              <Title order={2}>{t("feedback.viewTitle")}</Title>
+          }
+        />
+
+        {actionError && (
+          <Alert color="red" variant="light">
+            {actionError}
+          </Alert>
+        )}
+
+        <Container size="md" px={0} w="100%">
+          <Paper withBorder radius="md" p="md">
+            {isLoading ? (
+              <CenteredLoader />
+            ) : isError ? (
               <Alert color="red" variant="light">
                 {errorMessage}
               </Alert>
-              <Group justify="flex-end">
-                <Button component={RouterLink} to={backTo} variant="default">
-                  {t("common.action.close")}
-                </Button>
-              </Group>
-            </>
-          ) : (
-            <>
-              <FeedbackMeta
-                title={t("feedback.viewTitle")}
-                status={data!.status}
-                visibility={data!.visibility}
-                providerDisplay={
-                  isProvider
-                    ? t("common.state.you")
-                    : (data!.providerName ?? `#${data!.providerId}`)
-                }
-                providerIsYou={isProvider}
-                subjects={subjectDisplays(data!, getUserId(), t)}
-                requesterDisplay={
-                  data!.requesterId != null
-                    ? isRequester
-                      ? t("common.state.you")
-                      : (data!.requesterName ?? `#${data!.requesterId}`)
-                    : undefined
-                }
-                requesterIsYou={isRequester}
-                lastModified={data!.lastModified}
-              />
-              <RequesterMessage value={data!.requesterMessage} collapsible />
-              <Tabs
-                defaultValue="content"
-                style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
-              >
-                <Tabs.List>
-                  <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                  <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
-                  <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
-                </Tabs.List>
+            ) : data ? (
+              <Stack gap="md">
+                <MetaStrip items={metaItems} />
+                <RequesterMessage value={data.requesterMessage} collapsible />
+                <Tabs defaultValue="content" keepMounted={false}>
+                  <Tabs.List>
+                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                    <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
+                    <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
+                  </Tabs.List>
 
-                <Tabs.Panel
-                  value="content"
-                  pt="md"
-                  style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
-                >
-                  {hideContent ? (
-                    <Text c="dimmed" size="sm">
-                      {t("feedback.contentUnavailable")}
-                    </Text>
-                  ) : (
-                    <Box
-                      tabIndex={-1}
-                      style={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflow: "auto",
-                        border: "1px solid var(--mantine-color-default-border)",
-                        borderRadius: "var(--mantine-radius-default)",
-                        padding: "var(--mantine-spacing-sm)",
-                        backgroundColor: "var(--mantine-color-default-hover)",
-                        cursor: "default",
-                        outline: "none",
-                      }}
-                    >
-                      <MarkdownView>{data!.content}</MarkdownView>
-                    </Box>
-                  )}
-                </Tabs.Panel>
+                  <Tabs.Panel value="content" pt="md">
+                    {hideContent ? (
+                      <Text c="dimmed" size="sm">
+                        {t("feedback.contentUnavailable")}
+                      </Text>
+                    ) : (
+                      <ProseBox>
+                        <MarkdownView>{data.content}</MarkdownView>
+                      </ProseBox>
+                    )}
+                  </Tabs.Panel>
 
-                <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                  <FeedbackHistory feedbackId={id} />
-                </Tabs.Panel>
+                  <Tabs.Panel value="history" pt="md">
+                    <FeedbackHistory feedbackId={id} />
+                  </Tabs.Panel>
 
-                <Tabs.Panel value="lifecycle" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                  <FeedbackLifecycle currentStatus={data!.status} />
-                </Tabs.Panel>
-              </Tabs>
-              {actionError && (
-                <Alert color="red" variant="light">
-                  {actionError}
-                </Alert>
-              )}
-              <Group justify="flex-end">
-                <Button component={RouterLink} to={backTo} variant="default">
-                  {t("common.action.close")}
-                </Button>
-                {action && (
-                  <Button
-                    onClick={() =>
-                      action.confirm ? openConfirm() : handleAction(action.run, action.successKey)
-                    }
-                    loading={submitting}
-                  >
-                    {t(action.labelKey)}
-                  </Button>
-                )}
-              </Group>
-            </>
-          )}
-        </Stack>
-      </Paper>
+                  <Tabs.Panel value="lifecycle" pt="md">
+                    <FeedbackLifecycle currentStatus={data.status} />
+                  </Tabs.Panel>
+                </Tabs>
+              </Stack>
+            ) : null}
+          </Paper>
+        </Container>
+      </Stack>
+
       <ConfirmActionModal
         opened={confirmOpen}
         onClose={closeConfirm}
@@ -289,6 +284,6 @@ export default function ViewFeedback() {
           closeConfirm();
         }}
       />
-    </Container>
+    </>
   );
 }

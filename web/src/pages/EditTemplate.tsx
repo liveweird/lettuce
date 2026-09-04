@@ -10,15 +10,12 @@ import {
   Button,
   Center,
   Container,
-  Group,
   Loader,
   Paper,
   Stack,
-  Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { templateFormValidation, type TemplateFormValues } from "../utils/templateForm";
-import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -26,7 +23,10 @@ import { isAdmin } from "../api/session";
 import { getTemplate, updateTemplate } from "../api/templates";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
 import TemplateFormFields from "../components/TemplateFormFields";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { saveErrorMessage } from "../utils/saveError";
 
 export default function EditTemplate() {
@@ -37,12 +37,17 @@ export default function EditTemplate() {
   const id = Number(params.id);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   // The shared form vocabulary (utils/templateForm.ts).
   const form = useForm<TemplateFormValues>({
     initialValues: { name: "", content: "" },
     validate: templateFormValidation(t),
+  });
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => form.isDirty(),
+    to: "/templates",
+    title: t("templates.discardTitle"),
+    message: t("templates.discardMessage"),
   });
 
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -98,37 +103,37 @@ export default function EditTemplate() {
 
   return (
     <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("templates.edit")}</Title>
+      <Stack gap="md">
+        <PageHeader title={t("templates.edit")} />
+        <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
               <Loader />
             </Center>
           ) : notFound ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {t("templates.notFound")}
               </Alert>
-              <Group justify="flex-end">
+              <FormFooter>
                 <Button component={RouterLink} to="/templates" variant="default">
                   {t("templates.backToTemplates")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : isError ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {t("templates.loadOneFailed", {
                   suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
                 })}
               </Alert>
-              <Group justify="flex-end">
+              <FormFooter>
                 <Button component={RouterLink} to="/templates" variant="default">
                   {t("templates.backToTemplates")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : (
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
@@ -138,29 +143,21 @@ export default function EditTemplate() {
                     {error}
                   </Alert>
                 )}
-                <Group justify="flex-end" gap="sm">
-                  <Button type="button" variant="default" onClick={openCancel}>
+                <FormFooter>
+                  <Button type="button" variant="default" onClick={requestCancel}>
                     {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
                     {t("common.action.save")}
                   </Button>
-                </Group>
+                </FormFooter>
               </Stack>
             </form>
           )}
-        </Stack>
-      </Paper>
+        </Paper>
+      </Stack>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("templates.discardTitle")}
-        message={t("templates.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo="/templates"
-      />
+      <ConfirmActionModal {...modalProps} />
     </Container>
   );
 }

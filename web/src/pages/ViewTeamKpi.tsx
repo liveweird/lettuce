@@ -1,35 +1,25 @@
 import type { ParseKeys } from "i18next";
 import { lazy, Suspense, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Center,
-  Container,
-  Group,
-  Input,
-  Loader,
-  Paper,
-  Skeleton,
-  Stack,
-  Tabs,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Container, Input, Paper, Skeleton, Stack, Tabs, Text } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { activateTeamKpi, archiveTeamKpi, deactivateTeamKpi, getTeamKpi, reopenTeamKpi, type TeamKpiStatus } from "../api/teamkpis";
+import CenteredLoader from "../components/CenteredLoader";
+import DateCell from "../components/DateCell";
 import GoalCloseModal from "../components/GoalCloseModal";
 import MarkdownView from "../components/MarkdownView";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
 import TeamKpiHistory from "../components/TeamKpiHistory";
 import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
 import TeamKpiValuesEditor from "../components/TeamKpiValuesEditor";
-import { formatDate } from "../utils/datetime";
 import { formatTargetValue } from "../utils/goalValues";
 import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
@@ -56,8 +46,9 @@ const ACTIONS: Record<TeamKpiStatus, { labelKey: ParseKeys; successKey: ParseKey
 };
 
 /**
- * THE team-KPI screen (v1.29.0): tabs General / KPI data / Graph / History, the manager's
- * lifecycle actions at the bottom, and — for a DRAFT — the link to the definition editor. Data
+ * THE team-KPI screen (v1.29.0; the v3.5.0 detail layout): the page header carries the
+ * status pill and every action — Close, the DRAFT-only Edit link, the manager's lifecycle
+ * actions — over the identity strip and the General / KPI data / Graph / History tabs. Data
  * points are managed inline on the KPI data tab; there is no separate progress editor.
  */
 export default function ViewTeamKpi() {
@@ -125,148 +116,166 @@ export default function ViewTeamKpi() {
 
   const editLink = teamKpiEditLink(id, backOverride ?? undefined);
 
+  // Close · Edit · the secondary lifecycle exit (light) · the primary one (filled).
+  const actions = (
+    <>
+      <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
+        {t("common.action.close")}
+      </Button>
+      {canManage && data && data.status === "DRAFT" && (
+        <Button
+          component={RouterLink}
+          to={editLink}
+          variant="light"
+          leftSection={<IconPencil size={16} />}
+          disabled={submitting != null}
+        >
+          {t("common.action.edit")}
+        </Button>
+      )}
+      {canManage &&
+        data &&
+        ACTIONS[data.status].map((action) => (
+          <Button
+            key={action.labelKey}
+            variant={action.primary ? "filled" : "light"}
+            loading={submitting === action.labelKey && !closeOpened}
+            disabled={submitting != null}
+            onClick={() => {
+              if (action.close) {
+                setCloseOpened(true);
+              } else if (action.run) {
+                void runAction(action.labelKey, action.run, action.successKey);
+              }
+            }}
+          >
+            {t(action.labelKey)}
+          </Button>
+        ))}
+    </>
+  );
+
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Group justify="space-between" align="flex-start">
-            <Title order={2}>{t("teamKpi.viewTitle")}</Title>
-            {data && <TeamKpiStatusBadge status={data.status} />}
-          </Group>
-          {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : isError ? (
-            <Alert color="red" variant="light">
-              {errorMessage}
-            </Alert>
-          ) : data ? (
-            <>
-              <Group gap="xl">
-                <ReadOnlyField label={t("teamKpi.team")}>
-                  <Text size="sm" fw={500}>
-                    {data.teamName}
-                    {data.teamDeleted ? ` (${t("teamKpi.teamDeleted")})` : ""}
-                  </Text>
-                </ReadOnlyField>
-                <ReadOnlyField label={t("teamKpi.manager")}>
-                  <Text size="sm">
-                    {currentUserId === data.managerId ? t("common.state.you") : data.managerName}
-                  </Text>
-                </ReadOnlyField>
-                <ReadOnlyField label={t("common.field.creator")}>
-                  <Text size="sm">
-                    {currentUserId === data.creatorId ? t("common.state.you") : data.creatorName}
-                  </Text>
-                </ReadOnlyField>
-                <ReadOnlyField label={t("teamKpi.createdAt")}>
-                  <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>
-                </ReadOnlyField>
-              </Group>
+    <>
+      <Stack gap="md">
+        <PageHeader
+          title={t("teamKpi.viewTitle")}
+          badge={data && <TeamKpiStatusBadge status={data.status} />}
+          actions={actions}
+        />
 
-              <Tabs defaultValue="general" keepMounted={false}>
-                <Tabs.List>
-                  <Tabs.Tab value="general">{t("teamKpi.general")}</Tabs.Tab>
-                  <Tabs.Tab value="data">{t("teamKpi.data")}</Tabs.Tab>
-                  <Tabs.Tab value="graph">{t("teamKpi.graph")}</Tabs.Tab>
-                  <Tabs.Tab value="history">{t("teamKpi.history")}</Tabs.Tab>
-                </Tabs.List>
+        {actionError && (
+          <Alert color="red" variant="light">
+            {actionError}
+          </Alert>
+        )}
 
-                <Tabs.Panel value="general" pt="md">
-                  <Stack gap="lg">
-                    <Input.Wrapper label={t("teamKpi.title")}>
-                      <Text fw={500}>{data.title}</Text>
-                    </Input.Wrapper>
-                    <Input.Wrapper label={t("teamKpi.description")}>
-                      <ProseBox>
-                        <MarkdownView>{data.description}</MarkdownView>
-                      </ProseBox>
-                    </Input.Wrapper>
-                    <Group gap="xl">
-                      <ReadOnlyField label={t("teamKpi.type.label")}>
-                        <Text size="sm">{t(`teamKpi.type.${data.type}`)}</Text>
-                      </ReadOnlyField>
+        <Container size="md" px={0} w="100%">
+          <Paper withBorder radius="md" p="md">
+            {isLoading ? (
+              <CenteredLoader />
+            ) : isError ? (
+              <Alert color="red" variant="light">
+                {errorMessage}
+              </Alert>
+            ) : data ? (
+              <Stack gap="md">
+                <MetaStrip
+                  items={[
+                    {
+                      key: "title",
+                      label: t("teamKpi.title"),
+                      value: (
+                        <Text size="sm" fw={600}>
+                          {data.title}
+                        </Text>
+                      ),
+                    },
+                    {
+                      key: "team",
+                      label: t("teamKpi.team"),
+                      value: (
+                        <Text size="sm">
+                          {data.teamName}
+                          {data.teamDeleted ? ` (${t("teamKpi.teamDeleted")})` : ""}
+                        </Text>
+                      ),
+                    },
+                    {
+                      key: "manager",
+                      label: t("teamKpi.manager"),
+                      value: <PersonCell userId={data.managerId} name={data.managerName} currentUserId={currentUserId} />,
+                    },
+                    {
+                      key: "creator",
+                      label: t("common.field.creator"),
+                      value: (
+                        <PersonCell
+                          userId={data.creatorId}
+                          name={data.creatorName}
+                          deleted={data.creatorDeleted}
+                          currentUserId={currentUserId}
+                        />
+                      ),
+                    },
+                    { key: "type", label: t("teamKpi.type.label"), value: <Text size="sm">{t(`teamKpi.type.${data.type}`)}</Text> },
+                    { key: "created", label: t("teamKpi.createdAt"), value: <DateCell value={data.createdAt} mode="date" /> },
+                  ]}
+                />
+
+                <Tabs defaultValue="general" keepMounted={false}>
+                  <Tabs.List>
+                    <Tabs.Tab value="general">{t("teamKpi.general")}</Tabs.Tab>
+                    <Tabs.Tab value="data">{t("teamKpi.data")}</Tabs.Tab>
+                    <Tabs.Tab value="graph">{t("teamKpi.graph")}</Tabs.Tab>
+                    <Tabs.Tab value="history">{t("teamKpi.history")}</Tabs.Tab>
+                  </Tabs.List>
+
+                  <Tabs.Panel value="general" pt="md">
+                    <Stack gap="lg">
+                      <Input.Wrapper label={t("teamKpi.description")}>
+                        <ProseBox>
+                          <MarkdownView>{data.description}</MarkdownView>
+                        </ProseBox>
+                      </Input.Wrapper>
                       <ReadOnlyField label={t("teamKpi.target")}>
                         <Text size="sm">
                           {formatTargetValue(data.type, data.targetValue, data.targetDirection, i18n.language)}
                         </Text>
                       </ReadOnlyField>
-                    </Group>
-                    {data.summary != null && data.summary !== "" && (
-                      // The summary is captured as plain text in the archive modal, so it renders
-                      // pre-wrap (not markdown).
-                      <Input.Wrapper label={t("teamKpi.summary")}>
-                        <ProseBox>
-                          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-                            {data.summary}
-                          </Text>
-                        </ProseBox>
-                      </Input.Wrapper>
-                    )}
-                  </Stack>
-                </Tabs.Panel>
+                      {data.summary != null && data.summary !== "" && (
+                        // The summary is captured as plain text in the archive modal, so it renders
+                        // pre-wrap (not markdown).
+                        <Input.Wrapper label={t("teamKpi.summary")}>
+                          <ProseBox>
+                            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+                              {data.summary}
+                            </Text>
+                          </ProseBox>
+                        </Input.Wrapper>
+                      )}
+                    </Stack>
+                  </Tabs.Panel>
 
-                <Tabs.Panel value="data" pt="md">
-                  <TeamKpiValuesEditor kpi={data} />
-                </Tabs.Panel>
+                  <Tabs.Panel value="data" pt="md">
+                    <TeamKpiValuesEditor kpi={data} />
+                  </Tabs.Panel>
 
-                <Tabs.Panel value="graph" pt="md">
-                  <Suspense fallback={<Skeleton height={280} radius="sm" />}>
-                    <TeamKpiChart kpi={data} />
-                  </Suspense>
-                </Tabs.Panel>
+                  <Tabs.Panel value="graph" pt="md">
+                    <Suspense fallback={<Skeleton height={280} radius="sm" />}>
+                      <TeamKpiChart kpi={data} />
+                    </Suspense>
+                  </Tabs.Panel>
 
-                <Tabs.Panel value="history" pt="md">
-                  <TeamKpiHistory kpiId={id} type={data.type} />
-                </Tabs.Panel>
-              </Tabs>
-            </>
-          ) : null}
-
-          {actionError && (
-            <Alert color="red" variant="light">
-              {actionError}
-            </Alert>
-          )}
-
-          <Group justify="flex-end" gap="sm">
-            <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
-              {t("common.action.close")}
-            </Button>
-            {canManage && data && data.status === "DRAFT" && (
-              <Button
-                component={RouterLink}
-                to={editLink}
-                variant="light"
-                leftSection={<IconPencil size={16} />}
-                disabled={submitting != null}
-              >
-                {t("common.action.edit")}
-              </Button>
-            )}
-            {canManage &&
-              data &&
-              ACTIONS[data.status].map((action) => (
-                <Button
-                  key={action.labelKey}
-                  variant={action.primary ? "filled" : "light"}
-                  loading={submitting === action.labelKey && !closeOpened}
-                  disabled={submitting != null}
-                  onClick={() => {
-                    if (action.close) {
-                      setCloseOpened(true);
-                    } else if (action.run) {
-                      void runAction(action.labelKey, action.run, action.successKey);
-                    }
-                  }}
-                >
-                  {t(action.labelKey)}
-                </Button>
-              ))}
-          </Group>
-        </Stack>
-      </Paper>
+                  <Tabs.Panel value="history" pt="md">
+                    <TeamKpiHistory kpiId={id} type={data.type} />
+                  </Tabs.Panel>
+                </Tabs>
+              </Stack>
+            ) : null}
+          </Paper>
+        </Container>
+      </Stack>
 
       <GoalCloseModal
         opened={closeOpened}
@@ -277,6 +286,6 @@ export default function ViewTeamKpi() {
           void runAction("teamKpi.action.close", (kpiId) => archiveTeamKpi(kpiId, { summary }), "teamKpi.toast.archived")
         }
       />
-    </Container>
+    </>
   );
 }

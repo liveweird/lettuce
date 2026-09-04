@@ -1,6 +1,4 @@
 .editor {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--mantine-color-default-border);
@@ -11,11 +9,10 @@
   color: var(--mantine-color-text);
 }
 
-/* The contenteditable region stretches to the space the form gives the editor (with a
-   sensible floor); longer content still grows the page. */
+/* The editor sizes to its content (v3.5.0 — the viewport-filling form layouts are gone):
+   a sensible floor for an empty document, and longer content simply grows the page. */
 .content {
-  flex: 1;
-  min-height: rem(180px);
+  min-height: rem(220px);
 }
 
 /* MDXEditor's layer between our bordered box and the contenteditable doesn't stretch on

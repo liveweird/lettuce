@@ -23,7 +23,7 @@
    - *Expected*: masked by default.
 4. The admin clicks the row's **Show password**.
    - *Expected*: a 16-character generated password is revealed.
-5. The admin follows **Back to users** and signs out.
+5. The admin follows the header's **Back to Users** link and signs out.
    - *Expected*: back on the users list.
 6. The imported user signs in with the revealed one-time password.
    - *Expected*: the imported credentials work.

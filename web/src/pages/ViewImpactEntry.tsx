@@ -1,32 +1,27 @@
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Center,
-  Container,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Tabs,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Container, Paper, Stack, Tabs, Text } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getImpactEntry } from "../api/impactLog";
+import CenteredLoader from "../components/CenteredLoader";
+import DateCell from "../components/DateCell";
 import ImpactLogHistory from "../components/ImpactLogHistory";
 import ImpactEntrySections from "../components/ImpactEntrySections";
-import PersonaField from "../components/PersonaField";
-import ReadOnlyField from "../components/ReadOnlyField";
-import { formatDate, formatIsoDate } from "../utils/datetime";
+import MetaStrip, { type MetaStripItem } from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonCell from "../components/PersonCell";
+import { formatIsoDate } from "../utils/datetime";
 import { impactEntryEditLink } from "../utils/impactLogLinks";
 import { safeBackParam } from "../utils/url";
 
-/** The journal-entry document: read-only Content/History tabs; the owner gets the Edit entry point. */
+/**
+ * The journal-entry document (the v3.5.0 detail layout): Close and the owner's Edit entry
+ * point in the page header, the entry's title / author / period / last-modified in the
+ * identity strip, the read-only Content/History tabs below.
+ */
 export default function ViewImpactEntry() {
   const { t, i18n } = useTranslation();
   const params = useParams<{ id: string }>();
@@ -59,39 +54,79 @@ export default function ViewImpactEntry() {
         ? t("impactLog.error.viewPermission")
         : t("impactLog.error.loadFailed");
 
+  const metaItems: MetaStripItem[] = data
+    ? [
+        // The entry's own title (v2.37.0) — pre-V66 rows may have none.
+        ...(data.title !== ""
+          ? [
+              {
+                key: "title",
+                label: t("impactLog.title"),
+                value: (
+                  <Text size="sm" fw={600}>
+                    {data.title}
+                  </Text>
+                ),
+              },
+            ]
+          : []),
+        {
+          key: "owner",
+          label: t("impactLog.owner"),
+          value: <PersonCell userId={data.userId} name={data.userName} currentUserId={currentUserId} />,
+        },
+        {
+          key: "period",
+          label: t("impactLog.period"),
+          value: (
+            <Text size="sm">
+              {formatIsoDate(data.periodStart, i18n.language)} –{" "}
+              {formatIsoDate(data.periodEnd, i18n.language)}
+            </Text>
+          ),
+        },
+        {
+          key: "lastModified",
+          label: t("impactLog.lastModified"),
+          value: <DateCell value={data.lastModified} mode="relative" />,
+        },
+      ]
+    : [];
+
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("impactLog.viewTitle")}</Title>
+    <Stack gap="md">
+      <PageHeader
+        title={t("impactLog.viewTitle")}
+        actions={
+          <>
+            <Button component={RouterLink} to={backTo} variant="default">
+              {t("common.action.close")}
+            </Button>
+            {isOwner && (
+              <Button
+                component={RouterLink}
+                to={impactEntryEditLink(id, backOverride ?? undefined)}
+                variant="light"
+                leftSection={<IconPencil size={16} />}
+              >
+                {t("common.action.edit")}
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <Container size="md" px={0} w="100%">
+        <Paper withBorder radius="md" p="md">
           {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
+            <CenteredLoader />
           ) : isError ? (
             <Alert color="red" variant="light">
               {errorMessage}
             </Alert>
           ) : data ? (
-            <>
-              {/* The entry's own title (v2.37.0) — pre-V66 rows may have none. */}
-              {data.title !== "" && (
-                <Text size="lg" fw={600}>
-                  {data.title}
-                </Text>
-              )}
-              <Group gap="xl">
-                <PersonaField label={t("impactLog.owner")} name={data.userName} you={isOwner} />
-                <ReadOnlyField label={t("impactLog.period")}>
-                  <Text size="sm">
-                    {formatIsoDate(data.periodStart, i18n.language)} –{" "}
-                    {formatIsoDate(data.periodEnd, i18n.language)}
-                  </Text>
-                </ReadOnlyField>
-                <ReadOnlyField label={t("impactLog.lastModified")}>
-                  <Text size="sm">{formatDate(data.lastModified, i18n.language)}</Text>
-                </ReadOnlyField>
-              </Group>
+            <Stack gap="md">
+              <MetaStrip items={metaItems} />
 
               <Tabs defaultValue="content" keepMounted={false}>
                 <Tabs.List>
@@ -107,26 +142,10 @@ export default function ViewImpactEntry() {
                   <ImpactLogHistory entryId={id} />
                 </Tabs.Panel>
               </Tabs>
-            </>
+            </Stack>
           ) : null}
-
-          <Group justify="flex-end" gap="sm">
-            <Button component={RouterLink} to={backTo} variant="default">
-              {t("common.action.close")}
-            </Button>
-            {isOwner && (
-              <Button
-                component={RouterLink}
-                to={impactEntryEditLink(id, backOverride ?? undefined)}
-                variant="light"
-                leftSection={<IconPencil size={16} />}
-              >
-                {t("common.action.edit")}
-              </Button>
-            )}
-          </Group>
-        </Stack>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </Stack>
   );
 }

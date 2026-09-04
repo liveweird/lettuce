@@ -1,7 +1,8 @@
-import { Anchor, Stack, Text, Title } from "@mantine/core";
-import { Link as RouterLink, Navigate } from "react-router-dom";
+import { Stack } from "@mantine/core";
+import { Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
+import PageHeader from "../components/PageHeader";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import SuccessionPlanTable from "./SuccessionPlanTable";
 
@@ -14,26 +15,22 @@ import SuccessionPlanTable from "./SuccessionPlanTable";
  */
 export default function UserSuccessionPlans() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, origin, auditMode, backTo } = useDashboardDrillDown("succession");
+  const { userId, idIsValid, displayName, origin, auditMode, backTo } = useDashboardDrillDown("succession");
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("SUCCESSION_PLANS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={origin.to} replace />;
   if (!auditMode) return <Navigate to="/succession" replace />;
 
-  const who = name ?? t("succession.userFallback", { id: userId });
+  const who = displayName ?? t("succession.userFallback", { id: userId });
 
   return (
-    <Stack gap="lg">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={origin.to} size="sm">
-          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-        </Anchor>
-        <Title order={2}>{t("succession.plansAudit", { who })}</Title>
-        <Text size="sm" c="dimmed">
-          {t("succession.plansAuditHint", { who })}
-        </Text>
-      </Stack>
+    <Stack gap="md">
+      <PageHeader
+        back={{ to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) }}
+        title={t("succession.plansAudit", { who })}
+        description={t("succession.plansAuditHint", { who })}
+      />
 
       <SuccessionPlanTable
         view="user"

@@ -1,40 +1,30 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  Input,
-  Paper,
-  Stack,
-  Tabs,
-  Text,
-  Title
-} from "@mantine/core";
+import { Alert, Button, Container, Group, Input, Paper, Stack, Tabs, Text } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { activateGoal, archiveGoal, deactivateGoal, getGoal, reopenGoal, type GoalStatus } from "../api/goals";
+import CenteredLoader from "../components/CenteredLoader";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DateCell from "../components/DateCell";
 import GoalCloseModal from "../components/GoalCloseModal";
 import GoalHistory from "../components/GoalHistory";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import MarkdownView from "../components/MarkdownView";
-import PersonaField from "../components/PersonaField";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
-import ReadOnlyField from "../components/ReadOnlyField";
-import { formatDate, formatIsoDate } from "../utils/datetime";
 import { goalEditLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 import { safeBackParam } from "../utils/url";
-import CenteredLoader from "../components/CenteredLoader";
 
 // The manager's lifecycle actions per status. The view screen is their single home — ARCHIVED
 // goals have no edit form, so Reopen could live nowhere else, and keeping all four here means
@@ -49,7 +39,11 @@ const ACTIONS: Record<GoalStatus, { labelKey: ParseKeys; successKey: ParseKeys; 
   ARCHIVED: [{ labelKey: "goal.action.reopen", successKey: "goal.toast.reopened", run: reopenGoal, primary: true }]
 };
 
-/** The goal document: read-only for everyone, plus the manager's lifecycle actions. */
+/**
+ * The goal document (the v3.5.0 detail layout): the page header carries the status pill and
+ * every action — Close, the Edit/Update entry point, the manager's lifecycle actions — over
+ * the identity strip and the Content/History tabs. Read-only for everyone.
+ */
 export default function ViewGoal() {
   const { t, i18n } = useTranslation();
   const params = useParams<{ id: string }>();
@@ -126,144 +120,161 @@ export default function ViewGoal() {
 
   const editLink = goalEditLink(id, from, backOverride ?? undefined);
 
+  // Close · Edit/Update · the secondary lifecycle exit (light) · the primary one (filled).
+  const actions = (
+    <>
+      <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
+        {t("common.action.close")}
+      </Button>
+      {isManager && data && data.status === "DRAFT" && (
+        <Button
+          component={RouterLink}
+          to={editLink}
+          variant="light"
+          leftSection={<IconPencil size={16} />}
+          disabled={submitting != null}
+        >
+          {t("common.action.edit")}
+        </Button>
+      )}
+      {/* ACTIVE: both parties update progress (v2.8.0) — the manager's DRAFT Edit above
+          stays definition-only. */}
+      {isParty && data && data.status === "ACTIVE" && (
+        <Button
+          component={RouterLink}
+          to={editLink}
+          variant="light"
+          leftSection={<IconPencil size={16} />}
+          disabled={submitting != null}
+        >
+          {t("goal.action.update")}
+        </Button>
+      )}
+      {isManager &&
+        data &&
+        ACTIONS[data.status].map((action) => (
+          <Button
+            key={action.labelKey}
+            variant={action.primary ? "filled" : "light"}
+            loading={submitting === action.labelKey && !closeOpened && !deactivateOpened}
+            disabled={submitting != null}
+            onClick={() => {
+              if (action.close) {
+                setCloseOpened(true);
+              } else if (action.labelKey === "goal.action.deactivate") {
+                // Return-to-draft confirms first (the list rows do the same).
+                setDeactivateOpened(true);
+              } else if (action.run) {
+                void runAction(action.labelKey, action.run, action.successKey);
+              }
+            }}
+          >
+            {t(action.labelKey)}
+          </Button>
+        ))}
+    </>
+  );
+
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Group justify="space-between" align="flex-start">
-            <Title order={2}>{t("goal.viewTitle")}</Title>
-            {data && <GoalStatusBadge status={data.status} />}
-          </Group>
-          {isLoading ? (
-            <CenteredLoader />
-          ) : isError ? (
-            <Alert color="red" variant="light">
-              {errorMessage}
-            </Alert>
-          ) : data ? (
-            <>
-              <Group gap="xl">
-                <PersonaField
-                  label={t("goal.manager")}
-                  name={data.managerName}
-                  you={currentUserId === data.managerId}
-                />
-                <PersonaField
-                  label={t("goal.subordinate")}
-                  name={data.subordinateName}
-                  you={currentUserId === data.subordinateId}
-                />
-                <ReadOnlyField label={t("goal.type.label")}>
-                  <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
-                </ReadOnlyField>
-                <ReadOnlyField label={t("goal.createdAt")}>
-                  <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>
-                </ReadOnlyField>
-                <ReadOnlyField label={t("goal.dueDate")}>
-                  <Group gap="xs" wrap="nowrap">
-                    <Text size="sm">{formatIsoDate(data.dueDate, i18n.language)}</Text>
-                    {isGoalOverdue(data.status, data.dueDate) && <OverdueBadge />}
-                  </Group>
-                </ReadOnlyField>
-              </Group>
+    <>
+      <Stack gap="md">
+        <PageHeader
+          title={t("goal.viewTitle")}
+          badge={data && <GoalStatusBadge status={data.status} />}
+          actions={actions}
+        />
 
-              <Tabs defaultValue="content" keepMounted={false}>
-                <Tabs.List>
-                  <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                  <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
-                </Tabs.List>
+        {actionError && (
+          <Alert color="red" variant="light">
+            {actionError}
+          </Alert>
+        )}
 
-                <Tabs.Panel value="content" pt="md">
-                  <Stack gap="lg">
-                    <Input.Wrapper label={t("goal.title")}>
-                      <Text fw={500}>{data.title}</Text>
-                    </Input.Wrapper>
-                    <Input.Wrapper label={t("goal.description")}>
-                      <ProseBox>
-                        <MarkdownView>{data.description}</MarkdownView>
-                      </ProseBox>
-                    </Input.Wrapper>
-                    <GoalValues goal={data} locale={i18n.language} />
-                    {data.summary != null && data.summary !== "" && (
-                      // The summary is captured as plain text in the close modal, so it renders
-                      // pre-wrap (not markdown).
-                      <Input.Wrapper label={t("goal.summary")}>
+        <Container size="md" px={0} w="100%">
+          <Paper withBorder radius="md" p="md">
+            {isLoading ? (
+              <CenteredLoader />
+            ) : isError ? (
+              <Alert color="red" variant="light">
+                {errorMessage}
+              </Alert>
+            ) : data ? (
+              <Stack gap="md">
+                <MetaStrip
+                  items={[
+                    {
+                      key: "title",
+                      label: t("goal.title"),
+                      value: (
+                        <Text size="sm" fw={600}>
+                          {data.title}
+                        </Text>
+                      ),
+                    },
+                    {
+                      key: "manager",
+                      label: t("goal.manager"),
+                      value: <PersonCell userId={data.managerId} name={data.managerName} currentUserId={currentUserId} />,
+                    },
+                    {
+                      key: "subordinate",
+                      label: t("goal.subordinate"),
+                      value: (
+                        <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />
+                      ),
+                    },
+                    { key: "type", label: t("goal.type.label"), value: <Text size="sm">{t(`goal.type.${data.type}`)}</Text> },
+                    { key: "created", label: t("goal.createdAt"), value: <DateCell value={data.createdAt} mode="date" /> },
+                    {
+                      key: "due",
+                      label: t("goal.dueDate"),
+                      value: (
+                        <Group gap="xs" wrap="nowrap">
+                          <DateCell value={data.dueDate} mode="date" />
+                          {isGoalOverdue(data.status, data.dueDate) && <OverdueBadge />}
+                        </Group>
+                      ),
+                    },
+                  ]}
+                />
+
+                <Tabs defaultValue="content" keepMounted={false}>
+                  <Tabs.List>
+                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                    <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
+                  </Tabs.List>
+
+                  <Tabs.Panel value="content" pt="md">
+                    <Stack gap="lg">
+                      <Input.Wrapper label={t("goal.description")}>
                         <ProseBox>
-                          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-                            {data.summary}
-                          </Text>
+                          <MarkdownView>{data.description}</MarkdownView>
                         </ProseBox>
                       </Input.Wrapper>
-                    )}
-                  </Stack>
-                </Tabs.Panel>
+                      <GoalValues goal={data} locale={i18n.language} />
+                      {data.summary != null && data.summary !== "" && (
+                        // The summary is captured as plain text in the close modal, so it renders
+                        // pre-wrap (not markdown).
+                        <Input.Wrapper label={t("goal.summary")}>
+                          <ProseBox>
+                            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+                              {data.summary}
+                            </Text>
+                          </ProseBox>
+                        </Input.Wrapper>
+                      )}
+                    </Stack>
+                  </Tabs.Panel>
 
-                <Tabs.Panel value="history" pt="md">
-                  <GoalHistory goalId={id} />
-                </Tabs.Panel>
-              </Tabs>
-            </>
-          ) : null}
-
-          {actionError && (
-            <Alert color="red" variant="light">
-              {actionError}
-            </Alert>
-          )}
-
-          <Group justify="flex-end" gap="sm">
-            <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
-              {t("common.action.close")}
-            </Button>
-            {isManager && data && data.status === "DRAFT" && (
-              <Button
-                component={RouterLink}
-                to={editLink}
-                variant="light"
-                leftSection={<IconPencil size={16} />}
-                disabled={submitting != null}
-              >
-                {t("common.action.edit")}
-              </Button>
-            )}
-            {/* ACTIVE: both parties update progress (v2.8.0) — the manager's DRAFT Edit above
-                stays definition-only. */}
-            {isParty && data && data.status === "ACTIVE" && (
-              <Button
-                component={RouterLink}
-                to={editLink}
-                variant="light"
-                leftSection={<IconPencil size={16} />}
-                disabled={submitting != null}
-              >
-                {t("goal.action.update")}
-              </Button>
-            )}
-            {isManager &&
-              data &&
-              ACTIONS[data.status].map((action) => (
-                <Button
-                  key={action.labelKey}
-                  variant={action.primary ? "filled" : "light"}
-                  loading={submitting === action.labelKey && !closeOpened && !deactivateOpened}
-                  disabled={submitting != null}
-                  onClick={() => {
-                    if (action.close) {
-                      setCloseOpened(true);
-                    } else if (action.labelKey === "goal.action.deactivate") {
-                      // Return-to-draft confirms first (the list rows do the same).
-                      setDeactivateOpened(true);
-                    } else if (action.run) {
-                      void runAction(action.labelKey, action.run, action.successKey);
-                    }
-                  }}
-                >
-                  {t(action.labelKey)}
-                </Button>
-              ))}
-          </Group>
-        </Stack>
-      </Paper>
+                  <Tabs.Panel value="history" pt="md">
+                    <GoalHistory goalId={id} />
+                  </Tabs.Panel>
+                </Tabs>
+              </Stack>
+            ) : null}
+          </Paper>
+        </Container>
+      </Stack>
 
       <GoalCloseModal
         opened={closeOpened}
@@ -286,6 +297,6 @@ export default function ViewGoal() {
           void runAction("goal.action.deactivate", deactivateGoal, "goal.toast.deactivated")
         }
       />
-    </Container>
+    </>
   );
 }

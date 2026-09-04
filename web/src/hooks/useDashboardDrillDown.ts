@@ -1,9 +1,26 @@
 import type { ParseKeys } from "i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { canAudit } from "../api/session";
+import { useAllUsers } from "./useAllUsers";
 import { userDetailsLink } from "../utils/userLinks";
 import { parsePositiveInt } from "../utils/parse";
 import { safeBackParam } from "../utils/url";
+
+/**
+ * The display name a `/users/:userId/…` heading renders for the route's person (v3.5.0 — the
+ * "user #3" fix, the identity-never-from-the-URL rule applied to the drill-downs): resolved
+ * from the org-wide user pool by the numeric id. The URL's `?name=` is only the PRE-LOAD hint —
+ * rendered until the pool arrives, never after it (a URL-carried name could label the page as
+ * one person while the id lists another) — so once the pool has loaded without the id the
+ * result is null and the page renders its "user #<id>" fallback. A pool that never arrives
+ * (load failure) keeps the hint. `enabled=false` (an invalid id) skips the fetch.
+ */
+export function useUserDisplayName(userId: number, hint: string | null, enabled = true): string | null {
+  const { userPool, usersReady } = useAllUsers(enabled);
+  const pooled = userPool?.find((u) => u.id === userId)?.name;
+  if (pooled != null) return pooled;
+  return usersReady ? null : hint;
+}
 
 // Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the
 // "Back to …" link and the invalid-id redirect. The managers/subordinates grids and the
@@ -31,12 +48,15 @@ function isStaticOriginKey(value: string | null): value is keyof typeof DASHBOAR
  * a round-trip returns here intact. `from=team` without a valid teamId degrades to `managers`
  * (the ManagerFeedbacks `members` rule). `callerManages` is true for the origins where the
  * caller is the manager of the viewed person (subordinates grid, team view) — the gate for
- * manager-only affordances.
+ * manager-only affordances. `displayName` is what the heading renders (see
+ * `useUserDisplayName`); `name` stays the raw URL hint, threaded through the rebuilt links.
  */
 export function useDashboardDrillDown(basePath: string): {
   userId: number;
   idIsValid: boolean;
   name: string | null;
+  /** The pool-resolved person name (URL hint until the pool loads, null when unknown). */
+  displayName: string | null;
   originKey: DashboardOriginKey;
   origin: { labelKey: ParseKeys; to: string };
   callerManages: boolean;
@@ -61,6 +81,7 @@ export function useDashboardDrillDown(basePath: string): {
 
   const userId = Number(params.userId);
   const idIsValid = Number.isFinite(userId) && userId > 0;
+  const displayName = useUserDisplayName(userId, name, idIsValid);
 
   const originKey: DashboardOriginKey =
     fromParam === "details"
@@ -92,6 +113,7 @@ export function useDashboardDrillDown(basePath: string): {
     userId,
     idIsValid,
     name,
+    displayName,
     originKey,
     origin,
     callerManages:

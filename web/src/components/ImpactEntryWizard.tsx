@@ -12,6 +12,7 @@ import {
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import DateField from "./DateField";
+import FormFooter from "./FormFooter";
 import type { ParseKeys } from "i18next";
 import type { ImpactEntryFormValues } from "../utils/impactLogForm";
 import { IMPACT_SECTIONS, MAX_IMPACT_TEXT_LENGTH, MAX_IMPACT_TITLE_LENGTH } from "../utils/impactLogForm";
@@ -44,7 +45,7 @@ const REVIEW_STEP = SECTIONS.length;
  * first). Submit still goes through `form.onSubmit` as the full-validation backstop.
  *
  * The embedding page keeps owning `useForm`, the save handler, toasts, navigation, and the
- * MarkdownEditor-form discard confirm behind [onCancel].
+ * discard guard behind [onCancel] (`useDiscardGuard`'s `requestCancel`).
  */
 export default function ImpactEntryWizard({
   form,
@@ -165,7 +166,8 @@ export default function ImpactEntryWizard({
         </Alert>
       )}
 
-      <Group justify="flex-end" gap="sm">
+      {/* Sticky (v3.5.0): the step buttons stay reachable while a long section scrolls. */}
+      <FormFooter sticky>
         <Button type="button" variant="default" onClick={onCancel} disabled={submitting}>
           {t("common.action.cancel")}
         </Button>
@@ -186,7 +188,7 @@ export default function ImpactEntryWizard({
             {submitLabel}
           </Button>
         )}
-      </Group>
+      </FormFooter>
     </Stack>
   );
 }

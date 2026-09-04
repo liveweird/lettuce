@@ -264,7 +264,8 @@ describe("EditGoal page", () => {
     const user = userEvent.setup();
     renderScreen();
 
-    await screen.findByLabelText(/title/i);
+    // The guard asks only once there is work to lose (v3.5.0).
+    await user.type(await screen.findByLabelText(/title/i), " (renamed)");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));

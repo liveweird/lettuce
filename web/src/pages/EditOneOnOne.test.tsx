@@ -260,7 +260,9 @@ describe("EditOneOnOne page", () => {
     stubLoad();
     renderEdit();
 
-    await screen.findByDisplayValue("First point");
+    // The guard asks only once there is work to lose (v3.5.0) — a payload compare, so an
+    // edited paragraph counts.
+    await userEvent.type(await screen.findByDisplayValue("First point"), " (revised)");
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     const modal = await screen.findByRole("dialog");
     expect(within(modal).getByText("Discard changes?")).toBeInTheDocument();

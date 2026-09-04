@@ -66,7 +66,7 @@ function LevelSlider<V extends string>({
  * The plan's definition fields, shared by the create screen and the Review screen (the
  * GoalDefinitionFields idiom): the two planning sliders, the target bench depth, and the
  * ordered loss-impact list. The seat's person is NOT here — immutable, the pages render it
- * as a PersonaField/picker themselves.
+ * as a MetaStrip cell/picker themselves.
  */
 export default function SuccessionPlanFields({
   form,

@@ -11,13 +11,10 @@ import {
   Button,
   Center,
   Container,
-  Group,
   Loader,
   Paper,
   PasswordInput,
   Stack,
-  Text,
-  Title,
 } from "@mantine/core";
 import { matchesField, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +22,10 @@ import { ApiError } from "../api/http";
 import { getUserId, isAdmin } from "../api/session";
 import { changeUserPassword, getUser } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { saveErrorMessage } from "../utils/saveError";
 import { MAX_PASSWORD_BYTES, utf8ByteLength } from "../utils/userForm";
 import { invalidateUser } from "../utils/userQueries";
@@ -68,6 +69,7 @@ export default function ChangeUserPassword() {
   });
   const canChange = isAdmin() || isSelf;
   const returnTo = isAdmin() ? "/users" : "/";
+  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: returnTo });
 
   const { data, isLoading, isError, error: fetchError } = useQuery({
     queryKey: ["user", id],
@@ -106,45 +108,44 @@ export default function ChangeUserPassword() {
 
   return (
     <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("users.changePassword")}</Title>
+      <Stack gap="md">
+        {/* The header's description names the account once it is known (the former lead-in). */}
+        <PageHeader
+          title={t("users.changePassword")}
+          description={data ? t("users.setNewPassword", { name: data.name, email: data.email }) : undefined}
+        />
+        <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
               <Loader />
             </Center>
           ) : notFound ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {t("users.userNotFound")}
               </Alert>
-              <Group justify="flex-end">
+              <FormFooter>
                 <Button component={RouterLink} to={returnTo} variant="default">
                   {t("users.backToUsers")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : isError ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {t("users.loadUserFailed", {
                   suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
                 })}
               </Alert>
-              <Group justify="flex-end">
+              <FormFooter>
                 <Button component={RouterLink} to={returnTo} variant="default">
                   {t("users.backToUsers")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : (
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
-                {data && (
-                  <Text c="dimmed" size="sm">
-                    {t("users.setNewPassword", { name: data.name, email: data.email })}
-                  </Text>
-                )}
                 {isSelf && (
                   <PasswordInput
                     label={t("users.currentPassword")}
@@ -169,19 +170,21 @@ export default function ChangeUserPassword() {
                     {error}
                   </Alert>
                 )}
-                <Group justify="flex-end" gap="sm">
-                  <Button component={RouterLink} to={returnTo} variant="default">
+                <FormFooter>
+                  <Button type="button" variant="default" onClick={requestCancel}>
                     {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
                     {t("users.changePassword")}
                   </Button>
-                </Group>
+                </FormFooter>
               </Stack>
             </form>
           )}
-        </Stack>
-      </Paper>
+        </Paper>
+      </Stack>
+
+      <ConfirmActionModal {...modalProps} />
     </Container>
   );
 }

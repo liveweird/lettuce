@@ -132,7 +132,8 @@ describe("UserTeams page", () => {
       if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
     });
-    // The user's name comes from the ?name= param the /users list passes.
+    // The user's name comes from the ?name= param the /users list passes (the pre-load hint —
+    // the user pool 404s here, so the hint stays).
     renderUserTeams(7, "?name=Alice");
 
     // Not redirected: heading (from the name param) and the team rows render.
@@ -146,6 +147,25 @@ describe("UserTeams page", () => {
     // Neither getUser nor the all-teams pool was requested.
     expect(mockFetch.mock.calls.some(([u]) => u === "/api/v1/users/7")).toBe(false);
     expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isAllTeamsUrl(u))).toBe(false);
+  });
+
+  test("non-admin: the URL's name is only the pre-load hint — the user pool's name for the id wins (v3.5.0)", async () => {
+    localStorage.setItem(ROLE_KEY, "[]");
+    mockFetch.mockImplementation((url: string) => {
+      if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+      if (url.startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: [TARGET_USER], page: 1, pageSize: 100, total: 1 }),
+        );
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderUserTeams(7, "?name=Mallory");
+
+    expect(screen.getByRole("heading", { name: "Teams — Mallory" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Teams — Alice" })).toBeInTheDocument();
+    // The unified drill-down back link (v3.5.0).
+    expect(screen.getByRole("link", { name: "← Back to Users" })).toHaveAttribute("href", "/users");
   });
 
   test("add picker excludes joined and self-managed teams, and PUTs the membership", async () => {

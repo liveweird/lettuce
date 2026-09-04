@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -304,6 +304,24 @@ describe("CreateUser page", () => {
     expect(screen.getByText(/email is required/i)).toBeInTheDocument();
     const postCall = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
     expect(postCall).toBeUndefined();
+  });
+
+  test("Cancel leaves a clean form at once and asks before discarding typed input (v3.5.0)", async () => {
+    mockApi(201, CREATED_USER);
+    const user = userEvent.setup();
+    renderCreateUser();
+
+    await user.type(screen.getByLabelText(/^name/i), "Alice");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Discard changes?");
+    await user.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /clear name/i }));
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(await screen.findByTestId("probe")).toHaveTextContent("/users");
   });
 
   test("non-admin is redirected to /users", async () => {

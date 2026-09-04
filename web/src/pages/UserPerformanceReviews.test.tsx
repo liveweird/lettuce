@@ -40,6 +40,20 @@ describe("UserPerformanceReviews page", () => {
       if (u.includes("/api/v1/review-periods")) {
         return Promise.resolve(jsonResponse(200, { items: [] }));
       }
+      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      if (u.startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [
+              { id: 8, name: "Sub Ordinate", email: "sub@example.com", roles: [] },
+              { id: 9, name: "Mona Manager", email: "mona@example.com", roles: [] },
+            ],
+            page: 1,
+            pageSize: 100,
+            total: 2,
+          }),
+        );
+      }
       return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
     });
   });

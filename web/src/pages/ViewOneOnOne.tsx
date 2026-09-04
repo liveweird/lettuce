@@ -4,13 +4,8 @@ import {
   ActionIcon,
   Alert,
   Badge,
-  Box,
   Button,
-  Center,
   Container,
-  Group,
-  Input,
-  Loader,
   Paper,
   Stack,
   Table,
@@ -25,12 +20,20 @@ import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getOneOnOne } from "../api/oneonones";
 import ActionItemHistoryModal from "../components/ActionItemHistoryModal";
+import CenteredLoader from "../components/CenteredLoader";
+import DateCell from "../components/DateCell";
+import MetaStrip from "../components/MetaStrip";
 import OneOnOneHistory from "../components/OneOnOneHistory";
-import PersonaField from "../components/PersonaField";
+import PageHeader from "../components/PageHeader";
+import PersonCell from "../components/PersonCell";
 import { formatIsoDate } from "../utils/datetime";
 import { safeBackParam } from "../utils/url";
 
-/** Read-only 1:1 meeting document for the subordinate, admins, and chain managers. */
+/**
+ * Read-only 1:1 meeting document for the subordinate, admins, and chain managers (the v3.5.0
+ * detail layout: Close in the page header, the pair + meeting date in the identity strip, the
+ * Content/History tabs below).
+ */
 export default function ViewOneOnOne() {
   const { t, i18n } = useTranslation();
   const params = useParams<{ id: string }>();
@@ -74,39 +77,47 @@ export default function ViewOneOnOne() {
   };
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("oneOnOne.viewTitle")}</Title>
+    <Stack gap="md">
+      <PageHeader
+        title={t("oneOnOne.viewTitle")}
+        actions={
+          <Button component={RouterLink} to={backTo} variant="default">
+            {t("common.action.close")}
+          </Button>
+        }
+      />
+
+      <Container size="md" px={0} w="100%">
+        <Paper withBorder radius="md" p="md">
           {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
+            <CenteredLoader />
           ) : isError ? (
             <Alert color="red" variant="light">
               {errorMessage}
             </Alert>
           ) : data ? (
-            <>
-              <Group gap="xl">
-                <PersonaField
-                  label={t("oneOnOne.manager")}
-                  name={data.managerName}
-                  you={currentUserId === data.managerId}
-                />
-                <PersonaField
-                  label={t("oneOnOne.subordinate")}
-                  name={data.subordinateName}
-                  you={currentUserId === data.subordinateId}
-                />
-                {/* Same shell as PersonaField (Input.Wrapper + input-height value row) so the
-                    header columns stay flush. */}
-                <Input.Wrapper label={t("oneOnOne.meetingDate")}>
-                  <Box mih={36} display="flex" style={{ alignItems: "center" }}>
-                    <Text size="sm">{formatIsoDate(data.meetingDate, i18n.language)}</Text>
-                  </Box>
-                </Input.Wrapper>
-              </Group>
+            <Stack gap="md">
+              <MetaStrip
+                items={[
+                  {
+                    key: "manager",
+                    label: t("oneOnOne.manager"),
+                    value: <PersonCell userId={data.managerId} name={data.managerName} currentUserId={currentUserId} />,
+                  },
+                  {
+                    key: "subordinate",
+                    label: t("oneOnOne.subordinate"),
+                    value: (
+                      <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />
+                    ),
+                  },
+                  {
+                    key: "date",
+                    label: t("oneOnOne.meetingDate"),
+                    value: <DateCell value={data.meetingDate} mode="date" />,
+                  },
+                ]}
+              />
 
               <Tabs defaultValue="content" keepMounted={false}>
                 <Tabs.List>
@@ -212,16 +223,11 @@ export default function ViewOneOnOne() {
                 managerName={data.managerName}
                 subordinateName={data.subordinateName}
               />
-            </>
+            </Stack>
           ) : null}
-          <Group justify="flex-end">
-            <Button component={RouterLink} to={backTo} variant="default">
-              {t("common.action.close")}
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </Stack>
   );
 }
 

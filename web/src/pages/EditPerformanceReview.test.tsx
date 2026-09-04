@@ -85,10 +85,11 @@ describe("EditPerformanceReview page", () => {
     setupMocks();
     renderScreen();
 
-    expect(await screen.findByText("Edit performance review")).toBeInTheDocument();
+    // The heading renders before the document (v3.5.0 PageHeader) — wait for a seeded field.
     // Seeded values: the set rating shows number + wording, summaries land in the textareas.
+    expect(await screen.findByDisplayValue("Positive influence.")).toBeInTheDocument();
     expect(screen.getByDisplayValue("4 — Sometimes exceeds expectations")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Positive influence.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Edit performance review" })).toBeInTheDocument();
 
     // Change the overall rating and save.
     fireEvent.click(screen.getByLabelText("Overall", { selector: "input" }));
@@ -106,7 +107,7 @@ describe("EditPerformanceReview page", () => {
     setupMocks();
     renderScreen();
 
-    await screen.findByText("Edit performance review");
+    await screen.findByDisplayValue("Positive influence.");
     await userEvent.click(screen.getByRole("button", { name: "Save & submit" }));
     expect(
       await screen.findByText("All four ratings and summaries must be filled in first."),
@@ -133,7 +134,7 @@ describe("EditPerformanceReview page", () => {
     });
     renderScreen();
 
-    expect(await screen.findByText("Edit performance review")).toBeInTheDocument();
+    await screen.findByDisplayValue("Positive influence.");
     expect(
       screen.getByText("The review is in calibration — values may change but can no longer be emptied."),
     ).toBeInTheDocument();
@@ -153,7 +154,7 @@ describe("EditPerformanceReview page", () => {
     setupMocks();
     renderScreen();
 
-    await screen.findByText("Edit performance review");
+    await screen.findByDisplayValue("Positive influence.");
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     // The confirm modal's red Delete fires the DELETE and navigates back.
     const dialog = await screen.findByRole("dialog");

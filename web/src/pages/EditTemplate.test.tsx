@@ -195,7 +195,8 @@ describe("EditTemplate page", () => {
     const user = userEvent.setup();
     renderEditTemplate();
 
-    await screen.findByDisplayValue("Loaded Name");
+    // The guard fires only once the loaded document was changed.
+    await user.type(await screen.findByDisplayValue("Loaded Name"), " v2");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
 
     expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Center, Container, Group, Loader, Paper, Stack, Title } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { Alert, Button, Center, Container, Loader, Paper, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -9,8 +8,12 @@ import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getImpactEntry, updateImpactEntry } from "../api/impactLog";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
 import ImpactEntryWizard from "../components/ImpactEntryWizard";
-import PersonaField from "../components/PersonaField";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonaChip from "../components/PersonaChip";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import {
   emptyImpactEntryValues,
   impactEntryValidation,
@@ -38,7 +41,6 @@ export default function EditImpactEntry() {
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -53,6 +55,12 @@ export default function EditImpactEntry() {
   const form = useForm<ImpactEntryFormValues>({
     initialValues: emptyImpactEntryValues(),
     validate: impactEntryValidation(t),
+  });
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => form.isDirty(),
+    to: backTo,
+    title: t("impactLog.discardChangesTitle"),
+    message: t("impactLog.discardChangesMessage"),
   });
 
   // One-shot: seed the form once the document arrives (initialize no-ops afterwards).
@@ -90,55 +98,57 @@ export default function EditImpactEntry() {
 
   return (
     <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
-            idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
-        <Stack>
-          <Title order={2}>{t("impactLog.editTitle")}</Title>
+      <Stack gap="md">
+        <PageHeader title={t("impactLog.editTitle")} />
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
+              idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
+          {isLoading ? (
+            <Center py="xl">
+              <Loader />
+            </Center>
+          ) : isError ? (
+            // Load failure: the wizard (and its footer) renders only once the document
+            // arrived, so this branch keeps its own Close affordance.
+            <Stack>
+              <Alert color="red" variant="light">
+                {loadErrorText}
+              </Alert>
+              <FormFooter>
+                <Button type="button" variant="default" onClick={() => navigate(backTo)}>
+                  {t("common.action.close")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          ) : data ? (
+            <Stack>
+              <MetaStrip
+                items={[
+                  {
+                    key: "owner",
+                    label: t("impactLog.owner"),
+                    value: isOwner ? (
+                      <Text size="sm">{t("common.state.you")}</Text>
+                    ) : (
+                      <PersonaChip name={data.userName} />
+                    ),
+                  },
+                ]}
+              />
+              <ImpactEntryWizard
+                form={form}
+                submitLabel={t("common.action.save")}
+                submitting={submitting}
+                error={error}
+                onCancel={requestCancel}
+                onSubmit={() => form.onSubmit(save)()}
+              />
+            </Stack>
+          ) : null}
+        </Paper>
+      </Stack>
 
-            {isLoading ? (
-              <Center py="xl">
-                <Loader />
-              </Center>
-            ) : isError ? (
-              // Load failure: the wizard (and its footer) renders only once the document
-              // arrived, so this branch keeps its own Close affordance.
-              <>
-                <Alert color="red" variant="light">
-                  {loadErrorText}
-                </Alert>
-                <Group justify="flex-end" gap="sm">
-                  <Button type="button" variant="default" onClick={() => navigate(backTo)}>
-                    {t("common.action.close")}
-                  </Button>
-                </Group>
-              </>
-            ) : data ? (
-              <>
-                <PersonaField label={t("impactLog.owner")} name={data.userName} you={isOwner} />
-                <ImpactEntryWizard
-                  form={form}
-                  submitLabel={t("common.action.save")}
-                  submitting={submitting}
-                  error={error}
-                  onCancel={openCancel}
-                  onSubmit={() => form.onSubmit(save)()}
-                />
-              </>
-            ) : null}
-        </Stack>
-      </Paper>
-
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("impactLog.discardChangesTitle")}
-        message={t("impactLog.discardChangesMessage")}
-        cancelLabel={t("common.action.cancel")}
-        confirmLabel={t("common.action.discard")}
-        confirmColor="red"
-        onConfirm={() => navigate(backTo)}
-      />
+      <ConfirmActionModal {...modalProps} />
     </Container>
   );
 }

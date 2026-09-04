@@ -29,6 +29,7 @@ import PageHeader from "../components/PageHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import PersonaChip from "../components/PersonaChip";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
+import { useUserDisplayName } from "../hooks/useDashboardDrillDown";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 
 type TeamRow = { id: number; name: string };
@@ -42,9 +43,11 @@ export default function UserTeams() {
   // Non-admins get a read-only list: no add picker, no remove buttons.
   const canManage = isAdmin();
   // getUser is self-or-admin only, so non-admins can't fetch another user's record — the name
-  // comes from a ?name= param passed by the /users list instead.
+  // resolves from the org-wide user pool by id (the drill-down rule, v3.5.0); the ?name= param
+  // the /users list passes is only the pre-load hint.
   const [searchParams] = useSearchParams();
-  const nameParam = searchParams.get("name");
+  const pooledName = useUserDisplayName(id, searchParams.get("name"), idIsValid);
+  const backLink = { to: "/users", label: t("feedback.backToLabel", { label: t("users.title") }) };
 
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -111,7 +114,7 @@ export default function UserTeams() {
 
   if (!idIsValid) return <Navigate to="/users" replace />;
 
-  const displayName = user?.name ?? nameParam ?? null;
+  const displayName = user?.name ?? pooledName;
   const memberTeams = allMemberTeams ?? [];
   const memberTeamIds = new Set(memberTeams.map((team) => team.id));
   const addOptions = (allTeams ?? [])
@@ -147,8 +150,8 @@ export default function UserTeams() {
               })}
         </Alert>
         <Group justify="flex-end">
-          <Button component={RouterLink} to="/users" variant="default">
-            {t("users.backToUsers")}
+          <Button component={RouterLink} to={backLink.to} variant="default">
+            {backLink.label}
           </Button>
         </Group>
       </Stack>
@@ -158,7 +161,7 @@ export default function UserTeams() {
   return (
     <Stack gap="md">
       <PageHeader
-        back={{ to: "/users", label: t("users.backToUsers") }}
+        back={backLink}
         title={`${t("users.teams")}${displayName ? ` — ${displayName}` : ""}`}
       />
 

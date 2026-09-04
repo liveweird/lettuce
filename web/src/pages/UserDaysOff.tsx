@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ActionIcon,
   Alert,
-  Anchor,
   Badge,
   Button,
   Group,
@@ -13,11 +12,10 @@ import {
   Skeleton,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { IconAdjustments, IconArchive, IconPencil, IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link as RouterLink, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import {
@@ -29,6 +27,7 @@ import {
 } from "../api/daysoff";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import DaysOffCorrections from "../components/DaysOffCorrections";
+import PageHeader from "../components/PageHeader";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import { MAX_PAID_DAYS_OFF_ALLOWANCE, formatDays } from "../utils/daysOffCost";
 import { saveErrorMessage } from "../utils/saveError";
@@ -518,26 +517,22 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
  */
 export default function UserDaysOff() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, origin, callerManages, auditMode } =
+  const { userId, idIsValid, displayName, origin, callerManages, auditMode } =
     useDashboardDrillDown("days-off");
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("DAYS_OFF")) return <Navigate to="/" replace />;
   if (!idIsValid || (!auditMode && !callerManages)) return <Navigate to="/days-off" replace />;
 
-  const who = name ?? t("daysOff.userFallback", { id: userId });
+  const who = displayName ?? t("daysOff.userFallback", { id: userId });
 
   return (
-    <Stack gap="lg">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={origin.to} size="sm">
-          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-        </Anchor>
-        <Title order={2}>{t(auditMode ? "daysOff.auditTitle" : "daysOff.managedTitle", { who })}</Title>
-        <Text size="sm" c="dimmed">
-          {t(auditMode ? "daysOff.auditHint" : "daysOff.managedHint", { who })}
-        </Text>
-      </Stack>
+    <Stack gap="md">
+      <PageHeader
+        back={{ to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) }}
+        title={t(auditMode ? "daysOff.auditTitle" : "daysOff.managedTitle", { who })}
+        description={t(auditMode ? "daysOff.auditHint" : "daysOff.managedHint", { who })}
+      />
 
       {auditMode ? (
         <>

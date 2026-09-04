@@ -144,6 +144,26 @@ describe("ImportUsers page", () => {
     expect(screen.getByRole("button", { name: /^import$/i })).toBeInTheDocument();
   });
 
+  test("the header's Back to Users link is the one way back, before and after an import (v3.5.0)", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ rows: [], created: 0, duplicates: 0, errors: 0 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderImport();
+    expect(screen.getByRole("link", { name: "← Back to Users" })).toHaveAttribute("href", "/users");
+
+    await uploadAndImport(user);
+    expect(await screen.findByText(/created: 0/i)).toBeInTheDocument();
+    // Exactly one back affordance: the header link (the former footer button is gone).
+    expect(screen.getAllByRole("link", { name: /back to users/i })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "← Back to Users" })).toHaveAttribute("href", "/users");
+  });
+
   test("import button is disabled without a file", () => {
     renderImport();
     expect(screen.getByRole("button", { name: /^import$/i })).toBeDisabled();

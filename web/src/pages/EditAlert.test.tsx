@@ -169,7 +169,8 @@ describe("EditAlert page", () => {
     const user = userEvent.setup();
     renderEditAlert();
 
-    await screen.findByDisplayValue("Loaded Title");
+    // The guard fires only once the loaded document was changed.
+    await user.type(await screen.findByDisplayValue("Loaded Title"), " v2");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
 
     expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();

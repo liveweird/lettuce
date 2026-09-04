@@ -70,6 +70,17 @@ describe("UserCareer", () => {
     mockFetch.mockImplementation((input: string, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
+      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      if (method === "GET" && url.startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }],
+            page: 1,
+            pageSize: 100,
+            total: 1,
+          }),
+        );
+      }
       if (method === "GET" && url.startsWith("/api/v1/dictionaries/")) {
         const slug = url.split("/").pop()!;
         const items =
@@ -131,13 +142,25 @@ describe("UserCareer", () => {
     expect(screen.queryByLabelText("Edit the position started 2019-02-01")).not.toBeInTheDocument();
   });
 
-  test("a bare URL (the notification deep link) renders read-only with the fallback title", async () => {
+  test("a bare URL (the notification deep link) renders read-only, the name resolved from the user pool", async () => {
     setupMocks();
     renderPage("/users/9/career");
+    // The fallback only until the pool arrives — then the pool's name for the id (v3.5.0).
+    expect(screen.getByRole("heading", { name: "Career progression — user #9" })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Career progression — user #9" }),
+      await screen.findByRole("heading", { name: "Career progression — Riley Report" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Start a new position")).not.toBeInTheDocument();
+  });
+
+  test("an id outside the user pool keeps the fallback title once the pool has loaded, whatever the URL claims", async () => {
+    setupMocks();
+    renderPage("/users/99/career?name=Mallory");
+    // The URL's name is only the pre-load hint.
+    expect(screen.getByRole("heading", { name: "Career progression — Mallory" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Career progression — user #99" }),
+    ).toBeInTheDocument();
   });
 
   test("empty history shows the empty state", async () => {

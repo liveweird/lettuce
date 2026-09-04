@@ -1,19 +1,7 @@
 import type { ParseKeys, TFunction } from "i18next";
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Center,
-  Container,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Tabs,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Center, Container, Group, Loader, Paper, Stack, Tabs, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,11 +10,14 @@ import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { activateGoal, deleteGoal, getGoal, updateGoalDefinition, updateGoalProgress, type GoalType } from "../api/goals";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import GoalHistory from "../components/GoalHistory";
 import GoalProgressFields, { type GoalProgressFormValues } from "../components/GoalProgressFields";
-import PersonaField from "../components/PersonaField";
-import ReadOnlyField from "../components/ReadOnlyField";
+import MetaStrip, { type MetaStripItem } from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonaChip from "../components/PersonaChip";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { formatIsoDate } from "../utils/datetime";
 import { isGoalOverdue, OverdueBadge } from "../utils/goalValues";
 import {
@@ -67,7 +58,6 @@ export default function EditGoal() {
   // (the FeedbackForm `submitting === "DRAFT"` idiom).
   const [submitting, setSubmitting] = useState<"draft" | "activate" | "progress" | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
   // The Update screen's "nothing to save" notice — auto-hides once the form goes dirty.
   const [nothingToSave, setNothingToSave] = useState(false);
@@ -118,6 +108,20 @@ export default function EditGoal() {
       comment: "",
     });
   }
+
+  // The one cancel guard (v3.5.0) for both branches: the DRAFT definition compares PAYLOADS
+  // (the milestone list's insert/remove/reorder never flip Mantine's dirty flags); the
+  // ACTIVE progress form has no list operations, so its own `isDirty` is exact.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () =>
+      data?.status === "DRAFT"
+        ? JSON.stringify(toDefinitionBody(definitionForm.values)) !==
+          JSON.stringify(toDefinitionBody(toDefinitionFormValues(data)))
+        : progressForm.isDirty(),
+    to: backTo,
+    title: t("goal.discardTitle"),
+    message: t("goal.discardMessage"),
+  });
 
   const currentUserId = getUserId();
 
@@ -228,69 +232,98 @@ export default function EditGoal() {
   const isDraft = data?.status === "DRAFT";
   const typeChanged = isDraft && data != null && definitionForm.values.type !== data.type;
 
+  // The context line (v3.5.0): the pair — "You" follows the caller, since either party may
+  // be on the Update screen (v2.8.0) — plus, on ACTIVE, the fixed type and due date.
+  const party = (name: string, you: boolean) =>
+    you ? <Text size="sm">{t("common.state.you")}</Text> : <PersonaChip name={name} />;
+  const meta: MetaStripItem[] = data
+    ? [
+        { key: "manager", label: t("goal.manager"), value: party(data.managerName, currentUserId === data.managerId) },
+        {
+          key: "subordinate",
+          label: t("goal.subordinate"),
+          value: party(data.subordinateName, currentUserId === data.subordinateId),
+        },
+      ]
+    : [];
+  if (data && !isDraft) {
+    meta.push(
+      { key: "type", label: t("goal.type.label"), value: <Text size="sm">{t(`goal.type.${data.type}`)}</Text> },
+      {
+        // The due date is DRAFT-only editable — here (ACTIVE) it is a fixed fact.
+        key: "dueDate",
+        label: t("goal.dueDate"),
+        value: (
+          <Group gap="xs" wrap="nowrap">
+            <Text size="sm">{formatIsoDate(data.dueDate, i18n.language)}</Text>
+            {isGoalOverdue(data.status, data.dueDate) && <OverdueBadge />}
+          </Group>
+        ),
+      },
+    );
+  }
+
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{isDraft ? t("goal.editTitle") : t("goal.editProgressTitle")}</Title>
-          {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : isError ? (
-            <>
-              <Alert color="red" variant="light">
-                {loadErrorMessage}
-              </Alert>
-              <Group justify="flex-end">
-                <Button variant="default" onClick={() => navigate(backTo)}>
-                  {t("common.action.close")}
-                </Button>
-              </Group>
-            </>
-          ) : data && isDraft ? (
-            <form onSubmit={definitionForm.onSubmit((values) => saveDefinition(values))} noValidate>
-              <Stack>
-                <Group gap="xl">
-                  <PersonaField label={t("goal.manager")} you />
-                  <PersonaField label={t("goal.subordinate")} name={data.subordinateName} />
-                </Group>
-
-                <Tabs defaultValue="content" keepMounted={false}>
-                  <Tabs.List>
-                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                    <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
-                  </Tabs.List>
-
-                  <Tabs.Panel value="content" pt="md">
-                    <GoalDefinitionFields form={definitionForm} typeChangeWarning={typeChanged} />
-                  </Tabs.Panel>
-
-                  <Tabs.Panel value="history" pt="md">
-                    <GoalHistory goalId={id} />
-                  </Tabs.Panel>
-                </Tabs>
-
-                {error && (
-                  <Alert color="red" variant="light">
-                    {error}
-                  </Alert>
-                )}
-
-                <Group justify="space-between" gap="sm">
-                  <Button
-                    color="red"
-                    variant="light"
-                    onClick={openDelete}
-                    disabled={submitting !== null || deleting}
-                  >
-                    {t("common.action.delete")}
+    <>
+      <PageHeader title={isDraft ? t("goal.editTitle") : t("goal.editProgressTitle")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack>
+            {isLoading ? (
+              <Center py="xl">
+                <Loader />
+              </Center>
+            ) : isError ? (
+              <>
+                <Alert color="red" variant="light">
+                  {loadErrorMessage}
+                </Alert>
+                <FormFooter>
+                  <Button variant="default" onClick={() => navigate(backTo)}>
+                    {t("common.action.close")}
                   </Button>
-                  <Group gap="sm">
+                </FormFooter>
+              </>
+            ) : data && isDraft ? (
+              <form onSubmit={definitionForm.onSubmit((values) => saveDefinition(values))} noValidate>
+                <Stack>
+                  <MetaStrip items={meta} />
+
+                  <Tabs defaultValue="content" keepMounted={false}>
+                    <Tabs.List>
+                      <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                      <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
+                    </Tabs.List>
+
+                    <Tabs.Panel value="content" pt="md">
+                      <GoalDefinitionFields form={definitionForm} typeChangeWarning={typeChanged} />
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="history" pt="md">
+                      <GoalHistory goalId={id} />
+                    </Tabs.Panel>
+                  </Tabs>
+
+                  {error && (
+                    <Alert color="red" variant="light">
+                      {error}
+                    </Alert>
+                  )}
+
+                  <FormFooter>
+                    <Button
+                      color="red"
+                      variant="light"
+                      mr="auto"
+                      onClick={openDelete}
+                      disabled={submitting !== null || deleting}
+                    >
+                      {t("common.action.delete")}
+                    </Button>
                     <Button
                       type="button"
                       variant="default"
-                      onClick={openCancel}
+                      onClick={requestCancel}
                       disabled={submitting !== null || deleting}
                     >
                       {t("common.action.cancel")}
@@ -313,99 +346,69 @@ export default function EditGoal() {
                     >
                       {t("goal.action.saveAndActivate")}
                     </Button>
-                  </Group>
-                </Group>
-              </Stack>
-            </form>
-          ) : data ? (
-            <form onSubmit={progressForm.onSubmit((values) => saveProgress(values))} noValidate>
-              <Stack>
-                <Group gap="xl">
-                  {/* Either party may be here now (v2.8.0) — "You" follows the caller. */}
-                  <PersonaField
-                    label={t("goal.manager")}
-                    name={data.managerName}
-                    you={currentUserId === data.managerId}
-                  />
-                  <PersonaField
-                    label={t("goal.subordinate")}
-                    name={data.subordinateName}
-                    you={currentUserId === data.subordinateId}
-                  />
-                  <ReadOnlyField label={t("goal.type.label")}>
-                    <Text size="sm">{t(`goal.type.${data.type}`)}</Text>
-                  </ReadOnlyField>
-                  {/* The due date is DRAFT-only editable — here (ACTIVE) it is a fixed fact. */}
-                  <ReadOnlyField label={t("goal.dueDate")}>
-                    <Group gap="xs" wrap="nowrap">
-                      <Text size="sm">{formatIsoDate(data.dueDate, i18n.language)}</Text>
-                      {isGoalOverdue(data.status, data.dueDate) && <OverdueBadge />}
-                    </Group>
-                  </ReadOnlyField>
-                </Group>
+                  </FormFooter>
+                </Stack>
+              </form>
+            ) : data ? (
+              <form onSubmit={progressForm.onSubmit((values) => saveProgress(values))} noValidate>
+                <Stack>
+                  <MetaStrip items={meta} />
 
-                <Tabs defaultValue="content" keepMounted={false}>
-                  <Tabs.List>
-                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                    <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
-                  </Tabs.List>
+                  <Tabs defaultValue="content" keepMounted={false}>
+                    <Tabs.List>
+                      <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                      <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
+                    </Tabs.List>
 
-                  <Tabs.Panel value="content" pt="md">
-                    <GoalProgressFields goal={data} form={progressForm} locale={i18n.language} />
-                  </Tabs.Panel>
+                    <Tabs.Panel value="content" pt="md">
+                      <GoalProgressFields goal={data} form={progressForm} locale={i18n.language} />
+                    </Tabs.Panel>
 
-                  <Tabs.Panel value="history" pt="md">
-                    <GoalHistory goalId={id} />
-                  </Tabs.Panel>
-                </Tabs>
+                    <Tabs.Panel value="history" pt="md">
+                      <GoalHistory goalId={id} />
+                    </Tabs.Panel>
+                  </Tabs>
 
-                {error && (
-                  <Alert color="red" variant="light">
-                    {error}
-                  </Alert>
-                )}
-                {/* Save with no changes: a notice, not an error — hides once the form is dirty. */}
-                {nothingToSave && !progressForm.isDirty() && (
-                  <Alert color="gray" variant="light">
-                    {t("goal.progress.nothingToSave")}
-                  </Alert>
-                )}
+                  {error && (
+                    <Alert color="red" variant="light">
+                      {error}
+                    </Alert>
+                  )}
+                  {/* Save with no changes: a notice, not an error — hides once the form is dirty. */}
+                  {nothingToSave && !progressForm.isDirty() && (
+                    <Alert color="gray" variant="light">
+                      {t("goal.progress.nothingToSave")}
+                    </Alert>
+                  )}
 
-                {/* Lifecycle actions live on the list and the view screen — this screen only
-                    updates progress. Close confirms only when there are unsaved changes (the
-                    EditPerformanceReview dirty-aware pattern). */}
-                <Group justify="flex-end" gap="sm">
-                  <Button
-                    type="button"
-                    variant="default"
-                    onClick={() => (progressForm.isDirty() ? openCancel() : navigate(backTo))}
-                    disabled={submitting !== null}
-                  >
-                    {t("common.action.close")}
-                  </Button>
-                  <Button
-                    type="submit"
-                    loading={submitting === "progress"}
-                    disabled={submitting !== null}
-                  >
-                    {t("common.action.save")}
-                  </Button>
-                </Group>
-              </Stack>
-            </form>
-          ) : null}
-        </Stack>
-      </Paper>
+                  {/* Lifecycle actions live on the list and the view screen — this screen only
+                      updates progress. Close confirms only when there are unsaved changes (the
+                      shared guard's dirty-aware rule). */}
+                  <FormFooter>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={requestCancel}
+                      disabled={submitting !== null}
+                    >
+                      {t("common.action.close")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      loading={submitting === "progress"}
+                      disabled={submitting !== null}
+                    >
+                      {t("common.action.save")}
+                    </Button>
+                  </FormFooter>
+                </Stack>
+              </form>
+            ) : null}
+          </Stack>
+        </Paper>
+      </Container>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("goal.discardTitle")}
-        message={t("goal.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo={backTo}
-      />
+      <ConfirmActionModal {...modalProps} />
       <ConfirmActionModal
         opened={deleteOpen}
         onClose={closeDelete}
@@ -416,7 +419,7 @@ export default function EditGoal() {
         loading={deleting}
         onConfirm={remove}
       />
-    </Container>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ import {
   Center,
   ColorSwatch,
   Container,
+  Fieldset,
   Group,
   Loader,
   Paper,
@@ -15,7 +16,6 @@ import {
   Stack,
   Tabs,
   Text,
-  Title,
 } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { useDisclosure } from "@mantine/hooks";
@@ -25,10 +25,13 @@ import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { deletePerformanceReview, getPerformanceReview, submitPerformanceReview, updatePerformanceReview } from "../api/reviews";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
 import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
-import PersonaField from "../components/PersonaField";
-import ReadOnlyField from "../components/ReadOnlyField";
+import PersonaChip from "../components/PersonaChip";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewViewLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
@@ -76,7 +79,6 @@ export default function EditPerformanceReview() {
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<"save" | "submit" | "delete" | null>(null);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
 
   const { data, isLoading, isError } = useQuery({
@@ -91,6 +93,13 @@ export default function EditPerformanceReview() {
   const form = useForm<ReviewFormValues>({
     initialValues: EMPTY_VALUES,
     validate: reviewFormValidation(t, false),
+  });
+  // The one cancel guard (v3.5.0) — eight scalar fields, so `isDirty` is exact.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => form.isDirty(),
+    to: backTo,
+    title: t("performanceReview.discardTitle"),
+    message: t("performanceReview.discardMessage"),
   });
   // One-shot seed once the document arrives (the EditGoal idiom).
   if (data && data.status !== "PUBLISHED" && !form.initialized) {
@@ -152,118 +161,136 @@ export default function EditPerformanceReview() {
   const isDraft = data?.status === "DRAFT";
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        {isLoading && (
-          <Center py="xl">
-            <Loader />
-          </Center>
-        )}
-        {isError && (
-          <Stack gap="md">
-            <Alert color="red" variant="light">
-              {t("performanceReview.loadError")}
-            </Alert>
-            <Group justify="flex-end">
-              <Button component={RouterLink} to={backTo} variant="default">
-                {t("common.action.close")}
-              </Button>
-            </Group>
-          </Stack>
-        )}
-
-        {data && (
-          <form onSubmit={form.onSubmit((values) => void save(values, false))}>
+    <>
+      <PageHeader
+        title={t("performanceReview.editTitle")}
+        badge={data && <PerformanceReviewStatusBadge status={data.status} />}
+        mb="lg"
+      />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          {isLoading && (
+            <Center py="xl">
+              <Loader />
+            </Center>
+          )}
+          {isError && (
             <Stack gap="md">
-              <Group justify="space-between">
-                <Title order={2}>{t("performanceReview.editTitle")}</Title>
-                <PerformanceReviewStatusBadge status={data.status} />
-              </Group>
+              <Alert color="red" variant="light">
+                {t("performanceReview.loadError")}
+              </Alert>
+              <FormFooter>
+                <Button component={RouterLink} to={backTo} variant="default">
+                  {t("common.action.close")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          )}
 
-              <Group gap="xl" align="flex-start">
-                <PersonaField label={t("performanceReview.manager")} you />
-                <PersonaField
-                  label={t("performanceReview.subordinate")}
-                  name={data.subordinateName}
-                />
-                <ReadOnlyField label={t("performanceReview.period")}>
-                  <Group gap="xs" wrap="nowrap">
-                    <Text size="sm">
-                      {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
-                    </Text>
-                    {isCurrentPeriod(data.periodStartMonth, data.periodEndMonth) && (
-                      <Badge size="xs" variant="light" color="lettuce">
-                        {t("performanceReview.periods.currentBadge")}
-                      </Badge>
-                    )}
-                  </Group>
-                </ReadOnlyField>
-              </Group>
-
-              <Tabs defaultValue="content" keepMounted={false}>
-                <Tabs.List>
-                  <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                  <Tabs.Tab value="history">{t("performanceReview.history")}</Tabs.Tab>
-                </Tabs.List>
-                <Tabs.Panel value="content" pt="md">
-                  <Stack gap="lg">
-                    {isCalibration && (
-                      <Text size="sm" c="dimmed">
-                        {t("performanceReview.calibrationEditHint")}
-                      </Text>
-                    )}
-                    {REVIEW_CATEGORIES.map((category) => (
-                      <Stack key={category} gap="xs">
-                        <Select
-                          label={t(`performanceReview.category.${category}`)}
-                          placeholder={t("performanceReview.pickRating")}
-                          data={ratingOptions(t)}
-                          // The consistent rating color scale, visible while picking.
-                          renderOption={({ option }) => (
-                            <Group gap="xs" wrap="nowrap">
-                              <ColorSwatch
-                                color={`var(--mantine-color-${ratingColor(Number(option.value)).replace(".", "-")})`}
-                                size={12}
-                              />
-                              <span>{option.label}</span>
-                            </Group>
+          {data && (
+            <form onSubmit={form.onSubmit((values) => void save(values, false))}>
+              <Stack gap="md">
+                {/* The context line (v3.5.0): the pair and the reviewed period. */}
+                <MetaStrip
+                  items={[
+                    {
+                      key: "manager",
+                      label: t("performanceReview.manager"),
+                      value: <Text size="sm">{t("common.state.you")}</Text>,
+                    },
+                    {
+                      key: "subordinate",
+                      label: t("performanceReview.subordinate"),
+                      value: <PersonaChip name={data.subordinateName} />,
+                    },
+                    {
+                      key: "period",
+                      label: t("performanceReview.period"),
+                      value: (
+                        <Group gap="xs" wrap="nowrap">
+                          <Text size="sm">
+                            {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
+                          </Text>
+                          {isCurrentPeriod(data.periodStartMonth, data.periodEndMonth) && (
+                            <Badge size="xs" variant="light" color="lettuce">
+                              {t("performanceReview.periods.currentBadge")}
+                            </Badge>
                           )}
-                          // While DRAFT a rating may be cleared back to unset; from
-                          // CALIBRATION onward values may change but never blank.
-                          clearable={!isCalibration}
-                          allowDeselect={false}
-                          w={340}
-                          {...form.getInputProps(`${category}.rating`)}
-                        />
-                        <EmojiTextarea
-                          label={t("performanceReview.summary")}
-                          maxLength={MAX_REVIEW_SUMMARY_LENGTH}
-                          autosize
-                          minRows={2}
-                          maxRows={8}
-                          {...form.getInputProps(`${category}.summary`)}
-                        />
-                      </Stack>
-                    ))}
-                  </Stack>
-                </Tabs.Panel>
-                <Tabs.Panel value="history" pt="md">
-                  <PerformanceReviewHistory reviewId={id} />
-                </Tabs.Panel>
-              </Tabs>
+                        </Group>
+                      ),
+                    },
+                  ]}
+                />
 
-              {error && (
-                <Alert color="red" variant="light">
-                  {error}
-                </Alert>
-              )}
+                <Tabs defaultValue="content" keepMounted={false}>
+                  <Tabs.List>
+                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                    <Tabs.Tab value="history">{t("performanceReview.history")}</Tabs.Tab>
+                  </Tabs.List>
+                  <Tabs.Panel value="content" pt="md">
+                    <Stack gap="lg">
+                      {isCalibration && (
+                        <Text size="sm" c="dimmed">
+                          {t("performanceReview.calibrationEditHint")}
+                        </Text>
+                      )}
+                      {/* One Fieldset per rated category (v3.5.0): the legend names the category,
+                          so the rating Select carries the category as its aria-label only
+                          (the accessible name the tests and e2e key on stays "Attitude", …). */}
+                      {REVIEW_CATEGORIES.map((category) => (
+                        <Fieldset key={category} legend={t(`performanceReview.section.${category}`)}>
+                          <Stack gap="xs">
+                            <Select
+                              aria-label={t(`performanceReview.category.${category}`)}
+                              placeholder={t("performanceReview.pickRating")}
+                              data={ratingOptions(t)}
+                              // The consistent rating color scale, visible while picking.
+                              renderOption={({ option }) => (
+                                <Group gap="xs" wrap="nowrap">
+                                  <ColorSwatch
+                                    color={`var(--mantine-color-${ratingColor(Number(option.value)).replace(".", "-")})`}
+                                    size={12}
+                                  />
+                                  <span>{option.label}</span>
+                                </Group>
+                              )}
+                              // While DRAFT a rating may be cleared back to unset; from
+                              // CALIBRATION onward values may change but never blank.
+                              clearable={!isCalibration}
+                              allowDeselect={false}
+                              w={340}
+                              {...form.getInputProps(`${category}.rating`)}
+                            />
+                            <EmojiTextarea
+                              label={t("performanceReview.summary")}
+                              maxLength={MAX_REVIEW_SUMMARY_LENGTH}
+                              autosize
+                              minRows={2}
+                              maxRows={8}
+                              {...form.getInputProps(`${category}.summary`)}
+                            />
+                          </Stack>
+                        </Fieldset>
+                      ))}
+                    </Stack>
+                  </Tabs.Panel>
+                  <Tabs.Panel value="history" pt="md">
+                    <PerformanceReviewHistory reviewId={id} />
+                  </Tabs.Panel>
+                </Tabs>
 
-              <Group justify="space-between">
-                <Group>
+                {error && (
+                  <Alert color="red" variant="light">
+                    {error}
+                  </Alert>
+                )}
+
+                <FormFooter sticky>
                   {isDraft && (
                     <Button
                       color="red"
                       variant="light"
+                      mr="auto"
                       onClick={openDelete}
                       loading={submitting === "delete"}
                       disabled={submitting != null && submitting !== "delete"}
@@ -271,12 +298,7 @@ export default function EditPerformanceReview() {
                       {t("common.action.delete")}
                     </Button>
                   )}
-                </Group>
-                <Group>
-                  <Button
-                    variant="default"
-                    onClick={() => (form.isDirty() ? openCancel() : navigate(backTo))}
-                  >
+                  <Button variant="default" onClick={requestCancel}>
                     {t("common.action.cancel")}
                   </Button>
                   <Button
@@ -296,23 +318,15 @@ export default function EditPerformanceReview() {
                       {t("performanceReview.saveAndSubmit")}
                     </Button>
                   )}
-                </Group>
-              </Group>
-            </Stack>
-          </form>
-        )}
-      </Paper>
+                </FormFooter>
+              </Stack>
+            </form>
+          )}
+        </Paper>
+      </Container>
 
       {/* An eight-field editor qualifies as long-form — Cancel is guarded (house convention). */}
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("performanceReview.discardTitle")}
-        message={t("performanceReview.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo={backTo}
-      />
+      <ConfirmActionModal {...modalProps} />
       <ConfirmActionModal
         opened={deleteOpen}
         onClose={closeDelete}
@@ -323,6 +337,6 @@ export default function EditPerformanceReview() {
         onConfirm={() => void remove()}
         loading={submitting === "delete"}
       />
-    </Container>
+    </>
   );
 }
