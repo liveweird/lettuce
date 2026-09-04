@@ -18,6 +18,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // Pins every io.opentelemetry artifact (alpha/incubator included) to the pair the
+            // instrumentation line was built for — see the `opentelemetry` note in the catalog.
+            api(project.dependencies.platform(libs.opentelemetry.instrumentationBomAlpha))
             api(libs.opentelemetry.exporterLogging)
             api(libs.opentelemetry.exporterOtlp)
             api(libs.opentelemetry.ktorInstrumentation)

@@ -14,10 +14,23 @@ graphql-java = "26.1"
 kotlin = "2.4.10"
 kover = "0.9.9"
 logback = "1.6.3"
+# Netty alignment (2026-09-04): Ktor's engine ships Netty 4.2 while r2dbc-postgresql 1.1.2 asks for
+# reactor-netty 1.1.22 (built on 4.1.112) — Gradle lifted the shared modules to 4.2 and left the six
+# DNS/proxy modules only reactor-netty uses at 4.1, a mixed classpath under the driver's hostname
+# resolution. reactor-netty 1.3.x is built on Netty 4.2 (1.3.7 -> 4.2.17), and the BOM pins EVERY
+# io.netty module to one version, Ktor's included. Keep the two in step (the reactor-netty line's
+# Netty version is in its published pom); `:server:checkDependencyAlignment` fails on any drift.
+netty = "4.2.17.Final"
+# The SDK line and the instrumentation line MUST pair (instrumentation BOM 2.31.x -> SDK 1.65.0 —
+# read the SDK version off the instrumentation BOM's pom before bumping either). The alpha BOM
+# imported in core pins every io.opentelemetry artifact, incubator/alpha ones included, to that
+# pair; `:server:checkDependencyAlignment` fails on drift (2026-09-04 — 2.30.0 left the incubator
+# at 1.64.0-alpha next to a 1.65.0 SDK).
 opentelemetry = "1.65.0"
-opentelemetry-ktor = "2.30.0-alpha"
+opentelemetry-ktor = "2.31.1-alpha"
 opentelemetry-semconv = "1.43.0"
 r2dbc-postgresql = "1.1.2.RELEASE"
+reactor-netty = "1.3.7"
 swagger-request-validator = "3.0.0"
 testcontainers = "2.0.5"
 
@@ -30,14 +43,17 @@ flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 graphql-java = { module = "com.graphql-java:graphql-java", version.ref = "graphql-java" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+opentelemetry-instrumentationBomAlpha = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version.ref = "opentelemetry-ktor" }
 opentelemetry-exporterLogging = { module = "io.opentelemetry:opentelemetry-exporter-logging", version.ref = "opentelemetry" }
 opentelemetry-exporterOtlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetry" }
 opentelemetry-logbackAppender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetry-ktor" }
 opentelemetry-ktorInstrumentation = { module = "io.opentelemetry.instrumentation:opentelemetry-ktor-3.0", version.ref = "opentelemetry-ktor" }
 opentelemetry-sdkAutoconfigure = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetry" }
 opentelemetry-semconv = { module = "io.opentelemetry.semconv:opentelemetry-semconv", version.ref = "opentelemetry-semconv" }
+netty-bom = { module = "io.netty:netty-bom", version.ref = "netty" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.13" }
 r2dbc-postgresql = { module = "org.postgresql:r2dbc-postgresql", version.ref = "r2dbc-postgresql" }
+reactor-netty-core = { module = "io.projectreactor.netty:reactor-netty-core", version.ref = "reactor-netty" }
 swagger-request-validator-core = { module = "com.atlassian.oai:openapi-request-validator-core", version.ref = "swagger-request-validator" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 

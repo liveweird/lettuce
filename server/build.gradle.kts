@@ -95,6 +95,16 @@ dependencies {
     implementation(libs.opentelemetry.logbackAppender)
     implementation(libs.postgresql)
     implementation(libs.r2dbc.postgresql)
+    // Netty alignment — see the `netty` comment in gradle/libs.versions.toml: the BOM pins every
+    // io.netty module to one version and the explicit reactor-netty wins over the driver's older
+    // transitive request (Gradle picks the highest). Guarded by checkNettyAlignment below.
+    implementation(platform(libs.netty.bom))
+    implementation(libs.reactor.netty.core)
+    // kotlin-reflect rides in transitively (Ktor loads the config modules through it) at whatever
+    // version Ktor/Exposed were built with; declaring it lets the Kotlin plugin align it with the
+    // stdlib (2026-09-04: 2.3.21 under a 2.4.10 stdlib — readable only because metadata stays
+    // compatible one minor ahead). Guarded by checkDependencyAlignment below.
+    implementation(kotlin("reflect"))
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.client.contentNegotiation)
@@ -108,3 +118,39 @@ dependencies {
 tasks.withType<Test> {
     systemProperty("openapi.conformance", System.getProperty("openapi.conformance", "fail"))
 }
+
+// Fails the build when a dependency FAMILY that must move as one resolves to several versions on
+// the server runtime classpath — the mixed Netty 4.1/4.2 set Ktor + reactor-netty produced, the
+// OpenTelemetry incubator drifting from the SDK, kotlin-reflect lagging the stdlib (all 2026-09-04;
+// the catalog notes explain each pin). Docker-free, rides `check` like detekt.
+val checkDependencyAlignment by tasks.registering {
+    group = "verification"
+    description = "Asserts one version per aligned dependency family on the server runtime classpath."
+    val runtimeClasspath = configurations.runtimeClasspath
+    doLast {
+        val ids = runtimeClasspath.get().resolvedConfiguration.resolvedArtifacts.map { it.moduleVersion.id }
+        // family label -> (member predicate, version normalizer)
+        val families = mapOf(
+            "io.netty" to Pair({ g: String, _: String -> g == "io.netty" }, { v: String -> v }),
+            // The alpha/incubator artifacts carry a "-alpha" suffix on the same version number.
+            "io.opentelemetry" to Pair({ g: String, _: String -> g == "io.opentelemetry" }, { v: String -> v.removeSuffix("-alpha") }),
+            // stdlib-jdk7/jdk8 are empty relocation jars since Kotlin 1.8 — only these two matter.
+            "kotlin stdlib/reflect" to Pair(
+                { g: String, n: String -> g == "org.jetbrains.kotlin" && (n == "kotlin-stdlib" || n == "kotlin-reflect") },
+                { v: String -> v },
+            ),
+        )
+        val drift = families.mapNotNull { (label, spec) ->
+            val (member, normalize) = spec
+            val versions = ids.filter { member(it.group, it.name) }.groupBy({ normalize(it.version) }, { it.name })
+            if (versions.size == 1) {
+                logger.lifecycle("$label aligned at ${versions.keys.single()} (${versions.values.single().size} modules)")
+                null
+            } else {
+                "$label: " + versions.entries.joinToString("; ") { (v, names) -> "$v -> ${names.sorted()}" }
+            }
+        }
+        check(drift.isEmpty()) { "Dependency families must resolve to ONE version each on the runtime classpath — " + drift.joinToString(" | ") }
+    }
+}
+tasks.named("check") { dependsOn(checkDependencyAlignment) }
