@@ -65,6 +65,12 @@ spec:
             # limiting keys on the real client IP and the HTTPS redirect sees the real scheme.
             - name: HTTP_BEHIND_PROXY
               value: "true"
+            # The read-only GraphQL integration API at /integration/graphql (v3.0.0). Off by
+            # default (fail-closed: no routes registered); enabled here so integration clients
+            # issued via the ADMIN key registry can query it. Per-key rate limit:
+            # INTEGRATION_RATE_LIMIT_PER_MINUTE (default 120).
+            - name: INTEGRATION_ENABLED
+              value: "true"
             # Outbound email for the self-service password reset. Ships disabled — set
             # "smtp" plus real SMTP_HOST/MAIL_FROM/MAIL_APP_URL to enable (production
             # refuses the `log` transport). SMTP credentials come from the Secret.
