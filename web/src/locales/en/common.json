@@ -23,6 +23,10 @@
     "no": "No"
   },
   "field": {
+    "datePlaceholder": "YYYY-MM-DD",
+    "clearDate": "Clear the date",
+    "dateOf": "{{label}} — date",
+    "timeOf": "{{label}} — time",
     "name": "Name",
     "email": "Email",
     "role": "Role",

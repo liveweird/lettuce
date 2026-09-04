@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Checkbox, CloseButton, Group, Skeleton, Stack, Switch, Text, TextInput } from "@mantine/core";
 import { type UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
+import DateTimeField from "./DateTimeField";
 import { MAX_ALERT_CONTENT_LENGTH, MAX_ALERT_TITLE_LENGTH, type AlertFormValues } from "../utils/alertForm";
 import { charCountDescription } from "../utils/charCount";
 
@@ -37,14 +38,10 @@ function BoundField({
           }
         }}
       />
-      <TextInput
-        type="datetime-local"
-        aria-label={label}
+      <DateTimeField
+        label={label}
         disabled={!enabled}
         description={enabled ? undefined : uncheckedHint}
-        // Render the hint/error BELOW the input (default is above it), so the two bound
-        // controls stay level with each other regardless of checkbox state.
-        inputWrapperOrder={["label", "input", "description", "error"]}
         {...form.getInputProps(valueField)}
       />
     </Stack>

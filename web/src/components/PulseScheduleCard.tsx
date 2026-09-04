@@ -1,7 +1,8 @@
-import { Alert, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Text, Title } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import DateField from "./DateField";
 import { createPulseCycle, type PulseCycle, type PulseSettings } from "../api/pulse";
 import { addIsoDays, isValidIsoDate, todayIsoDate } from "../utils/datetime";
 import { invalidatePulse } from "../utils/pulseQueries";
@@ -80,17 +81,15 @@ export default function PulseScheduleCard({
           {t("pulse.admin.scheduleHint")}
         </Text>
         <Group grow>
-          <TextInput
-            type="date"
+          <DateField
             label={t("pulse.admin.openDate")}
             value={openDate}
-            onChange={(event) => setOpenDateInput(event.currentTarget.value)}
+            onChange={(iso) => setOpenDateInput(iso)}
           />
-          <TextInput
-            type="date"
+          <DateField
             label={t("pulse.admin.closeDate")}
             value={closeDate}
-            onChange={(event) => setCloseDateInput(event.currentTarget.value)}
+            onChange={(iso) => setCloseDateInput(iso)}
           />
         </Group>
         {error && (

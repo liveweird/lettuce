@@ -1,4 +1,4 @@
-import { test, expect, login, logout, uniqueText, AAA_ONE, MANAGER_AAA } from "./helpers";
+import { fillDate, test, expect, login, logout, uniqueText, AAA_ONE, MANAGER_AAA } from "./helpers";
 import { apiToken, authHeader } from "./api";
 
 // Succession plans (v2.42.0): the manager's critical-role/seat records. This file exclusively
@@ -102,7 +102,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await modal.getByLabel("Title").fill(goalTitle);
   // withAsterisk widens the accessible names — match by prefix (the known gotcha).
   await modal.getByLabel(/^Target$|^Target \*/).fill("3");
-  await modal.getByLabel("Due date").fill("2027-12-31");
+  await fillDate(modal, "Due date", "2027-12-31");
   const [goalCreated] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),

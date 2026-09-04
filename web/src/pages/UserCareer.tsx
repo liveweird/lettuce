@@ -1,10 +1,11 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
-import { Alert, Anchor, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Paper, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { createCareerPosition, deleteCareerPosition, listCareerPositions, updateCareerPosition, type CareerPosition } from "../api/career";
 import CareerProfileSelect from "../components/CareerProfileSelect";
 import CareerTimeline from "../components/CareerTimeline";
@@ -119,14 +120,13 @@ function PositionForm({
         {t(editing ? "users.career.editHint" : "users.career.startHint")}
       </Text>
       <Group align="flex-start" gap="md" wrap="wrap">
-        <TextInput
-          type="date"
+        <DateField
           withAsterisk
           label={t("users.career.startDate")}
           value={draft.startDate}
-          max={todayIsoDate()}
-          onChange={(e) => {
-            const value = e.currentTarget.value;
+          maxIso={todayIsoDate()}
+          onChange={(iso) => {
+            const value = iso;
             setDraft((d) => ({ ...d, startDate: value }));
           }}
           w={170}

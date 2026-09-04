@@ -3,6 +3,7 @@ import {
   ADMIN,
   collapseAlertsBanner,
   expect,
+  fillDate,
   gotoUserRow,
   login,
   logout,
@@ -181,8 +182,8 @@ async function newRequest(
     await page.getByRole("combobox", { name: "Type" }).click();
     await page.getByRole("option", { name: unpaid ? "Unpaid" : poolName, exact: true }).click();
   }
-  await page.getByLabel("From", { exact: true }).fill(from);
-  await page.getByLabel("To", { exact: true }).fill(to);
+  await fillDate(page, "From", from, true);
+  await fillDate(page, "To", to, true);
   await expect(page.getByText(`This request costs ${expectedCost} working day${expectedCost === "1" ? "" : "s"}.`)).toBeVisible();
   await Promise.all([
     page.waitForResponse(
@@ -202,7 +203,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await login(page, ADMIN);
   await collapseAlertsBanner(page);
   await page.goto("/public-holidays");
-  await page.getByLabel("Date", { exact: true }).fill(MONDAY_ISO);
+  await fillDate(page, "Date", MONDAY_ISO, true);
   await page.getByLabel("Name", { exact: true }).fill(`E2E Holiday ${MONDAY_ISO}`);
   await page.getByRole("button", { name: "Add holiday" }).click();
   // A residual holiday from a failed run answers 409 — either way the date is now covered.
@@ -439,8 +440,8 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await page.getByRole("link", { name: "New days off" }).click();
   await expect(page).toHaveURL(/\/days-off\/new\?onBehalf=1/);
   await pickSelectOption(page, "On behalf of", "AAA Two");
-  await page.getByLabel("From", { exact: true }).fill(THURSDAY_ISO);
-  await page.getByLabel("To", { exact: true }).fill(THURSDAY_ISO);
+  await fillDate(page, "From", THURSDAY_ISO, true);
+  await fillDate(page, "To", THURSDAY_ISO, true);
   await expect(page.getByText("This request costs 1 working day.")).toBeVisible();
   await Promise.all([
     page.waitForResponse(

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -77,14 +77,16 @@ describe("CreateAlert page", () => {
     await user.type(content, "Down");
     // Both bounds are opt-in: the datetime inputs stay disabled until their checkbox is set.
     // Checkbox and input share the accessible name, so queries disambiguate by role/selector.
-    const fromInput = screen.getByLabelText(/visible from/i, { selector: "input[type='datetime-local']" });
-    const untilInput = screen.getByLabelText(/visible until/i, { selector: "input[type='datetime-local']" });
-    expect(fromInput).toBeDisabled();
-    expect(untilInput).toBeDisabled();
+    const fromDate = screen.getByRole("textbox", { name: "Visible from — date" });
+    const untilDate = screen.getByRole("textbox", { name: "Visible until — date" });
+    expect(fromDate).toBeDisabled();
+    expect(untilDate).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /visible from/i }));
     await user.click(screen.getByRole("checkbox", { name: /visible until/i }));
-    await user.type(fromInput, "2026-07-01T08:00");
-    await user.type(untilInput, "2026-07-02T08:00");
+    fireEvent.change(fromDate, { target: { value: "2026-07-01" } });
+    fireEvent.change(screen.getByLabelText("Visible from — time"), { target: { value: "08:00" } });
+    fireEvent.change(untilDate, { target: { value: "2026-07-02" } });
+    fireEvent.change(screen.getByLabelText("Visible until — time"), { target: { value: "08:00" } });
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/alerts"));
@@ -123,14 +125,8 @@ describe("CreateAlert page", () => {
     await user.type(content, "x");
     await user.click(screen.getByRole("checkbox", { name: /visible from/i }));
     await user.click(screen.getByRole("checkbox", { name: /visible until/i }));
-    await user.type(
-      screen.getByLabelText(/visible from/i, { selector: "input[type='datetime-local']" }),
-      "2026-07-02T08:00",
-    );
-    await user.type(
-      screen.getByLabelText(/visible until/i, { selector: "input[type='datetime-local']" }),
-      "2026-07-01T08:00",
-    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Visible from — date" }), { target: { value: "2026-07-02" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Visible until — date" }), { target: { value: "2026-07-01" } });
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     expect(await screen.findByText(/must be after/i)).toBeInTheDocument();

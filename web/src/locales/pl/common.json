@@ -23,6 +23,10 @@
     "no": "Nie"
   },
   "field": {
+    "datePlaceholder": "YYYY-MM-DD",
+    "clearDate": "Wyczyść datę",
+    "dateOf": "{{label}} — data",
+    "timeOf": "{{label}} — godzina",
     "name": "Nazwa",
     "email": "E-mail",
     "role": "Rola",

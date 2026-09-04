@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
+import DateField from "./DateField";
 import type { ParseKeys } from "i18next";
 import type { ImpactEntryFormValues } from "../utils/impactLogForm";
 import { IMPACT_SECTIONS, MAX_IMPACT_TEXT_LENGTH, MAX_IMPACT_TITLE_LENGTH } from "../utils/impactLogForm";
@@ -97,14 +98,13 @@ export default function ImpactEntryWizard({
         {...form.getInputProps("title")}
       />
       <Group align="flex-end" gap="md" wrap="wrap">
-        <TextInput
-          type="date"
+        <DateField
           withAsterisk
           label={t("impactLog.periodStart")}
           value={form.values.periodStart}
           error={form.errors.periodStart}
-          onChange={(e) => {
-            const v = e.currentTarget.value;
+          onChange={(iso) => {
+            const v = iso;
             form.setFieldValue("periodStart", v);
             // Keep the range ordered (the CreateDaysOff nudge).
             if (v && form.values.periodEnd && v > form.values.periodEnd) {
@@ -113,14 +113,13 @@ export default function ImpactEntryWizard({
           }}
           w={180}
         />
-        <TextInput
-          type="date"
+        <DateField
           withAsterisk
           label={t("impactLog.periodEnd")}
-          min={form.values.periodStart || undefined}
+          minIso={form.values.periodStart || undefined}
           value={form.values.periodEnd}
           error={form.errors.periodEnd}
-          onChange={(e) => form.setFieldValue("periodEnd", e.currentTarget.value)}
+          onChange={(iso) => form.setFieldValue("periodEnd", iso)}
           w={180}
         />
       </Group>

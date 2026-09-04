@@ -9,13 +9,13 @@ import {
   Select,
   Stack,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
 import EmojiTextarea from "./EmojiTextarea";
 import type { UseFormReturnType } from "@mantine/form";
 import { IconHistory, IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import DateField from "./DateField";
 import type { ActionItemOwner } from "../api/oneonones";
 import { formatIsoDate } from "../utils/datetime";
 import type { OneOnOneFormValues } from "../utils/oneOnOneForm";
@@ -92,8 +92,7 @@ export default function ActionItemsEditor({
                 comboboxProps={{ withinPortal: false }}
                 {...form.getInputProps(`actionItems.${index}.owner`)}
               />
-              <TextInput
-                type="date"
+              <DateField
                 label={t("oneOnOne.dueDate")}
                 w={170}
                 {...form.getInputProps(`actionItems.${index}.dueDate`)}

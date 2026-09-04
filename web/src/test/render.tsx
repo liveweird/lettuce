@@ -4,6 +4,7 @@ import { render, type RenderOptions } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import AppDatesProvider from "../components/AppDatesProvider";
 import { theme } from "../theme";
 import { cssVariablesResolver } from "../themeVariables";
 
@@ -19,9 +20,11 @@ export function renderWithProviders(ui: ReactElement, options: Options = {}) {
   return render(ui, {
     wrapper: ({ children }) => (
       <MantineProvider env="test" theme={theme} cssVariablesResolver={cssVariablesResolver}>
-        <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
-        </QueryClientProvider>
+        <AppDatesProvider>
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+          </QueryClientProvider>
+        </AppDatesProvider>
       </MantineProvider>
     ),
     ...rest,

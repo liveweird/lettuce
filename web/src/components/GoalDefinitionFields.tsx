@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { Group, NumberInput, Select, Skeleton, Stack, Text, TextInput } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
+import DateField from "./DateField";
 import { todayIsoDate } from "../utils/datetime";
 import {
   MAX_GOAL_TEXT_LENGTH,
@@ -88,12 +89,11 @@ export default function GoalDefinitionFields({
             {...form.getInputProps("targetDirection")}
           />
         )}
-        <TextInput
-          type="date"
+        <DateField
           label={t("goal.dueDate")}
           withAsterisk
           w={180}
-          min={todayIsoDate()}
+          minIso={todayIsoDate()}
           {...form.getInputProps("dueDate")}
         />
       </Group>

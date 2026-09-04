@@ -11,13 +11,13 @@ import {
   Paper,
   Stack,
   Tabs,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { deleteOneOnOne, getOneOnOne, updateOneOnOne } from "../api/oneonones";
@@ -170,12 +170,11 @@ export default function EditOneOnOne() {
                 <Group gap="xl">
                   <PersonaField label={t("oneOnOne.manager")} you />
                   <PersonaField label={t("oneOnOne.subordinate")} name={data.subordinateName} />
-                  <TextInput
-                    type="date"
+                  <DateField
                     label={t("oneOnOne.meetingDate")}
                     w={180}
                     // The pair's previous meeting is the chronological floor (server: 409).
-                    min={data.minMeetingDate ?? undefined}
+                    minIso={data.minMeetingDate ?? undefined}
                     {...form.getInputProps("meetingDate")}
                   />
                 </Group>

@@ -8,11 +8,11 @@ import {
   NumberInput,
   Table,
   Text,
-  TextInput,
 } from "@mantine/core";
 import { IconCheck, IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import DateField from "./DateField";
 import { addTeamKpiValue, deleteTeamKpiValue, listTeamKpiValues, updateTeamKpiValue, type TeamKpiResponse, type TeamKpiValue } from "../api/teamkpis";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
@@ -151,12 +151,11 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
       )}
       {canEdit && (
         <Group align="flex-end" gap="sm" mb="md" wrap="wrap">
-          <TextInput
-            type="date"
+          <DateField
             label={t("teamKpi.date")}
             value={addDate}
-            max={todayIsoDate()}
-            onChange={(e) => setAddDate(e.currentTarget.value)}
+            maxIso={todayIsoDate()}
+            onChange={(iso) => setAddDate(iso)}
             w={180}
           />
           <NumberInput
@@ -196,12 +195,11 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
               draft?.id === row.id ? (
                 <Table.Tr key={row.id}>
                   <Table.Td>
-                    <TextInput
-                      type="date"
+                    <DateField
                       aria-label={t("teamKpi.date")}
                       value={draft.date}
-                      max={todayIsoDate()}
-                      onChange={(e) => setDraft({ ...draft, date: e.currentTarget.value })}
+                      maxIso={todayIsoDate()}
+                      onChange={(iso) => setDraft({ ...draft, date: iso })}
                       w={160}
                     />
                   </Table.Td>

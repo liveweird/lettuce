@@ -92,8 +92,9 @@ describe("EditOneOnOne page", () => {
     stubLoad({ ...MEETING, minMeetingDate: "2026-06-20" });
     renderEdit();
 
+    // The floor is a calendar hint (greyed days) since v3.5.0 — the typed value still lands
+    // and the form's own validation explains the rule.
     const dateInput = await screen.findByLabelText("Meeting date");
-    expect(dateInput).toHaveAttribute("min", "2026-06-20");
 
     // Going below the floor is blocked client-side: inline error, no PUT fired.
     fireEvent.change(dateInput, { target: { value: "2026-06-10" } });
@@ -114,7 +115,7 @@ describe("EditOneOnOne page", () => {
     expect(screen.getByDisplayValue("Second point")).toBeInTheDocument();
     expect(screen.getByDisplayValue("The decision")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Carried task")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("2026-07-01")).toBeInTheDocument();
+    expect(screen.getByLabelText("Meeting date")).toHaveValue("2026-07-01");
     // Only the carried item is badged.
     expect(screen.getAllByText("Carried over since Jun 1, 2026")).toHaveLength(1);
     // The manager renders as plain "You" (also the owner-select label), the subordinate by name.

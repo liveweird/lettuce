@@ -55,6 +55,8 @@ export default defineConfig({
             // The emoji-mart data set — the bulk of the (lazy-loaded) picker payload; the
             // same under-500 kB split as the lexical group above.
             { name: 'emoji-data', test: /node_modules[\\/]@emoji-mart[\\/]data[\\/]/, priority: 5 },
+            // The calendar layer (@mantine/dates + dayjs) shared by every date field (v3.5.0).
+            { name: 'dates', test: /node_modules[\\/](?:@mantine[\\/]dates|dayjs)[\\/]/, priority: 5 },
           ],
         },
       },

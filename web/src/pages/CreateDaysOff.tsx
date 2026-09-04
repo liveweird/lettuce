@@ -9,12 +9,12 @@ import {
   Select,
   Stack,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import {
@@ -227,24 +227,22 @@ export default function CreateDaysOff() {
           />
 
           <Group align="flex-end" gap="md" wrap="wrap">
-            <TextInput
-              type="date"
+            <DateField
               label={t("daysOff.column.startDate")}
               value={startDate}
-              onChange={(e) => {
-                const v = e.currentTarget.value;
+              onChange={(iso) => {
+                const v = iso;
                 setStartDate(v);
                 // Keep the range ordered as the user moves the start forward.
                 if (v > endDate) setEndDate(v);
               }}
               w={180}
             />
-            <TextInput
-              type="date"
+            <DateField
               label={t("daysOff.column.endDate")}
               value={endDate}
-              min={startDate}
-              onChange={(e) => setEndDate(e.currentTarget.value)}
+              minIso={startDate}
+              onChange={(iso) => setEndDate(iso)}
               w={180}
             />
           </Group>

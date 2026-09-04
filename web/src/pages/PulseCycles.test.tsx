@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { notifications } from "@mantine/notifications";
 import PulseCycles from "./PulseCycles";
@@ -119,8 +119,9 @@ describe("PulseCycles (admin)", () => {
     setupMocks();
     renderPage();
     // Latest non-cancelled cycle opens 2026-09-01; +4 weeks = 2026-09-29; close +7 days.
-    expect(await screen.findByDisplayValue("2026-09-29")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("2026-10-06")).toBeInTheDocument();
+    // DateInput mirrors its value into a hidden input, so query by label, not display value.
+    await waitFor(() => expect(screen.getByLabelText("Open date")).toHaveValue("2026-09-29"));
+    expect(screen.getByLabelText("Close date")).toHaveValue("2026-10-06");
   });
 
   test("scheduling POSTs the dates and toasts", async () => {
@@ -128,7 +129,7 @@ describe("PulseCycles (admin)", () => {
     const toast = vi.spyOn(notifications, "show");
     const user = userEvent.setup();
     renderPage();
-    await screen.findByDisplayValue("2026-09-29");
+    await waitFor(() => expect(screen.getByLabelText("Open date")).toHaveValue("2026-09-29"));
     await user.click(screen.getByRole("button", { name: "Schedule cycle" }));
     await waitFor(() => {
       const post = mockFetch.mock.calls.find(
@@ -180,7 +181,8 @@ describe("PulseCycles (admin)", () => {
     await screen.findByText("Good work is recognized here.");
     await user.click(screen.getByRole("button", { name: "More actions for cycle 6" }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit dates of cycle 6" }));
-    expect(await screen.findByDisplayValue("2026-09-01")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(within(dialog).getByLabelText("Open date")).toHaveValue("2026-09-01"));
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {
       const put = mockFetch.mock.calls.find(

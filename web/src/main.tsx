@@ -6,10 +6,12 @@ import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@fontsource-variable/inter/index.css";
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "./index.css";
 import "./i18n";
 import App from "./App.tsx";
+import AppDatesProvider from "./components/AppDatesProvider";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { shouldRetryQuery } from "./api/http";
 import { theme } from "./theme";
@@ -45,11 +47,13 @@ createRoot(document.getElementById("root")!).render(
       {/* Last-resort crash fallback; the navigation-resetting RouteErrorBoundary lives inside
           the Shell (App.tsx), so this one only catches crashes of the shell itself. */}
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </QueryClientProvider>
+        <AppDatesProvider>
+          <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </QueryClientProvider>
+        </AppDatesProvider>
       </ErrorBoundary>
     </MantineProvider>
   </StrictMode>,

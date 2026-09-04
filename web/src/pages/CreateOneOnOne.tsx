@@ -9,11 +9,11 @@ import {
   Select,
   Stack,
   Text,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { hasFeature } from "../api/session";
 import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { createOneOnOne } from "../api/oneonones";
@@ -128,11 +128,10 @@ export default function CreateOneOnOne() {
             />
           )}
 
-          <TextInput
-            type="date"
+          <DateField
             label={t("oneOnOne.meetingDate")}
             value={meetingDate}
-            onChange={(e) => setMeetingDate(e.currentTarget.value)}
+            onChange={(iso) => setMeetingDate(iso)}
             w={200}
           />
 

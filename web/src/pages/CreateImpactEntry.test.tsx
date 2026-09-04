@@ -188,9 +188,11 @@ describe("CreateImpactEntry page", () => {
 
   test("moving the period start past the end drags the end along (the range nudge)", async () => {
     renderScreen();
-    fireEvent.change(await screen.findByLabelText(/period end/i), {
-      target: { value: "2026-07-10" },
-    });
+    const end = await screen.findByLabelText(/period end/i);
+    fireEvent.change(end, { target: { value: "2026-07-10" } });
+    // DateInput keeps its typed text while its calendar is open — leaving the field (as a
+    // user moving to the start field does) lets the nudge repaint it.
+    fireEvent.blur(end);
     fireEvent.change(screen.getByLabelText(/period start/i), { target: { value: "2026-08-01" } });
     expect(screen.getByLabelText(/period end/i)).toHaveValue("2026-08-01");
   });

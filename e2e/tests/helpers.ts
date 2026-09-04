@@ -374,3 +374,15 @@ export async function pickMultiSelectOptions(page: Page, label: string, optionNa
   }
   await input.press("Escape");
 }
+
+/**
+ * Types an ISO date into a Mantine DateInput (v3.5.0) by its accessible label. The calendar
+ * popover opens on focus and would sit over the next control, so Tab closes it — never
+ * Escape, which would also close a hosting modal (the succession goal modal).
+ */
+export async function fillDate(root: Page | Locator, label: string, iso: string, exact = false): Promise<void> {
+  // Non-exact by default: an asterisked label's accessible name is "Due date *".
+  const input = root.getByLabel(label, { exact });
+  await input.fill(iso);
+  await input.press("Tab");
+}
