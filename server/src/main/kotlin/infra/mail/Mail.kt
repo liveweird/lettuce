@@ -39,6 +39,9 @@ suspend fun ApplicationCall.respondMailUnavailable(feature: String) =
  *  - `smtp` — real delivery via `mail.smtp.*`; a blank host refuses startup in ANY mode (it
  *    cannot possibly work, and failing late would drop password-reset emails silently).
  *  - `disabled` (the Docker image default) — email features off; a null mailer is published.
+ *
+ * With a live transport, a blank `mail.appUrl` (MAIL_APP_URL) is a startup WARN: the emails
+ * would deliver a password or a notification with nowhere to click (v3.6.2, MailConfigTest).
  */
 fun Application.configureMail() {
     val transport = environment.config.property("mail.transport").getString().trim().lowercase()
@@ -67,6 +70,12 @@ fun Application.configureMail() {
             )
         }
         else -> error("Unknown mail.transport '$transport' — expected log, smtp, or disabled.")
+    }
+    if (mailer != null && mailAppUrl() == null) {
+        log.warn(
+            "mail.appUrl (MAIL_APP_URL) is blank — outbound emails will carry no sign-in/notification " +
+                "link. Set it to this deployment's public URL (e.g. https://lettuce.example.com).",
+        )
     }
     attributes.put(MailerKey, MailerHolder(mailer))
 }

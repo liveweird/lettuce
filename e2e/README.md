@@ -19,6 +19,12 @@ npm test                      # brings the stack up (docker compose), runs specs
   local `WEB_STATIC_DIR=… ./gradlew :server:run` going and just run `npm test`). `global-teardown.ts`
   only runs `docker compose down -v` if setup started the stack.
 - Requires Docker. Override the target with `E2E_BASE_URL`.
+- **A TLS target with a self-signed certificate** (the local ingress proof in the `run-stack`
+  skill): `E2E_BASE_URL=https://lettuce.<ip>.nip.io E2E_INSECURE_TLS=1 npm test` — the flag sets
+  `ignoreHTTPSErrors` for the browser and `NODE_TLS_REJECT_UNAUTHORIZED=0` for the helpers' plain
+  `fetch`. The target must run in **development mode with pristine seeds** (a production boot
+  disables the demo users for good), and the three Mailpit specs skip unless something answers on
+  `localhost:8025` — keep `docker compose` down so they don't find the compose Mailpit and time out.
 
 Two Docker-free static gates ride every spec change (2026-08 — run both before merging, like
 the web package's lint/knip):

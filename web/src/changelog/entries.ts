@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.6.2",
+    date: "2026-09-05",
+    en: `Deployment behind a real hostname. The Kubernetes manifests now include the ingress and TLS wiring for serving Lettuce at its own domain, the client address a proxy reports is trusted in a way that can't be faked, and the sign-in and notification links in emails are no longer silently dropped when the deployment's address isn't configured — the server now warns about it at startup. Nothing changes on screen.`,
+    pl: `Wdrożenie pod prawdziwą nazwą domenową. Manifesty Kubernetes zawierają teraz konfigurację ingressu i TLS do serwowania Lettuce pod własną domeną, adres klienta zgłaszany przez proxy jest ufany w sposób, którego nie da się podrobić, a linki do logowania i powiadomień w e-mailach nie znikają już po cichu, gdy adres wdrożenia nie jest skonfigurowany — serwer ostrzega o tym przy starcie. Na ekranie nic się nie zmienia.`,
+  },
+  {
     version: "3.6.1",
     date: "2026-09-04",
     en: `A deployment fix round after checking the Kubernetes manifests. The app's health checks now pass in production mode (they used to follow the HTTPS redirect and restart the app every minute), a plain-HTTP request in production mode no longer logs an error for every redirect, and the secrets template moved out of the deployed folder so a routine deploy can no longer overwrite the real secrets. Nothing changes on screen.`,

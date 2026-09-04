@@ -1,0 +1,50 @@
+# The TLS-terminating front door the app deployment is written for (HTTP_BEHIND_PROXY=true,
+# production mode). Targets ingress-nginx (https://kubernetes.github.io/ingress-nginx/ — install
+# recipe in .claude/skills/run-stack/SKILL.md). Whole host → service app:8080, no path rewrite:
+# the app is served at the domain root (asset URLs and the router are root-absolute).
+#
+# The proxy contract the app relies on, satisfied by ingress-nginx's DEFAULTS:
+#   - X-Forwarded-For is REPLACED with the client address nginx saw (the client's own value moves
+#     to X-Original-Forwarded-For); X-Forwarded-Proto/-Host/-Port are set from the request.
+#     If you turn on the controller's `use-forwarded-headers` / `compute-full-forwarded-for`
+#     (an appending chain), raise HTTP_PROXY_HOPS in app-deployment.yaml accordingly.
+#   - Plain HTTP is answered by the controller with a 308 to https:// once the tls: block below
+#     exists (`ssl-redirect`, default on — pinned in the annotation); the app's own 301 stays for
+#     pod-direct traffic.
+#   - The controller OVERWRITES Strict-Transport-Security (configmap `hsts`,
+#     `hsts-include-subdomains`, default on/on) — HSTS policy is configured there, not in the app.
+#
+# Placeholders to substitute (keep the three in step): the host below (twice), MAIL_APP_URL in
+# app-deployment.yaml, and the certificate SAN in the `lettuce-tls` Secret
+# (k8s/templates/tls-secret.yaml has the self-signed recipe and the cert-manager alternative).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app
+  labels:
+    io.kompose.service: app
+  annotations:
+    # Edge HTTP→HTTPS redirect (308). ingress-nginx's default once tls: is present; pinned so a
+    # controller-wide `ssl-redirect: "false"` cannot silently switch it off for this host.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx's client_max_body_size default is 1m. The CSV import accepts 256 Ki characters,
+    # up to ~1 MiB of UTF-8 inside JSON — it must reach the app's own problem+json 400, not
+    # nginx's HTML 413.
+    nginx.ingress.kubernetes.io/proxy-body-size: 2m
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - lettuce.example.com
+      secretName: lettuce-tls
+  rules:
+    - host: lettuce.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app
+                port:
+                  number: 8080

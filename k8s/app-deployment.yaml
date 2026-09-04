@@ -60,11 +60,15 @@ spec:
             # and the seed credentials are tolerated, exactly like the compose demo.
             - name: KTOR_DEVELOPMENT
               value: "false"
-            # The app sits behind an ingress / LB that must terminate TLS and set
-            # X-Forwarded-For + X-Forwarded-Proto (and strip client-supplied values), so rate
-            # limiting keys on the real client IP and the HTTPS redirect sees the real scheme.
+            # The app sits behind the TLS-terminating Ingress in k8s/app-ingress.yaml, which sets
+            # X-Forwarded-For (replaced with the real client IP) + X-Forwarded-Proto/-Host, so
+            # rate limiting keys on the real client and the HTTPS redirect sees the real scheme
+            # and name. HTTP_PROXY_HOPS = trusted proxies that APPEND to X-Forwarded-For (1 =
+            # the ingress alone; see application.yaml `http.proxyHops`).
             - name: HTTP_BEHIND_PROXY
               value: "true"
+            - name: HTTP_PROXY_HOPS
+              value: "1"
             # The read-only GraphQL integration API at /integration/graphql (v3.0.0). Off by
             # default (fail-closed: no routes registered); enabled here so integration clients
             # issued via the ADMIN key registry can query it. Per-key rate limit:
@@ -84,8 +88,11 @@ spec:
               value: "true"
             - name: MAIL_FROM
               value: "lettuce@localhost"
+            # The public URL the emails link to — keep in step with the Ingress host
+            # (k8s/app-ingress.yaml) and the certificate SAN. Blank = link-less emails (the
+            # server warns at startup).
             - name: MAIL_APP_URL
-              value: ""
+              value: "https://lettuce.example.com"
             - name: SMTP_USER
               valueFrom:
                 secretKeyRef:

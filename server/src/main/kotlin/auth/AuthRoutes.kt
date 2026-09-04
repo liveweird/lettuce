@@ -304,7 +304,7 @@ fun Application.configureAuthRoutes() {
                 // was already folding its keys).
                 val email = canonicalEmail(req.email)
                 if (loginThrottle.isLocked(email)) {
-                    audit("login.rejected_locked", "email" to email)
+                    audit("login.rejected_locked", "ip" to call.request.origin.remoteHost, "email" to email)
                     // Thrown (not respondProblem) so StatusPages marks the call handled and its
                     // generic 429 status handler cannot replace this specific detail.
                     throw TooManyRequestsException(
@@ -316,6 +316,7 @@ fun Application.configureAuthRoutes() {
                     val tripped = loginThrottle.recordFailure(email)
                     audit(
                         "login.failure",
+                        "ip" to call.request.origin.remoteHost,
                         "email" to email,
                         "reason" to if (record == null) "unknown_email" else "wrong_password",
                     )
@@ -328,7 +329,7 @@ fun Application.configureAuthRoutes() {
                 // recordFailure (correct credentials must not feed the lockout) nor recordSuccess
                 // (nothing to reset matters); a locked account still answers 429 first, above.
                 if (user.deactivated) {
-                    audit("login.failure", "email" to email, "reason" to "deactivated")
+                    audit("login.failure", "ip" to call.request.origin.remoteHost, "email" to email, "reason" to "deactivated")
                     throw ForbiddenException("Account is deactivated")
                 }
                 loginThrottle.recordSuccess(email)
@@ -338,7 +339,7 @@ fun Application.configureAuthRoutes() {
                     issueMfaChallenge(call, userId, user)
                     return@post
                 }
-                audit("login.success", "email" to user.email, "userId" to userId.toLong())
+                audit("login.success", "ip" to call.request.origin.remoteHost, "email" to user.email, "userId" to userId.toLong())
                 call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
             }
         }
@@ -365,7 +366,7 @@ fun Application.configureAuthRoutes() {
                             throw UnauthorizedException("Invalid or expired sign-in code")
                         }
                         if (user.deactivated) {
-                            audit("login.failure", "email" to user.email, "reason" to "deactivated")
+                            audit("login.failure", "ip" to call.request.origin.remoteHost, "email" to user.email, "reason" to "deactivated")
                             throw ForbiddenException("Account is deactivated")
                         }
                         audit("login.mfa_success", "email" to user.email, "userId" to userId.toLong())

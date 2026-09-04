@@ -109,6 +109,10 @@ class LogCapture(loggerName: String) {
     private val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
 
     init {
+        // ListAppender's backing list is a plain ArrayList: a capture on a busy logger (ROOT —
+        // the metrics reporter, OTel) throws ConcurrentModificationException when a test iterates
+        // it while another thread appends. Copy-on-write makes reads safe (v3.6.2).
+        appender.list = java.util.concurrent.CopyOnWriteArrayList()
         appender.start()
         logger.addAppender(appender)
     }
