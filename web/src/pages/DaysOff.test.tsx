@@ -108,6 +108,26 @@ describe("DaysOff page", () => {
     expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
   });
 
+  test("a stored budgets pick restores the Budgets segment on the team tab (v3.4.0)", async () => {
+    setupMocks({ managed: 1 });
+    localStorage.setItem("lettuce.viewSettings.daysOff.team.view", JSON.stringify("budgets"));
+    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+
+    // No click: the segment opens on Budgets and the budgets table renders straight away.
+    expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Budgets" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Requests" })).not.toBeChecked();
+  });
+
+  test("picking the Budgets segment stores the choice", async () => {
+    setupMocks({ managed: 1 });
+    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+
+    await userEvent.click(await screen.findByRole("radio", { name: "Budgets" }));
+    expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
+    expect(localStorage.getItem("lettuce.viewSettings.daysOff.team.view")).toBe(JSON.stringify("budgets"));
+  });
+
   test("the team tab shows the New days off on-behalf button under the request list", async () => {
     setupMocks({ managed: 1 });
     renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });

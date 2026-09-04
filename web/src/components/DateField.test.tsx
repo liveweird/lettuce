@@ -42,4 +42,45 @@ describe("DateField", () => {
     expect(isOutsideIsoRange("2026-06-01", "2026-01-01", "2026-12-31")).toBe(false);
     expect(isOutsideIsoRange("2027-01-01", "2026-01-01", "")).toBe(false);
   });
+
+  test("the calendar greys out the days outside [minIso, maxIso] (the excludeDate wiring)", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DateField label="Start" value="" onChange={vi.fn()} minIso="2026-01-10" maxIso="2026-01-20" defaultDate="2026-01-01" />,
+    );
+    await user.click(screen.getByRole("textbox", { name: "Start" }));
+    // Day buttons are named "D MMMM YYYY" by Mantine; an excluded day renders disabled.
+    expect(await screen.findByRole("button", { name: "5 January 2026" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "25 January 2026" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "15 January 2026" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "10 January 2026" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "20 January 2026" })).toBeEnabled();
+  });
+
+  test("a partial keystroke never commits — only a complete ISO date reaches onChange (v3.5.2)", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<DateField label="Due date" value="" onChange={onChange} />);
+    const input = screen.getByRole("textbox", { name: "Due date" });
+    // Mantine's default lenient parser would have committed "2" as 2001-02-01 and "2026-0"
+    // as 2025-12-01 on the way to the full date.
+    await user.type(input, "2026-0");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveValue("2026-0");
+    await user.type(input, "7-15");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith("2026-07-15");
+  });
+
+  test("an overflow date (Feb 30th) never commits instead of rolling over to March (v3.5.2)", async () => {
+    const onChange = vi.fn();
+    renderWithProviders(<DateField label="Due date" value="" onChange={onChange} />);
+    const input = screen.getByRole("textbox", { name: "Due date" });
+    fireEvent.change(input, { target: { value: "2026-02-30" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "2026-13-01" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "2026-02-28" } });
+    expect(onChange).toHaveBeenLastCalledWith("2026-02-28");
+  });
 });

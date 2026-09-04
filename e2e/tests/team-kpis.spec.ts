@@ -37,7 +37,7 @@ async function createKpi(page: Page, title: string, activate: boolean): Promise<
 
 // Add a data point on the view screen's KPI data tab (assumes the tab is open).
 async function addValue(page: Page, id: number, date: string, value: string): Promise<void> {
-  await fillDate(page, "Date", date, true);
+  await fillDate(page, "Date", date);
   await page.getByLabel("Value", { exact: true }).fill(value);
   await Promise.all([
     page.waitForResponse(

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { APP_VERSION } from "./changelog/version";
@@ -353,6 +353,52 @@ describe("App shell", () => {
         expect(screen.getByRole("link", { name: /^changelog$/i })).toHaveAttribute("href", "/changelog");
         expect(screen.getByTitle("Build version")).toHaveTextContent(`v${APP_VERSION}`);
       } finally {
+        localStorage.removeItem(NAV_KEY);
+      }
+    });
+
+    test("widening past the navbar breakpoint closes the mobile overlay so the rail returns (v3.5.2)", async () => {
+      const NAV_KEY = "lettuce.viewSettings.appShell.navCollapsed";
+      localStorage.setItem(NAV_KEY, "true");
+      // A controllable matchMedia: the shell's `(min-width: <sm>)` query flips on demand and
+      // notifies its change listeners like a real MediaQueryList.
+      const originalMatchMedia = window.matchMedia;
+      const listeners = new Set<(event: { matches: boolean }) => void>();
+      let wide = false;
+      window.matchMedia = (query: string) =>
+        ({
+          get matches() {
+            return query.includes("min-width") ? wide : false;
+          },
+          media: query,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+          addEventListener: (_type: string, cb: (event: { matches: boolean }) => void) => {
+            if (query.includes("min-width")) listeners.add(cb);
+          },
+          removeEventListener: (_type: string, cb: (event: { matches: boolean }) => void) => {
+            listeners.delete(cb);
+          },
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList;
+      try {
+        const user = userEvent.setup();
+        const { container } = renderApp("/");
+        await screen.findByRole("link", { name: /^dashboard$/i });
+        // Collapsed desktop navbar = the icon rail (no visible section labels).
+        expect(screen.queryByText("My work")).not.toBeInTheDocument();
+        // The mobile Burger opens the overlay, which always shows full labels.
+        const burger = container.querySelector(".mantine-Burger-root");
+        expect(burger).not.toBeNull();
+        await user.click(burger!);
+        expect(screen.getByText("My work")).toBeInTheDocument();
+        // Widening past `sm` used to leave `opened` stuck — the rail must come back.
+        wide = true;
+        act(() => listeners.forEach((cb) => cb({ matches: true })));
+        await waitFor(() => expect(screen.queryByText("My work")).not.toBeInTheDocument());
+      } finally {
+        window.matchMedia = originalMatchMedia;
         localStorage.removeItem(NAV_KEY);
       }
     });

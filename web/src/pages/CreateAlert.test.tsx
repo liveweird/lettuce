@@ -125,8 +125,11 @@ describe("CreateAlert page", () => {
     await user.type(content, "x");
     await user.click(screen.getByRole("checkbox", { name: /visible from/i }));
     await user.click(screen.getByRole("checkbox", { name: /visible until/i }));
+    // Both halves of each bound (v3.5.2 — a date alone is an incomplete bound, not midnight).
     fireEvent.change(screen.getByRole("textbox", { name: "Visible from — date" }), { target: { value: "2026-07-02" } });
+    fireEvent.change(screen.getByLabelText("Visible from — time"), { target: { value: "08:00" } });
     fireEvent.change(screen.getByRole("textbox", { name: "Visible until — date" }), { target: { value: "2026-07-01" } });
+    fireEvent.change(screen.getByLabelText("Visible until — time"), { target: { value: "08:00" } });
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
     expect(await screen.findByText(/must be after/i)).toBeInTheDocument();
@@ -144,6 +147,23 @@ describe("CreateAlert page", () => {
 
     expect(await screen.findByText(/pick a date and time/i)).toBeInTheDocument();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("a checked bound with a date but no time is incomplete — validation error, no POST (v3.5.2)", async () => {
+    const user = userEvent.setup();
+    renderCreateAlert();
+
+    await user.type(screen.getByLabelText("Title"), "Half a bound");
+    await user.type(await screen.findByLabelText("Content"), "x");
+    await user.click(screen.getByRole("checkbox", { name: /visible from/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Visible from — date" }), { target: { value: "2026-07-01" } });
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    // The old field emitted "2026-07-01T", which converted to a silent null — the bound was
+    // checked yet saved unbounded. Now the incomplete half stays a validation error.
+    expect(await screen.findByText(/pick a date and time/i)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "Visible from — date" })).toHaveValue("2026-07-01");
   });
 
   test("unchecked bounds are sent as null", async () => {

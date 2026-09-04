@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.5.2",
+    date: "2026-09-04",
+    en: `The hardening round after the design releases. Date fields now accept only a complete, valid date — a half-typed value or an impossible day such as February 30 no longer slips into the form as a wrong date (the picker used to guess). An alert's "Visible from"/"Visible until" bound with the time missing is flagged instead of quietly saving as no bound, and a time typed before its date is kept. The alert banner reads clearly in dark mode and meets the contrast ratio in both schemes. The notifications panel dims the page like every other dialog, a cancel started from a row menu shows its pending state, and the open filters panel keeps its text legible in dark mode. Smaller fixes: the per-person Feedback page has its New feedback button in the header, the Dictionaries page shares the standard header and loader, a person's page no longer titles itself from the link when the person doesn't exist, single-day impact-log periods read as one date, and the pulse cycles table gains a named actions column and room for long questions.`,
+    pl: `Runda utwardzania po wydaniach poświęconych wyglądowi. Pola daty przyjmują teraz tylko pełną, poprawną datę — niedokończony wpis albo niemożliwy dzień, jak 30 lutego, nie trafia już do formularza jako błędna data (wybór daty wcześniej zgadywał). Zakres „Widoczne od”/„Widoczne do” alertu bez godziny jest oznaczany zamiast po cichu zapisywać się jako brak ograniczenia, a godzina wpisana przed datą jest zachowywana. Baner alertów jest czytelny w trybie ciemnym i spełnia współczynnik kontrastu w obu trybach. Panel powiadomień przyciemnia stronę jak każde inne okno, anulowanie z menu wiersza pokazuje stan oczekiwania, a otwarty panel filtrów zachowuje czytelny tekst w trybie ciemnym. Drobniejsze poprawki: strona feedbacku danej osoby ma przycisk Nowy feedback w nagłówku, strona słowników używa standardowego nagłówka i wskaźnika ładowania, strona osoby nie bierze już tytułu z linku, gdy osoba nie istnieje, jednodniowe okresy w dzienniku wpływu wyświetlają się jako jedna data, a tabela cykli pulsu ma nazwaną kolumnę akcji i miejsce na długie pytania.`,
+  },
+  {
     version: "3.5.1",
     date: "2026-09-04",
     en: `A new logo. The generic leaf on the green tile became a lettuce leaf — a frilled margin, a midrib and veins — in the app header, on the login card, and as the browser tab icon, in both light and dark mode.`,

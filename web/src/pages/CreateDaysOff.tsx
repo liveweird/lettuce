@@ -28,7 +28,7 @@ import {
   type DaysOffBudget,
   type DaysOffType,
 } from "../api/daysoff";
-import { todayIsoDate } from "../utils/datetime";
+import { isValidIsoDate, todayIsoDate } from "../utils/datetime";
 import { costHalfDays, formatDays } from "../utils/daysOffCost";
 import { daysOffListLink } from "../utils/daysOffLinks";
 import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
@@ -139,7 +139,9 @@ export default function CreateDaysOff() {
       ? ["daysOffBudgets", budgetView, "indirect", year]
       : ["daysOffBudgets", budgetView, year],
     queryFn: () => listDaysOffBudgets(budgetView, year, onBehalf ? { includeIndirect: true } : undefined),
-    enabled: Number.isFinite(year),
+    // Only a complete, real start date fetches (v3.5.2) — a cleared or half-typed date must
+    // never fire a request keyed on a fragment year or silently fall back to this year.
+    enabled: isValidIsoDate(startDate),
     // A year change re-keys the query; keeping the previous rows means the picked pool never
     // blinks out (and a submit never silently loses its poolTypeId) mid-refetch (v3.2.1).
     placeholderData: keepPreviousData,

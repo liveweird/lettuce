@@ -27,7 +27,7 @@ async function createGoal(page: Page, title: string, activate: boolean): Promise
   await expect(page).toHaveURL(/\/goals\/new/);
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Target").fill("5");
-  await fillDate(page, "Due date", todayIso());
+  await fillDate(page, "Due date", todayIso(), false);
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),
@@ -147,7 +147,7 @@ test("a PLAN goal: milestones defined in draft, ticked on the update screen, str
   await page.getByRole("textbox", { name: "Milestone 1", exact: true }).fill("Pass the exam");
   await page.getByRole("button", { name: "Add milestone" }).click();
   await page.getByRole("textbox", { name: "Milestone 2", exact: true }).fill("File the certificate");
-  await fillDate(page, "Due date", todayIso());
+  await fillDate(page, "Due date", todayIso(), false);
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),
@@ -251,7 +251,7 @@ test("a chain manager creates a goal for a skip-level report via the widened pic
   await page.getByRole("option", { name: "AAA Three" }).click();
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Target").fill("5");
-  await fillDate(page, "Due date", todayIso());
+  await fillDate(page, "Due date", todayIso(), false);
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),

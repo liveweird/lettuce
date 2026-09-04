@@ -109,7 +109,8 @@ describe("CreateDaysOff", () => {
     localStorage.clear();
   });
 
-  // Native type="date" inputs are set with fireEvent.change (the CreateGoal idiom).
+  // The typed-ISO DateFields (v3.5.0) parse on change, so fireEvent.change with a full ISO
+  // string sets them exactly like the former native type="date" inputs (the CreateGoal idiom).
   async function pickRange(start: string, end: string) {
     fireEvent.change(screen.getByLabelText("From"), { target: { value: start } });
     fireEvent.change(screen.getByLabelText("To"), { target: { value: end } });
@@ -125,6 +126,32 @@ describe("CreateDaysOff", () => {
     expect(
       screen.getByText(`Remaining "Paid days off" budget for ${YEAR}: 10.`),
     ).toBeInTheDocument();
+  });
+
+  test("the budgets query only runs for a complete start date — a cleared field fires no request (v3.5.2)", async () => {
+    setupMocks({ remaining: 10 });
+    renderPage();
+    await pickRange(MONDAY, TUESDAY);
+    expect(await screen.findByText(`Remaining "Paid days off" budget for ${YEAR}: 10.`)).toBeInTheDocument();
+    const budgetUrls = () =>
+      mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/api/v1/days-off/budgets"));
+    const budgetCalls = () => budgetUrls().length;
+    const before = budgetCalls();
+    expect(before).toBeGreaterThan(0);
+
+    // Clearing the start date used to re-key the query on the current year and refetch —
+    // the query is gated on a valid ISO start now, so nothing fires until a date lands.
+    await userEvent.clear(screen.getByLabelText("From"));
+    expect(screen.getByLabelText("From")).toHaveValue("");
+    await Promise.resolve();
+    expect(budgetCalls()).toBe(before);
+    expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled();
+
+    // A complete date re-enables the query (still keyed on the same year) and the preview returns.
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: MONDAY } });
+    expect(await screen.findByText(`Remaining "Paid days off" budget for ${YEAR}: 10.`)).toBeInTheDocument();
+    // Whatever refetched on re-enable is still the typed year — never a fallback one.
+    expect(budgetUrls().slice(before).every((u) => u.includes(`year=${YEAR}`))).toBe(true);
   });
 
   test("the pool picker offers every pool plus Unpaid; an extra pool posts its id and previews its own budget", async () => {

@@ -1,5 +1,5 @@
 import type { ParseKeys } from "i18next";
-import { Button, Group, Stack, Tabs, Text } from "@mantine/core";
+import { Button, Stack, Tabs, Text } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -77,9 +77,8 @@ export default function ManagerFeedbacks() {
   // `name` is only the pre-load hint, and still threads through the rebuilt links below.
   const displayName = useUserDisplayName(userId, name, idIsValid);
   // Explicit return override (the details-page round-trip — the useDashboardDrillDown rule);
-  // the origin key still names the label. In-app paths only.
-  const backParam = safeBackParam(searchParams);
-  const backOverride = backParam?.startsWith("/") ? backParam : null;
+  // the origin key still names the label. safeBackParam already guarantees an in-app path.
+  const backOverride = safeBackParam(searchParams);
   const resolved =
     fromParam === "details" && idIsValid
       ? { labelKey: ORIGIN.details.labelKey, to: userDetailsLink(userId, name) }
@@ -138,7 +137,22 @@ export default function ManagerFeedbacks() {
 
   return (
     <Stack gap="md">
-      <PageHeader back={backLink} title={t("feedback.feedbacksWith", { who })} />
+      <PageHeader
+        back={backLink}
+        title={t("feedback.feedbacksWith", { who })}
+        actions={
+          // The primary "New feedback" lives in the header (the UserGoals/UserOneOnOnes rule);
+          // its return target carries the active tab, so the round-trip lands where it started.
+          <Button
+            component={RouterLink}
+            to={feedbackProvideLink(userId, backTo)}
+            leftSection={<IconMessagePlus size={16} />}
+            aria-label={t("feedback.createFeedbackFor", { who })}
+          >
+            {t("feedback.createFeedback")}
+          </Button>
+        }
+      />
 
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
@@ -171,16 +185,6 @@ export default function ManagerFeedbacks() {
               backTo={backTo}
               settingsKey="managerFeedbacks.provided"
             />
-            <Group justify="flex-end">
-              <Button
-                component={RouterLink}
-                to={feedbackProvideLink(userId, backTo)}
-                leftSection={<IconMessagePlus size={16} />}
-                aria-label={t("feedback.createFeedbackFor", { who })}
-              >
-                {t("feedback.createFeedback")}
-              </Button>
-            </Group>
           </Stack>
         </Tabs.Panel>
       </Tabs>

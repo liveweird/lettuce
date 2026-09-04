@@ -45,7 +45,7 @@ const EVENTS = {
   ],
 };
 
-function renderScreen(route = "/impact-log/5/view", entryStatus = 200) {
+function renderScreen(route = "/impact-log/5/view", entryStatus = 200, entry = ENTRY) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const mockFetch = vi.fn((url: string) => {
     const u = String(url);
@@ -53,7 +53,7 @@ function renderScreen(route = "/impact-log/5/view", entryStatus = 200) {
       return Promise.resolve(jsonResponse(200, EVENTS));
     }
     if (u === "/api/v1/impact-log/5") {
-      return Promise.resolve(jsonResponse(entryStatus, entryStatus === 200 ? ENTRY : { title: "x" }));
+      return Promise.resolve(jsonResponse(entryStatus, entryStatus === 200 ? entry : { title: "x" }));
     }
     return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
   });
@@ -103,6 +103,14 @@ describe("ViewImpactEntry page", () => {
     expect(screen.getByText("Jul 1, 2026 – Jul 31, 2026")).toBeInTheDocument();
     // The viewer (id 7) is not the owner (id 8) → no Edit entry point.
     expect(screen.queryByRole("link", { name: /^edit$/i })).toBeNull();
+  });
+
+  test("a single-day period collapses to one date (formatIsoDateRange, the ImpactLogTable rule)", async () => {
+    renderScreen("/impact-log/5/view", 200, { ...ENTRY, periodStart: "2026-07-15", periodEnd: "2026-07-15" });
+
+    expect(await screen.findByText("Pipeline shipped")).toBeInTheDocument();
+    expect(screen.getByText("Jul 15, 2026")).toBeInTheDocument();
+    expect(screen.queryByText(/Jul 15, 2026 –/)).toBeNull();
   });
 
   test("the owner gets the Edit entry point; History shows the event trail", async () => {

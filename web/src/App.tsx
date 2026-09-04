@@ -1,6 +1,7 @@
 import {
   lazy,
   Suspense,
+  useEffect,
 } from "react";
 import {
   ActionIcon,
@@ -13,9 +14,10 @@ import {
   ScrollArea,
   Text,
   useMantineColorScheme,
+  useMantineTheme,
   useComputedColorScheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   IconChevronDown,
   IconHelp,
@@ -248,6 +250,14 @@ function ReplayTourButton() {
 function Shell() {
   const { t } = useTranslation();
   const [opened, { toggle, close }] = useDisclosure();
+  // The mobile overlay only ever opens below the navbar breakpoint, but nothing but
+  // navigation used to close it — so opening it and then widening past `sm` left `opened`
+  // true and defeated the icon rail below. Crossing above the breakpoint closes it.
+  const mantineTheme = useMantineTheme();
+  const aboveNavBreakpoint = useMediaQuery(`(min-width: ${mantineTheme.breakpoints.sm})`);
+  useEffect(() => {
+    if (aboveNavBreakpoint) close();
+  }, [aboveNavBreakpoint, close]);
   // Desktop navbar visibility — device-level, persisted like the other view settings. The
   // mobile overlay keeps its own separate `opened` disclosure above.
   const [navCollapsed, setNavCollapsed] = useStoredState("appShell.navCollapsed", false, isBoolean);
@@ -257,7 +267,7 @@ function Shell() {
   const queryClient = useQueryClient();
   const userId = getUserId();
   const { pathname } = useLocation();
-  // The grouped navigation (v3.3.0, appShell/appNav.ts): feature/manager/admin gates applied
+  // The grouped navigation (v3.3.0, appShell/navModel.ts): feature/manager/admin gates applied
   // BEFORE the active-leaf lookup, so active-highlight stays coherent.
   const nav = resolveNav({ isAdmin: isAdmin(), isManager, hasFeature }, userId);
   const changelogUnseen = useChangelogUnseen();

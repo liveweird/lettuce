@@ -179,7 +179,6 @@ remaining real logins aren't throttled either.
 - **Responsive / cross-browser / visual automation** — the suite deliberately runs Desktop
   Chrome only, with no mobile project or screenshot comparison; layout relies on Mantine
   semantics plus the role/label-based locators every spec already uses. Accessibility gets
-  the `accessibility.spec.ts` axe smoke (see above) — structural rules only, with
-  `color-contrast` consciously waived.
+  the `accessibility.spec.ts` axe smoke (see above) — every WCAG 2.0/2.1 A+AA rule un-waived since v3.3.0 (`color-contrast` included).
 
 Reports/artifacts land in `playwright-report/` and `test-results/` (git-ignored).

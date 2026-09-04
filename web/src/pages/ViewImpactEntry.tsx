@@ -13,7 +13,7 @@ import ImpactEntrySections from "../components/ImpactEntrySections";
 import MetaStrip, { type MetaStripItem } from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
-import { formatIsoDate } from "../utils/datetime";
+import { formatIsoDateRange } from "../utils/datetime";
 import { impactEntryEditLink } from "../utils/impactLogLinks";
 import { safeBackParam } from "../utils/url";
 
@@ -79,10 +79,7 @@ export default function ViewImpactEntry() {
           key: "period",
           label: t("impactLog.period"),
           value: (
-            <Text size="sm">
-              {formatIsoDate(data.periodStart, i18n.language)} –{" "}
-              {formatIsoDate(data.periodEnd, i18n.language)}
-            </Text>
+            <Text size="sm">{formatIsoDateRange(data.periodStart, data.periodEnd, i18n.language)}</Text>
           ),
         },
         {

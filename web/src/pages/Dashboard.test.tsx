@@ -165,4 +165,45 @@ describe("Dashboard", () => {
       expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managers"))).toBe(true);
     });
   });
+
+  // The last-picked tab persists per device under `dashboard.tab` (v3.4.0).
+  test("a stored tab pick restores on mount without a ?tab= param", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    localStorage.setItem("lettuce.viewSettings.dashboard.tab", JSON.stringify("peers"));
+    renderWithProviders(<Dashboard />, { route: "/" });
+
+    expect(await screen.findByText("No teammates")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My peers" })).toHaveAttribute("aria-selected", "true");
+    const urls = mockFetch.mock.calls.map(([url]) => String(url));
+    expect(urls.some((url) => url.includes("/api/v1/teams/members?view=managers"))).toBe(false);
+  });
+
+  test("an explicit ?tab= beats the stored pick", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    localStorage.setItem("lettuce.viewSettings.dashboard.tab", JSON.stringify("peers"));
+    renderWithProviders(<Dashboard />, { route: "/?tab=subordinates" });
+
+    expect(await screen.findByText("No team members")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My subordinates" })).toHaveAttribute("aria-selected", "true");
+    // The URL wins for this visit only — the stored pick is untouched until the user clicks.
+    expect(localStorage.getItem("lettuce.viewSettings.dashboard.tab")).toBe(JSON.stringify("peers"));
+  });
+
+  test("picking a tab stores it, and a corrupt stored value falls back to managers", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    );
+    localStorage.setItem("lettuce.viewSettings.dashboard.tab", JSON.stringify("reviews"));
+    const user = userEvent.setup();
+    renderWithProviders(<Dashboard />, { route: "/" });
+
+    expect(await screen.findByText("No managers")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "My teams" }));
+    expect(await screen.findByText("No managed teams")).toBeInTheDocument();
+    expect(localStorage.getItem("lettuce.viewSettings.dashboard.tab")).toBe(JSON.stringify("myTeams"));
+  });
 });

@@ -140,7 +140,10 @@ export default function UserDetails() {
 
   const person = data?.person ?? null;
   const relationship = data?.relationship ?? null;
-  const name = person?.name ?? nameParam;
+  // The ?name= param is only the pre-load hint (the useUserDisplayName rule): once the lookup
+  // has settled without a person (`data === null`) it is dropped, so an unknown id never titles
+  // the page with a URL-carried name; a failed lookup keeps the hint like the pool hook does.
+  const name = person?.name ?? (data === null ? null : nameParam);
   // Where the create flows' Cancel returns: this page, with its own params preserved.
   const backHere = userDetailsLink(
     userId,

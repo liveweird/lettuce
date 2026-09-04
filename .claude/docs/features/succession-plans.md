@@ -117,7 +117,7 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   (`SuccessionPlans.tsx`, the ImpactLog two-tab shape): "My plans" (`SuccessionPlanTable
   view="own"` — row actions are **Review** (everyone; the screen renders read-only where the
   caller can't write) **+ the owner's Delete** (any status, `useDeleteConfirm`) since v2.44.0
-  — there is NO Edit action or edit page anymore; footer "New plan", managers only) and —
+  — there is NO Edit action or edit page anymore; "New plan" in the `PageHeader` actions (v3.3.0), managers only) and —
   managers only — "My subordinates' plans" (`view="team"`, read-only, `withReportsScope` →
   `includeIndirect`). Columns: seat person, Criticality/Retention-risk badges
   (`components/SuccessionBadges.tsx` — CRITICAL red.7/CORE orange.6/STANDARD gray.6; HIGH
@@ -136,8 +136,7 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   competency gaps). **`/succession/:id/view` is the Review screen**
   (`ReviewSuccessionPlan.tsx`, v2.44.0 — the former read-only view + `/succession/:id/edit`
   page folded into one, no view/edit switching): three Tabs (`keepMounted={false}`, the
-  EditGoal-inside-form idiom) — **Basic info** (party row — the seat's name links to user details since v2.47.2, the
-  FeedbackMeta no-deleted-flag caveat applies — + Last reviewed; the definition
+  EditGoal-inside-form idiom) — **Basic info** (party row — the seat's name links to user details since v2.47.2, the PersonaChip no-deleted-flag caveat applies — + Last reviewed; the definition
   INLINE-EDITABLE via a page-level `useForm` + `SuccessionPlanFields` for the owner of an
   OPEN plan, the read-only badge/list render otherwise; the under-bench Alert lives here) and
   **Nominations** (the bench badge, the Paper cards with linked-goal chips → `goalViewLink`;

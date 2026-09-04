@@ -129,9 +129,16 @@ export const theme = createTheme({
       defaultProps: { radius: "md", centered: true, overlayProps: { backgroundOpacity: 0.45, blur: 2 } },
       classNames: { title: classes.dialogTitle },
     }),
+    // The classNames apply to both the plain `<Drawer>` and the compound `<Drawer.Root>`
+    // (both style under the "Drawer" name), but defaultProps do NOT: `Drawer.Root` reads
+    // "DrawerRoot" and `Drawer.Overlay` reads "DrawerOverlay", so the overlay defaults live on
+    // DrawerOverlay — the one place BOTH shapes go through (plain Drawer spreads its own
+    // `overlayProps` over it, so a per-site override still wins). `position` reaches the
+    // plain shape only; compound drawers (the notifications panel) pass it themselves.
     Drawer: Drawer.extend({
-      defaultProps: { position: "right", overlayProps: { backgroundOpacity: 0.45, blur: 2 } },
+      defaultProps: { position: "right" },
       classNames: { title: classes.dialogTitle },
     }),
+    DrawerOverlay: Drawer.Overlay.extend({ defaultProps: { backgroundOpacity: 0.45, blur: 2 } }),
   },
 });

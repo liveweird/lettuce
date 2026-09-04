@@ -28,6 +28,7 @@ import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import PersonaChip from "../components/PersonaChip";
+import RowActions from "../components/RowActions";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { useUserDisplayName } from "../hooks/useDashboardDrillDown";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
@@ -247,19 +248,16 @@ export default function UserTeams() {
                   )}
                 </Table.Td>
                 {canManage && (
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap" justify="flex-end">
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => removeConfirm.requestDelete({ id: team.id, name: team.name })}
-                        aria-label={t("users.removeFromAria", { name: team.name })}
-                      >
-                        {t("users.remove")}
-                      </Button>
-                    </Group>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    <RowActions
+                      primary={{
+                        icon: <IconTrash size={16} />,
+                        label: t("users.remove"),
+                        ariaLabel: t("users.removeFromAria", { name: team.name }),
+                        color: "red",
+                        onClick: () => removeConfirm.requestDelete({ id: team.id, name: team.name }),
+                      }}
+                    />
                   </Table.Td>
                 )}
               </Table.Tr>

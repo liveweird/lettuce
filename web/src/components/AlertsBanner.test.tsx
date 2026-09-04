@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AlertsBanner from "./AlertsBanner";
+import classes from "./AlertsBanner.module.css";
 import { jsonResponse } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
@@ -81,6 +82,18 @@ describe("AlertsBanner", () => {
     expect(screen.queryByRole("button", { name: /next alert/i })).not.toBeInTheDocument();
     // While expanded, the strip under the overlay is a bare spacer — no "hidden" wording.
     expect(screen.queryByText(/hidden/i)).not.toBeInTheDocument();
+  });
+
+  test("renders as the light orange surface with the token-inverted title chip (v3.5.2)", async () => {
+    mockFetch.mockResolvedValue(visibleResponse(ONE));
+    renderBanner();
+
+    const title = await screen.findByText("Maintenance");
+    // Never `filled` + autoContrast again: under primaryShade 7 Mantine painted white on
+    // orange-7 (3.0:1). The surface/ink pairs themselves are guarded in theme.test.ts.
+    expect(screen.getByRole("alert")).toHaveAttribute("data-variant", "light");
+    expect(title).toHaveClass(classes.titleChip);
+    expect(title).not.toHaveStyle({ backgroundColor: "var(--mantine-color-white)" });
   });
 
   test("with several alerts the pager shows the count and browses between them", async () => {

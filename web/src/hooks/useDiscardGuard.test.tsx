@@ -50,6 +50,14 @@ describe("useDiscardGuard", () => {
   });
 
   test("beforeunload is prevented only while dirty", () => {
+    // The clean form first: the prompt must NOT fire when nothing would be lost.
+    const clean = renderWithProviders(<Harness dirty={false} />, { route: "/form" });
+    const cleanEvent = new Event("beforeunload", { cancelable: true });
+    const preventClean = vi.spyOn(cleanEvent, "preventDefault");
+    window.dispatchEvent(cleanEvent);
+    expect(preventClean).not.toHaveBeenCalled();
+    clean.unmount();
+
     const { unmount } = renderWithProviders(<Harness dirty />, { route: "/form" });
     const event = new Event("beforeunload", { cancelable: true });
     const prevent = vi.spyOn(event, "preventDefault");

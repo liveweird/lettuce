@@ -102,7 +102,7 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await modal.getByLabel("Title").fill(goalTitle);
   // withAsterisk widens the accessible names — match by prefix (the known gotcha).
   await modal.getByLabel(/^Target$|^Target \*/).fill("3");
-  await fillDate(modal, "Due date", "2027-12-31");
+  await fillDate(modal, "Due date", "2027-12-31", false);
   const [goalCreated] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/goals") && r.request().method() === "POST" && r.ok(),

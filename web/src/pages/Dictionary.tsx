@@ -6,10 +6,8 @@ import {
   Badge,
   Box,
   Button,
-  Center,
   Container,
   Group,
-  Loader,
   Paper,
   Popover,
   Select,
@@ -17,7 +15,6 @@ import {
   Table,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm, type FormErrors } from "@mantine/form";
@@ -25,6 +22,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { IconPlus, IconListDetails } from "@tabler/icons-react";
 import { isAdmin } from "../api/session";
+import CenteredLoader from "../components/CenteredLoader";
+import PageHeader from "../components/PageHeader";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
 import { getDictionary, updateDictionary, type DictionaryEntry, type DictionarySlug } from "../api/dictionaries";
 import { showSuccessToast } from "../utils/toast";
@@ -42,6 +41,7 @@ import {
   type DictionaryFormValues,
 } from "../utils/dictionaryForm";
 import { charCountDescription } from "../utils/charCount";
+import { pickLocalized } from "../utils/localized";
 import { loadErrorMessage } from "../utils/saveError";
 
 // The four global dictionaries — the slug is both the route param and the API path segment.
@@ -74,19 +74,19 @@ export default function Dictionary() {
 
   if (slug == null) return <Navigate to="/" replace />;
 
+  // The Config-page shell (v3.5.2): PageHeader outside the container, the border-first Paper
+  // inside. The guided tour anchors the nav leaf, not this title, so no tourId.
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t(DICTIONARIES[slug].titleKey)}</Title>
+    <>
+      <PageHeader title={t(DICTIONARIES[slug].titleKey)} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
           {isError ? (
             <Alert color="red" variant="light" title={t("dictionary.loadFailed")}>
               {loadErrorMessage(error, t)}
             </Alert>
           ) : isLoading || !data ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
+            <CenteredLoader />
           ) : isAdmin() ? (
             // Keyed by slug: switching between the three nav leaves remounts the editor, so
             // each dictionary starts from its own freshly loaded document.
@@ -94,9 +94,9 @@ export default function Dictionary() {
           ) : (
             <ReadOnlyEntries items={data} />
           )}
-        </Stack>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </>
   );
 }
 
@@ -129,7 +129,10 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
       </Table.Thead>
       <Table.Tbody>
         {items.map((entry, index) => {
-          const shownLang = lang && entry.values[lang]?.trim() ? lang : "en";
+          // The viewer's language with the EN fallback (pickLocalized); the badge lists the
+          // OTHER filled languages, so it needs to know which one is actually shown.
+          const shown = pickLocalized(entry.values, lang);
+          const shownLang = lang && shown === entry.values[lang] ? lang : "en";
           const others = SUPPORTED_LANGUAGES.filter(
             (l) => l !== shownLang && entry.values[l]?.trim(),
           );
@@ -142,7 +145,7 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
               </Table.Td>
               {/* The fluid column (v3.4.0): takes the table's slack. */}
               <Table.Td style={{ width: "100%" }}>
-                <Text size="sm">{entry.values[shownLang]}</Text>
+                <Text size="sm">{shown}</Text>
               </Table.Td>
               <Table.Td style={{ whiteSpace: "nowrap" }}>
                 {others.length > 0 ? (
@@ -194,7 +197,7 @@ function EntryLanguagesBadge({
               <Text size="xs" c="dimmed" w={90} style={{ flexShrink: 0 }}>
                 {t(`common.languageName.${l}`)}
               </Text>
-              <Text size="sm">{entry.values[l]}</Text>
+              <Text size="sm">{pickLocalized(entry.values, l)}</Text>
             </Group>
           ))}
         </Stack>

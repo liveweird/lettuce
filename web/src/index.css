@@ -27,7 +27,9 @@ body,
 }
 
 /* The canvas colour before Mantine's variables mount (public/color-scheme.js stamps the
-   scheme attribute first, so a dark-scheme user never sees a white flash). */
+   scheme attribute first, so a dark-scheme user never sees a white flash). The two hexes
+   duplicate LIGHT_TOKENS.canvas / DARK_TOKENS.canvas (src/themeVariables.ts) — the bundle's
+   CSS variables don't exist yet at first paint; theme.test.ts pins them equal. */
 html {
   color-scheme: light dark;
   background-color: light-dark(#f8f9fb, #1f1f1f);
