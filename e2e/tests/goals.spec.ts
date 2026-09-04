@@ -327,3 +327,29 @@ test("activating at creation notifies the subordinate, who updates progress with
   // Cleanup: the manager deactivates and deletes.
   await deleteGoal(page, id);
 });
+
+test("leaving a dirty goal form through the sidebar asks before discarding", async ({ page }) => {
+  await login(page, MANAGER_AAA);
+  await gotoSubordinateGoals(page);
+  await page.getByRole("link", { name: "New goal" }).click();
+  await expect(page).toHaveURL(/\/goals\/new/);
+  const title = uniqueText("E2E-goal-dirty");
+  await page.getByLabel("Title").fill(title);
+
+  // The sidebar's Dashboard leaf is an ordinary in-app navigation — since v3.6.0 the data
+  // router holds it while the form is dirty and the discard confirm decides.
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Keep editing" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/goals\/new/);
+  await expect(page.getByLabel("Title")).toHaveValue(title);
+
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Discard" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Dashboard" })).toBeVisible();
+  await expect(page).not.toHaveURL(/\/goals\/new/);
+  // Nothing was saved: no goal row carries the abandoned title.
+  await gotoSubordinateGoals(page);
+  await expect(page.getByText(title)).toHaveCount(0);
+});

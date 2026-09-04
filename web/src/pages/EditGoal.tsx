@@ -10,6 +10,7 @@ import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { activateGoal, deleteGoal, getGoal, updateGoalDefinition, updateGoalProgress, type GoalType } from "../api/goals";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import GoalHistory from "../components/GoalHistory";
@@ -112,7 +113,7 @@ export default function EditGoal() {
   // The one cancel guard (v3.5.0) for both branches: the DRAFT definition compares PAYLOADS
   // (the milestone list's insert/remove/reorder never flip Mantine's dirty flags); the
   // ACTIVE progress form has no list operations, so its own `isDirty` is exact.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () =>
       data?.status === "DRAFT"
         ? JSON.stringify(toDefinitionBody(definitionForm.values)) !==
@@ -408,7 +409,7 @@ export default function EditGoal() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
       <ConfirmActionModal
         opened={deleteOpen}
         onClose={closeDelete}

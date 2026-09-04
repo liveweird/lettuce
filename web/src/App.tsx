@@ -2,6 +2,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useState,
 } from "react";
 import {
   ActionIcon,
@@ -34,10 +35,12 @@ import {
   Navigate,
   Outlet,
   Route,
-  Routes,
   useLocation,
   useNavigate,
   useParams,
+  createBrowserRouter,
+  createRoutesFromElements,
+  RouterProvider,
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -387,10 +390,23 @@ function Shell() {
   );
 }
 
-export default function App() {
+/** The root layout: one Suspense around the whole tree so every lazy page shares the fallback. */
+function RootLayout() {
   return (
     <Suspense fallback={<RouteFallback />}>
-      <Routes>
+      <Outlet />
+    </Suspense>
+  );
+}
+
+/**
+ * The application's route tree (v3.6.0 — a DATA router): `main.tsx` mounts it through
+ * `createBrowserRouter` + `RouterProvider`, the shell tests through `createMemoryRouter`
+ * (`test/render.tsx` `renderAppAt`). A data router is what lets `components/DiscardGuard`
+ * hold in-app navigation away from a dirty form (`useBlocker`).
+ */
+export const appRoutes = createRoutesFromElements(
+  <Route element={<RootLayout />}>
         <Route
           path="/login"
           element={
@@ -493,7 +509,11 @@ export default function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>
-      </Routes>
-    </Suspense>
-  );
+  </Route>,
+);
+
+/** The app: the route tree on a browser data router (created once per mount). */
+export default function App() {
+  const [router] = useState(() => createBrowserRouter(appRoutes));
+  return <RouterProvider router={router} />;
 }

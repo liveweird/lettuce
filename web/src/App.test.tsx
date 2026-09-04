@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { MantineProvider } from "@mantine/core";
-import { MemoryRouter } from "react-router-dom";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import App from "./App";
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
+import { renderAppAt } from "./test/render";
 import { APP_VERSION } from "./changelog/version";
 
 // The guided tour mounts react-joyride (which measures DOM rects) in the authenticated shell;
@@ -17,20 +14,8 @@ vi.mock("react-joyride", () => ({
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
 
-function renderApp(route: string) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(
-    <MantineProvider env="test">
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[route]}>
-          <App />
-        </MemoryRouter>
-      </QueryClientProvider>
-    </MantineProvider>,
-  );
-}
+// The shell on the app's own data router (v3.6.0) — see `renderAppAt`.
+const renderApp = renderAppAt;
 
 describe("App shell", () => {
   beforeEach(() => {

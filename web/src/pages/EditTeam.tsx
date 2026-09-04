@@ -22,7 +22,7 @@ import { ApiError } from "../api/http";
 import { isAdmin } from "../api/session";
 import { getTeam, updateTeam } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
 import TeamFormFields from "../components/TeamFormFields";
@@ -43,7 +43,7 @@ export default function EditTeam() {
     initialValues: { name: "", managerId: "" },
     validate: teamFormValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/teams" });
+  const { requestCancel, guardProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/teams" });
 
   const idIsValid = Number.isFinite(id) && id > 0;
 
@@ -151,7 +151,7 @@ export default function EditTeam() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

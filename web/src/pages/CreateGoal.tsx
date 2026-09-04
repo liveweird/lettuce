@@ -5,7 +5,7 @@ import { useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { activateGoal, createGoal } from "../api/goals";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import CreateActivateModals from "../components/CreateActivateModals";
 import FormFooter from "../components/FormFooter";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
@@ -62,7 +62,7 @@ export default function CreateGoal() {
   });
   // The one cancel guard (v3.5.0). Dirtiness is a payload compare, not `form.isDirty()` —
   // the milestone list's insert/remove/reorder operations don't flip Mantine's dirty flags.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () =>
       picked != null ||
       JSON.stringify(toDefinitionBody(form.values)) !== JSON.stringify(toDefinitionBody(INITIAL_VALUES)),
@@ -160,7 +160,7 @@ export default function CreateGoal() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
       <CreateActivateModals
         area="goal"
         createdId={flow.createdId}

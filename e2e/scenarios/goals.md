@@ -9,7 +9,8 @@
   ending (delete is DRAFT-only, so cleanup returns the goal to draft first when needed); seeded
   accounts are never mutated
 - **Since**: v2.8.0 (the Update screen, progress comments, the return-to-draft confirmation),
-  v2.9.0 (PLAN goals with milestones), v2.33.0 (the chain rule — skip-level creation)
+  v2.9.0 (PLAN goals with milestones), v2.33.0 (the chain rule — skip-level creation),
+  v3.6.0 (the dirty-form navigation guard)
 
 ## Scenario: a manager walks a goal around the whole lifecycle: draft, activate, progress, archive, reopen
 
@@ -103,6 +104,19 @@
    - *Expected*: the counterparty notification says AAA Three updated the goal's progress, and the
      goal's **History** tab carries the comment.
 6. Cleanup: the manager returns the goal to draft and deletes it.
+
+## Scenario: leaving a dirty goal form through the sidebar asks before discarding
+
+1. Manager AAA signs in, opens AAA Three's goals drill-down and starts a **New goal**, typing
+   only a unique title.
+2. They click the sidebar's **Dashboard** leaf — an ordinary in-app navigation, not the form's
+   Cancel.
+   - *Expected*: the navigation is held and the discard confirm appears (v3.6.0 — the data
+     router's blocker); **Keep editing** closes it, the form is still open at `/goals/new` with
+     the typed title intact.
+3. They click **Dashboard** again and choose **Discard**.
+   - *Expected*: the dashboard opens; back on the drill-down no goal carries the abandoned title
+     — nothing was saved.
 
 ## Not covered here (and why)
 

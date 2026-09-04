@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen, waitFor, within } from "../test/render";
-import App from "../App";
+import { renderAppAt, renderWithProviders, screen, waitFor, within } from "../test/render";
 import Login from "./Login";
 
 // These cases log in and land on the authenticated shell, which mounts react-joyride (the guided
@@ -138,7 +137,7 @@ describe("Login page", () => {
     localStorage.setItem("lettuce.auth.token", "fake-token");
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: "/" });
+    renderAppAt("/");
 
     // Logout now lives inside the header user menu.
     await user.click(await screen.findByRole("button", { name: "User menu" }));
@@ -251,7 +250,7 @@ describe("Login page", () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: "/teams" });
+    renderAppAt("/teams");
 
     expect(
       await screen.findByRole("heading", { level: 3, name: /sign in/i }),

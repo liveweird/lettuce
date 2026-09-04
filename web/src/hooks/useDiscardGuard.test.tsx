@@ -3,17 +3,17 @@ import { Button, TextInput } from "@mantine/core";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import { renderWithProviders } from "../test/render";
 import { useDiscardGuard } from "./useDiscardGuard";
 
 function Form({ dirty }: { dirty: boolean }) {
-  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => dirty, to: "/list" });
+  const { requestCancel, guardProps } = useDiscardGuard({ isDirty: () => dirty, to: "/list" });
   return (
     <>
       <TextInput label="Name" description="Hint" />
       <Button onClick={requestCancel}>Cancel</Button>
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

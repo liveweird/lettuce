@@ -9,7 +9,7 @@ import { ApiError } from "../api/http";
 import { isAdmin } from "../api/session";
 import { createTemplate } from "../api/templates";
 import { showSuccessToast } from "../utils/toast";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
 import TemplateFormFields from "../components/TemplateFormFields";
@@ -28,7 +28,7 @@ export default function CreateTemplate() {
     initialValues: { name: "", content: "" },
     validate: templateFormValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => form.isDirty(),
     to: "/templates",
     title: t("templates.discardTitle"),
@@ -90,7 +90,7 @@ export default function CreateTemplate() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

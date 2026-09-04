@@ -22,6 +22,9 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      // The route tree (`appRoutes`, App.tsx) is the one non-component export that lives
+      // beside the shell it composes — a data router wants route objects, not a component.
+      'react-refresh/only-export-components': ['error', { allowConstantExport: true, allowExportNames: ['appRoutes'] }],
       // Allow intentionally-unused bindings prefixed with `_` (e.g. destructuring a
       // field out of an object to omit it from a payload).
       '@typescript-eslint/no-unused-vars': [

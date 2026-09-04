@@ -13,7 +13,7 @@ import {
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import DateField from "../components/DateField";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
@@ -114,7 +114,7 @@ export default function CreateDaysOff() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const subjectId = onBehalf && subjectPick != null ? Number(subjectPick) : null;
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: isDraftDirty({ pick, subjectPick, startHalf, endHalf, startDate, endDate }),
     to: backTo,
   });
@@ -374,7 +374,7 @@ export default function CreateDaysOff() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }
