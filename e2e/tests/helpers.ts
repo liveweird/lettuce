@@ -380,8 +380,10 @@ export async function pickMultiSelectOptions(page: Page, label: string, optionNa
  * popover opens on focus and would sit over the next control, so Tab closes it — never
  * Escape, which would also close a hosting modal (the succession goal modal).
  */
-export async function fillDate(root: Page | Locator, label: string, iso: string, exact = false): Promise<void> {
-  // Non-exact by default: an asterisked label's accessible name is "Due date *".
+export async function fillDate(root: Page | Locator, label: string, iso: string, exact = true): Promise<void> {
+  // Exact by default (v3.5.2): a non-exact getByLabel is a substring match that also covers
+  // aria-labels, so "Date" would collide with the field's "Clear the date" button once a value
+  // is set. Pass `false` for an asterisked label, whose accessible name is "Due date *".
   const input = root.getByLabel(label, { exact });
   await input.fill(iso);
   await input.press("Tab");

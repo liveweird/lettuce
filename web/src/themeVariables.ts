@@ -3,9 +3,12 @@ import type { CSSVariablesResolver } from "@mantine/core";
 /**
  * The colour tokens the v3.3.0 design pass owns outside Mantine's defaults — every value here
  * is chosen for WCAG AA (≥ 4.5:1) on the surface it sits on, in BOTH schemes, and
- * `theme.test.ts` guards the ratios. Mantine's stock light-variant inks are the hue's 6-shade
- * (teal 2.3:1, orange 2.3, red 2.9, yellow 1.7 on their tints) and its `dimmed` is gray-6
- * (3.3:1) — the reason the axe colour-contrast rule used to be waived.
+ * `theme.test.ts` guards the ratios. Mantine 9.5's stock light-variant ink in the LIGHT scheme
+ * is the hue's 9-shade over the solid 1-shade tint (orange 3.6:1, green 3.8, teal 4.3, yellow
+ * 2.7 — see `get-css-color-variables.mjs`), and its `dimmed` is gray-6 (3.3:1) — the reason
+ * the axe colour-contrast rule used to be waived. In the DARK scheme Mantine paints the
+ * 0-shade over a 50%-darkened 9-shade, which clears 8:1 for every hue, so only the light
+ * inks are overridden below.
  *
  * Callers: never hand a shade-suffixed colour (`"orange.8"`) to a `variant="light"` Badge or
  * Alert — the tint comes from the hue, the ink comes from this map.
@@ -14,6 +17,8 @@ export const LIGHT_TOKENS = {
   text: "#1f2328",
   dimmed: "#5f6b76",
   canvas: "#f8f9fb",
+  // The quiet tint under filter panels (FilterPanelBody) — gray-0; dimmed ink stays ≥ 4.5:1.
+  surfaceTint: "#f8f9fa",
   border: "#dee2e6",
   borderStrong: "#ced4da",
   error: "#c92a2a",
@@ -25,6 +30,8 @@ export const DARK_TOKENS = {
   text: "#e6e6e6",
   dimmed: "#a3a3a3",
   canvas: "#1f1f1f",
+  // dark-6 — NOT Mantine's default-hover (dark-5), where dimmed (#a3a3a3) is only 4.44:1.
+  surfaceTint: "#2e2e2e",
   border: "#424242",
   borderStrong: "#696969",
   error: "#ff8787",
@@ -32,8 +39,9 @@ export const DARK_TOKENS = {
   inkError: "#ff8787",
 } as const;
 
-/** Light-scheme inks for `variant="light"` surfaces, per hue (the dark scheme keeps Mantine's
- *  own 3/4-shades, which already clear 6:1 on their tints). */
+/** Light-scheme inks for `variant="light"` surfaces, per hue — each replaces the stock 9-shade
+ *  ink on the hue's solid 1-shade tint. The dark scheme keeps Mantine's own values (the
+ *  0-shade over a 50%-darkened 9-shade, ≥ 8:1 for every hue — guarded in theme.test.ts). */
 export const LIGHT_VARIANT_INKS = {
   lettuce: "#166534",
   teal: "#087255",
@@ -56,6 +64,7 @@ function schemeVariables(tokens: typeof LIGHT_TOKENS | typeof DARK_TOKENS): Reco
     "--mantine-color-text": tokens.text,
     "--mantine-color-dimmed": tokens.dimmed,
     "--lettuce-canvas": tokens.canvas,
+    "--lettuce-surface-tint": tokens.surfaceTint,
     "--mantine-color-default-border": tokens.border,
     "--lettuce-border-strong": tokens.borderStrong,
     "--mantine-color-error": tokens.error,

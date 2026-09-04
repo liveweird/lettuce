@@ -64,6 +64,48 @@ describe("RowActions", () => {
     expect(screen.getByRole("button", { name: "Accept" })).toBeDisabled();
   });
 
+  test("a loading overflow item renders disabled and busy with a spinner (v3.5.2)", async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    renderWithProviders(
+      <RowActions
+        name="Alice"
+        items={[
+          { label: "Cancel", ariaLabel: "Cancel Alice", icon: <IconTrash />, color: "red", loading: true, onClick: onCancel },
+          { label: "Deactivate", onClick: vi.fn() },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "More actions for Alice" }));
+    const cancel = await screen.findByRole("menuitem", { name: "Cancel Alice" });
+    expect(cancel).toHaveAttribute("aria-busy", "true");
+    expect(cancel).toHaveAttribute("data-disabled", "true");
+    expect(cancel.querySelector(".mantine-Loader-root")).not.toBeNull();
+    // A sibling that isn't loading stays live.
+    expect(screen.getByRole("menuitem", { name: "Deactivate" })).not.toHaveAttribute("data-disabled");
+  });
+
+  test("two overflow items may share a label (keys are positional)", async () => {
+    const user = userEvent.setup();
+    const first = vi.fn();
+    const second = vi.fn();
+    renderWithProviders(
+      <RowActions
+        name="Alice"
+        items={[
+          { label: "Remove", onClick: first },
+          { label: "Remove", onClick: second, dividerBefore: true },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "More actions for Alice" }));
+    const removes = await screen.findAllByRole("menuitem", { name: "Remove" });
+    expect(removes).toHaveLength(2);
+    await user.click(removes[1]);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+  });
+
   test("a primary-only cell needs no subject; an overflow without one gets the generic name", async () => {
     const user = userEvent.setup();
     renderWithProviders(

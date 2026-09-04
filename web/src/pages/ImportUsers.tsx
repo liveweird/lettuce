@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import {
   Alert,
   Badge,
@@ -16,8 +16,10 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconUpload } from "@tabler/icons-react";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import PageHeader from "../components/PageHeader";
 import RevealablePassword from "../components/RevealablePassword";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { saveErrorMessage } from "../utils/saveError";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -41,6 +43,12 @@ export default function ImportUsers() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<UserImportResult | null>(null);
+  // Dirty = a file picked or the email checkbox moved off its default (v3.5.2); the results
+  // view has no Cancel, so the guard only ever fires from the pre-import form.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => file != null || sendEmails,
+    to: "/users",
+  });
 
   if (!isAdmin()) return <Navigate to="/users" replace />;
 
@@ -104,7 +112,7 @@ export default function ImportUsers() {
                   </Alert>
                 )}
                 <Group justify="flex-end" gap="sm">
-                  <Button component={RouterLink} to="/users" variant="default">
+                  <Button type="button" variant="default" onClick={requestCancel} disabled={importing}>
                     {t("common.action.cancel")}
                   </Button>
                   <Button
@@ -170,6 +178,7 @@ export default function ImportUsers() {
           </Stack>
         </Paper>
       </Stack>
+      <ConfirmActionModal {...modalProps} />
     </Container>
   );
 }

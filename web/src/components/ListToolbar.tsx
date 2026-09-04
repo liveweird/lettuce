@@ -35,7 +35,7 @@ export type ListToolbarProps = {
  */
 export default function ListToolbar({ filters, search, right }: ListToolbarProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useFilterPanel(filters?.storageKey ?? "list");
+  const [open, setOpen] = useFilterPanel(filters?.storageKey);
   const showClear = filters?.onClear != null && filters.activeCount > 0;
   return (
     <Stack gap="sm">

@@ -4,12 +4,10 @@ import {
   Alert,
   Anchor,
   Button,
-  Center,
   Container,
   Fieldset,
   Group,
   List,
-  Loader,
   Paper,
   Stack,
   Tabs,
@@ -30,6 +28,7 @@ import {
   type SuccessionNominationResponse,
   type SuccessionPlanResponse,
 } from "../api/successionPlans";
+import CenteredLoader from "../components/CenteredLoader";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FormFooter from "../components/FormFooter";
@@ -46,6 +45,7 @@ import {
   RetentionRiskBadge,
 } from "../components/SuccessionBadges";
 import GoalStatusBadge from "../components/GoalStatusBadge";
+import { useBeforeUnloadGuard } from "../hooks/useBeforeUnloadGuard";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { formatRelativeTime, formatDateTime } from "../utils/datetime";
 import { goalViewLink } from "../utils/goalLinks";
@@ -170,16 +170,19 @@ export default function ReviewSuccessionPlan() {
     successMessage: t("succession.toast.nominationDeleted"),
   });
 
-  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
-  if (!hasFeature("SUCCESSION_PLANS")) return <Navigate to="/" replace />;
-  if (!idIsValid) return <Navigate to={backTo} replace />;
-
   const currentUserId = getUserId();
   const isOwner = data != null && currentUserId != null && currentUserId === data.managerId;
   const isOpen = data?.status === "OPEN";
   const canEdit = isOwner && isOpen;
   // Payload-compared dirtiness (form.isDirty() misses list ops — checkup-29).
   const dirty = canEdit && data != null && definitionDirty(form.values, data);
+  // Cancel stays the page-local "won't count as a review" modal (a product rule, not the
+  // discard guard), but the browser's reload/close still gets the unsaved-edits prompt (v3.5.2).
+  useBeforeUnloadGuard(dirty);
+
+  // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
+  if (!hasFeature("SUCCESSION_PLANS")) return <Navigate to="/" replace />;
+  if (!idIsValid) return <Navigate to={backTo} replace />;
   // The under-bench cue tracks the FORM's target while editing, so raising it reflects live.
   const liveTarget =
     canEdit && Number.isFinite(Number(form.values.targetBenchDepth)) && Number(form.values.targetBenchDepth) > 0
@@ -235,12 +238,10 @@ export default function ReviewSuccessionPlan() {
     <>
       <PageHeader title={t("succession.viewTitle")} badge={data && <PlanStatusBadge value={data.status} />} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <Paper withBorder p="xl">
           <Stack>
             {isLoading ? (
-              <Center py="xl">
-                <Loader />
-              </Center>
+              <CenteredLoader />
             ) : isError ? (
               <Alert color="red" variant="light">
                 {errorMessage}

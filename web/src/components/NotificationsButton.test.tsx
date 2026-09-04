@@ -492,6 +492,12 @@ describe("NotificationsButton", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Notifications")).toBeInTheDocument();
     expect(await within(dialog).findByText("No notifications.")).toBeInTheDocument();
+    // The compound Drawer.Root never read the theme's Drawer overlayProps — the dim/blur now
+    // rides the DrawerOverlay theme entry (v3.5.2), so the overlay carries the blur var.
+    const overlay = document.querySelector(".mantine-Drawer-overlay");
+    expect(overlay).not.toBeNull();
+    expect(overlay!.getAttribute("style")).toContain("--overlay-filter: blur(");
+    expect(overlay!.getAttribute("style")).toContain("--overlay-bg: rgba(0, 0, 0, 0.45)");
     await user.click(within(dialog).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });

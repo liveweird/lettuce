@@ -30,8 +30,8 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   await expect(page.getByRole("heading", { name: "New journal entry" })).toBeVisible();
 
   await page.getByLabel("Title").fill(title);
-  await fillDate(page, "Period start", "2026-07-01");
-  await fillDate(page, "Period end", "2026-07-31");
+  await fillDate(page, "Period start", "2026-07-01", false);
+  await fillDate(page, "Period end", "2026-07-31", false);
 
   // The wizard (v2.37.0): one section per step, walked with Next — exactly ONE markdown
   // editor is mounted at a time. The step rail names all five steps up front.

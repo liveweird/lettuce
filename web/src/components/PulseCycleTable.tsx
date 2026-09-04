@@ -122,33 +122,34 @@ export default function PulseCycleTable({
           <Table>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>{t("common.field.status")}</Table.Th>
-                <Table.Th>{t("pulse.admin.openDate")}</Table.Th>
-                <Table.Th>{t("pulse.admin.closeDate")}</Table.Th>
+                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("common.field.status")}</Table.Th>
+                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("pulse.admin.openDate")}</Table.Th>
+                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("pulse.admin.closeDate")}</Table.Th>
                 <Table.Th>{t("pulse.admin.question")}</Table.Th>
-                <Table.Th>{t("pulse.admin.participation")}</Table.Th>
-                <Table.Th />
+                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("pulse.admin.participation")}</Table.Th>
+                <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {rows.map((cycle) => (
                 <Table.Tr key={cycle.id}>
-                  <Table.Td>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     <PulseCycleStatusBadge status={cycle.status} />
                   </Table.Td>
-                  <Table.Td>{formatIsoDate(cycle.plannedOpenDate, locale)}</Table.Td>
-                  <Table.Td>{formatIsoDate(cycle.plannedCloseDate, locale)}</Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{formatIsoDate(cycle.plannedOpenDate, locale)}</Table.Td>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{formatIsoDate(cycle.plannedCloseDate, locale)}</Table.Td>
+                  {/* The fluid column (the v3.4.0 rule): the question takes the table's slack
+                      and truncates with the full text as its title; every other cell hugs. */}
+                  <Table.Td style={{ width: "100%", maxWidth: 0 }}>
                     <Text
                       size="sm"
                       truncate
-                      maw={320}
                       title={cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : undefined}
                     >
                       {cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : "—"}
                     </Text>
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     {cycle.participantCount != null
                       ? `${cycle.responseCount ?? 0}/${cycle.participantCount}`
                       : "—"}

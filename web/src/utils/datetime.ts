@@ -127,7 +127,11 @@ export function addIsoDays(iso: string, days: number): string {
 // True for a well-formed, actually-parseable ISO "YYYY-MM-DD" — the <input type="date">
 // validation the pulse admin forms run before date arithmetic or a submit.
 export function isValidIsoDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  // Round-trip: Date rolls an overflow day over ("2026-02-30" parses as March 2nd), so a
+  // parse that survives must also print back as the same calendar date (v3.5.2).
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 // The current month as ISO "YYYY-MM" (local time) — the review-period granularity.

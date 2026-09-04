@@ -289,6 +289,18 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("User not found.")).toBeInTheDocument();
   });
 
+  test("the ?name= hint titles the page only until the lookup settles without a person", async () => {
+    mockApi(mockFetch, {});
+    renderDetails("/users/999/details?name=Alice&from=users");
+
+    // Pre-load: the hint is the heading (no getUser call — it is self-or-admin only).
+    expect(screen.getByRole("heading", { name: "Alice" })).toBeInTheDocument();
+    // Settled without a person: the URL-carried name is dropped, never titling an unknown id.
+    expect(await screen.findByText("User not found.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Alice" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "User details" })).toBeInTheDocument();
+  });
+
   test("viewing yourself renders the card without actions", async () => {
     localStorage.setItem(USER_ID_KEY, "5");
     mockApi(mockFetch, {

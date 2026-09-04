@@ -44,10 +44,12 @@ export function FilterToggle({
   );
 }
 
-/** The open panel: the filter controls in a wrapping row on a quiet tinted surface. */
+/** The open panel: the filter controls in a wrapping row on a quiet tinted surface — the
+ *  `--lettuce-surface-tint` token (gray-0 / dark-6), NOT Mantine's default-hover, whose dark
+ *  value (dark-5) leaves the dimmed labels under 4.5:1 (theme.test.ts guards the pair). */
 export function FilterPanelBody({ children }: { children: ReactNode }) {
   return (
-    <Paper withBorder radius="md" p="sm" bg="var(--mantine-color-default-hover)">
+    <Paper withBorder radius="md" p="sm" bg="var(--lettuce-surface-tint)">
       <Group align="flex-end" gap="sm">
         {children}
       </Group>

@@ -1,7 +1,37 @@
-/* The pager arrows on the orange banner: Mantine's disabled ActionIcon would paint a gray
-   pill; keep them transparent with a dimmed dark ink instead (the banner ink is black since
-   v3.3.0 — white on orange-6 was 2.6:1). */
+/* The announcement banner (v3.5.2 — border-first, like every other light-variant surface):
+   the orange `variant="light"` surface with Mantine's own scheme-aware ink
+   (`--mantine-color-orange-light-color`: the AA ink from themeVariables.ts in light, the
+   0-shade in dark — theme.test.ts guards both pairs). A strong left rule is the prominence
+   cue that the old filled fill used to provide. */
+.banner {
+  --alert-bd: 0;
+  border-left: 4px solid var(--mantine-color-orange-filled);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  box-shadow: var(--mantine-shadow-md);
+}
+
+/* The permanent strip under the overlay: the same surface/ink pair as the banner. */
+.strip {
+  background-color: var(--mantine-color-orange-light);
+  color: var(--mantine-color-orange-light-color);
+  border-left: 4px solid var(--mantine-color-orange-filled);
+}
+
+/* The title chip inverts the banner's ink pair with TOKENS only — ink as the fill, the
+   scheme's body colour as the text — so it stays senior to any markdown heading in the
+   content without a hard-coded white (1.6:1 under the old dark ink). */
+.titleChip {
+  display: inline-block;
+  background-color: var(--mantine-color-orange-light-color);
+  color: var(--mantine-color-body);
+  border-radius: var(--mantine-radius-sm);
+}
+
+/* Every control on the banner is a `variant="transparent" color="orange"` ActionIcon, whose
+   ink Mantine resolves to the same `--mantine-color-orange-light-color`; the disabled pager
+   arrows keep that ink at half strength instead of Mantine's gray disabled pill. */
 .pagerButton:disabled {
   background-color: transparent;
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--mantine-color-orange-light-color);
+  opacity: 0.5;
 }

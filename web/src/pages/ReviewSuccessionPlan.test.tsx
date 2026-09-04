@@ -272,6 +272,26 @@ describe("ReviewSuccessionPlan page", () => {
     expect(callsOf(mockFetch, "POST", "/api/v1/succession-plans/5/complete-review")).toHaveLength(0);
   });
 
+  test("the browser's beforeunload prompt fires only while the definition is dirty (v3.5.2)", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    const bench = await screen.findByLabelText("Target bench depth");
+    const dispatch = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      const prevent = vi.spyOn(event, "preventDefault");
+      window.dispatchEvent(event);
+      return prevent;
+    };
+    expect(dispatch()).not.toHaveBeenCalled();
+    await user.clear(bench);
+    await user.type(bench, "4");
+    expect(dispatch()).toHaveBeenCalled();
+    // Back to the stored value: clean again, no prompt.
+    await user.clear(bench);
+    await user.type(bench, "2");
+    expect(dispatch()).not.toHaveBeenCalled();
+  });
+
   test("closing the plan confirms first, then POSTs the close action", async () => {
     const user = userEvent.setup();
     const mockFetch = renderScreen();

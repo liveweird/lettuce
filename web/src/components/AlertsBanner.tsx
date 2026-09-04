@@ -39,8 +39,8 @@ function writeState(state: BannerState) {
 
 /**
  * The app-wide announcement banner, rendered as the first row of AppShell.Header. While any
- * alerts are visible (server-decided, refetched every minute) a slim orange strip occupies a
- * permanent row above the header — the only layout impact, and only when alerts appear/expire.
+ * alerts are visible (server-decided, refetched every minute) a slim orange-tinted strip occupies
+ * a permanent row above the header — the only layout impact, and only when alerts appear/expire.
  * Expanding renders the full banner as a fixed overlay that temporarily covers the strip and
  * the header, so hiding/showing never reflows the page. The user can hide/show — never close.
  * Hidden state persists in localStorage, but a new alert (an unseen id) auto-expands it.
@@ -81,13 +81,7 @@ export default function AlertsBanner() {
     <>
       {/* The permanent strip. When expanded it is fully covered by the overlay below, so it
           renders as an empty spacer (aria-hidden) — screen readers hear one state, not both. */}
-      <Box
-        h={ALERTS_BAR_HEIGHT}
-        px="md"
-        bg="orange"
-        c="var(--mantine-color-black)"
-        aria-hidden={!hidden || undefined}
-      >
+      <Box h={ALERTS_BAR_HEIGHT} px="md" className={classes.strip} aria-hidden={!hidden || undefined}>
         {hidden && (
           <Group gap="xs" wrap="nowrap" h="100%">
             <IconSpeakerphone size={16} />
@@ -96,7 +90,7 @@ export default function AlertsBanner() {
             </Text>
             <ActionIcon
               variant="transparent"
-              c="var(--mantine-color-black)"
+              color="orange"
               size="sm"
               aria-label={t("alerts.banner.show")}
               onClick={() => toggleHidden(false)}
@@ -113,35 +107,24 @@ export default function AlertsBanner() {
               banner therefore never shifts the page. z-index sits above the AppShell (100)
               and below Mantine modals (200). */}
           <Box style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 150 }}>
+            {/* The light orange surface + Mantine's scheme-aware orange ink (AA in both schemes,
+                guarded by theme.test.ts); the strong left rule is the prominence cue. Never
+                `variant="filled"` + autoContrast here: under primaryShade 7 Mantine judged
+                orange-7 "dark" and painted white on it (3.0:1). */}
             <Alert
               color="orange"
-              variant="filled"
-              autoContrast
+              variant="light"
               icon={<IconSpeakerphone size={20} />}
               radius={0}
-              styles={{
-                root: { boxShadow: "var(--mantine-shadow-md)" },
-                body: { minWidth: 0 },
-              }}
+              classNames={{ root: classes.banner }}
+              styles={{ body: { minWidth: 0 } }}
             >
               <Group gap="xs" wrap="nowrap" align="flex-start">
-                {/* Inverted chip (white on the banner's own fill color) so the title stays
-                    visually senior to any markdown heading in the content without competing
-                    on font size. */}
+                {/* Inverted chip (the banner ink as the fill, the body colour as the text) so
+                    the title stays visually senior to any markdown heading in the content
+                    without competing on font size. */}
                 <Box style={{ flex: 1, minWidth: 0 }}>
-                  <Text
-                    component="span"
-                    fw={700}
-                    size="sm"
-                    px={10}
-                    py={3}
-                    style={{
-                      display: "inline-block",
-                      backgroundColor: "var(--mantine-color-white)",
-                      color: "var(--lettuce-ink-warning)",
-                      borderRadius: "var(--mantine-radius-sm)",
-                    }}
-                  >
+                  <Text component="span" fw={700} size="sm" px={10} py={3} className={classes.titleChip}>
                     {current.title}
                   </Text>
                 </Box>
@@ -149,7 +132,7 @@ export default function AlertsBanner() {
                   <Group gap={4} wrap="nowrap">
                     <ActionIcon
                       variant="transparent"
-                      c="var(--mantine-color-black)"
+                      color="orange"
                       size="sm"
                       className={classes.pagerButton}
                       disabled={index <= 0}
@@ -166,7 +149,7 @@ export default function AlertsBanner() {
                     </Text>
                     <ActionIcon
                       variant="transparent"
-                      c="var(--mantine-color-black)"
+                      color="orange"
                       size="sm"
                       className={classes.pagerButton}
                       disabled={index >= items.length - 1}
@@ -179,7 +162,7 @@ export default function AlertsBanner() {
                 )}
                 <ActionIcon
                   variant="transparent"
-                  c="var(--mantine-color-black)"
+                  color="orange"
                   size="sm"
                   aria-label={t("alerts.banner.hide")}
                   onClick={() => toggleHidden(true)}

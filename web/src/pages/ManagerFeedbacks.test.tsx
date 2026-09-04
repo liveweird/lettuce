@@ -148,15 +148,35 @@ describe("ManagerFeedbacks page", () => {
     );
   });
 
-  test("the provided tab's New feedback button targets the create flow scoped to the manager", async () => {
+  test("the header's New feedback button targets the create flow scoped to the manager and returns to the active tab", async () => {
     renderScreen();
 
-    await userEvent.click(await screen.findByRole("tab", { name: "From you to Alice" }));
-    const back = encodeURIComponent("/users/10/feedbacks?name=Alice&tab=provided");
+    // The primary lives in the page header (v3.5.2 — never below the list), so it is there on
+    // the received tab too, returning to that tab; exactly one such control on the page.
+    const receivedBack = encodeURIComponent("/users/10/feedbacks?name=Alice&tab=received");
     const createLink = await screen.findByRole("link", { name: /new feedback for alice/i });
+    expect(screen.getAllByRole("link", { name: /new feedback for alice/i })).toHaveLength(1);
     expect(createLink).toHaveAttribute("href", expect.stringContaining("/feedback/new"));
     expect(createLink).toHaveAttribute("href", expect.stringContaining("subjectId=10"));
-    expect(createLink).toHaveAttribute("href", expect.stringContaining(`back=${back}`));
+    expect(createLink).toHaveAttribute("href", expect.stringContaining(`back=${receivedBack}`));
+
+    await userEvent.click(screen.getByRole("tab", { name: "From you to Alice" }));
+    const providedBack = encodeURIComponent("/users/10/feedbacks?name=Alice&tab=provided");
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: /new feedback for alice/i })).toHaveAttribute(
+        "href",
+        expect.stringContaining(`back=${providedBack}`),
+      ),
+    );
+    expect(screen.getAllByRole("link", { name: /new feedback for alice/i })).toHaveLength(1);
+  });
+
+  test("the audit view has no New feedback button", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    renderScreen("/users/10/feedbacks?name=Alice&mode=audit");
+
+    expect(await screen.findByRole("heading", { name: /all feedbacks of alice/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /new feedback for alice/i })).toBeNull();
   });
 
   test("a ?tab=provided deep link opens the provided tab directly", async () => {

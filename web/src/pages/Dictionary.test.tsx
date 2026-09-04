@@ -130,6 +130,37 @@ describe("Dictionary page", () => {
     }
   });
 
+  test("a blank non-EN translation falls back to English (pickLocalized) and is not counted", async () => {
+    localStorage.setItem("lettuce.auth.roles", "[]");
+    stubApi([{ id: 9, values: { en: "Consulting", pl: "   " } }]);
+    const { default: i18n } = await import("../i18n");
+    await i18n.changeLanguage("pl");
+    try {
+      renderPage();
+
+      expect(await screen.findByText("Consulting")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Języki wpisu 1" })).not.toBeInTheDocument();
+      expect(screen.getByText("1 język")).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  test("the page titles itself through the shared header (h2) and shows the centered loader while loading", async () => {
+    localStorage.setItem("lettuce.auth.roles", "[]");
+    let resolveList: (value: Response) => void = () => {};
+    mockFetch.mockImplementation(
+      () => new Promise<Response>((resolve) => { resolveList = resolve; }),
+    );
+    renderPage();
+
+    expect(screen.getByRole("heading", { level: 2, name: "Career paths" })).toBeInTheDocument();
+    expect(document.querySelector(".mantine-Loader-root")).not.toBeNull();
+    resolveList(jsonResponse(200, { items: ENTRIES }));
+    expect(await screen.findByText("Engineering")).toBeInTheDocument();
+    expect(document.querySelector(".mantine-Loader-root")).toBeNull();
+  });
+
   test("a non-admin with no entries sees the empty state", async () => {
     localStorage.setItem("lettuce.auth.roles", "[]");
     stubApi([]);

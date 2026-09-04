@@ -152,6 +152,13 @@ describe("PulseCycles (admin)", () => {
     expect(await screen.findByText("Good work is recognized here.")).toBeInTheDocument();
     expect(screen.getByText("7/10")).toBeInTheDocument();
     expect(screen.getByText("Scheduled")).toBeInTheDocument();
+    // The actions column is named like the other registries, and the truncating question
+    // cell carries the full text as its title (v3.5.2).
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.getByText("Good work is recognized here.")).toHaveAttribute(
+      "title",
+      "Good work is recognized here.",
+    );
 
     await user.click(screen.getByRole("button", { name: "Open cycle 6" }));
     expect(

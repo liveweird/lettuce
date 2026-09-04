@@ -146,7 +146,8 @@ export default function ViewPerformanceReview() {
   const isManager = data != null && currentUserId != null && data.managerId === currentUserId;
   const canEdit = isManager && data != null && data.status !== "PUBLISHED";
 
-  // Close · Edit · the secondary lifecycle actions (light, the retraction hue) · the primary.
+  // Close · Edit · the secondary lifecycle actions (brand `light`, the ViewGoal/ViewTeamKpi
+  // detail-shell tier) · the primary `filled`.
   const actions = (
     <>
       <Button component={RouterLink} to={backTo} variant="default">
@@ -167,7 +168,6 @@ export default function ViewPerformanceReview() {
           <Button
             key={action.labelKey}
             variant={action.primary ? "filled" : "light"}
-            color={action.primary ? undefined : "orange"}
             loading={submitting === action.labelKey}
             disabled={submitting != null && submitting !== action.labelKey}
             onClick={() => void runAction(action.labelKey, action.run, action.successKey)}

@@ -353,7 +353,9 @@ export default function NotificationsButton() {
 
       {/* A right-hand panel (v3.3.0 — a Drawer instead of the centered Modal): the composed
           header keeps "Mark all as seen" beside the close button, the list scrolls inside the
-          panel, and the compact PaginationBar pages it. */}
+          panel, and the compact PaginationBar pages it. The compound Root reads "DrawerRoot"
+          defaults, not the theme's "Drawer" entry — hence the explicit position, and the
+          overlay dim/blur registered on DrawerOverlay in theme.ts (v3.5.2). */}
       <Drawer.Root opened={opened} onClose={close} position="right" size={440}>
         <Drawer.Overlay />
         <Drawer.Content>
@@ -404,8 +406,9 @@ export default function NotificationsButton() {
                       }}
                     >
                       <Group align="flex-start" wrap="nowrap" gap="sm">
-                        {/* The blue dot is decorative — seen-state is conveyed by the bold
-                            text and the offered action. */}
+                        {/* The brand-green dot (the Indicator's primary-colour default) is
+                            decorative — seen-state is conveyed by the bold text and the
+                            offered action. */}
                         <Indicator size={9} offset={3} disabled={n.wasSeen}>
                           <ThemeIcon variant="light" color={meta.color} radius="xl" size="lg">
                             <TypeIcon size={16} />

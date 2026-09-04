@@ -164,6 +164,36 @@ describe("ImportUsers page", () => {
     expect(screen.getByRole("link", { name: "← Back to Users" })).toHaveAttribute("href", "/users");
   });
 
+  test("Cancel leaves straight away while clean, and asks first once a file is picked (v3.5.2)", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderImport();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByTestId("probe")).toHaveTextContent("/users");
+    unmount();
+
+    renderImport();
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    await user.upload(input, new File([CSV], "users.csv", { type: "text/csv" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Discard changes?");
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("probe")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(await screen.findByRole("link", { name: "Discard" }));
+    expect(await screen.findByTestId("probe")).toHaveTextContent("/users");
+  });
+
+  test("ticking the email checkbox alone counts as dirty for Cancel (v3.5.2)", async () => {
+    const user = userEvent.setup();
+    renderImport();
+    await user.click(screen.getByLabelText(/email the credentials/i));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Discard changes?");
+    expect(screen.queryByTestId("probe")).toBeNull();
+  });
+
   test("import button is disabled without a file", () => {
     renderImport();
     expect(screen.getByRole("button", { name: /^import$/i })).toBeDisabled();

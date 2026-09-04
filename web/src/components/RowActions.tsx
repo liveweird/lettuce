@@ -1,26 +1,29 @@
 import type { ReactNode } from "react";
-import { ActionIcon, Group, Menu, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, Loader, Menu, Tooltip } from "@mantine/core";
 import { IconDotsVertical } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 
-export type RowActionItem = {
+type RowActionBase = {
   /** The visible tooltip / menu text. */
   label: string;
   /** The accessible name when it must differ from the label (the templated per-row arias,
    *  e.g. "Delete {{name}}"); defaults to `label`. */
   ariaLabel?: string;
   icon?: ReactNode;
-  /** A router target — the control renders as a link (role stays `link`). */
-  to?: string;
-  onClick?: () => void;
   /** Destructive items render red. */
   color?: "red";
-  disabled?: boolean;
-  loading?: boolean;
   /** A separator above this item inside the ⋯ menu. */
   dividerBefore?: boolean;
 };
+
+/** A router target — the control renders as a link (role stays `link`). A link can't be
+ *  disabled or loading (an anchor's `disabled` attribute is inert): hide it instead. */
+type RowActionLink = RowActionBase & { to: string; onClick?: never; disabled?: never; loading?: never };
+
+type RowActionButton = RowActionBase & { to?: undefined; onClick?: () => void; disabled?: boolean; loading?: boolean };
+
+export type RowActionItem = RowActionLink | RowActionButton;
 
 export type RowActionMenu = {
   /** The trigger's accessible name (e.g. "Feedback actions for {{name}}"). */
@@ -47,10 +50,12 @@ export type RowActionsProps = {
 };
 
 function MenuEntry({ item }: { item: RowActionItem }) {
+  // A loading item (a row mid-action) reads as busy: disabled, with a spinner in the icon slot.
   const shared = {
-    leftSection: item.icon,
+    leftSection: item.loading ? <Loader size={14} /> : item.icon,
     color: item.color,
-    disabled: item.disabled,
+    disabled: item.disabled || item.loading,
+    "aria-busy": item.loading || undefined,
     "aria-label": item.ariaLabel,
   };
   return (
@@ -115,8 +120,8 @@ export default function RowActions({ name, primary, menus = [], items = [], menu
             </Tooltip>
           </Menu.Target>
           <Menu.Dropdown>
-            {menu.items.map((item) => (
-              <MenuEntry key={item.ariaLabel ?? item.label} item={item} />
+            {menu.items.map((item, i) => (
+              <MenuEntry key={`${i}-${item.label}`} item={item} />
             ))}
           </Menu.Dropdown>
         </Menu>
@@ -131,8 +136,8 @@ export default function RowActions({ name, primary, menus = [], items = [], menu
             </Tooltip>
           </Menu.Target>
           <Menu.Dropdown>
-            {items.map((item) => (
-              <MenuEntry key={item.ariaLabel ?? item.label} item={item} />
+            {items.map((item, i) => (
+              <MenuEntry key={`${i}-${item.label}`} item={item} />
             ))}
           </Menu.Dropdown>
         </Menu>

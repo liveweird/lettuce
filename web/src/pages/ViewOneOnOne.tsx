@@ -3,7 +3,7 @@ import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-
 import {
   ActionIcon,
   Alert,
-  Badge,
+  Box,
   Button,
   Container,
   Paper,
@@ -26,6 +26,7 @@ import MetaStrip from "../components/MetaStrip";
 import OneOnOneHistory from "../components/OneOnOneHistory";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
+import StatusPill from "../components/StatusPill";
 import { formatIsoDate } from "../utils/datetime";
 import { safeBackParam } from "../utils/url";
 
@@ -164,14 +165,16 @@ export default function ViewOneOnOne() {
                                     {item.content}
                                   </Text>
                                   {item.copiedFromId != null && (
-                                    <Badge variant="light" color="grape" mt={4} style={{ minWidth: "max-content" }}>
+                                    <Box mt={4}>
                                       {/* The origin date shows how long the item has been postponed. */}
-                                      {item.firstAppearedOn != null
-                                        ? t("oneOnOne.carriedOverSince", {
-                                            date: formatIsoDate(item.firstAppearedOn, i18n.language),
-                                          })
-                                        : t("oneOnOne.carriedOver")}
-                                    </Badge>
+                                      <StatusPill color="grape">
+                                        {item.firstAppearedOn != null
+                                          ? t("oneOnOne.carriedOverSince", {
+                                              date: formatIsoDate(item.firstAppearedOn, i18n.language),
+                                            })
+                                          : t("oneOnOne.carriedOver")}
+                                      </StatusPill>
+                                    </Box>
                                   )}
                                 </Table.Td>
                                 <Table.Td style={{ whiteSpace: "nowrap" }}>
@@ -181,18 +184,14 @@ export default function ViewOneOnOne() {
                                   {item.dueDate ? formatIsoDate(item.dueDate, i18n.language) : "—"}
                                 </Table.Td>
                                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                                  <Badge
-                                    variant="light"
-                                    color={item.resolved ? "teal" : "yellow"}
-                                    style={{ minWidth: "max-content" }}
-                                  >
+                                  <StatusPill color={item.resolved ? "teal" : "yellow"} dot>
                                     {item.resolved ? t("oneOnOne.resolved") : t("oneOnOne.open")}
-                                  </Badge>
+                                  </StatusPill>
                                 </Table.Td>
                                 <Table.Td>
                                   <ActionIcon
                                     variant="subtle"
-                                    color="grape"
+                                    color="gray"
                                     onClick={() => setHistoryItemId(item.id)}
                                     aria-label={t("oneOnOne.itemHistoryAria", { position: index + 1 })}
                                   >

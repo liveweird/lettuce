@@ -77,7 +77,7 @@ test("career progression: chain manager records positions, the person sees the t
   await page.getByRole("link", { name: `Career progression of ${sub.name}` }).click();
   await expect(page.getByRole("heading", { name: `Career progression — ${sub.name}` })).toBeVisible();
   await expect(page.getByText("No positions recorded yet.")).toBeVisible();
-  await fillDate(page, "Start date", "2024-01-01");
+  await fillDate(page, "Start date", "2024-01-01", false);
   const careerPath = page.getByRole("combobox", { name: "Career path" });
   await careerPath.click();
   await careerPath.fill(value1); // searchable — narrow the shared dictionary's long list
@@ -103,7 +103,7 @@ test("career progression: chain manager records positions, the person sees the t
   //    position (v2.15.1), and a date alone is NOT enough (v2.15.2: the triple must differ
   //    from the current position's — the note explains, the submit stays disabled).
   await expect(careerPath).toHaveValue(value1);
-  await fillDate(page, "Start date", "2025-02-01");
+  await fillDate(page, "Start date", "2025-02-01", false);
   await expect(page.getByRole("button", { name: "Start position" })).toBeDisabled();
   await expect(
     page.getByText("This repeats a neighboring position exactly", { exact: false }),
@@ -123,7 +123,7 @@ test("career progression: chain manager records positions, the person sees the t
 
   // 6. Correct the historical position's start date in place.
   await page.getByLabel("Edit the position started 2024-01-01").click();
-  await fillDate(page, "Start date", "2024-03-01");
+  await fillDate(page, "Start date", "2024-03-01", false);
   await Promise.all([
     page.waitForResponse((r) => isPositionsCall(r) && r.request().method() === "PUT" && r.ok()),
     page.getByRole("button", { name: "Save", exact: true }).click(),
@@ -142,12 +142,12 @@ test("career progression: chain manager records positions, the person sees the t
   // 7b. Backfill (v2.39.0): a position dated BEFORE the survivor. An already-taken date is
   //     flagged client-side; a free past date with a changed triple inserts, and the new
   //     earliest row lands closed (the survivor stays the one Current position).
-  await fillDate(page, "Start date", "2024-03-01");
+  await fillDate(page, "Start date", "2024-03-01", false);
   await expect(
     page.getByText("Another position already starts on this date", { exact: false }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Start position" })).toBeDisabled();
-  await fillDate(page, "Start date", "2023-06-01");
+  await fillDate(page, "Start date", "2023-06-01", false);
   // The prefilled triple now equals its date-neighbor (the survivor) — change the seniority.
   await expect(
     page.getByText("This repeats a neighboring position exactly", { exact: false }),
