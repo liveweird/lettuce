@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
 import FeedbackForm from "./FeedbackForm";
-import { formatTimestamp } from "../utils/datetime";
+import { formatDateTime } from "../utils/datetime";
 import { jsonResponse } from "../test/http";
 
 // Swap the Lexical-based editor for a plain textarea (see mockMarkdownEditor); the real wrapper
@@ -94,7 +94,7 @@ describe("FeedbackForm", () => {
     const { unmount } = renderWithProviders(
       <FeedbackForm {...baseProps} onSubmit={() => {}} lastModified={ts} />,
     );
-    expect(screen.getByText(`Last modified ${formatTimestamp(ts)}`)).toBeInTheDocument();
+    expect(screen.getByText(`Last modified ${formatDateTime(ts, "en")}`)).toBeInTheDocument();
     unmount();
 
     renderWithProviders(<FeedbackForm {...baseProps} onSubmit={() => {}} />);

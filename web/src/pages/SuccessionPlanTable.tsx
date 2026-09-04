@@ -1,4 +1,4 @@
-import { Alert, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Select, Stack, Table } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconTrash, IconUserShield } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import {
 } from "../api/successionPlans";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
@@ -29,7 +30,6 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { getUserId } from "../api/session";
-import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
 import { successionPlanViewLink } from "../utils/successionLinks";
 import { invalidateSuccession } from "../utils/successionQueries";
 import { loadErrorMessage } from "../utils/saveError";
@@ -63,7 +63,7 @@ export default function SuccessionPlanTable({
   /** Show the "Reports" direct/all filter and derive includeIndirect from it (team only). */
   withReportsScope?: boolean;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const currentUserId = getUserId();
   // Who owns the plan only varies on the cross-owner views.
   const ownerVisible = view !== "own";
@@ -254,8 +254,8 @@ export default function SuccessionPlanTable({
                   <Table.Td>
                     <PlanStatusBadge value={plan.status} />
                   </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(plan.lastReviewedAt)}>
-                    <Text size="sm">{formatRelativeTime(plan.lastReviewedAt, i18n.language)}</Text>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <DateCell value={plan.lastReviewedAt} mode="relative" />
                   </Table.Td>
                   <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     <RowActions

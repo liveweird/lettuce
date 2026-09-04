@@ -113,7 +113,8 @@ describe("FeedbackTable (received view)", () => {
     setupMocks(mockFetch);
     renderWithProviders(<FeedbackTable view="received" />);
 
-    expect(await screen.findByText("—")).toBeInTheDocument();
+    // The requester cell (and, since v3.5.0, an absent timestamp) render the dash.
+    expect((await screen.findAllByText("—")).length).toBeGreaterThan(0);
     expect(screen.getByText("Bob Provider (deleted)")).toBeInTheDocument();
   });
 

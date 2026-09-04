@@ -13,6 +13,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -25,7 +26,6 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { isAdmin } from "../api/session";
 import { deleteAlert, listAlerts } from "../api/alerts";
-import { formatTimestamp } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
 import PageHeader from "../components/PageHeader";
 
@@ -42,7 +42,7 @@ function Bound({ value }: { value: number | null | undefined }) {
       —
     </Text>
   ) : (
-    <Text size="sm">{formatTimestamp(value)}</Text>
+    <DateCell value={value} mode="absolute" />
   );
 }
 

@@ -43,7 +43,7 @@ import {
 } from "../components/SuccessionBadges";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
-import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { formatRelativeTime, formatDateTime } from "../utils/datetime";
 import { goalViewLink } from "../utils/goalLinks";
 import {
   successionNominationCreateLink,
@@ -243,7 +243,7 @@ export default function ReviewSuccessionPlan() {
                         you={isOwner}
                       />
                       <ReadOnlyField label={t("succession.lastReviewed")}>
-                        <Text size="sm" title={formatTimestamp(data.lastReviewedAt)}>
+                        <Text size="sm" title={formatDateTime(data.lastReviewedAt, i18n.language)}>
                           {formatRelativeTime(data.lastReviewedAt, i18n.language)}
                         </Text>
                       </ReadOnlyField>

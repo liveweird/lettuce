@@ -1,7 +1,7 @@
 import { Badge, Divider, Group, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { canAudit, hasFeature } from "../api/session";
-import { formatIsoDate, formatMonthRange, formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { formatIsoDate, formatMonthRange, formatRelativeTime, formatDateTime } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { pickLocalized, type LocalizedEntry } from "../utils/localized";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
@@ -49,7 +49,7 @@ function NeverText() {
 function TimeStat({ at }: { at: number | null }) {
   const { i18n } = useTranslation();
   return at != null ? (
-    <Text size="xs" title={formatTimestamp(at)}>
+    <Text size="xs" title={formatDateTime(at, i18n.language)}>
       {formatRelativeTime(at, i18n.language)}
     </Text>
   ) : (

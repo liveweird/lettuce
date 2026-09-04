@@ -12,6 +12,7 @@ import {
 } from "../api/impactLog";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
@@ -24,7 +25,7 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { getUserId } from "../api/session";
-import { formatDate, formatIsoDate, formatTimestamp } from "../utils/datetime";
+import { formatIsoDateRange } from "../utils/datetime";
 import { impactEntryEditLink, impactEntryViewLink } from "../utils/impactLogLinks";
 import { invalidateImpactLog } from "../utils/impactLogQueries";
 import { loadErrorMessage } from "../utils/saveError";
@@ -138,7 +139,7 @@ export default function ImpactLogTable({
   });
 
   const period = (e: ImpactEntryListItem) =>
-    `${formatIsoDate(e.periodStart, i18n.language)} – ${formatIsoDate(e.periodEnd, i18n.language)}`;
+    formatIsoDateRange(e.periodStart, e.periodEnd, i18n.language);
   // The row's spoken identity: the title, or the period on a pre-V66 title-less row.
   const identity = (e: ImpactEntryListItem) => e.title || period(e);
 
@@ -242,8 +243,8 @@ export default function ImpactLogTable({
                       {e.title}
                     </Text>
                   </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(e.lastModified)}>
-                    {formatDate(e.lastModified, i18n.language)}
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <DateCell value={e.lastModified} mode="date" />
                   </Table.Td>
                   <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     <RowActions

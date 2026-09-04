@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { Group, Stack, Text, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { FeedbackStatus, FeedbackVisibility } from "../api/feedbacks";
-import { formatTimestamp } from "../utils/datetime";
+import { formatDateTime } from "../utils/datetime";
 import { StatusBadge, VisibilityBadge } from "./FeedbackBadges";
 import PersonaChip from "./PersonaChip";
 
@@ -41,7 +41,7 @@ export default function FeedbackMeta({
   requesterIsYou?: boolean;
   lastModified?: number;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // The app-wide person convention: PersonaChip for a named party, plain text for the
   // current user — driven by the explicit *IsYou flags, never by comparing the display
   // string against the translated "You" (a locale collision would mis-render). Deleted
@@ -85,7 +85,7 @@ export default function FeedbackMeta({
       </Group>
       {lastModified != null && (
         <Text size="sm" c="dimmed">
-          {t("feedback.lastModifiedLine", { when: formatTimestamp(lastModified) })}
+          {t("feedback.lastModifiedLine", { when: formatDateTime(lastModified, i18n.language) })}
         </Text>
       )}
     </Stack>

@@ -6,7 +6,8 @@ import {
   formatIsoWeekday,
   formatMonthRange,
   formatRelativeTime,
-  formatTimestamp,
+  formatDateTime,
+  formatIsoDateRange,
   isCurrentPeriod,
   isoDayDiff,
   lastModifiedCutoff,
@@ -40,16 +41,22 @@ describe("day arithmetic (the pyramid time slider)", () => {
   });
 });
 
-describe("formatTimestamp", () => {
-  test("formats local time as YYYY-MM-DD HH:mm with zero-padding", () => {
-    // Built from local components so the assertion is timezone-independent.
-    const ms = new Date(2026, 0, 5, 9, 7).getTime(); // Jan 5 2026, 09:07 local
-    expect(formatTimestamp(ms)).toBe("2026-01-05 09:07");
+describe("formatDateTime", () => {
+  const expected = (ms: number, locale: string) =>
+    new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(ms));
+  test("renders the localized medium date + short time in local time", () => {
+    const ms = new Date(2026, 0, 5, 9, 7).getTime();
+    expect(formatDateTime(ms, "en")).toBe(expected(ms, "en"));
+    expect(formatDateTime(ms, "en")).toContain("Jan 5, 2026");
+    expect(formatDateTime(ms, "pl")).toBe(expected(ms, "pl"));
+    expect(formatDateTime(ms, "pl")).toContain("2026");
   });
+});
 
-  test("renders two-digit month/day/hour/minute without extra padding", () => {
-    const ms = new Date(2026, 10, 23, 18, 45).getTime(); // Nov 23 2026, 18:45 local
-    expect(formatTimestamp(ms)).toBe("2026-11-23 18:45");
+describe("formatIsoDateRange", () => {
+  test("joins two localized days with an en dash and collapses a same-day range", () => {
+    expect(formatIsoDateRange("2026-07-01", "2026-07-31", "en")).toBe("Jul 1, 2026 – Jul 31, 2026");
+    expect(formatIsoDateRange("2026-07-01", "2026-07-01", "en")).toBe("Jul 1, 2026");
   });
 });
 

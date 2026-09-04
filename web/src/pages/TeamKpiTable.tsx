@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { listTeamKpis, type TeamKpiListView, type TeamKpiStatus } from "../api/teamkpis";
 import ClearableTextInput from "../components/ClearableTextInput";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
@@ -18,13 +19,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import {
-  createdWindowCutoff,
-  createdWindowOptions,
-  formatDate,
-  formatTimestamp,
-  type CreatedWindow,
-} from "../utils/datetime";
+import { createdWindowCutoff, createdWindowOptions, type CreatedWindow } from "../utils/datetime";
 import { formatGoalValue, formatTargetValue } from "../utils/goalValues";
 import { teamKpiEditLink, teamKpiViewLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage } from "../utils/saveError";
@@ -301,8 +296,8 @@ export default function TeamKpiTable({
                       />
                     </Table.Td>
                   )}
-                  <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(k.createdAt)}>
-                    {formatDate(k.createdAt, i18n.language)}
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <DateCell value={k.createdAt} mode="date" />
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     <TeamKpiStatusBadge status={k.status} />

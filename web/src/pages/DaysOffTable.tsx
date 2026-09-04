@@ -13,6 +13,7 @@ import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import DaysOffCancelModal from "../components/DaysOffCancelModal";
 import DaysOffStatusBadge from "../components/DaysOffStatusBadge";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions, { type RowActionItem } from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
@@ -22,7 +23,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { formatDate, formatIsoDate, formatIsoWeekday, formatTimestamp } from "../utils/datetime";
+import { formatDate, formatIsoDate, formatIsoWeekday } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
@@ -378,8 +379,8 @@ export default function DaysOffTable({
                     )}
                   </Group>
                 </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(r.createdAt)}>
-                  {formatDate(r.createdAt, i18n.language)}
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <DateCell value={r.createdAt} mode="date" />
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{rowActions(r)}</Table.Td>
               </Table.Tr>

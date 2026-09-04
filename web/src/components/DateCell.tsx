@@ -1,6 +1,6 @@
 import { Text, type MantineSize } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { formatDate, formatDateTime, formatIsoDate, formatRelativeTime } from "../utils/datetime";
 
 export type DateCellMode = "relative" | "absolute" | "date";
 
@@ -9,9 +9,11 @@ export type DateCellMode = "relative" | "absolute" | "date";
  * - `relative` — activity timestamps ("last modified", "last used", card stats): a localized
  *   "2 days ago" with the exact timestamp in the `title`;
  * - `absolute` — event timestamps (history rows, alert bounds): the exact timestamp;
- * - `date` — planned ISO dates (due, start/end, holidays): the localized medium date.
- * `value` is epoch milliseconds for the timestamp modes and an ISO "YYYY-MM-DD" for `date`;
- * a missing value renders the dash.
+ * - `date` — planned ISO dates (due, start/end, holidays) or a day-granularity moment (a
+ *   created-at column): the localized medium date, with the exact timestamp as `title`
+ *   when the value is an epoch.
+ * `value` is epoch milliseconds for the timestamp modes (and optionally for `date`) and an
+ * ISO "YYYY-MM-DD" for `date`; a missing value renders the dash.
  */
 export default function DateCell({
   value,
@@ -37,14 +39,15 @@ export default function DateCell({
   }
   const color = dimmed ? "dimmed" : undefined;
   if (mode === "date") {
+    const epoch = typeof value === "number";
     return (
-      <Text size={size} component="span" c={color}>
-        {formatIsoDate(String(value), i18n.language)}
+      <Text size={size} component="span" c={color} title={epoch ? formatDateTime(value, i18n.language) : undefined}>
+        {epoch ? formatDate(value, i18n.language) : formatIsoDate(value, i18n.language)}
       </Text>
     );
   }
   const ms = Number(value);
-  const exact = formatTimestamp(ms);
+  const exact = formatDateTime(ms, i18n.language);
   return (
     <Text size={size} component="span" c={color} title={mode === "relative" ? exact : undefined}>
       {mode === "relative" ? formatRelativeTime(ms, i18n.language) : exact}

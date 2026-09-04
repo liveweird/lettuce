@@ -84,6 +84,10 @@ function feedbackUrls(mockFetch: FetchMock): string[] {
     .filter((url) => url.startsWith("/api/v1/feedbacks"));
 }
 
+// The exact timestamp behind a relative phrase — the localized formatDateTime (v3.5.0).
+const stamp = (ms: number) =>
+  new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(ms));
+
 describe("FeedbackTable (team view)", () => {
   let mockFetch: FetchMock;
 
@@ -106,8 +110,8 @@ describe("FeedbackTable (team view)", () => {
 
     await screen.findByText("Sam Subject");
     expect(feedbackUrls(mockFetch)[0]).toContain("view=team");
-    // The cell shows a relative phrase; the exact formatTimestamp value rides in `title`.
-    expect(screen.getByTitle("2026-01-05 09:07")).toBeInTheDocument();
+    // The cell shows a relative phrase; the exact formatDateTime value rides in `title`.
+    expect(screen.getByTitle(stamp(new Date(2026, 0, 5, 9, 7).getTime()))).toBeInTheDocument();
     // The caller is the provider of the second row → "You" in its Provider column.
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.queryByText("Bob Provider")).not.toBeInTheDocument();

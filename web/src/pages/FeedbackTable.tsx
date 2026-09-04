@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { listFeedbacks, type FeedbackListView, type FeedbackPage, type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import ClearableTextInput from "../components/ClearableTextInput";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
@@ -26,13 +27,7 @@ import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import {
-  formatRelativeTime,
-  formatTimestamp,
-  lastModifiedCutoff,
-  lastModifiedOptions,
-  type LastModifiedWindow,
-} from "../utils/datetime";
+import { lastModifiedCutoff, lastModifiedOptions, type LastModifiedWindow } from "../utils/datetime";
 import { ALL_VISIBILITIES } from "../utils/feedbackVisibility";
 import { feedbackEditLink, feedbackViewLink } from "../utils/feedbackLinks";
 import { feedbackSubjectNames, feedbackSubjects, type FeedbackSubjectRef } from "../utils/feedbackSubjects";
@@ -214,7 +209,7 @@ export default function FeedbackTable({
   /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
   emptyAction?: ReactNode;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const currentUserId = getUserId();
   const config = VIEW_CONFIG[view];
   const visibilityOptions = ALL_VISIBILITIES.map((value) => ({
@@ -485,8 +480,8 @@ export default function FeedbackTable({
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   <StatusBadge status={f.status} />
                 </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(f.lastModified)}>
-                  {formatRelativeTime(f.lastModified, i18n.language)}
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <DateCell value={f.lastModified} mode="relative" />
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{config.renderAction(f, { currentUserId, backTo, t })}</Table.Td>
               </Table.Tr>

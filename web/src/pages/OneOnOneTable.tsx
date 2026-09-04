@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { listOneOnOnes, type OneOnOneListView, type OneOnOnePage } from "../api/oneonones";
 import ClearableTextInput from "../components/ClearableTextInput";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -18,7 +19,7 @@ import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
-import { formatIsoDate, formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { formatIsoDate } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
 import { oneOnOneEditLink, oneOnOneViewLink } from "../utils/oneOnOneLinks";
 
@@ -349,8 +350,8 @@ export default function OneOnOneTable({
                     </Badge>
                   )}
                 </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(m.lastModified)}>
-                  {formatRelativeTime(m.lastModified, i18n.language)}
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <DateCell value={m.lastModified} mode="relative" />
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{config.renderAction(m, { backParam, currentUserId, t })}</Table.Td>
               </Table.Tr>
