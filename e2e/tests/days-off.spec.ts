@@ -535,7 +535,9 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
     notificationCard(receiptBell, "You cancelled AAA Two's days-off request"),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  // The rest of the cleanup: delete the correction, then the admin removes the holiday.
+  // The rest of the cleanup: delete the correction (the Budgets view again — the Requests
+  // pick above is remembered), then the admin removes the holiday.
+  await page.getByText("Budgets", { exact: true }).click();
   await page.getByLabel("Budget corrections of AAA Two").click();
   const cleanupModal = page.getByRole("dialog");
   await cleanupModal.getByRole("button", { name: /^Delete the correction/ }).first().click();
