@@ -18,8 +18,18 @@ function PathProbe() {
 
 function renderScreen(route: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const mockFetch = vi.fn((_url: string) =>
-    Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+  const mockFetch = vi.fn((url: string) =>
+    Promise.resolve(
+      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      String(url).startsWith("/api/v1/users?")
+        ? jsonResponse(200, {
+            items: [{ id: 8, name: "Sam Seat", email: "sam@example.com", roles: [] }],
+            page: 1,
+            pageSize: 100,
+            total: 1,
+          })
+        : jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }),
+    ),
   );
   vi.stubGlobal("fetch", mockFetch);
   render(

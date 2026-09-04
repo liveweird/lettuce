@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Alert, Loader, Text, Timeline } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { formatTimestamp } from "../utils/datetime";
+import { formatDateTime } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
 
 type TimelineEvent = { id: number; userName: string; timestamp: number };
@@ -32,7 +32,7 @@ export default function EventTimeline<E extends TimelineEvent>({
   // Optional per-event content under the title (the goal progress comment) — most areas omit it.
   renderBody?: (e: E) => ReactNode;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (isLoading) return <Loader size="sm" />;
   if (isError) {
@@ -58,7 +58,7 @@ export default function EventTimeline<E extends TimelineEvent>({
         <Timeline.Item key={e.id} title={renderTitle(e)}>
           {renderBody?.(e)}
           <Text size="xs" c="dimmed">
-            {e.userName} · {formatTimestamp(e.timestamp)}
+            {e.userName} · {formatDateTime(e.timestamp, i18n.language)}
           </Text>
         </Timeline.Item>
       ))}

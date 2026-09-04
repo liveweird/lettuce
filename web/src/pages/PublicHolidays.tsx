@@ -5,6 +5,7 @@ import { Alert, Button, Group, Paper, Stack, Table, Text, TextInput } from "@man
 import { IconCalendarOff, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { ApiError } from "../api/http";
 import { hasFeature, isAdmin } from "../api/session";
 import { createPublicHoliday, deletePublicHoliday, listPublicHolidays } from "../api/daysoff";
@@ -90,11 +91,10 @@ export default function PublicHolidays() {
         <Paper withBorder p="md" radius="md">
           <Stack gap="sm">
             <Group align="flex-end" gap="md" wrap="wrap">
-              <TextInput
-                type="date"
+              <DateField
                 label={t("daysOff.holidays.date")}
                 value={date}
-                onChange={(e) => setDate(e.currentTarget.value)}
+                onChange={(iso) => setDate(iso)}
                 w={180}
               />
               <TextInput
@@ -103,7 +103,6 @@ export default function PublicHolidays() {
                 onChange={(e) => setName(e.currentTarget.value)}
                 maxLength={MAX_NAME}
                 description={charCountDescription(name.length, MAX_NAME)}
-                inputWrapperOrder={["label", "input", "description", "error"]}
                 w={260}
               />
               <Button

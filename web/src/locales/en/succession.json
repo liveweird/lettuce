@@ -165,5 +165,12 @@
     "saveFailedStatus": "Saving failed (HTTP {{status}}). Please try again.",
     "saveFailed": "Saving failed. Check your connection and try again.",
     "loadFailed": "Failed to load the succession plan."
+  },
+  "section": {
+    "candidate": "Candidate & role",
+    "competencyGaps": "Competency gaps",
+    "goals": "Development plan",
+    "seat": "Seat & criticality",
+    "lossImpact": "Loss impact"
   }
 }

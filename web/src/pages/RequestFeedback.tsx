@@ -11,12 +11,10 @@ import {
   Stack,
   Table,
   Text,
-  Title,
 } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
 import { feedbackViewLink } from "../utils/feedbackLinks";
-import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -24,8 +22,11 @@ import { getUserId, hasFeature } from "../api/session";
 import { checkFeedbackDuplicate, createFeedback, type FeedbackVisibility } from "../api/feedbacks";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
-import PersonaField from "../components/PersonaField";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
@@ -34,6 +35,7 @@ import { useAllUsers } from "../hooks/useAllUsers";
 import { safeBackParam } from "../utils/url";
 
 type Provider = { id: number; name: string };
+const DEFAULT_VISIBILITY: FeedbackVisibility = "PROVIDER_REQUESTER_SUBJECT";
 
 // The stable empty fallback for the duplicate probe — a fresh Map per render would defeat
 // memo/equality checks downstream.
@@ -57,7 +59,7 @@ export default function RequestFeedback() {
 
   const [selected, setSelected] = useState<Provider[]>([]);
   const [pick, setPick] = useState<string | null>(null);
-  const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_REQUESTER_SUBJECT");
+  const [visibility, setVisibility] = useState<FeedbackVisibility>(DEFAULT_VISIBILITY);
   const [message, setMessage] = useState("");
   // A failed submit round: how many requests went out, and per failed provider the reason.
   // The succeeded providers leave the list, so a resubmit retries exactly the failures.
@@ -67,7 +69,13 @@ export default function RequestFeedback() {
     failures: { name: string; reason: string }[];
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
+  // The one cancel guard (v3.5.0): picked providers, a typed note, or a changed visibility.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: selected.length > 0 || message !== "" || visibility !== DEFAULT_VISIBILITY,
+    to: backTo,
+    title: t("feedback.discardRequestTitle"),
+    message: t("feedback.discardRequestMessage"),
+  });
 
   const { userPool, usersError, usersReady } = useAllUsers();
 
@@ -179,159 +187,164 @@ export default function RequestFeedback() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("feedback.requestFeedbackTitle")}</Title>
-
-          <Group gap="xl">
-            <PersonaField
-              label={t("common.field.subject")}
-              name={subject?.name ?? `#${subjectId}`}
-              you={subjectId === requesterId}
+    <>
+      <PageHeader title={t("feedback.requestFeedbackTitle")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack>
+            {/* The context line (v3.5.0): about whom, asked by whom. */}
+            <MetaStrip
+              items={[
+                {
+                  key: "subject",
+                  label: t("common.field.subject"),
+                  value:
+                    subjectId === requesterId ? (
+                      <Text size="sm">{t("common.state.you")}</Text>
+                    ) : (
+                      <PersonaChip name={subject?.name ?? `#${subjectId}`} />
+                    ),
+                },
+                {
+                  key: "requester",
+                  label: t("common.field.requester"),
+                  value: <Text size="sm">{t("common.state.you")}</Text>,
+                },
+              ]}
             />
-            <PersonaField label={t("common.field.requester")} you />
-          </Group>
 
-          <Select
-            label={t("common.field.visibility")}
-            placeholder={t("feedback.selectVisibility")}
-            data={visibilityOptions}
-            allowDeselect={false}
-            value={visibility}
-            onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
-          />
-
-          <EmojiTextarea
-            label={t("feedback.requesterMessageLabel")}
-            placeholder={t("feedback.requesterMessagePlaceholder")}
-            value={message}
-            onChange={setMessage}
-            maxLength={MAX_REQUESTER_MESSAGE_LENGTH}
-            autosize
-            minRows={2}
-            maxRows={6}
-          />
-
-          <Group align="flex-end" gap="sm">
             <Select
-              label={t("feedback.addProvider")}
-              placeholder={t("feedback.pickUser")}
-              data={addOptions}
-              value={pick}
-              onChange={setPick}
-              searchable
-              clearable
-              nothingFoundMessage={t("feedback.noUsersAvailable")}
-              error={usersError ? t("common.error.optionsFailed") : undefined}
-              w={280}
+              label={t("common.field.visibility")}
+              placeholder={t("feedback.selectVisibility")}
+              data={visibilityOptions}
+              allowDeselect={false}
+              value={visibility}
+              onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
             />
-            <Button leftSection={<IconPlus size={16} />} onClick={add} disabled={!pick}>
-              {t("feedback.add")}
-            </Button>
-          </Group>
 
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>{t("common.field.provider")}</Table.Th>
-                <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {selected.length > 0 ? (
-                selected.map((p) => {
-                  const dup = duplicates.get(p.id);
-                  return (
-                    <Table.Tr key={p.id}>
-                      <Table.Td>
-                        <PersonaChip name={p.name} />
-                        {dup?.existingId != null && (
-                          <Text size="xs" c="orange.8" mt={4}>
-                            {dup.existingStatus === "DRAFT"
-                              ? t("feedback.duplicate.draft")
-                              : t("feedback.duplicate.requested")}{" "}
-                            <Anchor
-                              component={RouterLink}
-                              to={feedbackViewLink(dup.existingId)}
-                              size="xs"
-                              fw={600}
-                              c="var(--lettuce-ink-warning)"
-                            >
-                              {t("feedback.duplicate.open")}
-                            </Anchor>
-                          </Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Button
-                          color="red"
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconTrash size={14} />}
-                          onClick={() => remove(p.id)}
-                          aria-label={t("feedback.removeName", { name: p.name })}
-                        >
-                          {t("feedback.remove")}
-                        </Button>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })
-              ) : (
+            <EmojiTextarea
+              label={t("feedback.requesterMessageLabel")}
+              placeholder={t("feedback.requesterMessagePlaceholder")}
+              value={message}
+              onChange={setMessage}
+              maxLength={MAX_REQUESTER_MESSAGE_LENGTH}
+              autosize
+              minRows={2}
+              maxRows={6}
+            />
+
+            <Group align="flex-end" gap="sm">
+              <Select
+                label={t("feedback.addProvider")}
+                placeholder={t("feedback.pickUser")}
+                data={addOptions}
+                value={pick}
+                onChange={setPick}
+                searchable
+                clearable
+                nothingFoundMessage={t("feedback.noUsersAvailable")}
+                error={usersError ? t("common.error.optionsFailed") : undefined}
+                w={280}
+              />
+              <Button leftSection={<IconPlus size={16} />} onClick={add} disabled={!pick}>
+                {t("feedback.add")}
+              </Button>
+            </Group>
+
+            <Table>
+              <Table.Thead>
                 <Table.Tr>
-                  <Table.Td colSpan={2}>
-                    <EmptyState
-                        icon={<IconUserPlus size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                        label={t("feedback.addAtLeastOneProvider")}
-                      />
-                  </Table.Td>
+                  <Table.Th>{t("common.field.provider")}</Table.Th>
+                  <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
                 </Table.Tr>
-              )}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {selected.length > 0 ? (
+                  selected.map((p) => {
+                    const dup = duplicates.get(p.id);
+                    return (
+                      <Table.Tr key={p.id}>
+                        <Table.Td>
+                          <PersonaChip name={p.name} />
+                          {dup?.existingId != null && (
+                            <Text size="xs" c="orange.8" mt={4}>
+                              {dup.existingStatus === "DRAFT"
+                                ? t("feedback.duplicate.draft")
+                                : t("feedback.duplicate.requested")}{" "}
+                              <Anchor
+                                component={RouterLink}
+                                to={feedbackViewLink(dup.existingId)}
+                                size="xs"
+                                fw={600}
+                                c="var(--lettuce-ink-warning)"
+                              >
+                                {t("feedback.duplicate.open")}
+                              </Anchor>
+                            </Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          <Button
+                            color="red"
+                            variant="subtle"
+                            size="xs"
+                            leftSection={<IconTrash size={14} />}
+                            onClick={() => remove(p.id)}
+                            aria-label={t("feedback.removeName", { name: p.name })}
+                          >
+                            {t("feedback.remove")}
+                          </Button>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })
+                ) : (
+                  <Table.Tr>
+                    <Table.Td colSpan={2}>
+                      <EmptyState
+                          icon={<IconUserPlus size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                          label={t("feedback.addAtLeastOneProvider")}
+                        />
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+              </Table.Tbody>
+            </Table>
 
-          {partial && (
-            <Alert
-              color="red"
-              variant="light"
-              title={t("feedback.error.requestPartial", { sent: partial.sent, total: partial.total })}
-            >
-              <Stack gap={2}>
-                {partial.failures.map((f) => (
-                  <Text key={f.name} size="sm">
-                    {`${f.name} — ${f.reason}`}
-                  </Text>
-                ))}
-              </Stack>
-            </Alert>
-          )}
+            {partial && (
+              <Alert
+                color="red"
+                variant="light"
+                title={t("feedback.error.requestPartial", { sent: partial.sent, total: partial.total })}
+              >
+                <Stack gap={2}>
+                  {partial.failures.map((f) => (
+                    <Text key={f.name} size="sm">
+                      {`${f.name} — ${f.reason}`}
+                    </Text>
+                  ))}
+                </Stack>
+              </Alert>
+            )}
 
-          <Group justify="flex-end" gap="sm">
-            <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={submit}
-              loading={submitting}
-              disabled={selected.length === 0 || hasDuplicates}
-            >
-              {t("feedback.action.request")}
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
+            <FormFooter>
+              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                {t("common.action.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={submit}
+                loading={submitting}
+                disabled={selected.length === 0 || hasDuplicates}
+              >
+                {t("feedback.action.request")}
+              </Button>
+            </FormFooter>
+          </Stack>
+        </Paper>
+      </Container>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("feedback.discardRequestTitle")}
-        message={t("feedback.discardRequestMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo={backTo}
-      />
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

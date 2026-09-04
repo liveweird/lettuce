@@ -1,14 +1,16 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
-import { Alert, Anchor, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link as RouterLink, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { createCareerPosition, deleteCareerPosition, listCareerPositions, updateCareerPosition, type CareerPosition } from "../api/career";
 import CareerProfileSelect from "../components/CareerProfileSelect";
 import CareerTimeline from "../components/CareerTimeline";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import PageHeader from "../components/PageHeader";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import { todayIsoDate } from "../utils/datetime";
 import { saveErrorMessage } from "../utils/saveError";
@@ -119,14 +121,13 @@ function PositionForm({
         {t(editing ? "users.career.editHint" : "users.career.startHint")}
       </Text>
       <Group align="flex-start" gap="md" wrap="wrap">
-        <TextInput
-          type="date"
+        <DateField
           withAsterisk
           label={t("users.career.startDate")}
           value={draft.startDate}
-          max={todayIsoDate()}
-          onChange={(e) => {
-            const value = e.currentTarget.value;
+          maxIso={todayIsoDate()}
+          onChange={(iso) => {
+            const value = iso;
             setDraft((d) => ({ ...d, startDate: value }));
           }}
           w={170}
@@ -201,7 +202,7 @@ function PositionForm({
 export default function UserCareer() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { userId, idIsValid, name, origin } = useDashboardDrillDown("career");
+  const { userId, idIsValid, displayName, origin } = useDashboardDrillDown("career");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +220,7 @@ export default function UserCareer() {
 
   if (!idIsValid) return <Navigate to="/" replace />;
 
-  const who = name ?? t("users.career.userFallback", { id: userId });
+  const who = displayName ?? t("users.career.userFallback", { id: userId });
   const editingPosition = editingId != null ? positions?.find((p) => p.id === editingId) : undefined;
   // The triples the draft must differ from (the adjacent-sameness rule, v2.15.2): when adding,
   // the chronological neighbors of the DRAFTED start date (a past insert lands between
@@ -285,16 +286,12 @@ export default function UserCareer() {
   }
 
   return (
-    <Stack gap="lg">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={origin.to} size="sm">
-          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-        </Anchor>
-        <Title order={2}>{t("users.career.title", { who })}</Title>
-        <Text size="sm" c="dimmed">
-          {t(canEdit ? "users.career.hintManage" : "users.career.hint", { who })}
-        </Text>
-      </Stack>
+    <Stack gap="md">
+      <PageHeader
+        back={{ to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) }}
+        title={t("users.career.title", { who })}
+        description={t(canEdit ? "users.career.hintManage" : "users.career.hint", { who })}
+      />
 
       <CareerTimeline
         positions={positions}

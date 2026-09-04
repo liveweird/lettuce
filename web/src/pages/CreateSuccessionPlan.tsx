@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Group, Paper, Select, Stack, Text, Title } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { createSuccessionPlan } from "../api/successionPlans";
 import ConfirmActionModal from "../components/ConfirmActionModal";
-import PersonaField from "../components/PersonaField";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
 import SuccessionPlanFields from "../components/SuccessionPlanFields";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import {
   emptySuccessionPlanValues,
@@ -39,11 +41,17 @@ export default function CreateSuccessionPlan() {
   const [picked, setPicked] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<SuccessionPlanFormValues>({
     initialValues: emptySuccessionPlanValues(),
     validate: successionPlanValidation(t),
+  });
+  // The person pick lives outside the form, so it joins the dirtiness by hand.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => picked != null || form.isDirty(),
+    to: backTo,
+    title: t("succession.discardCreateTitle"),
+    message: t("succession.discardCreateMessage"),
   });
 
   const { reports, reportsError } = useManagedReports(true);
@@ -71,62 +79,64 @@ export default function CreateSuccessionPlan() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(save)} noValidate>
-          <Stack>
-            <Stack gap={4}>
-              <Title order={2}>{t("succession.createTitle")}</Title>
-              <Text c="dimmed" size="sm">
-                {t("succession.createHint")}
-              </Text>
-            </Stack>
-
-            <Group gap="xl" align="flex-start">
-              <PersonaField label={t("succession.owner")} you />
-              <Select
-                label={t("succession.person")}
-                placeholder={t("succession.pickPerson")}
-                data={options}
-                value={picked}
-                onChange={setPicked}
-                searchable
-                clearable
-                nothingFoundMessage={t("succession.noReports")}
-                error={reportsError ? t("common.error.optionsFailed") : undefined}
+    <>
+      <PageHeader title={t("succession.createTitle")} description={t("succession.createHint")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <form onSubmit={form.onSubmit(save)} noValidate>
+            <Stack>
+              {/* The parties line (v3.5.0): the fixed owner and the seat picker, which keeps
+                  its accessible name via aria-label — the strip's <dt> is the visible label. */}
+              <MetaStrip
+                items={[
+                  {
+                    key: "owner",
+                    label: t("succession.owner"),
+                    value: <Text size="sm">{t("common.state.you")}</Text>,
+                  },
+                  {
+                    key: "person",
+                    label: t("succession.person"),
+                    value: (
+                      <Select
+                        aria-label={t("succession.person")}
+                        placeholder={t("succession.pickPerson")}
+                        data={options}
+                        value={picked}
+                        onChange={setPicked}
+                        searchable
+                        clearable
+                        nothingFoundMessage={t("succession.noReports")}
+                        error={reportsError ? t("common.error.optionsFailed") : undefined}
+                        w={280}
+                      />
+                    ),
+                  },
+                ]}
               />
-            </Group>
 
-            <SuccessionPlanFields form={form} />
+              <SuccessionPlanFields form={form} />
 
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
 
-            <Group justify="flex-end" gap="sm">
-              <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={submitting} disabled={!userId}>
-                {t("common.action.create")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
+              <FormFooter>
+                <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button type="submit" loading={submitting} disabled={!userId}>
+                  {t("common.action.create")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("succession.discardCreateTitle")}
-        message={t("succession.discardCreateMessage")}
-        cancelLabel={t("common.action.cancel")}
-        confirmLabel={t("common.action.discard")}
-        confirmColor="red"
-        onConfirm={() => navigate(backTo)}
-      />
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

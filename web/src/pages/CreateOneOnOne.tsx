@@ -1,23 +1,18 @@
 import { useState } from "react";
-import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  Paper,
-  Select,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from "@mantine/core";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { hasFeature } from "../api/session";
 import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { createOneOnOne } from "../api/oneonones";
-import PersonaField from "../components/PersonaField";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonaChip from "../components/PersonaChip";
 import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneEditLink } from "../utils/oneOnOneLinks";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
@@ -53,6 +48,13 @@ export default function CreateOneOnOne() {
   const [meetingDate, setMeetingDate] = useState(todayIsoDate());
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The one cancel guard (v3.5.0): a pick or a moved date is the only work this screen holds.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: picked != null || meetingDate !== todayIsoDate(),
+    to: backTo,
+    title: t("oneOnOne.discardTitle"),
+    message: t("oneOnOne.discardMessage"),
+  });
 
   // view=managed lists the caller's chain — exactly who a 1:1 can be held with. The pool
   // ALWAYS loads: a preselected id must resolve against it (canonical name, membership
@@ -99,64 +101,81 @@ export default function CreateOneOnOne() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("oneOnOne.createTitle")}</Title>
-          <Text c="dimmed" size="sm">
-            {t("oneOnOne.createHint")}
-          </Text>
-
-          {showPicker ? (
-            <Select
-              label={t("oneOnOne.subordinate")}
-              placeholder={t("oneOnOne.pickSubordinate")}
-              data={options}
-              value={picked}
-              onChange={setPicked}
-              searchable
-              clearable
-              nothingFoundMessage={t("oneOnOne.noReports")}
-              error={reportsError ? t("common.error.optionsFailed") : undefined}
+    <>
+      <PageHeader title={t("oneOnOne.createTitle")} description={t("oneOnOne.createHint")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack>
+            {/* The context line (v3.5.0): the pair and the date — the controls keep their
+                names via aria-label (the e2e "Team member" combobox / "Meeting date" input). */}
+            <MetaStrip
+              items={[
+                {
+                  key: "manager",
+                  label: t("oneOnOne.manager"),
+                  value: <Text size="sm">{t("common.state.you")}</Text>,
+                },
+                {
+                  key: "subordinate",
+                  label: t("oneOnOne.subordinate"),
+                  value: showPicker ? (
+                    <Select
+                      aria-label={t("oneOnOne.subordinate")}
+                      placeholder={t("oneOnOne.pickSubordinate")}
+                      data={options}
+                      value={picked}
+                      onChange={setPicked}
+                      searchable
+                      clearable
+                      nothingFoundMessage={t("oneOnOne.noReports")}
+                      error={reportsError ? t("common.error.optionsFailed") : undefined}
+                      w={260}
+                    />
+                  ) : (
+                    // Launched from a subordinate's Dashboard card: the party is fixed, not editable.
+                    // The `#id` placeholder shows only until the pool resolves the canonical name.
+                    <PersonaChip name={preselectedReport?.name ?? `#${preselectedId}`} />
+                  ),
+                },
+                {
+                  key: "meetingDate",
+                  label: t("oneOnOne.meetingDate"),
+                  value: (
+                    <DateField
+                      aria-label={t("oneOnOne.meetingDate")}
+                      value={meetingDate}
+                      onChange={(iso) => setMeetingDate(iso)}
+                      w={180}
+                    />
+                  ),
+                },
+              ]}
             />
-          ) : (
-            // Launched from a subordinate's Dashboard card: the party is fixed, not editable.
-            // The `#id` placeholder shows only until the pool resolves the canonical name.
-            <PersonaField
-              label={t("oneOnOne.subordinate")}
-              name={preselectedReport?.name ?? `#${preselectedId}`}
-            />
-          )}
 
-          <TextInput
-            type="date"
-            label={t("oneOnOne.meetingDate")}
-            value={meetingDate}
-            onChange={(e) => setMeetingDate(e.currentTarget.value)}
-            w={200}
-          />
+            {error && (
+              <Alert color="red" variant="light">
+                {error}
+              </Alert>
+            )}
 
-          {error && (
-            <Alert color="red" variant="light">
-              {error}
-            </Alert>
-          )}
+            <FormFooter>
+              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                {t("common.action.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={submit}
+                loading={submitting}
+                disabled={!subordinateId || !meetingDate}
+              >
+                {t("common.action.create")}
+              </Button>
+            </FormFooter>
+          </Stack>
+        </Paper>
+      </Container>
 
-          <Group justify="flex-end" gap="sm">
-            <Button component={RouterLink} to={backTo} variant="default" disabled={submitting}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={submit}
-              loading={submitting}
-              disabled={!subordinateId || !meetingDate}
-            >
-              {t("common.action.create")}
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

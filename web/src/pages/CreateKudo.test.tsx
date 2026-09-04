@@ -217,10 +217,12 @@ describe("CreateFeedback in kudo mode (/kudos/new)", () => {
     expect(checkUrl).not.toContain("requesterId");
   });
 
-  test("Cancel asks for confirmation; Discard leaves to the wall", async () => {
+  test("Cancel asks for confirmation once something was written; Discard leaves to the wall", async () => {
     const user = userEvent.setup();
     renderCreateKudo();
 
+    // The discard guard (v3.5.0) leaves an untouched form alone; typing makes it ask.
+    await user.type(await screen.findByLabelText("Content"), "Kudos for the launch");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));

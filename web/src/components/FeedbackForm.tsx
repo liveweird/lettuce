@@ -10,21 +10,26 @@ import {
   Tabs,
   Text,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import { getTemplate, listTemplates } from "../api/templates";
 import ConfirmActionModal from "./ConfirmActionModal";
-import { VisibilityBadge } from "./FeedbackBadges";
+import { StatusBadge, VisibilityBadge } from "./FeedbackBadges";
 import FeedbackHistory from "./FeedbackHistory";
+import FormFooter from "./FormFooter";
+import MetaStrip, { type MetaStripItem } from "./MetaStrip";
+import PageHeader from "./PageHeader";
+import PersonaChip from "./PersonaChip";
 import ReadOnlyField from "./ReadOnlyField";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
+import { formatDateTime } from "../utils/datetime";
 import { MAX_FEEDBACK_CONTENT_LENGTH } from "../utils/feedbackForm";
 import { NO_REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import FeedbackLifecycle from "./FeedbackLifecycle";
-import FeedbackMeta, { type PartyDisplay } from "./FeedbackMeta";
+import { type PartyDisplay } from "../utils/feedbackSubjects";
 import RequesterMessage from "./RequesterMessage";
 
 // The WYSIWYG editor pulls in MDXEditor/Lexical (~0.5 MB minified) — load it on demand so
@@ -39,10 +44,10 @@ type FormValues = {
 
 type FeedbackFormProps = {
   title: string;
-  // The recipients for the people line (up to four, v3.1.0). Omitted/empty while the
-  // subjects are still being picked (the picker-mode create flows) — the meta line then
-  // shows only the provider until `subjectControl`'s picks resolve names. A legacy
-  // self-reflection subject renders plain via its `isYou` flag.
+  // The recipients for the context line (up to four, v3.1.0). Omitted/empty while the
+  // subjects are still being picked (the picker-mode create flows) — the strip then shows
+  // only the provider until `subjectControl`'s picks resolve names. A legacy self-reflection
+  // subject renders plain via its `isYou` flag.
   subjects?: PartyDisplay[];
   initialVisibility: FeedbackVisibility;
   initialContent: string;
@@ -52,20 +57,22 @@ type FeedbackFormProps = {
   cancelTo: string;
   discardTitle: string;
   discardMessage: string;
+  // Work held outside the form (the create flows' recipient picks) that Cancel must guard too.
+  parentDirty?: boolean;
   showTemplateInsert?: boolean;
-  // Read-only requester display name; when set, a disabled "Requester" field is shown.
+  // Read-only requester display name; when set, a "Requester" cell is shown.
   requesterDisplay?: string;
   // Read-only requester clarification note; when non-empty, a disabled "Message from the
   // requester" field is shown. Immutable (captured at creation).
   requesterMessage?: string | null;
   // Visibility choices for the combo; defaults to the create set (Provider+subject / Public).
   visibilityOptions?: { value: FeedbackVisibility; label: string }[];
-  // Epoch millis; when set, shows a read-only "Last modified" field (edit flow only).
+  // Epoch millis; when set, shows a read-only "Last modified" cell (edit flow only).
   lastModified?: number;
   // When set (edit flow), the bottom section is three tabs — Content+Preview, History (this
   // feedback's audit events), and Lifecycle (the state diagram). Omitted on create (no id) → no tabs.
   feedbackId?: number;
-  // Current status of the feedback being edited; highlights the matching node in the Lifecycle tab.
+  // Current status of the feedback being edited; the header pill + the Lifecycle tab's node.
   currentStatus?: FeedbackStatus;
   // When set (DRAFT editor, provider only), a red Delete button is shown that triggers the
   // parent's confirmation flow; `deleting` drives its loading state.
@@ -96,6 +103,7 @@ export default function FeedbackForm({
   cancelTo,
   discardTitle,
   discardMessage,
+  parentDirty = false,
   showTemplateInsert = false,
   requesterDisplay,
   requesterMessage,
@@ -110,8 +118,7 @@ export default function FeedbackForm({
   visibilityReadOnly = false,
   submitDisabled = false,
 }: FeedbackFormProps) {
-  const { t } = useTranslation();
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
+  const { t, i18n } = useTranslation();
   const resolvedVisibilityOptions =
     visibilityOptions ??
     NO_REQUESTER_VISIBILITIES.map((value) => ({
@@ -129,6 +136,13 @@ export default function FeedbackForm({
           ? t("feedback.contentTooLong", { max: MAX_FEEDBACK_CONTENT_LENGTH })
           : null,
     },
+  });
+  // The one cancel guard (v3.5.0): straight out while clean, the area's discard copy once dirty.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => parentDirty || form.isDirty(),
+    to: cancelTo,
+    title: discardTitle,
+    message: discardMessage,
   });
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -162,6 +176,39 @@ export default function FeedbackForm({
     } finally {
       setInserting(false);
     }
+  }
+
+  // The app-wide person convention: PersonaChip for a named party, plain text for the
+  // current user — driven by the explicit isYou flags, never by comparing display strings.
+  const party = (display: string, isYou?: boolean) =>
+    isYou ? <Text size="sm">{display}</Text> : <PersonaChip name={display} />;
+  // The context line (v3.5.0 — the MetaStrip form idiom): who → whom · requested by · when.
+  const meta: MetaStripItem[] = [
+    { key: "provider", label: t("common.field.provider"), value: party(t("common.state.you"), true) },
+  ];
+  if (subjects != null && subjects.length > 0) {
+    meta.push({
+      key: "recipients",
+      label: t("feedback.recipientsLabel"),
+      value: (
+        <Group gap={8} wrap="wrap">
+          {subjects.map((s, index) => (
+            // Position is the identity here (a name may legitimately repeat).
+            <Fragment key={index}>{party(s.display, s.isYou)}</Fragment>
+          ))}
+        </Group>
+      ),
+    });
+  }
+  if (requesterDisplay != null) {
+    meta.push({ key: "requester", label: t("common.field.requester"), value: party(requesterDisplay) });
+  }
+  if (lastModified != null) {
+    meta.push({
+      key: "lastModified",
+      label: t("common.field.lastModified"),
+      value: <Text size="sm">{formatDateTime(lastModified, i18n.language)}</Text>,
+    });
   }
 
   // A single WYSIWYG markdown editor (its document model is markdown, so `content` stays the
@@ -235,7 +282,7 @@ export default function FeedbackForm({
   );
 
   const editorPane = (
-    <Stack gap="sm" style={{ flex: 1, minHeight: 0 }}>
+    <Stack gap="sm">
       {editorControls}
       {templateError && (
         <Alert color="red" variant="light">
@@ -247,127 +294,87 @@ export default function FeedbackForm({
   );
 
   return (
-    <Container
-      size="md"
-      px={0}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        // Fill the AppShell.Main content area (header 56px + md padding top & bottom).
-        minHeight:
-          "calc(100dvh - var(--app-shell-header-height, 56px) - 2 * var(--app-shell-padding, 16px))",
-      }}
-    >
-      <Paper
-        withBorder
-        shadow="sm"
-        p="xl"
-        radius="md"
-        style={{ flex: 1, display: "flex", flexDirection: "column" }}
-      >
-        <form
-          onSubmit={form.onSubmit(() => onSubmit("DRAFT", form.values))}
-          noValidate
-          style={{ flex: 1, display: "flex", flexDirection: "column" }}
-        >
-          <Stack style={{ flex: 1 }}>
-            <FeedbackMeta
-              title={title}
-              status={currentStatus}
-              providerDisplay={t("common.state.you")}
-              providerIsYou
-              subjects={subjects}
-              requesterDisplay={requesterDisplay}
-              lastModified={lastModified}
-            />
-            <RequesterMessage value={requesterMessage} collapsible />
-            {duplicate}
-            {feedbackId != null ? (
-              <Tabs
-                defaultValue="content"
-                style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
-              >
-                <Tabs.List>
-                  <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                  <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
-                  <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
-                </Tabs.List>
-                <Tabs.Panel
-                  value="content"
-                  pt="md"
-                  style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
-                >
-                  {editorPane}
-                </Tabs.Panel>
-                <Tabs.Panel value="history" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                  <FeedbackHistory feedbackId={feedbackId} />
-                </Tabs.Panel>
-                <Tabs.Panel value="lifecycle" pt="md" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                  <FeedbackLifecycle currentStatus={currentStatus} />
-                </Tabs.Panel>
-              </Tabs>
-            ) : (
-              editorPane
-            )}
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end" gap="sm">
-              {onDelete != null && (
+    <>
+      <PageHeader title={title} badge={currentStatus && <StatusBadge status={currentStatus} />} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <form onSubmit={form.onSubmit(() => onSubmit("DRAFT", form.values))} noValidate>
+            <Stack>
+              <MetaStrip items={meta} />
+              <RequesterMessage value={requesterMessage} collapsible />
+              {duplicate}
+              {feedbackId != null ? (
+                <Tabs defaultValue="content">
+                  <Tabs.List>
+                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                    <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
+                    <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
+                  </Tabs.List>
+                  <Tabs.Panel value="content" pt="md">
+                    {editorPane}
+                  </Tabs.Panel>
+                  <Tabs.Panel value="history" pt="md">
+                    <FeedbackHistory feedbackId={feedbackId} />
+                  </Tabs.Panel>
+                  <Tabs.Panel value="lifecycle" pt="md">
+                    <FeedbackLifecycle currentStatus={currentStatus} />
+                  </Tabs.Panel>
+                </Tabs>
+              ) : (
+                editorPane
+              )}
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <FormFooter sticky>
+                {onDelete != null && (
+                  <Button
+                    type="button"
+                    color="red"
+                    variant="light"
+                    mr="auto"
+                    onClick={onDelete}
+                    loading={deleting}
+                    disabled={submitting !== null || deleting}
+                  >
+                    {t("common.action.delete")}
+                  </Button>
+                )}
                 <Button
                   type="button"
-                  color="red"
-                  variant="light"
-                  mr="auto"
-                  onClick={onDelete}
-                  loading={deleting}
+                  variant="default"
+                  onClick={requestCancel}
                   disabled={submitting !== null || deleting}
                 >
-                  {t("common.action.delete")}
+                  {t("common.action.cancel")}
                 </Button>
-              )}
-              <Button
-                type="button"
-                variant="default"
-                onClick={openCancel}
-                disabled={submitting !== null || deleting}
-              >
-                {t("common.action.cancel")}
-              </Button>
-              <Button
-                type="submit"
-                variant="light"
-                loading={submitting === "DRAFT"}
-                disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
-              >
-                {t("feedback.action.saveDraft")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  if (!form.validate().hasErrors) onSubmit("SENT", form.values);
-                }}
-                loading={submitting === "SENT"}
-                disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
-              >
-                {t("feedback.action.saveAndSend")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
+                <Button
+                  type="submit"
+                  variant="light"
+                  loading={submitting === "DRAFT"}
+                  disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
+                >
+                  {t("feedback.action.saveDraft")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!form.validate().hasErrors) onSubmit("SENT", form.values);
+                  }}
+                  loading={submitting === "SENT"}
+                  disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
+                >
+                  {t("feedback.action.saveAndSend")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={discardTitle}
-        message={discardMessage}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo={cancelTo}
-      />
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

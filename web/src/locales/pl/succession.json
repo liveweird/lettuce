@@ -165,5 +165,12 @@
     "saveFailedStatus": "Zapis nie powiódł się (HTTP {{status}}). Spróbuj ponownie.",
     "saveFailed": "Zapis nie powiódł się. Sprawdź połączenie i spróbuj ponownie.",
     "loadFailed": "Nie udało się wczytać planu sukcesji."
+  },
+  "section": {
+    "candidate": "Kandydat/ka i rola",
+    "competencyGaps": "Luki kompetencyjne",
+    "goals": "Plan rozwoju",
+    "seat": "Stanowisko i krytyczność",
+    "lossImpact": "Skutki utraty"
   }
 }

@@ -1,7 +1,8 @@
-import { Anchor, Stack, Text, Title } from "@mantine/core";
-import { Link as RouterLink, Navigate } from "react-router-dom";
+import { Stack } from "@mantine/core";
+import { Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
+import PageHeader from "../components/PageHeader";
 import { useDashboardDrillDown } from "../hooks/useDashboardDrillDown";
 import ImpactLogTable from "./ImpactLogTable";
 
@@ -14,7 +15,7 @@ import ImpactLogTable from "./ImpactLogTable";
  */
 export default function UserImpactLog() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, origin, callerManages, auditMode, backTo } =
+  const { userId, idIsValid, displayName, origin, callerManages, auditMode, backTo } =
     useDashboardDrillDown("impact-log");
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
@@ -22,23 +23,17 @@ export default function UserImpactLog() {
   if (!idIsValid) return <Navigate to={origin.to} replace />;
   if (!auditMode && !callerManages) return <Navigate to="/impact-log" replace />;
 
-  const who = name ?? t("impactLog.userFallback", { id: userId });
+  const who = displayName ?? t("impactLog.userFallback", { id: userId });
 
   return (
-    <Stack gap="lg">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={origin.to} size="sm">
-          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-        </Anchor>
-        <Title order={2}>
-          {auditMode ? t("impactLog.journalAudit", { who }) : t("impactLog.journalFor", { who })}
-        </Title>
-        <Text size="sm" c="dimmed">
-          {auditMode
-            ? t("impactLog.journalAuditHint", { who })
-            : t("impactLog.journalForHint", { who })}
-        </Text>
-      </Stack>
+    <Stack gap="md">
+      <PageHeader
+        back={{ to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) }}
+        title={auditMode ? t("impactLog.journalAudit", { who }) : t("impactLog.journalFor", { who })}
+        description={
+          auditMode ? t("impactLog.journalAuditHint", { who }) : t("impactLog.journalForHint", { who })
+        }
+      />
 
       {auditMode ? (
         // The HR auditor view: the person's whole journal, read-only.

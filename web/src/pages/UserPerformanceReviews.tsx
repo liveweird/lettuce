@@ -1,9 +1,10 @@
 import type { ParseKeys } from "i18next";
 import { Link as RouterLink, Navigate } from "react-router-dom";
-import { Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
+import { Button, Stack } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
+import PageHeader from "../components/PageHeader";
 import { useDashboardDrillDown, type DashboardOriginKey } from "../hooks/useDashboardDrillDown";
 import { reviewCreateLink } from "../utils/performanceReviewLinks";
 import PerformanceReviewTable from "./PerformanceReviewTable";
@@ -19,27 +20,34 @@ const WORDING: Record<DashboardOriginKey, { titleKey: ParseKeys; hintKey: ParseK
 
 export default function UserPerformanceReviews() {
   const { t } = useTranslation();
-  const { userId, idIsValid, name, originKey, origin, callerManages, auditMode, backTo } =
+  const { userId, idIsValid, displayName, originKey, origin, callerManages, auditMode, backTo } =
     useDashboardDrillDown("performance-reviews");
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={origin.to} replace />;
-  const who = name ?? t("performanceReview.userFallback", { id: userId });
+  const who = displayName ?? t("performanceReview.userFallback", { id: userId });
   const wording = auditMode
     ? ({ titleKey: "performanceReview.reviewsAudit", hintKey: "performanceReview.reviewsAuditHint" } as const)
     : WORDING[originKey];
 
   return (
-    <Stack gap="lg">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={origin.to} size="sm">
-          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-        </Anchor>
-        <Title order={2}>{t(wording.titleKey, { who })}</Title>
-        <Text size="sm" c="dimmed">
-          {t(wording.hintKey, { who })}
-        </Text>
-      </Stack>
+    <Stack gap="md">
+      <PageHeader
+        back={{ to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) }}
+        title={t(wording.titleKey, { who })}
+        description={t(wording.hintKey, { who })}
+        actions={
+          callerManages && (
+            <Button
+              component={RouterLink}
+              to={reviewCreateLink(userId, backTo)}
+              leftSection={<IconPlus size={16} />}
+            >
+              {t("performanceReview.newReview")}
+            </Button>
+          )
+        }
+      />
 
       {auditMode ? (
         // The HR auditor view: every review this person is a party to, read-only.
@@ -57,18 +65,6 @@ export default function UserPerformanceReviews() {
       ) : (
         // The caller is the subordinate: the clicked manager's published reviews of them.
         <PerformanceReviewTable view="own" managerId={userId} backTo={backTo} settingsKey="userReviews" />
-      )}
-
-      {callerManages && (
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to={reviewCreateLink(userId, backTo)}
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("performanceReview.newReview")}
-          </Button>
-        </Group>
       )}
     </Stack>
   );

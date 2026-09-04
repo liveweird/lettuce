@@ -16,6 +16,7 @@ import { getUserId } from "../api/session";
 import { archiveGoal, deactivateGoal, listGoals, type GoalListItem, type GoalListView, type GoalStatus } from "../api/goals";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
@@ -28,14 +29,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import {
-  createdWindowCutoff,
-  createdWindowOptions,
-  formatDate,
-  formatIsoDate,
-  formatTimestamp,
-  type CreatedWindow,
-} from "../utils/datetime";
+import { createdWindowCutoff, createdWindowOptions, formatIsoDate, type CreatedWindow } from "../utils/datetime";
 import { goalSaveErrorMessage } from "../utils/goalForm";
 import { goalEditLink, goalViewLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
@@ -405,8 +399,8 @@ export default function GoalTable({
                       />
                     </Table.Td>
                   ))}
-                  <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(g.createdAt)}>
-                    {formatDate(g.createdAt, i18n.language)}
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <DateCell value={g.createdAt} mode="date" />
                   </Table.Td>
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     <Group gap="xs" wrap="nowrap">

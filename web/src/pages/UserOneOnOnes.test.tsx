@@ -79,6 +79,12 @@ describe("UserOneOnOnes page", () => {
       if (String(url).includes("/api/v1/one-on-ones?")) {
         return Promise.resolve(jsonResponse(200, page([MINE_ITEM, THEIRS_ITEM])));
       }
+      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      if (String(url).startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, page([{ id: 10, name: "Alice", email: "alice@example.com", roles: [] }])),
+        );
+      }
       return Promise.resolve(jsonResponse(200, page([])));
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -151,9 +157,20 @@ describe("UserOneOnOnes page", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  test("falls back to a placeholder name when none is provided", async () => {
-    renderScreen("/users/10/one-on-ones");
-    expect(await screen.findByText("1:1 meetings with user #10")).toBeInTheDocument();
+  test("falls back to a placeholder name when the id is not in the user pool", async () => {
+    renderScreen("/users/99/one-on-ones");
+    expect(await screen.findByText("1:1 meetings with user #99")).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.startsWith("/api/v1/users?"))).toBe(true);
+    });
+    expect(screen.getByText("1:1 meetings with user #99")).toBeInTheDocument();
+  });
+
+  test("the URL's name is only the pre-load hint — the pool's name for the id wins once loaded", async () => {
+    renderScreen("/users/10/one-on-ones?name=Mallory&from=managers");
+    expect(screen.getByText("1:1 meetings with Mallory")).toBeInTheDocument();
+    expect(await screen.findByText("1:1 meetings with Alice")).toBeInTheDocument();
   });
 
   test("the Back to My managers link points at the managers tab", async () => {

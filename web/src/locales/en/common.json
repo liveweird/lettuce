@@ -22,7 +22,12 @@
     "yes": "Yes",
     "no": "No"
   },
+  "discard": { "title": "Discard changes?", "message": "Your unsaved changes will be lost." },
   "field": {
+    "datePlaceholder": "YYYY-MM-DD",
+    "clearDate": "Clear the date",
+    "dateOf": "{{label}} — date",
+    "timeOf": "{{label}} — time",
     "name": "Name",
     "email": "Email",
     "role": "Role",

@@ -16,6 +16,9 @@
   "meetingDate": "Meeting date",
   "points": "Points discussed",
   "decisions": "Decisions made",
+  "section": {
+    "notes": "Notes"
+  },
   "actionItems": "Action items",
   "openOfTotal": "{{open}} of {{total}} open",
   "noMeetings": "No 1:1 meetings.",

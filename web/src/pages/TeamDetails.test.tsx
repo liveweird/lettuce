@@ -121,6 +121,8 @@ describe("TeamDetails page", () => {
     renderTeamDetails(3);
 
     expect(await screen.findByRole("heading", { name: "Team details" })).toBeInTheDocument();
+    // The default back link is the unified drill-down label (v3.5.0).
+    expect(await screen.findByRole("link", { name: "← Back to Teams" })).toHaveAttribute("href", "/teams");
     // The identity fields: team name, and the manager as a details link (v2.5.3).
     expect(await screen.findByText("Platform")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "User details for Mona Manager" })).toHaveAttribute(
@@ -237,7 +239,7 @@ describe("TeamDetails page", () => {
       "href",
       "/org",
     );
-    expect(screen.queryByText("Back to teams")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "← Back to Teams" })).not.toBeInTheDocument();
   });
 
   test("non-admin gets a read-only roster: no add picker, no remove buttons", async () => {

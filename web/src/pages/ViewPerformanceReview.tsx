@@ -1,33 +1,22 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Badge,
-  Button,
-  Center,
-  Container,
-  Group,
-  Input,
-  Loader,
-  Paper,
-  Stack,
-  Tabs,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Badge, Button, Container, Group, Input, Paper, Stack, Tabs, Text } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getPerformanceReview, publishPerformanceReview, revertPerformanceReview, submitPerformanceReview, unpublishPerformanceReview, type CategoryAssessment, type PerformanceReviewStatus } from "../api/reviews";
+import CenteredLoader from "../components/CenteredLoader";
+import DateCell from "../components/DateCell";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
 import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
-import PersonaField from "../components/PersonaField";
+import PersonCell from "../components/PersonCell";
 import RatingBadge from "../components/RatingBadge";
 import ProseBox from "../components/ProseBox";
-import ReadOnlyField from "../components/ReadOnlyField";
-import { formatDate, formatMonthRange, isCurrentPeriod } from "../utils/datetime";
+import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewEditLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import { showSuccessToast } from "../utils/toast";
@@ -87,6 +76,11 @@ function CategoryBlock({ category, assessment }: { category: "attitude" | "deliv
   );
 }
 
+/**
+ * The performance-review document (the v3.5.0 detail layout): the page header carries the
+ * status pill and every action — Close, the manager's Edit link, the lifecycle actions — over
+ * the identity strip and the Content/History tabs.
+ */
 export default function ViewPerformanceReview() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -152,20 +146,55 @@ export default function ViewPerformanceReview() {
   const isManager = data != null && currentUserId != null && data.managerId === currentUserId;
   const canEdit = isManager && data != null && data.status !== "PUBLISHED";
 
-  return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Title order={2}>{t("performanceReview.viewTitle")}</Title>
-            {data && <PerformanceReviewStatusBadge status={data.status} />}
-          </Group>
+  // Close · Edit · the secondary lifecycle actions (light, the retraction hue) · the primary.
+  const actions = (
+    <>
+      <Button component={RouterLink} to={backTo} variant="default">
+        {t("common.action.close")}
+      </Button>
+      {canEdit && (
+        <Button
+          component={RouterLink}
+          to={reviewEditLink(id, from, backOverride ?? undefined)}
+          variant="light"
+        >
+          {t("common.action.edit")}
+        </Button>
+      )}
+      {isManager &&
+        data &&
+        ACTIONS[data.status].map((action) => (
+          <Button
+            key={action.labelKey}
+            variant={action.primary ? "filled" : "light"}
+            color={action.primary ? undefined : "orange"}
+            loading={submitting === action.labelKey}
+            disabled={submitting != null && submitting !== action.labelKey}
+            onClick={() => void runAction(action.labelKey, action.run, action.successKey)}
+          >
+            {t(action.labelKey)}
+          </Button>
+        ))}
+    </>
+  );
 
-          {isLoading && (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          )}
+  return (
+    <Stack gap="md">
+      <PageHeader
+        title={t("performanceReview.viewTitle")}
+        badge={data && <PerformanceReviewStatusBadge status={data.status} />}
+        actions={actions}
+      />
+
+      {error && (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      )}
+
+      <Container size="md" px={0} w="100%">
+        <Paper withBorder radius="md" p="md">
+          {isLoading && <CenteredLoader />}
           {isError && (
             <Alert color="red" variant="light">
               {loadErrorText}
@@ -173,34 +202,44 @@ export default function ViewPerformanceReview() {
           )}
 
           {data && (
-            <>
-              <Group gap="xl" align="flex-start">
-                <PersonaField
-                  label={t("performanceReview.manager")}
-                  name={data.managerName}
-                  you={currentUserId === data.managerId}
-                />
-                <PersonaField
-                  label={t("performanceReview.subordinate")}
-                  name={data.subordinateName}
-                  you={currentUserId === data.subordinateId}
-                />
-                <ReadOnlyField label={t("performanceReview.period")}>
-                  <Group gap="xs" wrap="nowrap">
-                    <Text size="sm">
-                      {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
-                    </Text>
-                    {isCurrentPeriod(data.periodStartMonth, data.periodEndMonth) && (
-                      <Badge size="xs" variant="light" color="lettuce">
-                        {t("performanceReview.periods.currentBadge")}
-                      </Badge>
-                    )}
-                  </Group>
-                </ReadOnlyField>
-                <ReadOnlyField label={t("performanceReview.createdAt")}>
-                  <Text size="sm">{formatDate(data.createdAt, i18n.language)}</Text>
-                </ReadOnlyField>
-              </Group>
+            <Stack gap="md">
+              <MetaStrip
+                items={[
+                  {
+                    key: "manager",
+                    label: t("performanceReview.manager"),
+                    value: <PersonCell userId={data.managerId} name={data.managerName} currentUserId={currentUserId} />,
+                  },
+                  {
+                    key: "subordinate",
+                    label: t("performanceReview.subordinate"),
+                    value: (
+                      <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />
+                    ),
+                  },
+                  {
+                    key: "period",
+                    label: t("performanceReview.period"),
+                    value: (
+                      <Group gap="xs" wrap="nowrap">
+                        <Text size="sm">
+                          {formatMonthRange(data.periodStartMonth, data.periodEndMonth, i18n.language)}
+                        </Text>
+                        {isCurrentPeriod(data.periodStartMonth, data.periodEndMonth) && (
+                          <Badge size="xs" variant="light" color="lettuce">
+                            {t("performanceReview.periods.currentBadge")}
+                          </Badge>
+                        )}
+                      </Group>
+                    ),
+                  },
+                  {
+                    key: "created",
+                    label: t("performanceReview.createdAt"),
+                    value: <DateCell value={data.createdAt} mode="date" />,
+                  },
+                ]}
+              />
 
               <Tabs defaultValue="content" keepMounted={false}>
                 <Tabs.List>
@@ -218,45 +257,10 @@ export default function ViewPerformanceReview() {
                   <PerformanceReviewHistory reviewId={id} />
                 </Tabs.Panel>
               </Tabs>
-            </>
+            </Stack>
           )}
-
-          {error && (
-            <Alert color="red" variant="light">
-              {error}
-            </Alert>
-          )}
-
-          <Group justify="flex-end">
-            <Button component={RouterLink} to={backTo} variant="default">
-              {t("common.action.close")}
-            </Button>
-            {canEdit && (
-              <Button
-                component={RouterLink}
-                to={reviewEditLink(id, from, backOverride ?? undefined)}
-                variant="light"
-              >
-                {t("common.action.edit")}
-              </Button>
-            )}
-            {isManager &&
-              data &&
-              ACTIONS[data.status].map((action) => (
-                <Button
-                  key={action.labelKey}
-                  variant={action.primary ? "filled" : "light"}
-                  color={action.primary ? undefined : "orange"}
-                  loading={submitting === action.labelKey}
-                  disabled={submitting != null && submitting !== action.labelKey}
-                  onClick={() => void runAction(action.labelKey, action.run, action.successKey)}
-                >
-                  {t(action.labelKey)}
-                </Button>
-              ))}
-          </Group>
-        </Stack>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </Stack>
   );
 }

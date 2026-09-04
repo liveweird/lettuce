@@ -1,5 +1,8 @@
 import type { TFunction } from "i18next";
 
+/** One party in a feedback's people line: its display name, and whether it is the current user. */
+export type PartyDisplay = { display: string; isYou?: boolean };
+
 /** One recipient as the API carries it (the `subjects` list, v3.1.0). */
 export type FeedbackSubjectRef = { id: number; name: string; deleted?: boolean };
 
@@ -24,7 +27,7 @@ export function feedbackSubjectNames(row: Parameters<typeof feedbackSubjects>[0]
 }
 
 /**
- * The people-line entries for FeedbackMeta: each recipient's display name, the current user
+ * The people-line entries (the view/edit MetaStrip cells since v3.5.0): each recipient's display name, the current user
  * rendered as the app-wide plain "You" (driven by the id, never by comparing strings).
  */
 export function subjectDisplays(

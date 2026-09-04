@@ -6,26 +6,30 @@ import {
   Center,
   Container,
   Divider,
-  Group,
+  Fieldset,
   Loader,
   Paper,
   Stack,
   Tabs,
-  TextInput,
-  Title,
+  Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import DateField from "../components/DateField";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { deleteOneOnOne, getOneOnOne, updateOneOnOne } from "../api/oneonones";
 import ActionItemsEditor from "../components/ActionItemsEditor";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
 import OneOnOneHistory from "../components/OneOnOneHistory";
+import PageHeader from "../components/PageHeader";
 import ParagraphListEditor from "../components/ParagraphListEditor";
-import PersonaField from "../components/PersonaField";
+import PersonaChip from "../components/PersonaChip";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import {
   oneOnOneFormValidation,
   oneOnOneSaveErrorMessage,
@@ -51,7 +55,6 @@ export default function EditOneOnOne() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
 
   const id = Number(params.id);
@@ -73,6 +76,17 @@ export default function EditOneOnOne() {
     initialValues: { meetingDate: "", points: [], decisions: [], actionItems: [] },
     // Chronological floor: the date may not go below the pair's previous meeting.
     validate: oneOnOneFormValidation(t, data?.minMeetingDate),
+  });
+
+  // The one cancel guard (v3.5.0). Dirtiness is a PAYLOAD compare, not `form.isDirty()` —
+  // the three lists' insert/remove/reorder operations don't flip Mantine's dirty flags.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () =>
+      data != null &&
+      JSON.stringify(toUpdateBody(form.values)) !== JSON.stringify(toUpdateBody(toFormValues(data))),
+    to: backTo,
+    title: t("oneOnOne.discardTitle"),
+    message: t("oneOnOne.discardMessage"),
   });
 
   // One-shot: seed the form once the document arrives (initialize is a no-op afterwards).
@@ -144,103 +158,125 @@ export default function EditOneOnOne() {
         : t("oneOnOne.error.loadFailed");
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("oneOnOne.editTitle")}</Title>
-          {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : isError ? (
-            <>
-              <Alert color="red" variant="light">
-                {loadErrorMessage}
-              </Alert>
-              <Group justify="flex-end">
-                <Button variant="default" onClick={() => navigate(backTo)}>
-                  {t("common.action.close")}
-                </Button>
-              </Group>
-            </>
-          ) : data ? (
-            <form onSubmit={form.onSubmit(save)} noValidate>
-              <Stack>
-                {/* PersonaField matches the input height, so the row needs no special align. */}
-                <Group gap="xl">
-                  <PersonaField label={t("oneOnOne.manager")} you />
-                  <PersonaField label={t("oneOnOne.subordinate")} name={data.subordinateName} />
-                  <TextInput
-                    type="date"
-                    label={t("oneOnOne.meetingDate")}
-                    w={180}
-                    // The pair's previous meeting is the chronological floor (server: 409).
-                    min={data.minMeetingDate ?? undefined}
-                    {...form.getInputProps("meetingDate")}
+    <>
+      <PageHeader title={t("oneOnOne.editTitle")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack>
+            {isLoading ? (
+              <Center py="xl">
+                <Loader />
+              </Center>
+            ) : isError ? (
+              <>
+                <Alert color="red" variant="light">
+                  {loadErrorMessage}
+                </Alert>
+                <FormFooter>
+                  <Button variant="default" onClick={() => navigate(backTo)}>
+                    {t("common.action.close")}
+                  </Button>
+                </FormFooter>
+              </>
+            ) : data ? (
+              <form onSubmit={form.onSubmit(save)} noValidate>
+                <Stack>
+                  {/* The context line (v3.5.0): the pair and the date — the date input keeps its
+                      "Meeting date" name via aria-label. */}
+                  <MetaStrip
+                    items={[
+                      {
+                        key: "manager",
+                        label: t("oneOnOne.manager"),
+                        value: <Text size="sm">{t("common.state.you")}</Text>,
+                      },
+                      {
+                        key: "subordinate",
+                        label: t("oneOnOne.subordinate"),
+                        value: <PersonaChip name={data.subordinateName} />,
+                      },
+                      {
+                        key: "meetingDate",
+                        label: t("oneOnOne.meetingDate"),
+                        value: (
+                          <DateField
+                            aria-label={t("oneOnOne.meetingDate")}
+                            w={180}
+                            // The pair's previous meeting is the chronological floor (server: 409).
+                            minIso={data.minMeetingDate ?? undefined}
+                            {...form.getInputProps("meetingDate")}
+                          />
+                        ),
+                      },
+                    ]}
                   />
-                </Group>
 
-                <Tabs defaultValue="content" keepMounted={false}>
-                  <Tabs.List>
-                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                    <Tabs.Tab value="history">{t("oneOnOne.history")}</Tabs.Tab>
-                  </Tabs.List>
+                  <Tabs defaultValue="content" keepMounted={false}>
+                    <Tabs.List>
+                      <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                      <Tabs.Tab value="history">{t("oneOnOne.history")}</Tabs.Tab>
+                    </Tabs.List>
 
-                  <Tabs.Panel value="content" pt="md">
-                    <Stack gap="lg">
-                      <ParagraphListEditor
-                        form={form}
-                        listField="points"
-                        title={t("oneOnOne.points")}
-                        addLabel={t("oneOnOne.addPoint")}
-                        emptyLabel={t("oneOnOne.noPoints")}
-                      />
-                      <Divider />
-                      <ParagraphListEditor
-                        form={form}
-                        listField="decisions"
-                        title={t("oneOnOne.decisions")}
-                        addLabel={t("oneOnOne.addDecision")}
-                        emptyLabel={t("oneOnOne.noDecisions")}
-                      />
-                      <Divider />
-                      <ActionItemsEditor
-                        form={form}
-                        managerName={t("common.state.you")}
+                    <Tabs.Panel value="content" pt="md">
+                      {/* Two sections (v3.5.0): the meeting notes, and the action items (its own
+                          Fieldset inside ActionItemsEditor). */}
+                      <Stack gap="lg">
+                        <Fieldset legend={t("oneOnOne.section.notes")}>
+                          <Stack gap="lg">
+                            <ParagraphListEditor
+                              form={form}
+                              listField="points"
+                              title={t("oneOnOne.points")}
+                              addLabel={t("oneOnOne.addPoint")}
+                              emptyLabel={t("oneOnOne.noPoints")}
+                            />
+                            <Divider />
+                            <ParagraphListEditor
+                              form={form}
+                              listField="decisions"
+                              title={t("oneOnOne.decisions")}
+                              addLabel={t("oneOnOne.addDecision")}
+                              emptyLabel={t("oneOnOne.noDecisions")}
+                            />
+                          </Stack>
+                        </Fieldset>
+                        <ActionItemsEditor
+                          form={form}
+                          managerName={t("common.state.you")}
+                          subordinateName={data.subordinateName}
+                        />
+                      </Stack>
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="history" pt="md">
+                      <OneOnOneHistory
+                        meetingId={id}
+                        managerName={data.managerName}
                         subordinateName={data.subordinateName}
                       />
-                    </Stack>
-                  </Tabs.Panel>
+                    </Tabs.Panel>
+                  </Tabs>
 
-                  <Tabs.Panel value="history" pt="md">
-                    <OneOnOneHistory
-                      meetingId={id}
-                      managerName={data.managerName}
-                      subordinateName={data.subordinateName}
-                    />
-                  </Tabs.Panel>
-                </Tabs>
+                  {error && (
+                    <Alert color="red" variant="light">
+                      {error}
+                    </Alert>
+                  )}
 
-                {error && (
-                  <Alert color="red" variant="light">
-                    {error}
-                  </Alert>
-                )}
-
-                <Group justify="space-between">
-                  <Button
-                    color="red"
-                    variant="light"
-                    onClick={openDelete}
-                    disabled={submitting}
-                  >
-                    {t("common.action.delete")}
-                  </Button>
-                  <Group gap="sm">
+                  <FormFooter sticky>
+                    <Button
+                      color="red"
+                      variant="light"
+                      mr="auto"
+                      onClick={openDelete}
+                      disabled={submitting}
+                    >
+                      {t("common.action.delete")}
+                    </Button>
                     <Button
                       type="button"
                       variant="default"
-                      onClick={openCancel}
+                      onClick={requestCancel}
                       disabled={submitting}
                     >
                       {t("common.action.cancel")}
@@ -248,23 +284,15 @@ export default function EditOneOnOne() {
                     <Button type="submit" loading={submitting}>
                       {t("common.action.save")}
                     </Button>
-                  </Group>
-                </Group>
-              </Stack>
-            </form>
-          ) : null}
-        </Stack>
-      </Paper>
+                  </FormFooter>
+                </Stack>
+              </form>
+            ) : null}
+          </Stack>
+        </Paper>
+      </Container>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("oneOnOne.discardTitle")}
-        message={t("oneOnOne.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo={backTo}
-      />
+      <ConfirmActionModal {...modalProps} />
       <ConfirmActionModal
         opened={deleteOpen}
         onClose={closeDelete}
@@ -275,6 +303,6 @@ export default function EditOneOnOne() {
         loading={deleting}
         onConfirm={remove}
       />
-    </Container>
+    </>
   );
 }

@@ -6,7 +6,7 @@ import {
 } from "../utils/userForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -17,7 +17,6 @@ import {
   Paper,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { IconMail } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
@@ -26,8 +25,12 @@ import { ApiError } from "../api/http";
 import { isAdmin } from "../api/session";
 import { createUser } from "../api/users";
 import { type SupportedLanguage } from "../i18n";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
 import RevealablePassword from "../components/RevealablePassword";
 import UserFormFields from "../components/UserFormFields";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { generatePassword } from "../utils/password";
 import { saveErrorMessage } from "../utils/saveError";
 import { invalidateUser } from "../utils/userQueries";
@@ -55,6 +58,7 @@ export default function CreateUser() {
     initialValues: emptyUserFormValues(),
     validate: userFormValidation(t),
   });
+  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/users" });
 
   if (!isAdmin()) return <Navigate to="/users" replace />;
 
@@ -132,33 +136,37 @@ export default function CreateUser() {
     : undefined;
 
   return (
-    <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(onSubmit)} noValidate>
-          <Stack>
-            <Title order={2}>{t("users.createUser")}</Title>
-            <UserFormFields form={form} />
-            <Checkbox
-              label={t("users.createSendEmail")}
-              checked={sendEmail}
-              onChange={(e) => setSendEmail(e.currentTarget.checked)}
-            />
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end" gap="sm">
-              <Button component={RouterLink} to="/users" variant="default">
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={submitting}>
-                {t("common.action.create")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
+    <>
+      <PageHeader title={t("users.createUser")} mb="lg" />
+      <Container size="sm" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <form onSubmit={form.onSubmit(onSubmit)} noValidate>
+            <Stack>
+              <UserFormFields form={form} />
+              <Checkbox
+                label={t("users.createSendEmail")}
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.currentTarget.checked)}
+              />
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <FormFooter>
+                <Button type="button" variant="default" onClick={requestCancel}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button type="submit" loading={submitting}>
+                  {t("common.action.create")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
+
+      <ConfirmActionModal {...modalProps} />
 
       {/* One-time password reveal. Deliberate close only (no click-outside / Escape) so the
           password can't be lost by accident — after closing it is unrecoverable by design. */}
@@ -193,6 +201,6 @@ export default function CreateUser() {
           </Stack>
         )}
       </Modal>
-    </Container>
+    </>
   );
 }

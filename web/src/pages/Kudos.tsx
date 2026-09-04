@@ -21,7 +21,7 @@ import { listFeedbacks, type FeedbackPage } from "../api/feedbacks";
 import EmptyState from "../components/EmptyState";
 import MarkdownView from "../components/MarkdownView";
 import PersonCell from "../components/PersonCell";
-import { formatRelativeTime, formatTimestamp } from "../utils/datetime";
+import { formatRelativeTime, formatDateTime } from "../utils/datetime";
 import { feedbackSubjects } from "../utils/feedbackSubjects";
 import { loadErrorMessage } from "../utils/saveError";
 import PageHeader from "../components/PageHeader";
@@ -70,7 +70,7 @@ function KudosCard({ item }: { item: KudosItem }) {
           />
         ))}
       </Group>
-      <Text size="xs" c="dimmed" title={formatTimestamp(item.lastModified)}>
+      <Text size="xs" c="dimmed" title={formatDateTime(item.lastModified, i18n.language)}>
         {formatRelativeTime(item.lastModified, i18n.language)}
       </Text>
       {/* Always the rendered markdown; collapsing only clamps the same rendering to the

@@ -2,14 +2,15 @@ import type { ReactNode } from "react";
 import { Box } from "@mantine/core";
 
 /**
- * The bordered read-only prose shell used by the view screens (template content, goal
- * description/summary): default border + radius, a line-count minimum height so short and
- * empty content keep the same silhouette, scrolls when long. ViewFeedback's content box is
- * deliberately not this — it is a tinted, focusable scroll region with its own styling.
+ * The border-first read-only prose shell used by the view screens (feedback content, goal
+ * description/summary, template content, the impact-log sections): a hairline border on the
+ * surface — no tint — sized to its content (v3.5.0), with an optional line-count minimum so
+ * a deliberately taller box (a review summary) keeps its silhouette when short or empty;
+ * scrolls when long.
  */
 export default function ProseBox({
   children,
-  minHeightLines = 3,
+  minHeightLines = 1,
 }: {
   children: ReactNode;
   minHeightLines?: number;

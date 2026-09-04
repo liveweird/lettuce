@@ -55,6 +55,12 @@
     "skills": "Umiejętności",
     "overall": "Ocena ogólna"
   },
+  "section": {
+    "attitude": "Postawa",
+    "delivery": "Realizacja",
+    "skills": "Umiejętności",
+    "overall": "Ocena ogólna"
+  },
   "categoryShort": {
     "attitude": "Postawa",
     "delivery": "Realizacja",

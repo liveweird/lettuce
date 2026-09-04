@@ -13,10 +13,10 @@ import {
   Stack,
   Table,
   Text,
-  Title,
   Tooltip,
 } from "@mantine/core";
 import { IconUpload } from "@tabler/icons-react";
+import PageHeader from "../components/PageHeader";
 import RevealablePassword from "../components/RevealablePassword";
 import { saveErrorMessage } from "../utils/saveError";
 import { useQueryClient } from "@tanstack/react-query";
@@ -73,102 +73,103 @@ export default function ImportUsers() {
 
   return (
     <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("users.importTitle")}</Title>
-          {result === null ? (
-            <>
-              <Text size="sm" c="dimmed">
-                {t("users.importFormatHint")}
-              </Text>
-              <FileInput
-                label={t("users.importFile")}
-                accept=".csv,text/csv"
-                value={file}
-                onChange={setFile}
-                clearable
-              />
-              <Checkbox
-                label={t("users.importSendEmails")}
-                checked={sendEmails}
-                onChange={(e) => setSendEmails(e.currentTarget.checked)}
-              />
-              {error && (
-                <Alert color="red" variant="light">
-                  {error}
-                </Alert>
-              )}
-              <Group justify="flex-end" gap="sm">
-                <Button component={RouterLink} to="/users" variant="default">
-                  {t("common.action.cancel")}
-                </Button>
-                <Button
-                  onClick={onImport}
-                  disabled={!file}
-                  loading={importing}
-                  leftSection={<IconUpload size={16} />}
-                >
-                  {t("users.importRun")}
-                </Button>
-              </Group>
-            </>
-          ) : (
-            <>
-              <Text>
-                {t("users.importSummary", {
-                  created: result.created,
-                  duplicates: result.duplicates,
-                  errors: result.errors,
-                })}
-              </Text>
-              {result.created > 0 && (
-                <Alert color="yellow" variant="light">
-                  {t("users.importPasswordsOnce")}
-                </Alert>
-              )}
-              <Table>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>{t("users.importLine")}</Table.Th>
-                    <Table.Th>{t("common.field.name")}</Table.Th>
-                    <Table.Th>{t("common.field.email")}</Table.Th>
-                    <Table.Th>{t("users.importStatusHeader")}</Table.Th>
-                    <Table.Th>{t("users.importPassword")}</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {result.rows.map((row) => (
-                    <Table.Tr key={row.line}>
-                      <Table.Td>{row.line}</Table.Td>
-                      <Table.Td>{row.name ?? "—"}</Table.Td>
-                      <Table.Td>{row.email ?? "—"}</Table.Td>
-                      <Table.Td>
-                        <Tooltip label={row.message} disabled={!row.message}>
-                          <Badge
-                            color={STATUS_COLOR[row.status]}
-                            variant="light"
-                            style={{ minWidth: "max-content" }}
-                          >
-                            {t(`users.importStatus.${row.status}`)}
-                          </Badge>
-                        </Tooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        {row.password ? <RevealablePassword password={row.password} compact /> : "—"}
-                      </Table.Td>
+      <Stack gap="md">
+        {/* The drill-down back link (v3.5.0) — the one way back once the results render. */}
+        <PageHeader
+          back={{ to: "/users", label: t("feedback.backToLabel", { label: t("users.title") }) }}
+          title={t("users.importTitle")}
+        />
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack>
+            {result === null ? (
+              <>
+                <Text size="sm" c="dimmed">
+                  {t("users.importFormatHint")}
+                </Text>
+                <FileInput
+                  label={t("users.importFile")}
+                  accept=".csv,text/csv"
+                  value={file}
+                  onChange={setFile}
+                  clearable
+                />
+                <Checkbox
+                  label={t("users.importSendEmails")}
+                  checked={sendEmails}
+                  onChange={(e) => setSendEmails(e.currentTarget.checked)}
+                />
+                {error && (
+                  <Alert color="red" variant="light">
+                    {error}
+                  </Alert>
+                )}
+                <Group justify="flex-end" gap="sm">
+                  <Button component={RouterLink} to="/users" variant="default">
+                    {t("common.action.cancel")}
+                  </Button>
+                  <Button
+                    onClick={onImport}
+                    disabled={!file}
+                    loading={importing}
+                    leftSection={<IconUpload size={16} />}
+                  >
+                    {t("users.importRun")}
+                  </Button>
+                </Group>
+              </>
+            ) : (
+              <>
+                <Text>
+                  {t("users.importSummary", {
+                    created: result.created,
+                    duplicates: result.duplicates,
+                    errors: result.errors,
+                  })}
+                </Text>
+                {result.created > 0 && (
+                  <Alert color="yellow" variant="light">
+                    {t("users.importPasswordsOnce")}
+                  </Alert>
+                )}
+                <Table>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>{t("users.importLine")}</Table.Th>
+                      <Table.Th>{t("common.field.name")}</Table.Th>
+                      <Table.Th>{t("common.field.email")}</Table.Th>
+                      <Table.Th>{t("users.importStatusHeader")}</Table.Th>
+                      <Table.Th>{t("users.importPassword")}</Table.Th>
                     </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-              <Group justify="flex-end">
-                <Button component={RouterLink} to="/users">
-                  {t("users.backToUsers")}
-                </Button>
-              </Group>
-            </>
-          )}
-        </Stack>
-      </Paper>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {result.rows.map((row) => (
+                      <Table.Tr key={row.line}>
+                        <Table.Td>{row.line}</Table.Td>
+                        <Table.Td>{row.name ?? "—"}</Table.Td>
+                        <Table.Td>{row.email ?? "—"}</Table.Td>
+                        <Table.Td>
+                          <Tooltip label={row.message} disabled={!row.message}>
+                            <Badge
+                              color={STATUS_COLOR[row.status]}
+                              variant="light"
+                              style={{ minWidth: "max-content" }}
+                            >
+                              {t(`users.importStatus.${row.status}`)}
+                            </Badge>
+                          </Tooltip>
+                        </Table.Td>
+                        <Table.Td>
+                          {row.password ? <RevealablePassword password={row.password} compact /> : "—"}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </>
+            )}
+          </Stack>
+        </Paper>
+      </Stack>
     </Container>
   );
 }

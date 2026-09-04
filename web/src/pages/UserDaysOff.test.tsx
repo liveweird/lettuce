@@ -83,6 +83,17 @@ describe("UserDaysOff", () => {
   function setupMocks(budget: typeof BUDGET = BUDGET, extraPools: (typeof BUDGET)[] = []) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
+      // The org-wide user pool the heading resolves the report's name from (v3.5.0).
+      if (u.startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            items: [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }],
+            page: 1,
+            pageSize: 100,
+            total: 1,
+          }),
+        );
+      }
       if (u.includes("/api/v1/days-off/allowance") || u.includes("/api/v1/days-off/pools/")) {
         return Promise.resolve(new Response(null, { status: 204 }));
       }

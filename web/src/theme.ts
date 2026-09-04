@@ -12,8 +12,7 @@ import {
   Tooltip,
   createTheme,
   rem,
-  type MantineColorsTuple,
-} from "@mantine/core";
+  type MantineColorsTuple, InputWrapper } from "@mantine/core";
 import classes from "./theme.module.css";
 import { foldedOptionsFilter } from "./utils/text";
 
@@ -122,6 +121,10 @@ export const theme = createTheme({
     Button: Button.extend({ classNames: { root: classes.button } }),
     Tabs: Tabs.extend({ classNames: { tab: classes.tab } }),
     Tooltip: Tooltip.extend({ defaultProps: { radius: "md", openDelay: 300 } }),
+    // Every input renders label → input → description → error (v3.5.0): hints and errors
+    // sit UNDER the control, so sibling fields in a row stay level whatever their hints.
+    // The 17 per-site inputWrapperOrder props this replaced are gone — never re-add one.
+    InputWrapper: InputWrapper.extend({ defaultProps: { inputWrapperOrder: ["label", "input", "description", "error"] } }),
     Modal: Modal.extend({
       defaultProps: { radius: "md", centered: true, overlayProps: { backgroundOpacity: 0.45, blur: 2 } },
       classNames: { title: classes.dialogTitle },

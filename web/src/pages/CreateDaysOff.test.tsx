@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -228,6 +228,31 @@ describe("CreateDaysOff", () => {
     expect(showSpy).toHaveBeenCalledWith(
       expect.objectContaining({ message: "Days-off request submitted" }),
     );
+  });
+
+  test("Cancel leaves a pristine form at once (v3.5.0)", async () => {
+    setupMocks();
+    renderPage();
+
+    await screen.findByText("New days-off request");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("a report pick makes Cancel ask before discarding (v3.5.0)", async () => {
+    setupMocks();
+    renderPage("/days-off/new?onBehalf=1");
+
+    await screen.findByText("New days off");
+    await userEvent.click(screen.getByRole("combobox", { name: "On behalf of" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Rita Report" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Discard changes?");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("LIST")).toBeNull();
   });
 
   test("on-behalf mode offers the report picker (caller excluded) and gates the submit on a pick", async () => {

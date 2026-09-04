@@ -1,26 +1,20 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  Paper,
-  Select,
-  Stack,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
 import { feedbackViewLink } from "../utils/feedbackLinks";
-import { useDisclosure } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { createFeedback, type FeedbackVisibility } from "../api/feedbacks";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
-import PersonaField from "../components/PersonaField";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonaChip from "../components/PersonaChip";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
@@ -32,6 +26,7 @@ import { useAllUsers } from "../hooks/useAllUsers";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive
 // visibilities — the ones under which the requester (themselves) can read the result.
+const DEFAULT_VISIBILITY: FeedbackVisibility = "PROVIDER_REQUESTER_SUBJECT";
 
 export default function AskFeedback() {
   const { t } = useTranslation();
@@ -48,11 +43,17 @@ export default function AskFeedback() {
   const backTo = safeBackParam(searchParams) ?? "/?tab=managers";
   const requesterId = getUserId();
 
-  const [visibility, setVisibility] = useState<FeedbackVisibility>("PROVIDER_REQUESTER_SUBJECT");
+  const [visibility, setVisibility] = useState<FeedbackVisibility>(DEFAULT_VISIBILITY);
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
+  // The one cancel guard (v3.5.0): a typed note or a changed visibility is work worth a confirm.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: message !== "" || visibility !== DEFAULT_VISIBILITY,
+    to: backTo,
+    title: t("feedback.discardRequestTitle"),
+    message: t("feedback.discardAskMessage"),
+  });
 
   const providerIdIsValid = Number.isFinite(providerId) && providerId > 0;
   // The provider's display name resolves from the org pool — never from a URL param
@@ -98,78 +99,79 @@ export default function AskFeedback() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("feedback.askTitle")}</Title>
-
-          <Group gap="xl">
-            <PersonaField
-              label={t("common.field.provider")}
-              name={provider?.name ?? `#${providerId}`}
+    <>
+      <PageHeader title={t("feedback.askTitle")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack>
+            {/* The context line (v3.5.0): who is asked, about whom. */}
+            <MetaStrip
+              items={[
+                {
+                  key: "provider",
+                  label: t("common.field.provider"),
+                  value: <PersonaChip name={provider?.name ?? `#${providerId}`} />,
+                },
+                {
+                  key: "subject",
+                  label: t("common.field.subject"),
+                  value: <Text size="sm">{t("common.state.you")}</Text>,
+                },
+              ]}
             />
-            <PersonaField label={t("common.field.subject")} you />
-          </Group>
 
-          {duplicate.existingId != null && (
-            // The caller is the requester of the existing row, so the view route is theirs.
-            <DuplicateFeedbackAlert
-              status={duplicate.existingStatus ?? "REQUESTED"}
-              to={feedbackViewLink(duplicate.existingId)}
+            {duplicate.existingId != null && (
+              // The caller is the requester of the existing row, so the view route is theirs.
+              <DuplicateFeedbackAlert
+                status={duplicate.existingStatus ?? "REQUESTED"}
+                to={feedbackViewLink(duplicate.existingId)}
+              />
+            )}
+
+            <Select
+              label={t("common.field.visibility")}
+              placeholder={t("feedback.selectVisibility")}
+              data={visibilityOptions}
+              allowDeselect={false}
+              value={visibility}
+              onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
             />
-          )}
 
-          <Select
-            label={t("common.field.visibility")}
-            placeholder={t("feedback.selectVisibility")}
-            data={visibilityOptions}
-            allowDeselect={false}
-            value={visibility}
-            onChange={(v) => v && setVisibility(v as FeedbackVisibility)}
-          />
+            <EmojiTextarea
+              label={t("feedback.requesterMessageLabel")}
+              placeholder={t("feedback.requesterMessagePlaceholder")}
+              value={message}
+              onChange={setMessage}
+              maxLength={MAX_REQUESTER_MESSAGE_LENGTH}
+              autosize
+              minRows={2}
+              maxRows={6}
+            />
 
-          <EmojiTextarea
-            label={t("feedback.requesterMessageLabel")}
-            placeholder={t("feedback.requesterMessagePlaceholder")}
-            value={message}
-            onChange={setMessage}
-            maxLength={MAX_REQUESTER_MESSAGE_LENGTH}
-            autosize
-            minRows={2}
-            maxRows={6}
-          />
+            {error && (
+              <Alert color="red" variant="light">
+                {error}
+              </Alert>
+            )}
 
-          {error && (
-            <Alert color="red" variant="light">
-              {error}
-            </Alert>
-          )}
+            <FormFooter>
+              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                {t("common.action.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={submit}
+                loading={submitting}
+                disabled={duplicate.existingId != null}
+              >
+                {t("feedback.action.sendRequest")}
+              </Button>
+            </FormFooter>
+          </Stack>
+        </Paper>
+      </Container>
 
-          <Group justify="flex-end" gap="sm">
-            <Button type="button" variant="default" onClick={openCancel} disabled={submitting}>
-              {t("common.action.cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={submit}
-              loading={submitting}
-              disabled={duplicate.existingId != null}
-            >
-              {t("feedback.action.sendRequest")}
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
-
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("feedback.discardRequestTitle")}
-        message={t("feedback.discardAskMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo={backTo}
-      />
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

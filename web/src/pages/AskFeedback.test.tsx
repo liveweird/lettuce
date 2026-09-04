@@ -189,7 +189,9 @@ describe("AskFeedback page", () => {
       `?providerId=10&providerName=Manny%20Manager&back=${encodeURIComponent("/?tab=peers")}`,
     );
 
-    // Discard link points back at the originating tab, not the managers default.
+    // Discard link points back at the originating tab, not the managers default (the guard
+    // asks only once there is work to lose — v3.5.0).
+    await user.type(screen.getByLabelText("Message to the provider"), "some context");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("link", { name: /discard/i })).toHaveAttribute(

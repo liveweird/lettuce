@@ -1,24 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Anchor,
-  Button,
-  Container,
-  Group,
-  Paper,
-  Select,
-  Stack,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Anchor, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { hasFeature } from "../api/session";
 import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { createPerformanceReview } from "../api/reviews";
-import PersonaField from "../components/PersonaField";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonaChip from "../components/PersonaChip";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { showSuccessToast } from "../utils/toast";
@@ -55,6 +49,14 @@ export default function CreatePerformanceReview() {
   const [error, setError] = useState<string | null>(null);
   const [conflictId, setConflictId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The one cancel guard (v3.5.0): the two picks are the only work this screen holds, so a
+  // fresh form leaves straight away and only an explicit pick asks.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: picked != null || periodId != null,
+    to: backTo,
+    title: t("performanceReview.discardTitle"),
+    message: t("performanceReview.discardMessage"),
+  });
 
   // The pool ALWAYS loads (v2.35.0): a prefilled subordinate resolves its display name
   // against the caller's own managed data — never a URL param — and an id outside the
@@ -109,84 +111,103 @@ export default function CreatePerformanceReview() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack gap="md">
-          <Title order={2}>{t("performanceReview.newReview")}</Title>
-          <Text size="sm" c="dimmed">
-            {t("performanceReview.createHint")}
-          </Text>
-
-          <Group gap="xl" align="flex-start">
-            <PersonaField label={t("performanceReview.manager")} you />
-            {showPicker ? (
-              <Select
-                label={t("performanceReview.subordinate")}
-                placeholder={t("performanceReview.pickSubordinate")}
-                data={options}
-                value={picked}
-                onChange={setPicked}
-                searchable
-                clearable
-                nothingFoundMessage={t("performanceReview.noReports")}
-                error={reportsError ? t("common.error.optionsFailed") : undefined}
-              />
-            ) : (
-              // The `#id` placeholder shows only until the pool resolves the canonical name.
-              <PersonaField
-                label={t("performanceReview.subordinate")}
-                name={preselectedReport?.name ?? `#${preselectedId}`}
-              />
-            )}
-            <Select
-              label={t("performanceReview.period")}
-              data={periodOptions}
-              value={effectivePeriod}
-              onChange={setPeriodId}
-              allowDeselect={false}
-              renderOption={renderPeriodOption}
-              w={260}
+    <>
+      <PageHeader
+        title={t("performanceReview.newReview")}
+        description={t("performanceReview.createHint")}
+        mb="lg"
+      />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Stack gap="md">
+            {/* The context line (v3.5.0): the pair and the period — the pickers keep their
+                names via aria-label (the "Team member" / "Period" comboboxes). */}
+            <MetaStrip
+              items={[
+                {
+                  key: "manager",
+                  label: t("performanceReview.manager"),
+                  value: <Text size="sm">{t("common.state.you")}</Text>,
+                },
+                {
+                  key: "subordinate",
+                  label: t("performanceReview.subordinate"),
+                  value: showPicker ? (
+                    <Select
+                      aria-label={t("performanceReview.subordinate")}
+                      placeholder={t("performanceReview.pickSubordinate")}
+                      data={options}
+                      value={picked}
+                      onChange={setPicked}
+                      searchable
+                      clearable
+                      nothingFoundMessage={t("performanceReview.noReports")}
+                      error={reportsError ? t("common.error.optionsFailed") : undefined}
+                      w={260}
+                    />
+                  ) : (
+                    // The `#id` placeholder shows only until the pool resolves the canonical name.
+                    <PersonaChip name={preselectedReport?.name ?? `#${preselectedId}`} />
+                  ),
+                },
+                {
+                  key: "period",
+                  label: t("performanceReview.period"),
+                  value: (
+                    <Select
+                      aria-label={t("performanceReview.period")}
+                      data={periodOptions}
+                      value={effectivePeriod}
+                      onChange={setPeriodId}
+                      allowDeselect={false}
+                      renderOption={renderPeriodOption}
+                      w={260}
+                    />
+                  ),
+                },
+              ]}
             />
-          </Group>
 
-          {periods != null && periods.length === 0 && (
-            <Alert color="orange" variant="light">
-              {t("performanceReview.noPeriods")}
-            </Alert>
-          )}
-          {allPeriodsFuture && (
-            <Alert color="orange" variant="light">
-              {t("performanceReview.noStartedPeriods")}
-            </Alert>
-          )}
-          {error && (
-            <Alert color="red" variant="light">
-              <Stack gap={4}>
-                <Text size="sm">{error}</Text>
-                {conflictId != null && (
-                  <Anchor component={RouterLink} to={reviewViewLink(conflictId, undefined, backTo)} size="sm">
-                    {t("performanceReview.openExisting")}
-                  </Anchor>
-                )}
-              </Stack>
-            </Alert>
-          )}
+            {periods != null && periods.length === 0 && (
+              <Alert color="orange" variant="light">
+                {t("performanceReview.noPeriods")}
+              </Alert>
+            )}
+            {allPeriodsFuture && (
+              <Alert color="orange" variant="light">
+                {t("performanceReview.noStartedPeriods")}
+              </Alert>
+            )}
+            {error && (
+              <Alert color="red" variant="light">
+                <Stack gap={4}>
+                  <Text size="sm">{error}</Text>
+                  {conflictId != null && (
+                    <Anchor component={RouterLink} to={reviewViewLink(conflictId, undefined, backTo)} size="sm">
+                      {t("performanceReview.openExisting")}
+                    </Anchor>
+                  )}
+                </Stack>
+              </Alert>
+            )}
 
-          <Group justify="flex-end">
-            {/* A two-Select form holds nothing worth a discard confirm — plain Cancel. */}
-            <Button component={RouterLink} to={backTo} variant="default">
-              {t("common.action.cancel")}
-            </Button>
-            <Button
-              onClick={() => void save()}
-              loading={submitting}
-              disabled={!subordinateId || !effectivePeriod}
-            >
-              {t("common.action.create")}
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
-    </Container>
+            <FormFooter>
+              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                {t("common.action.cancel")}
+              </Button>
+              <Button
+                onClick={() => void save()}
+                loading={submitting}
+                disabled={!subordinateId || !effectivePeriod}
+              >
+                {t("common.action.create")}
+              </Button>
+            </FormFooter>
+          </Stack>
+        </Paper>
+      </Container>
+
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

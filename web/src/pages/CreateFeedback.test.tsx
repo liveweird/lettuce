@@ -230,6 +230,8 @@ describe("CreateFeedback page", () => {
     const user = userEvent.setup();
     renderCreateFeedback();
 
+    // The guard asks only once there is work to lose (v3.5.0).
+    await user.type(screen.getByLabelText("Content"), "x");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));
@@ -241,6 +243,7 @@ describe("CreateFeedback page", () => {
     const user = userEvent.setup();
     renderCreateFeedback();
 
+    await user.type(screen.getByLabelText("Content"), "x");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /keep editing/i }));

@@ -11,6 +11,8 @@ import {
 } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
+import DateField from "./DateField";
+import FormFooter from "./FormFooter";
 import type { ParseKeys } from "i18next";
 import type { ImpactEntryFormValues } from "../utils/impactLogForm";
 import { IMPACT_SECTIONS, MAX_IMPACT_TEXT_LENGTH, MAX_IMPACT_TITLE_LENGTH } from "../utils/impactLogForm";
@@ -43,7 +45,7 @@ const REVIEW_STEP = SECTIONS.length;
  * first). Submit still goes through `form.onSubmit` as the full-validation backstop.
  *
  * The embedding page keeps owning `useForm`, the save handler, toasts, navigation, and the
- * MarkdownEditor-form discard confirm behind [onCancel].
+ * discard guard behind [onCancel] (`useDiscardGuard`'s `requestCancel`).
  */
 export default function ImpactEntryWizard({
   form,
@@ -97,14 +99,13 @@ export default function ImpactEntryWizard({
         {...form.getInputProps("title")}
       />
       <Group align="flex-end" gap="md" wrap="wrap">
-        <TextInput
-          type="date"
+        <DateField
           withAsterisk
           label={t("impactLog.periodStart")}
           value={form.values.periodStart}
           error={form.errors.periodStart}
-          onChange={(e) => {
-            const v = e.currentTarget.value;
+          onChange={(iso) => {
+            const v = iso;
             form.setFieldValue("periodStart", v);
             // Keep the range ordered (the CreateDaysOff nudge).
             if (v && form.values.periodEnd && v > form.values.periodEnd) {
@@ -113,14 +114,13 @@ export default function ImpactEntryWizard({
           }}
           w={180}
         />
-        <TextInput
-          type="date"
+        <DateField
           withAsterisk
           label={t("impactLog.periodEnd")}
-          min={form.values.periodStart || undefined}
+          minIso={form.values.periodStart || undefined}
           value={form.values.periodEnd}
           error={form.errors.periodEnd}
-          onChange={(e) => form.setFieldValue("periodEnd", e.currentTarget.value)}
+          onChange={(iso) => form.setFieldValue("periodEnd", iso)}
           w={180}
         />
       </Group>
@@ -166,7 +166,8 @@ export default function ImpactEntryWizard({
         </Alert>
       )}
 
-      <Group justify="flex-end" gap="sm">
+      {/* Sticky (v3.5.0): the step buttons stay reachable while a long section scrolls. */}
+      <FormFooter sticky>
         <Button type="button" variant="default" onClick={onCancel} disabled={submitting}>
           {t("common.action.cancel")}
         </Button>
@@ -187,7 +188,7 @@ export default function ImpactEntryWizard({
             {submitLabel}
           </Button>
         )}
-      </Group>
+      </FormFooter>
     </Stack>
   );
 }

@@ -16,11 +16,9 @@ import {
   Button,
   Center,
   Container,
-  Group,
   Loader,
   Paper,
   Stack,
-  Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,7 +27,11 @@ import { getUserId, isAdmin } from "../api/session";
 import { getUser, setUserLanguage, updateUser } from "../api/users";
 import i18n, { asSupportedLanguage } from "../i18n";
 import { showSuccessToast } from "../utils/toast";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
 import UserFormFields from "../components/UserFormFields";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { saveErrorMessage } from "../utils/saveError";
 import { invalidateUser } from "../utils/userQueries";
 
@@ -54,6 +56,7 @@ export default function EditUser() {
     },
     validate: userFormValidation(t),
   });
+  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/users" });
 
   const idIsValid = Number.isFinite(id) && id > 0;
 
@@ -126,38 +129,38 @@ export default function EditUser() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("users.editUser")}</Title>
+    <>
+      <PageHeader title={t("users.editUser")} mb="lg" />
+      <Container size="sm" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
               <Loader />
             </Center>
           ) : notFound ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {t("users.userNotFound")}
               </Alert>
-              <Group justify="flex-end">
+              <FormFooter>
                 <Button component={RouterLink} to="/users" variant="default">
                   {t("users.backToUsers")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : isError ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {t("users.loadUserFailed", {
                   suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
                 })}
               </Alert>
-              <Group justify="flex-end">
+              <FormFooter>
                 <Button component={RouterLink} to="/users" variant="default">
                   {t("users.backToUsers")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : (
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
@@ -169,19 +172,21 @@ export default function EditUser() {
                     {error}
                   </Alert>
                 )}
-                <Group justify="flex-end" gap="sm">
-                  <Button component={RouterLink} to="/users" variant="default">
+                <FormFooter>
+                  <Button type="button" variant="default" onClick={requestCancel}>
                     {t("common.action.cancel")}
                   </Button>
                   <Button type="submit" loading={submitting}>
                     {t("common.action.save")}
                   </Button>
-                </Group>
+                </FormFooter>
               </Stack>
             </form>
           )}
-        </Stack>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

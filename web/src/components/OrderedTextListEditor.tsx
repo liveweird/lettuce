@@ -32,7 +32,8 @@ export default function OrderedTextListEditor<
   form: UseFormReturnType<Values>;
   /** The form field holding the `TextRowDraft[]` list. */
   field: Field;
-  label: string;
+  /** The visible label; omitted when an enclosing `Fieldset` legend already names the list. */
+  label?: string;
   emptyLabel: string;
   addLabel: string;
   /** Appends one empty draft row — concrete at the call site (typed insertListItem). */

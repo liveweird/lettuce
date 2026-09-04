@@ -210,11 +210,23 @@ describe("CreateTemplate page", () => {
     expect(screen.queryByRole("heading", { name: /new template/i })).not.toBeInTheDocument();
   });
 
-  test("Cancel opens a discard confirmation whose Discard links back to /templates", async () => {
+  test("Cancel on a clean form leaves for /templates without a confirmation (v3.5.0)", async () => {
     const user = userEvent.setup();
     renderCreateTemplate();
 
     await user.click(await screen.findByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByTestId("probe")).toHaveTextContent("/templates");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("Cancel opens a discard confirmation whose Discard links back to /templates", async () => {
+    const user = userEvent.setup();
+    renderCreateTemplate();
+
+    // The guard fires only once something was typed.
+    await user.type(await screen.findByLabelText(/name/i), "Draft");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
 
     expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();
     expect(

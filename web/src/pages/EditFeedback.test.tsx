@@ -182,8 +182,8 @@ describe("EditFeedback page", () => {
     )) as HTMLInputElement;
     expect(visibility.value).toBe("Provider + requester + subject");
 
-    // The resolved requester name is shown in the people line.
-    expect(screen.getByText("requested by")).toBeInTheDocument();
+    // The resolved requester name is shown in the context strip (v3.5.0).
+    expect(screen.getByText("Requester")).toBeInTheDocument();
     expect(screen.getByText("Rita Requester")).toBeInTheDocument();
 
     // The requester's clarification message is carried into the editor behind a collapsed toggle.
@@ -323,7 +323,8 @@ describe("EditFeedback page", () => {
     const user = userEvent.setup();
     renderEditFeedback();
 
-    await screen.findByLabelText("Content", { selector: "textarea" });
+    // The guard asks only once there is work to lose (v3.5.0).
+    await user.type(await screen.findByLabelText("Content", { selector: "textarea" }), " edited");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));

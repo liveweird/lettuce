@@ -1,4 +1,4 @@
-import { AAA_ONE, expect, login, logout, MANAGER_AAA, notificationCard, openBell, rowByTitle, test, uniqueText } from "./helpers";
+import { fillDate, AAA_ONE, expect, login, logout, MANAGER_AAA, notificationCard, openBell, rowByTitle, test, uniqueText } from "./helpers";
 import type { Page } from "@playwright/test";
 
 // Team KPIs: a manager defines a KPI for a team they manage and walks it around the
@@ -37,7 +37,7 @@ async function createKpi(page: Page, title: string, activate: boolean): Promise<
 
 // Add a data point on the view screen's KPI data tab (assumes the tab is open).
 async function addValue(page: Page, id: number, date: string, value: string): Promise<void> {
-  await page.getByLabel("Date", { exact: true }).fill(date);
+  await fillDate(page, "Date", date, true);
   await page.getByLabel("Value", { exact: true }).fill(value);
   await Promise.all([
     page.waitForResponse(

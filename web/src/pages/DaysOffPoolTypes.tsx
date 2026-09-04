@@ -90,7 +90,6 @@ function EditPoolTypeModal({
           onChange={(e) => setName(e.currentTarget.value)}
           maxLength={MAX_NAME}
           description={charCountDescription(name.length, MAX_NAME)}
-          inputWrapperOrder={["label", "input", "description", "error"]}
           withAsterisk
           data-autofocus
         />
@@ -201,7 +200,6 @@ export default function DaysOffPoolTypes() {
                 }}
                 maxLength={MAX_NAME}
                 description={charCountDescription(name.length, MAX_NAME)}
-                inputWrapperOrder={["label", "input", "description", "error"]}
                 withAsterisk
                 w={260}
               />

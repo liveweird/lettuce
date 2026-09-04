@@ -84,6 +84,10 @@ async function openCardMenu(name: RegExp | string) {
   await userEvent.setup().click(await screen.findByRole("button", { name }));
 }
 
+// The exact timestamp behind a relative phrase — the localized formatDateTime (v3.5.0).
+const stamp = (ms: number) =>
+  new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(ms));
+
 describe("TeamMembersTable", () => {
   let mockFetch: FetchMock;
 
@@ -700,7 +704,7 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("2 days ago")).toBeInTheDocument();
       // Exact values ride in the title attributes.
       expect(screen.getByText("last week")).toHaveAttribute("title", "Jul 1, 2026");
-      expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
+      expect(screen.getByText("2 days ago")).toHaveAttribute("title", stamp(new Date(2026, 6, 10, 12, 0).getTime()));
       expect(screen.getByText("Active goals")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
       // The last authored review (v1.34.0): period range + status badge.
@@ -829,8 +833,8 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("Feedback from them")).toBeInTheDocument();
       expect(screen.getByText("last week")).toBeInTheDocument();
       // Exact values ride in the title attributes.
-      expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
-      expect(screen.getByText("last week")).toHaveAttribute("title", "2026-07-05 12:00");
+      expect(screen.getByText("2 days ago")).toHaveAttribute("title", stamp(new Date(2026, 6, 10, 12, 0).getTime()));
+      expect(screen.getByText("last week")).toHaveAttribute("title", stamp(new Date(2026, 6, 5, 12, 0).getTime()));
       expect(screen.queryByText("never")).toBeNull();
       // No 1:1 row and no direction-neutral feedback row on peer cards.
       expect(screen.queryByText("Last 1:1")).toBeNull();

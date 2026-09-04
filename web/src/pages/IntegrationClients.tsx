@@ -97,7 +97,6 @@ export default function IntegrationClients() {
               onChange={(e) => setName(e.currentTarget.value)}
               maxLength={MAX_NAME}
               description={charCountDescription(name.length, MAX_NAME)}
-              inputWrapperOrder={["label", "input", "description", "error"]}
               w={280}
             />
             <Button

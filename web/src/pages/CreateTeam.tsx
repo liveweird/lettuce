@@ -1,22 +1,18 @@
 import { teamFormValidation, type TeamFormValues } from "../utils/teamForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  Paper,
-  Stack,
-  Title,
-} from "@mantine/core";
+import { Navigate, useNavigate } from "react-router-dom";
+import { Alert, Button, Container, Paper, Stack } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAdmin } from "../api/session";
 import { createTeam } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
 import TeamFormFields from "../components/TeamFormFields";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { saveErrorMessage } from "../utils/saveError";
 
 export default function CreateTeam() {
@@ -31,6 +27,7 @@ export default function CreateTeam() {
     initialValues: { name: "", managerId: "" },
     validate: teamFormValidation(t),
   });
+  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/teams" });
 
   if (!isAdmin()) return <Navigate to="/teams" replace />;
 
@@ -61,28 +58,32 @@ export default function CreateTeam() {
   }
 
   return (
-    <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(onSubmit)} noValidate>
-          <Stack>
-            <Title order={2}>{t("teams.createTeam")}</Title>
-            <TeamFormFields form={form} />
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end" gap="sm">
-              <Button component={RouterLink} to="/teams" variant="default">
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={submitting}>
-                {t("common.action.create")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
-    </Container>
+    <>
+      <PageHeader title={t("teams.createTeam")} mb="lg" />
+      <Container size="sm" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <form onSubmit={form.onSubmit(onSubmit)} noValidate>
+            <Stack>
+              <TeamFormFields form={form} />
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <FormFooter>
+                <Button type="button" variant="default" onClick={requestCancel}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button type="submit" loading={submitting}>
+                  {t("common.action.create")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
+
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

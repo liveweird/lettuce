@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { listPerformanceReviews, type PerformanceReviewListItem, type PerformanceReviewListView, type PerformanceReviewStatus } from "../api/reviews";
 import ClearableTextInput from "../components/ClearableTextInput";
+import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
@@ -19,7 +20,7 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { formatDate, formatMonthRange, formatTimestamp } from "../utils/datetime";
+import { formatMonthRange } from "../utils/datetime";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
 import { loadErrorMessage } from "../utils/saveError";
@@ -321,8 +322,8 @@ export default function PerformanceReviewTable({
                     <PerformanceReviewStatusBadge status={r.status} />
                   </Table.Td>
                   <RatingCells ratings={ratings} />
-                  <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(r.createdAt)}>
-                    {formatDate(r.createdAt, i18n.language)}
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <DateCell value={r.createdAt} mode="date" />
                   </Table.Td>
                   <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     {canEdit ? (

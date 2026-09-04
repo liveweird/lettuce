@@ -140,6 +140,8 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
       error={error}
       onSubmit={submit}
       cancelTo={backTo}
+      // Picks live outside the editor form — Cancel guards them like typed content.
+      parentDirty={pickerMode && subjectPicks.length > 0}
       showTemplateInsert
       discardTitle={t("feedback.discardCreateTitle")}
       discardMessage={t("feedback.discardCreateMessage")}

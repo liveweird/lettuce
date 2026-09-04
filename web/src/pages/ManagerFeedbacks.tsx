@@ -1,9 +1,11 @@
 import type { ParseKeys } from "i18next";
-import { Anchor, Button, Group, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Button, Group, Stack, Tabs, Text } from "@mantine/core";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { IconMessagePlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { canAudit, hasFeature } from "../api/session";
+import PageHeader from "../components/PageHeader";
+import { useUserDisplayName } from "../hooks/useDashboardDrillDown";
 import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
@@ -71,6 +73,9 @@ export default function ManagerFeedbacks() {
 
   const userId = Number(params.userId);
   const idIsValid = Number.isFinite(userId) && userId > 0;
+  // The heading's name comes from the user pool (the useDashboardDrillDown rule): the URL's
+  // `name` is only the pre-load hint, and still threads through the rebuilt links below.
+  const displayName = useUserDisplayName(userId, name, idIsValid);
   // Explicit return override (the details-page round-trip — the useDashboardDrillDown rule);
   // the origin key still names the label. In-app paths only.
   const backParam = safeBackParam(searchParams);
@@ -96,7 +101,8 @@ export default function ManagerFeedbacks() {
     });
   }
 
-  const who = name ?? t("feedback.userFallback", { id: userId });
+  const who = displayName ?? t("feedback.userFallback", { id: userId });
+  const backLink = { to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) };
   // Where the Edit/View/Create detail pages return to: this very screen, keeping the
   // origin — and the active tab, so a round-trip lands back on the direction it started
   // from — so the "Back to …" link stays correct after a round-trip.
@@ -114,16 +120,12 @@ export default function ManagerFeedbacks() {
     // The HR auditor view: one table with everything this person is a party to
     // (either direction, every status), read-only — replaces the two pair tabs.
     return (
-      <Stack gap="lg">
-        <Stack gap={4}>
-          <Anchor component={RouterLink} to={origin.to} size="sm">
-            {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-          </Anchor>
-          <Title order={2}>{t("feedback.feedbacksAudit", { who })}</Title>
-          <Text size="sm" c="dimmed">
-            {t("feedback.feedbacksAuditHint", { who })}
-          </Text>
-        </Stack>
+      <Stack gap="md">
+        <PageHeader
+          back={backLink}
+          title={t("feedback.feedbacksAudit", { who })}
+          description={t("feedback.feedbacksAuditHint", { who })}
+        />
         <FeedbackTable
           view="user"
           userId={userId}
@@ -135,13 +137,8 @@ export default function ManagerFeedbacks() {
   }
 
   return (
-    <Stack gap="lg">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={origin.to} size="sm">
-          {t("feedback.backToLabel", { label: t(origin.labelKey) })}
-        </Anchor>
-        <Title order={2}>{t("feedback.feedbacksWith", { who })}</Title>
-      </Stack>
+    <Stack gap="md">
+      <PageHeader back={backLink} title={t("feedback.feedbacksWith", { who })} />
 
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>

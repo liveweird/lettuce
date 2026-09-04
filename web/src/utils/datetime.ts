@@ -1,12 +1,10 @@
 import type { TFunction } from "i18next";
-// Epoch millis -> "YYYY-MM-DD HH:mm" in local time.
-export function formatTimestamp(ms: number): string {
-  const d = new Date(ms);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
-    `${p(d.getHours())}:${p(d.getMinutes())}`
-  );
+// Epoch millis -> a localized absolute timestamp ("Jul 1, 2026, 9:07 AM" / "1 lip 2026, 09:07")
+// in local time — the app's ONE timestamp format (v3.5.0; replaced the en-only "YYYY-MM-DD
+// HH:mm" formatTimestamp): history rows, alert bounds, and the exact `title` behind every
+// relative phrase.
+export function formatDateTime(ms: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(ms));
 }
 
 // Epoch millis -> a localized relative phrase ("2 days ago"), picking the largest unit that
@@ -37,6 +35,13 @@ export function formatIsoDate(iso: string, locale: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(d);
+}
+
+// An inclusive ISO day range ("Jul 1, 2026 – Jul 31, 2026"); a single day renders once. The
+// periods' one formatter (v3.5.0) — impact-log entries, and any future from/to column.
+export function formatIsoDateRange(start: string, end: string, locale: string): string {
+  if (start === end) return formatIsoDate(start, locale);
+  return `${formatIsoDate(start, locale)} – ${formatIsoDate(end, locale)}`;
 }
 
 // ISO "YYYY-MM-DD" -> the localized short weekday ("Tue" / "wt."), rendered dimmed next to

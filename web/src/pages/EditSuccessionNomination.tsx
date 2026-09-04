@@ -5,6 +5,7 @@ import {
   Button,
   Center,
   Container,
+  Fieldset,
   Group,
   Loader,
   Modal,
@@ -13,7 +14,6 @@ import {
   Select,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm, type UseFormReturnType } from "@mantine/form";
@@ -34,10 +34,14 @@ import {
   type SuccessorReadiness,
 } from "../api/successionPlans";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
+import MetaStrip from "../components/MetaStrip";
 import OrderedTextListEditor from "../components/OrderedTextListEditor";
-import PersonaField from "../components/PersonaField";
+import PageHeader from "../components/PageHeader";
+import PersonaChip from "../components/PersonaChip";
 import { useAllUsers } from "../hooks/useAllUsers";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { useManagedReports } from "../hooks/useManagedReports";
 import {
   goalDefinitionValidation,
@@ -193,7 +197,7 @@ function DevelopmentGoalModal({
               {goalError}
             </Alert>
           )}
-          <Group justify="flex-end" gap="sm">
+          <FormFooter>
             <Button
               type="button"
               variant="default"
@@ -208,7 +212,7 @@ function DevelopmentGoalModal({
             <Button type="submit" loading={goalSubmitting}>
               {t("common.action.create")}
             </Button>
-          </Group>
+          </FormFooter>
         </Stack>
       </form>
     </Modal>
@@ -251,96 +255,105 @@ function NominationForm({
   return (
     <form onSubmit={form.onSubmit(onSubmit)} noValidate>
       <Stack>
-        <Group gap="xl" align="flex-start">
-          <PersonaField label={t("succession.person")} name={seatName} />
-          <Select
-            label={t("succession.candidate")}
-            placeholder={t("succession.pickCandidate")}
-            data={candidateOptions}
-            searchable
-            clearable
-            nothingFoundMessage={t("succession.noCandidates")}
-            {...form.getInputProps("candidateId")}
-            error={
-              usersError ? t("common.error.optionsFailed") : form.errors.candidateId
-            }
-          />
-        </Group>
-
-        <Group gap="xl" align="flex-start">
-          <Select
-            label={t("succession.readinessLabel")}
-            data={READINESS.map((value) => ({
-              value,
-              label: t(`succession.readiness.${value}`),
-            }))}
-            allowDeselect={false}
-            w={230}
-            {...form.getInputProps("readiness")}
-          />
-          <Select
-            label={t("succession.nominationTypeLabel")}
-            data={TYPES.map((value) => ({
-              value,
-              label: t(`succession.nominationType.${value}`),
-            }))}
-            allowDeselect={false}
-            w={200}
-            {...form.getInputProps("nominationType")}
-          />
-          <Select
-            label={t("succession.awarenessLabel")}
-            data={AWARENESS.map((value) => ({
-              value,
-              label: t(`succession.awareness.${value}`),
-            }))}
-            allowDeselect={false}
-            w={200}
-            {...form.getInputProps("awareness")}
-          />
-        </Group>
-
-        <OrderedTextListEditor
-          form={form}
-          field="competencyGaps"
-          label={t("succession.competencyGaps")}
-          onAdd={() => form.insertListItem("competencyGaps", emptyTextRowDraft())}
-          emptyLabel={t("succession.noCompetencyGaps")}
-          addLabel={t("succession.addCompetencyGap")}
-          rowAria={{
-            item: (position) => t("succession.competencyGapAria", { position }),
-            moveUp: (position) => t("succession.competencyGapMoveUp", { position }),
-            moveDown: (position) => t("succession.competencyGapMoveDown", { position }),
-            remove: (position) => t("succession.competencyGapRemove", { position }),
-          }}
-          flag={{ aria: (position) => t("succession.competencyGapFilledAria", { position }) }}
+        {/* The seat's context line (v3.5.0) — the person never changes on this screen. */}
+        <MetaStrip
+          items={[{ key: "person", label: t("succession.person"), value: <PersonaChip name={seatName} /> }]}
         />
 
-        <Stack gap={6}>
-          <MultiSelect
-            label={t("succession.developmentGoals")}
-            description={t("succession.developmentGoalsHint")}
-            placeholder={candidateId == null ? t("succession.pickCandidateFirst") : undefined}
-            data={goalOptions}
-            searchable
-            disabled={candidateId == null}
-            error={goalsError ? t("common.error.optionsFailed") : undefined}
-            {...form.getInputProps("goalIds")}
-          />
-          {canCreateGoal && (
-            <Group>
-              <Button
-                type="button"
-                variant="light"
-                size="xs"
-                leftSection={<IconPlus size={14} />}
-                onClick={onOpenGoalModal}
-              >
-                {t("succession.newGoal")}
-              </Button>
+        <Fieldset legend={t("succession.section.candidate")}>
+          <Stack>
+            <Select
+              label={t("succession.candidate")}
+              placeholder={t("succession.pickCandidate")}
+              data={candidateOptions}
+              searchable
+              clearable
+              nothingFoundMessage={t("succession.noCandidates")}
+              {...form.getInputProps("candidateId")}
+              error={
+                usersError ? t("common.error.optionsFailed") : form.errors.candidateId
+              }
+            />
+            <Group gap="xl" align="flex-start">
+              <Select
+                label={t("succession.readinessLabel")}
+                data={READINESS.map((value) => ({
+                  value,
+                  label: t(`succession.readiness.${value}`),
+                }))}
+                allowDeselect={false}
+                w={230}
+                {...form.getInputProps("readiness")}
+              />
+              <Select
+                label={t("succession.nominationTypeLabel")}
+                data={TYPES.map((value) => ({
+                  value,
+                  label: t(`succession.nominationType.${value}`),
+                }))}
+                allowDeselect={false}
+                w={200}
+                {...form.getInputProps("nominationType")}
+              />
+              <Select
+                label={t("succession.awarenessLabel")}
+                data={AWARENESS.map((value) => ({
+                  value,
+                  label: t(`succession.awareness.${value}`),
+                }))}
+                allowDeselect={false}
+                w={200}
+                {...form.getInputProps("awareness")}
+              />
             </Group>
-          )}
-        </Stack>
+          </Stack>
+        </Fieldset>
+
+        {/* The legend names the list — the editor renders without its own label. */}
+        <Fieldset legend={t("succession.section.competencyGaps")}>
+          <OrderedTextListEditor
+            form={form}
+            field="competencyGaps"
+            onAdd={() => form.insertListItem("competencyGaps", emptyTextRowDraft())}
+            emptyLabel={t("succession.noCompetencyGaps")}
+            addLabel={t("succession.addCompetencyGap")}
+            rowAria={{
+              item: (position) => t("succession.competencyGapAria", { position }),
+              moveUp: (position) => t("succession.competencyGapMoveUp", { position }),
+              moveDown: (position) => t("succession.competencyGapMoveDown", { position }),
+              remove: (position) => t("succession.competencyGapRemove", { position }),
+            }}
+            flag={{ aria: (position) => t("succession.competencyGapFilledAria", { position }) }}
+          />
+        </Fieldset>
+
+        <Fieldset legend={t("succession.section.goals")}>
+          <Stack gap={6}>
+            <MultiSelect
+              label={t("succession.developmentGoals")}
+              description={t("succession.developmentGoalsHint")}
+              placeholder={candidateId == null ? t("succession.pickCandidateFirst") : undefined}
+              data={goalOptions}
+              searchable
+              disabled={candidateId == null}
+              error={goalsError ? t("common.error.optionsFailed") : undefined}
+              {...form.getInputProps("goalIds")}
+            />
+            {canCreateGoal && (
+              <Group>
+                <Button
+                  type="button"
+                  variant="light"
+                  size="xs"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={onOpenGoalModal}
+                >
+                  {t("succession.newGoal")}
+                </Button>
+              </Group>
+            )}
+          </Stack>
+        </Fieldset>
 
         {error && (
           <Alert color="red" variant="light">
@@ -348,14 +361,14 @@ function NominationForm({
           </Alert>
         )}
 
-        <Group justify="flex-end" gap="sm">
+        <FormFooter sticky>
           <Button type="button" variant="default" onClick={onCancel} disabled={submitting}>
             {t("common.action.cancel")}
           </Button>
           <Button type="submit" loading={submitting} disabled={candidateId == null}>
             {editing ? t("common.action.save") : t("common.action.create")}
           </Button>
-        </Group>
+        </FormFooter>
       </Stack>
     </form>
   );
@@ -385,7 +398,6 @@ export default function EditSuccessionNomination() {
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [goalModalOpen, { open: openGoalModal, close: closeGoalModal }] = useDisclosure(false);
   const [primaryConfirmOpen, { open: openPrimaryConfirm, close: closePrimaryConfirm }] =
     useDisclosure(false);
@@ -401,6 +413,16 @@ export default function EditSuccessionNomination() {
   const form = useForm<SuccessionNominationFormValues>({
     initialValues: emptyNominationValues(),
     validate: nominationValidation(t),
+  });
+  // Payload-compared dirtiness (form.isDirty() misses list ops once a field was reverted —
+  // checkup-29): the same body the save sends, against the seeded initial values.
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () =>
+      JSON.stringify(toNominationBody(form.values)) !==
+      JSON.stringify(toNominationBody(form.getInitialValues())),
+    to: backTo,
+    title: t("succession.discardChangesTitle"),
+    message: t("succession.discardChangesMessage"),
   });
 
   const existing = editing
@@ -505,24 +527,20 @@ export default function EditSuccessionNomination() {
     candidateOptions.find((option) => option.value === pendingValues?.candidateId)?.label ?? "";
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Stack gap={4}>
-            <Title order={2}>
-              {editing ? t("succession.editNominationTitle") : t("succession.addNominationTitle")}
-            </Title>
-            <Text c="dimmed" size="sm">
-              {t("succession.nominationHint")}
-            </Text>
-          </Stack>
-
+    <>
+      <PageHeader
+        title={editing ? t("succession.editNominationTitle") : t("succession.addNominationTitle")}
+        description={t("succession.nominationHint")}
+        mb="lg"
+      />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
               <Loader />
             </Center>
           ) : isError || closed || missingNomination ? (
-            <>
+            <Stack>
               <Alert color="red" variant="light">
                 {isError
                   ? loadErrorText
@@ -530,12 +548,12 @@ export default function EditSuccessionNomination() {
                     ? t("succession.closedNote")
                     : t("succession.error.nominationNotFound")}
               </Alert>
-              <Group justify="flex-end" gap="sm">
+              <FormFooter>
                 <Button type="button" variant="default" onClick={() => navigate(backTo)}>
                   {t("common.action.close")}
                 </Button>
-              </Group>
-            </>
+              </FormFooter>
+            </Stack>
           ) : plan ? (
             <NominationForm
               form={form}
@@ -550,12 +568,12 @@ export default function EditSuccessionNomination() {
               editing={editing}
               error={error}
               onSubmit={handleSubmit}
-              onCancel={openCancel}
+              onCancel={requestCancel}
               onOpenGoalModal={openGoalModal}
             />
           ) : null}
-        </Stack>
-      </Paper>
+        </Paper>
+      </Container>
 
       <DevelopmentGoalModal
         opened={goalModalOpen}
@@ -582,16 +600,7 @@ export default function EditSuccessionNomination() {
         }}
       />
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("succession.discardChangesTitle")}
-        message={t("succession.discardChangesMessage")}
-        cancelLabel={t("common.action.cancel")}
-        confirmLabel={t("common.action.discard")}
-        confirmColor="red"
-        onConfirm={() => navigate(backTo)}
-      />
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

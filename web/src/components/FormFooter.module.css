@@ -1,0 +1,11 @@
+/* The long editors' action row (v3.5.0): sticky to the viewport bottom over the surface so
+   Save/Cancel stay reachable while the document scrolls. */
+.sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-inline: calc(-1 * var(--mantine-spacing-xl));
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-xl);
+  background-color: var(--mantine-color-body);
+  border-top: 1px solid var(--mantine-color-default-border);
+}

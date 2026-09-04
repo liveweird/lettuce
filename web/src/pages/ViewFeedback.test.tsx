@@ -67,11 +67,14 @@ describe("ViewFeedback page", () => {
     mockFetch.mockResolvedValue(jsonResponse(200, FEEDBACK));
     renderViewFeedback();
 
-    // The compact header: the people line renders each party (chip or "You") plus badges.
+    // The identity strip (v3.5.0): each party renders as a chip or "You" under its label;
+    // the status/visibility pills sit in the page header.
     expect(await screen.findByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
-    // No requester on this feedback → no "requested by" clause.
-    expect(screen.queryByText(/requested by/)).toBeNull();
+    expect(screen.getByText("Provider")).toBeInTheDocument();
+    expect(screen.getByText("Recipients")).toBeInTheDocument();
+    // No requester on this feedback → no Requester cell.
+    expect(screen.queryByText("Requester")).toBeNull();
     expect(screen.getByLabelText("Visibility")).toHaveTextContent("Public");
     expect(screen.getByLabelText("Status")).toHaveTextContent("Sent");
     // Content renders as read-only markdown, not an editable form control.
@@ -145,7 +148,8 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback();
 
-    expect(await screen.findByText("requested by")).toBeInTheDocument();
+    // The requester gets their own labelled cell in the identity strip.
+    expect(await screen.findByText("Requester")).toBeInTheDocument();
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.getByText("Rita Requester")).toBeInTheDocument();
@@ -226,8 +230,8 @@ describe("ViewFeedback page", () => {
     );
     renderViewFeedback();
 
-    // The requester clause renders, with the requester substituted by plain "You".
-    expect(await screen.findByText("requested by")).toBeInTheDocument();
+    // The Requester cell renders, with the requester substituted by plain "You".
+    expect(await screen.findByText("Requester")).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.queryByText("Rita Requester")).toBeNull();
   });

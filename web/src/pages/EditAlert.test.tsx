@@ -82,13 +82,15 @@ describe("EditAlert page", () => {
     // A set bound comes back with its checkbox checked and the local datetime value;
     // an unset one stays unchecked with a disabled, empty input.
     expect(screen.getByRole("checkbox", { name: /visible from/i })).toBeChecked();
-    const fromInput = screen.getByLabelText(/visible from/i, { selector: "input[type='datetime-local']" });
-    expect(fromInput).toBeEnabled();
-    expect(fromInput).toHaveValue(epochToDatetimeLocal(STARTS));
+    const fromDate = screen.getByRole("textbox", { name: "Visible from — date" });
+    expect(fromDate).toBeEnabled();
+    const [startsDate, startsTime] = epochToDatetimeLocal(STARTS).split("T");
+    expect(fromDate).toHaveValue(startsDate);
+    expect(screen.getByLabelText("Visible from — time")).toHaveValue(startsTime);
     expect(screen.getByRole("checkbox", { name: /visible until/i })).not.toBeChecked();
-    const untilInput = screen.getByLabelText(/visible until/i, { selector: "input[type='datetime-local']" });
-    expect(untilInput).toBeDisabled();
-    expect(untilInput).toHaveValue("");
+    const untilDate = screen.getByRole("textbox", { name: "Visible until — date" });
+    expect(untilDate).toBeDisabled();
+    expect(untilDate).toHaveValue("");
   });
 
   test("404 shows the not-found message with a back link", async () => {
@@ -167,7 +169,8 @@ describe("EditAlert page", () => {
     const user = userEvent.setup();
     renderEditAlert();
 
-    await screen.findByDisplayValue("Loaded Title");
+    // The guard fires only once the loaded document was changed.
+    await user.type(await screen.findByDisplayValue("Loaded Title"), " v2");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
 
     expect(await screen.findByText(/discard changes\?/i)).toBeInTheDocument();

@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Alert, Button, Container, Group, Paper, Stack, Title } from "@mantine/core";
+import { Alert, Button, Container, Paper, Stack } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAdmin } from "../api/session";
@@ -10,6 +9,9 @@ import { createAlert } from "../api/alerts";
 import { showSuccessToast } from "../utils/toast";
 import AlertFormFields from "../components/AlertFormFields";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import {
   alertFormValidation,
   emptyAlertFormValues,
@@ -24,11 +26,16 @@ export default function CreateAlert() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<AlertFormValues>({
     initialValues: emptyAlertFormValues(),
     validate: alertFormValidation(t),
+  });
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => form.isDirty(),
+    to: "/alerts",
+    title: t("alerts.discardTitle"),
+    message: t("alerts.discardMessage"),
   });
 
   if (!isAdmin()) return <Navigate to="/" replace />;
@@ -57,38 +64,32 @@ export default function CreateAlert() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <form onSubmit={form.onSubmit(onSubmit)} noValidate>
-          <Stack>
-            <Title order={2}>{t("alerts.create")}</Title>
-            <AlertFormFields form={form} />
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end" gap="sm">
-              <Button type="button" variant="default" onClick={openCancel}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button type="submit" loading={submitting}>
-                {t("common.action.create")}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
+    <>
+      <PageHeader title={t("alerts.create")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          <form onSubmit={form.onSubmit(onSubmit)} noValidate>
+            <Stack>
+              <AlertFormFields form={form} />
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <FormFooter>
+                <Button type="button" variant="default" onClick={requestCancel}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button type="submit" loading={submitting}>
+                  {t("common.action.create")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
 
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("alerts.discardTitle")}
-        message={t("alerts.discardMessage")}
-        cancelLabel={t("common.action.keepEditing")}
-        confirmLabel={t("common.action.discard")}
-        confirmTo="/alerts"
-      />
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

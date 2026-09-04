@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Container, Paper, Stack, Text, Title } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { Container, Paper, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -9,7 +8,9 @@ import { hasFeature } from "../api/session";
 import { createImpactEntry } from "../api/impactLog";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import ImpactEntryWizard from "../components/ImpactEntryWizard";
-import PersonaField from "../components/PersonaField";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import {
   emptyImpactEntryValues,
   impactEntryValidation,
@@ -24,7 +25,7 @@ import { safeBackParam } from "../utils/url";
 /**
  * The journal-entry create screen: always the caller's own journal (the server takes the owner
  * from the JWT — no on-behalf create exists), a period date pair, and the four markdown
- * sections. Cancel is guarded by the MarkdownEditor-form discard confirmation.
+ * sections. Cancel is guarded by the shared discard guard (a clean form leaves at once).
  */
 export default function CreateImpactEntry() {
   const { t } = useTranslation();
@@ -35,11 +36,16 @@ export default function CreateImpactEntry() {
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelOpen, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const form = useForm<ImpactEntryFormValues>({
     initialValues: emptyImpactEntryValues(),
     validate: impactEntryValidation(t),
+  });
+  const { requestCancel, modalProps } = useDiscardGuard({
+    isDirty: () => form.isDirty(),
+    to: backTo,
+    title: t("impactLog.discardCreateTitle"),
+    message: t("impactLog.discardCreateMessage"),
   });
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
@@ -60,41 +66,36 @@ export default function CreateImpactEntry() {
   }
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
-            idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
-        <Stack>
-          <Stack gap={4}>
-            <Title order={2}>{t("impactLog.createTitle")}</Title>
-            <Text c="dimmed" size="sm">
-              {t("impactLog.createHint")}
-            </Text>
+    <>
+      <PageHeader title={t("impactLog.createTitle")} description={t("impactLog.createHint")} mb="lg" />
+      <Container size="md" px={0}>
+        <Paper withBorder shadow="sm" p="xl" radius="md">
+          {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
+              idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
+          <Stack>
+            <MetaStrip
+              items={[
+                {
+                  key: "owner",
+                  label: t("impactLog.owner"),
+                  value: <Text size="sm">{t("common.state.you")}</Text>,
+                },
+              ]}
+            />
+
+            <ImpactEntryWizard
+              form={form}
+              submitLabel={t("common.action.create")}
+              submitting={submitting}
+              error={error}
+              onCancel={requestCancel}
+              onSubmit={() => form.onSubmit(save)()}
+            />
           </Stack>
+        </Paper>
+      </Container>
 
-          <PersonaField label={t("impactLog.owner")} you />
-
-          <ImpactEntryWizard
-            form={form}
-            submitLabel={t("common.action.create")}
-            submitting={submitting}
-            error={error}
-            onCancel={openCancel}
-            onSubmit={() => form.onSubmit(save)()}
-          />
-        </Stack>
-      </Paper>
-
-      <ConfirmActionModal
-        opened={cancelOpen}
-        onClose={closeCancel}
-        title={t("impactLog.discardCreateTitle")}
-        message={t("impactLog.discardCreateMessage")}
-        cancelLabel={t("common.action.cancel")}
-        confirmLabel={t("common.action.discard")}
-        confirmColor="red"
-        onConfirm={() => navigate(backTo)}
-      />
-    </Container>
+      <ConfirmActionModal {...modalProps} />
+    </>
   );
 }

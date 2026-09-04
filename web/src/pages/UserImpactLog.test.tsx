@@ -30,8 +30,18 @@ describe("UserImpactLog page", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockFetch = vi.fn(() =>
-      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 })),
+    mockFetch = vi.fn((url: string) =>
+      Promise.resolve(
+        // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+        String(url).startsWith("/api/v1/users?")
+          ? jsonResponse(200, {
+              items: [{ id: 8, name: "Olga Owner", email: "olga@example.com", roles: [] }],
+              page: 1,
+              pageSize: 100,
+              total: 1,
+            })
+          : jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }),
+      ),
     );
     vi.stubGlobal("fetch", mockFetch);
     localStorage.setItem(TOKEN_KEY, "fake-token");

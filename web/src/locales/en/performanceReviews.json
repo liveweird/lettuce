@@ -55,6 +55,12 @@
     "skills": "Skills",
     "overall": "Overall"
   },
+  "section": {
+    "attitude": "Attitude",
+    "delivery": "Delivery",
+    "skills": "Skills",
+    "overall": "Overall"
+  },
   "categoryShort": {
     "attitude": "Attitude",
     "delivery": "Delivery",

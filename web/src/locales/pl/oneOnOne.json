@@ -16,6 +16,9 @@
   "meetingDate": "Data spotkania",
   "points": "Omówione punkty",
   "decisions": "Podjęte decyzje",
+  "section": {
+    "notes": "Notatki"
+  },
   "actionItems": "Zadania",
   "openOfTotal": "{{open}} z {{total}} otwartych",
   "noMeetings": "Brak spotkań 1:1.",

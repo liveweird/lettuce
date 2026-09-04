@@ -1,8 +1,9 @@
 import type { ParseKeys } from "i18next";
-import { Alert, Button, Group, Modal, Skeleton, Stack, Table, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Group, Modal, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import DateField from "./DateField";
 import { IconCalendarEvent, IconHeartRateMonitor, IconPlayerPlay, IconPlayerStop, IconX } from "@tabler/icons-react";
 import {
   cancelPulseCycle,
@@ -241,18 +242,16 @@ export default function PulseCycleTable({
         centered
       >
         <Stack gap="sm">
-          <TextInput
-            type="date"
+          <DateField
             label={t("pulse.admin.openDate")}
             value={editOpen}
             disabled={editing?.status === "OPEN"}
-            onChange={(event) => setEditOpen(event.currentTarget.value)}
+            onChange={(iso) => setEditOpen(iso)}
           />
-          <TextInput
-            type="date"
+          <DateField
             label={t("pulse.admin.closeDate")}
             value={editClose}
-            onChange={(event) => setEditClose(event.currentTarget.value)}
+            onChange={(iso) => setEditClose(iso)}
           />
           {editError && (
             <Alert color="red" variant="light">

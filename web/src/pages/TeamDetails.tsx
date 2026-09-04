@@ -50,12 +50,15 @@ export default function TeamDetails() {
   const [searchParams] = useSearchParams();
   const fromParam = searchParams.get("from");
   const backTo = fromParam === "org" ? "/org" : fromParam === "myTeams" ? "/?tab=myTeams" : "/teams";
-  const backLabel =
-    fromParam === "org"
-      ? t("feedback.backToLabel", { label: t("feedback.origin.org") })
-      : fromParam === "myTeams"
-        ? t("feedback.backToLabel", { label: t("dashboard.tabs.myTeams") })
-        : t("teams.backToTeams");
+  const backLabel = t("feedback.backToLabel", {
+    label: t(
+      fromParam === "org"
+        ? "feedback.origin.org"
+        : fromParam === "myTeams"
+          ? "dashboard.tabs.myTeams"
+          : "teams.title",
+    ),
+  });
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
   const queryClient = useQueryClient();

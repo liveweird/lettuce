@@ -35,6 +35,8 @@ function renderCreate(route = "/one-on-ones/new") {
           <Routes>
             <Route path="/one-on-ones/new" element={<CreateOneOnOne />} />
             <Route path="/one-on-ones/:id/edit" element={<PathProbe />} />
+            {/* The Cancel targets (the guard navigates when the form is clean). */}
+            <Route path="*" element={<PathProbe />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -130,11 +132,6 @@ describe("CreateOneOnOne page", () => {
     expect(screen.queryByText("Impostor")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Team member" })).toBeNull();
     expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
-    // Cancel returns to the originating Dashboard tab.
-    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
-      "href",
-      "/?tab=subordinates",
-    );
 
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
@@ -166,14 +163,27 @@ describe("CreateOneOnOne page", () => {
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
   });
 
+  test("Cancel on an untouched form returns to the originating Dashboard tab without a confirm", async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes("/api/v1/teams/members")) {
+        return Promise.resolve(jsonResponse(200, REPORTS));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderCreate("/one-on-ones/new?subordinateId=8&back=%2F%3Ftab%3Dsubordinates");
+    await screen.findByText("Sam Subordinate");
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   test("an external back target is ignored — Cancel stays on the default list", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, REPORTS));
     renderCreate("/one-on-ones/new?back=%2F%2Fevil.example%2Fphish");
     await screen.findByRole("combobox", { name: "Team member" });
-    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
-      "href",
-      "/one-on-ones?tab=managed",
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones?tab=managed"));
   });
 
   test("the create button stays disabled until a team member is picked", async () => {

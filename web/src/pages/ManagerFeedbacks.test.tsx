@@ -81,6 +81,12 @@ describe("ManagerFeedbacks page", () => {
       // Return the right slice based on the view scoping in the query string.
       if (url.includes("view=received")) return Promise.resolve(jsonResponse(200, page([RECEIVED_ITEM])));
       if (url.includes("view=provided")) return Promise.resolve(jsonResponse(200, page([PROVIDED_ITEM])));
+      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      if (url.startsWith("/api/v1/users?")) {
+        return Promise.resolve(
+          jsonResponse(200, page([{ id: 10, name: "Alice", email: "alice@example.com", roles: [] }])),
+        );
+      }
       return Promise.resolve(jsonResponse(200, page([])));
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -204,9 +210,21 @@ describe("ManagerFeedbacks page", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  test("falls back to a placeholder name when none is provided", async () => {
-    renderScreen("/users/10/feedbacks");
-    expect(await screen.findByRole("tab", { name: "From user #10 to you" })).toBeInTheDocument();
+  test("falls back to a placeholder name when the id is not in the user pool", async () => {
+    renderScreen("/users/99/feedbacks");
+    expect(await screen.findByRole("tab", { name: "From user #99 to you" })).toBeInTheDocument();
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.startsWith("/api/v1/users?"))).toBe(true);
+    });
+    expect(screen.getByRole("tab", { name: "From user #99 to you" })).toBeInTheDocument();
+  });
+
+  test("the URL's name is only the pre-load hint — the pool's name for the id wins once loaded", async () => {
+    renderScreen("/users/10/feedbacks?name=Mallory");
+    expect(screen.getByRole("heading", { name: "Feedbacks with Mallory" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Feedbacks with Alice" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "From Alice to you" })).toBeInTheDocument();
   });
 
   test("the Back to My managers link points at the managers tab", async () => {

@@ -188,9 +188,11 @@ describe("CreateImpactEntry page", () => {
 
   test("moving the period start past the end drags the end along (the range nudge)", async () => {
     renderScreen();
-    fireEvent.change(await screen.findByLabelText(/period end/i), {
-      target: { value: "2026-07-10" },
-    });
+    const end = await screen.findByLabelText(/period end/i);
+    fireEvent.change(end, { target: { value: "2026-07-10" } });
+    // DateInput keeps its typed text while its calendar is open — leaving the field (as a
+    // user moving to the start field does) lets the nudge repaint it.
+    fireEvent.blur(end);
     fireEvent.change(screen.getByLabelText(/period start/i), { target: { value: "2026-08-01" } });
     expect(screen.getByLabelText(/period end/i)).toHaveValue("2026-08-01");
   });
@@ -210,11 +212,13 @@ describe("CreateImpactEntry page", () => {
     const user = userEvent.setup();
     renderScreen("/impact-log/new?back=%2Fimpact-log");
 
+    // The guard fires only once something was typed; the Discard confirm is a link (v3.5.0).
+    await user.type(await screen.findByLabelText(/^Title/), "Half-written");
     await screen.findByLabelText("What happened");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Discard entry?")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: /^discard$/i }));
+    await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));
 
     await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/impact-log"));
     expect(

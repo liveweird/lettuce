@@ -6,18 +6,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Center,
-  Container,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Text,
-  Title,
-} from "@mantine/core";
+import { Alert, Button, Center, Container, Loader, Paper, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -27,7 +16,10 @@ import { subjectDisplays } from "../utils/feedbackSubjects";
 import { deleteFeedback, getFeedback, pickUpFeedback, rejectFeedback, sendFeedback, updateFeedback, type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import FeedbackForm from "../components/FeedbackForm";
-import PersonaField from "../components/PersonaField";
+import FormFooter from "../components/FormFooter";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
+import PersonaChip from "../components/PersonaChip";
 import RequesterMessage from "../components/RequesterMessage";
 import { clampVisibility, visibilityValuesFor } from "../utils/feedbackVisibility";
 import { saveErrorMessage } from "../utils/saveError";
@@ -156,16 +148,16 @@ export default function EditFeedback() {
 
   if (isLoading || isError) {
     return (
-      <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
-          <Stack>
-            <Title order={2}>{t("feedback.editTitle")}</Title>
+      <>
+        <PageHeader title={t("feedback.editTitle")} mb="lg" />
+        <Container size="md" px={0}>
+          <Paper withBorder shadow="sm" p="xl" radius="md">
             {isLoading ? (
               <Center py="xl">
                 <Loader />
               </Center>
             ) : (
-              <>
+              <Stack>
                 <Alert color="red" variant="light">
                   {notFound
                     ? t("feedback.error.notFound")
@@ -173,16 +165,16 @@ export default function EditFeedback() {
                       ? t("feedback.error.loadFailedStatus", { status: fetchError.status })
                       : t("feedback.error.loadFailed")}
                 </Alert>
-                <Group justify="flex-end">
+                <FormFooter>
                   <Button component={RouterLink} to={backTo} variant="default">
                     {t("feedback.backToFeedback")}
                   </Button>
-                </Group>
-              </>
+                </FormFooter>
+              </Stack>
             )}
-          </Stack>
-        </Paper>
-      </Container>
+          </Paper>
+        </Container>
+      </>
     );
   }
 
@@ -202,58 +194,71 @@ export default function EditFeedback() {
     const decide = (status: FeedbackStatus) =>
       handleSave(status, { visibility: data!.visibility, content: data!.content ?? "" });
     return (
-      <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
-          <Stack>
-            <Title order={2}>{t("feedback.requestTitle")}</Title>
-            <Text>
-              {t("feedback.triageLine", {
-                requester: requesterDisplay,
-                subject: subjectDisplay,
-                context: selfSubject ? "self" : undefined,
-              })}
-            </Text>
-            <Group gap="xl">
-              <PersonaField
-                label={t("common.field.subject")}
-                name={subjectDisplay}
-                you={selfSubject}
+      <>
+        <PageHeader
+          title={t("feedback.requestTitle")}
+          description={t("feedback.triageLine", {
+            requester: requesterDisplay,
+            subject: subjectDisplay,
+            context: selfSubject ? "self" : undefined,
+          })}
+          mb="lg"
+        />
+        <Container size="md" px={0}>
+          <Paper withBorder shadow="sm" p="xl" radius="md">
+            <Stack>
+              <MetaStrip
+                items={[
+                  {
+                    key: "subject",
+                    label: t("common.field.subject"),
+                    value: selfSubject ? (
+                      <Text size="sm">{t("common.state.you")}</Text>
+                    ) : (
+                      <PersonaChip name={subjectDisplay} />
+                    ),
+                  },
+                  {
+                    key: "requester",
+                    label: t("common.field.requester"),
+                    value: <PersonaChip name={requesterDisplay} />,
+                  },
+                ]}
               />
-              <PersonaField label={t("common.field.requester")} name={requesterDisplay} />
-            </Group>
-            <RequesterMessage value={data!.requesterMessage} />
-            {error && (
-              <Alert color="red" variant="light">
-                {error}
-              </Alert>
-            )}
-            <Group justify="flex-end" gap="sm">
-              <Button
-                variant="default"
-                onClick={() => navigate(backTo, { replace: true })}
-                disabled={submitting !== null}
-              >
-                {t("common.action.close")}
-              </Button>
-              <Button
-                color="red"
-                variant="light"
-                onClick={openReject}
-                loading={submitting === "REJECTED"}
-                disabled={submitting !== null}
-              >
-                {t("feedback.action.reject")}
-              </Button>
-              <Button
-                onClick={() => decide("DRAFT")}
-                loading={submitting === "DRAFT"}
-                disabled={submitting !== null}
-              >
-                {t("feedback.action.accept")}
-              </Button>
-            </Group>
-          </Stack>
-        </Paper>
+              <RequesterMessage value={data!.requesterMessage} />
+              {error && (
+                <Alert color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+              <FormFooter>
+                <Button
+                  variant="default"
+                  onClick={() => navigate(backTo, { replace: true })}
+                  disabled={submitting !== null}
+                >
+                  {t("common.action.close")}
+                </Button>
+                <Button
+                  color="red"
+                  variant="light"
+                  onClick={openReject}
+                  loading={submitting === "REJECTED"}
+                  disabled={submitting !== null}
+                >
+                  {t("feedback.action.reject")}
+                </Button>
+                <Button
+                  onClick={() => decide("DRAFT")}
+                  loading={submitting === "DRAFT"}
+                  disabled={submitting !== null}
+                >
+                  {t("feedback.action.accept")}
+                </Button>
+              </FormFooter>
+            </Stack>
+          </Paper>
+        </Container>
 
         <ConfirmActionModal
           opened={rejectOpen}
@@ -267,7 +272,7 @@ export default function EditFeedback() {
             decide("REJECTED");
           }}
         />
-      </Container>
+      </>
     );
   }
 

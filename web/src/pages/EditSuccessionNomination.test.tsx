@@ -153,6 +153,24 @@ describe("EditSuccessionNomination page", () => {
     localStorage.clear();
   });
 
+  test("Cancel leaves an untouched editor at once and asks after a list-only change (v3.5.0)", async () => {
+    const user = userEvent.setup();
+    renderScreen("/succession/5/nominations/31/edit");
+
+    // A list op alone — Mantine's isDirty misses those; the payload compare must not.
+    await user.click(await screen.findByRole("button", { name: "Add gap" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Discard changes?");
+    await user.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // Removing the empty row again restores the saved payload: Cancel leaves straight away.
+    await user.click(screen.getByLabelText("Remove competency gap 2"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByTestId("probe")).toHaveTextContent("/succession/5/view");
+  });
+
   test("create: the candidate pool excludes the seat person, the deactivated, and the already-nominated", async () => {
     const user = userEvent.setup();
     renderScreen("/succession/5/nominations/new");

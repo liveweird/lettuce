@@ -15,6 +15,10 @@ const TOKEN_KEY = "lettuce.auth.token";
 type FetchMock = ReturnType<typeof vi.fn>;
 
 
+// The exact timestamp behind a relative phrase — the localized formatDateTime (v3.5.0).
+const stamp = (ms: number) =>
+  new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(ms));
+
 describe("ManagersTable", () => {
   let mockFetch: FetchMock;
 
@@ -225,7 +229,7 @@ describe("ManagersTable", () => {
       expect(screen.getByText("2 days ago")).toBeInTheDocument();
       // Exact values ride in the title attributes.
       expect(screen.getByText("last week")).toHaveAttribute("title", "Jul 1, 2026");
-      expect(screen.getByText("2 days ago")).toHaveAttribute("title", "2026-07-10 12:00");
+      expect(screen.getByText("2 days ago")).toHaveAttribute("title", stamp(new Date(2026, 6, 10, 12, 0).getTime()));
       expect(screen.getByText("Active goals")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
       expect(screen.queryByText("never")).toBeNull();
