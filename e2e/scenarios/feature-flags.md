@@ -48,5 +48,6 @@
 4. The admin clicks **Enable for all matching**.
    - *Expected*: the confirm states "This will enable Goals for 2 users."; after confirming,
      both switches are on again.
-5. The admin deletes the fresh team from the Teams list (confirming in the modal) and signs out —
+5. The admin deletes the fresh team from the Teams list (the row's **More actions** menu →
+   **Delete**, confirming in the modal) and signs out —
    the fresh users stay, like the first journey's.

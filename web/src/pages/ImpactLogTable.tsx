@@ -1,8 +1,8 @@
-import { Link as RouterLink } from "react-router-dom";
-import { Alert, Button, Group, Stack, Table, Text } from "@mantine/core";
+import { Alert, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconNotebook, IconPencil, IconTrash } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   deleteImpactEntry,
@@ -13,6 +13,7 @@ import {
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
@@ -44,6 +45,7 @@ export default function ImpactLogTable({
   backTo,
   withReportsScope,
   includeIndirect: includeIndirectProp,
+  emptyAction,
 }: {
   view: ImpactLogListView;
   /**
@@ -58,6 +60,8 @@ export default function ImpactLogTable({
   backTo?: string;
   /** Show the "Reports" direct/all filter and derive includeIndirect from it (managed only). */
   withReportsScope?: boolean;
+  /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
+  emptyAction?: ReactNode;
   /** Fixed chain scope (the pinned drill-down — mutually exclusive with withReportsScope). */
   includeIndirect?: boolean;
 }) {
@@ -241,43 +245,35 @@ export default function ImpactLogTable({
                   <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(e.lastModified)}>
                     {formatDate(e.lastModified, i18n.language)}
                   </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap" justify="flex-end">
-                      <Button
-                        component={RouterLink}
-                        to={impactEntryViewLink(e.id, backParam)}
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconEye size={14} />}
-                        aria-label={t("impactLog.viewAria", { title: identity(e) })}
-                      >
-                        {t("common.action.view")}
-                      </Button>
-                      {isOwner && (
-                        <>
-                          <Button
-                            component={RouterLink}
-                            to={impactEntryEditLink(e.id, backParam)}
-                            variant="subtle"
-                            size="xs"
-                            leftSection={<IconPencil size={14} />}
-                            aria-label={t("impactLog.editAria", { title: identity(e) })}
-                          >
-                            {t("common.action.edit")}
-                          </Button>
-                          <Button
-                            variant="subtle"
-                            size="xs"
-                            color="red"
-                            leftSection={<IconTrash size={14} />}
-                            aria-label={t("impactLog.deleteAria", { title: identity(e) })}
-                            onClick={() => deleteConfirm.requestDelete(e)}
-                          >
-                            {t("common.action.delete")}
-                          </Button>
-                        </>
-                      )}
-                    </Group>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    <RowActions
+                      name={identity(e)}
+                      primary={{
+                        icon: <IconEye size={16} />,
+                        label: t("common.action.view"),
+                        ariaLabel: t("impactLog.viewAria", { title: identity(e) }),
+                        to: impactEntryViewLink(e.id, backParam),
+                      }}
+                      items={
+                        isOwner
+                          ? [
+                              {
+                                icon: <IconPencil size={14} />,
+                                label: t("common.action.edit"),
+                                ariaLabel: t("impactLog.editAria", { title: identity(e) }),
+                                to: impactEntryEditLink(e.id, backParam),
+                              },
+                              {
+                                icon: <IconTrash size={14} />,
+                                label: t("common.action.delete"),
+                                ariaLabel: t("impactLog.deleteAria", { title: identity(e) }),
+                                color: "red",
+                                onClick: () => deleteConfirm.requestDelete(e),
+                              },
+                            ]
+                          : []
+                      }
+                    />
                   </Table.Td>
                 </Table.Tr>
               );
@@ -288,6 +284,7 @@ export default function ImpactLogTable({
                 <EmptyState
                   icon={<IconNotebook size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("impactLog.noEntries")}
+                  action={emptyAction}
                 />
               </Table.Td>
             </Table.Tr>

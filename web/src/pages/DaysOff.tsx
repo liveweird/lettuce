@@ -6,6 +6,7 @@ import {
   Center,
   Group,
   Loader,
+  SegmentedControl,
   Select,
   Stack,
   Tabs,
@@ -26,6 +27,10 @@ import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime
 import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
 import { loadErrorMessage } from "../utils/saveError";
+import EmptyCtaLink from "../components/EmptyCtaLink";
+
+const TEAM_VIEWS = ["requests", "budgets"] as const;
+type TeamView = (typeof TEAM_VIEWS)[number];
 import PageHeader from "../components/PageHeader";
 
 const TABS = ["calendar", "requests", "team"] as const;
@@ -112,6 +117,7 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
 export default function DaysOff() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [teamView, setTeamView] = useStoredState<TeamView>("daysOff.team.view", "requests", isOneOf(TEAM_VIEWS));
   const isManager = useIsManager();
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
@@ -179,18 +185,32 @@ export default function DaysOff() {
         <Tabs.Panel value="requests" pt="md">
           <Stack gap="md">
             <DaysOffBudgetCard year={new Date().getFullYear()} />
-            <DaysOffTable view="own" />
+            <DaysOffTable
+              view="own"
+              emptyAction={
+                <EmptyCtaLink to={daysOffCreateLink(daysOffListLink("requests"))}>{t("daysOff.emptyCta")}</EmptyCtaLink>
+              }
+            />
           </Stack>
         </Tabs.Panel>
 
         {isManager && (
           <Tabs.Panel value="team" pt="md">
-            <Stack gap="lg">
-              <Text size="sm" c="dimmed">
-                {t("daysOff.teamHint")}
-              </Text>
-              <DaysOffTable view="managed" />
-              <DaysOffBudgetsTable />
+            <Stack gap="md">
+              <Group justify="space-between" align="flex-start" gap="sm">
+                <Text size="sm" c="dimmed" maw={720}>
+                  {t("daysOff.teamHint")}
+                </Text>
+                {/* Requests | Budgets (v3.4.0): the budgets table stops living below a
+                    20-row request list without demoting the pending requests. */}
+                <SegmentedControl
+                  aria-label={t("daysOff.teamView.label")}
+                  value={teamView}
+                  onChange={(v) => setTeamView(v as TeamView)}
+                  data={TEAM_VIEWS.map((v) => ({ value: v, label: t(`daysOff.teamView.${v}`) }))}
+                />
+              </Group>
+              {teamView === "requests" ? <DaysOffTable view="managed" /> : <DaysOffBudgetsTable />}
             </Stack>
           </Tabs.Panel>
         )}

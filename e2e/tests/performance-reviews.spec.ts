@@ -58,15 +58,11 @@ test("a performance review travels period → draft → calibration → publishe
   // The new period lands in the timeline list.
   await expect(page.getByText(periodLabel, { exact: true })).toBeVisible();
 
-  // The CURRENT period (the row carrying the "Current" badge — v1.34.0) is the only one a
-  // review can be created for; read its range off the innermost group that holds BOTH the
-  // badge and the range text (the badge's own root div holds no <p> and must not match).
-  const currentRowGroup = page
-    .locator("div")
-    .filter({ has: page.getByText("Current", { exact: true }) })
-    .filter({ has: page.locator("p") })
-    .last();
-  const currentPeriodLabel = (await currentRowGroup.locator("p").first().innerText()).trim();
+  // The CURRENT period (the table row carrying the "Current" pill — v1.34.0, a table since
+  // v3.4.0) is the only one a review can be created for; read its range off the row's first
+  // cell (the Period column — the pill lives in the Status cell beside it).
+  const currentRow = page.locator("tr").filter({ has: page.getByText("Current", { exact: true }) });
+  const currentPeriodLabel = (await currentRow.getByRole("cell").first().innerText()).trim();
 
   // On a fresh volume the period just appended IS the very first one and defaults to starting
   // this month — i.e. it's the CURRENT period, and no future period exists yet for the

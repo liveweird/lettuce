@@ -20,8 +20,8 @@
    label from it rather than computing months. They append the period.
    - *Expected*: the new period lands in the timeline list. Because the dev timeline extends past
      today, this fresh period is **future** — no review can target it (v1.34.2), so the journey
-     instead reads the **current** period's label off the timeline row carrying the "Current"
-     badge. (On a brand-fresh volume the first appended period IS the current one; the admin then
+     instead reads the **current** period's label off the timeline's table row carrying the
+     "Current" pill (the Period cell beside it). (On a brand-fresh volume the first appended period IS the current one; the admin then
      appends one more, guaranteed-future period so the disabled-option check below has a subject.)
 2. The admin mints the run's throwaway subordinate ("E2E Reviewee", password from the one-time
    reveal) and a throwaway team managed by Manager AAA, adds the reviewee to it, and signs out.

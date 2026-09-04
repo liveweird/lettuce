@@ -3,6 +3,7 @@
   "newRequest": "New request",
   "newForReport": "New days off",
   "teamHint": "Your direct reports' days-off requests — accept or reject the pending ones — and their yearly budgets.",
+  "teamView": { "label": "Team view", "requests": "Requests", "budgets": "Budgets" },
   "tab": {
     "calendar": "Calendar",
     "requests": "My requests",
@@ -29,6 +30,7 @@
   },
   "halfMarker": "½",
   "noRequests": "No days-off requests here yet.",
+  "emptyCta": "Request your first days off",
   "rowsPerPage": "Requests per page",
   "loadListError": "Could not load the days-off requests",
   "action": {
@@ -43,6 +45,7 @@
   "rejectAria": "Reject the days-off request of {{name}} starting {{date}}",
   "cancelAria": "Cancel your days-off request starting {{date}}",
   "cancelForAria": "Cancel {{name}}'s days-off request starting {{date}}",
+  "moreActionsAria": "More actions for the days-off request of {{name}} starting {{date}}",
   "cancelReasonLabel": "Reason",
   "cancelReasonPlaceholder": "Why is this request being cancelled?",
   "cancelReasonRequired": "A cancellation reason is required",
@@ -138,7 +141,6 @@
     "default": "Default",
     "archived": "Archived",
     "resetsShort": "resets yearly",
-    "carriesOverShort": "carries over",
     "legacyDefault": "Paid days off",
     "add": "Add pool",
     "addAria": "Add a paid pool for {{name}}",
@@ -163,6 +165,9 @@
     "name": "Pool name",
     "carriesOver": "Unused days carry over to the next year",
     "carriesOverHint": "Unchecked: the pool resets every January. Changing it recomputes every affected budget.",
+    "column": {
+      "carryOver": "Carry-over"
+    },
     "addType": "Add pool kind",
     "editTitle": "Edit pool kind",
     "editAria": "Edit the {{name}} pool kind",
@@ -179,7 +184,7 @@
     "title": "Public holidays",
     "hint": "On these dates everyone is off and nothing is deducted from paid-days budgets. Costs of already-submitted requests never change.",
     "hintReadOnly": "On these dates everyone is off and nothing is deducted from paid-days budgets. The list is maintained by administrators.",
-    "empty": "No public holidays yet — add the first one below.",
+    "empty": "No public holidays yet — add the first one above.",
     "emptyReadOnly": "No public holidays have been configured yet.",
     "loadError": "Could not load the public holidays",
     "date": "Date",

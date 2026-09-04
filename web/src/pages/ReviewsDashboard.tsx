@@ -1,9 +1,7 @@
 import { lazy, Suspense } from "react";
-import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Badge,
-  Button,
   Group,
   SegmentedControl,
   Select,
@@ -27,6 +25,7 @@ import { getUserId } from "../api/session";
 import { listAllTeamMembers } from "../api/teams";
 import { listAllPerformanceReviews } from "../api/reviews";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
@@ -420,7 +419,7 @@ export default function ReviewsDashboard() {
                         : "—"}
                     </Text>
                   </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     {review ? (
                       <PerformanceReviewStatusBadge status={review.status} />
                     ) : (
@@ -430,37 +429,31 @@ export default function ReviewsDashboard() {
                     )}
                   </Table.Td>
                   <RatingCells ratings={ratings} />
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                     {review ? (
-                      <Button
-                        component={RouterLink}
-                        to={
-                          canEdit
+                      <RowActions
+                        primary={{
+                          icon: canEdit ? <IconPencil size={16} /> : <IconEye size={16} />,
+                          label: canEdit ? t("common.action.edit") : t("common.action.view"),
+                          ariaLabel: t(canEdit ? "performanceReview.editAria" : "performanceReview.viewAria", {
+                            name: person.name,
+                          }),
+                          to: canEdit
                             ? reviewEditLink(review.id, undefined, BACK_TO)
-                            : reviewViewLink(review.id, undefined, BACK_TO)
-                        }
-                        variant="subtle"
-                        size="xs"
-                        leftSection={canEdit ? <IconPencil size={14} /> : <IconEye size={14} />}
-                        aria-label={t(canEdit ? "performanceReview.editAria" : "performanceReview.viewAria", {
-                          name: person.name,
-                        })}
-                      >
-                        {canEdit ? t("common.action.edit") : t("common.action.view")}
-                      </Button>
+                            : reviewViewLink(review.id, undefined, BACK_TO),
+                        }}
+                      />
                     ) : reportsScope === "direct" ? (
                       // Creation needs a direct report; the indirect scope can't tell which
                       // rows qualify, so the action exists only while the scope guarantees it.
-                      <Button
-                        component={RouterLink}
-                        to={reviewCreateLink(person.userId, BACK_TO)}
-                        variant="light"
-                        size="xs"
-                        leftSection={<IconPlus size={14} />}
-                        aria-label={t("performanceReview.newReviewForAria", { name: person.name })}
-                      >
-                        {t("performanceReview.newReview")}
-                      </Button>
+                      <RowActions
+                        primary={{
+                          icon: <IconPlus size={16} />,
+                          label: t("performanceReview.newReview"),
+                          ariaLabel: t("performanceReview.newReviewForAria", { name: person.name }),
+                          to: reviewCreateLink(person.userId, BACK_TO),
+                        }}
+                      />
                     ) : null}
                   </Table.Td>
                 </Table.Tr>

@@ -79,7 +79,8 @@
    - *Expected*: a "Succession plan closed" toast; the closed note shows, the Complete-review
      and Add-nomination affordances are gone, and the bench (the gap text included) stays
      browsable on the Nominations tab.
-12. They close the read-only screen and delete the plan **from the list row**, confirming the
+12. They close the read-only screen and delete the plan **from the list row's More actions
+    menu**, confirming the
    dialog.
    - *Expected*: a "Succession plan deleted" toast on the Succession plans list — the Review
      screen itself no longer offers Delete.

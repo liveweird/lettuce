@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Anchor, Button, Stack, Table } from "@mantine/core";
+import { Alert, Anchor, Stack, Table } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { IconChartLine, IconUsers } from "@tabler/icons-react";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
@@ -113,16 +114,14 @@ export default function MyTeamsTable() {
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {hasFeature("TEAM_KPIS") && (
-                    <Button
-                      component={RouterLink}
-                      to={teamKpisLink(team.id)}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconChartLine size={14} />}
-                      aria-label={t("teams.kpisOfAria", { name: team.name })}
-                    >
-                      {t("teams.kpis")}
-                    </Button>
+                    <RowActions
+                      primary={{
+                        icon: <IconChartLine size={16} />,
+                        label: t("teams.kpis"),
+                        ariaLabel: t("teams.kpisOfAria", { name: team.name }),
+                        to: teamKpisLink(team.id),
+                      }}
+                    />
                   )}
                 </Table.Td>
               </Table.Tr>

@@ -21,13 +21,13 @@ export default function ManagersTable() {
     queryFn: () => listAllTeamMembers("managers"),
   });
 
-  // Capped at 2 per row (v1.34.0) — kept in step with TeamMembersTable's GRID_COLS so the
-  // dashboard grids stay coherent.
-  const gridCols = { base: 1, sm: 2 };
+  // Container-query columns (v3.4.0): up to three cards across, keyed on the grid's own width
+  // — kept in step with TeamMembersTable's GRID_COLS so the dashboard grids stay coherent.
+  const gridCols = { base: 1, "44em": 2, "84em": 3 };
 
   if (isLoading && !data) {
     return (
-      <SimpleGrid cols={gridCols} spacing="md">
+      <SimpleGrid type="container" cols={gridCols} spacing="md">
         {[0, 1, 2].map((i) => (
           <Skeleton key={i} height={150} radius="md" />
         ))}
@@ -46,7 +46,7 @@ export default function ManagersTable() {
       )}
 
       {managers.length > 0 ? (
-        <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} cols={gridCols} spacing="md">
+        <SimpleGrid component="ul" m={0} p={0} style={{ listStyle: "none" }} type="container" cols={gridCols} spacing="md">
           {managers.map((m) => (
             <PersonCard
               key={m.userId}
@@ -57,6 +57,7 @@ export default function ManagersTable() {
                 <PersonCardBody
                   person={m}
                   stats="manager"
+                  actionsVariant="icons"
                   actions={{
                     userId: m.userId,
                     name: m.name,

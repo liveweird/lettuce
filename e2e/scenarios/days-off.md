@@ -62,7 +62,8 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 6. On Days off → Team, the manager filters the table to status Requested (why: far-future
    rejected/cancelled leftovers from earlier runs outrank this run's rows in the date-sorted
    table on the shared database — the filter keeps the fresh pending rows on page 1), then
-   Accepts the first request and Rejects the second (confirming the Reject dialog).
+   Accepts the first request and Rejects the second from its row's **More actions** menu
+   (confirming the Reject dialog).
    - *Expected*: "Request accepted", then "Request rejected".
 7. The manager opens the Dashboard's subordinates tab and looks at AAA Two's card.
    - *Expected*: "Next vacation" with the accepted Monday's date, and "Days-off budget left".
@@ -96,7 +97,8 @@ comment). The suite thus self-heals on the next run no matter where a run died.
     - *Expected*: the cost preview reads "1 working day"; back on the team tab with the
       "Days off recorded and accepted" toast; the manager's own bell holds the durable receipt
       "You recorded days off on behalf of AAA Two".
-16. Still on the team tab, Manager AAA opens "Budget corrections of AAA Two" and adds a +2-day
+16. Still on the team tab, Manager AAA switches the team view to **Budgets**, opens "Budget
+    corrections of AAA Two" and adds a +2-day
     correction with the comment "E2E correction \<Monday\>".
     - *Expected*: "Correction added", and the correction is listed in the modal.
 17. AAA Two signs in, checks the bell, then opens their own Corrections modal from My requests.
@@ -116,6 +118,7 @@ comment). The suite thus self-heals on the next run no matter where a run died.
 **Cleanup** (in-test, through the UI): Manager AAA deletes the correction ("Correction
 deleted") and archives AAA Two's "E2E Pool" grant on the drill-down ("Pool archived" — the
 default pool has no archive control, and the strip disappears since the cancelled Friday left
-no counting history); the admin archives the pool kind on Config → Paid-leave pools ("Pool kind
-archived") and deletes the holiday ("Public holiday deleted") — nothing this run created
-persists on the seed accounts or the registries.
+no counting history); the admin archives the pool kind on Config → Paid-leave pools via the
+row's ⋯ "More actions" menu ("Pool kind archived") and deletes the holiday from its table row
+("Public holiday deleted") — nothing this run created persists on the seed accounts or the
+registries.

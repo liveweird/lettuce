@@ -32,6 +32,7 @@
     "saveAndSend": "Zapisz i wyślij"
   },
   "noFeedback": "Brak feedbacków",
+  "emptyCta": "Napisz swój pierwszy feedback",
   "unknown": "Nieznany",
   "rowsPerPage": "Wierszy na stronę",
   "loadListError": "Nie udało się wczytać feedbacków",

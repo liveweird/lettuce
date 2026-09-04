@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
-import { Alert, Badge, Button, Group, Select, Stack, Switch, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Group, Select, Stack, Switch, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconUsers } from "@tabler/icons-react";
@@ -9,7 +9,8 @@ import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
+import PageHeader from "../components/PageHeader";
 import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
@@ -61,10 +62,10 @@ export default function FeatureFlags() {
   );
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
   const [emailFilter, setEmailFilter] = useStoredState(`${SETTINGS_KEY}.filter.email`, "", isString);
+  // The name filter is the toolbar's quick search (v3.4.0), so it stays out of the count.
   const activeFilterCount =
     (stateFilter ? 1 : 0) +
     (teamFilter != null ? 1 : 0) +
-    (nameFilter.trim() ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
@@ -182,53 +183,97 @@ export default function FeatureFlags() {
 
   return (
     <Stack gap="md">
-      <Title order={2} data-tour="config-feature-flags">
-        {t("users.featureFlags.title")}
-      </Title>
+      <PageHeader
+        title={t("users.featureFlags.title")}
+        tourId="config-feature-flags"
+        actions={
+          <>
+            <Button
+              variant="light"
+              loading={bulk.preparing === true}
+              disabled={bulk.preparing !== null || total === 0}
+              onClick={() => {
+                // Clear the page-level error at the interaction, not inside fetchAll — the
+                // hook's data-fetch callback is not a place for view-state writes.
+                setError(null);
+                void bulk.prepare(true);
+              }}
+            >
+              {t("users.featureFlags.bulkEnable")}
+            </Button>
+            <Button
+              variant="light"
+              color="red"
+              loading={bulk.preparing === false}
+              disabled={bulk.preparing !== null || total === 0}
+              onClick={() => {
+                setError(null);
+                void bulk.prepare(false);
+              }}
+            >
+              {t("users.featureFlags.bulkDisable")}
+            </Button>
+        
+          </>
+        }
+      />
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
-        <Select
-          label={t("users.featureFlags.featureLabel")}
-          value={feature}
-          onChange={(v) => {
-            if (v != null) setFeature(v as Feature);
-          }}
-          allowDeselect={false}
-          data={FEATURES.map((f) => ({ value: f, label: t(`common.feature.${f}`) }))}
-        />
-        <Select
-          label={t("users.featureFlags.stateLabel")}
-          value={stateFilter}
-          onChange={setStateFilter}
-          clearable
-          placeholder={t("common.state.any")}
-          data={[
-            { value: "enabled", label: t("users.featureFlags.stateEnabled") },
-            { value: "disabled", label: t("users.featureFlags.stateDisabled") },
-          ]}
-        />
-        <Select
-          label={t("users.featureFlags.teamLabel")}
-          value={teamFilter == null ? null : String(teamFilter)}
-          onChange={(v) => setTeamFilter(v == null ? null : Number(v))}
-          clearable
-          searchable
-          placeholder={t("common.state.any")}
-          data={(teams.data ?? []).map((team) => ({ value: String(team.id), label: team.name }))}
-        />
-        <ClearableTextInput
-          label={t("common.field.name")}
-          value={nameFilter}
-          onChange={setNameFilter}
-          clearLabel={t("users.clearNameFilter")}
-        />
-        <ClearableTextInput
-          label={t("common.field.email")}
-          value={emailFilter}
-          onChange={setEmailFilter}
-          clearLabel={t("users.clearEmailFilter")}
-        />
-      </FilterPanel>
+      <ListToolbar
+        search={{
+          label: t("common.field.name"),
+          value: nameFilter,
+          onChange: setNameFilter,
+          clearLabel: t("users.clearNameFilter"),
+        }}
+        filters={{
+          activeCount: activeFilterCount,
+          storageKey: SETTINGS_KEY,
+          onClear: () => {
+            setStateFilter(null);
+            setTeamFilter(null);
+            setEmailFilter("");
+          },
+          children: (
+            <>
+              <Select
+                label={t("users.featureFlags.featureLabel")}
+                value={feature}
+                onChange={(v) => {
+                  if (v != null) setFeature(v as Feature);
+                }}
+                allowDeselect={false}
+                data={FEATURES.map((f) => ({ value: f, label: t(`common.feature.${f}`) }))}
+              />
+              <Select
+                label={t("users.featureFlags.stateLabel")}
+                value={stateFilter}
+                onChange={setStateFilter}
+                clearable
+                placeholder={t("common.state.any")}
+                data={[
+                  { value: "enabled", label: t("users.featureFlags.stateEnabled") },
+                  { value: "disabled", label: t("users.featureFlags.stateDisabled") },
+                ]}
+              />
+              <Select
+                label={t("users.featureFlags.teamLabel")}
+                value={teamFilter == null ? null : String(teamFilter)}
+                onChange={(v) => setTeamFilter(v == null ? null : Number(v))}
+                clearable
+                searchable
+                placeholder={t("common.state.any")}
+                data={(teams.data ?? []).map((team) => ({ value: String(team.id), label: team.name }))}
+              />
+              <ClearableTextInput
+                label={t("common.field.email")}
+                value={emailFilter}
+                onChange={setEmailFilter}
+                clearLabel={t("users.clearEmailFilter")}
+              />
+            </>
+          ),
+        }}
+      />
 
       {isError && (
         <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
@@ -263,33 +308,6 @@ export default function FeatureFlags() {
         </Alert>
       )}
 
-      <Group justify="flex-end" gap="sm">
-        <Button
-          variant="light"
-          loading={bulk.preparing === true}
-          disabled={bulk.preparing !== null || total === 0}
-          onClick={() => {
-            // Clear the page-level error at the interaction, not inside fetchAll — the
-            // hook's data-fetch callback is not a place for view-state writes.
-            setError(null);
-            void bulk.prepare(true);
-          }}
-        >
-          {t("users.featureFlags.bulkEnable")}
-        </Button>
-        <Button
-          variant="light"
-          color="red"
-          loading={bulk.preparing === false}
-          disabled={bulk.preparing !== null || total === 0}
-          onClick={() => {
-            setError(null);
-            void bulk.prepare(false);
-          }}
-        >
-          {t("users.featureFlags.bulkDisable")}
-        </Button>
-      </Group>
 
       <Table>
         <Table.Thead>

@@ -178,7 +178,8 @@ describe("PulseCycles (admin)", () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByText("Good work is recognized here.");
-    await user.click(screen.getByRole("button", { name: "Edit dates of cycle 6" }));
+    await user.click(screen.getByRole("button", { name: "More actions for cycle 6" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit dates of cycle 6" }));
     expect(await screen.findByDisplayValue("2026-09-01")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {

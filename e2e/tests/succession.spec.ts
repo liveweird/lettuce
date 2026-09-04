@@ -247,7 +247,8 @@ test("a manager plans a succession, nominates a successor with a linked developm
 
   await page.getByRole("link", { name: "Close", exact: true }).click();
   await expect(page).toHaveURL(/\/succession$/);
-  await page.getByRole("button", { name: "Delete the succession plan for AAA One" }).click();
+  await page.getByRole("button", { name: "More actions for AAA One" }).click();
+  await page.getByRole("menuitem", { name: "Delete the succession plan for AAA One" }).click();
   await Promise.all([
     page.waitForResponse(
       (r) =>

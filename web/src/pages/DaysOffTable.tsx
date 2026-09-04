@@ -1,9 +1,10 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
-import { ActionIcon, Alert, Button, Group, Popover, Select, Stack, Table, Text } from "@mantine/core";
+import { ActionIcon, Alert, Group, Popover, Select, Stack, Table, Text } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconBeach, IconCheck, IconInfoCircle, IconX } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId } from "../api/session";
@@ -13,6 +14,7 @@ import ConfirmActionModal from "../components/ConfirmActionModal";
 import DaysOffCancelModal from "../components/DaysOffCancelModal";
 import DaysOffStatusBadge from "../components/DaysOffStatusBadge";
 import EmptyState from "../components/EmptyState";
+import RowActions, { type RowActionItem } from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
@@ -49,6 +51,7 @@ export default function DaysOffTable({
   userId,
   settingsKey,
   includeIndirect,
+  emptyAction,
 }: {
   view: DaysOffListView;
   /** Pin to one user (required with view="user"; the drill-down filter on "managed"). */
@@ -58,6 +61,8 @@ export default function DaysOffTable({
   /** view="managed" only (v2.32.0): widen from direct reports to the whole subtree — the
    * drill-down's chain mode. Row actions stay honest via the server's canResolve/canCancel. */
   includeIndirect?: boolean;
+  /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
+  emptyAction?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -157,59 +162,51 @@ export default function DaysOffTable({
   }
 
   function rowActions(r: DaysOffListItem) {
-    // The server-computed capability flag (v2.31.0 — the team-KPI canManage precedent)
-    // replaces the old client-side owner/date inference: the caller owns the row or manages
-    // its owner transitively, and it is still REQUESTED/ACCEPTED. Date-independent.
-    const cancelButton = r.canCancel ? (
-      <Button
-        variant="subtle"
-        color="red"
-        size="xs"
-        leftSection={<IconX size={14} />}
-        loading={actingId === r.id}
-        disabled={actingId != null}
-        onClick={() => setPending({ kind: "cancel", id: r.id })}
-        aria-label={
-          view === "own"
-            ? t("daysOff.cancelAria", { date: r.startDate })
-            : t("daysOff.cancelForAria", { name: r.userName, date: r.startDate })
+    // The server-computed capability flags (v2.31.0/v2.32.0 — the team-KPI canManage
+    // precedent; chain-wide since v2.33.0) replace any client-side owner/date inference.
+    // Accept is the visible icon on a resolvable row (Reject + Cancel sit in the ⋯ menu,
+    // named per request since one person can have several); a cancel-only row shows Cancel.
+    const cancelItem: RowActionItem | null = r.canCancel
+      ? {
+          icon: <IconX size={14} />,
+          label: t("daysOff.action.cancel"),
+          ariaLabel:
+            view === "own"
+              ? t("daysOff.cancelAria", { date: r.startDate })
+              : t("daysOff.cancelForAria", { name: r.userName, date: r.startDate }),
+          color: "red",
+          loading: actingId === r.id,
+          disabled: actingId != null,
+          onClick: () => setPending({ kind: "cancel", id: r.id }),
         }
-      >
-        {t("daysOff.action.cancel")}
-      </Button>
-    ) : null;
-    // Accept/reject follow the server's canResolve (v2.32.0; chain-wide since v2.33.0 — a
-    // REQUESTED row of anyone in the caller's subtree), exactly matching the server's rights.
+      : null;
     if (r.canResolve) {
       return (
-        <Group gap={4} wrap="nowrap">
-          <Button
-            variant="subtle"
-            size="xs"
-            leftSection={<IconCheck size={14} />}
-            loading={actingId === r.id}
-            disabled={actingId != null}
-            onClick={() => void runAction(r.id, acceptDaysOff, "daysOff.toast.accepted")}
-            aria-label={t("daysOff.acceptAria", { name: r.userName, date: r.startDate })}
-          >
-            {t("daysOff.action.accept")}
-          </Button>
-          <Button
-            variant="subtle"
-            color="red"
-            size="xs"
-            leftSection={<IconX size={14} />}
-            disabled={actingId != null}
-            onClick={() => setPending({ kind: "reject", id: r.id })}
-            aria-label={t("daysOff.rejectAria", { name: r.userName, date: r.startDate })}
-          >
-            {t("daysOff.action.reject")}
-          </Button>
-          {cancelButton}
-        </Group>
+        <RowActions
+          primary={{
+            icon: <IconCheck size={16} />,
+            label: t("daysOff.action.accept"),
+            ariaLabel: t("daysOff.acceptAria", { name: r.userName, date: r.startDate }),
+            loading: actingId === r.id,
+            disabled: actingId != null,
+            onClick: () => void runAction(r.id, acceptDaysOff, "daysOff.toast.accepted"),
+          }}
+          menuLabel={t("daysOff.moreActionsAria", { name: r.userName, date: r.startDate })}
+          items={[
+            {
+              icon: <IconX size={14} />,
+              label: t("daysOff.action.reject"),
+              ariaLabel: t("daysOff.rejectAria", { name: r.userName, date: r.startDate }),
+              color: "red",
+              disabled: actingId != null,
+              onClick: () => setPending({ kind: "reject", id: r.id }),
+            },
+            ...(cancelItem ? [cancelItem] : []),
+          ]}
+        />
       );
     }
-    return cancelButton;
+    return cancelItem ? <RowActions primary={{ ...cancelItem, icon: <IconX size={16} /> }} /> : null;
   }
 
   const total = data?.total ?? 0;
@@ -384,7 +381,7 @@ export default function DaysOffTable({
                 <Table.Td style={{ whiteSpace: "nowrap" }} title={formatTimestamp(r.createdAt)}>
                   {formatDate(r.createdAt, i18n.language)}
                 </Table.Td>
-                <Table.Td>{rowActions(r)}</Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{rowActions(r)}</Table.Td>
               </Table.Tr>
             ))
           ) : !isError ? (
@@ -393,6 +390,7 @@ export default function DaysOffTable({
                 <EmptyState
                   icon={<IconBeach size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("daysOff.noRequests")}
+                  action={emptyAction}
                 />
               </Table.Td>
             </Table.Tr>

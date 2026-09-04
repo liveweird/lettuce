@@ -29,6 +29,7 @@
   "clearTeamFilter": "Wyczyść filtr zespołu",
   "rowsPerPage": "KPI na stronę",
   "noKpis": "Nie ma jeszcze żadnych KPI zespołów.",
+  "emptyCta": "Utwórz swój pierwszy KPI zespołu",
   "loadListError": "Nie udało się wczytać KPI zespołów",
   "viewAria": "Zobacz KPI zespołu {{title}}",
   "editAria": "Edytuj KPI zespołu {{title}}",

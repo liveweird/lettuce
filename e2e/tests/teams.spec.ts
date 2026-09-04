@@ -51,7 +51,8 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
   // Query by text, not cell name — the PersonaChip's avatar initials are part of the cell's
   // accessible name (see the testing note in CLAUDE.md), so an exact cell-name match misses.
   await expect(page.getByRole("table").getByText(userB.name, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: `Remove ${userB.name}` }).click();
+  await page.getByRole("button", { name: `More actions for ${userB.name}` }).click();
+  await page.getByRole("menuitem", { name: `Remove ${userB.name}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes(`/teams/${teamId}/members/`) && r.request().method() === "DELETE" && r.ok(),
@@ -78,8 +79,9 @@ test("admin creates a team, manages members, reassigns the manager, and deletes 
   await page.goto("/teams");
   await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(renamed);
-  // The filter is debounced; the Delete button auto-waits for the filtered row to render.
-  await page.getByRole("button", { name: `Delete ${renamed}` }).click();
+  // The filter is debounced; the row's ⋯ menu auto-waits for the filtered row to render.
+  await page.getByRole("button", { name: `More actions for ${renamed}` }).click();
+  await page.getByRole("menuitem", { name: `Delete ${renamed}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith(`/teams/${teamId}`) && r.request().method() === "DELETE" && r.ok(),

@@ -153,7 +153,8 @@ test("bulk toggle by team: filter to a fresh team, disable Goals for all members
   await page.goto("/teams");
   await openFilters(page);
   await page.getByLabel("Name", { exact: true }).fill(teamName);
-  await page.getByRole("button", { name: `Delete ${teamName}` }).click();
+  await page.getByRole("button", { name: `More actions for ${teamName}` }).click();
+  await page.getByRole("menuitem", { name: `Delete ${teamName}` }).click();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith(`/teams/${teamId}`) && r.request().method() === "DELETE" && r.ok(),

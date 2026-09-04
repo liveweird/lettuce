@@ -6,7 +6,6 @@ import {
   Alert,
   Button,
   Group,
-  Menu,
   Select,
   Stack,
   Table,
@@ -15,7 +14,6 @@ import {
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  IconChevronDown,
   IconKey,
   IconPencil,
   IconPlus,
@@ -23,7 +21,6 @@ import {
   IconUpload,
   IconUserCheck,
   IconToggleLeft,
-  IconUserCog,
   IconUserOff,
   IconUsersGroup,
   IconAlertCircle
@@ -32,10 +29,11 @@ import PersonaChip from "../components/PersonaChip";
 import StatusPill from "../components/StatusPill";
 import { getUserId, hasFeature, isAdmin, USER_ROLES, type UserRole } from "../api/session";
 import { logout } from "../api/auth";
-import { deactivateUser, deleteUser, listUsers, reactivateUser } from "../api/users";
+import { deactivateUser, deleteUser, listUsers, reactivateUser, type UserPage } from "../api/users";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
-import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
+import RowActions, { type RowActionItem } from "../components/RowActions";
+import { feedbackRowMenu } from "../components/feedbackActionsMenu";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { flagSignedOut, notifyAuthChange } from "../auth";
@@ -204,7 +202,60 @@ export default function Users() {
   }
 
   const total = data?.total ?? 0;
-  const columnCount = 7;
+  // The admin account actions (v1.52.0 "Modify ▾", the ⋯ menu since v3.4.0).
+  const adminRowItems = (u: UserPage["items"][number]): RowActionItem[] => [
+    {
+      icon: <IconPencil size={14} />,
+      label: t("users.editDetails"),
+      ariaLabel: t("users.editAria", { name: u.name }),
+      to: `/users/${u.id}/edit`,
+    },
+    {
+      icon: <IconKey size={14} />,
+      label: t("users.changePassword"),
+      ariaLabel: t("users.changePasswordFor", { name: u.name }),
+      to: `/users/${u.id}/change-password`,
+    },
+    {
+      icon: <IconToggleLeft size={14} />,
+      label: t("users.features"),
+      ariaLabel: t("users.featuresFor", { name: u.name }),
+      to: `/users/${u.id}/features`,
+    },
+    ...(u.id === currentUserId
+      ? []
+      : u.deactivated
+        ? [
+            {
+              icon: <IconUserCheck size={14} />,
+              label: t("users.reactivate"),
+              ariaLabel: t("users.reactivateAria", { name: u.name }),
+              onClick: () => runAccountTransition(() => reactivateUser(u.id), "users.toast.reactivated"),
+              disabled: transitionPending,
+              dividerBefore: true,
+            } satisfies RowActionItem,
+          ]
+        : [
+            {
+              icon: <IconUserOff size={14} />,
+              label: t("users.deactivate"),
+              ariaLabel: t("users.deactivateAria", { name: u.name }),
+              onClick: () => setDeactivateTarget({ id: u.id, name: u.name, email: u.email }),
+              color: "red",
+              dividerBefore: true,
+            } satisfies RowActionItem,
+          ]),
+    {
+      icon: <IconTrash size={14} />,
+      label: t("common.action.delete"),
+      ariaLabel: t("users.deleteAria", { name: u.name }),
+      onClick: () => deleteConfirm.requestDelete({ id: u.id, name: u.name, email: u.email }),
+      color: "red",
+      dividerBefore: u.id === currentUserId,
+    },
+  ];
+
+  const columnCount = 5;
 
   return (
     <Stack gap="md">
@@ -334,9 +385,7 @@ export default function Users() {
             </Table.Th>
             {/* A roles set has no order — plain header, deliberately not a SortHeader. */}
             <Table.Th>{t("common.field.roles")}</Table.Th>
-            <Table.Th aria-label={t("users.teams")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("users.feedbackActions")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("users.modifyActions")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -345,7 +394,7 @@ export default function Users() {
           ) : data && data.items.length > 0 ? (
             data.items.map((u) => (
               <Table.Tr key={u.id}>
-                <Table.Td style={{ maxWidth: 240 }}>
+                <Table.Td style={{ maxWidth: 280 }}>
                   <Group gap={6} wrap="nowrap">
                     {/* The name links to the relationship-aware read-only card view — everyone,
                         except one's own row (the card flavors describe the viewer's relationship
@@ -363,8 +412,9 @@ export default function Users() {
                     )}
                   </Group>
                 </Table.Td>
-                <Table.Td style={{ maxWidth: 280 }}>
-                  <Text size="sm" truncate>
+                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
+                  <Text size="sm" truncate title={u.email}>
                     {u.email}
                   </Text>
                 </Table.Td>
@@ -408,113 +458,36 @@ export default function Users() {
                     </Text>
                   )}
                 </Table.Td>
-                {/* Everyone gets Teams — read-only for non-admins. The name param feeds the
-                    heading there without a getUser call (which is self-or-admin only). */}
+                {/* One row-action cell (v3.4.0): Teams as the visible icon (read-only for
+                    non-admins — the name param feeds the heading there without a getUser call,
+                    which is self-or-admin only), the Feedback menu (never on one's own row),
+                    and the admin account actions behind the ⋯ that keeps the "Modify actions
+                    for X" name (v1.52.0). Item aria-labels are the pre-grouping button ones.
+                    Deactivate/Reactivate stays off one's own row. */}
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`}
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconUsersGroup size={14} />}
-                    aria-label={t("users.teamsFor", { name: u.name })}
-                  >
-                    {t("users.teams")}
-                  </Button>
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {u.id !== currentUserId && hasFeature("FEEDBACKS") && (
-                    <FeedbackActionsMenu
-                      provideTo={feedbackProvideLink(u.id)}
-                      askTo={feedbackAskLink(u.id, "/users")}
-                      listTo={userFeedbacksLink(u.id, u.name, "users")}
-                      name={u.name}
-                    />
-                  )}
-                </Table.Td>
-                {/* The admin account actions grouped behind one "Modify ▾" menu (v1.52.0, the
-                    FeedbackActionsMenu idiom) — item aria-labels are the pre-grouping button
-                    ones, only the role changed. Deactivate/Reactivate stays off one's own row. */}
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {admin && (
-                    <Menu position="bottom-end" withinPortal>
-                      <Menu.Target>
-                        <Button
-                          variant="subtle"
-                          size="xs"
-                          leftSection={<IconUserCog size={14} />}
-                          rightSection={<IconChevronDown size={14} />}
-                          aria-label={t("users.modifyActionsFor", { name: u.name })}
-                        >
-                          {t("users.modifyActions")}
-                        </Button>
-                      </Menu.Target>
-                      <Menu.Dropdown>
-                        <Menu.Item
-                          component={RouterLink}
-                          to={`/users/${u.id}/edit`}
-                          leftSection={<IconPencil size={14} />}
-                          aria-label={t("users.editAria", { name: u.name })}
-                        >
-                          {t("users.editDetails")}
-                        </Menu.Item>
-                        <Menu.Item
-                          component={RouterLink}
-                          to={`/users/${u.id}/change-password`}
-                          leftSection={<IconKey size={14} />}
-                          aria-label={t("users.changePasswordFor", { name: u.name })}
-                        >
-                          {t("users.changePassword")}
-                        </Menu.Item>
-                        <Menu.Item
-                          component={RouterLink}
-                          to={`/users/${u.id}/features`}
-                          leftSection={<IconToggleLeft size={14} />}
-                          aria-label={t("users.featuresFor", { name: u.name })}
-                        >
-                          {t("users.features")}
-                        </Menu.Item>
-                        <Menu.Divider />
-                        {u.id !== currentUserId &&
-                          (u.deactivated ? (
-                            <Menu.Item
-                              leftSection={<IconUserCheck size={14} />}
-                              onClick={() =>
-                                runAccountTransition(
-                                  () => reactivateUser(u.id),
-                                  "users.toast.reactivated",
-                                )
-                              }
-                              disabled={transitionPending}
-                              aria-label={t("users.reactivateAria", { name: u.name })}
-                            >
-                              {t("users.reactivate")}
-                            </Menu.Item>
-                          ) : (
-                            <Menu.Item
-                              color="red"
-                              leftSection={<IconUserOff size={14} />}
-                              onClick={() =>
-                                setDeactivateTarget({ id: u.id, name: u.name, email: u.email })
-                              }
-                              aria-label={t("users.deactivateAria", { name: u.name })}
-                            >
-                              {t("users.deactivate")}
-                            </Menu.Item>
-                          ))}
-                        <Menu.Item
-                          color="red"
-                          leftSection={<IconTrash size={14} />}
-                          onClick={() =>
-                            deleteConfirm.requestDelete({ id: u.id, name: u.name, email: u.email })
-                          }
-                          aria-label={t("users.deleteAria", { name: u.name })}
-                        >
-                          {t("common.action.delete")}
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
-                  )}
+                  <RowActions
+                    name={u.name}
+                    primary={{
+                      icon: <IconUsersGroup size={16} />,
+                      label: t("users.teams"),
+                      ariaLabel: t("users.teamsFor", { name: u.name }),
+                      to: `/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`,
+                    }}
+                    menus={
+                      u.id !== currentUserId && hasFeature("FEEDBACKS")
+                        ? [
+                            feedbackRowMenu(t, {
+                              provideTo: feedbackProvideLink(u.id),
+                              askTo: feedbackAskLink(u.id, "/users"),
+                              listTo: userFeedbacksLink(u.id, u.name, "users"),
+                              name: u.name,
+                            }),
+                          ]
+                        : []
+                    }
+                    menuLabel={t("users.modifyActionsFor", { name: u.name })}
+                    items={admin ? adminRowItems(u) : []}
+                  />
                 </Table.Td>
               </Table.Tr>
             ))

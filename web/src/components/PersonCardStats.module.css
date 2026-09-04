@@ -1,13 +1,42 @@
-/* The card body is ONE grid (v1.50.0): labels in the first track, values in the second, so
-   every value in the card starts at the same x — across sections, not just within one. The
-   label track is `max-content`, so it self-sizes to the widest label of the current language
-   (the Polish labels are noticeably longer than the English ones) instead of a hardcoded
-   width; section dividers and button rows span both tracks. */
+/* The card body (v3.4.0): sections are real blocks again, each with its OWN label/value
+   grid (this deliberately reverts the v1.50.0 one-grid-card-wide rule — the price of the
+   two-column body, where the columns can't share tracks anyway). From 30rem of card width
+   the sections split into two columns (Profile + Performance | Collaboration + Days off);
+   below that they stack. The actions live in one footer row pinned to the card bottom. */
 .body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--mantine-spacing-md);
+  row-gap: 0;
+}
+
+@container (min-width: 30rem) {
+  .columns.twoCol {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* One section: a captioned divider over its label/value rows. The label track is
+   `max-content`, so it self-sizes to the widest label of the current language (the Polish
+   labels are noticeably longer than the English ones) instead of a hardcoded width. */
+.rows {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   column-gap: var(--mantine-spacing-xs);
-  row-gap: 4px;
+  row-gap: 2px;
   align-items: center;
 }
 
@@ -20,19 +49,23 @@
   min-width: 0;
 }
 
-/* A section divider: full width, and the margin makes up the difference between the row gap
-   and the "sm" breathing room the sections had before — except above the first one, which
-   stays flush under the card header. */
 .divider {
-  grid-column: 1 / -1;
-  margin-top: calc(var(--mantine-spacing-sm) - 4px);
+  margin-top: calc(var(--mantine-spacing-sm) - 2px);
+  margin-bottom: 2px;
 }
 
-.body > .divider:first-child {
+.column > .section:first-child > .divider {
   margin-top: 0;
 }
 
-/* A section's action-button row: full width, keeping its own top margin from the component. */
+/* A section's action-button row (the `buttons` variant): full width of its rows grid. */
 .actions {
   grid-column: 1 / -1;
+}
+
+/* The icon footer (the `icons` variant): pinned to the card bottom under a hairline. */
+.footer {
+  margin-top: auto;
+  padding-top: var(--mantine-spacing-sm);
+  border-top: 1px solid var(--mantine-color-default-border);
 }

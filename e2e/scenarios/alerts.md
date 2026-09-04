@@ -29,6 +29,6 @@
 6. The admin renames the alert (a "-v2" suffix), switches its Active toggle off, saves, and
    visits the home page.
    - *Expected*: the banner no longer shows the deactivated alert.
-7. The admin deletes the alert from the management list (filtered by the new title), confirming
+7. The admin deletes the alert from the management list (filtered by the new title) via the row's **More actions** menu → **Delete**, confirming
    the deletion dialog.
    - *Expected*: the row is gone — "No alerts" under the filter.

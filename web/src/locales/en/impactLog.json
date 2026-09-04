@@ -8,6 +8,7 @@
   "managedHint": "The journals of the people who report to you — read-only. The Reports filter can widen the list to your whole management chain.",
   "newEntry": "New entry",
   "noEntries": "No journal entries.",
+  "emptyCta": "Add your first entry",
   "loadListError": "Failed to load the impact log",
   "rowsPerPage": "Entries per page",
   "owner": "Author",

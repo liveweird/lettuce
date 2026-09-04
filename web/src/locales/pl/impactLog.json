@@ -8,6 +8,7 @@
   "managedHint": "Dzienniki osób, które Ci podlegają — tylko do odczytu. Filtr Podwładni może poszerzyć listę o cały Twój łańcuch zarządzania.",
   "newEntry": "Nowy wpis",
   "noEntries": "Brak wpisów w dzienniku.",
+  "emptyCta": "Dodaj swój pierwszy wpis",
   "loadListError": "Nie udało się wczytać dziennika wpływu",
   "rowsPerPage": "Wpisów na stronę",
   "owner": "Autor/ka",

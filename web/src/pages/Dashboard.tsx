@@ -2,6 +2,7 @@ import { Stack, Tabs, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
 import DashboardHero from "../components/DashboardHero";
+import { isOneOf, useStoredState } from "../hooks/useStoredState";
 import ManagersTable from "./ManagersTable";
 import MyTeamsTable from "./MyTeamsTable";
 import TeamMembersTable from "./TeamMembersTable";
@@ -17,10 +18,14 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const activeTab: DashboardTab = isDashboardTab(requestedTab) ? requestedTab : "managers";
+  // The last-picked tab is remembered per device (v3.4.0); an explicit ?tab= always wins,
+  // and the default stays "managers" (a manager-aware async default would flash).
+  const [storedTab, setStoredTab] = useStoredState<DashboardTab>("dashboard.tab", "managers", isOneOf(TABS));
+  const activeTab: DashboardTab = isDashboardTab(requestedTab) ? requestedTab : storedTab;
 
   function selectTab(value: string | null) {
     if (!isDashboardTab(value)) return;
+    setStoredTab(value);
     setSearchParams((params) => {
       params.set("tab", value);
       return params;

@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
+import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
 
 const TABS = ["own", "managed"] as const;
@@ -83,7 +84,14 @@ export default function MyGoals() {
               <Text size="sm" c="dimmed">
                 {t("goal.managedGoalsHint")}
               </Text>
-              <GoalTable view="managed" withReportsScope backTo="/goals?tab=managed" />
+              <GoalTable
+                view="managed"
+                withReportsScope
+                backTo="/goals?tab=managed"
+                emptyAction={
+                  <EmptyCtaLink to={goalCreateLink(undefined, "/goals?tab=managed")}>{t("goal.emptyCta")}</EmptyCtaLink>
+                }
+              />
             </Stack>
           </Tabs.Panel>
         )}

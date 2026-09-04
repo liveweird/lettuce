@@ -19,13 +19,14 @@
      showing the "Team details" heading and the team's name.
 4. The admin adds user B via **Add a user** + **Add**.
    - *Expected*: B appears in the roster.
-5. The admin removes B via the roster row's **Remove** button and confirms in the modal.
+5. The admin removes B via the roster row's **More actions** menu → **Remove** and confirms in the modal.
    - *Expected*: B is gone from the roster.
 6. On the team's edit form the admin renames the team and reassigns the **Manager** to user B —
    the admin-only handoff path — then clicks **Save**.
 7. The admin reopens the edit form.
    - *Expected*: the new name and the new manager (B) persisted.
-8. On the Teams list the admin filters by the renamed team's name, clicks the row's **Delete**,
+8. On the Teams list the admin filters by the renamed team's name, picks **Delete** from the row's
+   **More actions** menu,
    and confirms in the modal.
 9. The admin loads the Teams list fresh and filters by the name again.
    - *Expected*: "No teams" — the team is gone.

@@ -435,12 +435,14 @@ describe("TeamMembersTable", () => {
     // section drops its stats and Reviews button but stays for the chain-wide Impact log
     // drill-down (v2.38.0 — the Days off shape, v2.32.0).
     expect(screen.getByText("Profile")).toBeInTheDocument();
-    expect(screen.getByText("Collaboration")).toBeInTheDocument();
-    expect(screen.getByText("Performance")).toBeInTheDocument();
+    // The actions live in the icon footer since v3.4.0, so a section without stats no
+    // longer renders just to host its buttons: no Collaboration/Performance/Days off
+    // captions at the all-reports scope, while the drill-downs themselves stay.
+    expect(screen.queryByText("Collaboration")).toBeNull();
+    expect(screen.queryByText("Performance")).toBeNull();
+    expect(screen.queryByText("Days off")).toBeNull();
     expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
     expect(screen.getByRole("link", { name: /impact log of/i })).toBeInTheDocument();
-    // "Days off" appears twice — the section divider and the drill-down button.
-    expect(screen.getAllByText("Days off").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Days off of Bob Brown")).toBeInTheDocument();
   });
 
@@ -715,7 +717,8 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("Profile")).toBeInTheDocument();
       expect(screen.getByText("Collaboration")).toBeInTheDocument();
       expect(screen.getByText("Performance")).toBeInTheDocument();
-      expect(screen.getAllByText("Days off")).toHaveLength(2);
+      // The section divider only — the drill-down is an icon in the footer (v3.4.0).
+      expect(screen.getAllByText("Days off")).toHaveLength(1);
       expect(screen.queryByText("never")).toBeNull();
     } finally {
       vi.useRealTimers();

@@ -3,7 +3,7 @@ import { Alert, Button, Group, Modal, Skeleton, Stack, Table, Text, TextInput, T
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { IconHeartRateMonitor } from "@tabler/icons-react";
+import { IconCalendarEvent, IconHeartRateMonitor, IconPlayerPlay, IconPlayerStop, IconX } from "@tabler/icons-react";
 import {
   cancelPulseCycle,
   closePulseCycle,
@@ -13,6 +13,7 @@ import {
 } from "../api/pulse";
 import ConfirmActionModal from "./ConfirmActionModal";
 import EmptyState from "./EmptyState";
+import RowActions from "./RowActions";
 import PulseCycleStatusBadge from "./PulseCycleStatusBadge";
 import { formatIsoDate, isValidIsoDate } from "../utils/datetime";
 import { pickLocalized } from "../utils/localized";
@@ -140,7 +141,7 @@ export default function PulseCycleTable({
                     <Text
                       size="sm"
                       truncate
-                      maw={220}
+                      maw={320}
                       title={cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : undefined}
                     >
                       {cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : "—"}
@@ -151,66 +152,62 @@ export default function PulseCycleTable({
                       ? `${cycle.responseCount ?? 0}/${cycle.participantCount}`
                       : "—"}
                   </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" justify="flex-end" wrap="nowrap">
-                      {cycle.status === "SCHEDULED" && (
-                        <Button
-                          size="compact-sm"
-                          aria-label={t("pulse.admin.openAria", { id: cycle.id })}
-                          onClick={() => setPendingAction({ action: "open", id: cycle.id })}
-                        >
-                          {t("pulse.admin.openNow")}
-                        </Button>
-                      )}
-                      {cycle.status === "OPEN" && (
-                        <Button
-                          size="compact-sm"
-                          aria-label={t("pulse.admin.closeAria", { id: cycle.id })}
-                          onClick={() => setPendingAction({ action: "close", id: cycle.id })}
-                        >
-                          {t("pulse.admin.closeNow")}
-                        </Button>
-                      )}
-                      {(cycle.status === "SCHEDULED" || cycle.status === "OPEN") && (
-                        <>
-                          <Button
-                            size="compact-sm"
-                            variant="default"
-                            aria-label={t("pulse.admin.editDatesAria", { id: cycle.id })}
-                            onClick={() => {
-                              setEditing(cycle);
-                              setEditOpen(cycle.plannedOpenDate);
-                              setEditClose(cycle.plannedCloseDate);
-                              setEditError(null);
-                            }}
-                          >
-                            {cycle.status === "OPEN"
-                              ? t("pulse.admin.extend")
-                              : t("pulse.admin.editDates")}
-                          </Button>
-                          <Button
-                            size="compact-sm"
-                            color="red"
-                            variant="subtle"
-                            aria-label={t("pulse.admin.cancelAria", { id: cycle.id })}
-                            onClick={() => setPendingAction({ action: "cancel", id: cycle.id })}
-                          >
-                            {t("pulse.admin.cancelCycle")}
-                          </Button>
-                        </>
-                      )}
-                      {cycle.status === "CLOSED" && (
-                        <Button
-                          size="compact-sm"
-                          color="red"
-                          variant="subtle"
-                          aria-label={t("pulse.admin.cancelAria", { id: cycle.id })}
-                          onClick={() => setPendingAction({ action: "cancel", id: cycle.id })}
-                        >
-                          {t("pulse.admin.cancelCycle")}
-                        </Button>
-                      )}
-                    </Group>
+                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    {/* The status's own transition is the visible icon (Open now / Close now;
+                        Cancel on a CLOSED cycle, its only action); Edit dates/Extend and Cancel
+                        sit in the per-cycle ⋯ menu while the cycle is still SCHEDULED/OPEN. */}
+                    <RowActions
+                      primary={
+                        cycle.status === "SCHEDULED"
+                          ? {
+                              icon: <IconPlayerPlay size={16} />,
+                              label: t("pulse.admin.openNow"),
+                              ariaLabel: t("pulse.admin.openAria", { id: cycle.id }),
+                              onClick: () => setPendingAction({ action: "open", id: cycle.id }),
+                            }
+                          : cycle.status === "OPEN"
+                            ? {
+                                icon: <IconPlayerStop size={16} />,
+                                label: t("pulse.admin.closeNow"),
+                                ariaLabel: t("pulse.admin.closeAria", { id: cycle.id }),
+                                onClick: () => setPendingAction({ action: "close", id: cycle.id }),
+                              }
+                            : cycle.status === "CLOSED"
+                              ? {
+                                  icon: <IconX size={16} />,
+                                  label: t("pulse.admin.cancelCycle"),
+                                  ariaLabel: t("pulse.admin.cancelAria", { id: cycle.id }),
+                                  color: "red",
+                                  onClick: () => setPendingAction({ action: "cancel", id: cycle.id }),
+                                }
+                              : undefined
+                      }
+                      menuLabel={t("pulse.admin.moreActionsAria", { id: cycle.id })}
+                      items={
+                        cycle.status === "SCHEDULED" || cycle.status === "OPEN"
+                          ? [
+                              {
+                                icon: <IconCalendarEvent size={14} />,
+                                label: cycle.status === "OPEN" ? t("pulse.admin.extend") : t("pulse.admin.editDates"),
+                                ariaLabel: t("pulse.admin.editDatesAria", { id: cycle.id }),
+                                onClick: () => {
+                                  setEditing(cycle);
+                                  setEditOpen(cycle.plannedOpenDate);
+                                  setEditClose(cycle.plannedCloseDate);
+                                  setEditError(null);
+                                },
+                              },
+                              {
+                                icon: <IconX size={14} />,
+                                label: t("pulse.admin.cancelCycle"),
+                                ariaLabel: t("pulse.admin.cancelAria", { id: cycle.id }),
+                                color: "red",
+                                onClick: () => setPendingAction({ action: "cancel", id: cycle.id }),
+                              },
+                            ]
+                          : []
+                      }
+                    />
                   </Table.Td>
                 </Table.Tr>
               ))}

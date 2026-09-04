@@ -101,6 +101,7 @@ describe("ImpactLogTable", () => {
   });
 
   test("own view renders periods, previews, own-row actions, and the default period sort", async () => {
+    const user = userEvent.setup();
     const mockFetch = renderTable({ view: "own" });
 
     expect(await screen.findByText("Shipped the reporting pipeline")).toBeInTheDocument();
@@ -111,11 +112,13 @@ describe("ImpactLogTable", () => {
     // No owner column on the own view — every row is the caller's.
     expect(screen.queryByText("Author")).toBeNull();
     // Own rows carry View + Edit + Delete.
+    // Own rows carry View + (behind the ⋯ menu, v3.4.0) Edit + Delete.
+    await user.click(screen.getByRole("button", { name: "More actions for Shipped the reporting pipeline" }));
     expect(
-      screen.getByRole("link", { name: "Edit entry Shipped the reporting pipeline" }),
+      await screen.findByRole("menuitem", { name: "Edit entry Shipped the reporting pipeline" }),
     ).toHaveAttribute("href", "/impact-log/5/edit");
     expect(
-      screen.getByRole("button", { name: "Delete entry Shipped the reporting pipeline" }),
+      screen.getByRole("menuitem", { name: "Delete entry Shipped the reporting pipeline" }),
     ).toBeInTheDocument();
     // Default sort: most recent period first.
     const listCall = mockFetch.mock.calls.find(([u]) => String(u).startsWith("/api/v1/impact-log?"));
@@ -128,7 +131,10 @@ describe("ImpactLogTable", () => {
     const mockFetch = renderTable({ view: "own" });
 
     await user.click(
-      await screen.findByRole("button", { name: "Delete entry Shipped the reporting pipeline" }),
+      await screen.findByRole("button", { name: "More actions for Shipped the reporting pipeline" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Delete entry Shipped the reporting pipeline" }),
     );
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/Delete "Shipped the reporting pipeline"/)).toBeInTheDocument();

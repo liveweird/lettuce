@@ -114,7 +114,7 @@ fill gate for the "Teams I manage" leg below.
 
 1. The admin schedules another cycle with the prefilled dates.
    - *Expected*: "Cycle scheduled".
-2. The admin cancels it via its "Cancel cycle" action.
+2. The admin cancels it via the "Cancel cycle" item of its row's "More actions" menu.
    - *Expected*: the confirmation is audit-honest — "Submitted answers are kept for audit";
      after confirming, "Cycle cancelled" and the cycle is listed as Cancelled, so the registry
      ends the run terminal.

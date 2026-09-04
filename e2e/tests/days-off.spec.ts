@@ -319,7 +319,10 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
     .click();
   await expect(page.getByText("Request accepted")).toBeVisible();
   await page
-    .getByLabel(`Reject the days-off request of AAA Two starting ${MONDAY2_ISO}`)
+    .getByLabel(`More actions for the days-off request of AAA Two starting ${MONDAY2_ISO}`)
+    .click();
+  await page
+    .getByRole("menuitem", { name: `Reject the days-off request of AAA Two starting ${MONDAY2_ISO}` })
     .click();
   await page.getByRole("dialog").getByRole("button", { name: "Reject", exact: true }).click();
   await expect(page.getByText("Request rejected")).toBeVisible();
@@ -456,6 +459,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
 
   // ── Manager: a +2 budget correction for AAA Two (v1.43.0). ──
   await page.goto("/days-off?tab=team");
+  await page.getByText("Budgets", { exact: true }).click();
   await page.getByLabel("Budget corrections of AAA Two").click();
   const correctionsModal = page.getByRole("dialog");
   await expect(correctionsModal.getByText("Add correction").first()).toBeVisible();
@@ -495,6 +499,8 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
   await page.goto("/days-off?tab=team");
+  // The team view is remembered per device — the Budgets pick above would still hold.
+  await page.getByText("Requests", { exact: true }).click();
   const cleanupFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await cleanupFilters.getAttribute("aria-expanded")) !== "true") await cleanupFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
@@ -529,7 +535,9 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
     notificationCard(receiptBell, "You cancelled AAA Two's days-off request"),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  // The rest of the cleanup: delete the correction, then the admin removes the holiday.
+  // The rest of the cleanup: delete the correction (the Budgets view again — the Requests
+  // pick above is remembered), then the admin removes the holiday.
+  await page.getByText("Budgets", { exact: true }).click();
   await page.getByLabel("Budget corrections of AAA Two").click();
   const cleanupModal = page.getByRole("dialog");
   await cleanupModal.getByRole("button", { name: /^Delete the correction/ }).first().click();
@@ -555,16 +563,15 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
 
   await login(page, ADMIN);
   await collapseAlertsBanner(page);
-  // The admin archives the run's pool kind (the registry's archive confirm).
+  // The admin archives the run's pool kind (the row's ⋯ menu → the registry's archive confirm).
   await page.goto("/days-off-pools");
-  await page.getByLabel(`Archive the ${POOL_NAME} pool kind`).click();
+  await page.getByRole("button", { name: `More actions for ${POOL_NAME}` }).click();
+  await page.getByRole("menuitem", { name: `Archive the ${POOL_NAME} pool kind` }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
   await expect(page.getByText("Pool kind archived")).toBeVisible();
   await expect(page.getByText(POOL_NAME)).toHaveCount(0);
   await page.goto("/public-holidays");
-  const holidayRow = page
-    .locator("div.mantine-Paper-root", { hasText: `E2E Holiday ${MONDAY_ISO}` })
-    .last();
+  const holidayRow = page.locator("tr", { hasText: `E2E Holiday ${MONDAY_ISO}` }).last();
   await holidayRow.getByRole("button", { name: /^Delete the holiday/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Public holiday deleted")).toBeVisible();

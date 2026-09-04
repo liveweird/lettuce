@@ -101,6 +101,10 @@ describe("DaysOff page", () => {
     await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
 
     await userEvent.click(screen.getByRole("tab", { name: "My team" }));
+    // Requests | Budgets (v3.4.0): the requests list shows first, budgets behind the segment.
+    expect(await screen.findByRole("radio", { name: "Budgets" })).toBeInTheDocument();
+    expect(screen.queryByText("Paid-days budgets")).toBeNull();
+    await userEvent.click(screen.getByRole("radio", { name: "Budgets" }));
     expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
   });
 

@@ -19,6 +19,7 @@ import {
 } from "@tabler/icons-react";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
 import SortHeader from "../components/SortHeader";
 import PersonaChip from "../components/PersonaChip";
@@ -89,7 +90,7 @@ export default function Teams() {
   const total = data?.total ?? 0;
   // The team name itself links to the team-details view (v2.5.4) — the action columns hold
   // only the admin-gated Edit/Delete, so non-admin rows carry no buttons at all.
-  const columnCount = 4;
+  const columnCount = 3;
 
   return (
     <Stack gap="md">
@@ -144,8 +145,7 @@ export default function Teams() {
               />
             </Table.Th>
             <Table.Th>{t("common.field.manager")}</Table.Th>
-            <Table.Th aria-label={t("common.action.edit")} style={{ width: 1 }} />
-            <Table.Th aria-label={t("common.action.delete")} style={{ width: 1 }} />
+            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -154,7 +154,8 @@ export default function Teams() {
           ) : data && data.items.length > 0 ? (
             data.items.map((team) => (
               <Table.Tr key={team.id}>
-                <Table.Td>
+                {/* The fluid column (v3.4.0): the name takes the table's slack. */}
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
                   {/* The team name links to the team-details view (name + manager + roster). */}
                   <Anchor
                     component={RouterLink}
@@ -166,7 +167,7 @@ export default function Teams() {
                     {team.name}
                   </Anchor>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={{ maxWidth: 280, whiteSpace: "nowrap" }}>
                   {team.managerDeleted ? (
                     <Text size="sm" c="dimmed">
                       {team.managerName}
@@ -189,36 +190,29 @@ export default function Teams() {
                 </Table.Td>
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   {admin && (
-                    <Button
-                      component={RouterLink}
-                      to={`/teams/${team.id}/edit`}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconPencil size={14} />}
-                      aria-label={t("teams.editAria", { name: team.name })}
-                    >
-                      {t("common.action.edit")}
-                    </Button>
-                  )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
-                  {admin && (
-                    <Button
-                      color="red"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() =>
-                        deleteConfirm.requestDelete({
-                          id: team.id,
-                          name: team.name,
-                          managerName: team.managerName
-                        })
-                      }
-                      aria-label={t("teams.deleteAria", { name: team.name })}
-                    >
-                      {t("common.action.delete")}
-                    </Button>
+                    <RowActions
+                      name={team.name}
+                      primary={{
+                        icon: <IconPencil size={16} />,
+                        label: t("common.action.edit"),
+                        ariaLabel: t("teams.editAria", { name: team.name }),
+                        to: `/teams/${team.id}/edit`,
+                      }}
+                      items={[
+                        {
+                          icon: <IconTrash size={14} />,
+                          label: t("common.action.delete"),
+                          ariaLabel: t("teams.deleteAria", { name: team.name }),
+                          color: "red",
+                          onClick: () =>
+                            deleteConfirm.requestDelete({
+                              id: team.id,
+                              name: team.name,
+                              managerName: team.managerName,
+                            }),
+                        },
+                      ]}
+                    />
                   )}
                 </Table.Td>
               </Table.Tr>

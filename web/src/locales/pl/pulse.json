@@ -178,7 +178,8 @@
     "openAria": "Otwórz cykl {{id}}",
     "closeAria": "Zamknij cykl {{id}}",
     "cancelAria": "Anuluj cykl {{id}}",
-    "editDatesAria": "Edytuj daty cyklu {{id}}"
+    "editDatesAria": "Edytuj daty cyklu {{id}}",
+    "moreActionsAria": "Więcej akcji: cykl {{id}}"
   },
   "stepCounter": "Pytanie {{current}} z {{total}}"
 }

@@ -131,7 +131,8 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   await login(page, AAA_TWO);
   await page.getByRole("link", { name: "Impact log" }).click();
   const ownRow = page.locator("tr", { hasText: title });
-  await ownRow.getByRole("button", { name: /^Delete entry/ }).click();
+  await ownRow.getByRole("button", { name: /^More actions for/ }).click();
+  await page.getByRole("menuitem", { name: /^Delete entry/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Journal entry deleted").first()).toBeVisible();
   await expect(page.locator("tr", { hasText: title })).toHaveCount(0);

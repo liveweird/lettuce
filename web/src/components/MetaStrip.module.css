@@ -1,0 +1,27 @@
+/* The metadata strip (v3.4.0): a definition list laid out as an auto-fit grid of
+   label-over-value cells — the record's identity fields in one quiet row. */
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, max-content));
+  column-gap: var(--mantine-spacing-xl);
+  row-gap: var(--mantine-spacing-sm);
+  margin: 0;
+}
+
+.item {
+  min-width: 0;
+}
+
+.item dt {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  margin-bottom: 2px;
+}
+
+.item dd {
+  margin: 0;
+  font-size: var(--mantine-font-size-sm);
+  min-height: 1.5rem;
+  display: flex;
+  align-items: center;
+}

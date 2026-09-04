@@ -110,6 +110,7 @@ describe("SuccessionPlanTable", () => {
   });
 
   test("rows offer Review for everyone and Delete for the owner only — Edit is gone (v2.44.0)", async () => {
+    const user = userEvent.setup();
     renderTable();
 
     // Every row gets Review (the screen renders read-only where the caller can't write)…
@@ -119,10 +120,12 @@ describe("SuccessionPlanTable", () => {
     expect(
       screen.getByLabelText("Review the succession plan for Cleo Candidate"),
     ).toBeInTheDocument();
-    // …the owner keeps Delete at any status, and the Edit action no longer exists.
-    expect(screen.getByLabelText("Delete the succession plan for Sam Seat")).toBeInTheDocument();
+    // …the owner keeps Delete at any status (behind each row's ⋯ menu since v3.4.0), and
+    // the Edit action no longer exists.
+    expect(screen.getAllByRole("button", { name: /^More actions for / })).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "More actions for Sam Seat" }));
     expect(
-      screen.getByLabelText("Delete the succession plan for Cleo Candidate"),
+      await screen.findByLabelText("Delete the succession plan for Sam Seat"),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/^Edit the succession plan/)).toBeNull();
   });
@@ -144,6 +147,7 @@ describe("SuccessionPlanTable", () => {
     const user = userEvent.setup();
     const mockFetch = renderTable();
 
+    await user.click(await screen.findByRole("button", { name: "More actions for Sam Seat" }));
     await user.click(await screen.findByLabelText("Delete the succession plan for Sam Seat"));
     expect(
       await screen.findByText(

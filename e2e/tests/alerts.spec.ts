@@ -99,7 +99,8 @@ test("admin creates an alert; users see, hide, and re-show the banner; deactivat
   await openFilters(page);
   await page.getByRole("textbox", { name: "Title" }).fill(`${title}-v2`);
   await expect(page.getByRole("table").getByText(`${title}-v2`, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: `Delete ${title}-v2` }).click();
+  await page.getByRole("button", { name: `More actions for ${title}-v2` }).click();
+  await page.getByRole("menuitem", { name: `Delete ${title}-v2` }).click();
   const dialog = page.getByRole("dialog");
   await Promise.all([
     page.waitForResponse(

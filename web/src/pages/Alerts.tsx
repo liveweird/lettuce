@@ -3,7 +3,6 @@ import {
   Alert,
   Badge,
   Button,
-  Group,
   Select,
   Stack,
   Table,
@@ -15,6 +14,7 @@ import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import FilterPanel from "../components/FilterPanel";
@@ -171,12 +171,13 @@ export default function Alerts() {
           ) : data && data.items.length > 0 ? (
             data.items.map((alert) => (
               <Table.Tr key={alert.id}>
-                <Table.Td>
-                  <Text size="sm" fw={500}>
+                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
+                  <Text size="sm" fw={500} truncate title={alert.title}>
                     {alert.title}
                   </Text>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   <Badge
                     variant="light"
                     color={alert.isActive ? "teal" : "gray"}
@@ -185,37 +186,31 @@ export default function Alerts() {
                     {alert.isActive ? t("common.state.yes") : t("common.state.no")}
                   </Badge>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
                   <Bound value={alert.startsAt} />
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
                   <Bound value={alert.endsAt} />
                 </Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    <Button
-                      component={RouterLink}
-                      to={`/alerts/${alert.id}/edit`}
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconPencil size={14} />}
-                      aria-label={t("alerts.editName", { name: alert.title })}
-                    >
-                      {t("common.action.edit")}
-                    </Button>
-                    <Button
-                      color="red"
-                      variant="subtle"
-                      size="xs"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() =>
-                        deleteConfirm.requestDelete({ id: alert.id, name: alert.title })
-                      }
-                      aria-label={t("alerts.deleteName", { name: alert.title })}
-                    >
-                      {t("common.action.delete")}
-                    </Button>
-                  </Group>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <RowActions
+                    name={alert.title}
+                    primary={{
+                      icon: <IconPencil size={16} />,
+                      label: t("common.action.edit"),
+                      ariaLabel: t("alerts.editName", { name: alert.title }),
+                      to: `/alerts/${alert.id}/edit`,
+                    }}
+                    items={[
+                      {
+                        icon: <IconTrash size={14} />,
+                        label: t("common.action.delete"),
+                        ariaLabel: t("alerts.deleteName", { name: alert.title }),
+                        color: "red",
+                        onClick: () => deleteConfirm.requestDelete({ id: alert.id, name: alert.title }),
+                      },
+                    ]}
+                  />
                 </Table.Td>
               </Table.Tr>
             ))

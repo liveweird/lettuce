@@ -35,6 +35,7 @@
   },
   "rowsPerPage": "Celów na stronę",
   "noGoals": "Nie ma jeszcze żadnych celów.",
+  "emptyCta": "Utwórz swój pierwszy cel",
   "loadListError": "Nie udało się wczytać celów",
   "viewAria": "Zobacz cel {{title}}",
   "editAria": "Edytuj cel {{title}}",

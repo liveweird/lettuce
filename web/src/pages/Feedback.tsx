@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { feedbackCreateLink } from "../utils/feedbackLinks";
 import FeedbackTable from "./FeedbackTable";
+import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
 
 const TABS = ["received", "provided", "team"] as const;
@@ -73,7 +74,12 @@ export default function Feedback() {
         {/* /feedback/new with NO subjectId renders the subject picker; the created (or
             drafted) feedback lands on the Provided tab. */}
         <Tabs.Panel value="provided" pt="md">
-          <FeedbackTable view="provided" />
+          <FeedbackTable
+            view="provided"
+            emptyAction={
+              <EmptyCtaLink to={feedbackCreateLink("/feedback?tab=provided")}>{t("feedback.emptyCta")}</EmptyCtaLink>
+            }
+          />
         </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="team" pt="md">

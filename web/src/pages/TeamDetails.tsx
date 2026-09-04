@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
-  Anchor,
   Button,
   Center,
   Group,
@@ -28,9 +27,11 @@ import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
-import FeedbackActionsMenu from "../components/FeedbackActionsMenu";
+import RowActions from "../components/RowActions";
+import { feedbackRowMenu } from "../components/feedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
-import ReadOnlyField from "../components/ReadOnlyField";
+import MetaStrip from "../components/MetaStrip";
+import PageHeader from "../components/PageHeader";
 import TeamMembersTable from "./TeamMembersTable";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
@@ -184,39 +185,36 @@ export default function TeamDetails() {
 
   return (
     <Stack gap="md">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={backTo} size="sm">
-          {backLabel}
-        </Anchor>
-        <Title order={2}>{t("teams.detailsTitle")}</Title>
-      </Stack>
+      <PageHeader back={{ to: backTo, label: backLabel }} title={t("teams.detailsTitle")} />
 
       {/* The team's identity fields — the name, and the manager as the standard clickable
           persona (the v2.5.2 name-link idiom; deleted and one's own persona stay plain). */}
       {team && (
-        <Group gap="xl">
-          <ReadOnlyField label={t("common.field.name")}>
-            <Text size="sm">{team.name}</Text>
-          </ReadOnlyField>
-          <ReadOnlyField label={t("common.field.manager")}>
-            {team.managerDeleted ? (
-              <Text size="sm" c="dimmed">
-                {team.managerName}
-                {t("teams.deletedSuffix")}
-              </Text>
-            ) : (
-              <PersonaChip
-                name={team.managerName ?? ""}
-                to={
-                  team.managerId !== currentUserId
-                    ? userDetailsLink(team.managerId, team.managerName, "members", id)
-                    : undefined
-                }
-                ariaLabel={t("users.detailsFor", { name: team.managerName })}
-              />
-            )}
-          </ReadOnlyField>
-        </Group>
+        <MetaStrip
+          items={[
+            { key: "name", label: t("common.field.name"), value: <Text size="sm">{team.name}</Text> },
+            {
+              key: "manager",
+              label: t("common.field.manager"),
+              value: team.managerDeleted ? (
+                <Text size="sm" c="dimmed">
+                  {team.managerName}
+                  {t("teams.deletedSuffix")}
+                </Text>
+              ) : (
+                <PersonaChip
+                  name={team.managerName ?? ""}
+                  to={
+                    team.managerId !== currentUserId
+                      ? userDetailsLink(team.managerId, team.managerName, "members", id)
+                      : undefined
+                  }
+                  ariaLabel={t("users.detailsFor", { name: team.managerName })}
+                />
+              ),
+            },
+          ]}
+        />
       )}
 
       {/* The team's manager sees their subordinates as the dashboard card grid (v2.5.5 —
@@ -304,34 +302,40 @@ export default function TeamDetails() {
                     ariaLabel={t("users.detailsFor", { name: m.name })}
                   />
                 </Table.Td>
-                <Table.Td style={{ maxWidth: 280 }}>
-                  <Text size="sm" truncate>
+                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
+                  <Text size="sm" truncate title={m.email}>
                     {m.email}
                   </Text>
                 </Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap" justify="flex-end">
-                    {m.id !== currentUserId && hasFeature("FEEDBACKS") && (
-                      <FeedbackActionsMenu
-                        provideTo={feedbackProvideLink(m.id)}
-                        askTo={feedbackAskLink(m.id, `/teams/${id}/details`)}
-                        listTo={userFeedbacksLink(m.id, m.name, "members", id)}
-                        name={m.name}
-                      />
-                    )}
-                    {canManage && (
-                      <Button
-                        color="red"
-                        variant="subtle"
-                        size="xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => removeConfirm.requestDelete({ id: m.id, name: m.name })}
-                        aria-label={t("teams.removeAria", { name: m.name })}
-                      >
-                        {t("teams.remove")}
-                      </Button>
-                    )}
-                  </Group>
+                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <RowActions
+                    name={m.name}
+                    menus={
+                      m.id !== currentUserId && hasFeature("FEEDBACKS")
+                        ? [
+                            feedbackRowMenu(t, {
+                              provideTo: feedbackProvideLink(m.id),
+                              askTo: feedbackAskLink(m.id, `/teams/${id}/details`),
+                              listTo: userFeedbacksLink(m.id, m.name, "members", id),
+                              name: m.name,
+                            }),
+                          ]
+                        : []
+                    }
+                    items={
+                      canManage
+                        ? [
+                            {
+                              icon: <IconTrash size={14} />,
+                              label: t("teams.remove"),
+                              ariaLabel: t("teams.removeAria", { name: m.name }),
+                              color: "red",
+                              onClick: () => removeConfirm.requestDelete({ id: m.id, name: m.name }),
+                            },
+                          ]
+                        : []
+                    }
+                  />
                 </Table.Td>
               </Table.Tr>
             ))
