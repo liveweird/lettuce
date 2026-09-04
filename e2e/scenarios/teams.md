@@ -25,7 +25,8 @@
    the admin-only handoff path — then clicks **Save**.
 7. The admin reopens the edit form.
    - *Expected*: the new name and the new manager (B) persisted.
-8. On the Teams list the admin filters by the renamed team's name, clicks the row's **Delete**,
+8. On the Teams list the admin filters by the renamed team's name, picks **Delete** from the row's
+   **More actions** menu,
    and confirms in the modal.
 9. The admin loads the Teams list fresh and filters by the name again.
    - *Expected*: "No teams" — the team is gone.

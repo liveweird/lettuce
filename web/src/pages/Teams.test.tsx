@@ -290,7 +290,9 @@ describe("Teams page", () => {
     const user = userEvent.setup();
     renderTeams();
 
-    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    // Delete lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Mobile" }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete mobile/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
     expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();
@@ -359,12 +361,15 @@ describe("Teams page", () => {
     expect(links[0]).toHaveAttribute("href", expect.stringContaining("/users/11/details"));
   });
 
-  test("admin sees a Delete button in each row", async () => {
+  test("admin sees a Delete item in each row's ⋯ menu", async () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    const user = userEvent.setup();
     renderTeams();
 
     await screen.findByText("Platform");
-    expect(screen.getAllByRole("button", { name: /^delete /i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^more actions for /i })).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "More actions for Platform" }));
+    expect(await screen.findByRole("menuitem", { name: "Delete Platform" })).toBeInTheDocument();
   });
 
   test("each team name is a link to the team-details view (v2.5.4 — no Members button)", async () => {
@@ -389,16 +394,16 @@ describe("Teams page", () => {
     expect(links[0]).toHaveAttribute("href", "/teams/1/details");
     // Non-admin rows carry no action buttons — the name link is the only affordance.
     expect(screen.queryByRole("link", { name: /^edit /i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^more actions for /i })).not.toBeInTheDocument();
   });
 
-  test("non-admin does not see Delete buttons", async () => {
+  test("non-admin does not see the ⋯ menus", async () => {
     localStorage.setItem(ROLE_KEY, "[]");
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     renderTeams();
 
     await screen.findByText("Platform");
-    expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^more actions for /i })).not.toBeInTheDocument();
   });
 
   test("Cancel in the confirmation modal closes it without calling DELETE", async () => {
@@ -406,7 +411,9 @@ describe("Teams page", () => {
     const user = userEvent.setup();
     renderTeams();
 
-    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    // Delete lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Mobile" }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete mobile/i }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));
@@ -439,7 +446,9 @@ describe("Teams page", () => {
     const user = userEvent.setup();
     renderTeams();
 
-    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    // Delete lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Mobile" }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete mobile/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
@@ -477,7 +486,9 @@ describe("Teams page", () => {
     const user = userEvent.setup();
     renderTeams();
 
-    await user.click(await screen.findByRole("button", { name: /delete mobile/i }));
+    // Delete lives in the row's ⋯ menu (v3.4.0) — the accessible name is unchanged.
+    await user.click(await screen.findByRole("button", { name: "More actions for Mobile" }));
+    await user.click(await screen.findByRole("menuitem", { name: /delete mobile/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^delete$/i }));
 
