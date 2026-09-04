@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useDisclosure } from "@mantine/hooks";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -16,9 +17,11 @@ export type DiscardGuardOptions = {
 /**
  * The ONE cancel guard for forms (v3.5.0): `requestCancel` navigates straight away while the
  * form is clean and opens a discard confirm once it is dirty; a `beforeunload` prompt
- * (`useBeforeUnloadGuard`) covers the browser's own reload/close while dirty. Render the
- * returned `modalProps` through `ConfirmActionModal`. (Sidebar navigation while dirty stays a documented gap — the
- * data-router `useBlocker` is its own release.)
+ * (`useBeforeUnloadGuard`) covers the browser's own reload/close while dirty; and, since
+ * v3.6.0, the returned `guardProps` rendered through `components/DiscardGuard` also block
+ * in-app navigation away from a dirty form (the sidebar, the back button, any link) with the
+ * same confirm — the data-router `useBlocker`. Post-save navigations use `replace: true`,
+ * which the blocker deliberately lets through.
  */
 export function useDiscardGuard({ isDirty, to, title, message }: DiscardGuardOptions) {
   const { t } = useTranslation();
@@ -26,20 +29,28 @@ export function useDiscardGuard({ isDirty, to, title, message }: DiscardGuardOpt
   const [opened, { open, close }] = useDisclosure(false);
   // The beforeunload half lives in its own hook (v3.5.2); it hands back the fresh reader.
   const dirty = useBeforeUnloadGuard(isDirty);
+  // Set right before the guard's own navigations (a clean Cancel, a confirmed Discard) so the
+  // route blocker never prompts twice for a departure the user already chose.
+  const bypassRef = useRef(false);
 
   return {
     requestCancel: () => {
       if (dirty()) open();
-      else void navigate(to);
+      else {
+        bypassRef.current = true;
+        void navigate(to);
+      }
     },
-    modalProps: {
+    guardProps: {
       opened,
       onClose: close,
       title: title ?? t("common.discard.title"),
       message: message ?? t("common.discard.message"),
       cancelLabel: t("common.action.keepEditing"),
       confirmLabel: t("common.action.discard"),
-      confirmTo: to,
+      to,
+      isDirty: dirty,
+      bypassRef,
     },
   };
 }

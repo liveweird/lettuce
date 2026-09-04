@@ -8,7 +8,7 @@ import { hasFeature } from "../api/session";
 import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { createPerformanceReview } from "../api/reviews";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
@@ -51,7 +51,7 @@ export default function CreatePerformanceReview() {
   const [submitting, setSubmitting] = useState(false);
   // The one cancel guard (v3.5.0): the two picks are the only work this screen holds, so a
   // fresh form leaves straight away and only an explicit pick asks.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: picked != null || periodId != null,
     to: backTo,
     title: t("performanceReview.discardTitle"),
@@ -207,7 +207,7 @@ export default function CreatePerformanceReview() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

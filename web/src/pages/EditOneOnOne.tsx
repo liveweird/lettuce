@@ -23,6 +23,7 @@ import { getUserId, hasFeature } from "../api/session";
 import { deleteOneOnOne, getOneOnOne, updateOneOnOne } from "../api/oneonones";
 import ActionItemsEditor from "../components/ActionItemsEditor";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import OneOnOneHistory from "../components/OneOnOneHistory";
@@ -80,7 +81,7 @@ export default function EditOneOnOne() {
 
   // The one cancel guard (v3.5.0). Dirtiness is a PAYLOAD compare, not `form.isDirty()` —
   // the three lists' insert/remove/reorder operations don't flip Mantine's dirty flags.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () =>
       data != null &&
       JSON.stringify(toUpdateBody(form.values)) !== JSON.stringify(toUpdateBody(toFormValues(data))),
@@ -292,7 +293,7 @@ export default function EditOneOnOne() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
       <ConfirmActionModal
         opened={deleteOpen}
         onClose={closeDelete}

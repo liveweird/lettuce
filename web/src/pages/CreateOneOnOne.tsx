@@ -8,7 +8,7 @@ import { hasFeature } from "../api/session";
 import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { createOneOnOne } from "../api/oneonones";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
@@ -49,7 +49,7 @@ export default function CreateOneOnOne() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // The one cancel guard (v3.5.0): a pick or a moved date is the only work this screen holds.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: picked != null || meetingDate !== todayIsoDate(),
     to: backTo,
     title: t("oneOnOne.discardTitle"),
@@ -175,7 +175,7 @@ export default function CreateOneOnOne() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

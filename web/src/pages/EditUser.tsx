@@ -27,7 +27,7 @@ import { getUserId, isAdmin } from "../api/session";
 import { getUser, setUserLanguage, updateUser } from "../api/users";
 import i18n, { asSupportedLanguage } from "../i18n";
 import { showSuccessToast } from "../utils/toast";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
 import UserFormFields from "../components/UserFormFields";
@@ -56,7 +56,7 @@ export default function EditUser() {
     },
     validate: userFormValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/users" });
+  const { requestCancel, guardProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/users" });
 
   const idIsValid = Number.isFinite(id) && id > 0;
 
@@ -186,7 +186,7 @@ export default function EditUser() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

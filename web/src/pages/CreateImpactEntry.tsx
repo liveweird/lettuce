@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { createImpactEntry } from "../api/impactLog";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import ImpactEntryWizard from "../components/ImpactEntryWizard";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
@@ -41,7 +41,7 @@ export default function CreateImpactEntry() {
     initialValues: emptyImpactEntryValues(),
     validate: impactEntryValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => form.isDirty(),
     to: backTo,
     title: t("impactLog.discardCreateTitle"),
@@ -95,7 +95,7 @@ export default function CreateImpactEntry() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

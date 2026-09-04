@@ -16,7 +16,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconUpload } from "@tabler/icons-react";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import PageHeader from "../components/PageHeader";
 import RevealablePassword from "../components/RevealablePassword";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
@@ -45,8 +45,10 @@ export default function ImportUsers() {
   const [result, setResult] = useState<UserImportResult | null>(null);
   // Dirty = a file picked or the email checkbox moved off its default (v3.5.2); the results
   // view has no Cancel, so the guard only ever fires from the pre-import form.
-  const { requestCancel, modalProps } = useDiscardGuard({
-    isDirty: () => file != null || sendEmails,
+  const { requestCancel, guardProps } = useDiscardGuard({
+    // A finished import is a result, not unsaved work — the page must not hold the
+    // "Back to Users" link (the route blocker, v3.6.0) once the rows are in.
+    isDirty: () => result == null && (file != null || sendEmails),
     to: "/users",
   });
 
@@ -178,7 +180,7 @@ export default function ImportUsers() {
           </Stack>
         </Paper>
       </Stack>
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </Container>
   );
 }

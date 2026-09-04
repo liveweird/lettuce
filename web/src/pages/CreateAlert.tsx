@@ -8,7 +8,7 @@ import { isAdmin } from "../api/session";
 import { createAlert } from "../api/alerts";
 import { showSuccessToast } from "../utils/toast";
 import AlertFormFields from "../components/AlertFormFields";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
@@ -31,7 +31,7 @@ export default function CreateAlert() {
     initialValues: emptyAlertFormValues(),
     validate: alertFormValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => form.isDirty(),
     to: "/alerts",
     title: t("alerts.discardTitle"),
@@ -89,7 +89,7 @@ export default function CreateAlert() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

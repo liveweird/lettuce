@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
 import { getImpactEntry, updateImpactEntry } from "../api/impactLog";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import ImpactEntryWizard from "../components/ImpactEntryWizard";
 import MetaStrip from "../components/MetaStrip";
@@ -56,7 +56,7 @@ export default function EditImpactEntry() {
     initialValues: emptyImpactEntryValues(),
     validate: impactEntryValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => form.isDirty(),
     to: backTo,
     title: t("impactLog.discardChangesTitle"),
@@ -148,7 +148,7 @@ export default function EditImpactEntry() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

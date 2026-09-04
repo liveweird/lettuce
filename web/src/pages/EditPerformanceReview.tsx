@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { deletePerformanceReview, getPerformanceReview, submitPerformanceReview, updatePerformanceReview } from "../api/reviews";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
@@ -95,7 +96,7 @@ export default function EditPerformanceReview() {
     validate: reviewFormValidation(t, false),
   });
   // The one cancel guard (v3.5.0) — eight scalar fields, so `isDirty` is exact.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => form.isDirty(),
     to: backTo,
     title: t("performanceReview.discardTitle"),
@@ -326,7 +327,7 @@ export default function EditPerformanceReview() {
       </Container>
 
       {/* An eight-field editor qualifies as long-form — Cancel is guarded (house convention). */}
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
       <ConfirmActionModal
         opened={deleteOpen}
         onClose={closeDelete}

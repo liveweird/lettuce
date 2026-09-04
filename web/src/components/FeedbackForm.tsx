@@ -16,7 +16,7 @@ import { Fragment, lazy, Suspense, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { type FeedbackStatus, type FeedbackVisibility } from "../api/feedbacks";
 import { getTemplate, listTemplates } from "../api/templates";
-import ConfirmActionModal from "./ConfirmActionModal";
+import DiscardGuard from "./DiscardGuard";
 import { StatusBadge, VisibilityBadge } from "./FeedbackBadges";
 import FeedbackHistory from "./FeedbackHistory";
 import FormFooter from "./FormFooter";
@@ -138,7 +138,7 @@ export default function FeedbackForm({
     },
   });
   // The one cancel guard (v3.5.0): straight out while clean, the area's discard copy once dirty.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => parentDirty || form.isDirty(),
     to: cancelTo,
     title: discardTitle,
@@ -374,7 +374,7 @@ export default function FeedbackForm({
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

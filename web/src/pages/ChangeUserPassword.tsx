@@ -22,7 +22,7 @@ import { ApiError } from "../api/http";
 import { getUserId, isAdmin } from "../api/session";
 import { changeUserPassword, getUser } from "../api/users";
 import { showSuccessToast } from "../utils/toast";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
@@ -69,7 +69,7 @@ export default function ChangeUserPassword() {
   });
   const canChange = isAdmin() || isSelf;
   const returnTo = isAdmin() ? "/users" : "/";
-  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: returnTo });
+  const { requestCancel, guardProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: returnTo });
 
   const { data, isLoading, isError, error: fetchError } = useQuery({
     queryKey: ["user", id],
@@ -185,7 +185,7 @@ export default function ChangeUserPassword() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

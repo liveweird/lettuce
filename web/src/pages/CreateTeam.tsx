@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { isAdmin } from "../api/session";
 import { createTeam } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
 import TeamFormFields from "../components/TeamFormFields";
@@ -27,7 +27,7 @@ export default function CreateTeam() {
     initialValues: { name: "", managerId: "" },
     validate: teamFormValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/teams" });
+  const { requestCancel, guardProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/teams" });
 
   if (!isAdmin()) return <Navigate to="/teams" replace />;
 
@@ -83,7 +83,7 @@ export default function CreateTeam() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

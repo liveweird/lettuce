@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { listAllTeams } from "../api/teams";
 import { activateTeamKpi, createTeamKpi } from "../api/teamkpis";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import CreateActivateModals from "../components/CreateActivateModals";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
@@ -54,7 +54,7 @@ export default function CreateTeamKpi() {
     validate: teamKpiDefinitionValidation(t),
   });
   // The one cancel guard (v3.5.0): a picked team or any typed definition is work worth a confirm.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => picked != null || form.isDirty(),
     to: backTo,
     title: t("teamKpi.discardTitle"),
@@ -156,7 +156,7 @@ export default function CreateTeamKpi() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
       <CreateActivateModals
         area="teamKpi"
         createdId={flow.createdId}

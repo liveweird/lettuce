@@ -25,7 +25,7 @@ import { ApiError } from "../api/http";
 import { isAdmin } from "../api/session";
 import { createUser } from "../api/users";
 import { type SupportedLanguage } from "../i18n";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
 import RevealablePassword from "../components/RevealablePassword";
@@ -58,7 +58,9 @@ export default function CreateUser() {
     initialValues: emptyUserFormValues(),
     validate: userFormValidation(t),
   });
-  const { requestCancel, modalProps } = useDiscardGuard({ isDirty: () => form.isDirty(), to: "/users" });
+  // The created panel (the one-time password) is a result, not unsaved work — no departure
+  // from it should be held by the route blocker (v3.6.0).
+  const { requestCancel, guardProps } = useDiscardGuard({ isDirty: () => created == null && form.isDirty(), to: "/users" });
 
   if (!isAdmin()) return <Navigate to="/users" replace />;
 
@@ -166,7 +168,7 @@ export default function CreateUser() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
 
       {/* One-time password reveal. Deliberate close only (no click-outside / Escape) so the
           password can't be lost by accident — after closing it is unrecoverable by design. */}

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.6.0",
+    date: "2026-09-04",
+    en: `Unsaved changes are now protected everywhere. Until now only a form's own Cancel button asked before discarding your edits; clicking a sidebar entry, a card link or the browser's Back button while a form was dirty just left, and the work was gone. Every such departure is now held by the same "Discard changes?" question — Keep editing returns you to the form exactly as it was, Discard lets you leave. Saving a form and landing on its list works as before, without a prompt.`,
+    pl: `Niezapisane zmiany są teraz chronione wszędzie. Dotąd tylko przycisk Anuluj formularza pytał, zanim odrzucił Twoje zmiany; kliknięcie pozycji w menu bocznym, linku na karcie albo przycisku Wstecz w przeglądarce przy niezapisanym formularzu po prostu wychodziło, a praca przepadała. Każde takie wyjście zatrzymuje teraz to samo pytanie „Odrzucić zmiany?” — Kontynuuj edycję wraca do formularza dokładnie w takim stanie, w jakim był, a Odrzuć pozwala wyjść. Zapisanie formularza i przejście na jego listę działa jak dotąd, bez pytania.`,
+  },
+  {
     version: "3.5.2",
     date: "2026-09-04",
     en: `The hardening round after the design releases. Date fields now accept only a complete, valid date — a half-typed value or an impossible day such as February 30 no longer slips into the form as a wrong date (the picker used to guess). An alert's "Visible from"/"Visible until" bound with the time missing is flagged instead of quietly saving as no bound, and a time typed before its date is kept. The alert banner reads clearly in dark mode and meets the contrast ratio in both schemes. The notifications panel dims the page like every other dialog, a cancel started from a row menu shows its pending state, and the open filters panel keeps its text legible in dark mode. Smaller fixes: the per-person Feedback page has its New feedback button in the header, the Dictionaries page shares the standard header and loader, a person's page no longer titles itself from the link when the person doesn't exist, single-day impact-log periods read as one date, and the pulse cycles table gains a named actions column and room for long questions.`,

@@ -9,6 +9,7 @@ import { ApiError } from "../api/http";
 import { hasFeature } from "../api/session";
 import { activateTeamKpi, deleteTeamKpi, getTeamKpi, updateTeamKpiDefinition } from "../api/teamkpis";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
@@ -68,7 +69,7 @@ export default function EditTeamKpi() {
   });
 
   // The one cancel guard (v3.5.0) — the definition has no list operations, so `isDirty` is exact.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => definitionForm.isDirty(),
     to: backTo,
     title: t("teamKpi.discardTitle"),
@@ -243,7 +244,7 @@ export default function EditTeamKpi() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
       <ConfirmActionModal
         opened={deleteOpen}
         onClose={closeDelete}

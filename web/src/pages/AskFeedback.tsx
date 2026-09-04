@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { createFeedback, type FeedbackVisibility } from "../api/feedbacks";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
@@ -48,7 +48,7 @@ export default function AskFeedback() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // The one cancel guard (v3.5.0): a typed note or a changed visibility is work worth a confirm.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: message !== "" || visibility !== DEFAULT_VISIBILITY,
     to: backTo,
     title: t("feedback.discardRequestTitle"),
@@ -171,7 +171,7 @@ export default function AskFeedback() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

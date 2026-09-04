@@ -19,6 +19,7 @@ export default function ConfirmActionModal({
   confirmLabel,
   onConfirm,
   confirmTo,
+  onConfirmNavigate,
   loading = false,
   confirmColor = "red",
 }: {
@@ -30,6 +31,8 @@ export default function ConfirmActionModal({
   confirmLabel: string;
   onConfirm?: () => void;
   confirmTo?: string;
+  /** Fires on the `confirmTo` link's click, before the navigation (the discard guard's bypass). */
+  onConfirmNavigate?: () => void;
   loading?: boolean;
   confirmColor?: MantineColor;
 }) {
@@ -49,7 +52,7 @@ export default function ConfirmActionModal({
             {cancelLabel}
           </Button>
           {confirmTo != null ? (
-            <Button color={confirmColor} component={RouterLink} to={confirmTo}>
+            <Button color={confirmColor} component={RouterLink} to={confirmTo} onClick={onConfirmNavigate}>
               {confirmLabel}
             </Button>
           ) : (

@@ -34,6 +34,7 @@ import {
   type SuccessorReadiness,
 } from "../api/successionPlans";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import GoalDefinitionFields from "../components/GoalDefinitionFields";
 import MetaStrip from "../components/MetaStrip";
@@ -416,7 +417,7 @@ export default function EditSuccessionNomination() {
   });
   // Payload-compared dirtiness (form.isDirty() misses list ops once a field was reverted —
   // checkup-29): the same body the save sends, against the seeded initial values.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () =>
       JSON.stringify(toNominationBody(form.values)) !==
       JSON.stringify(toNominationBody(form.getInitialValues())),
@@ -600,7 +601,7 @@ export default function EditSuccessionNomination() {
         }}
       />
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

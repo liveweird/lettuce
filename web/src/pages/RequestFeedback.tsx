@@ -20,7 +20,7 @@ import { IconPlus, IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature } from "../api/session";
 import { checkFeedbackDuplicate, createFeedback, type FeedbackVisibility } from "../api/feedbacks";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import EmptyState from "../components/EmptyState";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
@@ -70,7 +70,7 @@ export default function RequestFeedback() {
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // The one cancel guard (v3.5.0): picked providers, a typed note, or a changed visibility.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: selected.length > 0 || message !== "" || visibility !== DEFAULT_VISIBILITY,
     to: backTo,
     title: t("feedback.discardRequestTitle"),
@@ -344,7 +344,7 @@ export default function RequestFeedback() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }

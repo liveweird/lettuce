@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { createSuccessionPlan } from "../api/successionPlans";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
@@ -47,7 +47,7 @@ export default function CreateSuccessionPlan() {
     validate: successionPlanValidation(t),
   });
   // The person pick lives outside the form, so it joins the dirtiness by hand.
-  const { requestCancel, modalProps } = useDiscardGuard({
+  const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => picked != null || form.isDirty(),
     to: backTo,
     title: t("succession.discardCreateTitle"),
@@ -136,7 +136,7 @@ export default function CreateSuccessionPlan() {
         </Paper>
       </Container>
 
-      <ConfirmActionModal {...modalProps} />
+      <DiscardGuard {...guardProps} />
     </>
   );
 }
