@@ -459,7 +459,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
 
   // ── Manager: a +2 budget correction for AAA Two (v1.43.0). ──
   await page.goto("/days-off?tab=team");
-  await page.getByRole("radio", { name: "Budgets" }).click();
+  await page.getByText("Budgets", { exact: true }).click();
   await page.getByLabel("Budget corrections of AAA Two").click();
   const correctionsModal = page.getByRole("dialog");
   await expect(correctionsModal.getByText("Add correction").first()).toBeVisible();
@@ -500,7 +500,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await collapseAlertsBanner(page);
   await page.goto("/days-off?tab=team");
   // The team view is remembered per device — the Budgets pick above would still hold.
-  await page.getByRole("radio", { name: "Requests" }).click();
+  await page.getByText("Requests", { exact: true }).click();
   const cleanupFilters = page.getByRole("button", { name: /^Filters/ });
   if ((await cleanupFilters.getAttribute("aria-expanded")) !== "true") await cleanupFilters.click();
   await page.getByRole("combobox", { name: "Status" }).click();
