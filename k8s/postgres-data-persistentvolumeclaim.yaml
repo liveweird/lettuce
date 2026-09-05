@@ -7,6 +7,13 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  # No storageClassName → the cluster's default provisioner. On OrbStack that is `local-path`,
+  # whose reclaim policy is Delete: deleting THIS PVC (or `kubectl delete -f k8s/`) destroys the
+  # underlying volume and all data — stopping the workloads and deleting their storage are
+  # different operations (see the teardown notes in README.md / the run-stack skill).
   resources:
     requests:
-      storage: 100Mi
+      # 5Gi is a modest default for real use; the pre-existing 100Mi only ever suited the throwaway
+      # local proof. PRODUCTION must size this to its data-retention needs (and, on a managed
+      # cluster, set a storageClassName with a Retain reclaim policy + a tested backup/restore).
+      storage: 5Gi

@@ -65,10 +65,19 @@ The `k8s/` directory holds manifests for a local cluster (developed against
 OrbStack, whose Kubernetes shares the Docker image store — no registry needed).
 
 The app runs in production mode behind a TLS-terminating **ingress-nginx** front door at
-a real hostname (`k8s/app-ingress.yaml`). One-time setup: install the controller, then create
-the two Secrets the manifests reference — `lettuce-secrets` (the command is in
-`k8s/templates/secret.yaml`) and the TLS certificate `lettuce-tls` (self-signed recipe in
-`k8s/templates/tls-secret.yaml`; cert-manager for real deployments):
+a real hostname (`k8s/templates/app-ingress.yaml`).
+
+> ⚠ **Community ingress-nginx was retired in March 2026** ([Kubernetes statement](https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/))
+> — no further security patches. These manifests are a **local-proof reference only**; a real
+> production deployment must migrate to a maintained ingress controller or the Gateway API, which
+> is a behavior migration (re-verify forwarded-header handling, the HTTP→HTTPS redirect, HSTS, and
+> body-size limits against the replacement).
+
+One-time setup: install the controller, then create the config the manifests reference — the two
+Secrets `lettuce-secrets` (the command is in `k8s/templates/secret.yaml`) and the TLS certificate
+`lettuce-tls` (self-signed recipe in `k8s/templates/tls-secret.yaml`; cert-manager for real
+deployments), plus a `lettuce-config` ConfigMap holding the public URL
+(`kubectl create configmap lettuce-config --from-literal=MAIL_APP_URL=https://$HOST`):
 
 ```
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.15.1/deploy/static/provider/cloud/deploy.yaml
@@ -76,13 +85,16 @@ kubectl wait -n ingress-nginx --for=condition=ready pod -l app.kubernetes.io/com
 kubectl get svc -n ingress-nginx ingress-nginx-controller   # its EXTERNAL-IP; e.g. HOST=lettuce.<ip>.nip.io
 ```
 
-Build (or rebuild) and deploy — the manifests carry the placeholder host `lettuce.example.com`
-(the Ingress host, `MAIL_APP_URL`, and the certificate SAN must agree):
+Build (or rebuild) and deploy. The workloads are host-agnostic — the Ingress (which carries the
+host placeholder) lives in `k8s/templates/` and is applied separately with substitution, and the
+deployment's `MAIL_APP_URL` comes from the `lettuce-config` ConfigMap — so `kubectl apply -f k8s/`
+never reverts a per-deployment value. The three values that must agree: the Ingress host, the
+ConfigMap `MAIL_APP_URL`, and the certificate SAN.
 
 ```
 docker build -t lettuce-app:latest .
-for f in k8s/app-deployment.yaml k8s/app-ingress.yaml; do sed "s#lettuce.example.com#$HOST#g" $f | kubectl apply -f -; done
-kubectl apply -f k8s/                      # the rest; idempotent, non-recursive (templates stay out)
+kubectl apply -f k8s/                      # deployment/service/postgres/PVC; idempotent, non-recursive (templates stay out)
+sed "s#lettuce.example.com#$HOST#g" k8s/templates/app-ingress.yaml | kubectl apply -f -
 kubectl rollout restart deployment/app     # picks up a rebuilt image (tag stays :latest)
 kubectl rollout status deployment/app
 kubectl get ingress app                    # host + address; then browse https://$HOST/

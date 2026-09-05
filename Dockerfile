@@ -36,7 +36,10 @@ COPY server/src/ server/src/
 RUN ./gradlew :server:installDist --no-daemon
 
 # ── Stage 3: runtime ──────────────────────────────────────────────────────────
-FROM eclipse-temurin:25-jre AS runtime
+# JRE 21 matches the build stage (21-jdk) and the Gradle toolchain (jvmToolchain(21)) — the app
+# ships on the same LTS JVM the test suite runs against. Bump all three together if you move to a
+# newer JVM, so tests exercise the runtime you deploy.
+FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 COPY --from=server /src/server/build/install/server/ ./
 COPY --from=web /web/dist web

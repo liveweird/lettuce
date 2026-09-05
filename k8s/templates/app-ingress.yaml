@@ -1,7 +1,21 @@
 # The TLS-terminating front door the app deployment is written for (HTTP_BEHIND_PROXY=true,
-# production mode). Targets ingress-nginx (https://kubernetes.github.io/ingress-nginx/ — install
-# recipe in .claude/skills/run-stack/SKILL.md). Whole host → service app:8080, no path rewrite:
-# the app is served at the domain root (asset URLs and the router are root-absolute).
+# production mode). Whole host → service app:8080, no path rewrite: the app is served at the
+# domain root (asset URLs and the router are root-absolute).
+#
+# THIS FILE LIVES IN k8s/templates/ ON PURPOSE — it carries the per-deployment host placeholder
+# (below, twice) and must never be applied unsubstituted. `kubectl apply -f k8s/` is non-recursive,
+# so it skips templates/ and can no longer clobber a substituted host. Apply it explicitly, last:
+#   sed "s#lettuce.example.com#$HOST#g" k8s/templates/app-ingress.yaml | kubectl apply -f -
+# (MAIL_APP_URL is no longer baked into the deployment — it comes from the lettuce-config ConfigMap;
+# keep the ConfigMap value, this host, and the certificate SAN in step.)
+#
+# ⚠ CONTROLLER RETIREMENT: community ingress-nginx was RETIRED in March 2026 (Kubernetes Steering
+# + Security Response Committees, https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/) —
+# no further security patches. This manifest remains the LOCAL-PROOF reference only. Any real
+# production deployment MUST migrate to a maintained ingress controller or the Gateway API; that is
+# a behavior migration, not an image-name swap — re-verify the proxy contract below (HTTP_PROXY_HOPS,
+# X-Forwarded-* handling incl. spoof removal, the 308/HSTS/XFF-replacement assumptions, and
+# ProductionHttpTest) against the replacement.
 #
 # The proxy contract the app relies on, satisfied by ingress-nginx's DEFAULTS:
 #   - X-Forwarded-For is REPLACED with the client address nginx saw (the client's own value moves
@@ -14,8 +28,9 @@
 #   - The controller OVERWRITES Strict-Transport-Security (configmap `hsts`,
 #     `hsts-include-subdomains`, default on/on) — HSTS policy is configured there, not in the app.
 #
-# Placeholders to substitute (keep the three in step): the host below (twice), MAIL_APP_URL in
-# app-deployment.yaml, and the certificate SAN in the `lettuce-tls` Secret
+# Placeholders to keep in step (all three carry the deployment's real hostname): the host below
+# (twice), the MAIL_APP_URL key in the `lettuce-config` ConfigMap (created out-of-band, consumed by
+# app-deployment.yaml), and the certificate SAN in the `lettuce-tls` Secret
 # (k8s/templates/tls-secret.yaml has the self-signed recipe and the cert-manager alternative).
 apiVersion: networking.k8s.io/v1
 kind: Ingress

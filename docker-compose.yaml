@@ -7,8 +7,9 @@ services:
       POSTGRES_DB: lettuce
       POSTGRES_USER: lettuce
       POSTGRES_PASSWORD: lettuce
+    # Loopback-bound: this is a local demo, so nothing needs to reach the DB from another host.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       # postgres 18+ images keep data in a versioned subdir of /var/lib/postgresql;
       # mounting the pre-18 /var/lib/postgresql/data path makes the container unhealthy.
@@ -25,8 +26,9 @@ services:
     image: axllent/mailpit:v1.30
     container_name: lettuce-mailpit
     restart: unless-stopped
+    # Loopback-bound (see postgres) — the mail UI is for the local operator only.
     ports:
-      - "8025:8025"
+      - "127.0.0.1:8025:8025"
 
   app:
     build:
@@ -66,8 +68,9 @@ services:
       # The read-only integration GraphQL API (v3.0.0) — on in the local demo so it can be
       # tried (and e2e-exercised) out of the box; the shipped image default is OFF.
       INTEGRATION_ENABLED: "true"
+    # Loopback-bound: browse the demo at http://localhost:8080 on this machine only.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     # Ceiling for the tuned JVM (SerialGC + -Xmx256m + C1, baked into bin/server): ~270 MiB RSS
     # under light load, so 512 MiB leaves comfortable headroom and bounds the container.
     mem_limit: 512m

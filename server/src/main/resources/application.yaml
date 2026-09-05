@@ -11,6 +11,9 @@ ktor:
       - ch.nokillswit.plugins.HttpKt.configureHttp
       - ch.nokillswit.plugins.SecurityHeadersKt.configureSecurityHeaders
       - ch.nokillswit.plugins.MonitoringKt.configureMonitoring
+      # Health endpoints (/healthz liveness, /readyz readiness) — the readiness handler reads the
+      # DB at request time, so this module's boot position relative to configureDatabase is immaterial.
+      - ch.nokillswit.plugins.HealthKt.configureHealth
       - ch.nokillswit.plugins.SerializationKt.configureSerialization
       - ch.nokillswit.plugins.SecurityKt.configureSecurity
       - ch.nokillswit.plugins.ErrorHandlingKt.configureErrorHandling
