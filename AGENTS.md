@@ -7,12 +7,15 @@ This file is the Codex entry point. Before changing code, also read the relevant
 `@...` import syntax to reference the cross-cutting conventions in `.claude/docs/` (persistence,
 list endpoints, security, authorization, observability, testing); Codex must open the applicable
 files directly. Each feature's authoritative deep-dive lives in `.claude/docs/features/` — read
-the matching feature doc before changing that feature, and read `migrations.md` before adding a
-migration or reasoning about schema history. Together those files contain the detailed, actively
-maintained domain, security, persistence, UI, and testing conventions shared by the project. For
-API work, `api-guidelines/API-GUIDELINES.md` is authoritative and its stable rule IDs should be
-cited in reviews. If documentation and executable configuration disagree, the configuration and
-code win; update the affected guidance in the same change.
+the matching feature doc before designing, reviewing, or changing that feature, and read
+`.claude/docs/features/migrations.md` before adding a migration or reasoning about schema history.
+Together those files contain the detailed, actively maintained domain, security, persistence,
+UI, and testing conventions shared by the project. For REST API work,
+`api-guidelines/API-GUIDELINES.md` is authoritative; for integration GraphQL work, read
+`api-guidelines/GRAPHQL-GUIDELINES.md` and `.claude/docs/features/integration-api.md`. Cite the
+respective stable `API-*` / `GQL-*` rule IDs in reviews. If documentation and executable
+configuration disagree, the configuration and code win; update the affected guidance in the
+same change. Earlier design discussions are not evidence of implemented behavior.
 
 The playbooks in `.claude/skills/` are useful repository-local references even outside Claude:
 `api-review` covers the two-pass OpenAPI review, `run-stack` covers packaging/deployment, and
@@ -27,15 +30,17 @@ This is a Kotlin/Gradle backend plus a separate React frontend:
 - `server/` is the Kotlin/JVM Ktor application. Feature packages live directly under
   `server/src/main/kotlin/` (`auth`, `users`, `teams`, `feedbacks`, `oneonones`, `goals`,
   `impactlog`, `succession`, `teamkpis`, `reviews`, `daysoff`, `pulse`, `settings`, `templates`,
-  `dictionaries`, `notifications`, `alerts`, and `dashboard`). Cross-cutting wiring and policy
-  live in `plugins/`, `audit/`, and `authz/`; infrastructure is in `infra/`.
+  `dictionaries`, `notifications`, `alerts`, `dashboard`, and `integration`). Cross-cutting wiring
+  and policy live in `plugins/`, `audit/`, and `authz/`; infrastructure is in `infra/`.
 - `server/src/main/resources/application.yaml` declaratively registers application modules.
   `main.kt` only starts `EngineMain`; do not wire features from it. Module order matters because
   modules publish and consume Ktor application attributes.
 - PostgreSQL is the only database. Flyway migrations under
   `server/src/main/resources/db/migration/` are the schema source of truth; Exposed over R2DBC is
   used for runtime queries. Never introduce runtime DDL such as `SchemaUtils.create`.
-- `server/src/main/resources/openapi/documentation.yaml` is the hand-maintained API contract.
+- `server/src/main/resources/openapi/documentation.yaml` is the hand-maintained REST contract.
+  `server/src/main/resources/graphql/schema.graphqls` is the separate, hand-written integration
+  GraphQL contract, parsed directly at startup by graphql-java.
 - `web/` is a standalone Vite + React 19 + TypeScript SPA. Gradle does not build it. Source is
   organized into `pages/`, `components/`, `api/`, `hooks/`, `utils/`, `changelog/`, and bilingual
   resources under `locales/{en,pl}/`.
@@ -44,6 +49,9 @@ This is a Kotlin/Gradle backend plus a separate React frontend:
 
 Routing is feature-local. Cross-cutting Ktor wiring functions are named `configureXxx` and must be
 registered in `application.yaml`. `plugins/Routing.kt` is only the final SPA/static-file catch-all.
+Integration-client routes publish their service before `configureAuthRoutes`; `configureIntegration`
+runs after auth and its feature-service dependencies, immediately before the final routing module.
+`AuthRoutes.kt` owns the single `install(RateLimit)`, including the integration bucket.
 
 ## Build, Test, and Development Commands
 
@@ -53,6 +61,9 @@ registered in `application.yaml`. `plugins/Routing.kt` is only the final SPA/sta
 - `./gradlew build`: compile and verify the Gradle modules with the JDK 21 toolchain.
 - `./gradlew detekt`: run the zero-findings Kotlin static-analysis gate; it also rides
   `check`/`build`.
+- `./gradlew :server:checkDependencyAlignment`: check runtime Netty, OpenTelemetry (including
+  alpha/incubator), and Kotlin stdlib/reflect alignment; also part of `check`. Keep dependency
+  pins in `gradle/libs.versions.toml` aligned with the constraints in `server/build.gradle.kts`.
 - `./gradlew :server:run`: start Ktor/Netty on port 8080.
 - `./gradlew test` or `./gradlew :server:test`: run Kotlin tests; Docker is required for
   Testcontainers.
@@ -72,20 +83,30 @@ Package deployments with `./gradlew :server:installDist`. Never use `buildFatJar
 service descriptors breaks plugin discovery at runtime. JVM runtime flags are intentionally set in
 `server/build.gradle.kts`; consult `.claude/skills/run-stack/SKILL.md` before changing them.
 
+Kubernetes uses a ClusterIP app service behind the TLS-terminating ingress in
+`k8s/app-ingress.yaml`. Secret examples live under `k8s/templates/`; never apply those templates
+verbatim or recursively apply that directory. Keep the ingress host, certificate SAN, and
+`MAIL_APP_URL` consistent. Follow the run-stack playbook for deployment-specific secrets and TLS.
+
 ## API and Backend Conventions
 
-Follow `api-guidelines/API-GUIDELINES.md` for resource naming, pagination, filtering, sorting,
-errors, statuses, auth, and conformance. List endpoints use the shared paging helpers and the
+Follow `api-guidelines/API-GUIDELINES.md` for REST resource naming, pagination, filtering, sorting,
+errors, statuses, auth, and conformance. Paged list endpoints use the shared paging helpers and the
 `{items, page, pageSize, total}` envelope. Keep authorization checks before resource-dependent
 validation so callers cannot infer inaccessible state.
 
-When an API changes, update all of the following in the same change:
+When a REST API changes (including the integration-client registry), update all of the following
+in the same change:
 
 1. Route/service behavior and focused tests.
 2. `server/src/main/resources/openapi/documentation.yaml`.
 3. The generated `web/src/api/schema.ts` via `npm run gen:api`.
 4. API guideline conformance, using the Spectral ruleset and review checklist described in
    `.claude/skills/api-review/SKILL.md`.
+
+GraphQL changes instead update the committed SDL, resolvers/loaders, focused integration tests,
+`IntegrationSchemaContractTest`, and the integration documentation/README quickstart as applicable.
+GraphQL is outside OpenAPI conformance and does not regenerate `web/src/api/schema.ts`.
 
 Use `V<number>__description.sql` for migrations. Most business entities follow the established
 soft-delete convention (`marked_as_deleted`, active-row filtering on every read/count/mutation,
@@ -97,20 +118,78 @@ security-relevant mutations and denials, and never log passwords or tokens.
 Use four-space indentation, preserve existing package boundaries, PascalCase for Kotlin types,
 and camelCase for functions and variables. Name backend test classes `*Test`.
 
+### Integration API
+
+- The read-only data surface is `POST /integration/graphql`; authenticated
+  `GET /integration/graphql/schema` serves the SDL. Both sit outside `/api/v1` and are registered
+  only when `INTEGRATION_ENABLED=true` (default false). Compose explicitly enables the demo;
+  the shipped Kubernetes manifest leaves it disabled. Enabling it is a deployment decision.
+- Technical identities live in `integration_clients`, separate from human users. The ADMIN-only
+  `/api/v1/integration-clients` REST registry supports list/get/create/revoke even when GraphQL
+  is disabled. Revocation is terminal; retain rows rather than deleting or reactivating them.
+- Authentication uses direct `Authorization: Bearer lettuce_int_…` API keys, shown once on
+  creation and stored as SHA-256 hashes. There is no OAuth token exchange or per-client scope
+  system. Human JWTs do not grant integration access; integration keys do not grant human API access.
+- Integration reads deliberately bypass human caller authorization and per-user feature flags
+  within the explicitly exposed families: users/career history, teams/managers/members/KPIs,
+  days-off requests/pools/budgets/corrections, and reviews (including drafts) with review periods.
+  Succession plans, feedback, 1:1s, goals, impact log, and pulse are not exposed. Expansion requires
+  an explicit schema/security decision; never expose authentication secrets or human capability flags.
+- Resolvers reuse the owning feature services, their decryption, and active-row rules, with
+  additive unscoped/batch reads. Do not weaken existing human routes or caller-relative views.
+  The implementation does not use a separate read-only database connection. No Mutation or
+  Subscription is defined; credential-use stamps and audit records still occur on reads.
+- Reuse request-scoped DataLoaders and the request coroutine `supervisorScope`. Convert DTOs
+  through `toGraphQL()` rather than reflective Kotlin getters (UInt getter mangling); preserve
+  default-valued fields. Paged roots use offset `page`/`pageSize` and the standard envelope,
+  not cursors; follow the SDL for unpaged nested collections and registries.
+- Preserve authenticated introspection, depth/page-size-weighted complexity limits, normalized
+  per-key rate limiting, uniform authentication failures, and sanitized resolver errors.
+  Transport errors use ProblemDetail; executed GraphQL documents use HTTP 200 with `errors`
+  when applicable. Audit request metadata and key lifecycle events, never keys, raw queries,
+  variables, or returned sensitive content.
+
+### Domain changes to preserve
+
+- Feedback can have up to four immutable recipients. `feedback_subjects` is the membership
+  truth; legacy `subject_id` remains the first-recipient sort/name anchor. Scope/filter/notification
+  logic must consider all recipients. Ask-for/request-for feedback remains single-recipient.
+  Reuse the SPA's `utils/feedbackSubjects.ts` display helpers.
+- Paid leave uses org-wide pool kinds and per-user grants, not `users.paid_days_off_allowance`.
+  Each paid request/correction targets one kind and budgets are calculated per pool. ADMIN
+  manages kinds/carry-over policy; managers in the user's chain manage grants and corrections.
+  Preserve archive/re-grant history and teammate leave-category redaction. Read
+  `.claude/docs/features/days-off.md` before changing budgets or pool lifecycle behavior.
+
 ## Frontend Conventions
 
 Use two-space indentation, PascalCase for React components, and the existing shared
 components/hooks instead of cloning list, pagination, filtering, confirmation,
 query-invalidation, link-building, or error-mapping logic.
-The design system is owned by `web/src/theme.ts` and `web/src/theme.module.css`: brand green is the
-interactive accent, semantic success is teal, and table framing is theme-wide. Keep accessibility
-roles, labels, semantic tables, and `data-tour` anchors stable.
+The design system is owned by `web/src/theme.ts`, `web/src/theme.module.css`, and
+`web/src/themeVariables.ts`: brand green is the interactive accent, semantic success is teal,
+and compact, border-first table framing is theme-wide. Contrast is token-owned and tested in
+both schemes; do not waive axe color-contrast findings. Keep accessibility roles, labels,
+semantic tables, and `data-tour` anchors stable.
+
+Compose pages from `PageHeader`, `ListToolbar`, `RowActions`, `StatusPill`, `MetaStrip`, and the
+shared loading/empty states. Primary New actions belong in the header; every table's actions go
+through `RowActions`. Simple forms use `Container sm`, content/detail screens `md`; config
+registries are full-width list pages. Navigation structure lives in `web/src/appShell/navModel.ts`.
+
+Use `DateField`/`DateTimeField` under `AppDatesProvider` for ISO inputs and the shared date
+formatters/`DateCell` for localized output; preserve strict date parsing. Every form uses
+`useDiscardGuard` with `DiscardGuard` for dirty Cancel, pathname-changing in-app navigation,
+and reload/close protection. Post-save redirects must use `navigate(to, { replace: true })` so
+the just-saved form does not block navigation. Do not reintroduce page-local discard dialogs;
+use `FormFooter` for the action row.
 
 All user-facing strings must use react-i18next. Keep English and Polish resources in parity;
 Polish uses inclusive slash forms and the declined loanword `feedback`, not `opinia`. Successful
 mutations use the shared fixed-vocabulary success toast, while errors remain inline. Follow
-`web/CLAUDE.md` for the exact list-page, form-container, navigation, and Markdown discard-confirm
-patterns.
+`web/CLAUDE.md` for the exact list-page, form/detail, navigation, and editor patterns. Shipped
+languages must match `SUPPORTED_LANGUAGES` and the server language set; adding a language also
+requires dictionary/email support and its calendar locale in `AppDatesProvider`.
 
 Per-user feature flags are enforced independently by the server and SPA. When adding or changing
 a gated surface, keep route guards, navigation, page guards, cards/actions, notifications, and
@@ -134,6 +213,16 @@ enforces Kover floors of 90% lines and 69% branches. Frontend coverage floors in
 `web/vite.config.ts` are 93% lines, 91% statements, 88% functions, and 84% branches. Any test-local
 Mantine provider must set `env="test"` so popovers and selects work under happy-dom.
 
+GraphQL's separate gates are `IntegrationGraphQlTest` and the Docker-free
+`IntegrationSchemaContractTest` (SDL shape, documentation, read-only/forbidden-field checks);
+key management is covered by `IntegrationClientTest`. Keep human authorization regression
+coverage intact when extending integration reads.
+
+Every new or changed Playwright journey must update its natural-language companion under
+`e2e/scenarios/` and the coverage entry in `e2e/README.md` in the same change. Use the shared
+`fillDate` helper for date fields. Seed-account journeys require a disposable development-mode
+stack; production startup purges demo accounts, so do not reset production data to make tests pass.
+
 For nontrivial cross-stack behavior, verify through the SPA using the workflow in
 `.claude/skills/verify/SKILL.md`, and clean up any records created in the development database.
 
@@ -148,3 +237,8 @@ Never commit production JWT, encryption, SMTP, or database secrets. Committed `c
 and development keys are burned demo credentials; production mode deliberately refuses them.
 Field-encryption key changes require the documented rotation procedure, because losing the active
 and fallback keys makes encrypted content unrecoverable.
+
+Proxy trust is explicit: set `HTTP_BEHIND_PROXY` and `HTTP_PROXY_HOPS` to match the actual trusted
+proxy chain; do not trust arbitrary forwarded headers. The Kubernetes HTTP probes send
+`X-Forwarded-Proto: https` because production HTTPS enforcement also applies to health checks.
+Read `.claude/docs/security.md` before changing proxy handling, probes, or HTTPS/header policy.
