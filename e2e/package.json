@@ -5,6 +5,9 @@
   "license": "MIT",
   "description": "Browser blackbox E2E tests (Playwright) against the full stack on http://localhost:8080",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
