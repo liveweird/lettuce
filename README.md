@@ -37,6 +37,9 @@ documented in [CLAUDE.md](CLAUDE.md). The REST API contract lives at
 `server/src/main/resources/openapi/documentation.yaml`; the integration
 GraphQL contract at `server/src/main/resources/graphql/schema.graphqls`.
 
+Completed audit work, accepted decisions, and parked production topics are recorded
+in [Audit status](.claude/docs/audit-status.md).
+
 
 ## Running the whole stack (one command)
 
