@@ -25,6 +25,14 @@ from their existing release-family tags on that date; both Temurin stages use
 
 ## Updating a pin
 
+Before first adopting these pins on an existing environment, inspect its running
+PostgreSQL version and registry digest. Another environment may have pulled a newer
+`18-alpine` image than the 18.4 release recorded here. Do not recreate its database
+against this older pin on the same volume: keep that environment's verified current
+digest in an operator-local override and review the intended version transition
+with the backup/restore and PostgreSQL upgrade procedures first. The initial
+18.4 pin preserves only the verified local baseline, not every existing installation.
+
 1. Review the publisher's release notes and choose the intended release tag. Check
    for updates regularly and when relevant security fixes are announced: fixed
    digests do not receive the publisher's later patches automatically.
