@@ -1,5 +1,25 @@
 ### Testing
 
+**Automatic CI gates.** `.github/workflows/quality.yml` runs for every pull request, pushes to
+`master`, and manual dispatches without path filters. Its least-privilege, independent jobs run the
+following checks on JDK 21 and Node 24:
+
+- **Backend:** `./gradlew check`, which includes the Kotlin tests, Detekt, Kover verification, and
+  `:server:checkDependencyAlignment`. The tests require the GitHub-hosted runner's Docker daemon for
+  Testcontainers.
+- **Web:** a lockfile install with `npm ci --legacy-peer-deps`, followed by `npm run build`,
+  `npm run lint`, `npm run knip`, and `npm run test:coverage`.
+- **API contract:** Spectral CLI 6.15.0 with the repository ruleset at error severity, then
+  `npm run gen:api` and a clean-diff assertion for `web/src/api/schema.ts`.
+- **E2E source:** a lockfile install followed by `npm run typecheck` and
+  `npm run check:scenarios`.
+
+The full Playwright browser journey remains an on-demand, manual workflow in
+`.github/workflows/e2e.yml`; the pull-request gate checks its TypeScript and spec/scenario pairing
+without starting the stack or downloading Chromium. The stable quality job IDs and display names
+for required-check rules are `backend` (**Backend**), `web` (**Web**), `api-contract`
+(**API contract**), and `e2e-static` (**E2E source**).
+
 `server/src/test/kotlin/ServerTest.kt` uses `io.ktor.server.testing.testApplication` and overrides the `postgres.*` config keys via `MapApplicationConfig` to point at a Testcontainers `PostgreSQLContainer` started lazily by `PostgresTestSupport`. Running tests requires a working Docker daemon (Docker Desktop, OrbStack, etc.). When adding tests, replicate the `environment { config = ApplicationConfig("application.yaml").mergeWith(MapApplicationConfig(...)) }` block so the app boots against the test container rather than a real database. The container runs **all** Flyway migrations, so the V6/V9/V14 seeds (admin, demo org, default templates) are present — tests scope their assertions with unique prefixes/filters rather than asserting absolute counts.
 
 **Coverage gates.** Backend Kover enforces line- and branch-coverage floors in `server/build.gradle.kts` (`minBound(90)` line, `minBound(69)` branch, wired into `check` via `koverVerify`). Frontend vitest enforces thresholds in `web/vite.config.ts` (`test.coverage.thresholds`); run `cd web && npm run test:coverage`. All are floors below current actuals — keep new code covered or they fail.
