@@ -15,8 +15,9 @@ COPY web/ ./
 COPY .git .git
 # schema.ts is committed, so `vite build` needs no running server / gen:api.
 RUN GIT_SHA=$(git rev-parse --short HEAD) \
-    GIT_COMMIT_TIME=$(git log -1 --format=%cI) \
-    npm run build
+    && GIT_COMMIT_TIME=$(git log -1 --format=%cI) \
+    && export GIT_SHA GIT_COMMIT_TIME \
+    && npm run build
 
 # ── Stage 2: build the server distribution ────────────────────────────────────
 FROM eclipse-temurin:21-jdk@sha256:85f00967bcc624fc19fa9c2cf124ea426a5363898e267141726f31f358c2e14b AS server

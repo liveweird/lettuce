@@ -9,3 +9,6 @@ web/dist/
 **/.idea/
 **/*.iml
 server/h2.mv.db
+
+# Build-directory exclusions must not hide Git refs for branches named build/... .
+!.git/**

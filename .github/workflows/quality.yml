@@ -35,6 +35,9 @@ jobs:
       - name: Test recovery schema comparison
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
+      - name: Test Docker build context
+        run: ./scripts/test-docker-build-context.sh
+
       # check includes tests, Detekt, Kover verification, and dependency alignment.
       - name: Run backend quality gates
         run: |
