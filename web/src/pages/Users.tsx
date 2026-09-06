@@ -36,7 +36,7 @@ import RowActions, { type RowActionItem } from "../components/RowActions";
 import { feedbackRowMenu } from "../components/feedbackActionsMenu";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
-import { flagSignedOut, notifyAuthChange } from "../auth";
+import { flagSignedOut } from "../auth";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -161,11 +161,10 @@ export default function Users() {
     // toast fires only on the ordinary branch below.
     onSuccess: async (row) => {
       if (row.id === getUserId()) {
-        await logout();
-        queryClient.clear();
         flagSignedOut();
+        const revoke = logout();
         navigate("/login", { replace: true });
-        notifyAuthChange();
+        await revoke;
         return;
       }
       await invalidateUser(queryClient);

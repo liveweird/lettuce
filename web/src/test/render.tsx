@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AppDatesProvider from "../components/AppDatesProvider";
 import { theme } from "../theme";
 import { cssVariablesResolver } from "../themeVariables";
+import SessionCacheBoundary from "../api/SessionCacheBoundary";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
   route?: string;
@@ -23,7 +24,9 @@ export function renderWithProviders(ui: ReactElement, options: Options = {}) {
       <MantineProvider env="test" theme={theme} cssVariablesResolver={cssVariablesResolver}>
         <AppDatesProvider>
           <QueryClientProvider client={queryClient}>
-            <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+            <SessionCacheBoundary>
+              <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+            </SessionCacheBoundary>
           </QueryClientProvider>
         </AppDatesProvider>
       </MantineProvider>
@@ -46,7 +49,9 @@ export function renderAppAt(route: string) {
     <MantineProvider env="test" theme={theme} cssVariablesResolver={cssVariablesResolver}>
       <AppDatesProvider>
         <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
+          <SessionCacheBoundary>
+            <RouterProvider router={router} />
+          </SessionCacheBoundary>
         </QueryClientProvider>
       </AppDatesProvider>
     </MantineProvider>,

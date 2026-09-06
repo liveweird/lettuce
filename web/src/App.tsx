@@ -42,12 +42,12 @@ import {
   createRoutesFromElements,
   RouterProvider,
 } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature, isAdmin } from "./api/session";
 import { logout } from "./api/auth";
 import { getCurrentUser } from "./api/users";
-import { RedirectIfAuthed, RequireAuth, flagSignedOut, notifyAuthChange } from "./auth";
+import { RedirectIfAuthed, RequireAuth, flagSignedOut } from "./auth";
 import AlertsBanner from "./components/AlertsBanner";
 import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "./hooks/useVisibleAlerts";
 import BrandLogo from "./components/BrandLogo";
@@ -267,7 +267,6 @@ function Shell() {
   // The one async nav gate (v2.42.0): the Succession leaf is manager-only.
   const isManager = useIsManager();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const userId = getUserId();
   const { pathname } = useLocation();
   // The grouped navigation (v3.3.0, appShell/navModel.ts): feature/manager/admin gates applied
@@ -280,11 +279,10 @@ function Shell() {
   const rail = navCollapsed && !opened;
 
   async function handleLogout() {
-    await logout();
-    queryClient.clear();
     flagSignedOut();
+    const revoke = logout();
     navigate("/login", { replace: true });
-    notifyAuthChange();
+    await revoke;
   }
 
   // While any alerts are visible, the banner strip occupies a permanent row above the header;

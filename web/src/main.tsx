@@ -13,6 +13,7 @@ import App from "./App.tsx";
 import AppDatesProvider from "./components/AppDatesProvider";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { shouldRetryQuery } from "./api/http";
+import SessionCacheBoundary from "./api/SessionCacheBoundary";
 import { theme } from "./theme";
 import { cssVariablesResolver } from "./themeVariables";
 
@@ -49,7 +50,9 @@ createRoot(document.getElementById("root")!).render(
       <ErrorBoundary>
         <AppDatesProvider>
           <QueryClientProvider client={queryClient}>
-            <App />
+            <SessionCacheBoundary>
+              <App />
+            </SessionCacheBoundary>
           </QueryClientProvider>
         </AppDatesProvider>
       </ErrorBoundary>

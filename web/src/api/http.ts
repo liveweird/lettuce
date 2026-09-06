@@ -1,13 +1,32 @@
 // Transport — authedFetch with the single-flighted silent refresh, ApiError, and the
 // shared JSON helpers (session state lives in ./session).
 
-import { flagSignedOut, notifyAuthChange } from "../auth";
+import { flagSignedOut } from "../auth";
 import type { components } from "./schema";
-import { clearSession, getRefreshToken, getToken, persistSession } from "./session";
+import {
+  captureSession,
+  clearSession,
+  isSessionBoundaryCurrent,
+  isSessionCurrent,
+  persistRefreshedSession,
+  SessionChangedError,
+  type SessionSnapshot,
+} from "./session";
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 type LoginSuccess = components["schemas"]["LoginResponse"];
+
+function isLoginSuccess(data: unknown): data is LoginSuccess {
+  if (data === null || typeof data !== "object") return false;
+  const candidate = data as Partial<LoginSuccess>;
+  return typeof candidate.token === "string"
+    && typeof candidate.refreshToken === "string"
+    && typeof candidate.userId === "number"
+    && Number.isFinite(candidate.userId)
+    && Array.isArray(candidate.roles)
+    && (candidate.disabledFeatures === undefined || Array.isArray(candidate.disabledFeatures));
+}
 
 // Every request gets a deadline (v2.22.0) — without one a hung response leaves the promise
 // pending forever, with buttons stuck in their loading state and no error ever shown.
@@ -35,26 +54,52 @@ export function isTimeoutError(err: unknown): boolean {
 // through a transient failure, so signing the user out would discard a working session (and
 // any in-progress form) over a hiccup.
 type RefreshOutcome =
-  | { kind: "ok"; token: string }
+  | { kind: "ok"; token: string; session: SessionSnapshot }
   | { kind: "rejected" }
-  | { kind: "unavailable" };
+  | { kind: "unavailable" }
+  | { kind: "stale" };
 
 // Exchange the stored refresh token for a fresh access + refresh pair. Single-flighted:
 // concurrent callers (e.g. several requests that all 401 at once) share one in-flight
 // /refresh call.
-let refreshInflight: Promise<RefreshOutcome> | null = null;
+type RefreshFlight = { session: SessionSnapshot; promise: Promise<RefreshOutcome> };
+let refreshInflight: RefreshFlight | null = null;
+const responseSessions = new WeakMap<Response, SessionSnapshot>();
 
-function refresh(): Promise<RefreshOutcome> {
-  if (refreshInflight === null) {
-    refreshInflight = doRefresh().finally(() => {
-      refreshInflight = null;
-    });
-  }
-  return refreshInflight;
+function rememberResponseSession(response: Response, session: SessionSnapshot): Response {
+  responseSessions.set(response, session);
+  return response;
 }
 
-async function doRefresh(): Promise<RefreshOutcome> {
-  const refreshToken = getRefreshToken();
+function assertResponseSession(response: Response): void {
+  const session = responseSessions.get(response);
+  if (session && !isSessionBoundaryCurrent(session)) throw new SessionChangedError();
+}
+
+function sameSession(a: SessionSnapshot, b: SessionSnapshot): boolean {
+  return a.generation === b.generation
+    && a.token === b.token
+    && a.refreshToken === b.refreshToken
+    && a.userId === b.userId;
+}
+
+function refresh(session: SessionSnapshot): Promise<RefreshOutcome> {
+  if (refreshInflight === null || !sameSession(refreshInflight.session, session)) {
+    const flight: RefreshFlight = {
+      session,
+      promise: Promise.resolve({ kind: "stale" }),
+    };
+    flight.promise = doRefresh(session).finally(() => {
+      // An old flight may finish after a new identity has started its own refresh.
+      if (refreshInflight === flight) refreshInflight = null;
+    });
+    refreshInflight = flight;
+  }
+  return refreshInflight.promise;
+}
+
+async function doRefresh(session: SessionSnapshot): Promise<RefreshOutcome> {
+  const refreshToken = session.refreshToken;
   if (!refreshToken) return { kind: "rejected" };
   let res: Response;
   try {
@@ -69,34 +114,51 @@ async function doRefresh(): Promise<RefreshOutcome> {
   }
   if (res.status === 401 || res.status === 403) return { kind: "rejected" };
   if (!res.ok) return { kind: "unavailable" };
-  let data: LoginSuccess;
+  let data: unknown;
   try {
     data = (await res.json()) as LoginSuccess;
   } catch {
     return { kind: "unavailable" };
   }
-  if (typeof data.token !== "string") return { kind: "unavailable" };
-  persistSession(data);
-  return { kind: "ok", token: data.token };
+  if (!isLoginSuccess(data)) return { kind: "unavailable" };
+  if (!isSessionCurrent(session)) return { kind: "stale" };
+  const refreshedSession = persistRefreshedSession(data);
+  return { kind: "ok", token: data.token, session: refreshedSession };
 }
 
 export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  let res = await sendWithToken(path, init, getToken());
+  const requestSession = captureSession();
+  let res = await sendWithToken(path, init, requestSession.token);
+  if (!isSessionBoundaryCurrent(requestSession)) throw new SessionChangedError();
   if (res.status === 401) {
+    if (!isSessionCurrent(requestSession)) {
+      // Another request/tab already refreshed this same identity while the original was in
+      // flight. Retry with that rotated access token, but never across an identity boundary.
+      const rotatedSession = captureSession();
+      res = await sendWithToken(path, init, rotatedSession.token);
+      if (!isSessionBoundaryCurrent(rotatedSession)) throw new SessionChangedError();
+      return rememberResponseSession(res, rotatedSession);
+    }
     // The access token is likely expired. Try one silent refresh (single-flighted), then retry once.
-    const outcome = await refresh();
+    const outcome = await refresh(requestSession);
     if (outcome.kind === "ok") {
+      if (!isSessionCurrent(outcome.session)) throw new SessionChangedError();
       res = await sendWithToken(path, init, outcome.token);
-    } else if (outcome.kind === "rejected") {
+      if (!isSessionBoundaryCurrent(outcome.session)) throw new SessionChangedError();
+      return rememberResponseSession(res, outcome.session);
+    } else if (outcome.kind === "rejected" && isSessionCurrent(requestSession)) {
       // No refresh token, or the server rejected it — the session is over.
-      clearSession();
       flagSignedOut();
-      notifyAuthChange();
+      clearSession();
+      return res;
+    }
+    if (!isSessionBoundaryCurrent(requestSession)) {
+      throw new SessionChangedError();
     }
     // "unavailable": keep the session — the original 401 becomes the caller's error and a
     // later retry (the tokens are untouched) can succeed once the server is reachable again.
   }
-  return res;
+  return rememberResponseSession(res, requestSession);
 }
 
 function sendWithToken(path: string, init: RequestInit, token: string | null): Promise<Response> {
@@ -138,7 +200,9 @@ export class ApiError extends Error {
  * ~7 s of backoff); transient failures (network, timeout, 5xx) get up to two retries.
  */
 export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
-  return failureCount < 2 && !(error instanceof ApiError && error.status >= 400 && error.status < 500);
+  return failureCount < 2
+    && !(error instanceof SessionChangedError)
+    && !(error instanceof ApiError && error.status >= 400 && error.status < 500);
 }
 
 export async function safeJson(res: Response): Promise<unknown> {
@@ -157,14 +221,25 @@ export async function safeJson(res: Response): Promise<unknown> {
  */
 export async function jsonRequest<T>(input: string, init?: RequestInit): Promise<T> {
   const res = await authedFetch(input, init);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
-  return (await res.json()) as T;
+  if (!res.ok) {
+    const body = await safeJson(res);
+    assertResponseSession(res);
+    throw new ApiError(res.status, body);
+  }
+  const data = (await res.json()) as T;
+  assertResponseSession(res);
+  return data;
 }
 
 /** [jsonRequest]'s sibling for 201/204-style responses whose body is ignored. */
 export async function voidRequest(input: string, init?: RequestInit): Promise<void> {
   const res = await authedFetch(input, init);
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  if (!res.ok) {
+    const body = await safeJson(res);
+    assertResponseSession(res);
+    throw new ApiError(res.status, body);
+  }
+  assertResponseSession(res);
 }
 
 /**
