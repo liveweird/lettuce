@@ -31,6 +31,10 @@ Multi-module Gradle build (Kotlin DSL) defined in `settings.gradle.kts` with two
 
 Group is `ch.nokillswit`, version `1.0.0-SNAPSHOT` (set in root `build.gradle.kts`). Dependency versions are centralized in `gradle/libs.versions.toml`; Ktor itself comes from a separate version catalog (`ktorLibs`) loaded from `io.ktor:ktor-version-catalog` in `settings.gradle.kts`.
 
+Resolved Gradle dependencies use strict locking and SHA-256 verification, including artifact
+metadata. Normal builds enforce the committed state; intentional updates follow
+`.claude/docs/dependency-reproducibility.md`. Docker packaging copies the same lock/checksum files.
+
 ### API guidelines (the authoritative API standard)
 
 **`api-guidelines/API-GUIDELINES.md` is the single authoritative rulebook for API style** — document shape, URLs, versioning, list conventions, naming, data formats, status codes, errors, auth, caching, rate limiting, idempotency, security, and OpenAPI/conformance practice. Every rule has a stable ID (`API-LIST-002`); cite IDs when discussing API design. Consult it when designing or reviewing endpoints; the sections below keep only summaries plus lettuce-specific behavior. Validate spec changes with the `/api-review` skill (Spectral lint + LLM review checklist; `api-guidelines/README.md` documents both passes and the decision record behind the standard). Deliberate, registered non-conformances (correlation-id echo, `Retry-After`, `ETag`, `Idempotency-Key`, HTTP/2, SLA metadata) live in the rulebook's **known-gaps register** — report them as "registered gap", not drift, and remove the entry when closing one. **The GraphQL integration API has its own sibling rulebook** — `api-guidelines/GRAPHQL-GUIDELINES.md` (stable `GQL-*-NNN` ids; its contract artifact is the committed SDL at `server/src/main/resources/graphql/schema.graphqls`, pinned by `IntegrationSchemaContractTest` instead of the REST conformance layer).

@@ -37,7 +37,12 @@ jobs:
 
       # check includes tests, Detekt, Kover verification, and dependency alignment.
       - name: Run backend quality gates
-        run: ./gradlew check
+        run: |
+          for state in gradle/verification-metadata.xml gradle.lockfile settings-gradle.lockfile core/gradle.lockfile server/gradle.lockfile; do
+            test -s "$state"
+          done
+          ./gradlew --dependency-verification strict check :server:installDist
+          git diff --exit-code -- gradle/verification-metadata.xml gradle.lockfile settings-gradle.lockfile core/gradle.lockfile server/gradle.lockfile
 
   web:
     name: Web
