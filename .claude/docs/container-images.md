@@ -33,9 +33,14 @@ from their existing release-family tags on that date; both Temurin stages use
    verify the intended upstream repository. Entries with `unknown/unknown` platforms
    are attestations, not runnable platform images.
 3. Inspect `IMAGE:TAG@sha256:DIGEST` again to verify that exact reference, then update
-   the committed reference. Keep all three PostgreSQL references identical and keep
+   the committed reference. Keep the digest in all three PostgreSQL references identical and keep
    the Temurin JDK/JRE release and Java 21 toolchain aligned. Review OS-base changes
    as well as the application's release number.
+
+   Testcontainers uses `postgres@sha256:DIGEST` with the readable release in a
+   comment. Its image-name parser cannot handle `postgres:TAG@sha256:DIGEST`;
+   declaring compatibility does not fix that parsing limitation. Compose and
+   Kubernetes retain the readable tag alongside the same digest.
 4. Validate `docker compose config --quiet`, build with
    `docker compose build --pull app`, and run the required PR checks. The backend
    suite boots the pinned PostgreSQL image and applies every migration. For a base
