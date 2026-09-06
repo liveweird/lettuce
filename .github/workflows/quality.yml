@@ -35,9 +35,17 @@ jobs:
       - name: Test recovery schema comparison
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
+      - name: Test Docker build context
+        run: ./scripts/test-docker-build-context.sh
+
       # check includes tests, Detekt, Kover verification, and dependency alignment.
       - name: Run backend quality gates
-        run: ./gradlew check
+        run: |
+          for state in gradle/verification-metadata.xml gradle.lockfile settings-gradle.lockfile core/gradle.lockfile server/gradle.lockfile; do
+            test -s "$state"
+          done
+          ./gradlew --dependency-verification strict check :server:installDist
+          git diff --exit-code -- gradle/verification-metadata.xml gradle.lockfile settings-gradle.lockfile core/gradle.lockfile server/gradle.lockfile
 
   web:
     name: Web

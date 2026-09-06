@@ -6,8 +6,13 @@ following checks on JDK 21 and Node 24:
 
 - **Backend:** `./scripts/test-render-app-deployment.sh` checks release image validation;
   `python3 -m unittest discover -s scripts -p 'test_*.py'` checks the offline recovery
-  schema comparator; then `./gradlew check` runs the Kotlin tests, Detekt, Kover verification, and
-  `:server:checkDependencyAlignment`. The tests require the GitHub-hosted runner's Docker daemon for
+  schema comparator; `./scripts/test-docker-build-context.sh` verifies that Docker includes
+  Git refs for `build/*` branches while excluding generated output and dependency caches;
+  then `./gradlew --dependency-verification strict check :server:installDist`
+  runs the Kotlin tests, Detekt, Kover verification, dependency alignment, and distribution packaging.
+  CI requires the committed lock/checksum files and checks they remain unchanged. See
+  `.claude/docs/dependency-reproducibility.md` for intentional dependency updates.
+  The tests require the GitHub-hosted runner's Docker daemon for
   Testcontainers.
 - **Web:** a lockfile install with `npm ci --legacy-peer-deps`, followed by `npm run build`,
   `npm run lint`, `npm run knip`, and `npm run test:coverage`.

@@ -1,5 +1,10 @@
 rootProject.name = "lettuce"
 
+val settingsLockFile = file("settings-gradle.lockfile")
+check(gradle.startParameter.isWriteDependencyLocks || (settingsLockFile.isFile && settingsLockFile.length() > 0L)) {
+    "settings-gradle.lockfile is missing or empty; regenerate it with ./gradlew resolveAndLockAll --write-locks"
+}
+
 pluginManagement {
     repositories {
         mavenCentral()

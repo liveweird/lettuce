@@ -15,19 +15,20 @@ COPY web/ ./
 COPY .git .git
 # schema.ts is committed, so `vite build` needs no running server / gen:api.
 RUN GIT_SHA=$(git rev-parse --short HEAD) \
-    GIT_COMMIT_TIME=$(git log -1 --format=%cI) \
-    npm run build
+    && GIT_COMMIT_TIME=$(git log -1 --format=%cI) \
+    && export GIT_SHA GIT_COMMIT_TIME \
+    && npm run build
 
 # ── Stage 2: build the server distribution ────────────────────────────────────
 FROM eclipse-temurin:21-jdk@sha256:85f00967bcc624fc19fa9c2cf124ea426a5363898e267141726f31f358c2e14b AS server
 WORKDIR /src
 # Copy build scripts + wrapper first so the Gradle distribution download caches.
-COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties gradle.lockfile settings-gradle.lockfile ./
 COPY gradle/ gradle/
 RUN ./gradlew --version --no-daemon
 # Module build files, then sources.
-COPY core/build.gradle.kts core/
-COPY server/build.gradle.kts server/
+COPY core/build.gradle.kts core/gradle.lockfile core/
+COPY server/build.gradle.kts server/gradle.lockfile server/
 COPY core/src/ core/src/
 COPY server/src/ server/src/
 # installDist keeps every dependency as its own JAR, so Flyway's ServiceLoader

@@ -11,6 +11,10 @@ Container build stages, the Dockerfile frontend, PostgreSQL, and Mailpit use ver
 multi-platform registry digests. Follow `.claude/docs/container-images.md` to refresh
 them; PostgreSQL references in Compose, Kubernetes, and Testcontainers move together.
 
+The server stage copies the root/settings/module dependency locks and Gradle verification
+metadata before packaging. See `.claude/docs/dependency-reproducibility.md` for updates;
+do not bypass verification to make a container build succeed.
+
 Package the server for deployment with `./gradlew :server:installDist` (output under `server/build/install/server/`, launcher `bin/server`). **Do not use `:server:buildFatJar`** — the shadow plugin collapses the duplicate `META-INF/services/org.flywaydb.core.extensibility.Plugin` descriptors and the fat JAR NPEs at startup inside Flyway's plugin registry. `installDist` keeps each dependency JAR separate, so Flyway's `ServiceLoader` discovery works exactly as under `:server:run`.
 
 ## JVM footprint tuning
