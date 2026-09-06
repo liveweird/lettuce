@@ -2,8 +2,8 @@ name: e2e
 
 # Blackbox Playwright suite: brings the full stack up via docker compose and drives a real browser.
 on:
-  # Manual-only: this suite no longer runs on push/PR (the local
-  # `./gradlew :server:test` + `cd web && npm test` + build are the gate).
+  # Manual-only: this browser suite no longer runs on push/PR. The quality workflow gates
+  # backend/web checks plus the Docker-free e2e typecheck and scenario-parity check.
   # Run it on demand from the Actions tab → "e2e" → "Run workflow".
   workflow_dispatch:
 

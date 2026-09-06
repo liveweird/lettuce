@@ -1732,8 +1732,8 @@ export interface paths {
          * List succession plans for the caller
          * @description Lists succession plans (critical roles/seats) scoped by `view`. Except `view=user`
          *     (the HR auditor view), scoping is always relative to the caller, including ADMIN
-         *     callers. The feature is invisible to its subjects: the seat's person and the
-         *     nominated candidates never see a plan through any view.
+         *     callers. Subject/candidate status grants no access to a plan. HR retains full
+         *     audit read access even when the auditor is the seat's person or a nominated candidate.
          *
          *     - `view=own` (the default): the plans the caller owns (created as the planning
          *       manager). A caller who manages nobody simply gets an empty page.
@@ -1805,8 +1805,10 @@ export interface paths {
          *     and every nomination with its competency gaps and linked development goals (light
          *     goal references: id, title, status, type; a soft-deleted goal drops out silently).
          *     Readable by the plan's **owner**, the **HR auditor** (audit-logged), and any
-         *     **manager in the OWNER's transitive management chain**. Anything else — the seat's
-         *     person, the candidates, teammates, and ADMIN included — is `403`.
+         *     **manager in the OWNER's transitive management chain**. HR retains this audit grant
+         *     even when the auditor is the seat's person or a nominated candidate. Without one
+         *     of these grants, access is `403`; subject/candidate, teammate, or ADMIN status alone
+         *     grants no access.
          */
         get: operations["getSuccessionPlan"];
         /**
@@ -1898,7 +1900,8 @@ export interface paths {
          *     is stored (clients localize the description) and the encrypted loss-impact /
          *     competency-gap texts NEVER appear. Nomination changes are plan-level events.
          *     Authorization matches the single-GET above: whoever may read the plan may read its
-         *     history — the seat's person and the candidates get 403 as everywhere in this feature.
+         *     history, including HR auditors who are also the seat's person or a nominated candidate.
+         *     Subject/candidate status alone grants no access.
          *     Events are server-generated; there is no create/update/delete endpoint, and no
          *     notifications accompany them.
          */
@@ -6994,7 +6997,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Caller is neither the plan's owner, nor the HR auditor, nor a manager in the OWNER's transitive management chain (the seat's person and the candidates are deliberately excluded — the feature is invisible to its subjects) */
+        /** @description Caller is neither the plan's owner, nor the HR auditor, nor a manager in the OWNER's transitive management chain. Subject/candidate status alone grants no access; HR retains its audit grant even for subjects/candidates. */
         SuccessionPlanNotReadable: {
             headers: {
                 [name: string]: unknown;

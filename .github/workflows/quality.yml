@@ -1,0 +1,122 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # check includes tests, Detekt, Kover verification, and dependency alignment.
+      - name: Run backend quality gates
+        run: ./gradlew check
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Build web
+        working-directory: web
+        run: npm run build
+
+      - name: Lint web
+        working-directory: web
+        run: npm run lint
+
+      - name: Check for unused web code
+        working-directory: web
+        run: npm run knip
+
+      - name: Run web coverage gate
+        working-directory: web
+        run: npm run test:coverage
+
+  api-contract:
+    name: API contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install schema generator
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint OpenAPI contract
+        run: >-
+          npx --yes @stoplight/spectral-cli@6.15.0 lint
+          server/src/main/resources/openapi/documentation.yaml
+          --ruleset api-guidelines/api-guidelines.spectral.yaml
+          --fail-severity error
+
+      - name: Verify generated web schema is current
+        working-directory: web
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/api/schema.ts
+
+  e2e-static:
+    name: E2E source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Type-check e2e suite
+        working-directory: e2e
+        run: npm run typecheck
+
+      - name: Check spec and scenario pairing
+        working-directory: e2e
+        run: npm run check:scenarios
