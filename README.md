@@ -59,10 +59,16 @@ A bootstrap admin is seeded on first boot: `admin@lettuce.local` / `changeme`
 Tear down with `docker compose down`, or `docker compose down -v` to also drop the
 database volume.
 
+For backup handling, isolated restoration, and the latest rehearsal evidence, see the
+[backup and restore runbook](.claude/docs/backup-and-restore.md). Encryption keys must be
+recoverable separately from the database archive.
+
 ## Running on Kubernetes (local)
 
-The `k8s/` directory holds manifests for a local cluster (developed against
-OrbStack, whose Kubernetes shares the Docker image store — no registry needed).
+The `k8s/` directory holds manifests developed against a local OrbStack cluster.
+The app Deployment is rendered separately from `k8s/templates/app-deployment.yaml`
+using a verified registry image digest. Use Compose above for a local build without
+a registry.
 
 The app runs in production mode behind a TLS-terminating **ingress-nginx** front door at
 a real hostname (`k8s/templates/app-ingress.yaml`).
@@ -85,31 +91,48 @@ kubectl wait -n ingress-nginx --for=condition=ready pod -l app.kubernetes.io/com
 kubectl get svc -n ingress-nginx ingress-nginx-controller   # its EXTERNAL-IP; e.g. HOST=lettuce.<ip>.nip.io
 ```
 
-Build (or rebuild) and deploy. The workloads are host-agnostic — the Ingress (which carries the
-host placeholder) lives in `k8s/templates/` and is applied separately with substitution, and the
-deployment's `MAIL_APP_URL` comes from the `lettuce-config` ConfigMap — so `kubectl apply -f k8s/`
-never reverts a per-deployment value. The three values that must agree: the Ingress host, the
-ConfigMap `MAIL_APP_URL`, and the certificate SAN.
+Publish the tested app image through your release process and set `LETTUCE_APP_IMAGE` to
+its verified `registry/repository@sha256:<64 lowercase hex digits>` reference. This repository
+does not select a registry or publish images automatically. A commit tag or a local Docker
+image ID is not a registry manifest digest. Keep the previous release digest for rollback.
 
-```
-docker build -t lettuce-app:latest .
-kubectl apply -f k8s/                      # deployment/service/postgres/PVC; idempotent, non-recursive (templates stay out)
+Render and review the app Deployment before applying it. The renderer rejects mutable tags
+and missing or malformed digests. The app Deployment and host-specific Ingress both live in
+`k8s/templates/`, so a non-recursive `kubectl apply -f k8s/` cannot overwrite the selected app
+image or Ingress host. The Ingress host, ConfigMap `MAIL_APP_URL`, and certificate SAN must agree.
+
+```sh
+: "${LETTUCE_APP_IMAGE:?Set the verified registry image digest for this release}"
+release_manifest=$(mktemp)
+./scripts/render-app-deployment.sh "$LETTUCE_APP_IMAGE" > "$release_manifest"
+# Review the rendered file and verify that the cluster can pull the selected image.
+kubectl apply -f k8s/                      # Service/Postgres/PVC; excludes all templates
+kubectl apply -f "$release_manifest"       # applies the exact app image digest
 sed "s#lettuce.example.com#$HOST#g" k8s/templates/app-ingress.yaml | kubectl apply -f -
-kubectl rollout restart deployment/app     # picks up a rebuilt image (tag stays :latest)
 kubectl rollout status deployment/app
 kubectl get ingress app                    # host + address; then browse https://$HOST/
+rm "$release_manifest"
 ```
+
+For an upgrade or rollback, render and apply the desired digest again; changing the image
+reference triggers a rollout. Rebuilding or moving a tag does not change a deployed digest.
 
 The `app` Service is ClusterIP (the Ingress fronts it); `kubectl port-forward svc/app 8081:8080`
 reaches the pod directly on any cluster (production mode answers plain HTTP there with a
 redirect — send `X-Forwarded-Proto: https` for API checks). The seed admin's password is the
 `ADMIN_INITIAL_PASSWORD` you put in the Secret; the demo users are disabled in production mode.
 
-Tear down:
+To stop the workloads while preserving the database:
 
+```sh
+kubectl scale deployment app postgres --replicas=0
 ```
-kubectl delete -f k8s/                              # everything, INCLUDING the database volume (Secrets and the ingress controller stay)
-kubectl scale deployment app postgres --replicas=0  # stop workloads, keep the data
+
+For a destructive teardown that also removes the database volume:
+
+```sh
+kubectl delete deployment app
+kubectl delete -f k8s/  # includes the database PVC; templates and their resources stay out
 ```
 
 Database only:

@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
  * afterwards throws on Netty (never on Ktor's test engine, which is why `testApplication` cannot
  * pin this): every redirected request logged an ERROR stack trace and the 301 went out bare
  * (v3.6.1). Behind a proxy (`http.behindProxy`), `X-Forwarded-Proto: https` marks the request as
- * already secure — the contract the k8s probes rely on (k8s/app-deployment.yaml).
+ * already secure — the contract the k8s probes rely on (k8s/templates/app-deployment.yaml).
  */
 class ProductionHttpTest {
 

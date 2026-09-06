@@ -4,7 +4,9 @@
 `master`, and manual dispatches without path filters. Its least-privilege, independent jobs run the
 following checks on JDK 21 and Node 24:
 
-- **Backend:** `./gradlew check`, which includes the Kotlin tests, Detekt, Kover verification, and
+- **Backend:** `./scripts/test-render-app-deployment.sh` checks release image validation;
+  `python3 -m unittest discover -s scripts -p 'test_*.py'` checks the offline recovery
+  schema comparator; then `./gradlew check` runs the Kotlin tests, Detekt, Kover verification, and
   `:server:checkDependencyAlignment`. The tests require the GitHub-hosted runner's Docker daemon for
   Testcontainers.
 - **Web:** a lockfile install with `npm ci --legacy-peer-deps`, followed by `npm run build`,
@@ -18,7 +20,11 @@ The full Playwright browser journey remains an on-demand, manual workflow in
 `.github/workflows/e2e.yml`; the pull-request gate checks its TypeScript and spec/scenario pairing
 without starting the stack or downloading Chromium. The stable quality job IDs and display names
 for required-check rules are `backend` (**Backend**), `web` (**Web**), `api-contract`
-(**API contract**), and `e2e-static` (**E2E source**).
+(**API contract**), and `e2e-static` (**E2E source**). Since 2026-09-06, the active
+repository ruleset requires all four checks from the GitHub Actions app on `master`,
+with strict up-to-date checking. Existing PR, deletion, and non-fast-forward protections
+remain in place, with no bypass actors. These settings live in GitHub, separately from
+the workflow file; preserve the check names when editing the workflow.
 
 `server/src/test/kotlin/ServerTest.kt` uses `io.ktor.server.testing.testApplication` and overrides the `postgres.*` config keys via `MapApplicationConfig` to point at a Testcontainers `PostgreSQLContainer` started lazily by `PostgresTestSupport`. Running tests requires a working Docker daemon (Docker Desktop, OrbStack, etc.). When adding tests, replicate the `environment { config = ApplicationConfig("application.yaml").mergeWith(MapApplicationConfig(...)) }` block so the app boots against the test container rather than a real database. The container runs **all** Flyway migrations, so the V6/V9/V14 seeds (admin, demo org, default templates) are present — tests scope their assertions with unique prefixes/filters rather than asserting absolute counts.
 

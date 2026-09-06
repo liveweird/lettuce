@@ -84,7 +84,10 @@ service descriptors breaks plugin discovery at runtime. JVM runtime flags are in
 `server/build.gradle.kts`; consult `.claude/skills/run-stack/SKILL.md` before changing them.
 
 Kubernetes uses a ClusterIP app service behind the TLS-terminating ingress in
-`k8s/app-ingress.yaml`. Secret examples live under `k8s/templates/`; never apply those templates
+`k8s/templates/app-ingress.yaml`. Render the app Deployment from
+`k8s/templates/app-deployment.yaml` with `scripts/render-app-deployment.sh` and a verified
+registry image digest; non-recursive `kubectl apply -f k8s/` excludes the app Deployment.
+Secret examples live under `k8s/templates/`; never apply those templates
 verbatim or recursively apply that directory. Keep the ingress host, certificate SAN, and
 `MAIL_APP_URL` consistent. Follow the run-stack playbook for deployment-specific secrets and TLS.
 
