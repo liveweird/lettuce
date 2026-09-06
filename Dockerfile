@@ -1,7 +1,7 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 
 # ── Stage 1: build the React SPA ──────────────────────────────────────────────
-FROM node:24-alpine AS web
+FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS web
 RUN apk add --no-cache git
 WORKDIR /web
 # Install deps first for layer caching. --legacy-peer-deps per web/ README
@@ -18,8 +18,8 @@ RUN GIT_SHA=$(git rev-parse --short HEAD) \
     GIT_COMMIT_TIME=$(git log -1 --format=%cI) \
     npm run build
 
-# ── Stage 2: build the server fat JAR ─────────────────────────────────────────
-FROM eclipse-temurin:21-jdk AS server
+# ── Stage 2: build the server distribution ────────────────────────────────────
+FROM eclipse-temurin:21-jdk@sha256:85f00967bcc624fc19fa9c2cf124ea426a5363898e267141726f31f358c2e14b AS server
 WORKDIR /src
 # Copy build scripts + wrapper first so the Gradle distribution download caches.
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -39,7 +39,7 @@ RUN ./gradlew :server:installDist --no-daemon
 # JRE 21 matches the build stage (21-jdk) and the Gradle toolchain (jvmToolchain(21)) — the app
 # ships on the same LTS JVM the test suite runs against. Bump all three together if you move to a
 # newer JVM, so tests exercise the runtime you deploy.
-FROM eclipse-temurin:21-jre AS runtime
+FROM eclipse-temurin:21-jre@sha256:7a65df4b22d2de92d4e04056e884f3b9122d70b21e2847fd66084278bd0ce037 AS runtime
 WORKDIR /app
 COPY --from=server /src/server/build/install/server/ ./
 COPY --from=web /web/dist web
