@@ -3,7 +3,13 @@
 
 import { API_BASE, ApiError, safeJson, timeoutSignal } from "./http";
 import type { components, paths } from "./schema";
-import { clearSession, getRefreshToken, getToken, persistSession } from "./session";
+import {
+  captureSession,
+  clearSession,
+  isSessionCurrent,
+  persistSession,
+  SessionChangedError,
+} from "./session";
 
 type LoginBody = paths["/api/v1/login"]["post"]["requestBody"]["content"]["application/json"];
 // Tokens, or (MFA-enabled accounts) a second-factor challenge — discriminate via isMfaChallenge.
@@ -16,14 +22,21 @@ export function isMfaChallenge(data: LoginOk): data is MfaChallenge {
 }
 
 export async function login(credentials: LoginBody): Promise<LoginOk> {
+  const session = captureSession();
   const res = await fetch(`${API_BASE}/api/v1/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
     signal: timeoutSignal(),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  if (!isSessionCurrent(session)) throw new SessionChangedError();
+  if (!res.ok) {
+    const body = await safeJson(res);
+    if (!isSessionCurrent(session)) throw new SessionChangedError();
+    throw new ApiError(res.status, body);
+  }
   const data = (await res.json()) as LoginOk;
+  if (!isSessionCurrent(session)) throw new SessionChangedError();
   // An MFA challenge carries no tokens — the session starts only after verifyMfa.
   if (!isMfaChallenge(data)) persistSession(data);
   return data;
@@ -38,6 +51,7 @@ type MfaVerifyBody =
  * (invalid/expired code), 403 (account deactivated meanwhile), or 429 (rate-limited).
  */
 export async function verifyMfa(challengeId: string, code: string): Promise<LoginSuccess> {
+  const session = captureSession();
   const body: MfaVerifyBody = { challengeId, code };
   const res = await fetch(`${API_BASE}/api/v1/login/mfa`, {
     method: "POST",
@@ -45,8 +59,14 @@ export async function verifyMfa(challengeId: string, code: string): Promise<Logi
     body: JSON.stringify(body),
     signal: timeoutSignal(),
   });
-  if (!res.ok) throw new ApiError(res.status, await safeJson(res));
+  if (!isSessionCurrent(session)) throw new SessionChangedError();
+  if (!res.ok) {
+    const responseBody = await safeJson(res);
+    if (!isSessionCurrent(session)) throw new SessionChangedError();
+    throw new ApiError(res.status, responseBody);
+  }
   const data = (await res.json()) as LoginSuccess;
+  if (!isSessionCurrent(session)) throw new SessionChangedError();
   persistSession(data);
   return data;
 }
@@ -70,19 +90,21 @@ export async function requestPasswordReset(email: string): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
-  const token = getToken();
+  const { token, refreshToken } = captureSession();
+  // Local sign-out is the security boundary and must not wait for a network round-trip.
+  // It also clears partial/legacy sessions whose access token is already missing.
+  clearSession();
   if (!token) return;
   try {
     await fetch(`${API_BASE}/api/v1/logout`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       // Include the refresh token so an explicit logout revokes it too, not just the access token.
-      body: JSON.stringify({ refreshToken: getRefreshToken() }),
+      body: JSON.stringify({ refreshToken }),
       signal: timeoutSignal(),
     });
   } catch {
     // Best-effort revoke: offline/timeout must not block the LOCAL sign-out — before v2.22.0
     // a rejected fetch skipped clearSession, leaving the user apparently signed in.
   }
-  clearSession();
 }

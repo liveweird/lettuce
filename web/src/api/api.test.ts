@@ -1,12 +1,26 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ApiError, authedFetch, shouldRetryQuery } from "./http";
-import { canAudit, getDisabledFeatures, getRoles, getToken, hasFeature, isHr, getUserId, isAdmin, setToken } from "./session";
-import { login, logout } from "./auth";
+import { ApiError, authedFetch, jsonRequest, shouldRetryQuery } from "./http";
+import {
+  canAudit,
+  getDisabledFeatures,
+  getRoles,
+  getToken,
+  hasFeature,
+  isHr,
+  getUserId,
+  isAdmin,
+  SessionChangedError,
+  setToken,
+  subscribeSessionBoundary,
+  subscribeSessionChange,
+} from "./session";
+import { login, logout, verifyMfa } from "./auth";
 import { setUserLanguage, updateUserFeatures } from "./users";
 import i18n from "../i18n";
 import { listFeedbacks } from "./feedbacks";
 import { consumeSignedOut } from "../auth";
 import { jsonResponse } from "../test/http";
+import { QueryClient } from "@tanstack/react-query";
 
 function tokenPair(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -27,6 +41,14 @@ const USER_ID_KEY = "lettuce.auth.userId";
 const DISABLED_FEATURES_KEY = "lettuce.auth.disabledFeatures";
 
 type FetchMock = ReturnType<typeof vi.fn>;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 
 let mockFetch: FetchMock;
@@ -156,6 +178,24 @@ describe("login", () => {
       // The suite renders English globally — never leak a flipped instance.
       await i18n.changeLanguage("en");
     }
+  });
+
+  test("a delayed login or MFA response cannot overwrite an intervening session boundary", async () => {
+    const loginResponse = deferred<Response>();
+    mockFetch.mockReturnValueOnce(loginResponse.promise);
+    const delayedLogin = login({ email: "a@b", password: "pw" });
+    await logout();
+    loginResponse.resolve(jsonResponse(200, tokenPair({ token: "stale-login" })));
+    await expect(delayedLogin).rejects.toBeInstanceOf(SessionChangedError);
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+
+    const mfaResponse = deferred<Response>();
+    mockFetch.mockReturnValueOnce(mfaResponse.promise);
+    const delayedMfa = verifyMfa("challenge-a", "123456");
+    await logout();
+    mfaResponse.resolve(jsonResponse(200, tokenPair({ token: "stale-mfa" })));
+    await expect(delayedMfa).rejects.toBeInstanceOf(SessionChangedError);
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 });
 
@@ -352,6 +392,21 @@ describe("authedFetch", () => {
     expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
   });
 
+  test.each([null, { token: "incomplete" }])(
+    "an incomplete JSON refresh body keeps the existing session: %j",
+    async (body) => {
+      localStorage.setItem(TOKEN_KEY, "old-access");
+      localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(401, {}))
+        .mockResolvedValueOnce(jsonResponse(200, body));
+
+      await expect(authedFetch("/api/v1/users")).resolves.toMatchObject({ status: 401 });
+      expect(localStorage.getItem(TOKEN_KEY)).toBe("old-access");
+      expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe("refresh-123");
+    },
+  );
+
   test("concurrent 401s trigger exactly one refresh (single-flight)", async () => {
     localStorage.setItem(TOKEN_KEY, "old-access");
     localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
@@ -378,6 +433,225 @@ describe("authedFetch", () => {
       String(c[0]).includes("/api/v1/refresh"),
     );
     expect(refreshCalls).toHaveLength(1);
+  });
+
+  test("an ordinary successful response remains valid across a same-session refresh", async () => {
+    localStorage.setItem(TOKEN_KEY, "old-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    localStorage.setItem(USER_ID_KEY, "7");
+    const ordinaryResponse = deferred<Response>();
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const path = String(url);
+      if (path.endsWith("/ordinary")) return ordinaryResponse.promise;
+      if (path.includes("/refresh")) return Promise.resolve(jsonResponse(200, tokenPair()));
+      const token = new Headers(init?.headers).get("Authorization");
+      return Promise.resolve(
+        token === "Bearer new-access" ? jsonResponse(200, {}) : jsonResponse(401, {}),
+      );
+    });
+
+    const ordinary = authedFetch("/api/v1/ordinary");
+    await expect(authedFetch("/api/v1/needs-refresh")).resolves.toMatchObject({ status: 200 });
+    ordinaryResponse.resolve(jsonResponse(200, { saved: true }));
+
+    await expect(ordinary).resolves.toMatchObject({ status: 200 });
+  });
+
+  test("a refresh that changes authorization metadata creates a cache boundary", async () => {
+    localStorage.setItem(TOKEN_KEY, "old-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "refresh-123");
+    localStorage.setItem(USER_ID_KEY, "7");
+    const client = new QueryClient();
+    client.setQueryData(["private", 7], { secret: "a" });
+    const unsubscribe = subscribeSessionBoundary(() => client.clear());
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse(401, {}))
+      .mockResolvedValueOnce(jsonResponse(200, tokenPair({ roles: ["ADMIN"] })))
+      .mockResolvedValueOnce(jsonResponse(200, {}));
+
+    await expect(authedFetch("/api/v1/users")).resolves.toMatchObject({ status: 200 });
+
+    expect(client.getQueryData(["private", 7])).toBeUndefined();
+    expect(getRoles()).toEqual(["ADMIN"]);
+    unsubscribe();
+  });
+
+  test.each([200, 401])(
+    "a delayed refresh status %i cannot restore or clear a newer login",
+    async (refreshStatus) => {
+      localStorage.setItem(TOKEN_KEY, "a-access");
+      localStorage.setItem(REFRESH_TOKEN_KEY, "a-refresh");
+      localStorage.setItem(USER_ID_KEY, "7");
+      const refreshResponse = deferred<Response>();
+      const logoutResponse = deferred<Response>();
+
+      mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+        const path = String(url);
+        if (path.includes("/api/v1/users")) return Promise.resolve(jsonResponse(401, {}));
+        if (path.includes("/api/v1/refresh")) return refreshResponse.promise;
+        if (path.includes("/api/v1/logout")) return logoutResponse.promise;
+        if (path.includes("/api/v1/login")) {
+          expect(JSON.parse(String(init?.body))).toEqual({ email: "b@b", password: "pw" });
+          return Promise.resolve(jsonResponse(200, tokenPair({
+            token: "b-access",
+            refreshToken: "b-refresh",
+            userId: 8,
+          })));
+        }
+        throw new Error(`Unexpected fetch ${path}`);
+      });
+
+      const oldRequest = authedFetch("/api/v1/users");
+      await vi.waitFor(() => {
+        expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/refresh"))).toBe(true);
+      });
+      const revoke = logout();
+      expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+      await login({ email: "b@b", password: "pw" });
+
+      refreshResponse.resolve(
+        refreshStatus === 200
+          ? jsonResponse(200, tokenPair({ token: "stale-a", refreshToken: "stale-r", userId: 7 }))
+          : jsonResponse(401, {}),
+      );
+      await expect(oldRequest).rejects.toBeInstanceOf(SessionChangedError);
+      expect(localStorage.getItem(TOKEN_KEY)).toBe("b-access");
+      expect(localStorage.getItem(USER_ID_KEY)).toBe("8");
+
+      logoutResponse.resolve(new Response(null, { status: 204 }));
+      await revoke;
+      expect(localStorage.getItem(TOKEN_KEY)).toBe("b-access");
+    },
+  );
+
+  test("an old ordinary response cannot complete after another identity logs in", async () => {
+    localStorage.setItem(TOKEN_KEY, "a-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "a-refresh");
+    localStorage.setItem(USER_ID_KEY, "7");
+    const oldResponse = deferred<Response>();
+    mockFetch.mockImplementation((url: string) => {
+      const path = String(url);
+      if (path.includes("/api/v1/users")) return oldResponse.promise;
+      if (path.includes("/api/v1/logout")) return Promise.resolve(new Response(null, { status: 204 }));
+      if (path.includes("/api/v1/login")) {
+        return Promise.resolve(jsonResponse(200, tokenPair({
+          token: "b-access",
+          refreshToken: "b-refresh",
+          userId: 8,
+        })));
+      }
+      throw new Error(`Unexpected fetch ${path}`);
+    });
+
+    const request = authedFetch("/api/v1/users");
+    await logout();
+    await login({ email: "b@b", password: "pw" });
+    oldResponse.resolve(jsonResponse(200, { secret: "user-a" }));
+
+    await expect(request).rejects.toBeInstanceOf(SessionChangedError);
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/refresh"))).toBe(false);
+  });
+
+  test("a delayed response body cannot escape into a newer session", async () => {
+    localStorage.setItem(TOKEN_KEY, "a-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "a-refresh");
+    localStorage.setItem(USER_ID_KEY, "7");
+    const body = deferred<unknown>();
+    const response = {
+      ok: true,
+      status: 200,
+      json: () => body.promise,
+    } as Response;
+    mockFetch.mockImplementation((url: string) => String(url).includes("/login")
+      ? Promise.resolve(jsonResponse(200, tokenPair({
+          token: "b-access",
+          refreshToken: "b-refresh",
+          userId: 8,
+        })))
+      : Promise.resolve(response));
+
+    const oldRequest = jsonRequest<{ secret: string }>("/api/v1/private");
+    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    await logout();
+    await login({ email: "b@b", password: "pw" });
+    body.resolve({ secret: "user-a" });
+
+    await expect(oldRequest).rejects.toBeInstanceOf(SessionChangedError);
+  });
+
+  test("a new session starts its own refresh while the old session's flight is pending", async () => {
+    localStorage.setItem(TOKEN_KEY, "a-access");
+    localStorage.setItem(REFRESH_TOKEN_KEY, "a-refresh");
+    localStorage.setItem(USER_ID_KEY, "7");
+    const oldRefresh = deferred<Response>();
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const path = String(url);
+      if (path.includes("/api/v1/logout")) return Promise.resolve(new Response(null, { status: 204 }));
+      if (path.includes("/api/v1/login")) {
+        return Promise.resolve(jsonResponse(200, tokenPair({
+          token: "b-access",
+          refreshToken: "b-refresh",
+          userId: 8,
+        })));
+      }
+      if (path.includes("/api/v1/refresh")) {
+        const body = JSON.parse(String(init?.body)) as { refreshToken: string };
+        return body.refreshToken === "a-refresh"
+          ? oldRefresh.promise
+          : Promise.resolve(jsonResponse(200, tokenPair({
+              token: "b-fresh",
+              refreshToken: "b-refresh-2",
+              userId: 8,
+            })));
+      }
+      const authorization = new Headers(init?.headers).get("Authorization");
+      return Promise.resolve(
+        authorization === "Bearer b-fresh" ? jsonResponse(200, { ok: true }) : jsonResponse(401, {}),
+      );
+    });
+
+    const oldRequest = authedFetch("/api/v1/users");
+    await vi.waitFor(() => {
+      expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/refresh"))).toBe(true);
+    });
+    await logout();
+    await login({ email: "b@b", password: "pw" });
+    await expect(authedFetch("/api/v1/users")).resolves.toMatchObject({ status: 200 });
+
+    oldRefresh.resolve(jsonResponse(200, tokenPair({ token: "stale-a", userId: 7 })));
+    await expect(oldRequest).rejects.toBeInstanceOf(SessionChangedError);
+    expect(localStorage.getItem(TOKEN_KEY)).toBe("b-fresh");
+  });
+
+  test("expiry clears query and mutation caches before auth observers see the transition", async () => {
+    localStorage.setItem(TOKEN_KEY, "a-access");
+    localStorage.setItem(USER_ID_KEY, "7");
+    const client = new QueryClient();
+    client.setQueryData(["private", 7], { secret: "a" });
+    client.getMutationCache().build(client, { mutationFn: async () => undefined });
+    const unsubscribeBoundary = subscribeSessionBoundary(() => client.clear());
+    const observedSizes: Array<[number, number]> = [];
+    const unsubscribeSession = subscribeSessionChange(() => {
+      observedSizes.push([
+        client.getQueryCache().getAll().length,
+        client.getMutationCache().getAll().length,
+      ]);
+    });
+    mockFetch.mockImplementation((url: string) => String(url).includes("/login")
+      ? Promise.resolve(jsonResponse(200, tokenPair({
+          token: "b-access",
+          refreshToken: "b-refresh",
+          userId: 8,
+        })))
+      : Promise.resolve(jsonResponse(401, {})));
+
+    await authedFetch("/api/v1/users");
+    await login({ email: "b@b", password: "pw" });
+
+    expect(observedSizes.at(-1)).toEqual([0, 0]);
+    expect(client.getQueryData(["private", 7])).toBeUndefined();
+    unsubscribeSession();
+    unsubscribeBoundary();
   });
 
   test("omits the Authorization header when no token is stored", async () => {
@@ -439,5 +713,6 @@ describe("shouldRetryQuery", () => {
     expect(shouldRetryQuery(0, new TypeError("Failed to fetch"))).toBe(true);
     expect(shouldRetryQuery(1, new ApiError(503, null))).toBe(true);
     expect(shouldRetryQuery(2, new ApiError(503, null))).toBe(false);
+    expect(shouldRetryQuery(0, new SessionChangedError())).toBe(false);
   });
 });

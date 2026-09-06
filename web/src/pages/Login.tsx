@@ -15,7 +15,8 @@ import {
 import { isEmail, isNotEmpty, useForm } from "@mantine/form";
 import { ApiError } from "../api/http";
 import { isMfaChallenge, login, verifyMfa, type MfaChallenge } from "../api/auth";
-import { consumeSignedOut, notifyAuthChange } from "../auth";
+import { SessionChangedError } from "../api/session";
+import { consumeSignedOut } from "../auth";
 import AuthCard from "../components/AuthCard";
 
 type LocationState = { from?: { pathname?: string } } | null;
@@ -40,7 +41,6 @@ export default function Login() {
   });
 
   function finishSignIn() {
-    notifyAuthChange();
     const from = (location.state as LocationState)?.from?.pathname;
     navigate(from ?? "/", { replace: true });
   }
@@ -58,6 +58,7 @@ export default function Login() {
       }
       finishSignIn();
     } catch (err) {
+      if (err instanceof SessionChangedError) return;
       if (err instanceof ApiError) {
         setError(
           err.status === 401
@@ -87,6 +88,7 @@ export default function Login() {
       await verifyMfa(challenge.challengeId, code);
       finishSignIn();
     } catch (err) {
+      if (err instanceof SessionChangedError) return;
       if (err instanceof ApiError) {
         setError(
           err.status === 401

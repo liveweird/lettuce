@@ -1,25 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useSyncExternalStore, type ReactElement } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { getToken, TOKEN_KEY } from "./api/session";
-
-const listeners = new Set<() => void>();
-
-function subscribe(cb: () => void): () => void {
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === TOKEN_KEY || e.key === null) cb();
-  };
-  window.addEventListener("storage", onStorage);
-  listeners.add(cb);
-  return () => {
-    window.removeEventListener("storage", onStorage);
-    listeners.delete(cb);
-  };
-}
-
-export function notifyAuthChange(): void {
-  listeners.forEach((cb) => cb());
-}
+import {
+  getSessionBoundaryRevision,
+  getSessionRevision,
+  getToken,
+  subscribeSessionChange,
+} from "./api/session";
 
 let pendingSignedOutBanner = false;
 
@@ -33,20 +20,23 @@ export function consumeSignedOut(): boolean {
   return v;
 }
 
-function useAuth(): { token: string | null; isAuthenticated: boolean } {
-  const token = useSyncExternalStore(subscribe, getToken, () => null);
-  return { token, isAuthenticated: token !== null };
+function useAuth(): { boundary: number; isAuthenticated: boolean } {
+  useSyncExternalStore(subscribeSessionChange, getSessionRevision, () => 0);
+  return {
+    boundary: getSessionBoundaryRevision(),
+    isAuthenticated: getToken() !== null,
+  };
 }
 
 type LocationStateWithFrom = { from?: { pathname?: string } } | null;
 
 export function RequireAuth(): ReactElement {
-  const { isAuthenticated } = useAuth();
+  const { boundary, isAuthenticated } = useAuth();
   const location = useLocation();
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  return <Outlet />;
+  return <Outlet key={boundary} />;
 }
 
 export function RedirectIfAuthed({ children }: { children: ReactElement }): ReactElement {
