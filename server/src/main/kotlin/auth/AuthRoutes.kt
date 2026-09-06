@@ -312,7 +312,10 @@ fun Application.configureAuthRoutes() {
                     )
                 }
                 val record = userService.findWithIdByEmail(email)
-                if (record == null || !verifyPassword(req.password, record.second.passwordHash)) {
+                // Always run one bcrypt verification for an eligible attempt. Unknown accounts
+                // use the default-cost dummy hash, then still fail because no record exists.
+                val passwordVerified = verifyLoginPassword(req.password, record?.second?.passwordHash)
+                if (record == null || !passwordVerified) {
                     val tripped = loginThrottle.recordFailure(email)
                     audit(
                         "login.failure",

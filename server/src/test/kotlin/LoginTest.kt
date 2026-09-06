@@ -149,6 +149,29 @@ class LoginTest {
         assertEquals(HttpStatusCode.Unauthorized, response.status)
     }
 
+    @Test
+    fun `unknown account with dummy password matches an existing-account failure response`() = testApplication {
+        usePostgresTestcontainer()
+        val existingEmail = uniqueEmail("timing-existing")
+        TestUsers.seed(email = existingEmail, password = "right-pw")
+        val client = jsonClient()
+
+        val existingAccountFailure = client.post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(existingEmail, "wrong-pw"))
+        }
+        val missingAccountFailure = client.post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            // The fixed dummy hash is for "changeme". A matching dummy verification must still
+            // fail because login success also requires a real account record.
+            setBody(LoginRequest(uniqueEmail("timing-missing"), "changeme"))
+        }
+
+        assertEquals(HttpStatusCode.Unauthorized, existingAccountFailure.status)
+        assertEquals(existingAccountFailure.status, missingAccountFailure.status)
+        assertEquals(existingAccountFailure.body<ProblemDetail>(), missingAccountFailure.body<ProblemDetail>())
+    }
+
     private fun mintToken(
         secret: String = "secret",
         audience: String = "lettuce-api",

@@ -48,7 +48,8 @@ export interface paths {
          *     consecutive failures for one email (default 5, `LOGIN_LOCKOUT_THRESHOLD`), further
          *     attempts for that account — even with the correct password — are rejected with `429`
          *     for a lockout window (default 15 min, `LOGIN_LOCKOUT_DURATION_SECONDS`). A successful
-         *     login resets the counter.
+         *     login resets the counter. Unknown emails still undergo password verification at the
+         *     default work factor before receiving the same `401` as an incorrect password.
          *
          *     A **deactivated** account with correct credentials is rejected with `403` — the check
          *     runs only after the password verifies, so wrong credentials always get the uniform
@@ -82,7 +83,8 @@ export interface paths {
          * @description Second login step for MFA-enabled accounts. The `challengeId` comes from the login
          *     response, the 6-digit `code` from the email. Challenges are single-use, expire after
          *     a short TTL (default 5 min, `MFA_CODE_TTL_SECONDS`), and allow a few attempts
-         *     (default 5, `MFA_MAX_ATTEMPTS`); every failure mode — unknown challenge, expired,
+         *     (default 5, `MFA_MAX_ATTEMPTS`). Single use and the failed-attempt limit also apply
+         *     to concurrent verification requests; every failure mode — unknown challenge, expired,
          *     wrong code, attempts exhausted — answers the uniform `401`. Rate-limited per client
          *     IP. A user deactivated between the two steps gets the login `403`.
          */

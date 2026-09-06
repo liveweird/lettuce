@@ -50,24 +50,29 @@ class MfaChallenges(
     }
 
     fun verify(challengeId: String, code: String): Outcome {
-        val challenge = challenges[challengeId]
-            ?: return Outcome.Failure("unknown_challenge")
-        if (challenge.expiresAt <= clock()) {
-            challenges.remove(challengeId, challenge)
-            return Outcome.Failure("expired")
+        var outcome: Outcome = Outcome.Failure("unknown_challenge")
+        challenges.compute(challengeId) { _, challenge ->
+            when {
+                challenge == null -> null
+                challenge.expiresAt <= clock() -> {
+                    outcome = Outcome.Failure("expired")
+                    null
+                }
+                MessageDigest.isEqual(challenge.code.toByteArray(), code.toByteArray()) -> {
+                    outcome = Outcome.Success(challenge.userId)
+                    null
+                }
+                challenge.attempts + 1 >= maxAttempts -> {
+                    outcome = Outcome.Failure("too_many_attempts")
+                    null
+                }
+                else -> {
+                    outcome = Outcome.Failure("wrong_code")
+                    challenge.copy(attempts = challenge.attempts + 1)
+                }
+            }
         }
-        if (MessageDigest.isEqual(challenge.code.toByteArray(), code.toByteArray())) {
-            challenges.remove(challengeId, challenge)
-            return Outcome.Success(challenge.userId)
-        }
-        val attempts = challenge.attempts + 1
-        return if (attempts >= maxAttempts) {
-            challenges.remove(challengeId, challenge)
-            Outcome.Failure("too_many_attempts")
-        } else {
-            challenges.replace(challengeId, challenge, challenge.copy(attempts = attempts))
-            Outcome.Failure("wrong_code")
-        }
+        return outcome
     }
 
     // Memory bound: unauthenticated logins mint challenges, so the map must not grow without
