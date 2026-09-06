@@ -7,6 +7,10 @@ description: How to run, package, and deploy the lettuce stack — docker compos
 
 ## Packaging
 
+Container build stages, the Dockerfile frontend, PostgreSQL, and Mailpit use verified
+multi-platform registry digests. Follow `.claude/docs/container-images.md` to refresh
+them; PostgreSQL references in Compose, Kubernetes, and Testcontainers move together.
+
 Package the server for deployment with `./gradlew :server:installDist` (output under `server/build/install/server/`, launcher `bin/server`). **Do not use `:server:buildFatJar`** — the shadow plugin collapses the duplicate `META-INF/services/org.flywaydb.core.extensibility.Plugin` descriptors and the fat JAR NPEs at startup inside Flyway's plugin registry. `installDist` keeps each dependency JAR separate, so Flyway's `ServiceLoader` discovery works exactly as under `:server:run`.
 
 ## JVM footprint tuning

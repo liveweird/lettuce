@@ -40,6 +40,9 @@ GraphQL contract at `server/src/main/resources/graphql/schema.graphqls`.
 
 ## Running the whole stack (one command)
 
+Build images and supporting services use committed registry digests. See the
+[container image update procedure](.claude/docs/container-images.md) before refreshing them.
+
 The only prerequisite is Docker. From the repo root:
 
 ```

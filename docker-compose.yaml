@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:18-alpine
+    # Keep this digest aligned with Kubernetes and PostgresTestSupport.
+    image: postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
     container_name: lettuce-postgres
     restart: unless-stopped
     environment:
@@ -23,7 +24,7 @@ services:
   mailpit:
     # Local mail catcher for the demo: the app delivers password-reset emails here.
     # Read them at http://localhost:8025.
-    image: axllent/mailpit:v1.30
+    image: axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d
     container_name: lettuce-mailpit
     restart: unless-stopped
     # Loopback-bound (see postgres) — the mail UI is for the local operator only.
