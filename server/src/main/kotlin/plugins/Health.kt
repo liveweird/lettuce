@@ -23,7 +23,7 @@ private val healthLog = LoggerFactory.getLogger("ch.nokillswit.health")
  *    not — so the pod is pulled from the Service until it can serve API traffic again.
  *
  * In production mode the HTTPS redirect fires on a plain-HTTP request, so the k8s probes send
- * `X-Forwarded-Proto: https` (see k8s/app-deployment.yaml). In development mode (tests, the compose
+ * `X-Forwarded-Proto: https` (see k8s/templates/app-deployment.yaml). In development mode (tests, the compose
  * demo) there is no redirect and the endpoints answer directly.
  */
 fun Application.configureHealth() {

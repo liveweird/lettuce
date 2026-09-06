@@ -91,8 +91,8 @@ spec:
             # The public URL the emails link to — keep in step with the Ingress host
             # (k8s/templates/app-ingress.yaml) and the certificate SAN. Sourced from the
             # out-of-band `lettuce-config` ConfigMap (key MAIL_APP_URL) so no per-deployment
-            # hostname is baked into this file — `kubectl apply -f k8s/` is then safe to run
-            # repeatedly without reverting a substituted host. optional: true → a missing key
+            # hostname is baked into this file. The template is rendered and applied separately
+            # from `kubectl apply -f k8s/`. optional: true → a missing key
             # leaves it blank, which the server tolerates with a startup WARN (link-less emails),
             # never a crash. Create it beside lettuce-secrets, e.g.:
             #   kubectl create configmap lettuce-config --from-literal=MAIL_APP_URL=https://$HOST
@@ -114,10 +114,10 @@ spec:
                   name: lettuce-secrets
                   key: SMTP_PASSWORD
                   optional: true
-          # Built locally with `docker build -t lettuce-app:latest .`; OrbStack's
-          # Kubernetes shares the Docker image store, so IfNotPresent uses it
-          # directly (`:latest` would otherwise default to Always → registry pull).
-          image: lettuce-app:latest
+          # Release deployments must render this template with scripts/render-app-deployment.sh.
+          # The renderer accepts only an explicit registry/repository@sha256 digest and replaces
+          # this fail-closed sentinel. Never apply this template directly.
+          image: LETTUCE_APP_IMAGE_REQUIRED
           imagePullPolicy: IfNotPresent
           name: lettuce-app
           ports:
