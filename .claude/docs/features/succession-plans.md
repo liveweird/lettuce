@@ -12,8 +12,8 @@ bench depth** (1–10, default 2 — the minimum nominated successors). Each pla
 `{text, filled}` object: the `filled` progress flag is ticked by the owner in the
 nomination editor and renders struck-through on the read-only cards — `awareness`
 `TRANSPARENT/IMPLICIT/CONFIDENTIAL` — **pure metadata**: whatever the value, the candidate is
-never notified and never granted any read), each linkable to the candidate's existing personal
-goals as **development action items**. Tables `succession_plans` + `succession_nominations`
+never notified and gains no read access from the nomination itself), each linkable to the
+candidate's existing personal goals as **development action items**. Tables `succession_plans` + `succession_nominations`
 (`V68`, both standard soft-delete) + the hard-delete join `succession_nomination_goals`
 (wholesale-replaced on every nomination PUT, position = payload order — the goal_milestones
 class). Implementation in `server/src/main/kotlin/succession/` (`SuccessionPlan.kt` DTOs +
@@ -23,10 +23,15 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   owner-only** (`requireSuccessionPlanWrite` — the chain rule's authorship carve-out; ADMIN and
   HR get nothing); **reads** are the owner + any manager in the OWNER's transitive chain + the
   HR auditor (audited `hr.read`, resource `successionPlans`) — `requireSuccessionPlanRead`, the
-  `requireImpactEntryRead` shape keyed on the AUTHOR, not the subject. **The feature is
-  invisible to its subjects**: the seat's person and the nominated candidates get 403 whatever
-  the awareness value says. Read-before-guard idiom (missing → 404, forbidden → 403); the write
-  guard runs before `receive`. Create-time chain rule: the seat's person must be in the
+  `requireImpactEntryRead` shape keyed on the AUTHOR, not the subject. Being the seat's
+  person or a nominated candidate grants no read access, whatever the awareness value says.
+  **Accepted HR audit policy (2026-09-06):** HR are treated as non-participating auditors
+  and retain full audit read access, including when their identity is the seat's person
+  or a nominated candidate. The audit finding about this overlap is acknowledged and
+  accepted; no authorization change is planned. Non-participation is an organizational
+  assumption, not an additional runtime restriction. Existing owner/chain grants,
+  feature gates, and write rules remain unchanged. Read-before-guard idiom (missing → 404,
+  forbidden → 403); the write guard runs before `receive`. Create-time chain rule: the seat's person must be in the
   caller's transitive chain (403) and active (400); **one OPEN plan per (owner, person)** —
   pre-checked 409 with the `uq_succession_plans_owner_user_open` partial index as the race
   backstop (other managers keep their own independent plans; closed/deleted plans never
@@ -76,7 +81,8 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   competency-gap text** (candidate names are the same disclosure class as the plaintext
   `candidate_id` FK, and event readers see them in the document anyway).
   `GET /api/v1/succession-plans/{id}/events` rides `requireSuccessionPlanRead` — whoever
-  reads the plan reads its history; the seat's person and candidates stay at 403. The SPA's
+  reads the plan reads its history, including HR under the accepted audit policy.
+  Subject or candidate status alone grants no history access. The SPA's
   Review screen gained a third **History** tab (`components/SuccessionHistory.tsx` — the
   `EventTimeline` shell + `describeEvent` over `succession.event.*`, enum labels via
   `dynamicKey`, the typed `FIELD_LABELS` map for `changed` tokens).
@@ -174,7 +180,7 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   i18n area `succession` (`locales/{en,pl}/succession.json`); view-settings keys
   `succession.own`/`succession.team`/`userSuccession.audit`.
 - **Tests**: `SuccessionRoutesTest` (create round-trip + chain 403 + deactivated 400 +
-  duplicate-open 409, the read matrix incl. the seat-person/candidate 403s, owner-only writes,
+  duplicate-open 409, the read matrix incl. the ordinary seat-person/candidate 403s, owner-only writes,
   the closed-plan 409 matrix, nomination CRUD + candidate rules + the goal-link 400 matrix,
   the mutations-never-touch-the-stamp pins + the `complete review` matrix (sole stamp writer,
   owner-only, OPEN-only, repeatable), the three list views + filters, the no-notifications

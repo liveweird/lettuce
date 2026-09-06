@@ -629,9 +629,9 @@ fun requireImpactEntryWrite(caller: CallerPrincipal, entry: ImpactEntryResponse)
 /**
  * Reading a succession plan (v2.42.0): the OWNING MANAGER, the HR auditor (audit-logged), and
  * any manager in the OWNER's transitive management chain — the [requireImpactEntryRead] shape
- * keyed on the author, not the subject. The seat's person and the nominated candidates
- * deliberately get 403 whatever the awareness value — the feature is invisible to its
- * subjects; ADMIN-as-such gets nothing (the narrowed-ADMIN rule).
+ * keyed on the author, not the subject. Subject/candidate status and the awareness value
+ * grant no read access. HR retains its audit grant even for subjects/candidates (accepted
+ * auditor policy); ADMIN-as-such gets nothing (the narrowed-ADMIN rule).
  */
 suspend fun requireSuccessionPlanRead(
     caller: CallerPrincipal,
