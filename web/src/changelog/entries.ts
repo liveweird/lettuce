@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.8.6",
+    date: "2026-09-15",
+    en: `Fixed dictionary layouts for non-admin users. Entries are compact numbered rows again, with aligned values and language counts on desktop and mobile. Long values and translation popovers wrap within the available width.`,
+    pl: `Naprawiono układ słowników dla osób bez uprawnień administracyjnych. Wpisy znów tworzą zwarte, numerowane wiersze z wyrównanymi wartościami i liczbą języków na komputerach i telefonach. Długie wartości i okienka tłumaczeń mieszczą się w dostępnej szerokości.`,
+  },
+  {
     version: "3.8.5",
     date: "2026-09-14",
     en: `Lists now adapt consistently to the available screen width. Long names and labels wrap, and narrow screens show labelled rows with accessible actions and sorting. Feedback buttons stay within the screen; comparison tables and calendars scroll within their own area. The mobile header also stays clear of page content.`,

@@ -1,4 +1,5 @@
-import { test, expect, login, logout, uniqueText, ADMIN } from "./helpers";
+import { test, expect, login, logout, uniqueText, switchLanguage, ADMIN } from "./helpers";
+import { apiToken, authHeader } from "./api";
 import type { Page } from "@playwright/test";
 
 // The global dictionaries share one page (`/dictionaries/:slug`): admins edit the whole
@@ -106,4 +107,93 @@ test("admin curates a dictionary; a regular user sees the read-only list", async
   await saveDictionary(page);
   await expect(page.getByText(valueB, { exact: true })).toHaveCount(0);
   await expect(page.getByText(renamed, { exact: true })).toHaveCount(0);
+});
+
+test("all read-only dictionaries keep compact aligned rows on desktop and mobile", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const token = await apiToken(request, ADMIN);
+  const headers = authHeader(token);
+  const dictionaryUrl = `/api/v1/dictionaries/${SLUG}`;
+  const originalResponse = await request.get(dictionaryUrl, { headers });
+  expect(originalResponse.ok()).toBe(true);
+  const original = await originalResponse.json() as { items: { id: number; values: Record<string, string> }[] };
+  const stamp = uniqueText("e2e-dictionary-layout");
+  const email = `${stamp}@lettuce.local`;
+  const password = `${stamp}-password`;
+  const longEnglish = uniqueText("E2ELongEnglish").padEnd(100, "W");
+  const longPolish = uniqueText("E2EDlugaPolska").padEnd(100, "Z");
+  let userId: number | undefined;
+  try {
+    const created = await request.post("/api/v1/users", {
+      headers, data: { name: stamp, email, password },
+    });
+    expect(created.ok()).toBe(true);
+    userId = ((await created.json()) as { id: number }).id;
+    const saved = await request.put(dictionaryUrl, {
+      headers,
+      data: { items: [...original.items, { values: { en: longEnglish, pl: longPolish } }] },
+    });
+    expect(saved.ok()).toBe(true);
+    await login(page, email, password);
+    for (const language of ["English", "Polski"]) {
+      await switchLanguage(page, language);
+      for (const slug of ["career-paths", "career-specializations", "seniority-levels", "pulse-rotating-questions"]) {
+        await page.goto(`/dictionaries/${slug}`);
+        const table = page.getByRole("table");
+        await expect(table).toBeVisible();
+        await expect(table.getByRole("columnheader")).toHaveCount(3);
+        await expect(page.getByRole("textbox")).toHaveCount(0);
+        for (const width of [1440, 1280, 1024, 390]) {
+          await page.setViewportSize({ width, height: 1000 });
+          // Overflow alone missed the 3.8.5 regression: the generic card layout fitted,
+          // but separated the number/value/languages and made short rows ~180px tall.
+          await expect.poll(() => table.evaluate((element) => {
+            const row = element.querySelector("tbody tr")!;
+            const cells = [...row.children].map((cell) => cell.getBoundingClientRect());
+            const headers = [...element.querySelectorAll("thead th")].map((cell) => cell.getBoundingClientRect());
+            return cells.length === 3 &&
+              cells.every((cell) => Math.abs(cell.y - cells[0].y) <= 1) &&
+              cells[0].right <= cells[1].left + 1 && cells[1].right <= cells[2].left + 1 &&
+              headers.every((header) => header.width > 10 && header.height > 10) &&
+              Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) <= innerWidth;
+          })).toBe(true);
+          if (width >= 1024) {
+            const sizes = await table.evaluate((element) => {
+              const row = element.querySelector("tbody tr")!;
+              return { height: row.getBoundingClientRect().height,
+                valueRatio: row.children[1].getBoundingClientRect().width / element.getBoundingClientRect().width };
+            });
+            expect(sizes.height).toBeLessThanOrEqual(64);
+            expect(sizes.valueRatio).toBeGreaterThan(0.6);
+          }
+          if (slug === SLUG) {
+            const shown = language === "English" ? longEnglish : longPolish;
+            const value = table.getByText(shown, { exact: true });
+            await expect(value).toBeVisible();
+            expect(await value.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+          }
+        }
+        if (slug === SLUG) {
+          const shown = language === "English" ? longEnglish : longPolish;
+          const other = language === "English" ? longPolish : longEnglish;
+          const row = table.getByRole("row").filter({ hasText: shown });
+          await row.getByRole("button").click();
+          const translation = page.getByText(other, { exact: true });
+          await expect(translation).toBeVisible();
+          await expect.poll(() => translation.evaluate((element) => {
+            const bounds = element.getBoundingClientRect();
+            return bounds.left >= 0 && bounds.right <= innerWidth && element.scrollWidth <= element.clientWidth + 1;
+          })).toBe(true);
+          await page.keyboard.press("Escape");
+        }
+      }
+    }
+  } finally {
+    const restored = await request.put(dictionaryUrl, { headers, data: original });
+    expect(restored.ok()).toBe(true);
+    if (userId != null) {
+      const removed = await request.delete(`/api/v1/users/${userId}`, { headers });
+      expect(removed.ok()).toBe(true);
+    }
+  }
 });

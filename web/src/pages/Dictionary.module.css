@@ -1,0 +1,28 @@
+.readOnlyTable {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.positionColumn {
+  width: 3rem;
+  white-space: nowrap;
+}
+
+.languagesColumn {
+  width: 6.5rem;
+  white-space: nowrap;
+}
+
+.valueCell,
+.translationRow,
+.wrappingText {
+  min-width: 0;
+}
+
+.wrappingText {
+  overflow-wrap: anywhere;
+}
+
+.translationPopover {
+  max-width: min(32rem, calc(100vw - 2rem));
+}

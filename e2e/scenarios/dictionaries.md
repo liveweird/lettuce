@@ -1,7 +1,7 @@
 # Dictionaries — whole-list curation
 
 - **Spec**: [tests/dictionaries.spec.ts](../tests/dictionaries.spec.ts)
-- **Actors**: the seed admin (the editor), AAA One (a regular read-only user)
+- **Actors**: the seed admin (the editor), AAA One (a regular read-only user), plus a throwaway user for EN/PL layout checks
 - **Owns** (exclusive server-side state): the `seniority-levels` dictionary document — each
   global dictionary document has exactly one writer file under parallel workers
   (`career-paths` belongs to `user-career.spec`). The spec only ever APPENDS its own unique
@@ -32,3 +32,27 @@
    positions up, so the same slot is removed twice) and Saves.
    - *Expected*: neither throwaway value remains anywhere on the page — the volume is left as
      found.
+
+## Scenario: all read-only dictionaries keep compact aligned rows on desktop and mobile
+
+1. Create a throwaway regular user and append one maximum-length English/Polish entry to the
+   owned Seniority levels dictionary; retain the original document for cleanup.
+2. As that user, open all four dictionaries in English and Polish at 1440, 1280, 1024 and
+   390 pixels.
+   - *Expected*: three visible column headers; the number, value and language count stay side
+     by side on one aligned table row; no editing inputs or horizontal document overflow.
+     Short desktop rows remain compact (at most 64 pixels), and the value column receives
+     more than 60% of desktop table width. Maximum-length unbroken values wrap inside their cells.
+3. At 390 pixels, open the long entry's translation popover in both languages.
+   - *Expected*: the other complete translation is readable and fits within the viewport.
+4. Restore the original dictionary document and delete the throwaway user, including on failure.
+
+The row geometry assertions specifically guard the v3.8.5 regression: dictionaries fitted within
+the viewport but became tall, sparsely arranged cards even on desktop.
+
+## Visual evidence
+
+The regression test fails against the released v3.8.5 image at its row-alignment assertion.
+The restored layout was also inspected using seeded development data:
+
+[Before: desktop](assets/dictionary-layout/before-desktop.png) · [After: desktop](assets/dictionary-layout/after-desktop.png) · [After: mobile Pulse questions](assets/dictionary-layout/after-mobile.png)
