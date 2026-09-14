@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BASE_URL } from "./playwright.config";
+import { BASE_URL, MAILPIT_URL } from "./playwright.config";
 import type { LoginBody } from "./sessions";
 import { sweepResidue } from "./sweep-residue";
 
@@ -52,7 +52,7 @@ async function completeMfa(email: string, challengeId: string): Promise<LoginBod
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     try {
-      const list = (await fetch("http://localhost:8025/api/v1/messages").then((r) => r.json())) as {
+      const list = (await fetch(`${MAILPIT_URL}/api/v1/messages`).then((r) => r.json())) as {
         messages?: { ID: string; Subject?: string; To?: { Address: string }[] }[];
       };
       // Newest-first: the first match is the code this challenge just triggered.
@@ -61,7 +61,7 @@ async function completeMfa(email: string, challengeId: string): Promise<LoginBod
       );
       if (msg) {
         const text: string = (
-          await fetch(`http://localhost:8025/api/v1/message/${msg.ID}`).then((r) => r.json())
+          await fetch(`${MAILPIT_URL}/api/v1/message/${msg.ID}`).then((r) => r.json())
         ).Text;
         const code = text.match(/^\d{6}$/m)?.[0];
         if (code) {

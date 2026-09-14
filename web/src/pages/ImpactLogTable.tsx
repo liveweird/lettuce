@@ -1,4 +1,5 @@
-import { Alert, Stack, Table, Text } from "@mantine/core";
+import { Alert, Stack, Text } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconNotebook, IconPencil, IconTrash } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -171,51 +172,47 @@ export default function ImpactLogTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="periodStart"
                 label={t("impactLog.period")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {ownerVisible && (
-              <Table.Th>
-                <SortHeader
+              <ResponsiveTable.Th sortable><SortHeader
                   field="userName"
                   label={t("impactLog.owner")}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             )}
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th sortable><SortHeader
                 field="title"
                 label={t("impactLog.title")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="lastModified"
                 label={t("impactLog.lastModified")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
@@ -224,29 +221,29 @@ export default function ImpactLogTable({
               const isOwner = currentUserId != null && e.userId === currentUserId;
               const backParam = backTo || undefined;
               return (
-                <Table.Tr key={e.id}>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                <ResponsiveTable.Tr key={e.id}>
+                  <ResponsiveTable.Td label={t("impactLog.period")}>
                     <Text size="sm">{period(e)}</Text>
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                   {ownerVisible && (
-                    <Table.Td>
+                    <ResponsiveTable.Td label={t("impactLog.owner")}>
                       <PersonCell
                         userId={e.userId}
                         name={e.userName}
                         deleted={e.userDeleted}
                         currentUserId={currentUserId}
                       />
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   )}
-                  <Table.Td>
+                  <ResponsiveTable.Td label={t("impactLog.title")} primary>
                     <Text size="sm" lineClamp={2} style={{ wordBreak: "break-word" }}>
                       {e.title}
                     </Text>
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("impactLog.lastModified")}>
                     <DateCell value={e.lastModified} mode="date" />
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
                     <RowActions
                       name={identity(e)}
                       primary={{
@@ -275,23 +272,23 @@ export default function ImpactLogTable({
                           : []
                       }
                     />
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               );
             })
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconNotebook size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("impactLog.noEntries")}
                   action={emptyAction}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

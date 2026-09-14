@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link as RouterLink, Navigate } from "react-router-dom";
-import { Alert, Badge, Button, Group, Select, Stack, Switch, Table, Text } from "@mantine/core";
+import { Alert, Badge, Button, Group, Select, Stack, Switch, Text } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconUsers } from "@tabler/icons-react";
@@ -309,40 +310,38 @@ export default function FeatureFlags() {
       )}
 
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="normal">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="name"
                 label={t("common.field.name")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="email"
                 label={t("common.field.email")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>{t("users.featureFlags.teamsHeader")}</Table.Th>
-            <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("users.featureFlags.teamsHeader")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>
               {t("users.featureFlags.enabledHeader")}
-            </Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((u) => (
-              <Table.Tr key={u.id}>
-                <Table.Td>
+              <ResponsiveTable.Tr key={u.id}>
+                <ResponsiveTable.Td label={t("common.field.name")}>
                   {/* The name links to the read-only details view — everyone except one's
                       own row (the Users-list rule). */}
                   <PersonaChip
@@ -350,11 +349,11 @@ export default function FeatureFlags() {
                     to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, "users") : undefined}
                     ariaLabel={t("users.detailsFor", { name: u.name })}
                   />
-                </Table.Td>
-                <Table.Td>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.email")} primary>
                   <Text size="sm">{u.email}</Text>
-                </Table.Td>
-                <Table.Td>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("users.featureFlags.teamsHeader")}>
                   {u.teams && u.teams.length > 0 ? (
                     <Group gap={4}>
                       {u.teams.map((team) => (
@@ -376,8 +375,8 @@ export default function FeatureFlags() {
                       —
                     </Text>
                   )}
-                </Table.Td>
-                <Table.Td>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("users.featureFlags.enabledHeader")}>
                   <Group justify="center">
                     <Switch
                       checked={!u.disabledFeatures.includes(feature)}
@@ -389,21 +388,21 @@ export default function FeatureFlags() {
                       })}
                     />
                   </Group>
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("users.noUsers")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

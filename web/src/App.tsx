@@ -184,7 +184,7 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
           rightSection={<IconChevronDown size={14} />}
         >
           {data && (
-            <Text size="sm" fw={500} truncate maw={160} span>
+            <Text size="sm" fw={500} truncate maw={160} span visibleFrom="sm">
               {data.name}
             </Text>
           )}
@@ -307,9 +307,16 @@ function Shell() {
           {t("appShell.skipToContent")}
         </a>
         <AlertsBanner />
-        <Group h={56} px="md" justify="space-between">
-          <Group gap="sm">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+        <Group h={56} px="md" justify="space-between" wrap="nowrap">
+          <Group gap="sm" wrap="nowrap">
+            <Burger
+              opened={opened}
+              onClick={toggle}
+              hiddenFrom="sm"
+              size="sm"
+              aria-label={t("appShell.toggleMobileNav")}
+              aria-expanded={opened}
+            />
             {/* A sidebar glyph, not a Burger: the Burger's open state renders a permanent "X"
                 in the header corner, which reads as "close the app". data-expanded backs the
                 shell test's state assertion. */}
@@ -329,11 +336,11 @@ function Shell() {
               )}
             </ActionIcon>
             <BrandLogo />
-            <Text fw={600} size="lg">
+            <Text fw={600} size="lg" visibleFrom="sm">
               {t("appShell.brand")}
             </Text>
           </Group>
-          <Group gap="xs">
+          <Group gap="xs" wrap="nowrap">
             <span data-tour="language" style={{ display: "inline-flex" }}>
               <LanguageSwitcher />
             </span>

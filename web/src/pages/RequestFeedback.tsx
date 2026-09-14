@@ -9,9 +9,9 @@ import {
   Paper,
   Select,
   Stack,
-  Table,
   Text,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
 import { feedbackViewLink } from "../utils/feedbackLinks";
@@ -27,6 +27,7 @@ import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
+import RowActions from "../components/RowActions";
 import { renderUserOption, userOption } from "../components/userOptions";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
@@ -272,20 +273,20 @@ export default function RequestFeedback() {
               </Button>
             </Group>
 
-            <Table>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>{t("common.field.provider")}</Table.Th>
-                  <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
+            <ResponsiveTable density="compact">
+              <ResponsiveTable.Thead>
+                <ResponsiveTable.Tr>
+                  <ResponsiveTable.Th>{t("common.field.provider")}</ResponsiveTable.Th>
+                  <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+                </ResponsiveTable.Tr>
+              </ResponsiveTable.Thead>
+              <ResponsiveTable.Tbody>
                 {selected.length > 0 ? (
                   selected.map((p) => {
                     const dup = duplicates.get(p.id);
                     return (
-                      <Table.Tr key={p.id}>
-                        <Table.Td>
+                      <ResponsiveTable.Tr key={p.id}>
+                        <ResponsiveTable.Td label={t("common.field.provider")} primary>
                           <PersonaChip name={p.name} />
                           {dup?.existingId != null && (
                             <Text size="xs" c="orange.8" mt={4}>
@@ -303,34 +304,33 @@ export default function RequestFeedback() {
                               </Anchor>
                             </Text>
                           )}
-                        </Table.Td>
-                        <Table.Td>
-                          <Button
-                            color="red"
-                            variant="subtle"
-                            size="xs"
-                            leftSection={<IconTrash size={14} />}
-                            onClick={() => remove(p.id)}
-                            aria-label={t("feedback.removeName", { name: p.name })}
-                          >
-                            {t("feedback.remove")}
-                          </Button>
-                        </Table.Td>
-                      </Table.Tr>
+                        </ResponsiveTable.Td>
+                        <ResponsiveTable.Td actions>
+                          <RowActions
+                            primary={{
+                              icon: <IconTrash size={16} />,
+                              label: t("feedback.remove"),
+                              ariaLabel: t("feedback.removeName", { name: p.name }),
+                              color: "red",
+                              onClick: () => remove(p.id),
+                            }}
+                          />
+                        </ResponsiveTable.Td>
+                      </ResponsiveTable.Tr>
                     );
                   })
                 ) : (
-                  <Table.Tr>
-                    <Table.Td colSpan={2}>
+                  <ResponsiveTable.Tr>
+                    <ResponsiveTable.Td colSpan={2}>
                       <EmptyState
                           icon={<IconUserPlus size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                           label={t("feedback.addAtLeastOneProvider")}
                         />
-                    </Table.Td>
-                  </Table.Tr>
+                    </ResponsiveTable.Td>
+                  </ResponsiveTable.Tr>
                 )}
-              </Table.Tbody>
-            </Table>
+              </ResponsiveTable.Tbody>
+            </ResponsiveTable>
 
             {partial && (
               <Alert

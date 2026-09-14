@@ -36,7 +36,7 @@ export default function PageHeader({ title, tourId, description, back, badge, ac
           </Anchor>
         )}
         <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
-          <Group gap="sm" align="center" wrap="wrap">
+          <Group gap="sm" align="center" wrap="wrap" style={{ minWidth: 0, maxWidth: "100%" }}>
             <Title order={2} data-tour={tourId} className={classes.title}>
               {title}
             </Title>
@@ -49,7 +49,7 @@ export default function PageHeader({ title, tourId, description, back, badge, ac
           )}
         </Group>
         {description && (
-          <Text size="sm" c="dimmed" maw={720}>
+          <Text size="sm" c="dimmed" maw={720} style={{ overflowWrap: "anywhere" }}>
             {description}
           </Text>
         )}

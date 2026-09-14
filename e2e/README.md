@@ -18,13 +18,17 @@ npm test                      # brings the stack up (docker compose), runs specs
   is already running there**, which it reuses (fast local iteration: keep `docker compose up` or a
   local `WEB_STATIC_DIR=… ./gradlew :server:run` going and just run `npm test`). `global-teardown.ts`
   only runs `docker compose down -v` if setup started the stack.
-- Requires Docker. Override the target with `E2E_BASE_URL`.
+- Requires Docker. Override the app target with `E2E_BASE_URL` and the Mailpit API target with
+  `E2E_MAILPIT_URL` (default `http://localhost:8025`). For an isolated stack exposing Mailpit on
+  port 18025 alongside the app on 18080, run
+  `E2E_BASE_URL=http://localhost:18080 E2E_MAILPIT_URL=http://localhost:18025 npm test`.
 - **A TLS target with a self-signed certificate** (the local ingress proof in the `run-stack`
   skill): `E2E_BASE_URL=https://lettuce.<ip>.nip.io E2E_INSECURE_TLS=1 npm test` — the flag sets
   `ignoreHTTPSErrors` for the browser and `NODE_TLS_REJECT_UNAUTHORIZED=0` for the helpers' plain
   `fetch`. The target must run in **development mode with pristine seeds** (a production boot
   disables the demo users for good), and the three Mailpit specs skip unless something answers on
-  `localhost:8025` — keep `docker compose` down so they don't find the compose Mailpit and time out.
+  the configured `E2E_MAILPIT_URL` — point it at that target's mail catcher, or at an unreachable
+  address to skip those specs.
 
 Two Docker-free static gates ride every spec change (2026-08 — run both before merging, like
 the web package's lint/knip):
@@ -116,6 +120,7 @@ scenario file is the design.
 - [`integration-clients.spec.ts`](scenarios/integration-clients.md) — the v3.0.0 integration API: admin mints a show-once key, a machine client reads via GraphQL, revoke kills it, non-admins see nothing.
 - [`kudos.spec.ts`](scenarios/kudos.md) — a kudo created from the wall's New kudo screen (recipient picker, visibility pinned Public) lands there for a non-party.
 - [`lists.spec.ts`](scenarios/lists.md) — shared list plumbing: filters, sort toggle, page size.
+- [`list-layout.spec.ts`](scenarios/list-layout.md) — responsive list regression: long/multi-party feedback in EN/PL at 1440/1280/1024/390, long Users/Teams values and paired-feedback tabs, narrow sorting and actions, plus retained local calendar scrolling.
 - [`manager-oversight.spec.ts`](scenarios/manager-oversight.md) — the My team feedback tab and the per-user two-way screen.
 - [`mfa.spec.ts`](scenarios/mfa.md) — opt-in email MFA at login incl. the five-failure attempt cap + fresh-challenge recovery (Mailpit-gated).
 - [`navigation.spec.ts`](scenarios/navigation.md) — shell navigation: the in-shell 404 catch-all, the legacy performance redirects, the dashboard Peers tab (2026-08 audit round).
@@ -182,9 +187,9 @@ remaining real logins aren't throttled either.
   (the editor offers Delete instead), so it cannot be exercised through the browser.
 - **Dark-mode rendering** — the theme toggle is unit-tested and the palette is theme-owned
   (`web/src/theme.ts`); no e2e asserts colors, and there is no visual-regression suite.
-- **Responsive / cross-browser / visual automation** — the suite deliberately runs Desktop
-  Chrome only, with no mobile project or screenshot comparison; layout relies on Mantine
-  semantics plus the role/label-based locators every spec already uses. Accessibility gets
+- **Cross-browser / visual automation** — the suite runs Chromium, with no device-emulation
+  project or screenshot comparison. `list-layout.spec.ts` checks responsive geometry and
+  control reachability at desktop and mobile viewport widths in English and Polish. Accessibility gets
   the `accessibility.spec.ts` axe smoke (see above) — every WCAG 2.0/2.1 A+AA rule un-waived since v3.3.0 (`color-contrast` included).
 
 Reports/artifacts land in `playwright-report/` and `test-results/` (git-ignored).

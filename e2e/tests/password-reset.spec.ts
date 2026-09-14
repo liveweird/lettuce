@@ -1,10 +1,9 @@
 import { test, expect, expectLoginRejected, login, logout, createUserViaUi, ADMIN, uniqueText } from "./helpers";
+import { MAILPIT_URL } from "../playwright.config";
 
 // Self-service password reset (v1.3): the "Forgot password?" flow on the login screen.
-// The full email roundtrip needs the compose stack's Mailpit catcher (http://localhost:8025);
+// The full email roundtrip needs the configured Mailpit catcher;
 // when it is unreachable (e.g. a dev stack on the log transport) that one test skips itself.
-
-const MAILPIT = "http://localhost:8025";
 
 test("the forgot-password link leads to the reset form; unknown emails get the neutral answer", async ({
   page,
@@ -34,7 +33,7 @@ test("the forgot-password link leads to the reset form; unknown emails get the n
 });
 
 test("a reset email delivers a working new password and kills the old one", async ({ page }) => {
-  const mailpitUp = await fetch(`${MAILPIT}/api/v1/messages`).then(
+  const mailpitUp = await fetch(`${MAILPIT_URL}/api/v1/messages`).then(
     (r) => r.ok,
     () => false,
   );
@@ -54,13 +53,13 @@ test("a reset email delivers a working new password and kills the old one", asyn
   await expect
     .poll(
       async () => {
-        const list = await fetch(`${MAILPIT}/api/v1/messages`).then((r) => r.json());
+        const list = await fetch(`${MAILPIT_URL}/api/v1/messages`).then((r) => r.json());
         const msg = list.messages?.find((m: { To?: { Address: string }[] }) =>
           m.To?.some((t) => t.Address === user.email),
         );
         if (!msg) return undefined;
         const text: string = (
-          await fetch(`${MAILPIT}/api/v1/message/${msg.ID}`).then((r) => r.json())
+          await fetch(`${MAILPIT_URL}/api/v1/message/${msg.ID}`).then((r) => r.json())
         ).Text;
         newPassword = text.match(/^[A-Za-z0-9_-]{16}$/m)?.[0];
         return newPassword;

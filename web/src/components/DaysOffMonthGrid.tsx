@@ -67,7 +67,16 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
     );
 
   return (
-    <div className={classes.wrapper}>
+    <div>
+      <Text size="xs" c="dimmed" className={classes.scrollHint}>
+        {t("common.table.scrollHint")}
+      </Text>
+      <div
+        className={classes.wrapper}
+        tabIndex={0}
+        role="region"
+        aria-label={t("common.table.scrollRegion")}
+      >
       <table className={classes.grid} aria-label={t("daysOff.calendar.gridAria")}>
         <thead>
           <tr>
@@ -130,6 +139,7 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
           })}
         </tbody>
       </table>
+      </div>
 
       <Group gap="lg" mt="sm" wrap="wrap">
         <LegendItem swatch={classes.paid} label={t("daysOff.calendar.legendPaid")} />

@@ -1,6 +1,7 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
-import { ActionIcon, Alert, Group, Popover, Select, Stack, Table, Text } from "@mantine/core";
+import { ActionIcon, Alert, Group, Popover, Select, Stack, Text } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconBeach, IconCheck, IconInfoCircle, IconX } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -260,23 +261,21 @@ export default function DaysOffTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
             {personVisible && (
-              <Table.Th>
-                <SortHeader
+              <ResponsiveTable.Th sortable><SortHeader
                   field="userName"
                   label={t("daysOff.person")}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             )}
             {(["startDate", "endDate", "days", "type", "status", "createdAt"] as const).map((f) => (
-              <Table.Th key={f}>
-                <SortHeader
+              <ResponsiveTable.Th sortable key={f}><SortHeader
                   field={f}
                   label={t(
                     f === "status"
@@ -289,28 +288,28 @@ export default function DaysOffTable({
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             ))}
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((r) => (
-              <Table.Tr key={r.id}>
+              <ResponsiveTable.Tr key={r.id}>
                 {personVisible && (
-                  <Table.Td>
+                  <ResponsiveTable.Td label={t("daysOff.person")}>
                     <PersonCell
                       userId={r.userId}
                       name={r.userName}
                       deleted={r.userDeleted}
                       currentUserId={currentUserId}
                     />
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                 )}
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                <ResponsiveTable.Td label={t("daysOff.column.startDate")}>
                   <Group gap={4} wrap="nowrap">
                     <Text size="sm">{formatIsoDate(r.startDate, i18n.language)}</Text>
                     <Text size="xs" c="dimmed" span>
@@ -322,8 +321,8 @@ export default function DaysOffTable({
                       </Text>
                     )}
                   </Group>
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.column.endDate")}>
                   <Group gap={4} wrap="nowrap">
                     <Text size="sm">{formatIsoDate(r.endDate, i18n.language)}</Text>
                     <Text size="xs" c="dimmed" span>
@@ -335,15 +334,15 @@ export default function DaysOffTable({
                       </Text>
                     )}
                   </Group>
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.column.days")}>
                   {formatDays(r.days, i18n.language)}
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.type.label")}>
                   {/* A paid row names its pool (v3.2.0); pre-pool rows and UNPAID keep the type word. */}
                   {r.type === "PAID" ? (r.poolName ?? t("daysOff.type.PAID")) : t("daysOff.type.UNPAID")}
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.status")}>
                   <Group gap={4} wrap="nowrap">
                     <DaysOffStatusBadge status={r.status} />
                     {r.status === "CANCELLED" && r.cancelReason != null && (
@@ -378,26 +377,26 @@ export default function DaysOffTable({
                       </Popover>
                     )}
                   </Group>
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.column.createdAt")}>
                   <DateCell value={r.createdAt} mode="date" />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{rowActions(r)}</Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>{rowActions(r)}</ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconBeach size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("daysOff.noRequests")}
                   action={emptyAction}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

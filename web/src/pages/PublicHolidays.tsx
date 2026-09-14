@@ -1,7 +1,8 @@
 import { charCountDescription } from "../utils/charCount";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Alert, Button, Group, Paper, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Text, TextInput } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconCalendarOff, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -129,36 +130,35 @@ export default function PublicHolidays() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{t("daysOff.holidays.date")}</Table.Th>
-            <Table.Th>{t("daysOff.holidays.name")}</Table.Th>
-            {admin && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+      <ResponsiveTable density="compact">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th>{t("daysOff.holidays.date")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.holidays.name")}</ResponsiveTable.Th>
+            {admin && <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />}
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : holidays && holidays.length > 0 ? (
             holidays.map((h) => (
-              <Table.Tr key={h.id}>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+              <ResponsiveTable.Tr key={h.id}>
+                <ResponsiveTable.Td label={t("daysOff.holidays.date")}>
                   <Group gap={6} wrap="nowrap">
                     <DateCell value={h.date} mode="date" />
                     <Text size="xs" c="dimmed" span>
                       {formatIsoWeekday(h.date, i18n.language)}
                     </Text>
                   </Group>
-                </Table.Td>
-                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Text size="sm" truncate title={h.name}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.holidays.name")} primary>
+                  <Text size="sm">
                     {h.name}
                   </Text>
-                </Table.Td>
+                </ResponsiveTable.Td>
                 {admin && (
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <ResponsiveTable.Td actions>
                     <RowActions
                       name={h.name}
                       primary={{
@@ -169,22 +169,22 @@ export default function PublicHolidays() {
                         onClick: () => deleteConfirm.requestDelete(h.id),
                       }}
                     />
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                 )}
-              </Table.Tr>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconCalendarOff size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t(admin ? "daysOff.holidays.empty" : "daysOff.holidays.emptyReadOnly")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

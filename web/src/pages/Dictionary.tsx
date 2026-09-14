@@ -12,10 +12,10 @@ import {
   Popover,
   Select,
   Stack,
-  Table,
   Text,
   TextInput,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useForm, type FormErrors } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -120,15 +120,15 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
     );
   }
   return (
-    <Table>
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th style={{ width: 1 }}>{t("common.table.position")}</Table.Th>
-          <Table.Th>{t("dictionary.column.value")}</Table.Th>
-          <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("dictionary.column.languages")}</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
+    <ResponsiveTable density="normal">
+      <ResponsiveTable.Thead>
+        <ResponsiveTable.Tr>
+          <ResponsiveTable.Th>{t("common.table.position")}</ResponsiveTable.Th>
+          <ResponsiveTable.Th>{t("dictionary.column.value")}</ResponsiveTable.Th>
+          <ResponsiveTable.Th>{t("dictionary.column.languages")}</ResponsiveTable.Th>
+        </ResponsiveTable.Tr>
+      </ResponsiveTable.Thead>
+      <ResponsiveTable.Tbody>
         {items.map((entry, index) => {
           // The viewer's language with the EN fallback (pickLocalized); the badge lists the
           // OTHER filled languages, so it needs to know which one is actually shown.
@@ -138,17 +138,16 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
             (l) => l !== shownLang && entry.values[l]?.trim(),
           );
           return (
-            <Table.Tr key={entry.id}>
-              <Table.Td style={{ whiteSpace: "nowrap" }}>
+            <ResponsiveTable.Tr key={entry.id}>
+              <ResponsiveTable.Td label={t("common.table.position")}>
                 <Text size="sm" c="dimmed" ta="right">
                   {index + 1}.
                 </Text>
-              </Table.Td>
-              {/* The fluid column (v3.4.0): takes the table's slack. */}
-              <Table.Td style={{ width: "100%" }}>
+              </ResponsiveTable.Td>
+              <ResponsiveTable.Td label={t("dictionary.column.value")} primary>
                 <Text size="sm">{shown}</Text>
-              </Table.Td>
-              <Table.Td style={{ whiteSpace: "nowrap" }}>
+              </ResponsiveTable.Td>
+              <ResponsiveTable.Td label={t("dictionary.column.languages")}>
                 {others.length > 0 ? (
                   <EntryLanguagesBadge entry={entry} others={others} position={index + 1} />
                 ) : (
@@ -156,12 +155,12 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
                     {t("dictionary.translationCount", { count: 1 })}
                   </Text>
                 )}
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           );
         })}
-      </Table.Tbody>
-    </Table>
+      </ResponsiveTable.Tbody>
+    </ResponsiveTable>
   );
 }
 

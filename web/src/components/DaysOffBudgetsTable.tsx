@@ -1,4 +1,5 @@
-import { Alert, Badge, Group, Modal, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Group, Modal, Select, Stack, Text } from "@mantine/core";
+import ResponsiveTable from "./ResponsiveTable";
 import { IconAdjustments, IconBeach } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -64,27 +65,27 @@ export default function DaysOffBudgetsTable() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{t("daysOff.calendar.personColumn")}</Table.Th>
-            <Table.Th>{t("daysOff.pool.label")}</Table.Th>
-            <Table.Th>{t("daysOff.budget.allowance")}</Table.Th>
-            <Table.Th>{t("daysOff.budget.carriedOver")}</Table.Th>
-            <Table.Th>{t("daysOff.budget.corrected")}</Table.Th>
-            <Table.Th>{t("daysOff.budget.reserved")}</Table.Th>
-            <Table.Th>{t("daysOff.budget.used")}</Table.Th>
-            <Table.Th>{t("daysOff.budget.remaining")}</Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th>{t("daysOff.calendar.personColumn")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.pool.label")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.budget.allowance")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.budget.carriedOver")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.budget.corrected")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.budget.reserved")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.budget.used")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.budget.remaining")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={COLUMN_COUNT} />
           ) : data && data.length > 0 ? (
             data.map((b) => (
-              <Table.Tr key={`${b.userId}-${b.poolTypeId}`}>
-                <Table.Td>
+              <ResponsiveTable.Tr key={`${b.userId}-${b.poolTypeId}`}>
+                <ResponsiveTable.Td label={t("daysOff.calendar.personColumn")}>
                   {/* The person cell repeats on every pool row — a sortable, filterable
                       flat table beats rowspans for the reading order. */}
                   <PersonCell
@@ -93,9 +94,9 @@ export default function DaysOffBudgetsTable() {
                     deleted={b.userDeleted}
                     currentUserId={currentUserId}
                   />
-                </Table.Td>
-                <Table.Td>
-                  <Group gap={6} wrap="nowrap">
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.pool.label")}>
+                  <Group gap={6} wrap="wrap">
                     <Text size="sm" span>
                       {b.poolName}
                     </Text>
@@ -105,18 +106,18 @@ export default function DaysOffBudgetsTable() {
                       </Badge>
                     )}
                   </Group>
-                </Table.Td>
-                <Table.Td>{b.allowance != null ? days(b.allowance) : "—"}</Table.Td>
-                <Table.Td>{days(b.carriedOver)}</Table.Td>
-                <Table.Td>{b.corrected === 0 ? "—" : `${b.corrected > 0 ? "+" : ""}${days(b.corrected)}`}</Table.Td>
-                <Table.Td>{days(b.reserved)}</Table.Td>
-                <Table.Td>{days(b.used)}</Table.Td>
-                <Table.Td>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.budget.allowance")}>{b.allowance != null ? days(b.allowance) : "—"}</ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.budget.carriedOver")}>{days(b.carriedOver)}</ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.budget.corrected")}>{b.corrected === 0 ? "—" : `${b.corrected > 0 ? "+" : ""}${days(b.corrected)}`}</ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.budget.reserved")}>{days(b.reserved)}</ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.budget.used")}>{days(b.used)}</ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.budget.remaining")}>
                   <Text size="sm" fw={600} span>
                     {days(b.remaining)}
                   </Text>
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>
                   {/* ONE corrections entry per person (on their default row — the modal's Pool
                       select reaches the extra pools), so the action label stays unique. */}
                   {b.isDefault && (
@@ -129,21 +130,21 @@ export default function DaysOffBudgetsTable() {
                       }}
                     />
                   )}
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={COLUMN_COUNT}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={COLUMN_COUNT}>
                 <EmptyState
                   icon={<IconBeach size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("daysOff.budget.noReports")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <Modal
         opened={correctionsFor != null}

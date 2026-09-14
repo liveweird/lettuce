@@ -5,9 +5,9 @@ import {
   Button,
   Select,
   Stack,
-  Table,
   Text
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
@@ -131,53 +131,49 @@ export default function Alerts() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="title"
                 label={t("alerts.fieldTitle")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>{t("alerts.fieldActive")}</Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("alerts.fieldActive")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="startsAt"
                 label={t("alerts.fieldStartsAt")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="endsAt"
                 label={t("alerts.fieldEndsAt")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((alert) => (
-              <Table.Tr key={alert.id}>
-                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Text size="sm" fw={500} truncate title={alert.title}>
+              <ResponsiveTable.Tr key={alert.id}>
+                <ResponsiveTable.Td label={t("alerts.fieldTitle")} primary>
+                  <Text size="sm" fw={500}>
                     {alert.title}
                   </Text>
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("alerts.fieldActive")}>
                   <Badge
                     variant="light"
                     color={alert.isActive ? "teal" : "gray"}
@@ -185,14 +181,14 @@ export default function Alerts() {
                   >
                     {alert.isActive ? t("common.state.yes") : t("common.state.no")}
                   </Badge>
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("alerts.fieldStartsAt")}>
                   <Bound value={alert.startsAt} />
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("alerts.fieldEndsAt")}>
                   <Bound value={alert.endsAt} />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>
                   <RowActions
                     name={alert.title}
                     primary={{
@@ -211,21 +207,21 @@ export default function Alerts() {
                       },
                     ]}
                   />
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconSpeakerphone size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("alerts.empty")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

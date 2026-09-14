@@ -1,0 +1,132 @@
+.container {
+  container-type: inline-size;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.viewport { min-width: 0; }
+.container[data-mode="matrix"] .viewport { overflow-x: auto; }
+.viewport:focus-visible { outline: 2px solid var(--mantine-primary-color-filled); outline-offset: 2px; }
+.scrollHint { color: var(--mantine-color-dimmed); font-size: var(--mantine-font-size-xs); margin-bottom: 6px; }
+
+.table { width: 100%; }
+.table th { white-space: normal; overflow-wrap: anywhere; }
+.table td { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+.table th[data-actions] { width: 96px; }
+.content { min-width: 0; max-width: 100%; }
+.label { display: none; }
+.label::before { content: attr(data-label); }
+
+/* Text stays readable at bounded column widths, including unbroken identity values.
+   Controls and menus retain their own sizing; nothing is clipped at the page boundary. */
+.content :where(:global(.mantine-Text-root), :global(.mantine-Anchor-root), :global(.mantine-Code-root)) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.content :where(:global(.mantine-Group-root)) { min-width: 0; max-width: 100%; }
+.content :where(:global(.mantine-Badge-root)) {
+  min-width: 0 !important; /* Scoped override of StatusPill's desktop intrinsic-width guard. */
+  max-width: 100%;
+  height: auto;
+  min-height: var(--badge-height);
+  white-space: normal;
+  padding-block: 3px;
+}
+.content :where(:global(.mantine-Badge-label)) { white-space: normal; overflow-wrap: anywhere; }
+.content :where(:global(.mantine-Input-wrapper), :global(.mantine-Input-input)) { min-width: 0; max-width: 100%; }
+.table [data-actions] .content > :global(.mantine-Group-root) { justify-content: flex-end; }
+
+/* Matrices retain aligned columns. The action edge stays reachable while scrolling. */
+.container[data-mode="matrix"] [data-actions] {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--mantine-color-body);
+  box-shadow: -1px 0 var(--mantine-color-default-border);
+}
+
+@container (max-width: 40rem) {
+
+  .container[data-mode="list"][data-density="compact"] .table {
+    display: block;
+  }
+  .container[data-mode="list"][data-density="compact"] .table > thead { display: block; border-radius: var(--mantine-radius-md) var(--mantine-radius-md) 0 0; }
+  .container[data-mode="list"][data-density="compact"] .table > thead > tr { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 12px; }
+  .container[data-mode="list"][data-density="compact"] .table > thead > tr:not(:has([data-sortable])) { padding: 0; }
+  .container[data-mode="list"][data-density="compact"] .table > thead th { border: 0; padding: 0; width: auto; }
+  /* Retain column headers in the accessibility tree, with the original sorting controls
+     visible in a wrapping strip. A cell's repeated visual label is aria-hidden. */
+  .container[data-mode="list"][data-density="compact"] .table > thead th:not([data-sortable]) {
+    position: absolute; width: 1px; height: 1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .container[data-mode="list"][data-density="compact"] .table > tbody { display: block; }
+  .container[data-mode="list"][data-density="compact"] .table > tbody > tr {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 20px; padding: 12px;
+  }
+  .container[data-mode="list"][data-density="compact"] .table > tbody > tr + tr { border-top: 1px solid var(--mantine-color-default-border); }
+  .container[data-mode="list"][data-density="compact"] .table > tbody > tr > td { display: block; border: 0; padding: 0; width: auto; max-width: none; min-width: 0; }
+  .container[data-mode="list"][data-density="compact"] .table > tbody > tr > td:is([data-primary], [data-actions], [colspan]) { grid-column: 1 / -1; }
+  .container[data-mode="list"][data-density="compact"] .table > tbody .label { display: block; color: var(--mantine-color-dimmed); font-size: var(--mantine-font-size-xs); margin-bottom: 3px; }
+  .container[data-mode="list"][data-density="compact"] .table > tbody [data-actions] .label { display: none; }
+}
+
+@container (max-width: 56rem) {
+
+  .container[data-mode="list"][data-density="normal"] .table {
+    display: block;
+  }
+  .container[data-mode="list"][data-density="normal"] .table > thead { display: block; border-radius: var(--mantine-radius-md) var(--mantine-radius-md) 0 0; }
+  .container[data-mode="list"][data-density="normal"] .table > thead > tr { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 12px; }
+  .container[data-mode="list"][data-density="normal"] .table > thead > tr:not(:has([data-sortable])) { padding: 0; }
+  .container[data-mode="list"][data-density="normal"] .table > thead th { border: 0; padding: 0; width: auto; }
+  /* Retain column headers in the accessibility tree, with the original sorting controls
+     visible in a wrapping strip. A cell's repeated visual label is aria-hidden. */
+  .container[data-mode="list"][data-density="normal"] .table > thead th:not([data-sortable]) {
+    position: absolute; width: 1px; height: 1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .container[data-mode="list"][data-density="normal"] .table > tbody { display: block; }
+  .container[data-mode="list"][data-density="normal"] .table > tbody > tr {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 20px; padding: 12px;
+  }
+  .container[data-mode="list"][data-density="normal"] .table > tbody > tr + tr { border-top: 1px solid var(--mantine-color-default-border); }
+  .container[data-mode="list"][data-density="normal"] .table > tbody > tr > td { display: block; border: 0; padding: 0; width: auto; max-width: none; min-width: 0; }
+  .container[data-mode="list"][data-density="normal"] .table > tbody > tr > td:is([data-primary], [data-actions], [colspan]) { grid-column: 1 / -1; }
+  .container[data-mode="list"][data-density="normal"] .table > tbody .label { display: block; color: var(--mantine-color-dimmed); font-size: var(--mantine-font-size-xs); margin-bottom: 3px; }
+  .container[data-mode="list"][data-density="normal"] .table > tbody [data-actions] .label { display: none; }
+}
+
+@container (max-width: 68rem) {
+
+  .container[data-mode="list"][data-density="wide"] .table {
+    display: block;
+  }
+  .container[data-mode="list"][data-density="wide"] .table > thead { display: block; border-radius: var(--mantine-radius-md) var(--mantine-radius-md) 0 0; }
+  .container[data-mode="list"][data-density="wide"] .table > thead > tr { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 12px; }
+  .container[data-mode="list"][data-density="wide"] .table > thead > tr:not(:has([data-sortable])) { padding: 0; }
+  .container[data-mode="list"][data-density="wide"] .table > thead th { border: 0; padding: 0; width: auto; }
+  /* Retain column headers in the accessibility tree, with the original sorting controls
+     visible in a wrapping strip. A cell's repeated visual label is aria-hidden. */
+  .container[data-mode="list"][data-density="wide"] .table > thead th:not([data-sortable]) {
+    position: absolute; width: 1px; height: 1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .container[data-mode="list"][data-density="wide"] .table > tbody { display: block; }
+  .container[data-mode="list"][data-density="wide"] .table > tbody > tr {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 20px; padding: 12px;
+  }
+  .container[data-mode="list"][data-density="wide"] .table > tbody > tr + tr { border-top: 1px solid var(--mantine-color-default-border); }
+  .container[data-mode="list"][data-density="wide"] .table > tbody > tr > td { display: block; border: 0; padding: 0; width: auto; max-width: none; min-width: 0; }
+  .container[data-mode="list"][data-density="wide"] .table > tbody > tr > td:is([data-primary], [data-actions], [colspan]) { grid-column: 1 / -1; }
+  .container[data-mode="list"][data-density="wide"] .table > tbody .label { display: block; color: var(--mantine-color-dimmed); font-size: var(--mantine-font-size-xs); margin-bottom: 3px; }
+  .container[data-mode="list"][data-density="wide"] .table > tbody [data-actions] .label { display: none; }
+}
+
+@container (max-width: 30rem) {
+  .container[data-mode="list"][data-density] .table > tbody > tr { grid-template-columns: minmax(0, 1fr); }
+}

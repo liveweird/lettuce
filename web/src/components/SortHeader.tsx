@@ -21,10 +21,10 @@ export default function SortHeader<F extends string>({
   return (
     <UnstyledButton
       onClick={() => onToggle(field)}
-      style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, minWidth: 0, maxWidth: "100%", whiteSpace: "normal", textAlign: "left" }}
     >
       <span>{label}</span>
-      <Icon size={14} stroke={1.5} opacity={isActive ? 1 : 0.4} />
+      <Icon style={{ flexShrink: 0 }} size={14} stroke={1.5} opacity={isActive ? 1 : 0.4} />
     </UnstyledButton>
   );
 }

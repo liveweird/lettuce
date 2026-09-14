@@ -7,9 +7,9 @@ import {
   Select,
   Skeleton,
   Stack,
-  Table,
   Text,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import {
   IconChartBar,
   IconClipboardText,
@@ -293,79 +293,71 @@ export default function ReviewsDashboard() {
       {/* The widest table in the app (10 columns + the per-row New-review button) — it can
           exceed the viewport (PL labels especially), so it scrolls inside its own container
           instead of widening the page body (2026-08 audit round). */}
-      <Table.ScrollContainer minWidth={1100}>
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable mode="matrix" density="normal" minWidth={1100}>
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="name"
                 label={t("performanceReview.subordinate")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="team"
                 label={t("performanceReview.dashboard.team")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="careerPath"
                 label={t("users.profile.path")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="careerSpecialization"
                 label={t("users.profile.specialization")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="seniorityLevel"
                 label={t("users.profile.seniority")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="status"
                 label={t("common.field.status")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {RATING_COLUMNS.map(({ category, field }) => (
-              <Table.Th key={category} style={{ whiteSpace: "nowrap" }}>
-                <SortHeader
+              <ResponsiveTable.Th sortable key={category}><SortHeader
                   field={field}
                   label={t(`performanceReview.categoryShort.${category}`)}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             ))}
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !members ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : rows.length > 0 ? (
@@ -381,15 +373,15 @@ export default function ReviewsDashboard() {
                 ? [review.attitudeRating, review.deliveryRating, review.skillsRating, review.overallRating]
                 : REVIEW_CATEGORIES.map(() => null);
               return (
-                <Table.Tr key={person.userId}>
-                  <Table.Td>
+                <ResponsiveTable.Tr key={person.userId}>
+                  <ResponsiveTable.Td label={t("performanceReview.subordinate")}>
                     <PersonCell
                       userId={person.userId}
                       name={person.name}
                       currentUserId={currentUserId}
                     />
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("performanceReview.dashboard.team")}>
                     <Group gap={4}>
                       {person.teamNames.map((name) => (
                         <Badge key={name} variant="light" color="gray">
@@ -397,29 +389,29 @@ export default function ReviewsDashboard() {
                         </Badge>
                       ))}
                     </Group>
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("users.profile.path")}>
                     <Text size="sm" c={person.careerPath ? undefined : "dimmed"}>
                       {person.careerPath
                         ? pickLocalized(person.careerPath.values, i18n.resolvedLanguage)
                         : "—"}
                     </Text>
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("users.profile.specialization")}>
                     <Text size="sm" c={person.careerSpecialization ? undefined : "dimmed"}>
                       {person.careerSpecialization
                         ? pickLocalized(person.careerSpecialization.values, i18n.resolvedLanguage)
                         : "—"}
                     </Text>
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("users.profile.seniority")}>
                     <Text size="sm" c={person.seniorityLevel ? undefined : "dimmed"}>
                       {person.seniorityLevel
                         ? pickLocalized(person.seniorityLevel.values, i18n.resolvedLanguage)
                         : "—"}
                     </Text>
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.status")}>
                     {review ? (
                       <PerformanceReviewStatusBadge status={review.status} />
                     ) : (
@@ -427,9 +419,9 @@ export default function ReviewsDashboard() {
                         {t("performanceReview.dashboard.noReviewYet")}
                       </Badge>
                     )}
-                  </Table.Td>
-                  <RatingCells ratings={ratings} />
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <RatingCells ratings={ratings} labels={REVIEW_CATEGORIES.map((c) => t(`performanceReview.categoryShort.${c}`))} />
+                  <ResponsiveTable.Td actions>
                     {review ? (
                       <RowActions
                         primary={{
@@ -455,23 +447,22 @@ export default function ReviewsDashboard() {
                         }}
                       />
                     ) : null}
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               );
             })
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconClipboardText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("performanceReview.dashboard.empty")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
-      </Table.ScrollContainer>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

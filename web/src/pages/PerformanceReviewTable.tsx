@@ -1,5 +1,6 @@
 import type { ParseKeys } from "i18next";
-import { Alert, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Select, Stack, Text } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconClipboardText, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -237,56 +238,52 @@ export default function PerformanceReviewTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
             {visibleColumns.map((c) => (
-              <Table.Th key={c.field}>
-                <SortHeader
+              <ResponsiveTable.Th sortable key={c.field}><SortHeader
                   field={c.field}
                   label={t(c.labelKey)}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             ))}
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th sortable><SortHeader
                 field="periodStart"
                 label={t("performanceReview.period")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="status"
                 label={t("common.field.status")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {REVIEW_CATEGORIES.map((c) => (
-              <Table.Th key={c} style={{ whiteSpace: "nowrap" }}>
+              <ResponsiveTable.Th key={c}>
                 {t(`performanceReview.categoryShort.${c}`)}
-              </Table.Th>
+              </ResponsiveTable.Th>
             ))}
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th sortable><SortHeader
                 field="createdAt"
                 label={t("performanceReview.createdAt")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
@@ -304,28 +301,28 @@ export default function PerformanceReviewTable({
                 r.overallRating,
               ];
               return (
-                <Table.Tr key={r.id}>
+                <ResponsiveTable.Tr key={r.id}>
                   {visibleColumns.map((c) => (
-                    <Table.Td key={c.field}>
+                    <ResponsiveTable.Td key={c.field} label={t(c.labelKey)}>
                       <PersonCell
                         userId={c.id(r)}
                         name={c.name(r)}
                         deleted={c.deleted(r)}
                         currentUserId={currentUserId}
                       />
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   ))}
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <ResponsiveTable.Td label={t("performanceReview.period")}>
                     <Text size="sm">{period}</Text>
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.status")}>
                     <PerformanceReviewStatusBadge status={r.status} />
-                  </Table.Td>
-                  <RatingCells ratings={ratings} />
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <RatingCells ratings={ratings} labels={REVIEW_CATEGORIES.map((c) => t(`performanceReview.categoryShort.${c}`))} />
+                  <ResponsiveTable.Td label={t("performanceReview.createdAt")}>
                     <DateCell value={r.createdAt} mode="date" />
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
                     {canEdit ? (
                       <RowActions
                         primary={{
@@ -345,24 +342,24 @@ export default function PerformanceReviewTable({
                         }}
                       />
                     )}
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               );
             })
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={
                     <IconClipboardText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />
                   }
                   label={t("performanceReview.noReviews")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

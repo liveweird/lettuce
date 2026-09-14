@@ -9,10 +9,10 @@ import {
   Modal,
   Paper,
   Stack,
-  Table,
   Text,
   TextInput,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconArchive, IconPencil, IconPlus, IconStack2 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -233,25 +233,24 @@ export default function DaysOffPoolTypes() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{t("daysOff.pool.name")}</Table.Th>
-            <Table.Th>{t("daysOff.pool.column.carryOver")}</Table.Th>
-            {admin && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+      <ResponsiveTable density="compact">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th>{t("daysOff.pool.name")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("daysOff.pool.column.carryOver")}</ResponsiveTable.Th>
+            {admin && <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />}
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : kinds && kinds.length > 0 ? (
             kinds.map((kind) => (
-              <Table.Tr key={kind.id}>
-                {/* The fluid column (v3.4.0): takes the table's slack and truncates first; the
-                    Default pill rides beside the name (the Users "Inactive" idiom). */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Group gap="xs" wrap="nowrap">
-                    <Text size="sm" fw={500} truncate title={kind.name}>
+              <ResponsiveTable.Tr key={kind.id}>
+                {/* The Default pill rides beside the name (the Users "Inactive" idiom). */}
+                <ResponsiveTable.Td label={t("daysOff.pool.name")} primary>
+                  <Group gap="xs" wrap="wrap">
+                    <Text size="sm" fw={500}>
                       {kind.name}
                     </Text>
                     {kind.isDefault && (
@@ -260,12 +259,12 @@ export default function DaysOffPoolTypes() {
                       </StatusPill>
                     )}
                   </Group>
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("daysOff.pool.column.carryOver")}>
                   <Text size="sm">{t(kind.carriesOver ? "common.state.yes" : "common.state.no")}</Text>
-                </Table.Td>
+                </ResponsiveTable.Td>
                 {admin && (
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <ResponsiveTable.Td actions>
                     <RowActions
                       name={kind.name}
                       primary={{
@@ -288,22 +287,22 @@ export default function DaysOffPoolTypes() {
                             ]
                       }
                     />
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                 )}
-              </Table.Tr>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconStack2 size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("daysOff.pool.empty")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       {/* Keyed on the kind so the modal's local draft resets per row. */}
       {editing && <EditPoolTypeModal key={editing.id} kind={editing} onClose={() => setEditing(null)} />}

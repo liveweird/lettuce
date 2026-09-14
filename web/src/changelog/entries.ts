@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.8.5",
+    date: "2026-09-14",
+    en: `Lists now adapt consistently to the available screen width. Long names and labels wrap, and narrow screens show labelled rows with accessible actions and sorting. Feedback buttons stay within the screen; comparison tables and calendars scroll within their own area. The mobile header also stays clear of page content.`,
+    pl: `Listy dostosowują się teraz spójnie do dostępnej szerokości ekranu. Długie nazwy i etykiety zawijają się, a na wąskich ekranach wiersze mają etykiety oraz dostępne akcje i sortowanie. Przyciski feedbacku pozostają w obrębie ekranu; tabele porównawcze i kalendarze przewijają się we własnym obszarze. Nagłówek na telefonie nie zasłania już treści strony.`,
+  },
+  {
     version: "3.8.4",
     date: "2026-09-09",
     en: `Editing a dictionary now warns before you navigate away with unsaved changes, matching the other edit screens. Plus internal tidying and documentation fixes.`,

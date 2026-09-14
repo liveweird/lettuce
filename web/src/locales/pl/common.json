@@ -59,7 +59,9 @@
     "nextPage": "Następna strona",
     "lastPage": "Ostatnia strona",
     "moreActions": "Więcej akcji",
-    "moreActionsFor": "Więcej akcji: {{name}}"
+    "moreActionsFor": "Więcej akcji: {{name}}",
+    "scrollHint": "Przewiń w poziomie, aby zobaczyć wszystkie kolumny.",
+    "scrollRegion": "Tabela przewijana w poziomie"
   },
   "filter": {
     "contains": "zawiera…",
