@@ -96,7 +96,15 @@ describe("Dictionary page", () => {
     // dictionary actions.
     expect(screen.getByRole("columnheader", { name: "Value" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Languages" })).toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(3);
+    const rows = screen.getAllByRole("row");
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+      "#",
+      "Value",
+      "Languages",
+    ]);
+    expect(within(rows[1]).getAllByRole("cell")).toHaveLength(3);
+    expect(within(rows[2]).getAllByRole("cell")).toHaveLength(3);
     expect(screen.getByText("1.")).toBeInTheDocument();
     expect(screen.getByText("2.")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

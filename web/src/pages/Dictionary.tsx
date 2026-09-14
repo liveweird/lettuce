@@ -12,10 +12,10 @@ import {
   Popover,
   Select,
   Stack,
+  Table,
   Text,
   TextInput,
 } from "@mantine/core";
-import ResponsiveTable from "../components/ResponsiveTable";
 import { useForm, type FormErrors } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -44,6 +44,7 @@ import {
 import { charCountDescription } from "../utils/charCount";
 import { pickLocalized } from "../utils/localized";
 import { loadErrorMessage } from "../utils/saveError";
+import classes from "./Dictionary.module.css";
 
 // The four global dictionaries — the slug is both the route param and the API path segment.
 const DICTIONARIES: Record<DictionarySlug, { titleKey: ParseKeys }> = {
@@ -120,15 +121,15 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
     );
   }
   return (
-    <ResponsiveTable density="normal">
-      <ResponsiveTable.Thead>
-        <ResponsiveTable.Tr>
-          <ResponsiveTable.Th>{t("common.table.position")}</ResponsiveTable.Th>
-          <ResponsiveTable.Th>{t("dictionary.column.value")}</ResponsiveTable.Th>
-          <ResponsiveTable.Th>{t("dictionary.column.languages")}</ResponsiveTable.Th>
-        </ResponsiveTable.Tr>
-      </ResponsiveTable.Thead>
-      <ResponsiveTable.Tbody>
+    <Table className={classes.readOnlyTable}>
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th className={classes.positionColumn}>{t("common.table.position")}</Table.Th>
+          <Table.Th>{t("dictionary.column.value")}</Table.Th>
+          <Table.Th className={classes.languagesColumn}>{t("dictionary.column.languages")}</Table.Th>
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
         {items.map((entry, index) => {
           // The viewer's language with the EN fallback (pickLocalized); the badge lists the
           // OTHER filled languages, so it needs to know which one is actually shown.
@@ -138,16 +139,16 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
             (l) => l !== shownLang && entry.values[l]?.trim(),
           );
           return (
-            <ResponsiveTable.Tr key={entry.id}>
-              <ResponsiveTable.Td label={t("common.table.position")}>
+            <Table.Tr key={entry.id}>
+              <Table.Td className={classes.positionColumn}>
                 <Text size="sm" c="dimmed" ta="right">
                   {index + 1}.
                 </Text>
-              </ResponsiveTable.Td>
-              <ResponsiveTable.Td label={t("dictionary.column.value")} primary>
-                <Text size="sm">{shown}</Text>
-              </ResponsiveTable.Td>
-              <ResponsiveTable.Td label={t("dictionary.column.languages")}>
+              </Table.Td>
+              <Table.Td className={classes.valueCell}>
+                <Text size="sm" className={classes.wrappingText}>{shown}</Text>
+              </Table.Td>
+              <Table.Td className={classes.languagesColumn}>
                 {others.length > 0 ? (
                   <EntryLanguagesBadge entry={entry} others={others} position={index + 1} />
                 ) : (
@@ -155,12 +156,12 @@ function ReadOnlyEntries({ items }: { items: DictionaryEntry[] }) {
                     {t("dictionary.translationCount", { count: 1 })}
                   </Text>
                 )}
-              </ResponsiveTable.Td>
-            </ResponsiveTable.Tr>
+              </Table.Td>
+            </Table.Tr>
           );
         })}
-      </ResponsiveTable.Tbody>
-    </ResponsiveTable>
+      </Table.Tbody>
+    </Table>
   );
 }
 
@@ -176,7 +177,12 @@ function EntryLanguagesBadge({
 }) {
   const { t } = useTranslation();
   return (
-    <Popover position="bottom-end" withArrow shadow="md">
+    <Popover
+      position="bottom-end"
+      withArrow
+      shadow="md"
+      classNames={{ dropdown: classes.translationPopover }}
+    >
       <Popover.Target>
         <Badge
           component="button"
@@ -193,11 +199,13 @@ function EntryLanguagesBadge({
       <Popover.Dropdown>
         <Stack gap={4}>
           {others.map((l) => (
-            <Group key={l} gap="sm" wrap="nowrap" align="baseline">
+            <Group key={l} gap="sm" wrap="nowrap" align="baseline" className={classes.translationRow}>
               <Text size="xs" c="dimmed" w={90} style={{ flexShrink: 0 }}>
                 {t(`common.languageName.${l}`)}
               </Text>
-              <Text size="sm">{pickLocalized(entry.values, l)}</Text>
+              <Text size="sm" className={classes.wrappingText}>
+                {pickLocalized(entry.values, l)}
+              </Text>
             </Group>
           ))}
         </Stack>
