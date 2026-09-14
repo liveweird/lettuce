@@ -5,6 +5,10 @@
   overflow-x: auto;
 }
 
+.scrollHint {
+  margin-bottom: 4px;
+}
+
 .grid {
   border-collapse: separate;
   border-spacing: 0;
@@ -24,7 +28,11 @@
   background: var(--mantine-color-body);
   padding: 6px 12px 6px 0;
   text-align: left;
-  white-space: nowrap;
+  width: 180px;
+  min-width: 140px;
+  max-width: 220px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-weight: 500;
   font-size: var(--mantine-font-size-sm);
 }

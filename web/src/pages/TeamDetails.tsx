@@ -9,10 +9,10 @@ import {
   Loader,
   Select,
   Stack,
-  Table,
   Text,
   Title,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconPlus,
@@ -283,21 +283,21 @@ export default function TeamDetails() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{t("common.field.name")}</Table.Th>
-            <Table.Th>{t("common.field.email")}</Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+      <ResponsiveTable density="compact">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th>{t("common.field.name")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("common.field.email")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {membersLoading && !allMembers ? (
             <TableLoadingRow colSpan={3} />
           ) : members.length > 0 ? (
             members.map((m) => (
-              <Table.Tr key={m.id}>
-                <Table.Td style={{ maxWidth: 240 }}>
+              <ResponsiveTable.Tr key={m.id}>
+                <ResponsiveTable.Td label={t("common.field.name")}>
                   {/* The name links to the relationship-aware read-only card view — everyone,
                       except one's own row (the card flavors describe the viewer's relationship
                       to someone else); the members origin threads the teamId back here. */}
@@ -306,13 +306,13 @@ export default function TeamDetails() {
                     to={m.id !== currentUserId ? userDetailsLink(m.id, m.name, "members", id) : undefined}
                     ariaLabel={t("users.detailsFor", { name: m.name })}
                   />
-                </Table.Td>
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Text size="sm" truncate title={m.email}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.email")} primary>
+                  <Text size="sm">
                     {m.email}
                   </Text>
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>
                   <RowActions
                     name={m.name}
                     menus={
@@ -341,21 +341,21 @@ export default function TeamDetails() {
                         : []
                     }
                   />
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !membersIsError ? (
-            <Table.Tr>
-              <Table.Td colSpan={3}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={3}>
                 <EmptyState
                     icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                     label={t("teams.noMembersYet")}
                   />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <Text size="sm" c="dimmed">
         {t("common.table.total", { count: members.length })}

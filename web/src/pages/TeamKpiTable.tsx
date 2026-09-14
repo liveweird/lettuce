@@ -1,4 +1,5 @@
-import { Alert, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Select, Stack, Text } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconChartLine, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -187,80 +188,73 @@ export default function TeamKpiTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
             {teamColumnVisible && (
-              <Table.Th>
-                <SortHeader
+              <ResponsiveTable.Th sortable><SortHeader
                   field="teamName"
                   label={t("teamKpi.team")}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             )}
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th sortable><SortHeader
                 field="title"
                 label={t("teamKpi.title")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {creatorColumnVisible && (
-              <Table.Th>
-                <SortHeader
+              <ResponsiveTable.Th sortable><SortHeader
                   field="creatorName"
                   label={t("common.field.creator")}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             )}
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th sortable><SortHeader
                 field="createdAt"
                 label={t("teamKpi.createdAt")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="status"
                 label={t("common.field.status")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="targetValue"
                 label={t("teamKpi.target")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="currentValue"
                 label={t("teamKpi.current")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
@@ -270,45 +264,45 @@ export default function TeamKpiTable({
               // canManage is the server-computed manager-or-chain capability (v2.26.0).
               const canEdit = k.canManage && k.status === "DRAFT";
               return (
-                <Table.Tr key={k.id}>
+                <ResponsiveTable.Tr key={k.id}>
                   {teamColumnVisible && (
-                    <Table.Td>
+                    <ResponsiveTable.Td label={t("teamKpi.team")}>
                       <Text size="sm" lineClamp={1} style={{ wordBreak: "break-word" }}>
                         {k.teamName}
                         {/* The managed view keeps a disbanded team's KPIs as history — say so
                             (the view-header affordance, on the list). */}
                         {k.teamDeleted ? ` (${t("teamKpi.teamDeleted")})` : ""}
                       </Text>
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   )}
-                  <Table.Td>
+                  <ResponsiveTable.Td label={t("teamKpi.title")} primary>
                     <Text size="sm" lineClamp={2} style={{ wordBreak: "break-word" }}>
                       {k.title}
                     </Text>
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                   {creatorColumnVisible && (
-                    <Table.Td>
+                    <ResponsiveTable.Td label={t("common.field.creator")}>
                       <PersonCell
                         userId={k.creatorId}
                         name={k.creatorName}
                         deleted={k.creatorDeleted}
                         currentUserId={currentUserId}
                       />
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   )}
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <ResponsiveTable.Td label={t("teamKpi.createdAt")}>
                     <DateCell value={k.createdAt} mode="date" />
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.status")}>
                     <TeamKpiStatusBadge status={k.status} />
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("teamKpi.target")}>
                     {formatTargetValue(k.type, k.targetValue, k.targetDirection, i18n.language)}
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("teamKpi.current")}>
                     {formatGoalValue(k.type, k.currentValue, i18n.language)}
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
                     {canEdit ? (
                       <RowActions
                         primary={{
@@ -328,23 +322,23 @@ export default function TeamKpiTable({
                         }}
                       />
                     )}
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               );
             })
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconChartLine size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("teamKpi.noKpis")}
                   action={emptyAction}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

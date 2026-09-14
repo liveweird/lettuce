@@ -7,6 +7,7 @@ import {
   MultiSelect,
   NavLink,
   Select,
+  SegmentedControl,
   Table,
   Tabs,
   Tooltip,
@@ -119,6 +120,9 @@ export const theme = createTheme({
       },
     }),
     Button: Button.extend({ classNames: { root: classes.button } }),
+    SegmentedControl: SegmentedControl.extend({
+      classNames: { root: classes.segmentedRoot, control: classes.segmentedControl, label: classes.segmentedLabel },
+    }),
     Tabs: Tabs.extend({ classNames: { tab: classes.tab } }),
     Tooltip: Tooltip.extend({ defaultProps: { radius: "md", openDelay: 300 } }),
     // Every input renders label → input → description → error (v3.5.0): hints and errors

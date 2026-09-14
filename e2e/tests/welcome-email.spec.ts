@@ -2,11 +2,10 @@
 // mail catcher and actually work. Complements users-import.spec, which deliberately runs
 // without the email option; the Mailpit roundtrip idiom is password-reset.spec's.
 import { ADMIN, createUserViaUi, expect, login, loginWithPassword, logout, test, userMenu } from "./helpers";
-
-const MAILPIT = "http://localhost:8025";
+import { MAILPIT_URL } from "../playwright.config";
 
 test("creating a user with the email option delivers working credentials", async ({ page }) => {
-  const mailpitUp = await fetch(`${MAILPIT}/api/v1/messages`).then(
+  const mailpitUp = await fetch(`${MAILPIT_URL}/api/v1/messages`).then(
     (r) => r.ok,
     () => false,
   );
@@ -22,7 +21,7 @@ test("creating a user with the email option delivers working credentials", async
   await expect
     .poll(
       async () => {
-        const list = await fetch(`${MAILPIT}/api/v1/messages`).then((r) => r.json());
+        const list = await fetch(`${MAILPIT_URL}/api/v1/messages`).then((r) => r.json());
         const msg = list.messages?.find(
           (m: { Subject?: string; To?: { Address: string }[] }) =>
             m.Subject?.includes("Your Lettuce account is ready") &&
@@ -30,7 +29,7 @@ test("creating a user with the email option delivers working credentials", async
         );
         if (!msg) return undefined;
         const text: string = (
-          await fetch(`${MAILPIT}/api/v1/message/${msg.ID}`).then((r) => r.json())
+          await fetch(`${MAILPIT_URL}/api/v1/message/${msg.ID}`).then((r) => r.json())
         ).Text;
         emailedPassword = text.match(/^[A-Za-z0-9_-]{16}$/m)?.[0];
         return emailedPassword;

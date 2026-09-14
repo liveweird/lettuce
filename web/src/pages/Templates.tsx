@@ -3,9 +3,9 @@ import {
   Alert,
   Button,
   Stack,
-  Table,
   Text
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconEye, IconFileText, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
@@ -99,40 +99,38 @@ export default function Templates() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="normal">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="name"
                 label={t("common.field.name")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>{t("common.field.preview")}</Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("common.field.preview")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((tpl) => (
-              <Table.Tr key={tpl.id}>
-                <Table.Td style={{ maxWidth: 320 }}>
-                  <Text size="sm" fw={500} truncate title={tpl.name}>
+              <ResponsiveTable.Tr key={tpl.id}>
+                <ResponsiveTable.Td label={t("common.field.name")}>
+                  <Text size="sm" fw={500}>
                     {tpl.name}
                   </Text>
-                </Table.Td>
-                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Text size="sm" c="dimmed" truncate>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.preview")} primary>
+                  <Text size="sm" c="dimmed" lineClamp={3}>
                     {tpl.contentPreview}
                   </Text>
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>
                   {admin ? (
                     <RowActions
                       name={tpl.name}
@@ -163,21 +161,21 @@ export default function Templates() {
                       }}
                     />
                   )}
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                     icon={<IconFileText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                     label={t("templates.empty")}
                   />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

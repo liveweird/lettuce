@@ -10,9 +10,9 @@ import {
   Skeleton,
   Slider,
   Stack,
-  Table,
   Text,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconChartBar, IconHistory, IconTable, IconUsersGroup } from "@tabler/icons-react";
 import { useDebouncedValue } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
@@ -290,51 +290,50 @@ export default function CareerPyramid() {
         </Suspense>
       ) : (
         <>
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
+          <ResponsiveTable density="wide">
+            <ResponsiveTable.Thead>
+              <ResponsiveTable.Tr>
                 {columns.map((c) => (
-                  <Table.Th key={c.field}>
-                    <SortHeader
+                  <ResponsiveTable.Th sortable key={c.field}><SortHeader
                       field={c.field}
                       label={c.label}
                       activeField={sortField}
                       activeDir={sortDir}
                       onToggle={toggleSort}
                     />
-                  </Table.Th>
+                  </ResponsiveTable.Th>
                 ))}
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
+              </ResponsiveTable.Tr>
+            </ResponsiveTable.Thead>
+            <ResponsiveTable.Tbody>
               {rows.length === 0 ? (
-                <Table.Tr>
-                  <Table.Td colSpan={columns.length}>
+                <ResponsiveTable.Tr>
+                  <ResponsiveTable.Td colSpan={columns.length}>
                     <Text size="sm" c="dimmed" ta="center" py="sm">
                       {t("career.pyramid.noMatches")}
                     </Text>
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               ) : (
                 rows.map((row: CareerPyramidRow) => (
-                  <Table.Tr key={row.userId}>
-                    <Table.Td>
+                  <ResponsiveTable.Tr key={row.userId}>
+                    <ResponsiveTable.Td label={columns[0].label}>
                       <PersonaChip
                         name={row.name}
                         to={userDetailsLink(row.userId, row.name, "career")}
                         ariaLabel={t("users.detailsFor", { name: row.name })}
                       />
-                    </Table.Td>
-                    <Table.Td>{valueCell(row.pathText)}</Table.Td>
-                    <Table.Td>{valueCell(row.specializationText)}</Table.Td>
-                    <Table.Td>{valueCell(row.seniorityText)}</Table.Td>
-                    <Table.Td>{tenureCell(row.levelMonths)}</Table.Td>
-                    <Table.Td>{tenureCell(row.organizationMonths)}</Table.Td>
-                  </Table.Tr>
+                    </ResponsiveTable.Td>
+                    <ResponsiveTable.Td label={columns[1].label}>{valueCell(row.pathText)}</ResponsiveTable.Td>
+                    <ResponsiveTable.Td label={columns[2].label}>{valueCell(row.specializationText)}</ResponsiveTable.Td>
+                    <ResponsiveTable.Td label={columns[3].label}>{valueCell(row.seniorityText)}</ResponsiveTable.Td>
+                    <ResponsiveTable.Td label={columns[4].label}>{tenureCell(row.levelMonths)}</ResponsiveTable.Td>
+                    <ResponsiveTable.Td label={columns[5].label}>{tenureCell(row.organizationMonths)}</ResponsiveTable.Td>
+                  </ResponsiveTable.Tr>
                 ))
               )}
-            </Table.Tbody>
-          </Table>
+            </ResponsiveTable.Tbody>
+          </ResponsiveTable>
           <PaginationBar
             total={total}
             page={page}

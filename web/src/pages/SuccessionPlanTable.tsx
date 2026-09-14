@@ -1,4 +1,5 @@
-import { Alert, Select, Stack, Table } from "@mantine/core";
+import { Alert, Select, Stack } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconEye, IconTrash, IconUserShield } from "@tabler/icons-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -168,54 +169,50 @@ export default function SuccessionPlanTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="userName"
                 label={t("succession.person")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {ownerVisible && (
-              <Table.Th>
-                <SortHeader
+              <ResponsiveTable.Th sortable><SortHeader
                   field="managerName"
                   label={t("succession.owner")}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             )}
-            <Table.Th>{t("succession.criticalityLabel")}</Table.Th>
-            <Table.Th>{t("succession.riskLabel")}</Table.Th>
-            <Table.Th>{t("succession.bench")}</Table.Th>
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th>{t("succession.criticalityLabel")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("succession.riskLabel")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("succession.bench")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="status"
                 label={t("common.field.status")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="lastReviewedAt"
                 label={t("succession.lastReviewed")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
@@ -224,40 +221,40 @@ export default function SuccessionPlanTable({
               const isOwner = currentUserId != null && plan.managerId === currentUserId;
               const backParam = backTo || undefined;
               return (
-                <Table.Tr key={plan.id}>
-                  <Table.Td>
+                <ResponsiveTable.Tr key={plan.id}>
+                  <ResponsiveTable.Td label={t("succession.person")}>
                     <PersonCell
                       userId={plan.userId}
                       name={plan.userName}
                       deleted={plan.userDeleted}
                       currentUserId={currentUserId}
                     />
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                   {ownerVisible && (
-                    <Table.Td>
+                    <ResponsiveTable.Td label={t("succession.owner")}>
                       <PersonCell
                         userId={plan.managerId}
                         name={plan.managerName}
                         currentUserId={currentUserId}
                       />
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   )}
-                  <Table.Td>
+                  <ResponsiveTable.Td label={t("succession.criticalityLabel")}>
                     <CriticalityBadge value={plan.roleCriticality} />
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("succession.riskLabel")}>
                     <RetentionRiskBadge value={plan.retentionRisk} />
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("succession.bench")}>
                     <BenchBadge count={plan.benchCount} target={plan.targetBenchDepth} />
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.status")}>
                     <PlanStatusBadge value={plan.status} />
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("succession.lastReviewed")}>
                     <DateCell value={plan.lastReviewedAt} mode="relative" />
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
                     <RowActions
                       name={plan.userName}
                       primary={{
@@ -280,22 +277,22 @@ export default function SuccessionPlanTable({
                           : []
                       }
                     />
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               );
             })
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconUserShield size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("succession.noPlans")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

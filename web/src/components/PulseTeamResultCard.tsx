@@ -10,11 +10,11 @@ import {
   Progress,
   Skeleton,
   Stack,
-  Table,
   Text,
   Title,
   Tooltip,
 } from "@mantine/core";
+import ResponsiveTable from "./ResponsiveTable";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, lazy } from "react";
@@ -51,13 +51,13 @@ export function HintIcon({ label }: { label: string }) {
 function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; questionLabel: string }) {
   const { t } = useTranslation();
   return (
-    <Table.Tr>
-      <Table.Td>{questionLabel}</Table.Td>
-      <Table.Td>{driver.mean != null ? driver.mean.toFixed(1) : "—"}</Table.Td>
-      <Table.Td>{driver.favorablePct != null ? `${driver.favorablePct.toFixed(1)}%` : "—"}</Table.Td>
-      <Table.Td>{driver.unfavorablePct != null ? `${driver.unfavorablePct.toFixed(1)}%` : "—"}</Table.Td>
-      <Table.Td>{driver.validCount}</Table.Td>
-      <Table.Td>
+    <ResponsiveTable.Tr>
+      <ResponsiveTable.Td label={t("pulse.results.question")}>{questionLabel}</ResponsiveTable.Td>
+      <ResponsiveTable.Td label={t("pulse.results.mean")}>{driver.mean != null ? driver.mean.toFixed(1) : "—"}</ResponsiveTable.Td>
+      <ResponsiveTable.Td label={t("pulse.results.favorable")}>{driver.favorablePct != null ? `${driver.favorablePct.toFixed(1)}%` : "—"}</ResponsiveTable.Td>
+      <ResponsiveTable.Td label={t("pulse.results.unfavorable")}>{driver.unfavorablePct != null ? `${driver.unfavorablePct.toFixed(1)}%` : "—"}</ResponsiveTable.Td>
+      <ResponsiveTable.Td label={t("pulse.results.validCount")}>{driver.validCount}</ResponsiveTable.Td>
+      <ResponsiveTable.Td label={t("pulse.results.meanDelta")}>
         {driver.meanDelta != null ? (
           <Text size="sm" c={deltaColor(driver.meanDelta)}>
             {formatSigned(driver.meanDelta, 1)}
@@ -67,8 +67,8 @@ function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; quest
             —
           </Text>
         )}
-      </Table.Td>
-      <Table.Td>
+      </ResponsiveTable.Td>
+      <ResponsiveTable.Td label={t("pulse.results.favorableDelta")}>
         {/* The favorable-share change vs the previous cycle, in percentage points (v2.6.2 —
             the wire always carried it; the table finally shows it). */}
         {driver.favorableDeltaPp != null ? (
@@ -80,8 +80,8 @@ function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; quest
             —
           </Text>
         )}
-      </Table.Td>
-    </Table.Tr>
+      </ResponsiveTable.Td>
+    </ResponsiveTable.Tr>
   );
 }
 
@@ -139,8 +139,8 @@ export default function PulseTeamResultCard({
   return (
     <Paper withBorder shadow="sm" p="lg" radius="md">
       <Stack gap="sm">
-        <Group justify="space-between" align="baseline">
-          <Title order={4}>{teamName}</Title>
+        <Group justify="space-between" align="baseline" style={{ minWidth: 0 }}>
+          <Title order={4} style={{ minWidth: 0, overflowWrap: "anywhere" }}>{teamName}</Title>
           {data && (
             <Text size="sm" c="dimmed">
               {t("pulse.results.responses", {
@@ -198,9 +198,9 @@ export default function PulseTeamResultCard({
               )}
             </Group>
             <Progress.Root size="lg">
-              <Progress.Section value={data.enps.promoterPct} color="teal" />
-              <Progress.Section value={data.enps.passivePct} color="gray" />
-              <Progress.Section value={data.enps.detractorPct} color="red" />
+              <Progress.Section aria-label={t("pulse.results.promoters")} value={data.enps.promoterPct} color="teal" />
+              <Progress.Section aria-label={t("pulse.results.passives")} value={data.enps.passivePct} color="gray" />
+              <Progress.Section aria-label={t("pulse.results.detractors")} value={data.enps.detractorPct} color="red" />
             </Progress.Root>
             <Group gap="lg">
               <Text size="xs" c="dimmed">
@@ -215,29 +215,29 @@ export default function PulseTeamResultCard({
             </Group>
 
             {data.drivers && (
-              <Table>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>{t("pulse.results.question")}</Table.Th>
+              <ResponsiveTable mode="matrix" density="normal" minWidth={900}>
+                <ResponsiveTable.Thead>
+                  <ResponsiveTable.Tr>
+                    <ResponsiveTable.Th>{t("pulse.results.question")}</ResponsiveTable.Th>
                     {/* Every metric header carries a how-is-this-computed hint (v2.6.4). */}
                     {(["mean", "favorable", "unfavorable", "validCount", "meanDelta", "favorableDelta"] as const).map(
                       (metric) => (
-                        <Table.Th key={metric}>
+                        <ResponsiveTable.Th key={metric}>
                           <Group gap={4} wrap="nowrap">
                             {t(`pulse.results.${metric}`)}
                             <HintIcon label={t(`pulse.results.hint.${metric}`)} />
                           </Group>
-                        </Table.Th>
+                        </ResponsiveTable.Th>
                       ),
                     )}
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
+                  </ResponsiveTable.Tr>
+                </ResponsiveTable.Thead>
+                <ResponsiveTable.Tbody>
                   {data.drivers.map((driver) => (
                     <DriverRow key={driver.question} driver={driver} questionLabel={questionLabel(driver)} />
                   ))}
-                </Table.Tbody>
-              </Table>
+                </ResponsiveTable.Tbody>
+              </ResponsiveTable>
             )}
           </>
         )}

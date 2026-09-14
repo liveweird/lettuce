@@ -1,6 +1,7 @@
 import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
-import { Alert, Badge, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Stack, Text } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconCalendarEvent, IconEye, IconPencil } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -273,66 +274,63 @@ export default function OneOnOneTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="meetingDate"
                 label={t("oneOnOne.meetingDate")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {config.personColumns.map((col) => (
-              <Table.Th key={col.field}>
-                <SortHeader
+              <ResponsiveTable.Th sortable key={col.field}><SortHeader
                   field={col.field}
                   label={t(col.labelKey)}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             ))}
-            <Table.Th>{t("oneOnOne.points")}</Table.Th>
-            <Table.Th>{t("oneOnOne.decisions")}</Table.Th>
-            <Table.Th>{t("oneOnOne.actionItems")}</Table.Th>
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th>{t("oneOnOne.points")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("oneOnOne.decisions")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("oneOnOne.actionItems")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="lastModified"
                 label={t("common.field.lastModified")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((m) => (
-              <Table.Tr key={m.id}>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+              <ResponsiveTable.Tr key={m.id}>
+                <ResponsiveTable.Td label={t("oneOnOne.meetingDate")}>
                   {formatIsoDate(m.meetingDate, i18n.language)}
-                </Table.Td>
+                </ResponsiveTable.Td>
                 {config.personColumns.map((col) => (
-                  <Table.Td key={col.field}>
+                  <ResponsiveTable.Td key={col.field} label={t(col.labelKey)}>
                     <PersonCell
                       userId={col.id(m)}
                       name={col.name(m)}
                       deleted={col.deleted(m)}
                       currentUserId={currentUserId}
                     />
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                 ))}
-                <Table.Td>{m.pointCount}</Table.Td>
-                <Table.Td>{m.decisionCount}</Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                <ResponsiveTable.Td label={t("oneOnOne.points")}>{m.pointCount}</ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("oneOnOne.decisions")}>{m.decisionCount}</ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("oneOnOne.actionItems")}>
                   {m.actionItemCount === 0 ? (
                     <Text size="sm" c="dimmed">
                       0
@@ -349,25 +347,25 @@ export default function OneOnOneTable({
                       })}
                     </Badge>
                   )}
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.lastModified")}>
                   <DateCell value={m.lastModified} mode="relative" />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{config.renderAction(m, { backParam, currentUserId, t })}</Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>{config.renderAction(m, { backParam, currentUserId, t })}</ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconCalendarEvent size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("oneOnOne.noMeetings")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

@@ -59,7 +59,9 @@
     "nextPage": "Next page",
     "lastPage": "Last page",
     "moreActions": "More actions",
-    "moreActionsFor": "More actions for {{name}}"
+    "moreActionsFor": "More actions for {{name}}",
+    "scrollHint": "Scroll horizontally to see all columns.",
+    "scrollRegion": "Scrollable table"
   },
   "filter": {
     "contains": "contains…",

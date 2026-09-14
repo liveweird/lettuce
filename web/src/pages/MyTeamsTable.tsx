@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Anchor, Stack, Table } from "@mantine/core";
+import { Alert, Anchor, Stack } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { IconChartLine, IconUsers } from "@tabler/icons-react";
@@ -78,28 +79,27 @@ export default function MyTeamsTable() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="normal">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="name"
                 label={t("common.field.name")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("teams.kpis")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("teams.kpis")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((team) => (
-              <Table.Tr key={team.id}>
-                <Table.Td>
+              <ResponsiveTable.Tr key={team.id}>
+                <ResponsiveTable.Td label={t("common.field.name")} primary>
                   {/* The team name links to the team-details view, where the manager lands on
                       their subordinates grid (v2.5.5); ?from=myTeams keeps the back link here. */}
                   <Anchor
@@ -111,8 +111,8 @@ export default function MyTeamsTable() {
                   >
                     {team.name}
                   </Anchor>
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>
                   {hasFeature("TEAM_KPIS") && (
                     <RowActions
                       primary={{
@@ -123,21 +123,21 @@ export default function MyTeamsTable() {
                       }}
                     />
                   )}
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("dashboard.empty.myTeams")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

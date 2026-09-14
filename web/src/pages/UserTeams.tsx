@@ -10,10 +10,10 @@ import {
   Loader,
   Select,
   Stack,
-  Table,
   Text,
   Title,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUsersGroup } from "@tabler/icons-react";
 import { ApiError } from "../api/http";
@@ -202,21 +202,21 @@ export default function UserTeams() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{t("users.team")}</Table.Th>
-            <Table.Th>{t("common.field.manager")}</Table.Th>
-            {canManage && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+      <ResponsiveTable density="normal">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th>{t("users.team")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("common.field.manager")}</ResponsiveTable.Th>
+            {canManage && <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />}
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {teamsLoading && !allMemberTeams ? (
             <TableLoadingRow colSpan={canManage ? 3 : 2} />
           ) : memberTeams.length > 0 ? (
             memberTeams.map((team) => (
-              <Table.Tr key={team.id}>
-                <Table.Td>
+              <ResponsiveTable.Tr key={team.id}>
+                <ResponsiveTable.Td label={t("users.team")} primary>
                   {/* The team name links to the team-details view (the v2.5.4 convention). */}
                   <Anchor
                     component={RouterLink}
@@ -226,8 +226,8 @@ export default function UserTeams() {
                   >
                     {team.name}
                   </Anchor>
-                </Table.Td>
-                <Table.Td>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.manager")}>
                   {team.managerDeleted ? (
                     <Text size="sm" c="dimmed">
                       {team.managerName} {t("users.deletedTag")}
@@ -246,9 +246,9 @@ export default function UserTeams() {
                       ariaLabel={t("users.detailsFor", { name: team.managerName })}
                     />
                   )}
-                </Table.Td>
+                </ResponsiveTable.Td>
                 {canManage && (
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  <ResponsiveTable.Td actions>
                     <RowActions
                       primary={{
                         icon: <IconTrash size={16} />,
@@ -258,22 +258,22 @@ export default function UserTeams() {
                         onClick: () => removeConfirm.requestDelete({ id: team.id, name: team.name }),
                       }}
                     />
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                 )}
-              </Table.Tr>
+              </ResponsiveTable.Tr>
             ))
           ) : !teamsIsError ? (
-            <Table.Tr>
-              <Table.Td colSpan={canManage ? 3 : 2}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={canManage ? 3 : 2}>
                 <EmptyState
                     icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                     label={t("users.notMemberOfAnyTeam")}
                   />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <Text size="sm" c="dimmed">
         {t("common.table.total", { count: memberTeams.length })}

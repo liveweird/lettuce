@@ -1,4 +1,5 @@
 import { test, expect, login, logout, createUserViaUi, ADMIN, userMenu } from "./helpers";
+import { MAILPIT_URL } from "../playwright.config";
 
 // Email MFA at login (v2.4.0): the admin enables the inverted-default MFA flag for a throwaway
 // user; that user's next sign-in demands the 6-digit code emailed to them. The code roundtrip
@@ -7,12 +8,10 @@ import { test, expect, login, logout, createUserViaUi, ADMIN, userMenu } from ".
 // user and only that user's inbox; the seeded accounts stay MFA-off (V52), so every other
 // spec's login path is untouched.
 
-const MAILPIT = "http://localhost:8025";
-
 test("an MFA-enabled user must enter the emailed code; a wrong code is rejected inline", async ({
   page,
 }) => {
-  const mailpitUp = await fetch(`${MAILPIT}/api/v1/messages`).then(
+  const mailpitUp = await fetch(`${MAILPIT_URL}/api/v1/messages`).then(
     (r) => r.ok,
     () => false,
   );
@@ -42,7 +41,7 @@ test("an MFA-enabled user must enter the emailed code; a wrong code is rejected 
   await expect
     .poll(
       async () => {
-        const list = await fetch(`${MAILPIT}/api/v1/messages`).then((r) => r.json());
+        const list = await fetch(`${MAILPIT_URL}/api/v1/messages`).then((r) => r.json());
         const msg = list.messages?.find(
           (m: { To?: { Address: string }[]; Subject?: string }) =>
             m.To?.some((t) => t.Address === user.email) &&
@@ -50,7 +49,7 @@ test("an MFA-enabled user must enter the emailed code; a wrong code is rejected 
         );
         if (!msg) return undefined;
         const text: string = (
-          await fetch(`${MAILPIT}/api/v1/message/${msg.ID}`).then((r) => r.json())
+          await fetch(`${MAILPIT_URL}/api/v1/message/${msg.ID}`).then((r) => r.json())
         ).Text;
         code = text.match(/^\d{6}$/m)?.[0];
         return code;
@@ -92,7 +91,7 @@ test("an MFA-enabled user must enter the emailed code; a wrong code is rejected 
   await expect
     .poll(
       async () => {
-        const list = await fetch(`${MAILPIT}/api/v1/messages`).then((r) => r.json());
+        const list = await fetch(`${MAILPIT_URL}/api/v1/messages`).then((r) => r.json());
         const msg = list.messages?.find(
           (m: { To?: { Address: string }[]; Subject?: string }) =>
             m.To?.some((t) => t.Address === user.email) &&
@@ -100,7 +99,7 @@ test("an MFA-enabled user must enter the emailed code; a wrong code is rejected 
         );
         if (!msg) return undefined;
         const text: string = (
-          await fetch(`${MAILPIT}/api/v1/message/${msg.ID}`).then((r) => r.json())
+          await fetch(`${MAILPIT_URL}/api/v1/message/${msg.ID}`).then((r) => r.json())
         ).Text;
         const fresh = text.match(/^\d{6}$/m)?.[0];
         // Mailpit lists newest first — wait until the NEW challenge's mail is on top.

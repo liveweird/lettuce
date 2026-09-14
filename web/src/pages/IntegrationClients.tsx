@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Alert, Button, Group, Paper, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Text, TextInput } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconKey, IconKeyOff, IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -143,40 +144,39 @@ export default function IntegrationClients() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{t("integration.name")}</Table.Th>
-            <Table.Th>{t("common.field.status")}</Table.Th>
-            <Table.Th>{t("integration.column.createdBy")}</Table.Th>
-            <Table.Th>{t("integration.column.lastUsed")}</Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+      <ResponsiveTable density="normal">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th>{t("integration.name")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("common.field.status")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("integration.column.createdBy")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("integration.column.lastUsed")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading ? (
             <TableLoadingRow colSpan={COLUMN_COUNT} />
           ) : clients && clients.length > 0 ? (
             clients.map((client) => (
-              <Table.Tr key={client.id}>
-                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Text size="sm" fw={500} truncate title={client.name}>
+              <ResponsiveTable.Tr key={client.id}>
+                <ResponsiveTable.Td label={t("integration.name")} primary>
+                  <Text size="sm" fw={500}>
                     {client.name}
                   </Text>
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.status")}>
                   <StatusPill color={client.revoked ? "gray" : "teal"} size="sm" dot>
                     {t(client.revoked ? "integration.badge.revoked" : "integration.badge.active")}
                   </StatusPill>
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("integration.column.createdBy")}>
                   <Text size="sm">{client.createdByName}</Text>
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("integration.column.lastUsed")}>
                   <DateCell value={client.lastUsedAt} mode="relative" emptyLabel={t("integration.neverUsed")} />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>
                   {/* Revoke is terminal — a revoked row has no action at all. */}
                   {!client.revoked && (
                     <RowActions
@@ -190,21 +190,21 @@ export default function IntegrationClients() {
                       }}
                     />
                   )}
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={COLUMN_COUNT}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={COLUMN_COUNT}>
                 <EmptyState
                   icon={<IconKey size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("integration.empty")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <ConfirmDeleteModal
         confirm={revokeConfirm}

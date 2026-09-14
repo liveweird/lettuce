@@ -21,8 +21,8 @@ export default function RevealablePassword({ password, copyLabel, compact = fals
   const [visible, setVisible] = useState(false);
 
   return (
-    <Group gap="xs" wrap="nowrap">
-      <Code fz={compact ? undefined : "md"} px="sm" py={compact ? 2 : 6} style={compact ? undefined : { flex: 1 }}>
+    <Group gap="xs" wrap="wrap" style={{ minWidth: 0 }}>
+      <Code fz={compact ? undefined : "md"} px="sm" py={compact ? 2 : 6} style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere", whiteSpace: "normal" }}>
         {visible ? password : "*".repeat(password.length)}
       </Code>
       <ActionIcon

@@ -11,10 +11,10 @@ import {
   Group,
   Paper,
   Stack,
-  Table,
   Text,
   Tooltip,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconUpload } from "@tabler/icons-react";
 import DiscardGuard from "../components/DiscardGuard";
 import PageHeader from "../components/PageHeader";
@@ -141,23 +141,23 @@ export default function ImportUsers() {
                     {t("users.importPasswordsOnce")}
                   </Alert>
                 )}
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>{t("users.importLine")}</Table.Th>
-                      <Table.Th>{t("common.field.name")}</Table.Th>
-                      <Table.Th>{t("common.field.email")}</Table.Th>
-                      <Table.Th>{t("users.importStatusHeader")}</Table.Th>
-                      <Table.Th>{t("users.importPassword")}</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
+                <ResponsiveTable density="wide">
+                  <ResponsiveTable.Thead>
+                    <ResponsiveTable.Tr>
+                      <ResponsiveTable.Th>{t("users.importLine")}</ResponsiveTable.Th>
+                      <ResponsiveTable.Th>{t("common.field.name")}</ResponsiveTable.Th>
+                      <ResponsiveTable.Th>{t("common.field.email")}</ResponsiveTable.Th>
+                      <ResponsiveTable.Th>{t("users.importStatusHeader")}</ResponsiveTable.Th>
+                      <ResponsiveTable.Th>{t("users.importPassword")}</ResponsiveTable.Th>
+                    </ResponsiveTable.Tr>
+                  </ResponsiveTable.Thead>
+                  <ResponsiveTable.Tbody>
                     {result.rows.map((row) => (
-                      <Table.Tr key={row.line}>
-                        <Table.Td>{row.line}</Table.Td>
-                        <Table.Td>{row.name ?? "—"}</Table.Td>
-                        <Table.Td>{row.email ?? "—"}</Table.Td>
-                        <Table.Td>
+                      <ResponsiveTable.Tr key={row.line}>
+                        <ResponsiveTable.Td label={t("users.importLine")}>{row.line}</ResponsiveTable.Td>
+                        <ResponsiveTable.Td label={t("common.field.name")}>{row.name ?? "—"}</ResponsiveTable.Td>
+                        <ResponsiveTable.Td label={t("common.field.email")} primary>{row.email ?? "—"}</ResponsiveTable.Td>
+                        <ResponsiveTable.Td label={t("users.importStatusHeader")}>
                           <Tooltip label={row.message} disabled={!row.message}>
                             <Badge
                               color={STATUS_COLOR[row.status]}
@@ -167,14 +167,14 @@ export default function ImportUsers() {
                               {t(`users.importStatus.${row.status}`)}
                             </Badge>
                           </Tooltip>
-                        </Table.Td>
-                        <Table.Td>
+                        </ResponsiveTable.Td>
+                        <ResponsiveTable.Td label={t("users.importPassword")}>
                           {row.password ? <RevealablePassword password={row.password} compact /> : "—"}
-                        </Table.Td>
-                      </Table.Tr>
+                        </ResponsiveTable.Td>
+                      </ResponsiveTable.Tr>
                     ))}
-                  </Table.Tbody>
-                </Table>
+                  </ResponsiveTable.Tbody>
+                </ResponsiveTable>
               </>
             )}
           </Stack>

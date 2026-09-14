@@ -5,7 +5,6 @@ import {
   Group,
   Select,
   Stack,
-  Table,
   Text,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
@@ -25,6 +24,7 @@ import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { lastModifiedCutoff, lastModifiedOptions, type LastModifiedWindow } from "../utils/datetime";
@@ -380,10 +380,10 @@ export default function FeedbackTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="requesterName"
                 label={t("common.field.requester")}
@@ -391,9 +391,9 @@ export default function FeedbackTable({
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {config.personColumns.map((col) => (
-              <Table.Th key={col.field}>
+              <ResponsiveTable.Th key={col.field} sortable>
                 <SortHeader
                   field={col.field}
                   label={t(col.labelKey)}
@@ -401,10 +401,10 @@ export default function FeedbackTable({
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             ))}
-            <Table.Th>{t("common.field.preview")}</Table.Th>
-            <Table.Th>
+            <ResponsiveTable.Th>{t("common.field.preview")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="visibility"
                 label={t("common.field.visibility")}
@@ -412,8 +412,8 @@ export default function FeedbackTable({
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="status"
                 label={t("common.field.status")}
@@ -421,8 +421,8 @@ export default function FeedbackTable({
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="lastModified"
                 label={t("common.field.lastModified")}
@@ -430,28 +430,26 @@ export default function FeedbackTable({
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((f) => (
-              <Table.Tr key={f.id}>
-                <Table.Td>
+              <ResponsiveTable.Tr key={f.id}>
+                <ResponsiveTable.Td label={t("common.field.requester")}>
                   <PersonCell
                     userId={f.requesterId}
                     name={f.requesterName}
                     deleted={f.requesterDeleted}
                     currentUserId={currentUserId}
                   />
-                </Table.Td>
+                </ResponsiveTable.Td>
                 {config.personColumns.map((col) => (
-                  <Table.Td key={col.field} style={{ maxWidth: 280 }}>
-                    {/* maxWidth caps the column; PersonaChip's root is a shrinkable flex item
-                        (min-width 0, v3.3.0), so its own truncation engages inside the wrapping row. */}
+                  <ResponsiveTable.Td key={col.field} label={t(col.labelKey)}>
                     <Group gap={4} wrap="wrap" style={{ minWidth: 0 }}>
                       {col.people(f).map((person) => (
                         <PersonCell
@@ -463,21 +461,18 @@ export default function FeedbackTable({
                         />
                       ))}
                     </Group>
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                 ))}
-                {/* The fluid column (v3.4.0): takes the table's slack and truncates first.
-                    Redacted rows (a requester's unfinished feedback) arrive with an empty preview. */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Text size="sm" c="dimmed" truncate>
+                {/* Redacted rows (a requester's unfinished feedback) arrive with an empty preview. */}
+                <ResponsiveTable.Td label={t("common.field.preview")} primary>
+                  <Text size="sm" c="dimmed" lineClamp={3}>
                     {f.contentPreview}
                   </Text>
-                </Table.Td>
-                {/* width:1 + nowrap force these cells to content width so the pills never
-                    truncate — the preview column is the one that gives way. */}
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.visibility")}>
                   <VisibilityBadge visibility={f.visibility} />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.status")}>
                   <StatusBadge status={f.status} />
                   {/* The requester's optional deadline (v3.8.0) — REQUESTED rows only. */}
                   {f.status === "REQUESTED" && f.expiresOn && (
@@ -485,26 +480,26 @@ export default function FeedbackTable({
                       {t("feedback.expiresRow")} <DateCell value={f.expiresOn} mode="date" size="xs" dimmed />
                     </Text>
                   )}
-                </Table.Td>
-                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.lastModified")}>
                   <DateCell value={f.lastModified} mode="relative" />
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{config.renderAction(f, { currentUserId, backTo, t })}</Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>{config.renderAction(f, { currentUserId, backTo, t })}</ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                     icon={<IconMessages size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                     label={t("feedback.noFeedback")}
                     action={emptyAction}
                   />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

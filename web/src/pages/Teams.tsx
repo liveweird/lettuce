@@ -6,7 +6,6 @@ import {
   Button,
   Select,
   Stack,
-  Table,
   Text
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
@@ -37,6 +36,7 @@ import { teamDetailsLink } from "../utils/teamLinks";
 import { loadErrorMessage } from "../utils/saveError";
 import PageHeader from "../components/PageHeader";
 import { renderUserOption } from "../components/userOptions";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 const SORT_FIELDS = ["name"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -134,10 +134,10 @@ export default function Teams() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
+      <ResponsiveTable density="normal">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="name"
                 label={t("common.field.name")}
@@ -145,19 +145,18 @@ export default function Teams() {
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>{t("common.field.manager")}</Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("common.field.manager")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((team) => (
-              <Table.Tr key={team.id}>
-                {/* The fluid column (v3.4.0): the name takes the table's slack. */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
+              <ResponsiveTable.Tr key={team.id}>
+                <ResponsiveTable.Td label={t("common.field.name")} primary>
                   {/* The team name links to the team-details view (name + manager + roster). */}
                   <Anchor
                     component={RouterLink}
@@ -168,8 +167,8 @@ export default function Teams() {
                   >
                     {team.name}
                   </Anchor>
-                </Table.Td>
-                <Table.Td style={{ maxWidth: 280, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.manager")}>
                   {team.managerDeleted ? (
                     <Text size="sm" c="dimmed">
                       {team.managerName}
@@ -189,8 +188,8 @@ export default function Teams() {
                       ariaLabel={t("users.detailsFor", { name: team.managerName })}
                     />
                   )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td actions>
                   {admin && (
                     <RowActions
                       name={team.name}
@@ -216,21 +215,21 @@ export default function Teams() {
                       ]}
                     />
                   )}
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
 <EmptyState
                   icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("teams.noTeams")}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

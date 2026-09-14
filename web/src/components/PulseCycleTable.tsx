@@ -1,5 +1,6 @@
 import type { ParseKeys } from "i18next";
-import { Alert, Button, Group, Modal, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Button, Group, Modal, Skeleton, Stack, Text, Title } from "@mantine/core";
+import ResponsiveTable from "./ResponsiveTable";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -119,42 +120,40 @@ export default function PulseCycleTable({
           <EmptyState icon={<IconHeartRateMonitor size={32} />} label={t("pulse.admin.noCycles")} />
         )}
         {rows.length > 0 && (
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("common.field.status")}</Table.Th>
-                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("pulse.admin.openDate")}</Table.Th>
-                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("pulse.admin.closeDate")}</Table.Th>
-                <Table.Th>{t("pulse.admin.question")}</Table.Th>
-                <Table.Th style={{ width: 1, whiteSpace: "nowrap" }}>{t("pulse.admin.participation")}</Table.Th>
-                <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
+          <ResponsiveTable density="compact">
+            <ResponsiveTable.Thead>
+              <ResponsiveTable.Tr>
+                <ResponsiveTable.Th>{t("common.field.status")}</ResponsiveTable.Th>
+                <ResponsiveTable.Th>{t("pulse.admin.openDate")}</ResponsiveTable.Th>
+                <ResponsiveTable.Th>{t("pulse.admin.closeDate")}</ResponsiveTable.Th>
+                <ResponsiveTable.Th>{t("pulse.admin.question")}</ResponsiveTable.Th>
+                <ResponsiveTable.Th>{t("pulse.admin.participation")}</ResponsiveTable.Th>
+                <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+              </ResponsiveTable.Tr>
+            </ResponsiveTable.Thead>
+            <ResponsiveTable.Tbody>
               {rows.map((cycle) => (
-                <Table.Tr key={cycle.id}>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                <ResponsiveTable.Tr key={cycle.id}>
+                  <ResponsiveTable.Td label={t("common.field.status")}>
                     <PulseCycleStatusBadge status={cycle.status} />
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{formatIsoDate(cycle.plannedOpenDate, locale)}</Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>{formatIsoDate(cycle.plannedCloseDate, locale)}</Table.Td>
-                  {/* The fluid column (the v3.4.0 rule): the question takes the table's slack
-                      and truncates with the full text as its title; every other cell hugs. */}
-                  <Table.Td style={{ width: "100%", maxWidth: 0 }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("pulse.admin.openDate")}>{formatIsoDate(cycle.plannedOpenDate, locale)}</ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("pulse.admin.closeDate")}>{formatIsoDate(cycle.plannedCloseDate, locale)}</ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("pulse.admin.question")} primary>
                     <Text
                       size="sm"
-                      truncate
+                      lineClamp={3}
                       title={cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : undefined}
                     >
                       {cycle.rotatingQuestion ? pickLocalized(cycle.rotatingQuestion, locale) : "—"}
                     </Text>
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("pulse.admin.participation")}>
                     {cycle.participantCount != null
                       ? `${cycle.responseCount ?? 0}/${cycle.participantCount}`
                       : "—"}
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
                     {/* The status's own transition is the visible icon (Open now / Close now;
                         Cancel on a CLOSED cycle, its only action); Edit dates/Extend and Cancel
                         sit in the per-cycle ⋯ menu while the cycle is still SCHEDULED/OPEN. */}
@@ -210,11 +209,11 @@ export default function PulseCycleTable({
                           : []
                       }
                     />
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               ))}
-            </Table.Tbody>
-          </Table>
+            </ResponsiveTable.Tbody>
+          </ResponsiveTable>
         )}
       </Stack>
 

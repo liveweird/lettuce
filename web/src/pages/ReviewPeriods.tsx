@@ -9,9 +9,9 @@ import {
   Paper,
   Select,
   Stack,
-  Table,
   Text,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconCalendarStats, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -230,15 +230,15 @@ export default function ReviewPeriods() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{t("performanceReview.periods.column.period")}</Table.Th>
-            <Table.Th>{t("common.field.status")}</Table.Th>
-            {admin && <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+      <ResponsiveTable density="compact">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th>{t("performanceReview.periods.column.period")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("common.field.status")}</ResponsiveTable.Th>
+            {admin && <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />}
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : periods && periods.length > 0 ? (
@@ -246,22 +246,21 @@ export default function ReviewPeriods() {
               const isLatest = index === periods.length - 1;
               const range = formatMonthRange(p.startMonth, p.endMonth, i18n.language);
               return (
-                <Table.Tr key={p.id}>
-                  {/* The fluid column (v3.4.0): takes the table's slack. */}
-                  <Table.Td style={{ width: "100%" }}>
+                <ResponsiveTable.Tr key={p.id}>
+                  <ResponsiveTable.Td label={t("performanceReview.periods.column.period")} primary>
                     <Text size="sm" fw={500}>
                       {range}
                     </Text>
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.status")}>
                     {isCurrentPeriod(p.startMonth, p.endMonth) && (
                       <StatusPill color="teal" size="sm" dot>
                         {t("performanceReview.periods.currentBadge")}
                       </StatusPill>
                     )}
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                   {admin && (
-                    <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                    <ResponsiveTable.Td actions>
                       {/* Only the LATEST period is deletable — the append-only timeline. */}
                       {isLatest && (
                         <RowActions
@@ -275,25 +274,25 @@ export default function ReviewPeriods() {
                           }}
                         />
                       )}
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   )}
-                </Table.Tr>
+                </ResponsiveTable.Tr>
               );
             })
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconCalendarStats size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t(
                     admin ? "performanceReview.periods.empty" : "performanceReview.periods.emptyReadOnly",
                   )}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

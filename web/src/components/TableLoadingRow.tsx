@@ -1,4 +1,5 @@
-import { Center, Loader, Table } from "@mantine/core";
+import { Center, Loader } from "@mantine/core";
+import Table from "./ResponsiveTable";
 
 /** The shared "list is loading" table row — a centered small spinner spanning all columns. */
 export default function TableLoadingRow({ colSpan }: { colSpan: number }) {

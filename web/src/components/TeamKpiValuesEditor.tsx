@@ -6,9 +6,9 @@ import {
   Group,
   Loader,
   NumberInput,
-  Table,
   Text,
 } from "@mantine/core";
+import ResponsiveTable from "./ResponsiveTable";
 import { IconCheck, IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -181,20 +181,20 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
           {t("teamKpi.noValues")}
         </Text>
       ) : (
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>{t("teamKpi.date")}</Table.Th>
-              <Table.Th>{t("teamKpi.value")}</Table.Th>
-              <Table.Th>{t("teamKpi.vsTarget")}</Table.Th>
-              {canEdit && <Table.Th w={1} />}
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
+        <ResponsiveTable density="compact">
+          <ResponsiveTable.Thead>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Th>{t("teamKpi.date")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th>{t("teamKpi.value")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th>{t("teamKpi.vsTarget")}</ResponsiveTable.Th>
+              {canEdit && <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />}
+            </ResponsiveTable.Tr>
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
             {values.map((row) =>
               draft?.id === row.id ? (
-                <Table.Tr key={row.id}>
-                  <Table.Td>
+                <ResponsiveTable.Tr key={row.id}>
+                  <ResponsiveTable.Td label={t("teamKpi.date")}>
                     <DateField
                       aria-label={t("teamKpi.date")}
                       value={draft.date}
@@ -202,8 +202,8 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                       onChange={(iso) => setDraft({ ...draft, date: iso })}
                       w={160}
                     />
-                  </Table.Td>
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("teamKpi.value")}>
                     <NumberInput
                       aria-label={t("teamKpi.value")}
                       value={draft.value}
@@ -216,9 +216,9 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                         {draftError}
                       </Text>
                     )}
-                  </Table.Td>
-                  <Table.Td />
-                  <Table.Td>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("teamKpi.vsTarget")} />
+                  <ResponsiveTable.Td actions>
                     <Group gap="xs" wrap="nowrap">
                       <ActionIcon
                         variant="light"
@@ -245,13 +245,13 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                         <IconX size={16} />
                       </ActionIcon>
                     </Group>
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               ) : (
-                <Table.Tr key={row.id}>
-                  <Table.Td>{formatIsoDate(row.date, locale)}</Table.Td>
-                  <Table.Td>{formatGoalValue(kpi.type, row.value, locale)}</Table.Td>
-                  <Table.Td>
+                <ResponsiveTable.Tr key={row.id}>
+                  <ResponsiveTable.Td label={t("teamKpi.date")}>{formatIsoDate(row.date, locale)}</ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("teamKpi.value")}>{formatGoalValue(kpi.type, row.value, locale)}</ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("teamKpi.vsTarget")}>
                     <TargetDelta
                       type={kpi.type}
                       value={row.value}
@@ -259,9 +259,9 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                       direction={kpi.targetDirection}
                       locale={locale}
                     />
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                   {canEdit && (
-                    <Table.Td>
+                    <ResponsiveTable.Td actions>
                       <Group gap="xs" wrap="nowrap">
                         <ActionIcon
                           variant="light"
@@ -288,13 +288,13 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
                           <IconTrash size={16} />
                         </ActionIcon>
                       </Group>
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   )}
-                </Table.Tr>
+                </ResponsiveTable.Tr>
               ),
             )}
-          </Table.Tbody>
-        </Table>
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
       )}
 
       <ConfirmDeleteModal

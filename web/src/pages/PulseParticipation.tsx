@@ -1,4 +1,5 @@
-import { Alert, Badge, Group, Progress, Select, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Group, Progress, Select, Skeleton, Stack, Text, Title } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconUsersGroup } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -94,25 +95,25 @@ export default function PulseParticipation() {
           </div>
           {teams.map((team) => (
             <Stack key={team.teamId} gap="xs">
-              <Title order={5}>{team.teamName}</Title>
-              <Table>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>{t("pulse.participation.person")}</Table.Th>
-                    <Table.Th />
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
+              <Title order={5} style={{ minWidth: 0, overflowWrap: "anywhere" }}>{team.teamName}</Title>
+              <ResponsiveTable density="normal">
+                <ResponsiveTable.Thead>
+                  <ResponsiveTable.Tr>
+                    <ResponsiveTable.Th>{t("pulse.participation.person")}</ResponsiveTable.Th>
+                    <ResponsiveTable.Th>{t("common.field.status")}</ResponsiveTable.Th>
+                  </ResponsiveTable.Tr>
+                </ResponsiveTable.Thead>
+                <ResponsiveTable.Tbody>
                   {team.members.map((member) => (
-                    <Table.Tr key={member.userId}>
-                      <Table.Td>
+                    <ResponsiveTable.Tr key={member.userId}>
+                      <ResponsiveTable.Td label={t("pulse.participation.person")}>
                         <PersonCell
                           userId={member.userId}
                           name={member.name}
                           currentUserId={currentUserId}
                         />
-                      </Table.Td>
-                      <Table.Td>
+                      </ResponsiveTable.Td>
+                      <ResponsiveTable.Td label={t("common.field.status")}>
                         <Badge
                           color={member.responded ? "teal" : "gray"}
                           variant="light"
@@ -122,11 +123,11 @@ export default function PulseParticipation() {
                             ? t("pulse.participation.submitted")
                             : t("pulse.participation.notSubmitted")}
                         </Badge>
-                      </Table.Td>
-                    </Table.Tr>
+                      </ResponsiveTable.Td>
+                    </ResponsiveTable.Tr>
                   ))}
-                </Table.Tbody>
-              </Table>
+                </ResponsiveTable.Tbody>
+              </ResponsiveTable>
             </Stack>
           ))}
         </>

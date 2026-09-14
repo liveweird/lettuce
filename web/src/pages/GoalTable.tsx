@@ -1,6 +1,7 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
-import { Alert, Group, Select, Stack, Table, Text } from "@mantine/core";
+import { Alert, Group, Select, Stack, Text } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import {
   IconArchive,
@@ -299,78 +300,71 @@ export default function GoalTable({
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
-              <SortHeader
+      <ResponsiveTable density="wide">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="title"
                 label={t("goal.title")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {visibleColumns.map((c) => (
-              <Table.Th key={c.field}>
-                <SortHeader
+              <ResponsiveTable.Th sortable key={c.field}><SortHeader
                   field={c.field}
                   label={t(c.labelKey)}
                   activeField={sortField}
                   activeDir={sortDir}
                   onToggle={toggleSort}
                 />
-              </Table.Th>
+              </ResponsiveTable.Th>
             ))}
-            <Table.Th>
-              <SortHeader
+            <ResponsiveTable.Th sortable><SortHeader
                 field="createdAt"
                 label={t("goal.createdAt")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="dueDate"
                 label={t("goal.dueDate")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="status"
                 label={t("common.field.status")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="targetValue"
                 label={t("goal.target")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
-              <SortHeader
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable><SortHeader
                 field="currentValue"
                 label={t("goal.current")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
@@ -383,38 +377,38 @@ export default function GoalTable({
               const canUpdate = g.status === "ACTIVE" && (isRowManager || isRowSubordinate);
               const backParam = backTo || undefined;
               return (
-                <Table.Tr key={g.id}>
-                  <Table.Td>
+                <ResponsiveTable.Tr key={g.id}>
+                  <ResponsiveTable.Td label={t("goal.title")} primary>
                     <Text size="sm" lineClamp={2} style={{ wordBreak: "break-word" }}>
                       {g.title}
                     </Text>
-                  </Table.Td>
+                  </ResponsiveTable.Td>
                   {visibleColumns.map((c) => (
-                    <Table.Td key={c.field}>
+                    <ResponsiveTable.Td key={c.field} label={t(c.labelKey)}>
                       <PersonCell
                         userId={c.id(g)}
                         name={c.name(g)}
                         deleted={c.deleted(g)}
                         currentUserId={currentUserId}
                       />
-                    </Table.Td>
+                    </ResponsiveTable.Td>
                   ))}
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <ResponsiveTable.Td label={t("goal.createdAt")}>
                     <DateCell value={g.createdAt} mode="date" />
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("goal.dueDate")}>
                     <Group gap="xs" wrap="nowrap">
                       <Text size="sm">{formatIsoDate(g.dueDate, i18n.language)}</Text>
                       {isGoalOverdue(g.status, g.dueDate) && <OverdueBadge />}
                     </Group>
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.status")}>
                     <GoalStatusBadge status={g.status} />
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("goal.target")}>
                     {formatTargetValue(g.type, g.targetValue, g.targetDirection, i18n.language)}
-                  </Table.Td>
-                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("goal.current")}>
                     <GoalCurrentValue
                       type={g.type}
                       currentValue={g.currentValue}
@@ -422,8 +416,8 @@ export default function GoalTable({
                       milestonesTotal={g.milestonesTotal}
                       locale={i18n.language}
                     />
-                  </Table.Td>
-                  <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
                     <RowActions
                       name={g.title}
                       primary={
@@ -469,23 +463,23 @@ export default function GoalTable({
                           : []
                       }
                     />
-                  </Table.Td>
-                </Table.Tr>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
               );
             })
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                   icon={<IconTargetArrow size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                   label={t("goal.noGoals")}
                   action={emptyAction}
                 />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}

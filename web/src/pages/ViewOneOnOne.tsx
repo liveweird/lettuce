@@ -8,11 +8,11 @@ import {
   Container,
   Paper,
   Stack,
-  Table,
   Tabs,
   Text,
   Title,
 } from "@mantine/core";
+import ResponsiveTable from "../components/ResponsiveTable";
 import { IconHistory } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -141,26 +141,26 @@ export default function ViewOneOnOne() {
                       empty={t("oneOnOne.noActionItems")}
                     >
                       {data.actionItems.length > 0 && (
-                        <Table>
-                          <Table.Thead>
-                            <Table.Tr>
-                              <Table.Th style={{ width: 1 }}>{t("common.table.position")}</Table.Th>
-                              <Table.Th>{t("common.field.content")}</Table.Th>
-                              <Table.Th>{t("oneOnOne.owner")}</Table.Th>
-                              <Table.Th>{t("oneOnOne.dueDate")}</Table.Th>
-                              <Table.Th>{t("common.field.status")}</Table.Th>
-                              <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-                            </Table.Tr>
-                          </Table.Thead>
-                          <Table.Tbody>
+                        <ResponsiveTable density="wide">
+                          <ResponsiveTable.Thead>
+                            <ResponsiveTable.Tr>
+                              <ResponsiveTable.Th>{t("common.table.position")}</ResponsiveTable.Th>
+                              <ResponsiveTable.Th>{t("common.field.content")}</ResponsiveTable.Th>
+                              <ResponsiveTable.Th>{t("oneOnOne.owner")}</ResponsiveTable.Th>
+                              <ResponsiveTable.Th>{t("oneOnOne.dueDate")}</ResponsiveTable.Th>
+                              <ResponsiveTable.Th>{t("common.field.status")}</ResponsiveTable.Th>
+                              <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+                            </ResponsiveTable.Tr>
+                          </ResponsiveTable.Thead>
+                          <ResponsiveTable.Tbody>
                             {data.actionItems.map((item, index) => (
-                              <Table.Tr key={item.id}>
-                                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                              <ResponsiveTable.Tr key={item.id}>
+                                <ResponsiveTable.Td label={t("common.table.position")}>
                                   <Text size="sm" c="dimmed">
                                     {index + 1}
                                   </Text>
-                                </Table.Td>
-                                <Table.Td>
+                                </ResponsiveTable.Td>
+                                <ResponsiveTable.Td label={t("common.field.content")} primary>
                                   <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
                                     {item.content}
                                   </Text>
@@ -176,19 +176,19 @@ export default function ViewOneOnOne() {
                                       </StatusPill>
                                     </Box>
                                   )}
-                                </Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                                </ResponsiveTable.Td>
+                                <ResponsiveTable.Td label={t("oneOnOne.owner")}>
                                   {ownerDisplay(item.owner)}
-                                </Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                                </ResponsiveTable.Td>
+                                <ResponsiveTable.Td label={t("oneOnOne.dueDate")}>
                                   {item.dueDate ? formatIsoDate(item.dueDate, i18n.language) : "—"}
-                                </Table.Td>
-                                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                                </ResponsiveTable.Td>
+                                <ResponsiveTable.Td label={t("common.field.status")}>
                                   <StatusPill color={item.resolved ? "teal" : "yellow"} dot>
                                     {item.resolved ? t("oneOnOne.resolved") : t("oneOnOne.open")}
                                   </StatusPill>
-                                </Table.Td>
-                                <Table.Td>
+                                </ResponsiveTable.Td>
+                                <ResponsiveTable.Td actions>
                                   <ActionIcon
                                     variant="subtle"
                                     color="gray"
@@ -197,11 +197,11 @@ export default function ViewOneOnOne() {
                                   >
                                     <IconHistory size={16} />
                                   </ActionIcon>
-                                </Table.Td>
-                              </Table.Tr>
+                                </ResponsiveTable.Td>
+                              </ResponsiveTable.Tr>
                             ))}
-                          </Table.Tbody>
-                        </Table>
+                          </ResponsiveTable.Tbody>
+                        </ResponsiveTable>
                       )}
                     </Section>
                   </Stack>

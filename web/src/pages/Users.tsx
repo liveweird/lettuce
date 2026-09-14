@@ -8,7 +8,6 @@ import {
   Group,
   Select,
   Stack,
-  Table,
   Text
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
@@ -50,6 +49,7 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { invalidateUser } from "../utils/userQueries";
 import PageHeader from "../components/PageHeader";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 const SORT_FIELDS = ["name", "email", "uniqueId"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
@@ -352,10 +352,10 @@ export default function Users() {
         </Alert>
       )}
 
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>
+      <ResponsiveTable density="normal">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="name"
                 label={t("common.field.name")}
@@ -363,8 +363,8 @@ export default function Users() {
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="email"
                 label={t("common.field.email")}
@@ -372,8 +372,8 @@ export default function Users() {
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
-            <Table.Th>
+            </ResponsiveTable.Th>
+            <ResponsiveTable.Th sortable>
               <SortHeader
                 field="uniqueId"
                 label={t("users.uniqueId")}
@@ -381,20 +381,20 @@ export default function Users() {
                 activeDir={sortDir}
                 onToggle={toggleSort}
               />
-            </Table.Th>
+            </ResponsiveTable.Th>
             {/* A roles set has no order — plain header, deliberately not a SortHeader. */}
-            <Table.Th>{t("common.field.roles")}</Table.Th>
-            <Table.Th aria-label={t("common.table.actions")} style={{ width: 1 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
+            <ResponsiveTable.Th>{t("common.field.roles")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th actions w={128} aria-label={t("common.table.actions")} />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
             data.items.map((u) => (
-              <Table.Tr key={u.id}>
-                <Table.Td style={{ maxWidth: 280 }}>
-                  <Group gap={6} wrap="nowrap">
+              <ResponsiveTable.Tr key={u.id}>
+                <ResponsiveTable.Td label={t("common.field.name")}>
+                  <Group gap={6} wrap="wrap">
                     {/* The name links to the relationship-aware read-only card view — everyone,
                         except one's own row (the card flavors describe the viewer's relationship
                         to someone else). */}
@@ -410,23 +410,22 @@ export default function Users() {
                       <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>
                     )}
                   </Group>
-                </Table.Td>
-                {/* The fluid column (v3.4.0): takes the table's slack and truncates first. */}
-                <Table.Td style={{ width: "100%", maxWidth: 0 }}>
-                  <Text size="sm" truncate title={u.email}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.email")} primary>
+                  <Text size="sm">
                     {u.email}
                   </Text>
-                </Table.Td>
-                <Table.Td style={{ maxWidth: 160 }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("users.uniqueId")}>
                   {u.uniqueId != null ? (
-                    <Text size="sm" truncate aria-label={t("users.uniqueId")}>
+                    <Text size="sm" aria-label={t("users.uniqueId")}>
                       {u.uniqueId}
                     </Text>
                   ) : (
                     /* The quiet admin cue (v2.19.0, restyled v3.3.0): a warning-coloured icon
                        beside dimmed text — the id is optional but should be filled ASAP, and
                        the "Missing only" filter finds every such row. */
-                    <Group gap={4} wrap="nowrap">
+                    <Group gap={4} wrap="wrap">
                       <IconAlertCircle
                         size={14}
                         aria-hidden="true"
@@ -437,10 +436,10 @@ export default function Users() {
                       </Text>
                     </Group>
                   )}
-                </Table.Td>
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("common.field.roles")}>
                   {u.roles.length > 0 ? (
-                    <Group gap={4} wrap="nowrap">
+                    <Group gap={4} wrap="wrap">
                       {u.roles.map((role) => (
                         <StatusPill
                           key={role}
@@ -456,14 +455,14 @@ export default function Users() {
                       —
                     </Text>
                   )}
-                </Table.Td>
+                </ResponsiveTable.Td>
                 {/* One row-action cell (v3.4.0): Teams as the visible icon (read-only for
                     non-admins — the name param feeds the heading there without a getUser call,
                     which is self-or-admin only), the Feedback menu (never on one's own row),
                     and the admin account actions behind the ⋯ that keeps the "Modify actions
                     for X" name (v1.52.0). Item aria-labels are the pre-grouping button ones.
                     Deactivate/Reactivate stays off one's own row. */}
-                <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
+                <ResponsiveTable.Td actions>
                   <RowActions
                     name={u.name}
                     primary={{
@@ -487,21 +486,21 @@ export default function Users() {
                     menuLabel={t("users.modifyActionsFor", { name: u.name })}
                     items={admin ? adminRowItems(u) : []}
                   />
-                </Table.Td>
-              </Table.Tr>
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
             ))
           ) : !isError ? (
-            <Table.Tr>
-              <Table.Td colSpan={columnCount}>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
                     icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
                     label={t("users.noUsers")}
                   />
-              </Table.Td>
-            </Table.Tr>
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
           ) : null}
-        </Table.Tbody>
-      </Table>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>
 
       <PaginationBar
         total={total}
