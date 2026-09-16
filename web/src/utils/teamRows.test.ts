@@ -57,6 +57,17 @@ describe("groupTeamRows", () => {
     expect(card.activeGoalCount).toBeNull();
   });
 
+  test("normalizes an absent lastLoginAt to null and carries a set value through (v3.9.1)", () => {
+    const [bare] = groupTeamRows([row()]);
+    expect(bare.lastLoginAt).toBeNull();
+
+    const [card] = groupTeamRows([
+      row({ lastLoginAt: 1780000000000 }),
+      row({ teamName: "Support", lastLoginAt: 1780000000000 }),
+    ]);
+    expect(card.lastLoginAt).toBe(1780000000000);
+  });
+
   test("normalizes absent career fields to null and carries set ones from the first row", () => {
     const [bare] = groupTeamRows([row()]);
     expect(bare.careerPath).toBeNull();

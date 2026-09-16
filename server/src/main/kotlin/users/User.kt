@@ -61,6 +61,11 @@ data class User(
     // Epoch millis of the last password change (0 = never). Server-internal; used to
     // invalidate refresh tokens minted before the change (see /api/v1/refresh).
     val passwordChangedAt: Long = 0,
+    // Epoch millis of the last successful login COMPLETION (V78, v3.9.1; 0 = never — the
+    // passwordChangedAt idiom). Stamped only by auth/AuthRoutes.kt's two login-completion
+    // points (never /refresh, never the MFA password step). Never client-settable via PUT —
+    // read-only, gated like seniorityLevel on UserResponse (see below).
+    val lastLoginAt: Long = 0,
     // The career triple no longer lives on the user (v2.15.0): it derives from the LATEST
     // career position (users/CareerPositionService.kt) and is resolved response-side.
     // The paid days-off allowance likewise no longer lives on the domain object (v2.32.0):
@@ -126,6 +131,9 @@ data class UserCreateResponse(
     // The language assigned at creation (V61, "en" unless the request chose another);
     // aligned with UserResponse.
     val language: String,
+    // Always null at creation (V78, v3.9.1 — a new user has never logged in); kept in the
+    // shape so both user-response schemas stay aligned, like careerPath/seniorityLevel above.
+    val lastLoginAt: Long?,
 )
 
 @Serializable
@@ -248,11 +256,22 @@ data class UserResponse(
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val teams: List<TeamRef>? = null,
+    // Epoch millis of the last successful login completion (V78, v3.9.1); null = never logged
+    // in, OR hidden. PRIVATE like seniorityLevel: populated only when the caller is this user,
+    // a manager in their transitive management chain, or HR — null otherwise (hidden), as well
+    // as when genuinely unset. Read-only; never accepted on create/update. Deliberately NOT on
+    // GET /api/v1/users (list scope) — only the single-user GET and /teams/members carry it.
+    val lastLoginAt: Long?,
 )
 
 typealias UserPageResponse = PageResponse<UserResponse>
 
-fun User.toResponse(id: UInt, profile: CareerProfile?) = UserResponse(
+/**
+ * [lastLoginAt] is the CALLER-GATED value (mirrors [profile]'s seniorityLevel blanking) — pass
+ * `null` when the caller may not see it or when it is genuinely unset; the caller resolves
+ * both before calling (see `GET /users/{id}` in `users/UserRoutes.kt`).
+ */
+fun User.toResponse(id: UInt, profile: CareerProfile?, lastLoginAt: Long? = null) = UserResponse(
     id,
     name,
     email,
@@ -265,4 +284,5 @@ fun User.toResponse(id: UInt, profile: CareerProfile?) = UserResponse(
     emailNotificationsEnabled = emailNotificationsEnabled,
     uniqueId = uniqueId,
     language = language,
+    lastLoginAt = lastLoginAt,
 )

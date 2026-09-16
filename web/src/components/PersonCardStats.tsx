@@ -105,6 +105,19 @@ function CareerRows({
   );
 }
 
+// The last successful login (v3.9.1): relative time + exact-timestamp tooltip via the shared
+// TimeStat, or a dimmed "never". Private like seniorityLevel — the server nulls it outside the
+// viewer's chain (unless HR/self), so null is ambiguous — the row renders only when a value
+// arrived, or where null genuinely means "never logged in" (the manages flavors + self + HR).
+function LastLoginRow({ person }: { person: PersonCardData }) {
+  const { t } = useTranslation();
+  return (
+    <StatRow label={t("users.lastLogin")}>
+      <TimeStat at={person.lastLoginAt} />
+    </StatRow>
+  );
+}
+
 // The next accepted vacation (v1.44.0): its start date, or a dimmed "none planned". Shared by
 // the subordinate cards and the peer cards (teammates see accepted absences via the calendar).
 function NextVacationRow({ person }: { person: PersonCardData }) {
@@ -235,6 +248,7 @@ export default function PersonCardBody({
   showSeniorityWhenUnset = false,
   showLastReview = false,
   showDaysOff = false,
+  showLastLogin = false,
   successionReviewedAt,
   actions,
   actionsVariant = "buttons",
@@ -246,6 +260,9 @@ export default function PersonCardBody({
   showLastReview?: boolean;
   /** Gate for the budget row (v1.44.0) — subordinate flavors only; peers get vacation-only. */
   showDaysOff?: boolean;
+  /** The viewer manages (or is) this person: a null last-login renders as "never" (v3.9.1,
+   *  mirrors showSeniorityWhenUnset — null is otherwise ambiguous between hidden and never). */
+  showLastLogin?: boolean;
   /** The viewer's own OPEN plan's reviewed stamp for this person (v2.47.2) — present exactly
    *  when the Succession-plan button shows (both derive from the useOwnSuccessionPlans map). */
   successionReviewedAt?: number;
@@ -294,6 +311,9 @@ export default function PersonCardBody({
       <div className={classes.column}>
       <Section label={t("users.section.profile")}>
         <CareerRows person={person} showSeniorityWhenUnset={showSeniorityWhenUnset} />
+        {(person.lastLoginAt != null || showLastLogin || canAudit()) && (
+          <LastLoginRow person={person} />
+        )}
         {successionReviewedAt != null && (
           <StatRow label={t("users.successionReviewed")}>
             <TimeStat at={successionReviewedAt} />

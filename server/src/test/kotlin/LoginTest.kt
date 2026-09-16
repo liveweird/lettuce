@@ -270,6 +270,32 @@ class LoginTest {
     }
 
     @Test
+    fun `a successful login stamps lastLoginAt - a failed one does not`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("lastlogin")
+        val userId = TestUsers.seed(email = email, password = "right-pw")
+
+        assertEquals(0L, TestServices.users.read(userId)?.lastLoginAt, "never logged in yet")
+
+        // A failed attempt must not advance it.
+        jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email, "wrong-pw"))
+        }
+        assertEquals(0L, TestServices.users.read(userId)?.lastLoginAt, "a failed login must not stamp it")
+
+        val before = System.currentTimeMillis()
+        val response = jsonClient().post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email, "right-pw"))
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val stamped = TestServices.users.read(userId)?.lastLoginAt
+        assertNotNull(stamped)
+        assertTrue(stamped >= before, "lastLoginAt should be stamped at/after the successful login")
+    }
+
+    @Test
     fun `reactivation restores login with the existing password`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("react")

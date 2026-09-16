@@ -6527,7 +6527,7 @@ components:
 
     UserCreateResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language, lastLoginAt]
       properties:
         id: { type: integer, format: int32 }
         name: { type: string }
@@ -6571,6 +6571,12 @@ components:
           allOf: [ { $ref: '#/components/schemas/Language' } ]
           description: The language assigned at creation ("en" unless the request chose
             another) — aligned with UserResponse.
+        lastLoginAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: Always null at creation (V78, v3.9.1 — a new user has never logged
+            in) — aligned with UserResponse.
 
     UserUpdateRequest:
       type: object
@@ -6752,7 +6758,7 @@ components:
 
     UserResponse:
       type: object
-      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language]
+      required: [id, name, email, roles, careerPath, careerSpecialization, seniorityLevel, deactivated, disabledFeatures, emailNotificationsEnabled, uniqueId, language, lastLoginAt]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
@@ -6826,6 +6832,17 @@ components:
             The user's language (V61, v2.21.0): applied to the SPA at sign-in and used for
             every email sent to the user. Changed only via PUT /users/{id}/language (target
             user or ADMIN) — never via the whole-user PUT.
+        lastLoginAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            Epoch milliseconds of the user's last successful login COMPLETION (V78, v3.9.1) —
+            stamped only by the non-MFA `/login` success and the `/login/mfa` code-exchange
+            success, never by `/refresh` or the MFA password step. Read-only, never accepted on
+            create/update. PRIVATE like seniorityLevel: populated only when the caller is this
+            user, a manager in their transitive management chain, or HR — null otherwise
+            (hidden), as well as when the user has never logged in.
 
     UserPage:
       type: object
@@ -7060,6 +7077,16 @@ components:
             calendar year (carry-over and corrections included; extra pools — v3.2.0 — are on
             GET /days-off/budgets). Populated ONLY for `view=managed` —
             budgets are manager/self-scoped, so peer and manager rows never carry it.
+        lastLoginAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            Epoch milliseconds of the row user's last successful login completion (V78,
+            v3.9.1). PRIVATE like seniorityLevel — see careerPath/seniorityLevel above:
+            populated only on `view=managed`, for an HR caller, or on the caller's own row;
+            `null` on the other views' rows (hidden), as well as when the row user has never
+            logged in.
 
     TeamMemberPage:
       type: object

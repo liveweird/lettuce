@@ -250,6 +250,7 @@ export default function TeamMembersTable({
                   showSeniorityWhenUnset={view === "managed"}
                   showLastReview={view === "managed" && scopeIsDirect}
                   showDaysOff={view === "managed" && scopeIsDirect}
+                  showLastLogin={view === "managed"}
                   successionReviewedAt={openPlanByUserId.get(m.userId)?.lastReviewedAt}
                   actionsVariant="icons"
                   actions={{

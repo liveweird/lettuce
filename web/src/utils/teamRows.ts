@@ -33,6 +33,9 @@ export type TeamRow = {
   // remaining budget on managed rows only.
   nextVacationStart?: string | null;
   daysOffRemaining?: number | null;
+  // The last successful login (v3.9.1), private like seniorityLevel: null when the server
+  // withholds it (not self/chain/HR), or when the person has never logged in.
+  lastLoginAt?: number | null;
 };
 
 export type PersonCard = {
@@ -58,6 +61,7 @@ export type PersonCard = {
   seniorityLevel: LocalizedEntry | null;
   nextVacationStart: string | null;
   daysOffRemaining: number | null;
+  lastLoginAt: number | null;
 };
 
 export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
@@ -93,6 +97,7 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         seniorityLevel: r.seniorityLevel ?? null,
         nextVacationStart: r.nextVacationStart ?? null,
         daysOffRemaining: r.daysOffRemaining ?? null,
+        lastLoginAt: r.lastLoginAt ?? null,
       });
     }
   }

@@ -6,6 +6,7 @@ import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamMemberPageResponse
 import ch.nokillswit.teams.TeamResponse
+import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -18,6 +19,8 @@ import io.ktor.server.testing.testApplication
 import io.ktor.client.request.post
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TeamMemberListTest {
@@ -414,4 +417,49 @@ class TeamMemberListTest {
         assertEquals(HttpStatusCode.OK, client.get("/api/v1/teams/${team.id}").status)
         assertEquals(HttpStatusCode.OK, client.get("/api/v1/teams/members").status)
     }
+
+    @Test
+    fun `lastLoginAt visibility mirrors seniorityLevel - view=managed, HR, and self see it - managers and member views hide it`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val adminEmail = uniqueEmail("admin")
+            TestUsers.seed(email = adminEmail, password = "pw")
+            val callerEmail = uniqueEmail("ll-caller")
+            val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
+            val managerEmail = uniqueEmail("ll-mgr")
+            val managerId = TestUsers.seed(email = managerEmail, password = "pw", name = "LL Manager")
+            val peerEmail = uniqueEmail("ll-peer")
+            val peerId = TestUsers.seed(email = peerEmail, password = "pw", name = "LL Peer")
+            val reportEmail = uniqueEmail("ll-rep")
+            val reportId = TestUsers.seed(email = reportEmail, password = "pw", name = "LL Report")
+            val hrEmail = uniqueEmail("ll-hr")
+            val hrId = TestUsers.seed(email = hrEmail, password = "pw", roles = setOf(UserRole.HR))
+
+            val admin = authedClient(adminEmail, "pw")
+            // HR joins the shared team as an ordinary member so its view=member rows are
+            // non-empty (the /teams/members scoping is caller-relative).
+            admin.createTeam("ll-shared-${java.util.UUID.randomUUID()}", managerId, listOf(callerId, peerId, hrId))
+            admin.createTeam("ll-managed-${java.util.UUID.randomUUID()}", callerId, listOf(reportId))
+
+            // Log each row user in once to stamp their lastLoginAt.
+            authedClient(managerEmail, "pw")
+            authedClient(peerEmail, "pw")
+            authedClient(reportEmail, "pw")
+
+            val client = authedClient(callerEmail, "pw")
+
+            val managers = client.get("/api/v1/teams/members?view=managers").body<TeamMemberPageResponse>()
+            assertNull(managers.items.single { it.userId == managerId }.lastLoginAt)
+
+            val member = client.get("/api/v1/teams/members?view=member").body<TeamMemberPageResponse>()
+            assertNull(member.items.single { it.userId == peerId }.lastLoginAt)
+
+            val managed = client.get("/api/v1/teams/members?view=managed").body<TeamMemberPageResponse>()
+            assertNotNull(managed.items.single { it.userId == reportId }.lastLoginAt)
+
+            // HR sees it even on a non-managed view (the same widened read as seniorityLevel).
+            val hr = authedClient(hrEmail, "pw")
+            val hrMember = hr.get("/api/v1/teams/members?view=member").body<TeamMemberPageResponse>()
+            assertNotNull(hrMember.items.single { it.userId == peerId }.lastLoginAt)
+        }
 }

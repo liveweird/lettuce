@@ -86,6 +86,8 @@ async function fetchUserDetails(userId: number): Promise<UserDetailsData> {
       seniorityLevel: found.seniorityLevel,
       nextVacationStart: null,
       daysOffRemaining: null,
+      // Never populated on the open users list (v3.9.1) — the fallback path always gets null.
+      lastLoginAt: found.lastLoginAt,
     },
     relationship: null,
   };
@@ -272,6 +274,7 @@ export default function UserDetails() {
                     showSeniorityWhenUnset={relationship === "subordinate" || selfView}
                     showLastReview={relationship === "subordinate"}
                     showDaysOff={relationship === "subordinate"}
+                    showLastLogin={relationship === "subordinate" || selfView}
                     successionReviewedAt={openPlanByUserId.get(person.userId)?.lastReviewedAt}
                   />
                 }
