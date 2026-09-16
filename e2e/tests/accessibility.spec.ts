@@ -58,7 +58,7 @@ const AUTHED_PAGES: { path: string; heading: string }[] = [
   { path: "/impact-log/new", heading: "New journal entry" },
   { path: "/succession", heading: "Succession plans" },
   { path: "/succession/new", heading: "New succession plan" },
-  { path: "/days-off/new", heading: "New days-off request" },
+  { path: "/days-off/new", heading: "New days off" },
   { path: "/feature-flags", heading: "Feature flags" },
   { path: "/integration-clients", heading: "Integration clients" },
   // The v3.2.0 paid pool kinds registry (Config → Paid-leave pools).

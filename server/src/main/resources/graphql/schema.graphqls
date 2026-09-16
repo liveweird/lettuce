@@ -54,8 +54,7 @@ type Query {
     "Rows per page (1..100)." pageSize: Int = 20
     "Lower startDate bound, ISO YYYY-MM-DD inclusive." from: String
     "Upper startDate bound, ISO YYYY-MM-DD inclusive." to: String
-    "Only requests in this status." status: DaysOffStatus
-    "Only requests owned by this user." userId: Int
+    "Only entries owned by this user." userId: Int
   ): DaysOffPage!
 
   "Page through all performance reviews (bulk sync), every status including DRAFT."
@@ -130,14 +129,6 @@ enum UserRole {
 enum DaysOffType {
   "Deducted from the yearly paid budget." PAID
   "Not budget-relevant." UNPAID
-}
-
-"The days-off request lifecycle."
-enum DaysOffStatus {
-  "Awaiting a manager's decision (counts as reserved budget)." REQUESTED
-  "Approved by a manager (counts as used budget)." ACCEPTED
-  "Declined by a manager." REJECTED
-  "Withdrawn by the owner or a chain manager." CANCELLED
 }
 
 "Whether a budget correction adds or subtracts days."
@@ -240,32 +231,24 @@ type CareerPosition {
   "Last modification timestamp." lastModified: Long!
 }
 
-"A days-off request with its frozen cost and resolution/cancellation trail."
+"A days-off entry with its frozen cost (v3.9.0 — no approval lifecycle; an entry exists until soft-deleted)."
 type DaysOff {
-  "The request id." id: Int!
+  "The entry id." id: Int!
   "The owner's user id (may reference a since-deleted user — see the schema note)." userId: Int!
   "The owner's display name (retained even if the user was deleted)." userName: String!
   "PAID or UNPAID." type: DaysOffType!
   "The paid pool kind's id (v3.2.0); null for UNPAID." poolTypeId: Int
   "The paid pool kind's current name (v3.2.0); null for UNPAID." poolName: String
-  "Current lifecycle status." status: DaysOffStatus!
   "ISO YYYY-MM-DD first day." startDate: String!
   "ISO YYYY-MM-DD last day (same calendar year as startDate)." endDate: String!
   "true = the first day is a half day." startHalf: Boolean!
   "true = the last day is a half day." endHalf: Boolean!
   "Frozen working-day cost in days (0.5 steps; weekends/holidays cost nothing)." days: Float!
-  "Request creation timestamp." createdAt: Long!
-  "The resolving manager's user id; null while REQUESTED." resolvedById: Int
-  "The resolving manager's display name; null while REQUESTED." resolvedByName: String
-  "Resolution timestamp; null while REQUESTED." resolvedAt: Long
-  "Cancellation timestamp; null unless CANCELLED." cancelledAt: Long
-  "The cancelling actor's user id; null unless CANCELLED (and on pre-v2.31.0 rows)." cancelledById: Int
-  "The cancelling actor's display name; null unless CANCELLED (and on pre-v2.31.0 rows)." cancelledByName: String
-  "The mandatory cancellation reason (stored encrypted at rest); null unless CANCELLED (and on pre-v2.31.0 rows)." cancelReason: String
+  "Entry creation timestamp." createdAt: Long!
   "Last modification timestamp." lastModified: Long!
 }
 
-"A user's budget in ONE paid days-off pool for one year (closed-form: remaining = carriedOver + allowance + corrected - reserved - used; carriedOver is 0 for a non-carry-over kind)."
+"A user's budget in ONE paid days-off pool for one year (closed-form: remaining = carriedOver + allowance + corrected - used; carriedOver is 0 for a non-carry-over kind)."
 type DaysOffBudget {
   "The owner's user id (may reference a since-deleted user — see the schema note)." userId: Int!
   "The owner's display name (retained even if the user was deleted)." userName: String!
@@ -278,8 +261,7 @@ type DaysOffBudget {
   "The chain-manager-set yearly allowance in days; null = no active grant of this pool (zero budget)." allowance: Int
   "Days carried over from the previous year." carriedOver: Float!
   "The year's net manager corrections in days (signed)." corrected: Float!
-  "REQUESTED (pending) paid days in the year." reserved: Float!
-  "ACCEPTED paid days in the year." used: Float!
+  "Active PAID days in the year (v3.9.0 — every entry counts, no reserved/used split)." used: Float!
   "Remaining paid days (may be negative)." remaining: Float!
 }
 

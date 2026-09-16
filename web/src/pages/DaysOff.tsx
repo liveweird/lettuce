@@ -111,8 +111,9 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
 
 /**
  * The nav "Days off" page: the team calendar (member scope for everyone, managed scope for
- * managers), the caller's own requests + budget, and — managers only — the direct reports'
- * requests (with Accept/Reject) and budgets.
+ * managers), the caller's own entries + budget, and — managers only — the direct reports'
+ * entries and budgets. No approval lifecycle since v3.9.0 — every entry is active from
+ * creation; the only per-row action is Delete.
  */
 export default function DaysOff() {
   const { t } = useTranslation();

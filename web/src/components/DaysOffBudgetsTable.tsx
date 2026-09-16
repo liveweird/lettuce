@@ -13,7 +13,7 @@ import RowActions from "./RowActions";
 import PersonCell from "./PersonCell";
 import TableLoadingRow from "./TableLoadingRow";
 
-const COLUMN_COUNT = 9;
+const COLUMN_COUNT = 8;
 
 /**
  * The manager's budget overview: one row per (direct report, paid pool) for the picked
@@ -73,7 +73,6 @@ export default function DaysOffBudgetsTable() {
             <ResponsiveTable.Th>{t("daysOff.budget.allowance")}</ResponsiveTable.Th>
             <ResponsiveTable.Th>{t("daysOff.budget.carriedOver")}</ResponsiveTable.Th>
             <ResponsiveTable.Th>{t("daysOff.budget.corrected")}</ResponsiveTable.Th>
-            <ResponsiveTable.Th>{t("daysOff.budget.reserved")}</ResponsiveTable.Th>
             <ResponsiveTable.Th>{t("daysOff.budget.used")}</ResponsiveTable.Th>
             <ResponsiveTable.Th>{t("daysOff.budget.remaining")}</ResponsiveTable.Th>
             <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
@@ -110,7 +109,6 @@ export default function DaysOffBudgetsTable() {
                 <ResponsiveTable.Td label={t("daysOff.budget.allowance")}>{b.allowance != null ? days(b.allowance) : "—"}</ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("daysOff.budget.carriedOver")}>{days(b.carriedOver)}</ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("daysOff.budget.corrected")}>{b.corrected === 0 ? "—" : `${b.corrected > 0 ? "+" : ""}${days(b.corrected)}`}</ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("daysOff.budget.reserved")}>{days(b.reserved)}</ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("daysOff.budget.used")}>{days(b.used)}</ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("daysOff.budget.remaining")}>
                   <Text size="sm" fw={600} span>

@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
  */
 class NotificationEmailTest {
 
-    /** Every interpolation key any of the 36 types reads — generous on purpose. */
+    /** Every interpolation key any notification type reads — generous on purpose. */
     private val allParams = mapOf(
         "requester" to "Rita Requester",
         "subject" to "Sam Subject",
@@ -37,6 +37,7 @@ class NotificationEmailTest {
         "endDate" to "2026-08-14",
         "type" to "PAID",
         "days" to "4.5",
+        "person" to "Percy Person",
         "year" to "2026",
         "from" to "20",
         "to" to "25",
@@ -132,16 +133,36 @@ class NotificationEmailTest {
     }
 
     @Test
-    fun `days-off type and correction operation are translated per language`() {
-        val requestedEn = notificationEmailContent(
-            "R", NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER, allParams, null, null, "en",
+    fun `days-off created and deleted word the person and dates in both languages`() {
+        // v3.9.0: no lifecycle, no pool/type in the sentence — the create/delete fan-out
+        // carries only person + dates (the teammate redaction rule honoured by construction).
+        val createdEn = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_CREATED, allParams, null, null, "en",
         )!!
-        assertTrue("(Paid, 4.5 day(s))" in requestedEn.body, requestedEn.body)
-        val requestedPl = notificationEmailContent(
-            "R", NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER, allParams, null, null, "pl",
+        assertTrue("Percy Person is off 2026-08-10 – 2026-08-14." in createdEn.body, createdEn.body)
+        val createdPl = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_CREATED, allParams, null, null, "pl",
         )!!
-        assertTrue("(Płatne, dni: 4.5)" in requestedPl.body, requestedPl.body)
+        assertTrue("Percy Person będzie nieobecny/a 2026-08-10 – 2026-08-14." in createdPl.body, createdPl.body)
 
+        val deletedEn = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_DELETED, allParams, null, null, "en",
+        )!!
+        assertTrue(
+            "The days off of Percy Person (2026-08-10 – 2026-08-14) was deleted." in deletedEn.body,
+            deletedEn.body,
+        )
+        val deletedPl = notificationEmailContent(
+            "R", NotificationType.DAYS_OFF_DELETED, allParams, null, null, "pl",
+        )!!
+        assertTrue(
+            "Wpis o dniach wolnych Percy Person (2026-08-10 – 2026-08-14) został usunięty." in deletedPl.body,
+            deletedPl.body,
+        )
+    }
+
+    @Test
+    fun `the correction operation is translated per language, pool-named or legacy-default`() {
         val subtract = notificationEmailContent(
             "R", NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
             allParams + ("operation" to "SUBTRACT"), null, null, "en",
@@ -153,18 +174,10 @@ class NotificationEmailTest {
             allParams + ("operation" to "ADD"), null, null, "pl",
         )!!
         assertTrue("dodał/dodała 4.5 dni" in add.body)
-        // The pool-present path (v3.2.1): the request wording names the pool in place of the
-        // bare type word, and the correction wording quotes it — in both languages; a
-        // pre-pool row falls back to a PER-LANGUAGE default name (never English in Polish).
+        // The pool-present path (v3.2.1): the correction wording quotes the pool's name in
+        // either language; a pre-pool row falls back to a PER-LANGUAGE default name (never
+        // English in Polish).
         val pooled = allParams + ("pool" to "Maternal leave")
-        val requestedPooledEn = notificationEmailContent(
-            "R", NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER, pooled, null, null, "en",
-        )!!
-        assertTrue("(Maternal leave, 4.5 day(s))" in requestedPooledEn.body, requestedPooledEn.body)
-        val requestedPooledPl = notificationEmailContent(
-            "R", NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER, pooled, null, null, "pl",
-        )!!
-        assertTrue("(Maternal leave, dni: 4.5)" in requestedPooledPl.body, requestedPooledPl.body)
         val addPooledPl = notificationEmailContent(
             "R", NotificationType.DAYS_OFF_CORRECTED_TO_OWNER, pooled + ("operation" to "ADD"), null, null, "pl",
         )!!
@@ -244,7 +257,7 @@ class NotificationEmailTest {
         assertEquals("Lettuce: aktualizacja celu", subject(NotificationType.GOAL_ARCHIVED_TO_SUBORDINATE, "pl"))
         assertEquals("Lettuce: team KPI update", subject(NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER, "en"))
         assertEquals("Lettuce: ocena okresowa", subject(NotificationType.PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE, "pl"))
-        assertEquals("Lettuce: days off", subject(NotificationType.DAYS_OFF_ACCEPTED_TO_OWNER, "en"))
+        assertEquals("Lettuce: days off", subject(NotificationType.DAYS_OFF_CREATED, "en"))
         assertEquals("Lettuce: ankieta pulsu", subject(NotificationType.PULSE_CYCLE_OPENED, "pl"))
         assertEquals("Lettuce: career update", subject(NotificationType.CAREER_POSITION_STARTED_TO_USER, "en"))
     }

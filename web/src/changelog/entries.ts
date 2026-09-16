@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.9.0",
+    date: "2026-09-16",
+    en: `Days off no longer need approval. Add or remove your own days off directly — nobody has to accept or reject them. Your team and their manager get notified when you add or remove one, so everyone stays in the picture.`,
+    pl: `Dni wolne nie wymagają już akceptacji. Dodawaj i usuwaj własne dni wolne bezpośrednio — nikt nie musi ich przyjmować ani odrzucać. Twój zespół i jego przełożony dostają powiadomienie, gdy dodasz lub usuniesz dzień wolny, więc wszyscy są na bieżąco.`,
+  },
+  {
     version: "3.8.6",
     date: "2026-09-15",
     en: `Fixed dictionary layouts for non-admin users. Entries are compact numbered rows again, with aligned values and language counts on desktop and mobile. Long values and translation popovers wrap within the available width.`,

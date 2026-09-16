@@ -56,7 +56,6 @@ function PoolStats({ pool, titled }: { pool: DaysOffBudget; titled: boolean }) {
             value={`${pool.corrected > 0 ? "+" : ""}${days(pool.corrected)}`}
           />
         )}
-        <Stat label={t("daysOff.budget.reserved")} value={days(pool.reserved)} />
         <Stat label={t("daysOff.budget.used")} value={days(pool.used)} />
         <Stat label={t("daysOff.budget.remaining")} value={days(pool.remaining)} strong />
       </Group>
@@ -72,8 +71,9 @@ function PoolStats({ pool, titled }: { pool: DaysOffBudget; titled: boolean }) {
 /**
  * The caller's own paid-days budgets for [year] — since v3.2.0 one group per paid pool (the
  * default pool first, then the extras by name, then archived history): allowance, carry-over,
- * reserved (pending), used (accepted), remaining. An unconfigured default allowance gets the
- * orange hint — PAID requests in that pool are impossible until a manager sets one.
+ * used, remaining (v3.9.0 — every active entry counts as used; no reserved/used split, there
+ * being no lifecycle to reserve against). An unconfigured default allowance gets the orange
+ * hint — PAID entries in that pool are impossible until a manager sets one.
  */
 export default function DaysOffBudgetCard({ year }: { year: number }) {
   const { t } = useTranslation();

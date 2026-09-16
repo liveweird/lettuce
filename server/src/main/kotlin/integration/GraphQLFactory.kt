@@ -1,7 +1,6 @@
 package ch.nokillswit.integration
 
 import ch.nokillswit.daysoff.DaysOffListFilter
-import ch.nokillswit.daysoff.DaysOffStatus
 import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.teams.TeamListFilter
 import ch.nokillswit.users.UserListFilter
@@ -168,7 +167,6 @@ private fun TypeRuntimeWiring.Builder.queryFetchers(services: IntegrationService
             val paging = env.pageRequest()
             val filter = DaysOffListFilter(
                 userId = env.uintArgument("userId"),
-                status = env.enumArgument<DaysOffStatus>("status"),
                 startDateGte = env.isoDateArgument("from"),
                 startDateLte = env.isoDateArgument("to"),
             )

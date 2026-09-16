@@ -78,17 +78,6 @@ private fun Map<String, String>.v(key: String): String = this[key] ?: "?"
 private fun poolLabel(p: Map<String, String>): LocalizedText =
     p["pool"]?.let { LocalizedText(en = it, pl = it) } ?: LocalizedText(en = "Paid days off", pl = "Płatne dni wolne")
 
-/** The request's kind for the review/recorded wordings: the paid pool's name when the row
- * carries one (v3.2.1), else the localized type word. */
-private fun daysOffKind(p: Map<String, String>): LocalizedText =
-    p["pool"]?.let { LocalizedText(en = it, pl = it) } ?: daysOffType(p.v("type"))
-
-private fun daysOffType(value: String): LocalizedText = when (value) {
-    "PAID" -> LocalizedText(en = "Paid", pl = "Płatne")
-    "UNPAID" -> LocalizedText(en = "Unpaid", pl = "Bezpłatne")
-    else -> LocalizedText(en = value, pl = value)
-}
-
 // The exhaustive per-type wording table — one branch per notification type, by design.
 @Suppress("CyclomaticComplexMethod", "LongMethod")
 private fun sentences(type: NotificationType, p: Map<String, String>): LocalizedText? = when (type) {
@@ -254,49 +243,13 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
         en = "${p.v("manager")} retracted your performance review for the period ${p.v("startMonth")} – ${p.v("endMonth")}.",
         pl = "${p.v("manager")} wycofał/a Twoją ocenę okresową za okres ${p.v("startMonth")} – ${p.v("endMonth")}.",
     )
-    NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER -> LocalizedText(
-        en = "${p.v("requester")} requested time off ${p.v("startDate")} – ${p.v("endDate")} " +
-            "(${daysOffKind(p).en}, ${p.v("days")} day(s)).",
-        pl = "${p.v("requester")} złożył/złożyła wniosek o dni wolne ${p.v("startDate")} – ${p.v("endDate")} " +
-            "(${daysOffKind(p).pl}, dni: ${p.v("days")}).",
+    NotificationType.DAYS_OFF_CREATED -> LocalizedText(
+        en = "${p.v("person")} is off ${p.v("startDate")} – ${p.v("endDate")}.",
+        pl = "${p.v("person")} będzie nieobecny/a ${p.v("startDate")} – ${p.v("endDate")}.",
     )
-    NotificationType.DAYS_OFF_ACCEPTED_TO_OWNER -> LocalizedText(
-        en = "${p.v("manager")} accepted your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
-        pl = "${p.v("manager")} zaakceptował/zaakceptowała Twój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
-    )
-    NotificationType.DAYS_OFF_REJECTED_TO_OWNER -> LocalizedText(
-        en = "${p.v("manager")} rejected your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
-        pl = "${p.v("manager")} odrzucił/odrzuciła Twój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
-    )
-    NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER ->
-        // `by` (v2.31.0): MANAGER = the acting manager's own receipt; OWNER (or absent, the
-        // pre-rework rows' shape) = the owner withdrew it themselves.
-        if (p["by"] == "MANAGER") LocalizedText(
-            en = "You cancelled ${p.v("requester")}'s days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
-            pl = "Anulowałeś/aś wniosek o dni wolne ${p.v("requester")} (${p.v("startDate")} – ${p.v("endDate")}).",
-        ) else LocalizedText(
-            en = "${p.v("requester")} cancelled their days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
-            pl = "${p.v("requester")} anulował/anulowała swój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
-        )
-    NotificationType.DAYS_OFF_CANCELLED_TO_OWNER ->
-        if (p["by"] == "MANAGER") LocalizedText(
-            en = "${p.v("manager")} cancelled your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
-            pl = "${p.v("manager")} anulował/anulowała Twój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
-        ) else LocalizedText(
-            en = "You cancelled your days-off request (${p.v("startDate")} – ${p.v("endDate")}).",
-            pl = "Anulowałeś/aś swój wniosek o dni wolne (${p.v("startDate")} – ${p.v("endDate")}).",
-        )
-    NotificationType.DAYS_OFF_RECORDED_TO_OWNER -> LocalizedText(
-        en = "${p.v("manager")} recorded days off on your behalf, already accepted: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).en}, ${p.v("days")} day(s)).",
-        pl = "${p.v("manager")} zapisał/zapisała w Twoim imieniu dni wolne, od razu zaakceptowane: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).pl}, dni: ${p.v("days")}).",
-    )
-    NotificationType.DAYS_OFF_RECORDED_TO_MANAGER -> LocalizedText(
-        en = "You recorded days off on behalf of ${p.v("requester")}, already accepted: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).en}, ${p.v("days")} day(s)).",
-        pl = "Zapisałeś/aś w imieniu ${p.v("requester")} dni wolne, od razu zaakceptowane: " +
-            "${p.v("startDate")} – ${p.v("endDate")} (${daysOffKind(p).pl}, dni: ${p.v("days")}).",
+    NotificationType.DAYS_OFF_DELETED -> LocalizedText(
+        en = "The days off of ${p.v("person")} (${p.v("startDate")} – ${p.v("endDate")}) was deleted.",
+        pl = "Wpis o dniach wolnych ${p.v("person")} (${p.v("startDate")} – ${p.v("endDate")}) został usunięty.",
     )
     NotificationType.DAYS_OFF_CORRECTED_TO_OWNER ->
         // `pool` (v3.2.0) names the adjusted paid pool; pre-v3.2.0 rows carry none.

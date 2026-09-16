@@ -83,7 +83,7 @@ class IntegrationSchemaContractTest {
         // surface these the moment someone declared them, and no runtime test would notice.
         val schema = parseIntegrationSchema(sdl)
         val forbidden = setOf(
-            "canManage", "canRecordValues", "canCancel", "canResolve", "canCorrect", "canEdit",
+            "canManage", "canRecordValues", "canDelete", "canCorrect", "canEdit",
             "canManageKpis", "passwordHash", "keyHash", "apiKey",
         )
         val leaked = schema.typeMap.values

@@ -9,7 +9,6 @@ export type DaysOffPage =
 export type DaysOffListItem = DaysOffPage["items"][number];
 export type DaysOffResponse =
   paths["/api/v1/days-off/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
-export type DaysOffStatus = DaysOffResponse["status"];
 export type DaysOffType = DaysOffResponse["type"];
 
 export type DaysOffListView = "own" | "managed" | "user";
@@ -23,7 +22,6 @@ type DaysOffListQuery = {
   type?: DaysOffType;
   /** The paid pool kind (v3.2.0) — implies PAID. */
   poolTypeId?: number;
-  status?: DaysOffStatus;
   startDateGte?: string;
   startDateLte?: string;
   /** Required with view=user (the HR auditor view); a pin-filter with view=managed. */
@@ -41,7 +39,6 @@ export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
     userName: q.userName,
     type: q.type,
     poolTypeId: q.poolTypeId,
-    status: q.status,
     "startDate[gte]": q.startDateGte,
     "startDate[lte]": q.startDateLte,
     userId: q.userId,
@@ -53,10 +50,10 @@ export async function listDaysOff(q: DaysOffListQuery): Promise<DaysOffPage> {
 export type DaysOffCreateBody =
   paths["/api/v1/days-off"]["post"]["requestBody"]["content"]["application/json"];
 
-// Without userId: the caller's own request, entering REQUESTED. With userId (v2.29.0): a
-// direct manager records the entry on that report's behalf, born ACCEPTED with the caller as
-// resolver. Overlap and paid-budget violations are 409 either way (the overlap's
-// ProblemDetail.instance points at the conflicting request).
+// Without userId: the caller's own entry. With userId (v2.29.0, chain-wide since v2.33.0): a
+// manager in that user's transitive management chain records the entry on their behalf —
+// active immediately, no approval step (v3.9.0). Overlap and paid-budget violations are 409
+// either way (the overlap's ProblemDetail.instance points at the conflicting entry).
 export async function createDaysOff(body: DaysOffCreateBody): Promise<DaysOffResponse> {
   return jsonRequest<DaysOffResponse>("/api/v1/days-off", {
     method: "POST",
@@ -64,22 +61,11 @@ export async function createDaysOff(body: DaysOffCreateBody): Promise<DaysOffRes
   });
 }
 
-// Lifecycle actions: accept/reject are the direct manager's resolution of a REQUESTED request
-// (the rows' canResolve flag); cancel withdraws a REQUESTED/ACCEPTED request (canCancel).
-// A request not in the action's source status returns 409.
-async function daysOffTransition(id: number, action: string): Promise<void> {
-  await voidRequest(`/api/v1/days-off/${id}/${action}`, { method: "POST" });
-}
-
-export const acceptDaysOff = (id: number) => daysOffTransition(id, "accept");
-export const rejectDaysOff = (id: number) => daysOffTransition(id, "reject");
-
-/** Cancellation carries its mandatory reason (v2.31.0) — unlike the body-less accept/reject. */
-export async function cancelDaysOff(id: number, reason: string): Promise<void> {
-  await voidRequest(`/api/v1/days-off/${id}/cancel`, {
-    method: "POST",
-    body: JSON.stringify({ reason }),
-  });
+/** Soft delete (v3.9.0 — replaces the accept/reject/cancel lifecycle): the owner or any
+ * manager in their transitive chain (the rows' canDelete flag). Idempotent in effect — a
+ * second delete is 404. */
+export async function deleteDaysOff(id: number): Promise<void> {
+  await voidRequest(`/api/v1/days-off/${id}`, { method: "DELETE" });
 }
 
 export type DaysOffCalendarResponse =

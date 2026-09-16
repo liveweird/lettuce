@@ -238,7 +238,7 @@ class DaysOffCorrectionTest {
         // … and the budget row reports the correction and the math.
         val budget = sub.get("/api/v1/days-off/budgets?year=2072").body<DaysOffBudgetList>().items.single()
         assertEquals(1.0, budget.corrected)
-        assertEquals(2.0, budget.reserved)
+        assertEquals(2.0, budget.used)
         assertEquals(0.0, budget.remaining)
         // A prior-year correction flows in via carry-over.
         manager.createCorrection(subId, year = 2071, days = 3.0)

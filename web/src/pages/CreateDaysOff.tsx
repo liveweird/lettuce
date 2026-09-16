@@ -83,17 +83,18 @@ function isDraftDirty(draft: {
 }
 
 /**
- * The create-request form: one consecutive period, optional half-day edges, and the pool —
- * one of the person's paid pools (v3.2.0 — budgeted; the default pool pre-picked) or UNPAID.
- * The cost preview mirrors the server's working-day math over the live holiday registry; a
- * PAID request that would not fit the picked pool's remaining budget is blocked client-side
- * (the server enforces the same rule with a 409).
+ * The create-entry form: one consecutive period, optional half-day edges, and the pool — one
+ * of the person's paid pools (v3.2.0 — budgeted; the default pool pre-picked) or UNPAID. The
+ * cost preview mirrors the server's working-day math over the live holiday registry; a PAID
+ * entry that would not fit the picked pool's remaining budget is blocked client-side (the
+ * server enforces the same rule with a 409).
  *
  * With `?onBehalf=1` (v2.29.0, the CreateFeedback picker-mode precedent — no separate route)
  * the same form becomes the manager-side recording screen: a report picker over the caller's
  * whole transitive subtree (the chain rule, v2.33.0), the budget preview reading the PICKED
- * report's managed-budget row, and a "Submit auto-accepted" submit —
- * the entry is born ACCEPTED with the caller as resolver (the vacation-history population flow).
+ * report's managed-budget row — the entry lands active immediately either way since v3.9.0
+ * (no approval step, so "Submit" reads the same in both modes; the vacation-history population
+ * use case is unchanged).
  */
 export default function CreateDaysOff() {
   const { t, i18n } = useTranslation();
@@ -190,13 +191,13 @@ export default function CreateDaysOff() {
         ...(subjectId != null ? { userId: subjectId } : {}),
       });
       await invalidateDaysOff(queryClient);
-      showSuccessToast(t(onBehalf ? "daysOff.toast.recorded" : "daysOff.toast.requested"));
+      showSuccessToast(t(onBehalf ? "daysOff.toast.recorded" : "daysOff.toast.created"));
       navigate(backTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // The overlap 409 carries the conflicting request in ProblemDetail.instance; the
+        // The overlap 409 carries the conflicting entry in ProblemDetail.instance; the
         // budget 409 does not — distinct messages, no detail page to link to. On-behalf
-        // wording points at the report's requests/budget, not "yours".
+        // wording points at the report's entries/budget, not "yours".
         setError(
           t(
             err.instance
@@ -369,7 +370,7 @@ export default function CreateDaysOff() {
                 {t("common.action.cancel")}
               </Button>
               <Button onClick={() => void submit()} loading={submitting} disabled={!submittable}>
-                {t(onBehalf ? "daysOff.action.submitAutoAccepted" : "daysOff.action.submitRequest")}
+                {t("daysOff.action.submit")}
               </Button>
             </FormFooter>
           </Stack>

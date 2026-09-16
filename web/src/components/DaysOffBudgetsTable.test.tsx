@@ -11,7 +11,7 @@ const YEAR = new Date().getFullYear();
 const ROW = {
   userId: 9, userName: "Riley Report", userDeleted: false, year: YEAR,
   poolId: 41, poolTypeId: 1, poolName: "Paid days off", carriesOver: true, isDefault: true, poolArchived: false,
-  allowance: 20, carriedOver: 0, corrected: 0, reserved: 0, used: 0, remaining: 20, canCorrect: true,
+  allowance: 20, carriedOver: 0, corrected: 0, used: 0, remaining: 20, canCorrect: true,
 };
 const STUDY = { ...ROW, poolId: 42, poolTypeId: 7, poolName: "Study leave", carriesOver: false, isDefault: false, allowance: 3, remaining: 3 };
 const ARCHIVED = { ...STUDY, poolId: null, poolTypeId: 8, poolName: "Old pool", poolArchived: true, allowance: null, remaining: -1 };

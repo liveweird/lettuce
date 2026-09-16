@@ -10,15 +10,15 @@ const YEAR = 2026;
 const DEFAULT_POOL = {
   userId: 5, userName: "Me", userDeleted: false, year: YEAR,
   poolId: 41, poolTypeId: 1, poolName: "Paid days off", carriesOver: true, isDefault: true, poolArchived: false,
-  allowance: 20, carriedOver: 2, corrected: 0, reserved: 1.5, used: 3, remaining: 17.5, canCorrect: false,
+  allowance: 20, carriedOver: 2, corrected: 0, used: 3, remaining: 17.5, canCorrect: false,
 };
 const STUDY_POOL = {
   ...DEFAULT_POOL, poolId: 42, poolTypeId: 7, poolName: "Study leave", carriesOver: false, isDefault: false,
-  allowance: 3, carriedOver: 0, corrected: 0.5, reserved: 0, used: 1, remaining: 2.5,
+  allowance: 3, carriedOver: 0, corrected: 0.5, used: 1, remaining: 2.5,
 };
 const ARCHIVED_POOL = {
   ...STUDY_POOL, poolId: null, poolTypeId: 8, poolName: "Old pool", poolArchived: true,
-  allowance: null, corrected: 0, reserved: 1, used: 0, remaining: -1,
+  allowance: null, corrected: 0, used: 0, remaining: -1,
 };
 
 describe("DaysOffBudgetCard", () => {
@@ -50,6 +50,8 @@ describe("DaysOffBudgetCard", () => {
     // Corrections at 0 are omitted; the allowance shows.
     expect(screen.queryByText("Corrections", { selector: "p" })).toBeNull();
     expect(screen.getByText("20")).toBeInTheDocument();
+    // No reserved/pending figure since v3.9.0 — every active entry counts as used.
+    expect(screen.queryByText("Pending")).toBeNull();
   });
 
   test("several pools render one titled group each — the archived one badged, the reset one cued (v3.2.0)", async () => {

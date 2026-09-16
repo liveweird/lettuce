@@ -1,10 +1,10 @@
 import {
+  AAA_ONE,
   AAA_TWO,
   ADMIN,
   collapseAlertsBanner,
   expect,
   fillDate,
-  gotoUserRow,
   login,
   logout,
   MANAGER_AAA,
@@ -16,28 +16,27 @@ import {
 import { apiToken, authHeader } from "./api";
 import type { APIRequestContext, Page } from "@playwright/test";
 
-// Days off end to end: the admin curates a public holiday, Manager AAA sets AAA Two's yearly
-// allowance on the per-user drill-down (v2.32.0 — the chain-manager right; the admin edit page
-// lost the field), AAA Two requests
-// two periods, Manager AAA accepts one and rejects the other, the accepted days show on the
-// team calendar, and the accepted (future) request is cancelled again — so seeded accounts are
-// never left with counting requests (REJECTED/CANCELLED rows are inert records). An UNPAID
-// single-day request then shows the same cost preview while leaving the paid budget untouched,
-// and is cancelled too. The manager also records a day ON BEHALF of AAA Two (v2.29.0, born
-// Accepted, both bells notified), which the MANAGER cancels at the end (v2.31.0 — cancellation
-// is owner-or-chain and always carries a mandatory reason; the cancelled row grows a reason
-// popover and the acting manager keeps a bell receipt). Since v3.2.0 the paid days come in
-// POOLS: the admin adds a run-specific "E2E Pool" kind on the Config registry, the manager
-// grants it to AAA Two (Add pool on the drill-down), AAA Two books a day from it (the Type
-// picker lists the pool), and both the grant and the kind are archived again at the end.
+// Days off end to end, rewritten for v3.9.0 (the approval lifecycle is gone): the admin curates
+// a public holiday, Manager AAA sets AAA Two's yearly allowance on the per-user drill-down
+// (v2.32.0 — the chain-manager right; the admin edit page lost the field), AAA Two books two
+// entries directly (no request/accept step — the entry IS active the moment it's created), a
+// teammate (AAA One, not the manager) sees the CREATE fan-out on their bell, AAA Two deletes one
+// entry themselves (the owner's own right, no reason required), and the direct manager sees the
+// DELETE fan-out too. Since v3.2.0 the paid days come in POOLS: the admin adds a run-specific
+// "E2E Pool" kind on the Config registry, the manager grants it to AAA Two (Add pool on the
+// drill-down), and AAA Two books one entry from it (the Type picker lists the pool). The manager
+// also records a day ON BEHALF of AAA Two (v2.29.0, kept — just a plain entry now, no
+// "auto-accepted" wording), which the MANAGER deletes at the end (the chain-wide delete right
+// that replaced the mandatory-reason manager-side cancel). A budget correction (v1.43.0) rides
+// along unchanged.
 //
 // The request window is a run-specific future Monday (weeks vary per run), so residue from a
 // failed earlier run rarely collides via the overlap rule — but the sweep below is what
 // actually guarantees a clean slate: a mid-run failure skips the tail cleanup, stranding the
 // run's "E2E Holiday" (which silently changes a LATER run's cost preview when its window
-// happens to cover that date — the 2027-05-24 incident, checkup #16) and its still-counting
-// requests on AAA Two. Both are removed via the API before the UI legs (the global-setup
-// seed-pair idiom), so the suite self-heals on the next run no matter where a run died.
+// happens to cover that date — the 2027-05-24 incident, checkup #16) and AAA Two's still-active
+// entries. Both are removed via the API before the UI legs (the global-setup seed-pair idiom),
+// so the suite self-heals on the next run no matter where a run died.
 
 function isoDate(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -61,19 +60,19 @@ const SEEDED_HOLIDAYS = new Set([
   "2027-12-25", "2027-12-26",
 ]);
 
-/** A future Monday 4–43 weeks out (varies per run-minute); the whole two-week window the spec
- * books must stay inside one calendar year (the same-year rule) and clear of the seeded
- * holidays (their zero cost would break the expected numbers). */
+/** A future Monday 4–43 weeks out (varies per run-minute); the booked week must stay inside one
+ * calendar year (the same-year rule) and clear of the seeded holidays (their zero cost would
+ * break the expected numbers). */
 function pickMonday(): Date {
   let monday = new Date();
   monday.setDate(monday.getDate() + ((8 - monday.getDay()) % 7 || 7)); // next Monday
   const weeks = 4 + (Math.floor(Date.now() / 60_000) % 40);
   monday = addDays(monday, weeks * 7);
   const windowBlocked = (m: Date) =>
-    m.getFullYear() !== addDays(m, 8).getFullYear() ||
-    // Offsets 0/1 + 7/8 are the two Mon–Tue requests; 2 is the UNPAID leg's Wednesday;
-    // 3 is the manager's on-behalf Thursday (v2.29.0); 4 is the extra-pool Friday (v3.2.0).
-    [0, 1, 2, 3, 4, 7, 8].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
+    m.getFullYear() !== addDays(m, 4).getFullYear() ||
+    // Offsets 0/1 are the default-pool Mon–Tue entry; 3 is the manager's on-behalf Thursday
+    // (v2.29.0); 4 is the extra-pool Friday (v3.2.0).
+    [0, 1, 3, 4].some((offset) => SEEDED_HOLIDAYS.has(isoDate(addDays(m, offset))));
   while (windowBlocked(monday)) {
     monday = addDays(monday, 7);
   }
@@ -83,20 +82,19 @@ function pickMonday(): Date {
 const MONDAY = pickMonday();
 const MONDAY_ISO = isoDate(MONDAY);
 const TUESDAY_ISO = isoDate(addDays(MONDAY, 1));
-// The UNPAID leg's single day — inside the same booked week (no overlap: the Mon–Tue request
-// is cancelled by then, and cancelled rows are inert for the overlap rule anyway).
-const WEDNESDAY_ISO = isoDate(addDays(MONDAY, 2));
 // The manager's on-behalf leg (v2.29.0) books this day for AAA Two — same booked week, no
-// overlap (the earlier requests are cancelled/rejected by then, and those rows are inert).
+// overlap (distinct dates from the other two entries).
 const THURSDAY_ISO = isoDate(addDays(MONDAY, 3));
 // The extra-pool leg (v3.2.0) books this day from the run's own pool kind.
 const FRIDAY_ISO = isoDate(addDays(MONDAY, 4));
 const POOL_NAME = `E2E Pool ${MONDAY_ISO}`;
-const MONDAY2_ISO = isoDate(addDays(MONDAY, 7));
-const TUESDAY2_ISO = isoDate(addDays(MONDAY, 8));
 
-// How the calendar cell describes the accepted Tuesday (the raw ISO date rides the title).
-const TUESDAY_CELL_TITLE = `AAA Two — ${TUESDAY_ISO}: Paid days off, Accepted (1 day)`;
+// How the calendar cell describes the still-active Tuesday (the raw ISO date rides the title;
+// no status wording since v3.9.0 — there is no lifecycle left to name).
+const TUESDAY_CELL_TITLE = `AAA Two — ${TUESDAY_ISO}: Paid days off (1 day)`;
+
+const enMedium = (iso: string) =>
+  new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(`${iso}T00:00:00`));
 
 async function sweepResidue(request: APIRequestContext) {
   // Admin: drop every stranded spec-created holiday, wherever a failed run left it.
@@ -121,23 +119,16 @@ async function sweepResidue(request: APIRequestContext) {
     }
   }
 
-  // Owner: cancel AAA Two's stranded counting requests. Cancellation is date-free since
-  // v2.31.0 (REQUESTED or ACCEPTED, past included) and always carries a mandatory reason.
-  // Queried PER COUNTING STATUS (v3.2.0): the unfiltered own list sorts -startDate and pages
-  // at 100, and the inert rejected/cancelled residue of earlier runs (windows spread over a
-  // year) grew past that — this run's rows fell off page 1 and a pending pool request was
-  // stranded (its archived pool then rendered as a second history strip).
+  // Owner: delete every one of AAA Two's still-active entries (v3.9.0 — soft delete replaced
+  // accept/reject/cancel; there is no status to filter on anymore, so a plain view=own fetch
+  // catches everything, including anything a manager recorded on AAA Two's behalf, since
+  // view=own is keyed on ownership, not on who created the row).
   const ownAuth = authHeader(await apiToken(request, AAA_TWO));
-  for (const status of ["REQUESTED", "ACCEPTED"]) {
-    const requests = (await (
-      await request.get(`/api/v1/days-off?view=own&status=${status}&pageSize=100`, { headers: ownAuth })
-    ).json()) as { items: { id: number }[] };
-    for (const r of requests.items) {
-      await request.post(`/api/v1/days-off/${r.id}/cancel`, {
-        headers: ownAuth,
-        data: { reason: "e2e residue sweep" },
-      });
-    }
+  const own = (await (
+    await request.get("/api/v1/days-off?view=own&pageSize=100", { headers: ownAuth })
+  ).json()) as { items: { id: number }[] };
+  for (const r of own.items) {
+    await request.delete(`/api/v1/days-off/${r.id}`, { headers: ownAuth });
   }
 
   // Manager: drop AAA Two's stranded spec-created budget corrections. A run that dies between
@@ -166,35 +157,42 @@ async function sweepResidue(request: APIRequestContext) {
   }
 }
 
-async function newRequest(
+/** AAA Two's self-create entry, through the header's "New days off" button — there is no
+ * request/accept step since v3.9.0, so the "expected" here is simply that the entry lands on
+ * "My days off" the moment it's submitted. */
+async function newEntry(
   page: Page,
   from: string,
   to: string,
   expectedCost: string,
-  unpaid = false,
   poolName?: string,
 ) {
-  await page.getByRole("link", { name: "New request" }).click();
+  await page.getByRole("link", { name: "New days off" }).click();
   await expect(page).toHaveURL(/\/days-off\/new/);
-  // The Type picker (v3.2.0) lists the person's paid pools beside Unpaid; the default pool
-  // is pre-picked, so PAID-from-the-default touches nothing.
-  if (unpaid || poolName) {
+  // The Type picker (v3.2.0) lists the person's paid pools beside Unpaid; the default pool is
+  // pre-picked, so a default-pool entry touches nothing here.
+  if (poolName) {
     await page.getByRole("combobox", { name: "Type" }).click();
-    await page.getByRole("option", { name: unpaid ? "Unpaid" : poolName, exact: true }).click();
+    await page.getByRole("option", { name: poolName, exact: true }).click();
   }
   await fillDate(page, "From", from);
   await fillDate(page, "To", to);
-  await expect(page.getByText(`This request costs ${expectedCost} working day${expectedCost === "1" ? "" : "s"}.`)).toBeVisible();
+  await expect(
+    page.getByText(`This entry costs ${expectedCost} working day${expectedCost === "1" ? "" : "s"}.`),
+  ).toBeVisible();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/days-off") && r.request().method() === "POST" && r.ok(),
     ),
-    page.getByRole("button", { name: "Submit request" }).click(),
+    page.getByRole("button", { name: "Submit", exact: true }).click(),
   ]);
   await expect(page).toHaveURL(/\/days-off\?tab=requests/);
+  // A prior entry's success toast may still be lingering when this helper runs again in the
+  // same test (toasts stack), so assert at least one is present rather than exactly one.
+  await expect(page.getByText("Days off added").first()).toBeVisible();
 }
 
-test("days off end to end: holiday, allowance, request, resolve, calendar, cancel", async ({ page, request }) => {
+test("days off end to end: holiday, allowance, entries, delete, calendar", async ({ page, request }) => {
   test.setTimeout(180_000);
 
   await sweepResidue(request);
@@ -231,7 +229,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // ── Manager AAA: sets AAA Two's yearly allowance on the drill-down (v2.32.0 — the field
   // left the admin edit page; the chain-manager pencil beside the budget strip's Allowance).
   // Two saves on purpose: the second (299 → 300) is an ACTUAL change every run — an
-  // idempotent re-PUT of 300 would mint no fresh bell for the notification assert below —
+  // idempotent re-save of 300 would mint no fresh bell for a notification assert elsewhere —
   // and its prefill of 299 proves the first save persisted.
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
@@ -263,134 +261,75 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await addPool.getByLabel(/^Allowance \(days per year\)/).fill("3");
   await addPool.getByRole("button", { name: "Add pool", exact: true }).click();
   await expect(page.getByText("Pool added")).toBeVisible();
-  // The new strip renders beside the default one, flagged as a yearly-reset pool (first():
-  // the managed table below prints pool names too, and an earlier run's cancelled row can
-  // share this run's Monday — the 40-minute window repeats).
   await expect(page.getByText(POOL_NAME).first()).toBeVisible();
   await expect(page.getByText("resets yearly")).toBeVisible();
   await logout(page);
 
-  // ── AAA Two: two requests — Mon(holiday)+Tue = 1 day, next Mon+Tue = 2 days. ──
+  // ── AAA Two: two entries — Mon(holiday)+Tue from the default pool, Fri from the extra pool.
+  // No request/accept step since v3.9.0: each entry is active on "My days off" the instant it's
+  // submitted. ──
   await login(page, AAA_TWO);
   await collapseAlertsBanner(page);
   await page.goto("/days-off?tab=requests");
   await expect(page.getByText(/Your paid days off in \d{4}/)).toBeVisible();
-  await newRequest(page, MONDAY_ISO, TUESDAY_ISO, "1");
-  await expect(page.getByText("Days-off request submitted")).toBeVisible();
-  await newRequest(page, MONDAY2_ISO, TUESDAY2_ISO, "2");
-  // Both rows sit in My requests as pending.
-  await expect(page.locator("tr", { hasText: "Requested" }).first()).toBeVisible();
-  // ── The extra-pool leg (v3.2.0): the own budget card lists the granted pool, the Type
-  // picker offers it, the row names it — then it is cancelled again (the pool's history
-  // stays counted but a cancelled row is inert). ──
+  await newEntry(page, MONDAY_ISO, TUESDAY_ISO, "1");
+  const mondayFormatted = enMedium(MONDAY_ISO);
+  await expect(page.locator("tr", { hasText: mondayFormatted }).first()).toBeVisible();
+  // The extra-pool leg (v3.2.0): the own budget card already lists the granted pool, the Type
+  // picker offers it, and the fresh row names it.
   await expect(page.getByText(POOL_NAME).first()).toBeVisible();
-  await newRequest(page, FRIDAY_ISO, FRIDAY_ISO, "1", false, POOL_NAME);
-  // The page-1 rule again (far-future residue outranks this run's rows in the -startDate
-  // sort): filter to Requested before looking for the fresh row (step 10 re-sets the filter).
-  const poolFilters = page.getByRole("button", { name: /^Filters/ });
-  if ((await poolFilters.getAttribute("aria-expanded")) !== "true") await poolFilters.click();
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Requested" }).click();
+  await newEntry(page, FRIDAY_ISO, FRIDAY_ISO, "1", POOL_NAME);
+  const fridayFormatted = enMedium(FRIDAY_ISO);
   await expect(page.locator("tr", { hasText: POOL_NAME }).first()).toBeVisible();
-  await page.getByLabel(`Cancel your days-off request starting ${FRIDAY_ISO}`).click();
-  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Pool leg done — e2e");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Cancel the request", exact: true })
-    .click();
-  await expect(page.getByText("Request cancelled")).toBeVisible();
   await logout(page);
 
-  // ── Manager AAA: the bell heard about it; accept one, reject the other. ──
+  // ── Manager AAA: the subordinate card counts the entry immediately — nothing to accept. ──
   await login(page, MANAGER_AAA);
-  const dialog = await openBell(page);
-  await expect(notificationCard(dialog, "AAA Two requested time off")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await page.goto("/days-off?tab=team");
-  // Residue-proof (v1.51.0): rejected/cancelled leftovers from earlier runs carry far-future
-  // Mondays that outrank this run's rows in the From-sorted table — once they fill page 1,
-  // the fresh pending rows fall off it. Filter the team view to Requested (the sweep already
-  // cancelled any stranded pending rows, so only this run's two remain).
-  const teamFilters = page.getByRole("button", { name: /^Filters/ });
-  if ((await teamFilters.getAttribute("aria-expanded")) !== "true") await teamFilters.click();
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Requested" }).click();
-  await page
-    .getByLabel(`Accept the days-off request of AAA Two starting ${MONDAY_ISO}`)
-    .click();
-  await expect(page.getByText("Request accepted")).toBeVisible();
-  await page
-    .getByLabel(`More actions for the days-off request of AAA Two starting ${MONDAY2_ISO}`)
-    .click();
-  await page
-    .getByRole("menuitem", { name: `Reject the days-off request of AAA Two starting ${MONDAY2_ISO}` })
-    .click();
-  await page.getByRole("dialog").getByRole("button", { name: "Reject", exact: true }).click();
-  await expect(page.getByText("Request rejected")).toBeVisible();
-
-  // The subordinate card now shows the accepted vacation (v1.44.0) and links to the
-  // per-user days-off view, where the same request sits Accepted with the budget strip.
+  await collapseAlertsBanner(page);
   await page.goto("/?tab=subordinates");
   const aaaTwoCard = page.locator("li", { hasText: "AAA Two" }).first();
   await expect(aaaTwoCard.getByText("Next vacation")).toBeVisible();
-  const mondayFormatted = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
-    new Date(`${MONDAY_ISO}T00:00:00`),
-  );
   await expect(aaaTwoCard.getByText(mondayFormatted)).toBeVisible();
   await expect(aaaTwoCard.getByText("Days-off budget left")).toBeVisible();
-  await aaaTwoCard.getByRole("link", { name: "Days off of AAA Two" }).click();
-  await expect(page).toHaveURL(/\/users\/\d+\/days-off/);
-  await expect(page.getByRole("heading", { name: "Days off of AAA Two" })).toBeVisible();
-  await expect(page.getByText(/Paid days off of AAA Two in \d{4}/)).toBeVisible();
-  // Residue-proof (v1.52.0): the drill-down table pages at 20 From-desc, and far-future
-  // rejected/cancelled residue from earlier runs fills page 1 — filter to Accepted before
-  // asserting (the page-1 rule for shared-DB tables).
-  const drillFilters = page.getByRole("button", { name: /^Filters/ });
-  if ((await drillFilters.getAttribute("aria-expanded")) !== "true") await drillFilters.click();
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Accepted" }).click();
-  await expect(page.locator("tr", { hasText: "Accepted" }).first()).toBeVisible();
   await logout(page);
 
-  // ── AAA Two: sees the outcomes, the calendar bar, then cancels the accepted request. ──
+  // ── AAA One — AAA Two's TEAMMATE, not their manager — sees the CREATE fan-out (v3.9.0: the
+  // whole team, not just the direct manager). ──
+  await login(page, AAA_ONE);
+  const teammateBell = await openBell(page);
+  await expect(notificationCard(teammateBell, "AAA Two added a day off")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await logout(page);
+
+  // ── AAA Two: deletes the Friday pool entry themselves — the owner's own right, no reason
+  // required (unlike the pre-v3.9.0 mandatory-reason cancel). ──
   await login(page, AAA_TWO);
   await collapseAlertsBanner(page);
-  const ownBell = await openBell(page);
-  await expect(
-    notificationCard(ownBell, "Manager AAA accepted your days-off request"),
-  ).toBeVisible();
-  await expect(
-    notificationCard(ownBell, "Manager AAA rejected your days-off request"),
-  ).toBeVisible();
-  // The allowance change (v2.32.0) told the owner too — the 299→300 save is an actual
-  // change every run, so this run always minted a fresh card.
-  await expect(
-    notificationCard(ownBell, 'Manager AAA set your yearly "Paid days off" allowance to 300'),
-  ).toBeVisible();
-  // The extra-pool grant (v3.2.0) is the same event naming its pool.
-  await expect(
-    notificationCard(ownBell, `Manager AAA set your yearly "${POOL_NAME}" allowance to 3`),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-
   await page.goto("/days-off?tab=requests");
-  // Residue-proof (v1.52.0): same page-1 rule on the own-requests table. Check Rejected
-  // first, then leave the filter on Accepted so the cancel step below still finds its row
-  // (the stored filter survives the re-goto).
-  const ownFilters = page.getByRole("button", { name: /^Filters/ });
-  if ((await ownFilters.getAttribute("aria-expanded")) !== "true") await ownFilters.click();
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Rejected" }).click();
-  await expect(page.locator("tr", { hasText: "Rejected" }).first()).toBeVisible();
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Accepted" }).click();
-  await expect(page.locator("tr", { hasText: "Accepted" }).first()).toBeVisible();
+  await page.getByLabel(`Delete your days-off entry starting ${FRIDAY_ISO}`).click();
+  await expect(page.getByText("Delete this days-off entry?")).toBeVisible();
+  await expect(page.getByRole("dialog").getByLabel(/^Reason/)).toHaveCount(0);
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("Days-off entry deleted")).toBeVisible();
+  await expect(page.locator("tr", { hasText: fridayFormatted })).toHaveCount(0);
+  await logout(page);
 
-  // Page the calendar forward to the ASSERTED TUESDAY's month (not Monday's — a window
-  // starting on a month's last Monday puts the Tuesday in the NEXT month, the latent
-  // Nov-30/Dec-1 flake) and find the accepted Tuesday's bar.
+  // ── Manager AAA: sees the DELETE fan-out too — the direct manager reads it the same way. ──
+  await login(page, MANAGER_AAA);
+  const deleteBell = await openBell(page);
+  await expect(notificationCard(deleteBell, "AAA Two deleted a day off")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await logout(page);
+
+  // ── AAA Two: the calendar still marks the active Tuesday — no status wording (v3.9.0). ──
+  await login(page, AAA_TWO);
+  await collapseAlertsBanner(page);
+  await page.goto("/days-off?tab=requests");
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.getByRole("table", { name: "Team days-off calendar" })).toBeVisible();
+  // Page the calendar forward to the ASSERTED TUESDAY's month (not Monday's — a window
+  // starting on a month's last Monday puts the Tuesday in the NEXT month, the latent
+  // Nov-30/Dec-1 flake) and find the active Tuesday's bar.
   const now = new Date();
   const tuesday = addDays(MONDAY, 1);
   const monthSteps =
@@ -399,67 +338,31 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
     await page.getByLabel("Next month").click();
   }
   await expect(page.locator(`[title="${TUESDAY_CELL_TITLE}"]`)).toBeVisible();
-
-  // Cancel the accepted (still future) request — the reserved days return to the budget.
-  await page.goto("/days-off?tab=requests");
-  await page.getByLabel(`Cancel your days-off request starting ${MONDAY_ISO}`).click();
-  // The mandatory reason (v2.31.0): the confirm is a required-textarea modal now.
-  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Plans changed — e2e");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Cancel the request", exact: true })
-    .click();
-  await expect(page.getByText("Request cancelled")).toBeVisible();
-
-  // ── The UNPAID variant: same working-day cost preview, but the paid budget is untouched. ──
-  const budgetStrip = page.getByText(/Your paid days off in \d{4}/);
-  const budgetBefore = await budgetStrip.innerText();
-  await newRequest(page, WEDNESDAY_ISO, WEDNESDAY_ISO, "1", true);
-  // The stored Status filter still says Accepted — flip it to Requested to see the fresh row.
-  const unpaidFilters = page.getByRole("button", { name: /^Filters/ });
-  if ((await unpaidFilters.getAttribute("aria-expanded")) !== "true") await unpaidFilters.click();
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Requested" }).click();
-  await expect(page.locator("tr", { hasText: "Unpaid" }).first()).toBeVisible();
-  await expect(budgetStrip).toHaveText(budgetBefore);
-  // Cancel it again so seed accounts keep no counting rows.
-  await page.getByLabel(`Cancel your days-off request starting ${WEDNESDAY_ISO}`).click();
-  // The mandatory reason (v2.31.0): the confirm is a required-textarea modal now.
-  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Not needed — e2e");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Cancel the request", exact: true })
-    .click();
-  await expect(page.getByText("Request cancelled")).toBeVisible();
   await logout(page);
 
-  // ── Manager: records days off ON BEHALF of AAA Two (v2.29.0) — born Accepted. ──
+  // ── Manager: records days off ON BEHALF of AAA Two (v2.29.0, kept) — a plain active entry,
+  // no "auto-accepted" wording since there is no acceptance step anymore. ──
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
   await page.goto("/days-off?tab=team");
-  await page.getByRole("link", { name: "New days off" }).click();
+  await page.getByRole("link", { name: "Record days off" }).click();
   await expect(page).toHaveURL(/\/days-off\/new\?onBehalf=1/);
   await pickSelectOption(page, "On behalf of", "AAA Two");
   await fillDate(page, "From", THURSDAY_ISO);
   await fillDate(page, "To", THURSDAY_ISO);
-  await expect(page.getByText("This request costs 1 working day.")).toBeVisible();
+  await expect(page.getByText("This entry costs 1 working day.")).toBeVisible();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith("/api/v1/days-off") && r.request().method() === "POST" && r.ok(),
     ),
-    page.getByRole("button", { name: "Submit auto-accepted" }).click(),
+    page.getByRole("button", { name: "Submit", exact: true }).click(),
   ]);
   await expect(page).toHaveURL(/\/days-off\?tab=team/);
-  await expect(page.getByText("Days off recorded and accepted")).toBeVisible();
-  // The acting manager keeps a durable receipt in their own bell.
-  const recordBell = await openBell(page);
-  await expect(
-    notificationCard(recordBell, "You recorded days off on behalf of AAA Two"),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
+  await expect(page.getByText("Days off recorded")).toBeVisible();
+  const thursdayFormatted = enMedium(THURSDAY_ISO);
+  await expect(page.locator("tr", { hasText: thursdayFormatted }).first()).toBeVisible();
 
-  // ── Manager: a +2 budget correction for AAA Two (v1.43.0). ──
-  await page.goto("/days-off?tab=team");
+  // ── Manager: a +2 budget correction for AAA Two (v1.43.0, unchanged). ──
   await page.getByText("Budgets", { exact: true }).click();
   await page.getByLabel("Budget corrections of AAA Two").click();
   const correctionsModal = page.getByRole("dialog");
@@ -472,16 +375,18 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await page.keyboard.press("Escape");
   await logout(page);
 
-  // ── AAA Two: sees the correction read-only + the bell notification. ──
+  // ── AAA Two: the on-behalf entry reached them through the SAME team fan-out as any other
+  // create — no dedicated on-behalf receipt anymore — plus the correction notification and the
+  // allowance-change ones (v2.32.0). The fan-out card names the OWNER (whose absence it is), not
+  // the acting manager, so an on-behalf create reads "AAA Two added a day off" like any other.
+  // Then the read-only Corrections view, then cleanup: AAA Two deletes their own remaining
+  // Monday–Tuesday entry. ──
   await login(page, AAA_TWO);
   await collapseAlertsBanner(page);
-  const corrBell = await openBell(page);
+  const ownBell = await openBell(page);
+  await expect(notificationCard(ownBell, "AAA Two added a day off")).toBeVisible();
   await expect(
-    notificationCard(corrBell, 'added 2 day(s) to your "Paid days off" budget'),
-  ).toBeVisible();
-  // The on-behalf recording (v2.29.0) also reached the owner's bell.
-  await expect(
-    notificationCard(corrBell, "Manager AAA recorded days off on your behalf"),
+    notificationCard(ownBell, 'added 2 day(s) to your "Paid days off" budget'),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.goto("/days-off?tab=requests");
@@ -491,53 +396,24 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   // Read-only: no add form, no per-row actions.
   await expect(ownModal.getByRole("button", { name: "Add correction" })).toHaveCount(0);
   await page.keyboard.press("Escape");
-
+  await page.getByLabel(`Delete your days-off entry starting ${MONDAY_ISO}`).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("Days-off entry deleted")).toBeVisible();
   await logout(page);
 
-  // ── Cleanup — and the v2.31.0 manager-side cancel: Manager AAA (a chain manager of the
-  // owner) cancels the recorded Accepted entry with a reason, keeps the bell receipt, and
-  // the cancelled row grows the reason popover. Seed accounts keep no counting rows. ──
+  // ── Cleanup — and the v3.9.0 chain-manager delete: Manager AAA (a chain manager of the
+  // owner) deletes the recorded Thursday entry from the Team tab's Entries view, no reason
+  // required. Then the rest of the cleanup: the correction, the pool grant, the pool kind, and
+  // the holiday. ──
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
   await page.goto("/days-off?tab=team");
-  // The team view is remembered per device — the Budgets pick above would still hold.
-  await page.getByText("Requests", { exact: true }).click();
-  const cleanupFilters = page.getByRole("button", { name: /^Filters/ });
-  if ((await cleanupFilters.getAttribute("aria-expanded")) !== "true") await cleanupFilters.click();
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Accepted" }).click();
-  await page.getByLabel(`Cancel AAA Two's days-off request starting ${THURSDAY_ISO}`).click();
-  await page.getByRole("dialog").getByLabel(/^Reason/).fill("Recorded in error — e2e");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Cancel the request", exact: true })
-    .click();
-  await expect(page.getByText("Request cancelled")).toBeVisible();
-  // The cancelled row's reason popover (flip the filter to Cancelled to find it). Two
-  // residue defenses: the table renders LOCALIZED dates, not ISO (match the app's
-  // formatIsoDate — en, dateStyle medium), and cancelled rows are PERMANENT records, so
-  // earlier runs' residue outranks this run's row under the default -startDate sort —
-  // sort by "Requested on" descending instead (this run's rows are the newest created).
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Cancelled" }).click();
-  await page.getByRole("button", { name: "Requested on" }).click();
-  await page.getByRole("button", { name: "Requested on" }).click();
-  const thursdayFormatted = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
-    new Date(`${THURSDAY_ISO}T00:00:00`),
-  );
-  const cancelledRow = page.locator("tr", { hasText: thursdayFormatted }).first();
-  await cancelledRow.getByLabel("Cancellation reason").click();
-  await expect(page.getByText("Recorded in error — e2e")).toBeVisible();
-  await expect(page.getByText(/Manager AAA ·/)).toBeVisible();
-  await page.keyboard.press("Escape");
-  // The acting manager's bell receipt.
-  const receiptBell = await openBell(page);
-  await expect(
-    notificationCard(receiptBell, "You cancelled AAA Two's days-off request"),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  // The rest of the cleanup: delete the correction (the Budgets view again — the Requests
-  // pick above is remembered), then the admin removes the holiday.
+  await page.getByText("Entries", { exact: true }).click();
+  await page.getByLabel(`Delete AAA Two's days-off entry starting ${THURSDAY_ISO}`).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("Days-off entry deleted")).toBeVisible();
+  await expect(page.locator("tr", { hasText: thursdayFormatted })).toHaveCount(0);
+
   await page.getByText("Budgets", { exact: true }).click();
   await page.getByLabel("Budget corrections of AAA Two").click();
   const cleanupModal = page.getByRole("dialog");
@@ -547,8 +423,7 @@ test("days off end to end: holiday, allowance, request, resolve, calendar, cance
   await expect(page.getByText("Correction deleted")).toBeVisible();
   await page.keyboard.press("Escape");
   // The manager archives AAA Two's extra pool on the drill-down (v3.2.0 — the default pool
-  // has no such control); the cancelled Friday leaves no counting history, so the strip
-  // simply disappears.
+  // has no such control); no counting entries remain, so the strip simply disappears.
   await page.goto("/?tab=subordinates");
   await page
     .locator("li", { hasText: "AAA Two" })

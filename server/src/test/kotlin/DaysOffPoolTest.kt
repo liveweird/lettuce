@@ -254,7 +254,7 @@ class DaysOffPoolTest {
             assertTrue(history.poolArchived)
             assertNull(history.poolId)
             assertNull(history.allowance)
-            assertEquals(1.0, history.reserved)
+            assertEquals(1.0, history.used)
             assertEquals(-1.0, history.remaining)
             assertEquals(1, s.budgets("?year=2081").size)
             assertEquals(26, s.budgets("?year=2081").single().allowance)
@@ -271,7 +271,7 @@ class DaysOffPoolTest {
             assertFalse(regranted.poolArchived)
             assertTrue(regranted.poolId != null && regranted.poolId != poolId)
             assertEquals(5, regranted.allowance)
-            assertEquals(1.0, regranted.reserved)
+            assertEquals(1.0, regranted.used)
             assertEquals(4.0, regranted.remaining)
 
             // Archiving the KIND cascades to the grant; the request keeps its label.
@@ -332,9 +332,9 @@ class DaysOffPoolTest {
         assertEquals(HttpStatusCode.Created, s.createDaysOff(mon.plusWeeks(3), type = DaysOffType.UNPAID).status)
 
         val rows2084 = s.budgets("?year=2084")
-        assertEquals(1.0, rows2084[0].used + rows2084[0].reserved)
-        assertEquals(2.0, rows2084.single { it.poolTypeId == reset.id }.reserved)
-        assertEquals(1.0, rows2084.single { it.poolTypeId == carry.id }.reserved)
+        assertEquals(1.0, rows2084[0].used)
+        assertEquals(2.0, rows2084.single { it.poolTypeId == reset.id }.used)
+        assertEquals(1.0, rows2084.single { it.poolTypeId == carry.id }.used)
         assertEquals(0.0, rows2084.single { it.poolTypeId == reset.id }.remaining)
         assertEquals(1.0, rows2084.single { it.poolTypeId == carry.id }.remaining)
 
@@ -511,7 +511,7 @@ class DaysOffPoolTest {
             val row2086 = s.budgets("?year=2086").single { it.poolTypeId == extra.id }
             assertEquals(2.0, row2086.corrected)
             assertEquals(0.0, row2086.carriedOver)
-            assertEquals(4.0, row2086.remaining) // 3 + 2 − 1 reserved; 2085's +5 never flows in
+            assertEquals(4.0, row2086.remaining) // 3 + 2 − 1 used; 2085's +5 never flows in
             val row2085 = s.budgets("?year=2085").single { it.poolTypeId == extra.id }
             assertEquals(8.0, row2085.remaining)
             val grantId = row2086.poolId!!

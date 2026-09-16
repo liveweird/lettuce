@@ -97,9 +97,13 @@ test("a manager walks a team KPI around the whole lifecycle, managing its data p
   // The KPI data tab: add a backdated point and a later one, correct the first, remove the
   // second — every operation persists immediately (no Save button on the screen).
   await rowByTitle(page, title).getByRole("link", { name: `View team KPI ${title}` }).click();
-  // General shows the target with its direction glyph (v2.41.0) — anchor on the view URL
-  // first, or the assert can match the LIST's Target cells before navigation completes.
+  // General shows the target with its direction glyph (v2.41.0). Anchor on the view URL AND on a
+  // view-only element before the target assert: the lazy-route race means toHaveURL flips before
+  // the view chunk mounts, leaving the LIST's Target cells in the DOM — and any other active ≤50
+  // KPI turns an unscoped exact match into a strict-mode multi-match. The KPI-data tab is
+  // view-only, so its presence proves the list is unmounted and only the view's target remains.
   await expect(page).toHaveURL(new RegExp(`/team-kpis/${id}/view`));
+  await expect(page.getByRole("tab", { name: "KPI data" })).toBeVisible();
   await expect(page.getByText("≤ 50", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "KPI data" }).click();
   await expect(page.getByText("No data points yet.")).toBeVisible();

@@ -87,14 +87,9 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   TEAM_KPI_VALUE_REMOVED_TO_MEMBER: "teamKpiValueRemoved",
   PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE: "performanceReviewPublished",
   PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE: "performanceReviewUnpublished",
-  DAYS_OFF_REQUESTED_TO_MANAGER: "daysOffRequested",
-  DAYS_OFF_ACCEPTED_TO_OWNER: "daysOffAccepted",
-  DAYS_OFF_REJECTED_TO_OWNER: "daysOffRejected",
-  DAYS_OFF_CANCELLED_TO_MANAGER: "daysOffCancelled",
-  DAYS_OFF_CANCELLED_TO_OWNER: "daysOffCancelledToOwner",
+  DAYS_OFF_CREATED: "daysOffCreated",
+  DAYS_OFF_DELETED: "daysOffDeleted",
   DAYS_OFF_CORRECTED_TO_OWNER: "daysOffCorrected",
-  DAYS_OFF_RECORDED_TO_OWNER: "daysOffRecordedToOwner",
-  DAYS_OFF_RECORDED_TO_MANAGER: "daysOffRecordedToManager",
   DAYS_OFF_ALLOWANCE_CHANGED: "daysOffAllowanceChanged",
   PULSE_CYCLE_SCHEDULED: "pulseCycleScheduled",
   PULSE_CYCLE_OPENED: "pulseCycleOpened",
@@ -118,30 +113,20 @@ type ParamFormatSpec = {
   monthParams?: string[];
   /** Raw Double params formatted per the KPI's type — the "%" suffix for PERCENTAGE. */
   kpiValueParams?: string[];
-  /** Wire enum params translated via the given key prefix (param → prefix). */
-  enumParams?: Record<string, string>;
   /** The param whose value picks the i18next context variant (default "self"). */
   contextParam?: string;
-  /** The paid pool's name (v3.2.1): when present it replaces the `type` enum word in the
-   * rendered text (a PAID request names its pool; UNPAID rows carry none). */
-  poolNameParam?: string;
 };
 
 // The team-KPI data-point kinds are the only ones carrying numeric values; the rest localize
-// dates/months and the days-off type enum.
+// dates/months.
 const KPI_VALUE_SPEC: ParamFormatSpec = {
   kpiValueParams: ["value", "fromValue", "toValue"],
   dateParams: ["date", "fromDate", "toDate"],
 };
 const REVIEW_PERIOD_SPEC: ParamFormatSpec = { monthParams: ["startMonth", "endMonth"] };
-const DAYS_OFF_SPEC: ParamFormatSpec = {
-  dateParams: ["startDate", "endDate"],
-  enumParams: { type: "daysOff.type" },
-  poolNameParam: "pool",
-};
-// The cancel pair additionally words the actor (OWNER/MANAGER) via i18next context on `by`
-// (v2.31.0); rows minted before the rework carry no `by` and fall back to the base key.
-const DAYS_OFF_CANCEL_SPEC: ParamFormatSpec = { ...DAYS_OFF_SPEC, contextParam: "by" };
+// The create/delete fan-out (v3.9.0 — no approval lifecycle): params carry only person +
+// dates, deliberately no pool/type (the teammate redaction rule is honoured by construction).
+const DAYS_OFF_FANOUT_SPEC: ParamFormatSpec = { dateParams: ["startDate", "endDate"] };
 const PULSE_SPEC: ParamFormatSpec = { dateParams: ["openDate", "closeDate"] };
 const IMPACT_LOG_SPEC: ParamFormatSpec = { dateParams: ["periodStart", "periodEnd"] };
 
@@ -151,13 +136,8 @@ const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   teamKpiValueRemoved: KPI_VALUE_SPEC,
   performanceReviewPublished: REVIEW_PERIOD_SPEC,
   performanceReviewUnpublished: REVIEW_PERIOD_SPEC,
-  daysOffRequested: DAYS_OFF_SPEC,
-  daysOffAccepted: DAYS_OFF_SPEC,
-  daysOffRejected: DAYS_OFF_SPEC,
-  daysOffCancelled: DAYS_OFF_CANCEL_SPEC,
-  daysOffCancelledToOwner: DAYS_OFF_CANCEL_SPEC,
-  daysOffRecordedToOwner: DAYS_OFF_SPEC,
-  daysOffRecordedToManager: DAYS_OFF_SPEC,
+  daysOffCreated: DAYS_OFF_FANOUT_SPEC,
+  daysOffDeleted: DAYS_OFF_FANOUT_SPEC,
   // The correction kind words ADD/SUBTRACT via i18next context.
   daysOffCorrected: { contextParam: "operation" },
   pulseCycleScheduled: PULSE_SPEC,
@@ -192,15 +172,6 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
   }
   for (const k of spec.monthParams ?? []) {
     if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
-  }
-  const enumParams = { ...(spec.enumParams ?? {}) };
-  const poolName = spec.poolNameParam ? params[spec.poolNameParam] : undefined;
-  if (poolName != null) {
-    params.type = poolName;
-    delete enumParams.type;
-  }
-  for (const [k, prefix] of Object.entries(enumParams)) {
-    if (params[k] != null) params[k] = t(dynamicKey(`${prefix}.${params[k]}`));
   }
   const context = params[spec.contextParam ?? "self"];
   return t(dynamicKey(`notifications.event.${key}`), { ...params, context });
@@ -240,14 +211,9 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   TEAM_KPI_VALUE_REMOVED_TO_MEMBER: { icon: IconChartLine, color: "gray" },
   PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE: { icon: IconClipboardText, color: "teal" },
   PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE: { icon: IconClipboardText, color: "orange" },
-  DAYS_OFF_REQUESTED_TO_MANAGER: { icon: IconBeach, color: "yellow" },
-  DAYS_OFF_ACCEPTED_TO_OWNER: { icon: IconBeach, color: "teal" },
-  DAYS_OFF_REJECTED_TO_OWNER: { icon: IconBeach, color: "red" },
-  DAYS_OFF_CANCELLED_TO_MANAGER: { icon: IconBeach, color: "gray" },
-  DAYS_OFF_CANCELLED_TO_OWNER: { icon: IconBeach, color: "gray" },
+  DAYS_OFF_CREATED: { icon: IconBeach, color: "teal" },
+  DAYS_OFF_DELETED: { icon: IconBeach, color: "gray" },
   DAYS_OFF_CORRECTED_TO_OWNER: { icon: IconBeach, color: "teal" },
-  DAYS_OFF_RECORDED_TO_OWNER: { icon: IconBeach, color: "teal" },
-  DAYS_OFF_RECORDED_TO_MANAGER: { icon: IconBeach, color: "teal" },
   DAYS_OFF_ALLOWANCE_CHANGED: { icon: IconBeach, color: "teal" },
   PULSE_CYCLE_SCHEDULED: { icon: IconHeartRateMonitor, color: "blue" },
   PULSE_CYCLE_OPENED: { icon: IconHeartRateMonitor, color: "teal" },

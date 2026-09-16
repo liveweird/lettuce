@@ -4,92 +4,33 @@ import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationType
 
 /**
- * Pure mappings from days-off lifecycle moments to the notifications they should produce —
+ * Pure mappings from days-off moments to the notifications they should produce —
  * side-effect-free (no DB) like goals/GoalNotifications.kt; [DaysOffService] resolves names and
  * recipient ids in-transaction and the route persists the result. Params carry raw values (ISO
- * dates, a "1.5"-style days string, enum names) — the SPA formats them in the viewer's language.
- * There is deliberately no per-request detail page in the SPA, so links land on the list tabs.
+ * dates) — the SPA formats them in the viewer's language.
+ * There is deliberately no per-entry detail page in the SPA, so links land on the list tabs.
  */
 
-/** The days-off request params shared by the review/recorded notes: `type` (the enum name,
- * localized client-side) plus, for PAID (v3.2.1), `pool` — the paid pool's name, which the
- * SPA/email render IN PLACE of the bare "Paid" (the manager needs to know which pool a
- * 10-day absence draws on); UNPAID rows carry no `pool`. */
-private fun requestParams(type: DaysOffType, poolName: String?, days: String, startDate: String, endDate: String) =
-    buildMap {
-        put("type", type.name)
-        poolName?.let { put("pool", it) }
-        put("days", days)
-        put("startDate", startDate)
-        put("endDate", endDate)
-    }
-
-/** Creation: each current direct manager of the owner is asked to review the request. A user
- * with no manager (top of chain) notifies nobody — documented limitation. */
-internal fun daysOffRequestedNotifications(
-    managerIds: Set<UInt>,
-    requesterName: String,
-    type: DaysOffType,
-    days: String,
+/** Create/delete fan-out (v3.9.0 — no approval lifecycle): every person sharing a team with the
+ * owner plus each such team's direct manager, minus the acting person — see
+ * [DaysOffService.create]/[DaysOffService.delete]. Params carry `person` (the owner's display
+ * name — the reader may be the owner themselves, a teammate, or a manager, so the sentence
+ * fills in "you"/the name client-side), `startDate`, `endDate` — deliberately no `pool`/`type`,
+ * so the teammate redaction rule (v3.2.1) is honoured by construction. */
+internal fun daysOffFanoutNotifications(
+    type: NotificationType,
+    recipientIds: Set<UInt>,
+    person: String,
     startDate: String,
     endDate: String,
-    poolName: String? = null,
-): List<Notification> = managerIds.map { managerId ->
+): List<Notification> = recipientIds.map { recipientId ->
     Notification(
-        recipientId = managerId,
-        type = NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER,
-        params = mapOf("requester" to requesterName) + requestParams(type, poolName, days, startDate, endDate),
+        recipientId = recipientId,
+        type = type,
+        params = mapOf("person" to person, "startDate" to startDate, "endDate" to endDate),
         link = "/days-off?tab=team",
     )
 }
-
-/** On-behalf recording (v2.29.0): a direct manager entered days off for a report, born
- * ACCEPTED. Both parties are told — the owner learns an entry now sits on their record, and
- * the acting manager keeps a durable receipt (the 1:1-creation precedent: an on-behalf write
- * to someone else's record deserves more than a 2.5-second toast). Other direct managers
- * deliberately hear nothing — the row is visible in their managed list. */
-internal fun daysOffRecordedNotifications(
-    ownerId: UInt,
-    ownerName: String,
-    managerId: UInt,
-    managerName: String,
-    type: DaysOffType,
-    days: String,
-    startDate: String,
-    endDate: String,
-    poolName: String? = null,
-): List<Notification> = listOf(
-    Notification(
-        recipientId = ownerId,
-        type = NotificationType.DAYS_OFF_RECORDED_TO_OWNER,
-        params = mapOf("manager" to managerName) + requestParams(type, poolName, days, startDate, endDate),
-        link = "/days-off?tab=requests",
-    ),
-    Notification(
-        recipientId = managerId,
-        type = NotificationType.DAYS_OFF_RECORDED_TO_MANAGER,
-        params = mapOf("requester" to ownerName) + requestParams(type, poolName, days, startDate, endDate),
-        link = "/days-off?tab=team",
-    ),
-)
-
-/** Resolution (accept/reject): the owner is told what their manager decided. */
-internal fun daysOffResolvedNotification(
-    ownerId: UInt,
-    target: DaysOffStatus,
-    managerName: String,
-    startDate: String,
-    endDate: String,
-): Notification = Notification(
-    recipientId = ownerId,
-    type = when (target) {
-        DaysOffStatus.ACCEPTED -> NotificationType.DAYS_OFF_ACCEPTED_TO_OWNER
-        DaysOffStatus.REJECTED -> NotificationType.DAYS_OFF_REJECTED_TO_OWNER
-        else -> error("Not a resolution target: $target")
-    },
-    params = mapOf("manager" to managerName, "startDate" to startDate, "endDate" to endDate),
-    link = "/days-off?tab=requests",
-)
 
 /** Budget correction (v1.43.0): the subordinate hears about a new ± adjustment to their
  * paid-days budget (create only — edits and deletions stay silent, the budget numbers are
@@ -139,49 +80,3 @@ internal fun daysOffAllowanceChangedNotification(
     // The budget card lives on the requests tab (the correction-notification precedent).
     link = "/days-off?tab=requests",
 )
-
-/** Cancellation (reworked v2.31.0 — owner or a chain manager cancels, always with a reason):
- * both sides are told, always. The owner gets [DAYS_OFF_CANCELLED_TO_OWNER] (a durable receipt
- * even when they cancelled themselves — the recorded-pair precedent); the manager side gets
- * [DAYS_OFF_CANCELLED_TO_MANAGER] — every current direct manager on an owner-cancel, or just
- * the acting manager's receipt on a manager-cancel (other managers deliberately silent, the
- * row is visible in their managed list). The `by` param (OWNER/MANAGER) is an i18next context
- * for the wording split; the REASON never rides params (content-free rule) — it lives
- * encrypted on the row and renders via the table's popover. */
-internal fun daysOffCancelledNotifications(
-    ownerId: UInt,
-    ownerName: String,
-    actorName: String,
-    managerRecipientIds: Set<UInt>,
-    byManager: Boolean,
-    startDate: String,
-    endDate: String,
-): List<Notification> {
-    val by = if (byManager) "MANAGER" else "OWNER"
-    val toOwner = Notification(
-        recipientId = ownerId,
-        type = NotificationType.DAYS_OFF_CANCELLED_TO_OWNER,
-        params = mapOf(
-            "manager" to actorName,
-            "by" to by,
-            "startDate" to startDate,
-            "endDate" to endDate,
-        ),
-        link = "/days-off?tab=requests",
-    )
-    val toManagers = managerRecipientIds.map { recipientId ->
-        Notification(
-            recipientId = recipientId,
-            type = NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER,
-            params = mapOf(
-                "requester" to ownerName,
-                "manager" to actorName,
-                "by" to by,
-                "startDate" to startDate,
-                "endDate" to endDate,
-            ),
-            link = "/days-off?tab=team",
-        )
-    }
-    return listOf(toOwner) + toManagers
-}

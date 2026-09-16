@@ -303,19 +303,19 @@ class IntegrationGraphQlTest {
         val user = jsonClient().graphql(
             key,
             """{ user(id: ${ownerId.toInt()}) {
-                 daysOff(year: 2062) { status type poolTypeId poolName days userName }
-                 daysOffBudget(year: 2062) { allowance reserved remaining isDefault poolName carriesOver }
+                 daysOff(year: 2062) { type poolTypeId poolName days userName }
+                 daysOffBudget(year: 2062) { allowance used remaining isDefault poolName carriesOver }
                  daysOffBudgets(year: 2062) { poolTypeId allowance isDefault }
                  daysOffCorrections { id poolTypeId } } }""",
         ).data()["user"]!!.jsonObject
         val request = user["daysOff"]!!.jsonArray.single().jsonObject
-        assertEquals("REQUESTED", request["status"]!!.jsonPrimitive.content)
         assertEquals(restDays, request["days"]!!.jsonPrimitive.content.toDouble())
         assertEquals(1, request["poolTypeId"]!!.jsonPrimitive.content.toInt())
         assertEquals("Paid days off", request["poolName"]!!.jsonPrimitive.content)
         val budget = user["daysOffBudget"]!!.jsonObject
         assertEquals(30, budget["allowance"]!!.jsonPrimitive.content.toInt())
-        assertEquals(restDays, budget["reserved"]!!.jsonPrimitive.content.toDouble())
+        // v3.9.0: every active PAID entry counts as used — no reserved/used split.
+        assertEquals(restDays, budget["used"]!!.jsonPrimitive.content.toDouble())
         assertEquals(true, budget["isDefault"]!!.jsonPrimitive.content.toBoolean())
         assertEquals(true, budget["carriesOver"]!!.jsonPrimitive.content.toBoolean())
         val budgets = user["daysOffBudgets"]!!.jsonArray.map { it.jsonObject }
@@ -328,10 +328,10 @@ class IntegrationGraphQlTest {
         assertEquals(true, kinds.first()["isDefault"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(kinds.any { it["id"]!!.jsonPrimitive.content.toInt() == extraKind.toInt() })
 
-        // The bulk root sees the same request under its filters.
+        // The bulk root sees the same entry under its filters (v3.9.0 — no status argument).
         val bulk = jsonClient().graphql(
             key,
-            """{ daysOff(userId: ${ownerId.toInt()}, status: REQUESTED, from: "2062-01-01", to: "2062-12-31") {
+            """{ daysOff(userId: ${ownerId.toInt()}, from: "2062-01-01", to: "2062-12-31") {
                  items { userName days } total } }""",
         ).data()["daysOff"]!!.jsonObject
         assertEquals(1, bulk["total"]!!.jsonPrimitive.content.toInt())
@@ -436,7 +436,7 @@ class IntegrationGraphQlTest {
             id name email uniqueId roles deactivated language
             careerHistory { startDate endDate }
             teams { id name }
-            daysOff(year: 2062) { status days }
+            daysOff(year: 2062) { days }
             daysOffBudget(year: 2062) { allowance remaining }
             performanceReviews { status attitude { rating } } } } }"""
         plain.graphql(key, wide).data()
@@ -451,7 +451,7 @@ class IntegrationGraphQlTest {
         val plain = jsonClient()
         assertTrue("from" in plain.graphql(key, """{ daysOff(from: "2026-1-1") { total } }""").expectGraphQlError())
         assertTrue("to" in plain.graphql(key, """{ daysOff(to: "garbage") { total } }""").expectGraphQlError())
-        assertTrue("year" in plain.graphql(key, "{ user(id: 1) { daysOff(year: 1999) { status } } }").expectGraphQlError())
+        assertTrue("year" in plain.graphql(key, "{ user(id: 1) { daysOff(year: 1999) { id } } }").expectGraphQlError())
         assertTrue(
             "year" in plain.graphql(key, "{ user(id: 1) { daysOffBudget(year: 2147483647) { remaining } } }")
                 .expectGraphQlError(),
@@ -536,9 +536,10 @@ class IntegrationGraphQlTest {
     }
 
     @Test
-    fun `encrypted cancel reasons, corrections, and nested reviews decrypt through the graph`() = testApplication {
-        // Checkup #30 test gaps 4 + 5: the two remaining encrypted columns (cancel_reason,
-        // correction comment) and the reviewsBySubordinate loader never ran through the graph.
+    fun `encrypted corrections and nested reviews decrypt through the graph`() = testApplication {
+        // Checkup #30 test gap 5 (plus the correction comment, the last encrypted days-off
+        // column since v3.9.0/V77 dropped cancel_reason with the whole lifecycle): the
+        // reviewsBySubordinate loader never ran through the graph.
         enabledApp()
         val (_, key) = freshKey("gql-decrypt")
         val managerEmail = uniqueEmail("gql-de-manager")
@@ -551,21 +552,7 @@ class IntegrationGraphQlTest {
         TestServices.teams.addMember(teamId, ownerId)
         TestDaysOff.setAllowance(ownerId, 30)
         val manager = authedClient(managerEmail, "pw")
-        val owner = authedClient(ownerEmail, "pw")
 
-        val start = LocalDate.of(2063, 6, 1).with(TemporalAdjusters.firstInMonth(DayOfWeek.MONDAY))
-        val requestId = owner.post("/api/v1/days-off") {
-            contentType(ContentType.Application.Json)
-            setBody(DaysOffCreateRequest(DaysOffType.PAID, start.toString(), start.plusDays(1).toString()))
-        }.body<ch.nokillswit.daysoff.DaysOffResponse>().id
-        val cancelSecret = "Gql cancel secret ${UUID.randomUUID()}"
-        assertEquals(
-            HttpStatusCode.NoContent,
-            owner.post("/api/v1/days-off/$requestId/cancel") {
-                contentType(ContentType.Application.Json)
-                setBody(ch.nokillswit.daysoff.DaysOffCancelRequest(cancelSecret))
-            }.status,
-        )
         val correctionSecret = "Gql correction secret ${UUID.randomUUID()}"
         assertEquals(
             HttpStatusCode.Created,
@@ -597,13 +584,9 @@ class IntegrationGraphQlTest {
         val user = jsonClient().graphql(
             key,
             """{ user(id: ${ownerId.toInt()}) {
-                 daysOff(year: 2063) { status cancelReason cancelledByName }
                  daysOffCorrections(year: 2063) { operation days comment }
                  performanceReviews { status attitude { rating summary } } } }""",
         ).data()["user"]!!.jsonObject
-        val request = user["daysOff"]!!.jsonArray.single().jsonObject
-        assertEquals("CANCELLED", request["status"]!!.jsonPrimitive.content)
-        assertEquals(cancelSecret, request["cancelReason"]!!.jsonPrimitive.content)
         val correction = user["daysOffCorrections"]!!.jsonArray.single().jsonObject
         assertEquals("ADD", correction["operation"]!!.jsonPrimitive.content)
         assertEquals(correctionSecret, correction["comment"]!!.jsonPrimitive.content)
