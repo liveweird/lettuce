@@ -343,6 +343,9 @@ fun Application.configureAuthRoutes() {
                     return@post
                 }
                 audit("login.success", "ip" to call.request.origin.remoteHost, "email" to user.email, "userId" to userId.toLong())
+                // A login COMPLETES here (V78, v3.9.1) — never at the MFA challenge/password
+                // step above, and never on a silent /refresh.
+                userService.updateLastLoginAt(userId)
                 call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
             }
         }
@@ -373,6 +376,9 @@ fun Application.configureAuthRoutes() {
                             throw ForbiddenException("Account is deactivated")
                         }
                         audit("login.mfa_success", "email" to user.email, "userId" to userId.toLong())
+                        // The MFA login COMPLETES here (V78, v3.9.1) — the password step above
+                        // only issued a challenge, not a completed login.
+                        userService.updateLastLoginAt(userId)
                         call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
                     }
                 }

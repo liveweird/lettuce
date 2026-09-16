@@ -60,6 +60,7 @@ type MemberRow = {
   careerPath?: { id: number; values: { en: string; pl?: string } } | null;
   careerSpecialization?: { id: number; values: { en: string; pl?: string } } | null;
   seniorityLevel?: { id: number; values: { en: string; pl?: string } } | null;
+  lastLoginAt?: number | null;
 };
 
 const BOB_ROW: MemberRow = {
@@ -86,6 +87,7 @@ function mockApi(
       careerPath?: { id: number; values: { en: string; pl?: string } } | null;
       careerSpecialization?: { id: number; values: { en: string; pl?: string } } | null;
       seniorityLevel?: { id: number; values: { en: string; pl?: string } } | null;
+      lastLoginAt?: number | null;
     }>;
     teams?: Array<{ id: number; name: string }>;
     // The viewer's own OPEN plans pool (v2.47.0) — {planId, seat userId} pairs.
@@ -139,6 +141,9 @@ describe("UserDetails page", () => {
     // The managers-tab stats block…
     expect(screen.getByText("Last 1:1")).toBeInTheDocument();
     expect(screen.getByText("Active goals")).toBeInTheDocument();
+    // The viewer isn't in their manager's chain — showLastLogin stays off for this flavor
+    // and the server never sends the value here (v3.9.1), so the row is hidden entirely.
+    expect(screen.queryByText("Last login")).not.toBeInTheDocument();
     // …and its actions, with the drill-downs returning HERE (from=details + back=, v1.39.0).
     expect(screen.getByRole("link", { name: "Goals from Bob" })).toHaveAttribute(
       "href",
@@ -208,6 +213,40 @@ describe("UserDetails page", () => {
     expect(screen.queryByText("Succession reviewed")).toBeNull();
   });
 
+  test("the subordinate card shows the last-login row with a relative time and absolute tooltip", async () => {
+    const lastLoginAt = Date.now() - 86_400_000;
+    mockApi(mockFetch, {
+      managed: [{ ...BOB_ROW, lastLoginAt }],
+    });
+    renderDetails();
+
+    expect(await screen.findByText("One of your subordinates")).toBeInTheDocument();
+    expect(screen.getByText("Last login")).toBeInTheDocument();
+    const value = screen.getByText("yesterday");
+    expect(value).toHaveAttribute("title", new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastLoginAt)));
+  });
+
+  test("the subordinate card shows 'never' when the report has never logged in", async () => {
+    // showLastLogin is true for the subordinate flavor (v3.9.1, the showSeniorityWhenUnset
+    // idiom) — a missing value here genuinely means "never logged in", not "hidden". The other
+    // never-capable rows are given values so the assertion isolates the last-login row's own.
+    mockApi(mockFetch, {
+      managed: [
+        {
+          ...BOB_ROW,
+          lastOneOnOneDate: "2026-07-01",
+          lastFeedbackAt: 1_700_000_000_000,
+        },
+      ],
+    });
+    renderDetails();
+
+    expect(await screen.findByText("One of your subordinates")).toBeInTheDocument();
+    expect(screen.getByText("Last login")).toBeInTheDocument();
+    // Last login, last review, and the days-off budget all lack data on this row too.
+    expect(screen.getAllByText("never")).toHaveLength(3);
+  });
+
   test("the subordinate card links the viewer's own OPEN succession plan for the person (v2.47.0)", async () => {
     mockApi(mockFetch, {
       managed: [{ ...BOB_ROW, activeGoalCount: 0 }],
@@ -237,6 +276,9 @@ describe("UserDetails page", () => {
     expect(screen.getByText("Feedback from them")).toBeInTheDocument();
     expect(screen.queryByText("Last 1:1")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /goals/i })).not.toBeInTheDocument();
+    // The peer flavor gets no showLastLogin, and the server never sends a peer's lastLoginAt
+    // (private, chain/self/HR-only) — the row stays hidden entirely (v3.9.1).
+    expect(screen.queryByText("Last login")).not.toBeInTheDocument();
     await openCardMenu(/feedback actions for bob/i);
     expect(await screen.findByRole("menuitem", { name: "Feedbacks with Bob" })).toHaveAttribute(
       "href",
@@ -274,6 +316,7 @@ describe("UserDetails page", () => {
     expect(screen.queryByText(/one of your/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Feedback from me")).not.toBeInTheDocument();
     expect(screen.queryByText("Last 1:1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Last login")).not.toBeInTheDocument();
     // Feedback actions still apply to any user; the drill-down round-trips through here.
     await openCardMenu(/feedback actions for bob/i);
     expect(await screen.findByRole("menuitem", { name: "Feedbacks with Bob" })).toHaveAttribute(
@@ -304,7 +347,7 @@ describe("UserDetails page", () => {
   test("viewing yourself renders the card without actions", async () => {
     localStorage.setItem(USER_ID_KEY, "5");
     mockApi(mockFetch, {
-      users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }],
+      users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [], lastLoginAt: 1_700_000_000_000 }],
     });
     renderDetails();
 
@@ -312,8 +355,10 @@ describe("UserDetails page", () => {
     expect(screen.queryByRole("link", { name: /provide feedback/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /feedbacks with/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /feedback actions for/i })).not.toBeInTheDocument();
-    // With no stats and no buttons, only the Profile section renders (v1.46.0).
+    // With no stats and no buttons, only the Profile section renders (v1.46.0) — but the
+    // last-login row survives on it: showLastLogin is true for a self view (v3.9.1).
     expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Last login")).toBeInTheDocument();
     expect(screen.queryByText("Collaboration")).not.toBeInTheDocument();
     expect(screen.queryByText("Performance")).not.toBeInTheDocument();
     expect(screen.queryByText("Days off")).not.toBeInTheDocument();
@@ -346,6 +391,10 @@ describe("UserDetails page", () => {
       "href",
       `/users/5/impact-log?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
     );
+    // canAudit() shows the last-login row on ANY card, unrelated included (v3.9.1) — the
+    // mock carries no lastLoginAt, so it renders "never" like an unset seniority would.
+    expect(screen.getByText("Last login")).toBeInTheDocument();
+    expect(screen.getByText("never")).toBeInTheDocument();
   });
 
   test("an auditor's audit block drops just a disabled feature's drill-down (v1.53.0)", async () => {

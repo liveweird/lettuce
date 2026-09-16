@@ -78,6 +78,12 @@ class UserService(val database: R2dbcDatabase) {
         val deactivated = bool("deactivated").default(false)
         val passwordChangedAt = long("password_changed_at").default(0)
 
+        // Epoch millis of the last successful login COMPLETION (V78); 0 = never — the
+        // password_changed_at idiom. Stamped only by the two login-completion points in
+        // auth/AuthRoutes.kt (non-MFA /login success, /login/mfa code-exchange success) —
+        // never /refresh, never the MFA password step.
+        val lastLoginAt = long("last_login_at").default(0)
+
         // The V33 career ref columns were dropped by V57 — the triple now derives from the
         // user's latest career position (users/CareerPositionService.kt).
 
@@ -180,6 +186,18 @@ class UserService(val database: R2dbcDatabase) {
             it[this.passwordHash] = passwordHash
             // Invalidates outstanding refresh tokens: /refresh rejects iat < passwordChangedAt.
             it[passwordChangedAt] = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * Stamp a login COMPLETION (V78) — called only from the two points a login actually
+     * completes (auth/AuthRoutes.kt: the non-MFA `/login` success and the `/login/mfa`
+     * code-exchange success), mirroring [updatePassword]. Never called from `/refresh` or the
+     * MFA password step.
+     */
+    suspend fun updateLastLoginAt(id: UInt): Int = suspendTransaction(database) {
+        Users.update({ (Users.id eq id) and active() }) {
+            it[lastLoginAt] = System.currentTimeMillis()
         }
     }
 
@@ -359,6 +377,9 @@ class UserService(val database: R2dbcDatabase) {
                     uniqueId = row.uniqueId,
                     language = row.language,
                     teams = teamsByUser[row.id].orEmpty(),
+                    // Deliberately NOT added to the list endpoint (v3.9.1) — the feature
+                    // targets the single-user view/card, not the admin users list.
+                    lastLoginAt = null,
                 )
             }
             UserListResult(items = items, total = total)
@@ -494,6 +515,7 @@ class UserService(val database: R2dbcDatabase) {
         disabledFeatures = disabledFeatures,
         deactivated = this[Users.deactivated],
         passwordChangedAt = this[Users.passwordChangedAt],
+        lastLoginAt = this[Users.lastLoginAt],
         emailNotificationsEnabled = this[Users.emailNotificationsEnabled],
         uniqueId = this[Users.uniqueId],
         language = this[Users.language],
@@ -529,6 +551,22 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun teamsByUserIds(ids: Set<UInt>): Map<UInt, List<TeamRef>> =
         if (ids.isEmpty()) emptyMap()
         else suspendTransaction(database) { teamRefsByUserIds(ids.toList()) }
+
+    /**
+     * Batch last-login lookup for the `/teams/members` enrichment (V78, v3.9.1): a page of user
+     * ids to their last successful login completion (epoch ms). Users who have never logged in
+     * are absent from the map — the batched-enrichment "no value" idiom, like
+     * [careerProfilesByUserIds]. The route gates this the same way as `seniorityLevel`.
+     */
+    suspend fun lastLoginAtByUserIds(ids: Set<UInt>): Map<UInt, Long> {
+        if (ids.isEmpty()) return emptyMap()
+        return suspendTransaction(database) {
+            Users.select(Users.id, Users.lastLoginAt)
+                .where { (Users.id inList ids) and (Users.lastLoginAt neq 0L) }
+                .toList()
+                .associate { it[Users.id].value to it[Users.lastLoginAt] }
+        }
+    }
 
     /** Must run inside a transaction — see [careerProfilesByUserIds]. */
     private suspend fun currentProfilesByUserIds(ids: Set<UInt>): Map<UInt, CareerProfile> {

@@ -31,6 +31,7 @@ type TeamMemberItem = {
   seniorityLevel?: { id: number; values: { en: string; pl?: string } } | null;
   nextVacationStart?: string | null;
   daysOffRemaining?: number | null;
+  lastLoginAt?: number | null;
 };
 
 
@@ -337,11 +338,16 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByText("Not set")).toBeNull();
     // The peer stats column still renders beside it.
     expect(screen.getByText("Feedback from me")).toBeInTheDocument();
+    // Last login follows the same private-field rule (v3.9.1) — hidden for a peer flavor.
+    expect(screen.queryByText("Last login")).toBeNull();
   });
 
-  test("subordinate cards keep the Not set cue for an unset seniority (v2.25.0)", async () => {
+  test("subordinate cards keep the Not set cue for an unset seniority, show last login (v2.25.0/v3.9.1)", async () => {
     // On view=managed the caller IS the chain — a null seniority genuinely means unset,
-    // so the orange cue stays truthful and renders.
+    // so the orange cue stays truthful and renders; last login follows the same rule. The
+    // sibling-scoped query (rather than a bare getByText("never")) isolates each row's own
+    // value from the other never-capable rows this flavor also renders unset.
+    const loggedInAt = Date.now() - 86_400_000;
     setupMocks(
       mockFetch,
       membersPage([
@@ -350,6 +356,7 @@ describe("TeamMembersTable", () => {
           careerPath: { id: 11, values: { en: "System Analyst" } },
           careerSpecialization: { id: 21, values: { en: "Java" } },
           seniorityLevel: null,
+          lastLoginAt: loggedInAt,
         },
       ]),
     );
@@ -357,6 +364,16 @@ describe("TeamMembersTable", () => {
 
     expect(await screen.findByText("Seniority")).toBeInTheDocument();
     expect(screen.getAllByText("Not set")).toHaveLength(1);
+    const loginValue = within(screen.getByText("Last login").nextElementSibling as HTMLElement);
+    expect(loginValue.getByText("yesterday")).toHaveAttribute("title", stamp(loggedInAt));
+  });
+
+  test("subordinate cards show 'never' for last login when the report has never signed in (v3.9.1)", async () => {
+    setupMocks(mockFetch, membersPage([SEED_MEMBERS[1]]));
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No reports" />);
+
+    const loginLabel = await screen.findByText("Last login");
+    expect(within(loginLabel.nextElementSibling as HTMLElement).getByText("never")).toBeInTheDocument();
   });
 
   test("peer cards show the next vacation but never a budget or Days off button", async () => {
@@ -692,6 +709,7 @@ describe("TeamMembersTable", () => {
             lastReviewStatus: "CALIBRATION",
             nextVacationStart: "2026-08-10",
             daysOffRemaining: 17.5,
+            lastLoginAt: new Date("2026-07-11T12:00:00").getTime(),
           },
         ]),
       );
@@ -724,6 +742,8 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("Performance")).toBeInTheDocument();
       // The section divider only — the drill-down is an icon in the footer (v3.4.0).
       expect(screen.getAllByText("Days off")).toHaveLength(1);
+      // The last-login row (v3.9.1) is populated here too, so no "never" survives anywhere.
+      expect(screen.getByText("Last login")).toBeInTheDocument();
       expect(screen.queryByText("never")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -743,9 +763,9 @@ describe("TeamMembersTable", () => {
     );
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    // 1:1, feedback, last review (v1.34.0), and the budget (v1.44.0) all read "never"
-    // without data; the next vacation has its own wording.
-    expect(await screen.findAllByText("never")).toHaveLength(4);
+    // 1:1, feedback, last review (v1.34.0), last login (v3.9.1), and the budget (v1.44.0)
+    // all read "never" without data; the next vacation has its own wording.
+    expect(await screen.findAllByText("never")).toHaveLength(5);
     expect(screen.getByText("none planned")).toBeInTheDocument();
     expect(screen.queryByText(/open item/)).toBeNull();
     // The goal count is a number, never "never" — absent renders as an explicit 0.
@@ -766,8 +786,9 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
     expect(await screen.findByText("0 open items")).toBeInTheDocument();
-    // The feedback, last-review, and budget stats are empty; the 1:1 row is not.
-    expect(screen.getAllByText("never")).toHaveLength(3);
+    // The feedback, last-review, last-login (v3.9.1), and budget stats are empty; the
+    // 1:1 row is not.
+    expect(screen.getAllByText("never")).toHaveLength(4);
   });
 
   test("a two-team subordinate's single card renders the stats once", async () => {

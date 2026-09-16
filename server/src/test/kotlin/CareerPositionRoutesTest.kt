@@ -9,8 +9,10 @@ import ch.nokillswit.users.CareerPositionList
 import ch.nokillswit.users.CareerPositionResponse
 import ch.nokillswit.users.CareerPositionWrite
 import ch.nokillswit.users.UserPageResponse
+import ch.nokillswit.users.UserRequest
 import ch.nokillswit.users.UserResponse
 import ch.nokillswit.users.UserRole
+import ch.nokillswit.users.UserUpdateRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -588,5 +590,71 @@ class CareerPositionRoutesTest {
             assertEquals("/users/$subId/career", first.link)
             assertNotNull(notes.single { it.params["startDate"] == "2021-04-01" })
             assertTrue(position.id > 0u)
+        }
+
+    @Test
+    fun `GET users id - lastLoginAt mirrors seniorityLevel - self, HR, an in-chain ADMIN see it, an outside-chain ADMIN gets null`() =
+        testApplication {
+            usePostgresTestcontainer()
+            // requireUserRead only ever admits self/ADMIN/HR to this route at all (a plain
+            // non-admin manager or peer gets a flat 403 before any field-level gating runs —
+            // unlike /teams/members, which every authenticated caller may read). The
+            // `managesUser` branch of the seniority-mirroring gate is only observable through
+            // an ADMIN who is ALSO in the target's transitive chain.
+            val subEmail = uniqueEmail("ll-s")
+            val hrEmail = uniqueEmail("ll-hr")
+            val subId = TestUsers.seed(subEmail, "pw", name = "LL Sub", roles = emptySet())
+            TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+            // An ADMIN who manages the subordinate's team (default seed roles = ADMIN).
+            val inChainAdminEmail = uniqueEmail("ll-m")
+            val inChainAdminId = TestUsers.seed(inChainAdminEmail, "pw", name = "LL Mgr")
+            val teamId = TestServices.teams.create(Team(name = "ll-${UUID.randomUUID()}", managerId = inChainAdminId))
+            TestServices.teams.addMember(teamId, subId)
+
+            // Logging in stamps the subject's own lastLoginAt (via authedClient's POST /login).
+            val inChainAdmin = authedClient(inChainAdminEmail, "pw")
+            val sub = authedClient(subEmail, "pw")
+            val hr = authedClient(hrEmail, "pw")
+
+            // Self always sees its own lastLoginAt.
+            assertNotNull(sub.get("/api/v1/users/$subId").body<UserResponse>().lastLoginAt)
+
+            // An ADMIN who is also a manager in the subordinate's transitive chain sees it.
+            assertNotNull(inChainAdmin.get("/api/v1/users/$subId").body<UserResponse>().lastLoginAt)
+
+            // HR sees it (the same widened read as seniorityLevel, audited hr.read).
+            assertNotNull(hr.get("/api/v1/users/$subId").body<UserResponse>().lastLoginAt)
+
+            // A plain ADMIN outside the chain gets null — the narrowed-ADMIN rule (v2.25.0).
+            val adminEmail = uniqueEmail("ll-admin")
+            TestUsers.seed(adminEmail, "pw")
+            val admin = authedClient(adminEmail, "pw")
+            assertNull(admin.get("/api/v1/users/$subId").body<UserResponse>().lastLoginAt)
+        }
+
+    @Test
+    fun `lastLoginAt is untouched by user create and the whole-user PUT - never client-settable`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val adminEmail = uniqueEmail("ll-cru-admin")
+            TestUsers.seed(adminEmail, "pw")
+            val admin = authedClient(adminEmail, "pw")
+
+            val email = uniqueEmail("ll-cru")
+            val created = admin.post("/api/v1/users") {
+                contentType(ContentType.Application.Json)
+                setBody(UserRequest(name = "LL Cru", email = email, password = "pw-123456789"))
+            }.body<UserResponse>()
+            // Neither UserRequest nor UserUpdateRequest exposes the field — a freshly created
+            // user has never logged in, so it stays 0 (never) in storage.
+            assertEquals(0L, TestServices.users.read(created.id)?.lastLoginAt)
+            assertNull(created.lastLoginAt)
+
+            val put = admin.put("/api/v1/users/${created.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(UserUpdateRequest(name = "LL Cru 2", email = email, roles = emptyList()))
+            }
+            assertEquals(HttpStatusCode.NoContent, put.status)
+            assertEquals(0L, TestServices.users.read(created.id)?.lastLoginAt, "the whole-user PUT must not touch it")
         }
 }

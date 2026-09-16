@@ -269,6 +269,7 @@ fun Application.configureUserRoutes() {
                             emailNotificationsEnabled = true,
                             uniqueId = user.uniqueId,
                             language = user.language,
+                            lastLoginAt = null,
                         ),
                     )
                 } else {
@@ -312,7 +313,10 @@ fun Application.configureUserRoutes() {
                 val canSeeSeniority = caller.userId == route.id || caller.isHr() ||
                     careerPositionService.managesUser(caller.userId, route.id)
                 val visible = if (canSeeSeniority) profile else profile?.copy(seniorityLevel = null)
-                call.respond(HttpStatusCode.OK, user.toResponse(route.id, visible))
+                // lastLoginAt follows the exact same visibility rule (v3.9.1) — self, chain
+                // manager, or HR; 0 (never logged in) maps to null like `never` everywhere.
+                val lastLoginAt = user.lastLoginAt.takeIf { canSeeSeniority && it != 0L }
+                call.respond(HttpStatusCode.OK, user.toResponse(route.id, visible, lastLoginAt))
             }
             put<Users.Id> { route ->
                 val caller = call.caller()

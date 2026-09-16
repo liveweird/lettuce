@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.9.1",
+    date: "2026-09-17",
+    en: `Managers and HR can now see when a person last signed in, shown on their profile card. It's a simple signal of how actively someone is using Lettuce. You can always see your own last sign-in.`,
+    pl: `Przełożeni oraz HR widzą teraz na karcie profilu, kiedy dana osoba ostatnio się zalogowała. To prosty sygnał, jak aktywnie ktoś korzysta z Lettuce. Swoje własne ostatnie logowanie widzisz zawsze.`,
+  },
+  {
     version: "3.9.0",
     date: "2026-09-16",
     en: `Days off no longer need approval. Add or remove your own days off directly — nobody has to accept or reject them. Your team and their manager get notified when you add or remove one, so everyone stays in the picture.`,

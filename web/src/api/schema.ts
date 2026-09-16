@@ -4076,6 +4076,11 @@ export interface components {
             uniqueId: string | null;
             /** @description The language assigned at creation ("en" unless the request chose another) — aligned with UserResponse. */
             language: components["schemas"]["Language"];
+            /**
+             * Format: int64
+             * @description Always null at creation (V78, v3.9.1 — a new user has never logged in) — aligned with UserResponse.
+             */
+            lastLoginAt: number | null;
         };
         UserUpdateRequest: {
             name: string;
@@ -4268,6 +4273,16 @@ export interface components {
              *     user or ADMIN) — never via the whole-user PUT.
              */
             language: components["schemas"]["Language"];
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the user's last successful login COMPLETION (V78, v3.9.1) —
+             *     stamped only by the non-MFA `/login` success and the `/login/mfa` code-exchange
+             *     success, never by `/refresh` or the MFA password step. Read-only, never accepted on
+             *     create/update. PRIVATE like seniorityLevel: populated only when the caller is this
+             *     user, a manager in their transitive management chain, or HR — null otherwise
+             *     (hidden), as well as when the user has never logged in.
+             */
+            lastLoginAt: number | null;
         };
         UserPage: {
             items: components["schemas"]["UserResponse"][];
@@ -4450,6 +4465,15 @@ export interface components {
              *     budgets are manager/self-scoped, so peer and manager rows never carry it.
              */
             daysOffRemaining?: number | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the row user's last successful login completion (V78,
+             *     v3.9.1). PRIVATE like seniorityLevel — see careerPath/seniorityLevel above:
+             *     populated only on `view=managed`, for an HR caller, or on the caller's own row;
+             *     `null` on the other views' rows (hidden), as well as when the row user has never
+             *     logged in.
+             */
+            lastLoginAt?: number | null;
         };
         TeamMemberPage: {
             items: components["schemas"]["TeamMemberListItem"][];

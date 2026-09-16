@@ -221,6 +221,9 @@ fun Application.configureTeamRoutes() {
                     // chain by construction, direct or includeIndirect), for HR, or on the
                     // caller's own row — peers and managers-of get null. No extra queries.
                     val profiles = userService.careerProfilesByUserIds(ids)
+                    // Last login (V78, v3.9.1) rides the same gate as seniority — one extra
+                    // batched query, no per-row lookups.
+                    val lastLogins = userService.lastLoginAtByUserIds(ids)
                     val seniorityVisible = view == TeamMemberListView.MANAGED || caller.isHr()
                     withStats.map { row ->
                         val profile = profiles[row.userId]
@@ -228,6 +231,8 @@ fun Application.configureTeamRoutes() {
                             careerPath = profile?.careerPath,
                             careerSpecialization = profile?.careerSpecialization,
                             seniorityLevel = profile?.seniorityLevel
+                                ?.takeIf { seniorityVisible || row.userId == caller.userId },
+                            lastLoginAt = lastLogins[row.userId]
                                 ?.takeIf { seniorityVisible || row.userId == caller.userId },
                         )
                     }

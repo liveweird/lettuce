@@ -143,6 +143,13 @@ data class TeamMemberListItem(
      * so peer and manager rows never carry it.
      */
     val daysOffRemaining: Double? = null,
+    /**
+     * Epoch ms of the row user's last successful login completion (V78, v3.9.1). PRIVATE like
+     * `seniorityLevel` — populated only on `view=managed` (chain rows by construction), for an
+     * HR caller, or on the caller's own row; null on the other views' rows (hidden), as well as
+     * when the row user has never logged in.
+     */
+    val lastLoginAt: Long? = null,
 )
 
 typealias TeamMemberPageResponse = PageResponse<TeamMemberListItem>

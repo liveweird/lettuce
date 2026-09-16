@@ -128,6 +128,35 @@ class MfaLoginTest {
         }
 
     @Test
+    fun `lastLoginAt is stamped only after the mfa code exchange, not at the password step`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("mfa-lastlogin")
+        val userId = seedMfaUser(email, "pw-123456789")
+        val mail = LogCapture("ch.nokillswit.mail")
+        try {
+            val client = jsonClient()
+            assertEquals(0L, TestServices.users.read(userId)?.lastLoginAt, "never logged in yet")
+
+            val challenge = client.login(email, "pw-123456789").body<MfaChallengeResponse>()
+            // The password step alone answers a challenge, not a completed login.
+            assertEquals(
+                0L,
+                TestServices.users.read(userId)?.lastLoginAt,
+                "the password step alone must not stamp lastLoginAt",
+            )
+
+            val code = mail.codeFor(email)
+            val before = System.currentTimeMillis()
+            assertEquals(HttpStatusCode.OK, client.verify(challenge.challengeId, code).status)
+            val stamped = TestServices.users.read(userId)?.lastLoginAt
+            assertNotNull(stamped)
+            assertTrue(stamped >= before, "lastLoginAt should be stamped at/after the code exchange")
+        } finally {
+            mail.detach()
+        }
+    }
+
+    @Test
     fun `wrong codes are uniform 401s and exhausting the attempt cap kills the challenge`() = testApplication {
         configureApp("security.mfa.maxAttempts" to "3")
         startApplication()

@@ -344,6 +344,25 @@ describe("ManagersTable", () => {
     expect(screen.queryByText("Days off")).toBeNull();
   });
 
+  test("a manager card hides the last-login row - the caller isn't in the manager's chain (v3.9.1)", async () => {
+    // A managers-flavored card never gets showLastLogin (mirrors showSeniorityWhenUnset,
+    // which this flavor also never sets), and the server never sends the value here.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    await screen.findByText("Manager One");
+    expect(screen.queryByText("Last login")).toBeNull();
+  });
+
   test("disabled ONE_ON_ONES and GOALS drop their links; the Feedback menu stays (v1.53.0)", async () => {
     localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["ONE_ON_ONES", "GOALS"]));
     try {

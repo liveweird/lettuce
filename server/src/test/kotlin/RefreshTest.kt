@@ -22,6 +22,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -99,6 +100,21 @@ class RefreshTest {
 
         // Pure-sliding without rotation: the old refresh token is still usable until its own expiry.
         assertEquals(HttpStatusCode.OK, postRefresh(client, first.refreshToken).status)
+    }
+
+    @Test
+    fun `refresh does not advance lastLoginAt`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("refresh-lastlogin")
+        val userId = TestUsers.seed(email = email, password = "pw")
+        val client = jsonClient()
+        val first = loginBody(client, email, "pw")
+
+        val afterLogin = TestServices.users.read(userId)?.lastLoginAt
+        assertNotNull(afterLogin, "the login above should have stamped it")
+
+        assertEquals(HttpStatusCode.OK, postRefresh(client, first.refreshToken).status)
+        assertEquals(afterLogin, TestServices.users.read(userId)?.lastLoginAt, "a refresh must not advance lastLoginAt")
     }
 
     @Test
