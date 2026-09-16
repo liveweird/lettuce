@@ -2671,26 +2671,26 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List days-off requests for the caller
-         * @description Lists days-off requests scoped by `view`. Except `view=user` (the HR auditor view),
-         *     scoping is always relative to the caller, including ADMIN callers.
+         * List days-off entries for the caller
+         * @description Lists days-off entries scoped by `view` (v3.9.0 — no approval lifecycle: every entry is
+         *     active until soft-deleted). Except `view=user` (the HR auditor view), scoping is always
+         *     relative to the caller, including ADMIN callers.
          *
-         *     - `view=own` (the default): the caller's own requests, at every status.
-         *     - `view=managed`: requests of the caller's **direct reports** (members of non-deleted
-         *       teams the caller manages), at every status — the day-to-day slice. With
+         *     - `view=own` (the default): the caller's own entries.
+         *     - `view=managed`: entries of the caller's **direct reports** (members of non-deleted
+         *       teams the caller manages) — the day-to-day slice. With
          *       `includeIndirect=true` (v2.32.0, strict boolean, 400 on other views)
          *       the scope widens to the caller's whole **transitive management subtree** — the
-         *       drill-down's chain mode; the per-row `canResolve` capability marks which rows the
-         *       caller may actually accept/reject (REQUESTED rows of anyone in their subtree —
-         *       the accept/reject right is chain-wide since v2.33.0). A
-         *       caller who manages no team gets an empty page.
+         *       drill-down's chain mode; the per-row `canDelete` capability marks which rows the
+         *       caller may actually delete (owned by anyone in their subtree — the delete right is
+         *       chain-wide since v2.33.0). A caller who manages no team gets an empty page.
          *     - `view=user` (HR only, else `403`; requires `userId`): the auditor view — every
-         *       request of the given user, at every status. HR usage is recorded in the security
+         *       entry of the given user. HR usage is recorded in the security
          *       audit trail. The ordinary sort/filter/paging parameters apply on top.
          *
          *     Supports offset pagination, sorting and filtering.
          *
-         *     - Sortable fields: `id`, `userName`, `startDate`, `endDate`, `type`, `status`, `days`,
+         *     - Sortable fields: `id`, `userName`, `startDate`, `endDate`, `type`, `days`,
          *       `createdAt`. Default sort is `startDate` **descending** (most recent periods first).
          *       `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
@@ -2698,7 +2698,7 @@ export interface paths {
          *       - `userId` — exact owner-id match; a pin-filter on `view=managed` (the drill-down
          *         precedent), required with `view=user`, rejected with `view=own` (`400` — own is
          *         caller-implied).
-         *       - `type` / `status` — exact enum-name match.
+         *       - `type` — exact enum-name match.
          *       - `poolTypeId` — exact paid-pool-kind match (v3.2.0; implies PAID).
          *       - `startDate[gte]` / `startDate[lte]` — inclusive ISO-date bounds on the start date.
          *
@@ -2708,40 +2708,36 @@ export interface paths {
         get: operations["listDaysOff"];
         put?: never;
         /**
-         * Request days off
-         * @description Creates a days-off request. Without `userId` the **owner is the caller** and the
-         *     request enters **REQUESTED**. With `userId` (v2.29.0) a **manager in that user's
-         *     transitive management chain** (chain-wide since v2.33.0 — direct managers only until
-         *     then) records the entry **on their behalf**: it is born **ACCEPTED** with the
-         *     caller stamped as the resolver — the vacation-history population flow (the caller
-         *     already holds the accept right). Anyone else — the target themselves, ADMIN, HR —
-         *     is `403`; a deactivated target is `400` (the house
-         *     no-new-assignments rule). Past periods are as valid here as on self-requests.
+         * Create a days-off entry
+         * @description Creates a days-off entry, active immediately — no approval lifecycle (v3.9.0). Without
+         *     `userId` the **owner is the caller**. With `userId` (v2.29.0) a **manager in that
+         *     user's transitive management chain** (chain-wide since v2.33.0 — direct managers only
+         *     until then) records the entry **on their behalf**, owned by the target. Anyone else —
+         *     the target themselves, ADMIN, HR — is `403`; a deactivated target is `400` (the house
+         *     no-new-assignments rule). Past periods are as valid here as on self-entries.
          *
-         *     One request covers one **consecutive period** `[startDate, endDate]` (a single day is
+         *     One entry covers one **consecutive period** `[startDate, endDate]` (a single day is
          *     allowed; both bounds inclusive, strict zero-padded ISO `YYYY-MM-DD`). The period must
-         *     not span calendar years (`400` — split a New-Year period into two requests).
+         *     not span calendar years (`400` — split a New-Year period into two entries).
          *     `startHalf`/`endHalf` mark the period's first/last day as **half days**; a single-day
-         *     request expresses a half day via `startHalf` alone (`endHalf` there is `400`).
+         *     entry expresses a half day via `startHalf` alone (`endHalf` there is `400`).
          *
          *     The working-day **cost** is computed server-side: Saturdays, Sundays, and public
          *     holidays inside the period cost nothing; every other day costs 1 day (0.5 with the
          *     matching half toggle). The cost is computed against the holiday registry **at creation
-         *     and frozen** — later registry edits never reprice existing requests. A period containing
+         *     and frozen** — later registry edits never reprice existing entries. A period containing
          *     no working days at all is `400`.
          *
-         *     State rules (both `409`): the period must not **overlap** any of the owner's REQUESTED
-         *     or ACCEPTED requests — the `ProblemDetail.instance` of the conflict points at the
-         *     existing request; and a **PAID** request must fit the owner's paid-days budget — a
-         *     REQUESTED request already reserves budget, and unused budget carries over between
-         *     calendar years (see `GET /days-off/budgets`). UNPAID requests are unlimited.
+         *     State rules (both `409`): the period must not **overlap** any of the owner's other
+         *     active entries — the `ProblemDetail.instance` of the conflict points at the existing
+         *     entry; and a **PAID** entry must fit the owner's paid-days budget — unused budget
+         *     carries over between calendar years (see `GET /days-off/budgets`). UNPAID entries are
+         *     unlimited.
          *
-         *     A self-request notifies each of the owner's **current direct managers** (deliberately
-         *     NOT the whole chain — the chain right is a substitute mechanism, pull not push); a
-         *     user with no manager notifies nobody (and nobody can accept — a documented
-         *     top-of-chain limitation). An on-behalf recording instead notifies **both parties** —
-         *     the owner and the acting manager (a durable receipt); other managers see the row in
-         *     their managed list.
+         *     Notifies the create fan-out (v3.9.0): every person sharing a team with the owner plus
+         *     each such team's direct manager, minus the acting person (so a self-entry excludes the
+         *     owner, and an on-behalf recording excludes the acting manager but still reaches the
+         *     owner).
          */
         post: operations["createDaysOff"];
         delete?: never;
@@ -2761,9 +2757,9 @@ export interface paths {
          * Month calendar of a team's days off
          * @description The month calendar payload for the SPA's leave-planner grid: every user in the scope
          *     (users without entries included — their rows still render), each carrying their
-         *     **REQUESTED and ACCEPTED** days clipped to the month (the whole period is expanded,
-         *     weekends included, so bars render continuously), plus the month's public holidays.
-         *     REJECTED and CANCELLED requests never appear.
+         *     **active** days clipped to the month (the whole period is expanded, weekends included,
+         *     so bars render continuously), plus the month's public holidays. Deleted entries never
+         *     appear (v3.9.0 — no approval lifecycle left to filter on).
          *
          *     Scopes (both caller-relative — any authenticated caller may use either; an empty
          *     scope is an empty user list):
@@ -2799,20 +2795,19 @@ export interface paths {
          *     `poolArchived` — a non-default pool with history in this year but no active grant:
          *     it renders, but takes no new requests), the configured **allowance**, the
          *     **carriedOver** days from previous years (always 0 for a non-carry-over pool kind),
-         *     the year's **reserved** (REQUESTED) and **used** (ACCEPTED) paid days, the year's
-         *     net manager **corrections**, and the **remaining** balance
-         *     (`carriedOver + allowance + corrected − reserved − used`, may be negative after a
+         *     the year's **used** paid days (v3.9.0 — every active PAID entry counts, no
+         *     reserved/used split), the year's net manager **corrections**, and the **remaining**
+         *     balance (`carriedOver + allowance + corrected − used`, may be negative after a
          *     retroactive allowance cut).
          *
          *     Carry-over (pool kinds with `carriesOver`): unused budget in one calendar year
          *     transfers to the next. The accumulation is anchored at the year of the pool's
-         *     earliest counting PAID request (REQUESTED/ACCEPTED) **or budget correction**,
-         *     whichever is earlier (the allowance never phantom-accumulates over empty historical
-         *     years), and the CURRENT allowance value applies to every year — an allowance change
-         *     (a chain manager's, via PUT /days-off/allowance — v2.32.0) recomputes history
-         *     (documented behavior). A non-carry-over kind resets every January:
-         *     `remaining = allowance + corrected − reserved − used` over that year alone.
-         *     REJECTED and CANCELLED requests never count.
+         *     earliest active PAID entry **or budget correction**, whichever is earlier (the
+         *     allowance never phantom-accumulates over empty historical years), and the CURRENT
+         *     allowance value applies to every year — an allowance change (a chain manager's, via
+         *     PUT /days-off/allowance — v2.32.0) recomputes history (documented behavior). A
+         *     non-carry-over kind resets every January: `remaining = allowance + corrected − used`
+         *     over that year alone. Deleted entries never count.
          *
          *     Views (both caller-relative): `view=own` (the default) — the caller's rows;
          *     `view=managed` — the rows of every **direct report** (the manager's budget overview;
@@ -3058,97 +3053,26 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Fetch a days-off request
-         * @description Returns the full request document. Readable by the **owner** and the **HR auditor**
-         *     (audit-logged) at every status; by any **manager in the owner's transitive management
-         *     chain** at every status; and by a **teammate** (someone sharing a non-deleted team
-         *     with the owner) only while the request is **REQUESTED or ACCEPTED** — exactly what the
-         *     team calendar shows, so a REJECTED or CANCELLED request stays private to the owner,
-         *     their chain, and HR. Anyone else gets `403`. ADMIN gets nothing special.
+         * Fetch a days-off entry
+         * @description Returns the full entry document. Readable by the **owner** and the **HR auditor**
+         *     (audit-logged); by any **manager in the owner's transitive management chain**; and by
+         *     a **teammate** (someone sharing a non-deleted team with the owner) — v3.9.0: no
+         *     lifecycle left to gate the teammate grant on, so every active entry is calendar-visible
+         *     to teammates. Anyone else gets `403`. ADMIN gets nothing special.
          */
         get: operations["getDaysOff"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/days-off/{id}/accept": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
         /**
-         * Accept a days-off request
-         * @description Accepts a **REQUESTED** request (any other status is `409`). Only a **manager in the
-         *     owner's transitive management chain** (chain-wide since v2.33.0 — direct managers
-         *     only until then) may accept — never the owner,
-         *     and ADMIN gets nothing special. Stamps the resolving manager on the record and
-         *     notifies the owner.
+         * Delete a days-off entry
+         * @description Soft-deletes an entry (v3.9.0 — the sole removal path; no accept/reject/cancel). Only
+         *     the **owner or any manager in the owner's transitive chain** may delete (the former
+         *     cancel rule, unchanged reach); nobody else — ADMIN and HR included. Frees the paid
+         *     budget and the overlap slot immediately. Notifies the delete fan-out: every person
+         *     sharing a team with the owner plus each such team's direct manager, minus the acting
+         *     person.
          */
-        post: operations["acceptDaysOff"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/days-off/{id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reject a days-off request
-         * @description Rejects a **REQUESTED** request (any other status is `409`; REJECTED is terminal).
-         *     Only a **manager in the owner's transitive management chain** may reject — the same
-         *     rule as accept (chain-wide since v2.33.0).
-         *     Stamps the resolving manager on the record and notifies the owner.
-         */
-        post: operations["rejectDaysOff"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/days-off/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a days-off request
-         * @description Cancels a request (CANCELLED is terminal) — by the **owner or any manager in the
-         *     owner's transitive chain** (v2.31.0; nobody else, ADMIN/HR included), from
-         *     **REQUESTED or ACCEPTED regardless of date** (any other status is `409`), and always
-         *     with a mandatory `reason` (stored encrypted at rest; never carried by notifications).
-         *     Frees the reserved paid budget retroactively. Both sides are notified: the owner
-         *     always, plus every current direct manager on an owner-cancel or the acting manager's
-         *     receipt on a manager-cancel.
-         */
-        post: operations["cancelDaysOff"];
-        delete?: never;
+        delete: operations["deleteDaysOff"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4512,9 +4436,9 @@ export interface components {
             seniorityLevel?: components["schemas"]["DictionaryEntry"] | null;
             /**
              * Format: date
-             * @description ISO start date of the row user's next ACCEPTED days-off request that hasn't ended
-             *     yet (an ongoing one counts; pending requests never show). Populated for
-             *     `view=managed` and `view=member` (teammates see accepted absences by calendar
+             * @description ISO start date of the row user's next active days-off entry that hasn't ended
+             *     yet (v3.9.0 — no lifecycle to filter on; an ongoing one counts). Populated for
+             *     `view=managed` and `view=member` (teammates see absences by calendar
              *     parity); always null on `view=managers`, and null when nothing is planned.
              */
             nextVacationStart?: string | null;
@@ -6064,13 +5988,9 @@ export interface components {
             endHalf: boolean;
             /**
              * Format: int32
-             * @description Omitted/null: the caller requests for themselves (REQUESTED). Set: the caller — a manager in this user's transitive management chain (chain-wide since v2.33.0) — records the entry on their behalf, born ACCEPTED with the caller as resolver (v2.29.0). 403 for anyone else, including the target themselves.
+             * @description Omitted/null: the caller enters this for themselves. Set: the caller — a manager in this user's transitive management chain (chain-wide since v2.33.0) — records the entry on their behalf (v2.29.0; no approval step since v3.9.0 — the entry exists immediately, owned by the target). 403 for anyone else, including the target themselves.
              */
             userId?: number | null;
-        };
-        DaysOffCancelRequest: {
-            /** @description The mandatory cancellation reasoning (v2.31.0) — stored encrypted at rest on the request; shown to whoever can see the cancelled row, never carried by notifications. Blank is 400. */
-            reason: string;
         };
         DaysOffResponse: {
             /** Format: int32 */
@@ -6085,13 +6005,8 @@ export interface components {
              * @description The paid pool kind (v3.2.0); null for UNPAID.
              */
             poolTypeId: number | null;
-            /** @description The paid pool kind's current name (v3.2.0); null for UNPAID. Archived kinds keep labelling their history. Both pool fields are REDACTED (null) when the reader is a teammate seeing the request by calendar parity (v3.2.1 — the absence is shared, the category of leave is not); owner, chain managers, and HR see them. */
+            /** @description The paid pool kind's current name (v3.2.0); null for UNPAID. Archived kinds keep labelling their history. Both pool fields are REDACTED (null) when the reader is a teammate seeing the entry by calendar parity (v3.2.1 — the absence is shared, the category of leave is not); owner, chain managers, and HR see them. */
             poolName: string | null;
-            /**
-             * @description REQUESTED → ACCEPTED | REJECTED (a chain manager resolves), plus terminal CANCELLED (the owner or a chain manager withdraws it, with a mandatory reason — v2.31.0). REQUESTED and ACCEPTED reserve paid budget; REJECTED and CANCELLED free it.
-             * @enum {string}
-             */
-            status: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
             /** Format: date */
             startDate: string;
             /** Format: date */
@@ -6108,30 +6023,6 @@ export interface components {
              * @description Epoch milliseconds, immutable.
              */
             createdAt: number;
-            /**
-             * Format: int32
-             * @description The accepting/rejecting manager — null while REQUESTED.
-             */
-            resolvedById: number | null;
-            resolvedByName: string | null;
-            /**
-             * Format: int64
-             * @description Epoch milliseconds.
-             */
-            resolvedAt: number | null;
-            /**
-             * Format: int64
-             * @description Epoch milliseconds.
-             */
-            cancelledAt: number | null;
-            /**
-             * Format: int32
-             * @description The cancelling actor (v2.31.0 — the owner or a chain manager). Null unless CANCELLED, and null on requests cancelled before the rework.
-             */
-            cancelledById: number | null;
-            cancelledByName: string | null;
-            /** @description The mandatory cancellation reasoning (decrypted; stored encrypted at rest). Null unless CANCELLED, and null on requests cancelled before the rework. */
-            cancelReason: string | null;
             /** Format: int64 */
             lastModified: number;
         };
@@ -6151,8 +6042,6 @@ export interface components {
             poolTypeId: number | null;
             /** @description The paid pool kind's current name (v3.2.0); null for UNPAID. */
             poolName: string | null;
-            /** @enum {string} */
-            status: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
             /** Format: date */
             startDate: string;
             /** Format: date */
@@ -6163,19 +6052,8 @@ export interface components {
             days: number;
             /** Format: int64 */
             createdAt: number;
-            /**
-             * Format: int64
-             * @description Epoch milliseconds.
-             */
-            cancelledAt: number | null;
-            /** @description Null unless CANCELLED (and on requests cancelled before v2.31.0). */
-            cancelledByName: string | null;
-            /** @description The mandatory cancellation reasoning (decrypted; stored encrypted at rest) — backs the table's reason popover. Null unless CANCELLED (and on pre-rework cancellations). */
-            cancelReason: string | null;
-            /** @description Server-computed capability (v2.31.0, the team-KPI canManage precedent): the caller may cancel this row — they own it or manage the owner transitively, and it is REQUESTED/ACCEPTED. */
-            canCancel: boolean;
-            /** @description Server-computed capability (v2.32.0): the caller may accept/reject this row — it is REQUESTED and they are a manager in the owner's transitive chain (chain-wide since v2.33.0). Marks actionable rows honestly across views. */
-            canResolve: boolean;
+            /** @description Server-computed capability (v3.9.0, the team-KPI canManage precedent — the former canCancel): the caller may delete this row — they own it or manage the owner transitively. */
+            canDelete: boolean;
             /** Format: int64 */
             lastModified: number;
         };
@@ -6198,11 +6076,6 @@ export interface components {
             type: "PAID" | "UNPAID";
             /** @description The paid pool kind's name (v3.2.0) — the cell tooltip; null for UNPAID, and null on OTHER people's entries in the member scope (v3.2.1 — teammates see the absence, not the category of leave; the caller's own bars and the managed scope keep it). */
             poolName: string | null;
-            /**
-             * @description Only counting statuses appear on the calendar; REQUESTED renders as tentative.
-             * @enum {string}
-             */
-            status: "REQUESTED" | "ACCEPTED";
             /** @description True on a half-day edge day of its period. */
             half: boolean;
         };
@@ -6243,7 +6116,7 @@ export interface components {
             carriesOver: boolean;
             /** @description Whether this is the default pool — always present per user, never archivable (v3.2.0). */
             isDefault: boolean;
-            /** @description A non-default pool with counting requests or corrections in this year but no active grant — or an active grant whose KIND was archived under it (v3.2.1) — history renders, no new requests may target it. Its `allowance` is null, so `remaining` shows the (typically negative) residual of the year's usage. */
+            /** @description A non-default pool with entries or corrections in this year but no active grant — or an active grant whose KIND was archived under it (v3.2.1) — history renders, no new requests may target it. Its `allowance` is null, so `remaining` shows the (typically negative) residual of the year's usage. */
             poolArchived: boolean;
             /** @description The configured annual allowance in whole days (set by a chain manager via PUT /days-off/allowance since v2.32.0); null = no active grant = zero budget. */
             allowance: number | null;
@@ -6259,17 +6132,12 @@ export interface components {
             corrected: number;
             /**
              * Format: double
-             * @description The year's REQUESTED (pending) paid days — reserved, not yet confirmed.
-             */
-            reserved: number;
-            /**
-             * Format: double
-             * @description The year's ACCEPTED paid days.
+             * @description The year's active PAID days (v3.9.0 — every entry counts, no reserved/used split).
              */
             used: number;
             /**
              * Format: double
-             * @description carriedOver + allowance + corrected − reserved − used; may be negative after a retroactive allowance cut.
+             * @description carriedOver + allowance + corrected − used; may be negative after a retroactive allowance cut.
              */
             remaining: number;
             /** @description Server-computed capability (v2.32.0): the caller may write budget corrections for this user — chain-wide since v2.33.0, so true on every managed-view row (includeIndirect ones included, matching the allowance right); always false on view=own. */
@@ -6396,7 +6264,7 @@ export interface components {
              * @description Notification kind; the client renders it in the viewer's language.
              * @enum {string}
              */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_REQUESTED_TO_MANAGER" | "DAYS_OFF_ACCEPTED_TO_OWNER" | "DAYS_OFF_REJECTED_TO_OWNER" | "DAYS_OFF_CANCELLED_TO_MANAGER" | "DAYS_OFF_CANCELLED_TO_OWNER" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_OWNER" | "DAYS_OFF_RECORDED_TO_MANAGER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -6413,12 +6281,11 @@ export interface components {
              *     TEAM_KPI_* kinds carry `{manager,title,team}` — the manager's name, the KPI's
              *     plaintext title, and the team's name. The PERFORMANCE_REVIEW_* kinds carry
              *     `{manager,startMonth,endMonth}` — the manager's name and the period's raw ISO
-             *     month bounds (the client formats the period). The DAYS_OFF_* kinds carry the party
-             *     name (`requester` toward managers, `manager` toward the owner) plus raw ISO
-             *     `{startDate,endDate}`; DAYS_OFF_REQUESTED_TO_MANAGER additionally `{type,days}`
-             *     (the enum name and a "1.5"-style days string) — the client formats all of them.
-             *     The DAYS_OFF_RECORDED_* pair (an on-behalf recording, v2.29.0) also carries
-             *     `{type,days}` next to its party name. DAYS_OFF_CORRECTED_TO_OWNER carries
+             *     month bounds (the client formats the period). DAYS_OFF_CREATED and DAYS_OFF_DELETED
+             *     (v3.9.0 — the create/delete fan-out to every teammate plus each team's direct
+             *     manager, minus the acting person; no approval lifecycle) carry only
+             *     `{person,startDate,endDate}` — deliberately no pool/type, so the teammate
+             *     redaction rule is honoured by construction. DAYS_OFF_CORRECTED_TO_OWNER carries
              *     `{manager,year,operation,days}` — the client words ADD/SUBTRACT from `operation`.
              *     The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
              *     owner's name and the entry's raw ISO period bounds (never section text).
@@ -6979,7 +6846,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetail"];
             };
         };
-        /** @description Caller may not read this days-off request (not the owner, HR, a manager in the owner's chain, or — for a REQUESTED/ACCEPTED request — a teammate) */
+        /** @description Caller may not read this days-off entry (not the owner, HR, a manager in the owner's chain, or a teammate) */
         DaysOffNotReadable: {
             headers: {
                 [name: string]: unknown;
@@ -6990,15 +6857,6 @@ export interface components {
         };
         /** @description Caller is not a manager in the owner's transitive management chain */
         DaysOffNotChainManager: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["ProblemDetail"];
-            };
-        };
-        /** @description The action is not allowed from the request's current status (accept/reject need REQUESTED; cancel needs REQUESTED or ACCEPTED) */
-        DaysOffInvalidTransition: {
             headers: {
                 [name: string]: unknown;
             };
@@ -11068,10 +10926,8 @@ export interface operations {
                 userName?: string;
                 /** @description Exact type match. */
                 type?: "PAID" | "UNPAID";
-                /** @description Exact paid-pool-kind match (v3.2.0) — only PAID requests carry one, so the filter implies type=PAID (a non-integer value is 400). */
+                /** @description Exact paid-pool-kind match (v3.2.0) — only PAID entries carry one, so the filter implies type=PAID (a non-integer value is 400). */
                 poolTypeId?: number;
-                /** @description Exact status match. */
-                status?: "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
                 /** @description Lower bound (inclusive) on the start date, ISO YYYY-MM-DD. */
                 "startDate[gte]"?: string;
                 /** @description Upper bound (inclusive) on the start date, ISO YYYY-MM-DD. */
@@ -11085,7 +10941,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A page of days-off requests */
+            /** @description A page of days-off entries */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11121,10 +10977,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created — the full request document */
+            /** @description Created — the full entry document */
             201: {
                 headers: {
-                    /** @description URL of the new days-off request */
+                    /** @description URL of the new days-off entry */
                     Location?: string;
                     [name: string]: unknown;
                 };
@@ -11143,7 +10999,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            /** @description The period overlaps an existing REQUESTED/ACCEPTED request of the caller (the ProblemDetail `instance` points at it), or a PAID request exceeds the remaining paid-days budget of its year (or a later carry-over-funded year) */
+            /** @description The period overlaps an existing active entry of the owner (the ProblemDetail `instance` points at it), or a PAID entry exceeds the remaining paid-days budget of its year (or a later carry-over-funded year) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11574,7 +11430,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The days-off request */
+            /** @description The days-off entry */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11590,7 +11446,7 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    acceptDaysOff: {
+    deleteDaysOff: {
         parameters: {
             query?: never;
             header?: never;
@@ -11601,7 +11457,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Accepted */
+            /** @description Deleted */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -11610,63 +11466,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["DaysOffNotChainManager"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["DaysOffInvalidTransition"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    rejectDaysOff: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rejected */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["DaysOffNotChainManager"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["DaysOffInvalidTransition"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    cancelDaysOff: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DaysOffCancelRequest"];
-            };
-        };
-        responses: {
-            /** @description Cancelled */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            /** @description The caller is neither the request's owner nor a manager in their chain */
+            /** @description The caller is neither the entry's owner nor a manager in their chain */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -11676,7 +11476,6 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            409: components["responses"]["DaysOffInvalidTransition"];
             500: components["responses"]["InternalServerError"];
         };
     };

@@ -11,18 +11,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class DaysOffType { PAID, UNPAID }
 
-/**
- * The request lifecycle: REQUESTED -> ACCEPTED | REJECTED (resolved by a current direct manager
- * of the owner), plus terminal CANCELLED (the owner — from REQUESTED anytime, from ACCEPTED only
- * strictly before the start date). REQUESTED and ACCEPTED both reserve paid budget ("counting"
- * statuses); REJECTED and CANCELLED free it.
- */
-@Serializable
-enum class DaysOffStatus { REQUESTED, ACCEPTED, REJECTED, CANCELLED }
-
-/** The budget-reserving statuses — the working set for overlap and budget checks. */
-internal val COUNTING_STATUSES = listOf(DaysOffStatus.REQUESTED, DaysOffStatus.ACCEPTED)
-
 const val MAX_PAID_DAYS_OFF_ALLOWANCE = 365
 
 /**
@@ -89,11 +77,10 @@ internal fun validateDaysOffAllowance(write: DaysOffAllowanceWrite) {
 }
 
 /**
- * Body of `POST /days-off` — the cost is computed server-side and the status is never settable.
- * Without [userId] the owner is the caller and the request enters REQUESTED; with [userId]
- * (v2.29.0) a current DIRECT MANAGER of that user records the entry on their behalf and it is
- * born ACCEPTED with the caller stamped as the resolver (the vacation-history population flow —
- * the caller holds the accept right, so a separate approval step would be theater).
+ * Body of `POST /days-off` — no lifecycle (v3.9.0 — the request/approval machine is gone: an
+ * entry exists as soon as it is created, until soft-deleted). Without [userId] the owner is the
+ * caller; with [userId] (v2.29.0) a manager in that user's TRANSITIVE management chain records
+ * the entry on their behalf — a plain entry like a self-create, just owned by someone else.
  * Edge half-days: [startHalf]/[endHalf] mark the first/last day of the period as half days; a
  * single-day request uses [startHalf] alone ([endHalf] must stay false — see
  * [validateDaysOffCreate]).
@@ -113,12 +100,6 @@ data class DaysOffCreateRequest(
     val poolTypeId: UInt? = null,
 )
 
-/** The mandatory reasoning for a cancellation (v2.31.0) — validated by [validateDaysOffCancel]. */
-@Serializable
-data class DaysOffCancelRequest(
-    val reason: String,
-)
-
 @Serializable
 data class DaysOffResponse(
     val id: UInt,
@@ -129,7 +110,6 @@ data class DaysOffResponse(
     // the kind's CURRENT name (archived kinds keep labelling their history).
     val poolTypeId: UInt?,
     val poolName: String?,
-    val status: DaysOffStatus,
     // ISO YYYY-MM-DD, immutable after create; startDate <= endDate, same calendar year.
     val startDate: String,
     val endDate: String,
@@ -139,18 +119,6 @@ data class DaysOffResponse(
     // period cost nothing; computed against the holiday registry at creation, never repriced.
     val days: Double,
     val createdAt: Long,
-    // The accepting/rejecting manager — null while REQUESTED (and forever on a REQUESTED-time
-    // cancellation).
-    val resolvedById: UInt?,
-    val resolvedByName: String?,
-    val resolvedAt: Long?,
-    val cancelledAt: Long?,
-    // The cancelling actor (v2.31.0 — owner OR a chain manager) and their mandatory reason
-    // (decrypted; stored encrypted at rest). All null on rows cancelled before the rework,
-    // and while not CANCELLED.
-    val cancelledById: UInt?,
-    val cancelledByName: String?,
-    val cancelReason: String?,
     val lastModified: Long,
 )
 
@@ -164,25 +132,16 @@ data class DaysOffListItem(
     // The paid pool kind (v3.2.0) — null for UNPAID (see DaysOffResponse).
     val poolTypeId: UInt?,
     val poolName: String?,
-    val status: DaysOffStatus,
     val startDate: String,
     val endDate: String,
     val startHalf: Boolean,
     val endHalf: Boolean,
     val days: Double,
     val createdAt: Long,
-    // The cancellation record (v2.31.0) — the reason popover's data; null unless CANCELLED
-    // (and null on pre-rework cancellations, which carried no actor/reason).
-    val cancelledAt: Long?,
-    val cancelledByName: String?,
-    val cancelReason: String?,
-    // Server-computed capability (the team-KPI canManage precedent): the caller may cancel
-    // this row — they own it or manage the owner (transitively) and it is REQUESTED/ACCEPTED.
-    val canCancel: Boolean,
-    // The caller may accept/reject this row — it is REQUESTED and they are a CURRENT DIRECT
-    // manager of the owner (v2.32.0, with the managed view's includeIndirect widening: a
-    // chain row must not render resolve buttons that would 403).
-    val canResolve: Boolean,
+    // Server-computed capability (the team-KPI canManage precedent, v3.9.0 — the canCancel
+    // successor): the caller may delete this row — they own it or manage the owner
+    // (transitively).
+    val canDelete: Boolean,
     val lastModified: Long,
 )
 
@@ -200,7 +159,6 @@ data class DaysOffCalendarEntry(
     val type: DaysOffType,
     // The paid pool kind's name (v3.2.0) — null for UNPAID; the grid's cell tooltip.
     val poolName: String?,
-    val status: DaysOffStatus,
     val half: Boolean,
 )
 
@@ -214,8 +172,8 @@ data class DaysOffCalendarUser(
 
 /**
  * The month calendar payload: every user in the scope (entries or not — rows must render),
- * their REQUESTED/ACCEPTED days clipped to the month, plus the month's public holidays.
- * Bounded by (scope users × ≤31 days), so unpaged by construction.
+ * their active days clipped to the month, plus the month's public holidays. Bounded by
+ * (scope users × ≤31 days), so unpaged by construction.
  */
 @Serializable
 data class DaysOffCalendarResponse(
@@ -228,7 +186,7 @@ data class DaysOffCalendarResponse(
  * One user's budget in ONE paid pool for one calendar year (v3.2.0 — one row per (user, pool
  * kind, year); the default kind's row is always present, extra kinds' rows for every active
  * grant plus history-only rows of archived pools). All day values are in days (0.5 steps);
- * `remaining = carriedOver + allowance + corrected - reserved - used` holds by construction
+ * `remaining = carriedOver + allowance + corrected - used` holds by construction
  * ([remainingHalfDays]; `carriedOver` is always 0 for a non-carry-over kind).
  */
 @Serializable
@@ -240,7 +198,7 @@ data class DaysOffBudget(
     // The pool (v3.2.0): the ACTIVE grant row's id (null = no active grant — the ungranted
     // default kind, or a history-only archived pool), the kind, its current name, whether it
     // carries unused days over, whether it is the default kind, and `poolArchived` = a
-    // non-default pool that still has counting requests/corrections in this year but no
+    // non-default pool that still has requests/corrections in this year but no
     // active grant (renders as history; no new requests).
     val poolId: UInt?,
     val poolTypeId: UInt,
@@ -253,12 +211,10 @@ data class DaysOffBudget(
     val carriedOver: Double,
     // The year's net manager corrections in days (signed; 0 when none) — v1.43.0.
     val corrected: Double,
-    // REQUESTED (pending) paid days in the year — reserved, not yet confirmed.
-    val reserved: Double,
-    // ACCEPTED paid days in the year.
+    // Every active PAID entry's days in the year count as used (v3.9.0 — no reserved/used split).
     val used: Double,
     val remaining: Double,
-    // Server-computed capability (the list rows' canCancel precedent): the caller may write
+    // Server-computed capability (the list rows' canDelete precedent): the caller may write
     // budget corrections for this user — i.e. is a CURRENT DIRECT manager (the resolve right).
     // False on view=own rows and on includeIndirect-only (chain) rows, whose viewer may still
     // edit the allowance (the wider chain right — its capability is the row's presence in
@@ -344,7 +300,7 @@ internal fun daysOffCostHalfDays(
 /**
  * The remaining paid budget for [year] in half-day units — the closed form of the carry-over
  * recursion ("unused budget transfers to the next year"): with the anchor
- * `A = min(earliest year holding a counting PAID request or a correction, year)`, the budget
+ * `A = min(earliest year holding an active PAID entry or a correction, year)`, the budget
  * accumulated over `A..year` is `2·allowance·(year − A + 1)` plus the signed corrections minus
  * everything used in those years. Anchoring at the earliest actual activity means the allowance
  * never phantom-accumulates over empty historical years (a user with no history simply has this
@@ -352,11 +308,11 @@ internal fun daysOffCostHalfDays(
  * correction can push a year negative and the deficit carries forward — request creation
  * enforces `>= 0`, so a deficit only ever arises from admin/manager edits (documented).
  *
- * [usedByYear] maps year → summed half-day cost of the user's counting (REQUESTED/ACCEPTED)
- * PAID requests in that year — of ONE pool since v3.2.0, like [correctionsByYear], which maps
- * year → the summed SIGNED half-day amount of the manager corrections attributed to it
- * (v1.43.0). A non-carry-over pool ([carriesOver] false, v3.2.0) anchors at [year] itself:
- * the form collapses to `2·allowance + corrections[year] − used[year]` — every January resets.
+ * [usedByYear] maps year → summed half-day cost of the user's active PAID requests in that year
+ * — of ONE pool since v3.2.0, like [correctionsByYear], which maps year → the summed SIGNED
+ * half-day amount of the manager corrections attributed to it (v1.43.0). A non-carry-over pool
+ * ([carriesOver] false, v3.2.0) anchors at [year] itself: the form collapses to
+ * `2·allowance + corrections[year] − used[year]` — every January resets.
  */
 internal fun remainingHalfDays(
     allowanceDays: Int?,
@@ -375,7 +331,7 @@ internal fun remainingHalfDays(
 
 /**
  * The half-day units carried into [year] from previous years: [remainingHalfDays] of `year − 1`,
- * or 0 when no counting usage or correction exists before [year] — the anchor rule again: with
+ * or 0 when no usage or correction exists before [year] — the anchor rule again: with
  * no history the previous year contributes nothing, so a fresh user's budget is exactly the
  * allowance. Always 0 for a non-carry-over pool ([carriesOver] false, v3.2.0).
  */
@@ -401,7 +357,6 @@ internal fun formatHalfDaysParam(halfDays: Int): String =
 enum class DaysOffCorrectionOperation { ADD, SUBTRACT }
 
 const val MAX_CORRECTION_COMMENT_LENGTH = 1000
-const val MAX_CANCEL_REASON_LENGTH = 1000
 
 /**
  * Body of `POST /days-off/corrections` and (minus [userId], which is create-only and immutable)
@@ -455,14 +410,6 @@ internal fun correctionHalfDays(write: DaysOffCorrectionWrite): Int {
  * Validates a correction's shape (400s): a sensible year, a positive half-day-stepped amount
  * of at most a year, and a non-blank bounded comment (the mandatory reasoning).
  */
-/** Validates a cancellation's mandatory reason (400s) — the correction-comment rules. */
-internal fun validateDaysOffCancel(request: DaysOffCancelRequest) {
-    if (request.reason.isBlank()) throw BadRequestException("Cancellation reason must not be blank")
-    if (request.reason.length > MAX_CANCEL_REASON_LENGTH) {
-        throw BadRequestException("Cancellation reason must be at most $MAX_CANCEL_REASON_LENGTH characters")
-    }
-}
-
 internal fun validateDaysOffCorrection(write: DaysOffCorrectionWrite) {
     if (write.year !in 2000..2100) {
         throw BadRequestException("Correction year must be between 2000 and 2100")

@@ -173,12 +173,12 @@ fun Application.configureTeamRoutes() {
                 val items = if (result.items.isEmpty()) result.items else {
                     val ids = result.items.map { it.userId }.toSet()
                     val withStats = when (view) {
-                        // Peers also see each other's next accepted vacation (calendar parity —
-                        // ACCEPTED rows are on the shared team calendar) but never budgets.
+                        // Peers also see each other's next vacation (calendar parity — v3.9.0,
+                        // every active entry is on the shared team calendar) but never budgets.
                         TeamMemberListView.MEMBER -> {
                             val given = feedbackService.lastProvidedTo(caller.userId, ids)
                             val received = feedbackService.lastProvidedAt(ids, caller.userId)
-                            val vacations = daysOffService.nextAcceptedVacationsByUserIds(ids)
+                            val vacations = daysOffService.nextVacationByUserIds(ids)
                             result.items.map {
                                 it.copy(
                                     lastFeedbackGivenAt = given[it.userId],
@@ -196,7 +196,7 @@ fun Application.configureTeamRoutes() {
                             goalService.activeGoalCountsByManager(ids, caller.userId),
                         )
                         TeamMemberListView.MANAGED -> {
-                            val vacations = daysOffService.nextAcceptedVacationsByUserIds(ids)
+                            val vacations = daysOffService.nextVacationByUserIds(ids)
                             val remaining = daysOffService.remainingByUserIds(
                                 ids,
                                 java.time.LocalDate.now().year,

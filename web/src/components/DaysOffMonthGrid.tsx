@@ -26,15 +26,7 @@ function offDayClass(holiday: boolean, weekend: boolean): string {
 }
 
 function fillClass(entry: DaysOffCalendarEntry): string {
-  const tentative = entry.status === "REQUESTED";
-  const paid = entry.type === "PAID";
-  const color = tentative
-    ? paid
-      ? classes.tentativePaid
-      : classes.tentativeUnpaid
-    : paid
-      ? classes.paid
-      : classes.unpaid;
+  const color = entry.type === "PAID" ? classes.paid : classes.unpaid;
   return `${classes.fill} ${color}${entry.half ? ` ${classes.half}` : ""}`;
 }
 
@@ -51,10 +43,10 @@ function LegendItem({ swatch, label }: { swatch: string; label: string }) {
 
 /**
  * The leave-planner grid: rows = people in the scope, columns = the month's days. Weekend and
- * holiday columns are dimmed (the holiday's name rides the column header tooltip); accepted
- * days render as solid bars (PAID teal / UNPAID gray), pending ones striped, half days as
- * half-filled cells. A real `<table>` with per-cell `title` descriptions; hand-rolled — no
- * calendar dependency.
+ * holiday columns are dimmed (the holiday's name rides the column header tooltip); every active
+ * entry renders as a solid bar (PAID teal / UNPAID gray — no lifecycle since v3.9.0, so nothing
+ * is tentative), half days as half-filled cells. A real `<table>` with per-cell `title`
+ * descriptions; hand-rolled — no calendar dependency.
  */
 export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarResponse }) {
   const { t, i18n } = useTranslation();
@@ -124,7 +116,6 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
                               name: user.userName,
                               date: iso,
                               type: entry.poolName ?? t(`daysOff.type.${entry.type}`),
-                              status: t(`daysOff.status.${entry.status}`),
                               amount: formatDays(entry.half ? 0.5 : 1, i18n.language),
                             })
                           : (holidayNames.get(iso) ?? undefined)
@@ -144,7 +135,6 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
       <Group gap="lg" mt="sm" wrap="wrap">
         <LegendItem swatch={classes.paid} label={t("daysOff.calendar.legendPaid")} />
         <LegendItem swatch={classes.unpaid} label={t("daysOff.calendar.legendUnpaid")} />
-        <LegendItem swatch={classes.tentativePaid} label={t("daysOff.calendar.legendRequested")} />
         <LegendItem swatch={classes.weekendDay} label={t("daysOff.calendar.legendWeekend")} />
         <LegendItem swatch={classes.holidayDay} label={t("daysOff.calendar.legendHoliday")} />
       </Group>

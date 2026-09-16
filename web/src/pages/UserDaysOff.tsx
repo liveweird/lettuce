@@ -300,7 +300,6 @@ function PoolStrip({
             ["allowance", pool.allowance != null ? days(pool.allowance) : "—"],
             ["carriedOver", days(pool.carriedOver)],
             ["corrected", pool.corrected === 0 ? "—" : `${pool.corrected > 0 ? "+" : ""}${days(pool.corrected)}`],
-            ["reserved", days(pool.reserved)],
             ["used", days(pool.used)],
             ["remaining", days(pool.remaining)],
           ] as const
@@ -508,12 +507,12 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
 /**
  * The per-user days-off drill-down: the HR-audit flavor (`?mode=audit` — the read-only
  * `view=user` table + corrections) and, since v1.44.0, the manager flavor (origins
- * `subordinates`/`team`, or `from=details&manages=1`) — that report's requests (v2.32.0:
- * includeIndirect, so the page works for the whole chain; the rows' canResolve/canCancel keep
- * the actions honest), their paid pools for a picked year with the chain-editable allowances
- * (v3.2.0 — one strip per pool, Add pool, Archive), and the Corrections modal
- * (chain-manage-capable since v2.33.0). Anyone else redirects to /days-off (managers already
- * have the aggregate Team tab there).
+ * `subordinates`/`team`, or `from=details&manages=1`) — that report's entries (v2.32.0:
+ * includeIndirect, so the page works for the whole chain; the rows' server-computed canDelete
+ * keeps the Delete action honest — no other lifecycle since v3.9.0), their paid pools for a
+ * picked year with the chain-editable allowances (v3.2.0 — one strip per pool, Add pool,
+ * Archive), and the Corrections modal (chain-manage-capable since v2.33.0). Anyone else
+ * redirects to /days-off (managers already have the aggregate Team tab there).
  */
 export default function UserDaysOff() {
   const { t } = useTranslation();

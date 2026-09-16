@@ -267,29 +267,24 @@ describe("NotificationsButton", () => {
     ).toBeInTheDocument();
   });
 
-  test("renders the days-off kinds with localized dates and the translated type", async () => {
+  test("renders the days-off kinds with localized dates (v3.9.0 — no approval lifecycle)", async () => {
     const base = { recipientId: 7, timestamp: Date.now(), wasSeen: false };
     const rows: Item[] = [
       {
+        // The create fan-out (v3.9.0): every team member + the team's manager, minus the actor.
         ...base,
         id: 51,
-        type: "DAYS_OFF_REQUESTED_TO_MANAGER",
+        type: "DAYS_OFF_CREATED",
         link: "/days-off?tab=team",
-        params: {
-          requester: "Riley Report", type: "PAID", days: "1.5",
-          startDate: "2026-08-10", endDate: "2026-08-11",
-        },
+        params: { person: "Riley Report", startDate: "2026-08-10", endDate: "2026-08-11" },
       },
       {
-        // v3.2.1: a PAID request names its pool in place of the type word.
+        // The delete fan-out — the same recipients, worded as deleted.
         ...base,
-        id: 151,
-        type: "DAYS_OFF_REQUESTED_TO_MANAGER",
+        id: 52,
+        type: "DAYS_OFF_DELETED",
         link: "/days-off?tab=team",
-        params: {
-          requester: "Riley Report", type: "PAID", pool: "Maternal leave", days: "3",
-          startDate: "2026-09-07", endDate: "2026-09-09",
-        },
+        params: { person: "Riley Report", startDate: "2026-08-12", endDate: "2026-08-13" },
       },
       {
         // A pre-pool allowance row (no `pool`) reads as the default pool.
@@ -298,59 +293,6 @@ describe("NotificationsButton", () => {
         type: "DAYS_OFF_ALLOWANCE_CHANGED",
         link: "/days-off?tab=requests",
         params: { manager: "Mona Manager", to: "30" },
-      },
-      {
-        ...base,
-        id: 52,
-        type: "DAYS_OFF_ACCEPTED_TO_OWNER",
-        link: "/days-off?tab=requests",
-        params: { manager: "Mona Manager", startDate: "2026-08-10", endDate: "2026-08-11" },
-      },
-      {
-        ...base,
-        id: 53,
-        type: "DAYS_OFF_REJECTED_TO_OWNER",
-        link: "/days-off?tab=requests",
-        params: { manager: "Mona Manager", startDate: "2026-08-10", endDate: "2026-08-11" },
-      },
-      {
-        // A pre-rework row: no `by` context — falls back to the base owner wording.
-        ...base,
-        id: 54,
-        type: "DAYS_OFF_CANCELLED_TO_MANAGER",
-        link: "/days-off?tab=team",
-        params: { requester: "Riley Report", startDate: "2026-08-10", endDate: "2026-08-11" },
-      },
-      {
-        // v2.31.0: the acting manager's receipt (by=MANAGER context).
-        ...base,
-        id: 61,
-        type: "DAYS_OFF_CANCELLED_TO_MANAGER",
-        link: "/days-off?tab=team",
-        params: {
-          requester: "Riley Report", manager: "Mona Manager", by: "MANAGER",
-          startDate: "2026-08-12", endDate: "2026-08-13",
-        },
-      },
-      {
-        ...base,
-        id: 62,
-        type: "DAYS_OFF_CANCELLED_TO_OWNER",
-        link: "/days-off?tab=requests",
-        params: {
-          manager: "Mona Manager", by: "MANAGER",
-          startDate: "2026-08-12", endDate: "2026-08-13",
-        },
-      },
-      {
-        ...base,
-        id: 63,
-        type: "DAYS_OFF_CANCELLED_TO_OWNER",
-        link: "/days-off?tab=requests",
-        params: {
-          manager: "Riley Report", by: "OWNER",
-          startDate: "2026-08-14", endDate: "2026-08-15",
-        },
       },
       {
         ...base,
@@ -366,67 +308,19 @@ describe("NotificationsButton", () => {
         link: "/days-off?tab=requests",
         params: { manager: "Mona Manager", pool: "Study leave", year: "2027", operation: "SUBTRACT", days: "1" },
       },
-      {
-        ...base,
-        id: 57,
-        type: "DAYS_OFF_RECORDED_TO_OWNER",
-        link: "/days-off?tab=requests",
-        params: {
-          manager: "Mona Manager", type: "UNPAID", days: "2",
-          startDate: "2026-08-10", endDate: "2026-08-11",
-        },
-      },
-      {
-        ...base,
-        id: 58,
-        type: "DAYS_OFF_RECORDED_TO_MANAGER",
-        link: "/days-off?tab=team",
-        params: {
-          requester: "Riley Report", type: "UNPAID", days: "2",
-          startDate: "2026-08-10", endDate: "2026-08-11",
-        },
-      },
     ];
-    setupMocks(mockFetch, rows, 11);
+    setupMocks(mockFetch, rows, 5);
     renderWithProviders(<Harness />);
     await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
 
     expect(
-      await screen.findByText(
-        "Riley Report requested time off Aug 10, 2026 – Aug 11, 2026 (Paid, 1.5 day(s)).",
-      ),
+      await screen.findByText("Riley Report added a day off Aug 10, 2026 – Aug 11, 2026."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Riley Report requested time off Sep 7, 2026 – Sep 9, 2026 (Maternal leave, 3 day(s)).",
-      ),
+      screen.getByText("Riley Report deleted a day off Aug 12, 2026 – Aug 13, 2026."),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Mona Manager set your yearly "Paid days off" allowance to 30 day(s).'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Riley Report requested time off Aug 10, 2026 – Aug 11, 2026 (Paid, 1.5 day(s)).",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Mona Manager accepted your days-off request (Aug 10, 2026 – Aug 11, 2026)."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Mona Manager rejected your days-off request (Aug 10, 2026 – Aug 11, 2026)."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Riley Report cancelled their days-off request (Aug 10, 2026 – Aug 11, 2026)."),
-    ).toBeInTheDocument();
-    // The reworked cancel pair (v2.31.0): both sides hear it, actor-worded via the `by` context.
-    expect(
-      screen.getByText("You cancelled Riley Report's days-off request (Aug 12, 2026 – Aug 13, 2026)."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Mona Manager cancelled your days-off request (Aug 12, 2026 – Aug 13, 2026)."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("You cancelled your days-off request (Aug 14, 2026 – Aug 15, 2026)."),
     ).toBeInTheDocument();
     // The correction kind words ADD/SUBTRACT via i18next context (v1.43.0) and names the
     // pool (v3.2.0) — a pre-pool row without `pool` reads as the default pool.
@@ -435,17 +329,6 @@ describe("NotificationsButton", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText('Mona Manager subtracted 1 day(s) from your "Study leave" budget for 2027.'),
-    ).toBeInTheDocument();
-    // The on-behalf recorded pair (v2.29.0): the owner and the acting manager.
-    expect(
-      screen.getByText(
-        "Mona Manager recorded days off on your behalf, already accepted: Aug 10, 2026 – Aug 11, 2026 (Unpaid, 2 day(s)).",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "You recorded days off on behalf of Riley Report, already accepted: Aug 10, 2026 – Aug 11, 2026 (Unpaid, 2 day(s)).",
-      ),
     ).toBeInTheDocument();
   });
 

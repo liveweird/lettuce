@@ -19,7 +19,7 @@ function budget(remaining: number, allowance: number | null = 20) {
   return {
     userId: 5, userName: "Me", userDeleted: false, year: YEAR,
     poolId: 41, poolTypeId: 1, poolName: "Paid days off", carriesOver: true, isDefault: true, poolArchived: false,
-    allowance, carriedOver: 0, corrected: 0, reserved: 0, used: 0, remaining, canCorrect: false,
+    allowance, carriedOver: 0, corrected: 0, used: 0, remaining, canCorrect: false,
   };
 }
 
@@ -122,7 +122,7 @@ describe("CreateDaysOff", () => {
     renderPage();
 
     await pickRange(MONDAY, "2099-06-05"); // Mon..Fri with a Tuesday holiday
-    expect(await screen.findByText("This request costs 4 working days.")).toBeInTheDocument();
+    expect(await screen.findByText("This entry costs 4 working days.")).toBeInTheDocument();
     expect(
       screen.getByText(`Remaining "Paid days off" budget for ${YEAR}: 10.`),
     ).toBeInTheDocument();
@@ -145,7 +145,7 @@ describe("CreateDaysOff", () => {
     expect(screen.getByLabelText("From")).toHaveValue("");
     await Promise.resolve();
     expect(budgetCalls()).toBe(before);
-    expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
 
     // A complete date re-enables the query (still keyed on the same year) and the preview returns.
     fireEvent.change(screen.getByLabelText("From"), { target: { value: MONDAY } });
@@ -167,7 +167,7 @@ describe("CreateDaysOff", () => {
     await userEvent.click(screen.getByRole("option", { name: "Study leave" }));
     expect(await screen.findByText(`Remaining "Study leave" budget for ${YEAR}: 2.`)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
     const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
     expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
@@ -187,7 +187,7 @@ describe("CreateDaysOff", () => {
     await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
     await userEvent.click(await screen.findByRole("option", { name: "Unpaid" }));
     expect(screen.queryByText(/Remaining "/)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
     const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
     expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
@@ -206,7 +206,7 @@ describe("CreateDaysOff", () => {
     await pickRange(MONDAY, MONDAY);
     expect(screen.getByLabelText("Last day is a half day")).toBeDisabled();
     await userEvent.click(screen.getByLabelText("First day is a half day"));
-    expect(await screen.findByText("This request costs 0.5 working days.")).toBeInTheDocument();
+    expect(await screen.findByText("This entry costs 0.5 working days.")).toBeInTheDocument();
 
     await pickRange(MONDAY, TUESDAY);
     expect(screen.getByLabelText("Last day is a half day")).toBeEnabled();
@@ -218,10 +218,10 @@ describe("CreateDaysOff", () => {
 
     await pickRange(MONDAY, "2099-06-04"); // 4 working days > 1 remaining
     expect(
-      (await screen.findAllByText("The request does not fit your remaining paid-days budget."))
+      (await screen.findAllByText("The entry does not fit your remaining paid-days budget."))
         .length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
   test("a weekend-only period warns and blocks", async () => {
@@ -231,7 +231,7 @@ describe("CreateDaysOff", () => {
     expect(
       await screen.findByText("The period contains no working days — only weekends or public holidays."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
   test("submits, toasts, and navigates back to the requests tab", async () => {
@@ -240,7 +240,7 @@ describe("CreateDaysOff", () => {
     renderPage();
 
     await pickRange(MONDAY, TUESDAY);
-    await userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
     const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
@@ -253,7 +253,7 @@ describe("CreateDaysOff", () => {
       endHalf: false,
     });
     expect(showSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ message: "Days-off request submitted" }),
+      expect.objectContaining({ message: "Days off added" }),
     );
   });
 
@@ -261,7 +261,7 @@ describe("CreateDaysOff", () => {
     setupMocks();
     renderPage();
 
-    await screen.findByText("New days-off request");
+    await screen.findByText("New days off");
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -271,7 +271,7 @@ describe("CreateDaysOff", () => {
     setupMocks();
     renderPage("/days-off/new?onBehalf=1");
 
-    await screen.findByText("New days off");
+    await screen.findByText("Record days off");
     await userEvent.click(screen.getByRole("combobox", { name: "On behalf of" }));
     await userEvent.click(await screen.findByRole("option", { name: /Rita Report/ }));
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -286,10 +286,10 @@ describe("CreateDaysOff", () => {
     setupMocks();
     renderPage("/days-off/new?onBehalf=1");
 
-    expect(await screen.findByText("New days off")).toBeInTheDocument();
-    // Valid dates alone don't unlock the auto-accepted submit — a report must be picked.
+    expect(await screen.findByText("Record days off")).toBeInTheDocument();
+    // Valid dates alone don't unlock the submit — a report must be picked.
     await pickRange(MONDAY, TUESDAY);
-    const submit = screen.getByRole("button", { name: "Submit auto-accepted" });
+    const submit = screen.getByRole("button", { name: "Submit" });
     expect(submit).toBeDisabled();
 
     await userEvent.click(screen.getByRole("combobox", { name: "On behalf of" }));
@@ -323,7 +323,7 @@ describe("CreateDaysOff", () => {
     await pickRange(MONDAY, TUESDAY);
     await userEvent.click(screen.getByRole("combobox", { name: "On behalf of" }));
     await userEvent.click(await screen.findByRole("option", { name: /Zed Report/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Submit auto-accepted" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => expect(screen.getByText("LIST")).toBeInTheDocument());
     const post = mockFetch.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
@@ -337,7 +337,7 @@ describe("CreateDaysOff", () => {
       userId: 11,
     });
     expect(showSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ message: "Days off recorded and accepted" }),
+      expect.objectContaining({ message: "Days off recorded" }),
     );
   });
 
@@ -345,15 +345,15 @@ describe("CreateDaysOff", () => {
     setupMocks({ createStatus: 409, createBody: { instance: "/api/v1/days-off/3" } });
     renderPage();
     await pickRange(MONDAY, TUESDAY);
-    await userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
     expect(
-      await screen.findByText("The period overlaps one of your pending or accepted requests."),
+      await screen.findByText("The period overlaps one of your active days-off entries."),
     ).toBeInTheDocument();
 
     setupMocks({ createStatus: 409, createBody: {} });
-    await userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
     expect(
-      (await screen.findAllByText("The request does not fit your remaining paid-days budget."))
+      (await screen.findAllByText("The entry does not fit your remaining paid-days budget."))
         .length,
     ).toBeGreaterThan(0);
   });
@@ -372,10 +372,10 @@ describe("CreateDaysOff", () => {
     const picker = screen.getByRole("combobox", { name: "Type" });
     expect(picker).toHaveValue("");
     expect(picker).toHaveAttribute("placeholder", "Loading pools…");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled());
     // An explicit Unpaid needs no budget.
     await userEvent.click(picker);
     await userEvent.click(await screen.findByRole("option", { name: "Unpaid" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Submit request" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled());
   });
 });

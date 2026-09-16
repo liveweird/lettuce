@@ -1,56 +1,48 @@
 package ch.nokillswit
 
-import ch.nokillswit.daysoff.DaysOffStatus
-import ch.nokillswit.daysoff.DaysOffType
 import ch.nokillswit.daysoff.daysOffAllowanceChangedNotification
-import ch.nokillswit.daysoff.daysOffCancelledNotifications
-import ch.nokillswit.daysoff.daysOffRecordedNotifications
-import ch.nokillswit.daysoff.daysOffRequestedNotifications
-import ch.nokillswit.daysoff.daysOffResolvedNotification
+import ch.nokillswit.daysoff.daysOffCorrectionNotification
+import ch.nokillswit.daysoff.daysOffFanoutNotifications
 import ch.nokillswit.notifications.NotificationType
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class DaysOffNotificationsTest {
 
     @Test
-    fun `creation notifies every direct manager with the request facts`() {
-        val notifications = daysOffRequestedNotifications(
-            managerIds = setOf(7u, 9u),
-            requesterName = "Riley",
-            type = DaysOffType.PAID,
-            days = "1.5",
+    fun `the create-delete fan-out notifies every recipient with only person and dates`() {
+        val notifications = daysOffFanoutNotifications(
+            type = NotificationType.DAYS_OFF_CREATED,
+            recipientIds = setOf(7u, 9u),
+            person = "Riley",
             startDate = "2030-03-04",
             endDate = "2030-03-05",
         )
         assertEquals(setOf(7u, 9u), notifications.map { it.recipientId }.toSet())
         notifications.forEach {
-            assertEquals(NotificationType.DAYS_OFF_REQUESTED_TO_MANAGER, it.type)
+            assertEquals(NotificationType.DAYS_OFF_CREATED, it.type)
+            // Deliberately no pool/type — the teammate redaction rule is honoured by
+            // construction (the absence is shared, the category of leave is not).
             assertEquals(
-                mapOf(
-                    "requester" to "Riley",
-                    "type" to "PAID",
-                    "days" to "1.5",
-                    "startDate" to "2030-03-04",
-                    "endDate" to "2030-03-05",
-                ),
+                mapOf("person" to "Riley", "startDate" to "2030-03-04", "endDate" to "2030-03-05"),
                 it.params,
             )
             assertEquals("/days-off?tab=team", it.link)
         }
-        assertTrue(daysOffRequestedNotifications(emptySet(), "Riley", DaysOffType.PAID, "1", "a", "b").isEmpty())
-        // A PAID request names its pool (v3.2.1); UNPAID carries none.
-        val pooled = daysOffRequestedNotifications(
-            setOf(7u), "Riley", DaysOffType.PAID, "1", "2030-03-04", "2030-03-04", poolName = "Maternal leave",
+        assertTrue(
+            daysOffFanoutNotifications(NotificationType.DAYS_OFF_CREATED, emptySet(), "Riley", "a", "b").isEmpty(),
+        )
+
+        val deleted = daysOffFanoutNotifications(
+            type = NotificationType.DAYS_OFF_DELETED,
+            recipientIds = setOf(7u),
+            person = "Riley",
+            startDate = "2030-03-04",
+            endDate = "2030-03-05",
         ).single()
-        assertEquals("Maternal leave", pooled.params["pool"])
-        assertEquals("PAID", pooled.params["type"])
-        val unpaid = daysOffRequestedNotifications(
-            setOf(7u), "Riley", DaysOffType.UNPAID, "1", "2030-03-04", "2030-03-04", poolName = null,
-        ).single()
-        assertEquals(null, unpaid.params["pool"])
+        assertEquals(NotificationType.DAYS_OFF_DELETED, deleted.type)
+        assertEquals(7u, deleted.recipientId)
     }
 
     @Test
@@ -73,65 +65,8 @@ class DaysOffNotificationsTest {
     }
 
     @Test
-    fun `resolution notifies the owner with the manager's name`() {
-        val accepted = daysOffResolvedNotification(3u, DaysOffStatus.ACCEPTED, "Morgan", "2030-03-04", "2030-03-05")
-        assertEquals(3u, accepted.recipientId)
-        assertEquals(NotificationType.DAYS_OFF_ACCEPTED_TO_OWNER, accepted.type)
-        assertEquals(mapOf("manager" to "Morgan", "startDate" to "2030-03-04", "endDate" to "2030-03-05"), accepted.params)
-        assertEquals("/days-off?tab=requests", accepted.link)
-
-        val rejected = daysOffResolvedNotification(3u, DaysOffStatus.REJECTED, "Morgan", "2030-03-04", "2030-03-05")
-        assertEquals(NotificationType.DAYS_OFF_REJECTED_TO_OWNER, rejected.type)
-
-        assertFailsWith<IllegalStateException> {
-            daysOffResolvedNotification(3u, DaysOffStatus.CANCELLED, "Morgan", "a", "b")
-        }
-    }
-
-    @Test
-    fun `an on-behalf recording notifies both the owner and the acting manager`() {
-        val notifications = daysOffRecordedNotifications(
-            ownerId = 3u,
-            ownerName = "Riley",
-            managerId = 7u,
-            managerName = "Morgan",
-            type = DaysOffType.PAID,
-            days = "2",
-            startDate = "2030-03-04",
-            endDate = "2030-03-05",
-        )
-        assertEquals(2, notifications.size)
-        val toOwner = notifications.single { it.type == NotificationType.DAYS_OFF_RECORDED_TO_OWNER }
-        assertEquals(3u, toOwner.recipientId)
-        assertEquals(
-            mapOf(
-                "manager" to "Morgan",
-                "type" to "PAID",
-                "days" to "2",
-                "startDate" to "2030-03-04",
-                "endDate" to "2030-03-05",
-            ),
-            toOwner.params,
-        )
-        assertEquals("/days-off?tab=requests", toOwner.link)
-        val toManager = notifications.single { it.type == NotificationType.DAYS_OFF_RECORDED_TO_MANAGER }
-        assertEquals(7u, toManager.recipientId)
-        assertEquals(
-            mapOf(
-                "requester" to "Riley",
-                "type" to "PAID",
-                "days" to "2",
-                "startDate" to "2030-03-04",
-                "endDate" to "2030-03-05",
-            ),
-            toManager.params,
-        )
-        assertEquals("/days-off?tab=team", toManager.link)
-    }
-
-    @Test
     fun `a budget correction notifies the owner with the operation context`() {
-        val note = ch.nokillswit.daysoff.daysOffCorrectionNotification(
+        val note = daysOffCorrectionNotification(
             ownerId = 3u,
             managerName = "Morgan",
             poolName = "Paid days off",
@@ -146,59 +81,5 @@ class DaysOffNotificationsTest {
             note.params,
         )
         assertEquals("/days-off?tab=requests", note.link)
-    }
-
-    @Test
-    fun `an owner-cancel pairs the owner receipt with every direct manager`() {
-        val notifications = daysOffCancelledNotifications(
-            ownerId = 3u,
-            ownerName = "Riley",
-            actorName = "Riley",
-            managerRecipientIds = setOf(7u, 8u),
-            byManager = false,
-            startDate = "2030-03-04",
-            endDate = "2030-03-05",
-        )
-        assertEquals(3, notifications.size)
-        val toOwner = notifications.single { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_OWNER }
-        assertEquals(3u, toOwner.recipientId)
-        assertEquals(
-            mapOf("manager" to "Riley", "by" to "OWNER", "startDate" to "2030-03-04", "endDate" to "2030-03-05"),
-            toOwner.params,
-        )
-        assertEquals("/days-off?tab=requests", toOwner.link)
-        val toManagers = notifications.filter { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER }
-        assertEquals(setOf(7u, 8u), toManagers.map { it.recipientId }.toSet())
-        for (note in toManagers) {
-            assertEquals(
-                mapOf(
-                    "requester" to "Riley", "manager" to "Riley", "by" to "OWNER",
-                    "startDate" to "2030-03-04", "endDate" to "2030-03-05",
-                ),
-                note.params,
-            )
-            assertEquals("/days-off?tab=team", note.link)
-        }
-    }
-
-    @Test
-    fun `a manager-cancel tells the owner who acted and keeps the acting manager's receipt`() {
-        val notifications = daysOffCancelledNotifications(
-            ownerId = 3u,
-            ownerName = "Riley",
-            actorName = "Morgan",
-            managerRecipientIds = setOf(7u),
-            byManager = true,
-            startDate = "2030-03-04",
-            endDate = "2030-03-05",
-        )
-        assertEquals(2, notifications.size)
-        val toOwner = notifications.single { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_OWNER }
-        assertEquals("MANAGER", toOwner.params["by"])
-        assertEquals("Morgan", toOwner.params["manager"])
-        val receipt = notifications.single { it.type == NotificationType.DAYS_OFF_CANCELLED_TO_MANAGER }
-        assertEquals(7u, receipt.recipientId)
-        assertEquals("MANAGER", receipt.params["by"])
-        assertEquals("Riley", receipt.params["requester"])
     }
 }

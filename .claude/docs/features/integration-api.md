@@ -80,10 +80,14 @@ goals, impact log, pulse, notifications, alerts, templates.
   daysOffBudget(year!) — the DEFAULT paid pool's row since v3.2.0 — daysOffBudgets(year!) — every
   pool, v3.2.0, with `poolArchived` since v3.2.1 — daysOffCorrections(year), performanceReviews), `teams(page, pageSize,
   name)` / `team(id)` (+ manager, members, kpis → values), `reviewPeriods`, and the bulk-sync
-  roots `daysOff(from, to, status, userId)`, `daysOffPoolTypes` (v3.2.0 — the active paid pool
+  roots `daysOff(from, to, userId)`, `daysOffPoolTypes` (v3.2.0 — the active paid pool
   kinds, default first), `performanceReviews(periodId, subordinateId)`,
   `teamKpis(teamId, status)` — REST-mirroring `{items, page, pageSize, total}` envelopes,
-  ids `Int`, dates ISO strings, timestamps the one custom `Long` scalar.
+  ids `Int`, dates ISO strings, timestamps the one custom `Long` scalar. **Breaking change
+  (v3.9.0)**: the days-off approval lifecycle is gone — the `DaysOffStatus` enum, the `status`
+  field on `DaysOff`, and the `daysOff(status:)` root argument were REMOVED from the schema (not
+  deprecated — an internal v1 contract, governed by `GRAPHQL-GUIDELINES.md`); `DaysOffBudget`
+  likewise lost `reserved` (every active entry now counts as `used`, no reserved/used split).
 - **Audit**: every executed request → `integration.request` (clientId, clientName,
   operationName, root field names — never query text/variables); `integration.auth_failed`
   (reason) on every rejected key.

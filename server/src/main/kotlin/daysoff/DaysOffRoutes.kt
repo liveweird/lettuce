@@ -8,10 +8,10 @@ import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireDaysOffCorrectionsRead
-import ch.nokillswit.authz.requireDaysOffCancel
+import ch.nokillswit.authz.requireDaysOffDelete
 import ch.nokillswit.authz.requireDaysOffRead
 import ch.nokillswit.authz.requireDaysOffAllowanceWrite
-import ch.nokillswit.authz.requireDaysOffResolve
+import ch.nokillswit.authz.requireDaysOffManage
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.db.orVanished
@@ -50,15 +50,7 @@ import kotlinx.serialization.Serializable
 class DaysOff {
     @Serializable
     @Resource("{id}")
-    class Id(val parent: DaysOff = DaysOff(), val id: UInt) {
-        // Lifecycle actions (POST, no body). Accept/reject are the direct manager's resolution;
-        // cancel is the owner's withdrawal. Invalid from-status → 409 (the service checks).
-        @Serializable @Resource("accept") class Accept(val parent: Id)
-
-        @Serializable @Resource("reject") class Reject(val parent: Id)
-
-        @Serializable @Resource("cancel") class Cancel(val parent: Id)
-    }
+    class Id(val parent: DaysOff = DaysOff(), val id: UInt)
 }
 
 // Top-level resource classes (not nested under DaysOff): a nested sibling of the UInt-typed
@@ -104,7 +96,7 @@ class DaysOffPoolTypes {
     class Id(val parent: DaysOffPoolTypes = DaysOffPoolTypes(), val id: UInt)
 }
 
-// The gated caller (V46): every days-off handler (requests, calendar, budgets, corrections)
+// The gated caller (V46): every days-off handler (entries, calendar, budgets, corrections)
 // resolves its principal through this, so the per-user DAYS_OFF flag is enforced before any
 // other guard or read.
 private fun ApplicationCall.daysOffCaller() =
@@ -120,53 +112,8 @@ fun Application.configureDaysOffRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
-    // Shared handler for accept/reject: read (404 when missing), the resolve guard, the
-    // service transition (409 on an invalid from-status), then the notifications it produced.
-    suspend fun transitionTo(call: ApplicationCall, requestId: UInt, target: DaysOffStatus) {
-        val caller = call.daysOffCaller()
-        val existing = daysOffService.read(requestId)
-            ?: throw NotFoundException("Days-off request not found")
-        requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
-        val toNotify = daysOffService.transition(requestId, caller.userId, target)
-            ?: throw NotFoundException("Days-off request not found")
-        toNotify.forEach { notificationService.create(it) }
-        call.respond(HttpStatusCode.NoContent)
-    }
-
-    // Cancellation (reworked v2.31.0): owner or chain manager, any date while
-    // REQUESTED/ACCEPTED, always with a mandatory reason. Guard BEFORE payload validation
-    // (403 wins over 400); the reason lands encrypted on the row and both sides are notified.
-    suspend fun cancelRequest(call: ApplicationCall, requestId: UInt) {
-        val caller = call.daysOffCaller()
-        val existing = daysOffService.read(requestId)
-            ?: throw NotFoundException("Days-off request not found")
-        requireDaysOffCancel(caller, existing) {
-            daysOffService.managesOwner(caller.userId, existing.userId)
-        }
-        val request = call.receive<DaysOffCancelRequest>()
-        validateDaysOffCancel(request)
-        val toNotify = daysOffService.cancel(requestId, caller.userId, request.reason.trim())
-            ?: throw NotFoundException("Days-off request not found")
-        toNotify.forEach { notificationService.create(it) }
-        // Withdrawing leave — possibly someone else's — is audited like the on-behalf
-        // recording; never the reason (it is encrypted at rest, the correction-comment rule).
-        audit(
-            "days_off.cancelled",
-            "byUserId" to caller.userId.toLong(),
-            "targetUserId" to existing.userId.toLong(),
-            "requestId" to requestId.toLong(),
-            "fromStatus" to existing.status.name,
-            "type" to existing.type.name,
-            "poolTypeId" to existing.poolTypeId?.toLong(),
-            "startDate" to existing.startDate,
-            "endDate" to existing.endDate,
-            "days" to existing.days,
-        )
-        call.respond(HttpStatusCode.NoContent)
-    }
-
     // The corrections write preamble (the teamkpis writeGuarded* idiom): resolves the row
-    // (missing → NotFoundException) and enforces the resolve right against the ROW's user —
+    // (missing → NotFoundException) and enforces the manage right against the ROW's user —
     // the target user is immutable, so the guard never keys on a payload (the guard itself
     // throws ForbiddenException). Shared by the correction PUT and DELETE.
     suspend fun writeGuardedCorrection(call: ApplicationCall, correctionId: UInt): DaysOffCorrectionResponse {
@@ -175,7 +122,7 @@ fun Application.configureDaysOffRoutes() {
         val caller = call.daysOffCaller()
         val existing = daysOffService.readCorrection(correctionId)
             ?: throw NotFoundException("Days-off correction not found")
-        requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
+        requireDaysOffManage(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
         return existing
     }
 
@@ -191,7 +138,7 @@ fun Application.configureDaysOffRoutes() {
                     else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, user)")
                 }
                 val paging = call.parsePaging(
-                    sortable = setOf("id", "userName", "startDate", "endDate", "type", "status", "days", "createdAt"),
+                    sortable = setOf("id", "userName", "startDate", "endDate", "type", "days", "createdAt"),
                     defaultSort = listOf(SortField("startDate", descending = true)),
                 )
                 // The auditor view (HR-only): view-shape validation like the goals list, then
@@ -221,7 +168,6 @@ fun Application.configureDaysOffRoutes() {
                     userId = if (view == DaysOffListView.USER) null else userId,
                     type = params.optionalEnum<DaysOffType>("type"),
                     poolTypeId = params.optionalUInt("poolTypeId"),
-                    status = params.optionalEnum<DaysOffStatus>("status"),
                     startDateGte = startDateGte,
                     startDateLte = startDateLte,
                 )
@@ -237,11 +183,10 @@ fun Application.configureDaysOffRoutes() {
             }
             post<DaysOff> {
                 val caller = call.daysOffCaller()
-                // Without a userId the owner is the caller — a personal ask entering REQUESTED.
-                // With one (v2.29.0; chain-wide since v2.33.0) a manager in that user's
-                // TRANSITIVE chain records the entry on their behalf, born ACCEPTED with the
-                // caller as resolver (the accept right makes a separate approval step
-                // redundant); ADMIN/HR get nothing special.
+                // Without a userId the owner is the caller. With one (v2.29.0; chain-wide
+                // since v2.33.0) a manager in that user's TRANSITIVE chain records the entry
+                // on their behalf — a plain entry like a self-create, just owned by someone
+                // else; ADMIN/HR get nothing special.
                 val request = call.receive<DaysOffCreateRequest>()
                 val targetId = request.userId
                 if (targetId != null) {
@@ -268,7 +213,7 @@ fun Application.configureDaysOffRoutes() {
                 call.response.header(HttpHeaders.Location, call.application.href(DaysOff.Id(id = id)))
                 toNotify.forEach { notificationService.create(it) }
                 val created = daysOffService.read(id)
-                    .orVanished("Days-off request", id)
+                    .orVanished("Days-off entry", id)
                 if (targetId != null) {
                     // A manager writes to a subordinate's leave record — audited like the
                     // budget corrections (never any free text; there is none here anyway).
@@ -289,7 +234,7 @@ fun Application.configureDaysOffRoutes() {
             get<DaysOff.Id> { route ->
                 val caller = call.daysOffCaller()
                 val request = daysOffService.read(route.id)
-                    ?: throw NotFoundException("Days-off request not found")
+                    ?: throw NotFoundException("Days-off entry not found")
                 val grant = requireDaysOffRead(
                     caller,
                     request,
@@ -301,9 +246,34 @@ fun Application.configureDaysOffRoutes() {
                 val visible = if (grant == DaysOffReadGrant.TEAMMATE) request.redactPool() else request
                 call.respond(HttpStatusCode.OK, visible)
             }
-            post<DaysOff.Id.Accept> { route -> transitionTo(call, route.parent.id, DaysOffStatus.ACCEPTED) }
-            post<DaysOff.Id.Reject> { route -> transitionTo(call, route.parent.id, DaysOffStatus.REJECTED) }
-            post<DaysOff.Id.Cancel> { route -> cancelRequest(call, route.parent.id) }
+            delete<DaysOff.Id> { route ->
+                // Soft-deletes an entry (v3.9.0 — the sole removal path now; no accept/reject/
+                // cancel). Read-before-guard (404 for a missing/already-deleted id), then the
+                // owner-or-chain-manager right (the former cancel rule).
+                val caller = call.daysOffCaller()
+                val existing = daysOffService.read(route.id)
+                    ?: throw NotFoundException("Days-off entry not found")
+                requireDaysOffDelete(caller, existing) {
+                    daysOffService.managesOwner(caller.userId, existing.userId)
+                }
+                val toNotify = daysOffService.delete(route.id, caller.userId)
+                    ?: throw NotFoundException("Days-off entry not found")
+                toNotify.forEach { notificationService.create(it) }
+                // Deleting — possibly someone else's — entry is audited like the on-behalf
+                // recording; never any free text (there is none here).
+                audit(
+                    "days_off.deleted",
+                    "byUserId" to caller.userId.toLong(),
+                    "targetUserId" to existing.userId.toLong(),
+                    "requestId" to route.id.toLong(),
+                    "type" to existing.type.name,
+                    "poolTypeId" to existing.poolTypeId?.toLong(),
+                    "startDate" to existing.startDate,
+                    "endDate" to existing.endDate,
+                    "days" to existing.days,
+                )
+                call.respond(HttpStatusCode.NoContent)
+            }
             get<DaysOffCalendar> {
                 val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
@@ -334,9 +304,9 @@ fun Application.configureDaysOffRoutes() {
             post<DaysOffCorrections> {
                 val caller = call.daysOffCaller()
                 val write = call.receive<DaysOffCorrectionWrite>()
-                // Writes belong to the subordinate's management chain (the resolve right,
+                // Writes belong to the subordinate's management chain (the manage right,
                 // chain-wide since v2.33.0). Guard before validation — 403 wins over 400.
-                requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, write.userId) }
+                requireDaysOffManage(caller) { daysOffService.managesOwner(caller.userId, write.userId) }
                 validateDaysOffCorrection(write)
                 val (id, notification) = daysOffService.createCorrection(caller.userId, write)
                 call.response.header(
@@ -469,12 +439,12 @@ fun Application.configureDaysOffRoutes() {
             // ── Paid pools (v3.2.0) ─────────────────────────────────────────────────────────
             delete<DaysOffPools.Id> { route ->
                 // Archive a grant: the correction-write preamble (feature 403 → read 404 →
-                // the resolve right against the ROW's user), then the default-kind refusal
+                // the manage right against the ROW's user), then the default-kind refusal
                 // (409 — the default pool is only ever overwritten, never removed).
                 val caller = call.daysOffCaller()
                 val existing = daysOffService.readPool(route.id)
                     ?: throw NotFoundException("Days-off pool not found")
-                requireDaysOffResolve(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
+                requireDaysOffManage(caller) { daysOffService.managesOwner(caller.userId, existing.userId) }
                 if (existing.kind.isDefault) {
                     throw ConflictException("The default days-off pool cannot be archived")
                 }

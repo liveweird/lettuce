@@ -30,7 +30,6 @@ const BUDGET = {
   allowance: 20,
   carriedOver: 2,
   corrected: 0,
-  reserved: 1.5,
   used: 3,
   remaining: 17.5,
 };
@@ -82,7 +81,7 @@ describe("DaysOff page", () => {
       "data-tour",
       "days-off-calendar",
     );
-    expect(screen.getByRole("tab", { name: "My requests" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "My days off" })).toHaveAttribute(
       "data-tour",
       "days-off-requests",
     );
@@ -116,7 +115,7 @@ describe("DaysOff page", () => {
     // No click: the segment opens on Budgets and the budgets table renders straight away.
     expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Budgets" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Requests" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Entries" })).not.toBeChecked();
   });
 
   test("picking the Budgets segment stores the choice", async () => {
@@ -128,25 +127,25 @@ describe("DaysOff page", () => {
     expect(localStorage.getItem("lettuce.viewSettings.daysOff.team.view")).toBe(JSON.stringify("budgets"));
   });
 
-  test("the team tab shows the New days off on-behalf button under the request list", async () => {
+  test("the team tab shows the Record days off on-behalf button under the request list", async () => {
     setupMocks({ managed: 1 });
     renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
 
     // The on-behalf entry (v2.29.0) sits below the managed list, right-aligned — the house
     // footer convention — and opens the create screen in onBehalf mode, returning here.
-    expect(await screen.findByRole("link", { name: "New days off" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Record days off" })).toHaveAttribute(
       "href",
       `/days-off/new?onBehalf=1&back=${encodeURIComponent("/days-off?tab=team")}`,
     );
   });
 
-  test("the requests tab shows the budget card and the New request button", async () => {
+  test("the requests tab shows the budget card and the New days off button", async () => {
     setupMocks();
     renderWithProviders(<DaysOff />, { route: "/days-off?tab=requests" });
 
     expect(await screen.findByText(`Your paid days off in ${BUDGET.year}`)).toBeInTheDocument();
     expect(await screen.findByText("17.5")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "New request" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "New days off" })).toHaveAttribute(
       "href",
       expect.stringContaining("/days-off/new"),
     );
@@ -188,7 +187,7 @@ describe("DaysOff page", () => {
 
       await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
       expect(screen.queryByRole("table", { name: "Team days-off calendar" })).toBeNull();
-      expect(screen.queryByRole("tab", { name: "My requests" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "My days off" })).toBeNull();
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }

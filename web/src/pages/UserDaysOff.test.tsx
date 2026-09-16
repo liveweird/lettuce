@@ -23,7 +23,6 @@ const BUDGET = {
   allowance: 20,
   carriedOver: 1,
   corrected: 2.5,
-  reserved: 0.5,
   used: 3,
   remaining: 20,
   canCorrect: true,
@@ -40,7 +39,6 @@ const STUDY_POOL = {
   allowance: 3,
   carriedOver: 0,
   corrected: 0,
-  reserved: 1,
   used: 0,
   remaining: 2,
 };
@@ -51,7 +49,8 @@ const ROW = {
   userName: "Riley Report",
   userDeleted: false,
   type: "PAID",
-  status: "REQUESTED",
+  poolTypeId: 1,
+  poolName: "Paid days off",
   startDate: "2099-03-02",
   endDate: "2099-03-04",
   startHalf: false,
@@ -115,12 +114,12 @@ describe("UserDaysOff", () => {
         return Promise.resolve(jsonResponse(200, { items: [] }));
       }
       if (u.includes("/api/v1/days-off")) {
-        // The capability flags are the server's honest answer per caller: the manager view
-        // may resolve/cancel; the HR auditor (view=user) may not.
+        // The capability flag is the server's honest answer per caller: the manager view may
+        // delete; the HR auditor (view=user) may not.
         const managed = u.includes("view=managed");
         return Promise.resolve(
           jsonResponse(200, {
-            items: [{ ...ROW, canResolve: managed, canCancel: managed }],
+            items: [{ ...ROW, canDelete: managed }],
             page: 1,
             pageSize: 20,
             total: 1,
@@ -152,10 +151,10 @@ describe("UserDaysOff", () => {
     expect(await screen.findByText(/Paid days off of Riley Report in \d{4}/)).toBeInTheDocument();
     expect(screen.getByText("+2.5")).toBeInTheDocument();
     expect(screen.getByLabelText("Budget corrections of Riley Report")).toBeInTheDocument();
-    // The managed table pins the user (person column hidden) and offers the manager actions.
-    expect(await screen.findByText("Requested")).toBeInTheDocument();
+    // The managed table pins the user (person column hidden) and offers the manager's Delete
+    // action (the server's canDelete flag — v3.9.0, no more accept/reject).
     expect(
-      screen.getByLabelText("Accept the days-off request of Riley Report starting 2099-03-02"),
+      await screen.findByLabelText("Delete Riley Report's days-off entry starting 2099-03-02"),
     ).toBeInTheDocument();
     const listCall = mockFetch.mock.calls.find(
       ([u]) => String(u).includes("/api/v1/days-off?") && String(u).includes("view=managed"),
@@ -278,9 +277,9 @@ describe("UserDaysOff", () => {
     renderPage("/users/9/days-off?name=Riley%20Report&from=details&mode=audit");
 
     expect(await screen.findByRole("heading", { name: "Days off of Riley Report" })).toBeInTheDocument();
-    expect(await screen.findByText("Requested")).toBeInTheDocument();
-    // Read-only: no accept/reject, but the corrections list section is present.
-    expect(screen.queryByLabelText(/Accept the days-off request/)).toBeNull();
+    expect(await screen.findByText("Paid days off")).toBeInTheDocument();
+    // Read-only: no Delete action, but the corrections list section is present.
+    expect(screen.queryByLabelText(/^Delete/)).toBeNull();
     expect(await screen.findByText("No corrections yet.")).toBeInTheDocument();
     const listCall = mockFetch.mock.calls.find(([u]) => String(u).includes("view=user"));
     expect(String(listCall?.[0])).toContain("userId=9");

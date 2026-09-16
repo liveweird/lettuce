@@ -147,18 +147,14 @@ class TeamMemberSubordinateStatsTest {
             return response.body<ch.nokillswit.daysoff.DaysOffResponse>().id
         }
 
-        // A PENDING future request does not show as the next vacation…
-        val later = createRequest(sub, "2099-03-01", "2099-03-02")
-        assertNull(manager.subordinateItem(subId).nextVacationStart)
-        // …but an ACCEPTED one does; the earliest upcoming accepted start wins.
-        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/$later/accept").status)
+        // A created entry shows as the next vacation immediately — no approval step (v3.9.0);
+        // the earliest upcoming start wins.
+        createRequest(sub, "2099-03-01", "2099-03-02")
         assertEquals("2099-03-01", manager.subordinateItem(subId).nextVacationStart)
-        val sooner = createRequest(sub, "2098-06-01", "2098-06-02")
-        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/$sooner/accept").status)
+        createRequest(sub, "2098-06-01", "2098-06-02")
         assertEquals("2098-06-01", manager.subordinateItem(subId).nextVacationStart)
-        // A past accepted absence never counts (UNPAID keeps the budget math clean).
-        val past = createRequest(sub, "2001-03-05", "2001-03-09", type = "UNPAID")
-        assertEquals(HttpStatusCode.NoContent, manager.post("/api/v1/days-off/$past/accept").status)
+        // A past absence never counts (UNPAID keeps the budget math clean).
+        createRequest(sub, "2001-03-05", "2001-03-09", type = "UNPAID")
         assertEquals("2098-06-01", manager.subordinateItem(subId).nextVacationStart)
 
         // The managed row carries the current-year remaining budget — corrections included
@@ -175,17 +171,14 @@ class TeamMemberSubordinateStatsTest {
         }.let { assertEquals(HttpStatusCode.Created, it.status) }
         assertEquals(12.5, manager.subordinateItem(subId).daysOffRemaining)
 
-        // Peer view: the next accepted vacation shows (calendar parity), the budget never does.
+        // Peer view: the next upcoming vacation shows (calendar parity), the budget never does.
         val peerRow = peer.get("/api/v1/teams/members?view=member&pageSize=100")
             .body<TeamMemberPageResponse>().items.first { it.userId == subId }
         assertEquals("2098-06-01", peerRow.nextVacationStart)
         assertNull(peerRow.daysOffRemaining)
 
-        // Managers view: neither stat — even an ACCEPTED vacation of the manager stays off the
-        // card (the peer manages the manager via a second team, so it CAN be accepted).
-        admin.createTeam("dos2-${UUID.randomUUID()}", peerId, listOf(mgrId))
-        val mgrVacation = createRequest(manager, "2097-04-08", "2097-04-09", type = "UNPAID")
-        assertEquals(HttpStatusCode.NoContent, peer.post("/api/v1/days-off/$mgrVacation/accept").status)
+        // Managers view: neither stat — even an active vacation of the manager stays off the card.
+        createRequest(manager, "2097-04-08", "2097-04-09", type = "UNPAID")
         val managerRow = sub.get("/api/v1/teams/members?view=managers&pageSize=100")
             .body<TeamMemberPageResponse>().items.first { it.userId == mgrId }
         assertNull(managerRow.nextVacationStart)

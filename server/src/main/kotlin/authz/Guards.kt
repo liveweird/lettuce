@@ -2,7 +2,6 @@ package ch.nokillswit.authz
 
 import ch.nokillswit.audit.audit
 import ch.nokillswit.daysoff.DaysOffResponse
-import ch.nokillswit.daysoff.DaysOffStatus
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
@@ -495,11 +494,10 @@ suspend fun requireTeamKpiValueWrite(
 
 /**
  * Read guard for the single GET: the owner reads everything; the HR auditor reads everything
- * (audit-logged); any manager in the owner's transitive management chain reads at every status;
- * a teammate (someone sharing a non-deleted team with the owner) reads only while the request
- * is REQUESTED or ACCEPTED — exactly what the team calendar shows (calendar parity: the record
- * carries no free text, only dates/type/status), so a REJECTED or CANCELLED request stays
- * private to the owner, their chain, and HR.
+ * (audit-logged); any manager in the owner's transitive management chain reads at every entry;
+ * a teammate (someone sharing a non-deleted team with the owner) reads any entry (v3.9.0 — no
+ * lifecycle left to gate on; exactly what the team calendar shows — calendar parity: the record
+ * carries no free text, only dates/type).
  */
 suspend fun requireDaysOffRead(
     caller: CallerPrincipal,
@@ -511,10 +509,8 @@ suspend fun requireDaysOffRead(
     // HR auditor: reads everything, audit-logged. Before the chain walk — no DB hit for HR.
     if (grantHrRead(caller, "daysOff", request.id)) return DaysOffReadGrant.HR
     if (managesOwner()) return DaysOffReadGrant.CHAIN // DB hit only if needed
-    val teammateVisible =
-        request.status == DaysOffStatus.REQUESTED || request.status == DaysOffStatus.ACCEPTED
-    if (teammateVisible && sharesTeam()) return DaysOffReadGrant.TEAMMATE
-    throw ForbiddenException("Caller may not read this days-off request")
+    if (sharesTeam()) return DaysOffReadGrant.TEAMMATE
+    throw ForbiddenException("Caller may not read this days-off entry")
 }
 
 /**
@@ -525,33 +521,34 @@ suspend fun requireDaysOffRead(
 enum class DaysOffReadGrant { OWNER, HR, CHAIN, TEAMMATE }
 
 /**
- * Accept/reject (and the corrections writes riding the same right): any manager in the owner's
- * TRANSITIVE management chain — the chain rule (v2.33.0; direct-only until then) — never the
- * owner, and nobody else (ADMIN included, mirroring [requireGoalWrite]); an admin who is
- * themselves in the chain qualifies via the walk like anyone.
+ * Managing a user's paid-leave record (v3.9.0 — the requireDaysOffResolve successor: "resolve"
+ * no longer names anything once accept/reject are gone, but the corrections writes and the
+ * pool-archive right ride the exact same rule): any manager in the owner's TRANSITIVE
+ * management chain — the chain rule (v2.33.0; direct-only until then) — never the owner, and
+ * nobody else (ADMIN included, mirroring [requireGoalWrite]); an admin who is themselves in the
+ * chain qualifies via the walk like anyone.
  */
 @Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
-suspend fun requireDaysOffResolve(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) {
+suspend fun requireDaysOffManage(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) {
     if (!managesOwner()) {
-        throw ForbiddenException("Only a manager in the requester's management chain may resolve a days-off request")
+        throw ForbiddenException("Only a manager in the owner's management chain may manage this days-off record")
     }
 }
 
 /**
- * Cancel (reworked v2.31.0): the owner, or any manager in the owner's TRANSITIVE chain (the
- * career-position-write rationale: withdrawing leave is the chain's shared prerogative — and
- * since v2.33.0 the resolve right matches under the chain rule). Nobody else — ADMIN and
- * HR included. Cheap owner check first, the chain walk only when needed (the
- * [requireDaysOffCorrectionsRead] shape).
+ * Delete (v3.9.0 — the requireDaysOffCancel successor, unchanged reach): the owner, or any
+ * manager in the owner's TRANSITIVE chain (the career-position-write rationale: withdrawing
+ * leave is the chain's shared prerogative). Nobody else — ADMIN and HR included. Cheap owner
+ * check first, the chain walk only when needed (the [requireDaysOffCorrectionsRead] shape).
  */
-suspend fun requireDaysOffCancel(
+suspend fun requireDaysOffDelete(
     caller: CallerPrincipal,
     request: DaysOffResponse,
     managesOwner: suspend () -> Boolean,
 ) {
     if (caller.userId == request.userId) return
     if (managesOwner()) return
-    throw ForbiddenException("Only the requester or a manager in their chain may cancel a days-off request")
+    throw ForbiddenException("Only the owner or a manager in their chain may delete a days-off entry")
 }
 
 /**

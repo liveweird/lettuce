@@ -18,18 +18,13 @@ function row(overrides: Partial<DaysOffListItem>): DaysOffListItem {
     type: "PAID",
     poolTypeId: 1,
     poolName: "Paid days off",
-    status: "REQUESTED",
     startDate: "2099-03-02",
     endDate: "2099-03-04",
     startHalf: false,
     endHalf: false,
     days: 3,
     createdAt: 1_700_000_000_000,
-    cancelledAt: null,
-    cancelledByName: null,
-    cancelReason: null,
-    canCancel: false,
-    canResolve: false,
+    canDelete: false,
     lastModified: 1_700_000_000_000,
     ...overrides,
   };
@@ -41,7 +36,7 @@ describe("DaysOffTable", () => {
   function setupList(items: DaysOffListItem[]) {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (method === "POST") return Promise.resolve(new Response(null, { status: 204 }));
+      if (method === "DELETE") return Promise.resolve(new Response(null, { status: 204 }));
       if (url.includes("/api/v1/days-off/pool-types")) {
         return Promise.resolve(
           jsonResponse(200, {
@@ -71,137 +66,64 @@ describe("DaysOffTable", () => {
     localStorage.clear();
   });
 
-  test("own view: Cancel follows the server's canCancel flag — date-independent (v2.31.0)", async () => {
+  test("own view: Delete follows the server's canDelete flag", async () => {
     setupList([
-      row({ id: 1, status: "REQUESTED", startDate: "2099-03-02", endDate: "2099-03-04", canCancel: true }),
-      // A PAST accepted request is cancellable now — the old before-start-date gate is gone.
-      row({ id: 3, status: "ACCEPTED", startDate: "2001-05-07", endDate: "2001-05-08", canCancel: true }),
-      row({ id: 4, status: "REJECTED", startDate: "2099-06-01", endDate: "2099-06-02" }),
+      row({ id: 1, startDate: "2099-03-02", endDate: "2099-03-04", canDelete: true }),
+      // A PAST entry is deletable too — no date gate.
+      row({ id: 3, startDate: "2001-05-07", endDate: "2001-05-08", canDelete: true }),
+      row({ id: 4, startDate: "2099-06-01", endDate: "2099-06-02", canDelete: false }),
     ]);
     renderWithProviders(<DaysOffTable view="own" />);
 
-    await screen.findByText("Rejected");
-    expect(screen.getByLabelText("Cancel your days-off request starting 2099-03-02")).toBeInTheDocument();
-    expect(screen.getByLabelText("Cancel your days-off request starting 2001-05-07")).toBeInTheDocument();
-    // Terminal rows carry canCancel=false and get no action.
-    expect(screen.queryByLabelText("Cancel your days-off request starting 2099-06-01")).toBeNull();
+    expect(await screen.findByLabelText("Delete your days-off entry starting 2099-03-02")).toBeInTheDocument();
+    expect(screen.getByLabelText("Delete your days-off entry starting 2001-05-07")).toBeInTheDocument();
+    // A non-deletable row gets no action.
+    expect(screen.queryByLabelText("Delete your days-off entry starting 2099-06-01")).toBeNull();
     // Own view shows no person column.
     expect(screen.queryByText("Riley Report")).toBeNull();
   });
 
-  test("cancel demands a reason, POSTs it, and toasts", async () => {
+  test("Delete asks for confirmation, DELETEs, invalidates, and toasts", async () => {
     const showSpy = vi.spyOn(notifications, "show");
     showSpy.mockClear();
-    setupList([row({ id: 11, status: "REQUESTED", canCancel: true })]);
+    setupList([row({ id: 11, canDelete: true })]);
     renderWithProviders(<DaysOffTable view="own" />);
 
-    await userEvent.click(await screen.findByLabelText("Cancel your days-off request starting 2099-03-02"));
-    expect(screen.getByText("Cancel this request?")).toBeInTheDocument();
-    // The reason is obligatory: confirming blank shows the field error and sends nothing.
-    await userEvent.click(screen.getByRole("button", { name: "Cancel the request" }));
-    expect(screen.getByText("A cancellation reason is required")).toBeInTheDocument();
-    expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/cancel"))).toBe(false);
-
-    await userEvent.type(screen.getByLabelText(/^Reason/), "Project deadline moved");
-    await userEvent.click(screen.getByRole("button", { name: "Cancel the request" }));
+    await userEvent.click(await screen.findByLabelText("Delete your days-off entry starting 2099-03-02"));
+    expect(screen.getByText("Delete this days-off entry?")).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: "Delete" }).at(-1)!);
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/v1/days-off/11/cancel",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ reason: "Project deadline moved" }),
-        }),
+        "/api/v1/days-off/11",
+        expect.objectContaining({ method: "DELETE" }),
       );
     });
-    expect(showSpy).toHaveBeenCalledWith(expect.objectContaining({ message: "Request cancelled" }));
+    expect(showSpy).toHaveBeenCalledWith(expect.objectContaining({ message: "Days-off entry deleted" }));
   });
 
-  test("managed view: Accept and Reject on pending rows, person column visible", async () => {
-    const showSpy = vi.spyOn(notifications, "show");
+  test("managed view: Delete follows canDelete and names the owner, person column visible", async () => {
     setupList([
-      row({ id: 21, status: "REQUESTED", canResolve: true }),
-      row({ id: 22, status: "ACCEPTED", startDate: "2099-05-03", endDate: "2099-05-04", canCancel: true }),
+      row({ id: 21, canDelete: true }),
+      row({ id: 22, startDate: "2099-05-03", endDate: "2099-05-04", canDelete: false }),
     ]);
     renderWithProviders(<DaysOffTable view="managed" />);
 
     expect((await screen.findAllByText("Riley Report")).length).toBeGreaterThan(0);
-    await userEvent.click(
-      screen.getByLabelText("Accept the days-off request of Riley Report starting 2099-03-02"),
-    );
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/v1/days-off/21/accept",
-        expect.objectContaining({ method: "POST" }),
-      );
-    });
-    expect(showSpy).toHaveBeenCalledWith(expect.objectContaining({ message: "Request accepted" }));
-    // The accepted row is no longer accept-able, but a managing caller may now cancel it
-    // (v2.31.0) — the manager-worded aria.
     expect(
-      screen.queryByLabelText("Accept the days-off request of Riley Report starting 2099-05-03"),
-    ).toBeNull();
-    expect(
-      screen.getByLabelText("Cancel Riley Report's days-off request starting 2099-05-03"),
+      screen.getByLabelText("Delete Riley Report's days-off entry starting 2099-03-02"),
     ).toBeInTheDocument();
-  });
-
-  test("reject goes through the confirmation modal", async () => {
-    setupList([row({ id: 31, status: "REQUESTED", canResolve: true })]);
-    renderWithProviders(<DaysOffTable view="managed" />);
-
-    // Reject sits in the per-request ⋯ menu (v3.4.0); the item keeps its accessible name.
-    await userEvent.click(
-      await screen.findByLabelText(
-        "More actions for the days-off request of Riley Report starting 2099-03-02",
-      ),
-    );
-    await userEvent.click(
-      await screen.findByLabelText("Reject the days-off request of Riley Report starting 2099-03-02"),
-    );
-    expect(screen.getByText("Reject this request?")).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole("button", { name: "Reject" }).at(-1)!);
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/v1/days-off/31/reject",
-        expect.objectContaining({ method: "POST" }),
-      );
-    });
-  });
-
-  test("a cancelled row's popover reveals the reason and the cancellation by-line", async () => {
-    setupList([
-      row({
-        id: 51,
-        status: "CANCELLED",
-        cancelReason: "Team offsite clashed",
-        cancelledByName: "Morgan Manager",
-        cancelledAt: 1_700_000_000_000,
-      }),
-    ]);
-    renderWithProviders(<DaysOffTable view="own" />);
-
-    await screen.findByText("Cancelled");
-    await userEvent.click(screen.getByLabelText("Cancellation reason"));
-    expect(await screen.findByText("Team offsite clashed")).toBeInTheDocument();
-    expect(screen.getByText(/Morgan Manager ·/)).toBeInTheDocument();
-  });
-
-  test("a pre-rework cancelled row (no stored reason) gets no popover affordance", async () => {
-    setupList([row({ id: 52, status: "CANCELLED" })]);
-    renderWithProviders(<DaysOffTable view="own" />);
-
-    await screen.findByText("Cancelled");
-    expect(screen.queryByLabelText("Cancellation reason")).toBeNull();
+    // A non-deletable row gets no action.
+    expect(
+      screen.queryByLabelText("Delete Riley Report's days-off entry starting 2099-05-03"),
+    ).toBeNull();
   });
 
   test("user (audit) view: read-only rows, no actions", async () => {
-    setupList([row({ id: 41, status: "REQUESTED" })]);
+    setupList([row({ id: 41, canDelete: false })]);
     renderWithProviders(<DaysOffTable view="user" userId={9} />);
 
-    await screen.findByText("Requested");
-    expect(screen.queryByRole("button", { name: /Accept/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Reject/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
+    await screen.findByText("Paid days off");
+    expect(screen.queryByRole("button", { name: /Delete/ })).toBeNull();
     // The pinned user hides the person column.
     expect(screen.queryByText("Riley Report")).toBeNull();
     // The pin rides the query string.

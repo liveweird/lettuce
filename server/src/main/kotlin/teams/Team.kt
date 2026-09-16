@@ -131,10 +131,10 @@ data class TeamMemberListItem(
     val seniorityLevel: DictionaryEntry? = null,
     // Days-off card stats (v1.44.0).
     /**
-     * ISO start date of the row user's next ACCEPTED vacation that hasn't ended yet (ongoing
-     * counts; pending never shows). Populated for view=managed and view=member — teammates see
-     * accepted absences by calendar parity; null on view=managers (a manager's requests aren't
-     * generally visible to their reports) and when nothing is planned.
+     * ISO start date of the row user's next active vacation that hasn't ended yet (v3.9.0 — no
+     * lifecycle to filter on; ongoing counts). Populated for view=managed and view=member —
+     * teammates see absences by calendar parity; null on view=managers (a manager's entries
+     * aren't generally visible to their reports) and when nothing is planned.
      */
     val nextVacationStart: String? = null,
     /**

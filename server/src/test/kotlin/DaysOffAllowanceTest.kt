@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
 /**
  * PUT /days-off/allowance (v2.32.0 — the allowance moved off the ADMIN users PUT to the
  * target's transitive management chain) plus the includeIndirect widening of the budgets and
- * requests-list managed views with their `canCorrect`/`canResolve` capability flags.
+ * requests-list managed views with their `canCorrect`/`canDelete` capability flags.
  */
 class DaysOffAllowanceTest {
 
@@ -172,22 +172,19 @@ class DaysOffAllowanceTest {
         assertFalse(s.get("/api/v1/days-off/budgets?year=2061").body<DaysOffBudgetList>().items.single().canCorrect)
 
         // Requests list: G's direct managed view is empty of S's rows; includeIndirect
-        // surfaces them with BOTH capability flags set — resolve is chain-wide since
-        // v2.33.0, like cancel. M sees the same row with the same flags.
+        // surfaces them with canDelete set — the delete right is chain-wide since v2.33.0.
+        // M sees the same row, also deletable.
         val gDirect = g.get("/api/v1/days-off?view=managed&userId=$sId").body<DaysOffPageResponse>()
         assertEquals(0, gDirect.total)
         val gWide = g.get("/api/v1/days-off?view=managed&userId=$sId&includeIndirect=true")
             .body<DaysOffPageResponse>()
         val chainRow = gWide.items.single()
-        assertTrue(chainRow.canResolve)
-        assertTrue(chainRow.canCancel)
+        assertTrue(chainRow.canDelete)
         val directRow = m.get("/api/v1/days-off?view=managed&userId=$sId").body<DaysOffPageResponse>().items.single()
-        assertTrue(directRow.canResolve)
-        assertTrue(directRow.canCancel)
-        // The owner's own REQUESTED row: cancellable, never resolvable.
+        assertTrue(directRow.canDelete)
+        // The owner's own row is deletable too.
         val ownRow = s.get("/api/v1/days-off").body<DaysOffPageResponse>().items.single()
-        assertTrue(ownRow.canCancel)
-        assertFalse(ownRow.canResolve)
+        assertTrue(ownRow.canDelete)
 
         // The strict-boolean shape rule on both endpoints.
         assertEquals(HttpStatusCode.BadRequest, g.get("/api/v1/days-off/budgets?includeIndirect=true").status)

@@ -13,9 +13,9 @@ const DATA: DaysOffCalendarResponse = {
       userName: "Alice Example",
       userDeleted: false,
       entries: [
-        { requestId: 3, date: "2026-01-05", type: "PAID", poolName: "Paid days off", status: "ACCEPTED", half: true },
-        { requestId: 3, date: "2026-01-07", type: "PAID", poolName: "Paid days off", status: "ACCEPTED", half: false },
-        { requestId: 4, date: "2026-01-12", type: "UNPAID", poolName: null, status: "REQUESTED", half: false },
+        { requestId: 3, date: "2026-01-05", type: "PAID", poolName: "Paid days off", half: true },
+        { requestId: 3, date: "2026-01-07", type: "PAID", poolName: "Paid days off", half: false },
+        { requestId: 4, date: "2026-01-12", type: "UNPAID", poolName: null, half: false },
       ],
     },
     { userId: 8, userName: "Bob Empty", userDeleted: false, entries: [] },
@@ -37,19 +37,20 @@ describe("DaysOffMonthGrid", () => {
     // The holiday name rides the column header tooltip (and the empty cells in its column).
     expect(screen.getAllByTitle("Epiphany").length).toBeGreaterThan(0);
 
-    // Entry cells carry accessible descriptions (the pool name for paid days — v3.2.0 —,
-    // status, amount).
+    // Entry cells carry accessible descriptions (the pool name for paid days — v3.2.0 —, amount;
+    // no status since v3.9.0 — there is no lifecycle to describe).
     expect(
-      screen.getByTitle("Alice Example — 2026-01-05: Paid days off, Accepted (0.5 day)"),
+      screen.getByTitle("Alice Example — 2026-01-05: Paid days off (0.5 day)"),
     ).toBeInTheDocument();
     expect(
-      screen.getByTitle("Alice Example — 2026-01-12: Unpaid, Requested (1 day)"),
+      screen.getByTitle("Alice Example — 2026-01-12: Unpaid (1 day)"),
     ).toBeInTheDocument();
 
-    // The legend names all five fills — weekends and holidays are distinct kinds (v1.43.0).
+    // The legend names all four fills — weekends and holidays are distinct kinds (v1.43.0);
+    // no tentative/"Requested (pending)" swatch since v3.9.0.
     expect(screen.getByText("Paid day off")).toBeInTheDocument();
     expect(screen.getByText("Unpaid day off")).toBeInTheDocument();
-    expect(screen.getByText("Requested (pending)")).toBeInTheDocument();
+    expect(screen.queryByText("Requested (pending)")).toBeNull();
     expect(screen.getByText("Weekend")).toBeInTheDocument();
     expect(screen.getByText("Public holiday")).toBeInTheDocument();
   });
