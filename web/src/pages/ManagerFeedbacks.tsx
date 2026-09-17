@@ -162,7 +162,7 @@ export default function ManagerFeedbacks() {
 
         <Tabs.Panel value="received" pt="md">
           <Stack gap="sm">
-            <Text size="sm" c="dimmed" style={{ overflowWrap: "anywhere" }}>
+            <Text size="sm" c="dimmed" style={{ overflowWrap: "break-word" }}>
               {t("feedback.providedAboutYou", { who })}
             </Text>
             <FeedbackTable
@@ -176,7 +176,7 @@ export default function ManagerFeedbacks() {
 
         <Tabs.Panel value="provided" pt="md">
           <Stack gap="sm">
-            <Text size="sm" c="dimmed" style={{ overflowWrap: "anywhere" }}>
+            <Text size="sm" c="dimmed" style={{ overflowWrap: "break-word" }}>
               {t("feedback.providedAbout", { who })}
             </Text>
             <FeedbackTable

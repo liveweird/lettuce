@@ -86,8 +86,9 @@ goals, impact log, pulse, notifications, alerts, templates.
   ids `Int`, dates ISO strings, timestamps the one custom `Long` scalar. **Breaking change
   (v3.9.0)**: the days-off approval lifecycle is gone — the `DaysOffStatus` enum, the `status`
   field on `DaysOff`, and the `daysOff(status:)` root argument were REMOVED from the schema (not
-  deprecated — an internal v1 contract, governed by `GRAPHQL-GUIDELINES.md`); `DaysOffBudget`
-  likewise lost `reserved` (every active entry now counts as `used`, no reserved/used split).
+  deprecated — registered in the GraphQL known-gaps register, `GRAPHQL-GUIDELINES.md`
+  GQL-CON-003); `DaysOffBudget` likewise lost `reserved` (every active entry now counts as
+  `used`, no reserved/used split).
 - **Audit**: every executed request → `integration.request` (clientId, clientName,
   operationName, root field names — never query text/variables); `integration.auth_failed`
   (reason) on every rejected key.

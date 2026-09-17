@@ -102,3 +102,20 @@ owning service, encrypted columns decrypt there [GQL-SEC-002]; (5) no capability
 secrets [GQL-SEC-003]; (6) scope additions deliberate + documented [GQL-SEC-004]; (7) the
 contract test's root-field list updated consciously; (8) `IntegrationGraphQlTest` covers the
 new surface's happy path and its error shape.
+
+## Appendix: known-gaps / decision register
+
+Accepted, registered non-conformances against the rules above — the `API-GUIDELINES.md`
+known-gaps register's sibling. A breaking change (removal, rename, or nullability tightening)
+that skips the GQL-CON-003 major-bump/deprecation-window requirement is registered here, with
+its rationale, rather than treated as undocumented drift. Reviewers cite a registered row as
+"registered gap", not as a finding.
+
+| Rule | What happened | Rationale | Decision |
+|---|---|---|---|
+| GQL-CON-003 | v3.9.0 removed the days-off approval lifecycle from the schema without a deprecation window: the `DaysOffStatus` enum; `DaysOff.status`/`resolvedById`/`resolvedByName`/`resolvedAt`/`cancelledAt`/`cancelledById`/`cancelledByName`/`cancelReason`; the `daysOff(status:)` root argument; and `DaysOffBudget.reserved` | Internal v1 contract with no external consumer yet, and the endpoint is off by default (`INTEGRATION_ENABLED=false`, fail-closed) — no deployed integration could have depended on the removed members | Accepted without a major app version bump |
+
+**Going forward**: the next removal or breaking change to any member already exposed in a
+shipped schema MUST follow GQL-CON-003 in full (major app version + a `@deprecated` window of
+at least one major version first) unless it is registered here first, with a rationale, before
+the change ships.

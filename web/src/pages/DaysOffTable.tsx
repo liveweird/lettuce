@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Alert, Group, Select, Stack, Text } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
@@ -9,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { deleteDaysOff, listDaysOff, type DaysOffListItem, type DaysOffListView, type DaysOffType, listDaysOffPoolTypes } from "../api/daysoff";
 import ClearableTextInput from "../components/ClearableTextInput";
-import ConfirmActionModal from "../components/ConfirmActionModal";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
@@ -18,13 +17,13 @@ import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
+import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate, formatIsoWeekday } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
-import { showSuccessToast } from "../utils/toast";
 
 const BASE_SORT_FIELDS = ["startDate", "endDate", "days", "type", "createdAt"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "userName";
@@ -90,9 +89,11 @@ export default function DaysOffTable({
   const activeFilterCount = (personVisible && userFilter.trim() ? 1 : 0) + (effectiveTypeFilter ? 1 : 0);
   const [debouncedUser] = useDebouncedValue(userFilter, 300);
 
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const [actingId, setActingId] = useState<number | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const deleteConfirm = useDeleteConfirm<DaysOffListItem>({
+    mutationFn: (row) => deleteDaysOff(row.id),
+    onSuccess: () => invalidateDaysOff(queryClient),
+    successMessage: t("daysOff.toast.deleted"),
+  });
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
@@ -124,28 +125,6 @@ export default function DaysOffTable({
     enabled: storedPoolId == null || poolTypes !== undefined,
   });
 
-  async function runDelete(id: number) {
-    setActingId(id);
-    setActionError(null);
-    try {
-      await deleteDaysOff(id);
-      await invalidateDaysOff(queryClient);
-      showSuccessToast(t("daysOff.toast.deleted"));
-    } catch (err) {
-      setActionError(
-        saveErrorMessage(err, t, {
-          forbidden: "daysOff.error.actionPermission",
-          notFound: "daysOff.error.gone",
-          failedStatus: "daysOff.error.actionFailedStatus",
-          failed: "daysOff.error.actionFailed",
-        }),
-      );
-    } finally {
-      setActingId(null);
-      setPendingDeleteId(null);
-    }
-  }
-
   function rowActions(r: DaysOffListItem) {
     // The server-computed capability flag (v3.9.0, the team-KPI canManage precedent — the
     // former canCancel): the only remaining action is destructive, so it renders as the
@@ -161,9 +140,7 @@ export default function DaysOffTable({
               ? t("daysOff.deleteOwnAria", { date: r.startDate })
               : t("daysOff.deleteForAria", { name: r.userName, date: r.startDate }),
           color: "red",
-          loading: actingId === r.id,
-          disabled: actingId != null,
-          onClick: () => setPendingDeleteId(r.id),
+          onClick: () => deleteConfirm.requestDelete(r),
         }}
       />
     );
@@ -200,11 +177,6 @@ export default function DaysOffTable({
       {isError && (
         <Alert color="red" variant="light" title={t("daysOff.loadListError")}>
           {loadErrorMessage(error, t)}
-        </Alert>
-      )}
-      {actionError && (
-        <Alert color="red" variant="light">
-          {actionError}
         </Alert>
       )}
 
@@ -312,17 +284,19 @@ export default function DaysOffTable({
         rowsPerPageLabelKey="daysOff.rowsPerPage"
       />
 
-      <ConfirmActionModal
-        opened={pendingDeleteId != null}
-        onClose={() => setPendingDeleteId(null)}
+      <ConfirmDeleteModal
+        confirm={deleteConfirm}
         title={t("daysOff.deleteTitle")}
-        message={t("daysOff.deleteMessage")}
-        cancelLabel={t("common.action.cancel")}
-        confirmLabel={t("common.action.delete")}
-        onConfirm={() => {
-          if (pendingDeleteId != null) void runDelete(pendingDeleteId);
-        }}
-        loading={actingId != null}
+        errorTitle={t("daysOff.deleteFailed")}
+        body={() => t("daysOff.deleteMessage")}
+        errorMessage={(err) =>
+          saveErrorMessage(err, t, {
+            forbidden: "daysOff.error.actionPermission",
+            notFound: "daysOff.error.gone",
+            failedStatus: "daysOff.error.actionFailedStatus",
+            failed: "daysOff.error.actionFailed",
+          })
+        }
       />
     </Stack>
   );

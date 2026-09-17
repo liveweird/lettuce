@@ -22,6 +22,8 @@ export default function RevealablePassword({ password, copyLabel, compact = fals
 
   return (
     <Group gap="xs" wrap="wrap" style={{ minWidth: 0 }}>
+      {/* A generated password is one unbreakable token with no word boundaries — `anywhere` is the
+          documented exception to the house `break-word` rule (see web/CLAUDE.md). */}
       <Code fz={compact ? undefined : "md"} px="sm" py={compact ? 2 : 6} style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere", whiteSpace: "normal" }}>
         {visible ? password : "*".repeat(password.length)}
       </Code>

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.10.3",
+    date: "2026-09-18",
+    en: `Checkup #35 round. The product tour now describes days off as they actually work: add or remove your own, no approvals involved. Deleting a day off uses the same confirmation dialog as every other list. Long words no longer break mid-word on page headers, the dictionary editor, and pulse cards. Documentation refreshed to match.`,
+    pl: `Runda porządkowa #35. Przewodnik po produkcie opisuje teraz dni wolne tak, jak działają naprawdę: dodajesz i usuwasz własne, bez akceptacji. Usuwanie dnia wolnego korzysta z tego samego okna potwierdzenia, co inne listy. Długie słowa nie łamią się już w środku na nagłówkach stron, w edytorze słowników i na kartach ankiet pulsu. Odświeżyliśmy też dokumentację.`,
+  },
+  {
     version: "3.10.2",
     date: "2026-09-17",
     en: `Feedback visibility is now shown as a compact pill — P+S, P+R, P+R+S or Public — with the full wording on hover, so the lists no longer spend a wide column on it; screen readers still get the full text.`,
@@ -50,7 +56,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     version: "3.8.6",
     date: "2026-09-15",
     en: `Fixed dictionary layouts for non-admin users. Entries are compact numbered rows again, with aligned values and language counts on desktop and mobile. Long values and translation popovers wrap within the available width.`,
-    pl: `Naprawiono układ słowników dla osób bez uprawnień administracyjnych. Wpisy znów tworzą zwarte, numerowane wiersze z wyrównanymi wartościami i liczbą języków na komputerach i telefonach. Długie wartości i okienka tłumaczeń mieszczą się w dostępnej szerokości.`,
+    pl: `Naprawiliśmy układ słowników dla osób bez uprawnień administracyjnych. Wpisy znów tworzą zwarte, numerowane wiersze z wyrównanymi wartościami i liczbą języków na komputerach i telefonach. Długie wartości i okienka tłumaczeń mieszczą się w dostępnej szerokości.`,
   },
   {
     version: "3.8.5",
@@ -80,7 +86,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     version: "3.8.1",
     date: "2026-09-08",
     en: `Fixed the layout of a person's card on the Dashboard's subordinate/peer/manager tabs: when a row's value ran onto a second line (for example the last review's period next to its status), the label no longer sits misaligned against it — it now lines up with the first line.`,
-    pl: `Poprawiono układ karty osoby na zakładkach podwładnych/współpracowników/przełożonych na pulpicie: gdy wartość wiersza przechodziła do drugiej linii (na przykład okres ostatniej oceny obok jej statusu), etykieta nie jest już względem niej przesunięta — wyrównuje się teraz z pierwszą linią.`,
+    pl: `Poprawiliśmy układ karty osoby na zakładkach podwładnych/współpracowników/przełożonych na pulpicie: gdy wartość wiersza przechodziła do drugiej linii (na przykład okres ostatniej oceny obok jej statusu), etykieta nie jest już względem niej przesunięta — wyrównuje się teraz z pierwszą linią.`,
   },
   {
     version: "3.8.0",
@@ -362,7 +368,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     version: "2.26.1",
     date: "2026-08-21",
     en: `Fixed a midnight timezone glitch: shortly after midnight, recording a KPI data point or a career position dated "today" could be rejected as "in the future", and for users far west of the server picking today as a goal's due date could be rejected as "in the past" — because the server compared your local date against its own clock. Date checks now allow one day of timezone slack in the right direction. And when the server does reject a KPI data point for an unexpected reason, the message now includes the error code instead of a generic "could not update".`,
-    pl: `Naprawiono nocną usterkę stref czasowych: tuż po północy zapis punktu danych KPI albo pozycji w karierze z dzisiejszą datą mógł zostać odrzucony jako „z przyszłości", a dla osób daleko na zachód od serwera wybranie dzisiejszej daty jako terminu celu mogło zostać odrzucone jako „z przeszłości" — bo serwer porównywał Twoją lokalną datę z własnym zegarem. Kontrole dat dopuszczają teraz jeden dzień luzu strefowego we właściwą stronę. A gdy serwer odrzuci punkt danych KPI z niespodziewanego powodu, komunikat zawiera teraz kod błędu zamiast ogólnego „nie udało się zaktualizować".`,
+    pl: `Naprawiliśmy nocną usterkę stref czasowych: tuż po północy zapis punktu danych KPI albo pozycji w karierze z dzisiejszą datą mógł zostać odrzucony jako „z przyszłości", a dla osób daleko na zachód od serwera wybranie dzisiejszej daty jako terminu celu mogło zostać odrzucone jako „z przeszłości" — bo serwer porównywał Twoją lokalną datę z własnym zegarem. Kontrole dat dopuszczają teraz jeden dzień luzu strefowego we właściwą stronę. A gdy serwer odrzuci punkt danych KPI z niespodziewanego powodu, komunikat zawiera teraz kod błędu zamiast ogólnego „nie udało się zaktualizować".`,
   },
   {
     version: "2.26.0",
