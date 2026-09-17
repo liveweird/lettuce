@@ -10,18 +10,24 @@
 .scrollHint { color: var(--mantine-color-dimmed); font-size: var(--mantine-font-size-xs); margin-bottom: 6px; }
 
 .table { width: 100%; }
-.table th { white-space: normal; overflow-wrap: anywhere; }
-.table td { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+/* Words never break mid-word (v3.10.1). Headers and ordinary cell text wrap at word boundaries
+   only; a genuinely unbreakable value (an email, an id) breaks only where it would otherwise
+   overflow — `break-word`, which unlike v3.8.5's `anywhere` does NOT feed that break into the
+   column's min-content, so columns keep sane widths instead of collapsing and splitting
+   "Ście|żka" / "Pot|enc|jał" / "Sz|kic" at every width. */
+.table th { white-space: normal; overflow-wrap: normal; }
+.table td { vertical-align: top; white-space: normal; overflow-wrap: break-word; }
 .table th[data-actions] { width: 96px; }
 .content { min-width: 0; max-width: 100%; }
 .label { display: none; }
 .label::before { content: attr(data-label); }
 
-/* Text stays readable at bounded column widths, including unbroken identity values.
+/* Text stays readable at bounded column widths, including unbroken identity values — which
+   break only where they would overflow (`break-word`, never mid-word for ordinary prose).
    Controls and menus retain their own sizing; nothing is clipped at the page boundary. */
 .content :where(:global(.mantine-Text-root), :global(.mantine-Anchor-root), :global(.mantine-Code-root)) {
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   max-width: 100%;
 }
 .content :where(:global(.mantine-Group-root)) { min-width: 0; max-width: 100%; }
@@ -33,7 +39,7 @@
   white-space: normal;
   padding-block: 3px;
 }
-.content :where(:global(.mantine-Badge-label)) { white-space: normal; overflow-wrap: anywhere; }
+.content :where(:global(.mantine-Badge-label)) { white-space: normal; overflow-wrap: break-word; }
 .content :where(:global(.mantine-Input-wrapper), :global(.mantine-Input-input)) { min-width: 0; max-width: 100%; }
 .table [data-actions] .content > :global(.mantine-Group-root) { justify-content: flex-end; }
 
