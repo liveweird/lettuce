@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.10.1",
+    date: "2026-09-17",
+    en: `The one-of-many view selectors (e.g. Table / Distribution / Quadrants on Team's performance, and the team and calculation pickers on Pulse results) and the list tables' column headers and cells no longer break their text mid-word or take extra rows on a wide screen — selector labels stay on one line again (wrapping only at word boundaries on a phone), and table text wraps only between words while long values such as emails still fit their column.`,
+    pl: `Przełączniki widoków (np. Tabela / Rozkład / Kwadranty w ocenach zespołu oraz wybór zespołów i sposobu liczenia w wynikach pulsu) oraz nagłówki i komórki tabel nie łamią już tekstu w środku wyrazu i nie zajmują dodatkowych wierszy na szerokim ekranie — etykiety przełączników znów mieszczą się w jednym wierszu (na telefonie zawijają się tylko na granicy wyrazów), a tekst w tabelach zawija się wyłącznie między wyrazami, przy czym długie wartości, takie jak adresy e-mail, nadal mieszczą się w swojej kolumnie.`,
+  },
+  {
     version: "3.10.0",
     date: "2026-09-17",
     en: `New **Aptitude** review dimension — performance reviews now include a fifth assessment category capturing a person's growth potential, adaptability, and appetite for change, rated and summarised just like the existing categories.`,

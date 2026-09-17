@@ -117,7 +117,19 @@
   font-size: var(--mantine-font-size-lg);
 }
 
-/* Long translated view labels remain usable inside the available toolbar width. */
+/* SegmentedControl: one line at every normal width, word-wrap only on phones (v3.10.1).
+   v3.8.5 let labels wrap with `overflow-wrap: anywhere` and gave every segment `min-width: 0`;
+   Mantine sizes segments equally (`flex: 1`), so all of them shrank to the widest label's collapsed
+   box and that label broke MID-WORD ("Kwadran|ty") at every viewport, even a wide desktop — two rows
+   where one fits. Segments are therefore content-sized again (no `min-width: 0` → the control grows
+   to its longest single-line label, so nothing ellipsizes or wraps) and labels stay `nowrap`; the
+   wrapping toolbar Groups already drop the whole control onto its own row when a row is tight.
+   Only below the phone breakpoint — where even a full row can be narrower than the control — do the
+   segments share the width and labels wrap, and then ONLY at word boundaries (plain `normal`, never
+   `overflow-wrap: anywhere`): "Zespoły, którymi / zarządzam", not a break inside a word. */
 .segmentedRoot { min-width: 0; max-width: 100%; }
-.segmentedControl { min-width: 0; }
-.segmentedLabel { white-space: normal; overflow-wrap: anywhere; }
+.segmentedLabel { white-space: nowrap; }
+@media (max-width: 30em) {
+  .segmentedControl { min-width: 0; }
+  .segmentedLabel { white-space: normal; }
+}
