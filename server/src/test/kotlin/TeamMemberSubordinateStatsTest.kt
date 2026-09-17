@@ -108,6 +108,7 @@ class TeamMemberSubordinateStatsTest {
                     attitude = CategoryAssessment(3, "attitude ok"),
                     delivery = CategoryAssessment(4, "delivery ok"),
                     skills = CategoryAssessment(5, "skills ok"),
+                    aptitude = CategoryAssessment(5, "aptitude ok"),
                     overall = CategoryAssessment(4, "overall ok"),
                 ),
             )

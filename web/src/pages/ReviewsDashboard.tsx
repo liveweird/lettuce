@@ -370,7 +370,13 @@ export default function ReviewsDashboard() {
                 review.managerId === currentUserId &&
                 review.status === "DRAFT";
               const ratings = review
-                ? [review.attitudeRating, review.deliveryRating, review.skillsRating, review.overallRating]
+                ? [
+                    review.attitudeRating,
+                    review.deliveryRating,
+                    review.skillsRating,
+                    review.aptitudeRating,
+                    review.overallRating,
+                  ]
                 : REVIEW_CATEGORIES.map(() => null);
               return (
                 <ResponsiveTable.Tr key={person.userId}>

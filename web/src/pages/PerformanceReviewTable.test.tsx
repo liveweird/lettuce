@@ -32,6 +32,7 @@ function row(overrides: Record<string, unknown> = {}) {
     attitudeRating: 3,
     deliveryRating: null,
     skillsRating: 5,
+    aptitudeRating: 6,
     overallRating: 4,
     createdAt: new Date(2026, 6, 1).getTime(),
     lastModified: new Date(2026, 6, 1).getTime(),
@@ -89,6 +90,7 @@ describe("PerformanceReviewTable", () => {
     // Ratings as bare numbers; the unset one dims to a dash.
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText("6")).toBeInTheDocument(); // the aptitude rating
     expect(screen.getAllByText("—")).toHaveLength(1);
     // The subordinate is the viewer, never the editor.
     expect(

@@ -50,8 +50,9 @@ class PerformanceReviewValidationTest {
         attitude: CategoryAssessment = CategoryAssessment(),
         delivery: CategoryAssessment = CategoryAssessment(),
         skills: CategoryAssessment = CategoryAssessment(),
+        aptitude: CategoryAssessment = CategoryAssessment(),
         overall: CategoryAssessment = CategoryAssessment(),
-    ) = PerformanceReviewUpdateRequest(attitude, delivery, skills, overall)
+    ) = PerformanceReviewUpdateRequest(attitude, delivery, skills, aptitude, overall)
 
     @Test
     fun `validateAssessments accepts empty and complete payloads and enforces the 1-6 scale`() {
@@ -69,14 +70,18 @@ class PerformanceReviewValidationTest {
                 assessmentsOf(update(attitude = CategoryAssessment(3, "x".repeat(4001)))),
             )
         }
+        assertFailsWith<BadRequestException> {
+            validateAssessments(assessmentsOf(update(aptitude = CategoryAssessment(rating = 0))))
+        }
     }
 
     @Test
-    fun `requireCompleteAssessments demands all four ratings and non-blank summaries`() {
+    fun `requireCompleteAssessments demands all five ratings and non-blank summaries`() {
         val complete = update(
             attitude = CategoryAssessment(3, "a"),
             delivery = CategoryAssessment(4, "b"),
             skills = CategoryAssessment(5, "c"),
+            aptitude = CategoryAssessment(2, "e"),
             overall = CategoryAssessment(4, "d"),
         )
         requireCompleteAssessments(assessmentsOf(complete))
@@ -92,6 +97,12 @@ class PerformanceReviewValidationTest {
                 assessmentsOf(complete.copy(overall = CategoryAssessment(4, "   "))),
             )
         }
+        // Aptitude is held to the exact same completeness rule as the other categories.
+        assertFailsWith<BadRequestException> {
+            requireCompleteAssessments(
+                assessmentsOf(complete.copy(aptitude = CategoryAssessment(null, "e"))),
+            )
+        }
     }
 
     @Test
@@ -102,10 +113,12 @@ class PerformanceReviewValidationTest {
             attitude = CategoryAssessment(1, "a"),
             delivery = CategoryAssessment(2, "b"),
             skills = CategoryAssessment(3, "c"),
+            aptitude = CategoryAssessment(5, "e"),
             overall = CategoryAssessment(4, "d"),
         )
         val mapped = assessmentsOf(create)
         assertEquals(ReviewCategory.entries.toSet(), mapped.keys)
         assertEquals(CategoryAssessment(3, "c"), mapped.getValue(ReviewCategory.SKILLS))
+        assertEquals(CategoryAssessment(5, "e"), mapped.getValue(ReviewCategory.APTITUDE))
     }
 }

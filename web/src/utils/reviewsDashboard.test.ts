@@ -36,6 +36,7 @@ function review(subordinateId: number, overrides: Partial<PerformanceReviewListI
     attitudeRating: 3,
     deliveryRating: null,
     skillsRating: null,
+    aptitudeRating: null,
     overallRating: null,
     createdAt: 1,
     lastModified: 1,
@@ -130,6 +131,23 @@ describe("reviewsDashboard", () => {
     ]);
   });
 
+  test("sorts the aptitude rating numerically with no-review rows last", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "AAA"), member(2, "Ben", "AAA"), member(3, "Zoe", "AAA")],
+      [review(1, { aptitudeRating: 2 }), review(2, { aptitudeRating: 6 })],
+    );
+    expect(sortReviewsDashboardRows(rows, "aptitude", "asc").map((r) => r.person.name)).toEqual([
+      "Ann",
+      "Ben",
+      "Zoe",
+    ]);
+    expect(sortReviewsDashboardRows(rows, "aptitude", "desc").map((r) => r.person.name)).toEqual([
+      "Ben",
+      "Ann",
+      "Zoe",
+    ]);
+  });
+
   test("sorts status by lifecycle rank, no review lowest", () => {
     const rows = buildReviewsDashboardRows(
       [member(1, "Ann", "A"), member(2, "Ben", "A"), member(3, "Cyd", "A"), member(4, "Zoe", "A")],
@@ -186,6 +204,16 @@ describe("reviewsDashboard", () => {
     expect(overall.rated).toBe(1); // Bob's overall is unset — excluded per category
   });
 
+  test("ratingDistribution counts the aptitude category too", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "AAA"), member(2, "Bob", "AAA")],
+      [review(1, { aptitudeRating: 6 }), review(2, { aptitudeRating: 6 })],
+    );
+    const aptitude = ratingDistribution(rows, "aptitude");
+    expect(aptitude.counts.find((b) => b.rating === 6)?.count).toBe(2);
+    expect(aptitude.rated).toBe(2);
+  });
+
   test("ratingDistribution with no rated rows reports rated 0 and all-zero buckets", () => {
     const rows = buildReviewsDashboardRows([member(1, "Ann", "AAA")], []);
     const dist = ratingDistribution(rows, "skills");
@@ -197,10 +225,11 @@ describe("reviewsDashboard", () => {
   test("ratingOf reads the picked category's rating (null for no review or unset)", () => {
     const rows = buildReviewsDashboardRows(
       [member(1, "Ann", "AAA"), member(2, "Bob", "AAA")],
-      [review(1, { attitudeRating: 5, deliveryRating: null })],
+      [review(1, { attitudeRating: 5, deliveryRating: null, aptitudeRating: 6 })],
     );
     expect(ratingOf(rows[0], "attitude")).toBe(5);
     expect(ratingOf(rows[0], "delivery")).toBeNull();
+    expect(ratingOf(rows[0], "aptitude")).toBe(6);
     expect(ratingOf(rows[1], "overall")).toBeNull(); // Bob has no review at all
   });
 

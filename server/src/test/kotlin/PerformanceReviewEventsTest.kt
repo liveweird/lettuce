@@ -20,12 +20,13 @@ class PerformanceReviewEventsTest {
         attitude: CategoryAssessment = CategoryAssessment(),
         delivery: CategoryAssessment = CategoryAssessment(),
         skills: CategoryAssessment = CategoryAssessment(),
+        aptitude: CategoryAssessment = CategoryAssessment(),
         overall: CategoryAssessment = CategoryAssessment(),
     ) = PerformanceReviewResponse(
         id = 1u, managerId = 2u, subordinateId = 3u, periodId = 4u,
         periodStartMonth = "2026-01", periodEndMonth = "2026-06",
         status = PerformanceReviewStatus.DRAFT,
-        attitude = attitude, delivery = delivery, skills = skills, overall = overall,
+        attitude = attitude, delivery = delivery, skills = skills, aptitude = aptitude, overall = overall,
         createdAt = 1L, lastModified = 1L, managerName = "M", subordinateName = "S",
     )
 
@@ -33,8 +34,9 @@ class PerformanceReviewEventsTest {
         attitude: CategoryAssessment = CategoryAssessment(),
         delivery: CategoryAssessment = CategoryAssessment(),
         skills: CategoryAssessment = CategoryAssessment(),
+        aptitude: CategoryAssessment = CategoryAssessment(),
         overall: CategoryAssessment = CategoryAssessment(),
-    ) = PerformanceReviewUpdateRequest(attitude, delivery, skills, overall)
+    ) = PerformanceReviewUpdateRequest(attitude, delivery, skills, aptitude, overall)
 
     @Test
     fun `creation, transition, and deletion events carry their structural params`() {

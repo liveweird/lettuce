@@ -7,9 +7,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class PerformanceReviewStatus { DRAFT, CALIBRATION, PUBLISHED }
 
-/** The four assessed categories, in their canonical display/diff order. */
+/** The five assessed categories, in their canonical display/diff order. */
 @Serializable
-enum class ReviewCategory { ATTITUDE, DELIVERY, SKILLS, OVERALL }
+enum class ReviewCategory { ATTITUDE, DELIVERY, SKILLS, APTITUDE, OVERALL }
 
 const val MIN_REVIEW_RATING = 1
 const val MAX_REVIEW_RATING = 6
@@ -40,11 +40,12 @@ data class PerformanceReviewCreateRequest(
     val attitude: CategoryAssessment = CategoryAssessment(),
     val delivery: CategoryAssessment = CategoryAssessment(),
     val skills: CategoryAssessment = CategoryAssessment(),
+    val aptitude: CategoryAssessment = CategoryAssessment(),
     val overall: CategoryAssessment = CategoryAssessment(),
 )
 
 /**
- * Body of `PUT /performance-reviews/{id}` — a full replace of the eight assessment values.
+ * Body of `PUT /performance-reviews/{id}` — a full replace of the ten assessment values.
  * Parties, period, and status are NOT settable (status moves through the action endpoints).
  * Accepted while DRAFT or CALIBRATION; in CALIBRATION the payload must be complete — a value may
  * change but never blank out (see [requireCompleteAssessments]). PUBLISHED is read-only (409).
@@ -54,6 +55,7 @@ data class PerformanceReviewUpdateRequest(
     val attitude: CategoryAssessment = CategoryAssessment(),
     val delivery: CategoryAssessment = CategoryAssessment(),
     val skills: CategoryAssessment = CategoryAssessment(),
+    val aptitude: CategoryAssessment = CategoryAssessment(),
     val overall: CategoryAssessment = CategoryAssessment(),
 )
 
@@ -70,6 +72,7 @@ data class PerformanceReviewResponse(
     val attitude: CategoryAssessment,
     val delivery: CategoryAssessment,
     val skills: CategoryAssessment,
+    val aptitude: CategoryAssessment,
     val overall: CategoryAssessment,
     val createdAt: Long,
     val lastModified: Long,
@@ -95,6 +98,7 @@ data class PerformanceReviewListItem(
     val attitudeRating: Int?,
     val deliveryRating: Int?,
     val skillsRating: Int?,
+    val aptitudeRating: Int?,
     val overallRating: Int?,
     val createdAt: Long,
     val lastModified: Long,
@@ -126,12 +130,13 @@ data class PerformanceReviewEventListResponse(
     val items: List<PerformanceReviewEventResponse>,
 )
 
-/** The four assessments of a create/update payload, in the canonical category order. */
+/** The five assessments of a create/update payload, in the canonical category order. */
 internal fun assessmentsOf(request: PerformanceReviewUpdateRequest): Map<ReviewCategory, CategoryAssessment> =
     mapOf(
         ReviewCategory.ATTITUDE to request.attitude,
         ReviewCategory.DELIVERY to request.delivery,
         ReviewCategory.SKILLS to request.skills,
+        ReviewCategory.APTITUDE to request.aptitude,
         ReviewCategory.OVERALL to request.overall,
     )
 
@@ -140,6 +145,7 @@ internal fun assessmentsOf(request: PerformanceReviewCreateRequest): Map<ReviewC
         ReviewCategory.ATTITUDE to request.attitude,
         ReviewCategory.DELIVERY to request.delivery,
         ReviewCategory.SKILLS to request.skills,
+        ReviewCategory.APTITUDE to request.aptitude,
         ReviewCategory.OVERALL to request.overall,
     )
 
@@ -148,6 +154,7 @@ internal fun assessmentsOf(response: PerformanceReviewResponse): Map<ReviewCateg
         ReviewCategory.ATTITUDE to response.attitude,
         ReviewCategory.DELIVERY to response.delivery,
         ReviewCategory.SKILLS to response.skills,
+        ReviewCategory.APTITUDE to response.aptitude,
         ReviewCategory.OVERALL to response.overall,
     )
 
@@ -177,7 +184,7 @@ internal fun validateAssessments(assessments: Map<ReviewCategory, CategoryAssess
 }
 
 /**
- * The completeness rule: all four ratings set and all four summaries non-blank. Enforced by the
+ * The completeness rule: all five ratings set and all five summaries non-blank. Enforced by the
  * DRAFT→CALIBRATION transition (an incomplete review may not enter calibration) and by every PUT
  * against a CALIBRATION review (from calibration onward a value may change but never blank out).
  */

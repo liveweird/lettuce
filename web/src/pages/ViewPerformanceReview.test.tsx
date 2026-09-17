@@ -30,6 +30,7 @@ const REVIEW = {
   attitude: { rating: 4, summary: "Positive influence on the team." },
   delivery: { rating: 3, summary: "Delivers what was agreed." },
   skills: { rating: 5, summary: "Deep platform knowledge." },
+  aptitude: { rating: 6, summary: "Picks up new tools fast." },
   overall: { rating: null, summary: null },
   createdAt: new Date(2026, 6, 1).getTime(),
   lastModified: new Date(2026, 6, 1).getTime(),
@@ -90,9 +91,12 @@ describe("ViewPerformanceReview page", () => {
     // Ratings render as the colored badge number + the wording beside it (v1.33.1).
     expect(screen.getByText("Sometimes exceeds expectations")).toBeInTheDocument();
     expect(screen.getByText("Exceeds expectations")).toBeInTheDocument();
+    expect(screen.getByText("Exceptional")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText("Aptitude")).toBeInTheDocument();
     expect(screen.getByText("Positive influence on the team.")).toBeInTheDocument();
+    expect(screen.getByText("Picks up new tools fast.")).toBeInTheDocument();
     // The unfilled category dims instead of breaking.
     expect(screen.getByText("Not rated yet")).toBeInTheDocument();
     expect(screen.getByText("No summary yet.")).toBeInTheDocument();
@@ -145,7 +149,7 @@ describe("ViewPerformanceReview page", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Submit for calibration" }));
     expect(
-      await screen.findByText("All four ratings and summaries must be filled in first."),
+      await screen.findByText("All five ratings and summaries must be filled in first."),
     ).toBeInTheDocument();
   });
 });

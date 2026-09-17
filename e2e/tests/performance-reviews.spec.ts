@@ -27,7 +27,7 @@ import type { Page } from "@playwright/test";
 // dev volume; a mid-run death can additionally strand a review, which blocks nothing — the
 // next run reviews a fresh subordinate.
 
-const CATEGORIES = ["Attitude", "Delivery", "Skills", "Overall"] as const;
+const CATEGORIES = ["Attitude", "Delivery", "Skills", "Aptitude", "Overall"] as const;
 const RATING = "4 — Sometimes exceeds expectations";
 // On the view screen the rating renders as a colored badge + the wording beside it (v1.33.1).
 const RATING_WORDING = "Sometimes exceeds expectations";
@@ -142,7 +142,7 @@ test("a performance review travels period → draft → calibration → publishe
   ]);
   const reviewId = ((await createResponse.json()) as { id: number }).id;
 
-  // 3. The editor opens directly; fill all four categories and Save & submit → calibration.
+  // 3. The editor opens directly; fill all five categories and Save & submit → calibration.
   await expect(page.getByRole("heading", { name: "Edit performance review" })).toBeVisible();
   for (const [index, category] of CATEGORIES.entries()) {
     await pickRating(page, category);
@@ -214,6 +214,7 @@ test("a performance review travels period → draft → calibration → publishe
   await myRow.getByRole("link", { name: /^View the performance review/ }).click();
   await expect(page.getByText(RATING_WORDING).first()).toBeVisible();
   await expect(page.getByText("E2E attitude summary for this period.")).toBeVisible();
+  await expect(page.getByText("E2E aptitude summary for this period.")).toBeVisible();
   // Read-only: no lifecycle or edit affordances for the subordinate.
   await expect(page.getByRole("button", { name: "Unpublish" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);

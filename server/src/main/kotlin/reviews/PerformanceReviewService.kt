@@ -72,7 +72,7 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "lastModified" to PerformanceReviewService.Reviews.lastModified,
 )
 
-// All eight assessment columns — the four summaries AND, since V45, the four numeric ratings —
+// All ten assessment columns — the five summaries AND, since V45, the five numeric ratings —
 // are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher wraps every write and
 // unwraps every read, so nothing above this service ever sees ciphertext. Safe because no
 // assessment column is filtered/sorted/aggregated in SQL — the reviews dashboard sorts and
@@ -95,6 +95,8 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         val deliverySummary = text("delivery_summary").nullable()
         val skillsRating = text("skills_rating").nullable()
         val skillsSummary = text("skills_summary").nullable()
+        val aptitudeRating = text("aptitude_rating").nullable()
+        val aptitudeSummary = text("aptitude_summary").nullable()
         val overallRating = text("overall_rating").nullable()
         val overallSummary = text("overall_summary").nullable()
         val lastModified = long("last_modified")
@@ -205,7 +207,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         }
 
     /**
-     * Replaces the eight assessment values (never parties, period, or status). Accepted while
+     * Replaces the ten assessment values (never parties, period, or status). Accepted while
      * DRAFT or CALIBRATION; in CALIBRATION the payload must additionally be complete — a value
      * may change but never blank out. PUBLISHED (read-only) throws [ConflictException] (→ 409).
      * All checks run atomically with the update. Returns the affected-row count (0 →
@@ -346,6 +348,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
                 Reviews.attitudeRating,
                 Reviews.deliveryRating,
                 Reviews.skillsRating,
+                Reviews.aptitudeRating,
                 Reviews.overallRating,
                 Reviews.createdAt,
                 Reviews.lastModified,
@@ -374,6 +377,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
                     attitudeRating = row[Reviews.attitudeRating]?.let(cipher::decrypt)?.toInt(),
                     deliveryRating = row[Reviews.deliveryRating]?.let(cipher::decrypt)?.toInt(),
                     skillsRating = row[Reviews.skillsRating]?.let(cipher::decrypt)?.toInt(),
+                    aptitudeRating = row[Reviews.aptitudeRating]?.let(cipher::decrypt)?.toInt(),
                     overallRating = row[Reviews.overallRating]?.let(cipher::decrypt)?.toInt(),
                     createdAt = row[Reviews.createdAt],
                     lastModified = row[Reviews.lastModified],
@@ -448,6 +452,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
                 Reviews.attitudeRating, Reviews.attitudeSummary,
                 Reviews.deliveryRating, Reviews.deliverySummary,
                 Reviews.skillsRating, Reviews.skillsSummary,
+                Reviews.aptitudeRating, Reviews.aptitudeSummary,
                 Reviews.overallRating, Reviews.overallSummary,
             ),
             reencryptAll,
@@ -474,7 +479,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
             otherColumn = ReviewPeriodService.ReviewPeriods.id,
         )
 
-    // Writes the eight assessment fields into an insert/update statement, every value encrypted.
+    // Writes the ten assessment fields into an insert/update statement, every value encrypted.
     // Summaries are stored NULL when null or empty (both mean "no summary"); ratings encrypt
     // their decimal string form ("5" → envelope).
     private fun writeAssessments(
@@ -485,6 +490,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
             ReviewCategory.ATTITUDE to (Reviews.attitudeRating to Reviews.attitudeSummary),
             ReviewCategory.DELIVERY to (Reviews.deliveryRating to Reviews.deliverySummary),
             ReviewCategory.SKILLS to (Reviews.skillsRating to Reviews.skillsSummary),
+            ReviewCategory.APTITUDE to (Reviews.aptitudeRating to Reviews.aptitudeSummary),
             ReviewCategory.OVERALL to (Reviews.overallRating to Reviews.overallSummary),
         )
         assessments.forEach { (category, assessment) ->
@@ -509,6 +515,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         attitude = assessmentAt(Reviews.attitudeRating, Reviews.attitudeSummary),
         delivery = assessmentAt(Reviews.deliveryRating, Reviews.deliverySummary),
         skills = assessmentAt(Reviews.skillsRating, Reviews.skillsSummary),
+        aptitude = assessmentAt(Reviews.aptitudeRating, Reviews.aptitudeSummary),
         overall = assessmentAt(Reviews.overallRating, Reviews.overallSummary),
         createdAt = this[Reviews.createdAt],
         lastModified = this[Reviews.lastModified],
