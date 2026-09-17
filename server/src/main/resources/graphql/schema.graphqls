@@ -302,7 +302,7 @@ type CategoryAssessment {
   "The category summary text; null while unset." summary: String
 }
 
-"A performance review (four rated categories; content decrypted for integration clients)."
+"A performance review (five rated categories; content decrypted for integration clients)."
 type PerformanceReview {
   "The review id." id: Int!
   "The authoring manager's user id (may reference a since-deleted user — see the schema note)." managerId: Int!
@@ -316,6 +316,7 @@ type PerformanceReview {
   "The attitude category." attitude: CategoryAssessment!
   "The delivery category." delivery: CategoryAssessment!
   "The skills category." skills: CategoryAssessment!
+  "The aptitude category." aptitude: CategoryAssessment!
   "The overall category." overall: CategoryAssessment!
   "Review creation timestamp." createdAt: Long!
   "Last modification timestamp." lastModified: Long!

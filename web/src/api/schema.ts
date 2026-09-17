@@ -2456,10 +2456,10 @@ export interface paths {
          *     no ADMIN create-on-behalf. The stored manager stays the author even if the subordinate
          *     later moves teams (the goals model). A **deactivated** subordinate is rejected with `400`.
          *
-         *     The four category assessments (attitude, delivery, skills, overall) may be **partial**
-         *     — a DRAFT is the manager's scratch space; each set rating must be on the 1–6 scale and
-         *     each summary within bounds. Completeness (all four ratings + non-blank summaries) is
-         *     required only to enter calibration (`POST …/submit`).
+         *     The five category assessments (attitude, delivery, skills, aptitude, overall) may be
+         *     **partial** — a DRAFT is the manager's scratch space; each set rating must be on the 1–6
+         *     scale and each summary within bounds. Completeness (all five ratings + non-blank
+         *     summaries) is required only to enter calibration (`POST …/submit`).
          *
          *     The chosen period must have **started**: a review for a period whose start month is
          *     after the current month is rejected (`400`) — the currently-running period is fine.
@@ -2489,7 +2489,7 @@ export interface paths {
         };
         /**
          * Fetch a performance review
-         * @description Returns the full review document — parties, period, status, and the four category
+         * @description Returns the full review document — parties, period, status, and the five category
          *     assessments (rating + summary each). Readable by the review's **manager** (the author)
          *     at every status and by the **HR auditor** (audit-logged) at every status; by the
          *     **subordinate** only once **PUBLISHED** (a review in DRAFT or CALIBRATION is invisible
@@ -2501,7 +2501,7 @@ export interface paths {
         get: operations["getPerformanceReview"];
         /**
          * Edit a review's assessments
-         * @description Replaces the review's eight assessment values (the four categories' ratings and
+         * @description Replaces the review's ten assessment values (the five categories' ratings and
          *     summaries). **Manager-only** (the subordinate has read rights only; nobody else — ADMIN
          *     included — gets write access). Accepted while **DRAFT or CALIBRATION**; a PUBLISHED
          *     review is read-only (`409`) — unpublish it first. In CALIBRATION the payload must stay
@@ -2542,7 +2542,7 @@ export interface paths {
         /**
          * Submit a draft review to calibration
          * @description Moves the review `DRAFT → CALIBRATION` (any other current status is `409`).
-         *     **Manager-only.** The review must be **complete** — all four ratings set and all four
+         *     **Manager-only.** The review must be **complete** — all five ratings set and all five
          *     summaries non-blank (`400`) — an incomplete draft cannot enter calibration. Once in
          *     calibration, the review becomes visible to the subordinate's wider management chain
          *     (not to the subordinate). Nobody is notified — the calibration phase is invisible to
@@ -2647,7 +2647,7 @@ export interface paths {
          *     fact), status transition, and deletion — newest first (id descending as the same-instant
          *     tiebreaker). Each entry is structural: an
          *     event `type` plus a `params` map (category/status enum names only — never summary text
-         *     and never rating values, since all eight assessment fields are encrypted at rest while
+         *     and never rating values, since all ten assessment fields are encrypted at rest while
          *     this trail is plaintext), with the acting user resolved to `userName`; no rendered
          *     string is stored (clients localize the description). Authorization matches the
          *     single-GET above:
@@ -5862,16 +5862,18 @@ export interface components {
             attitude?: components["schemas"]["CategoryAssessment"];
             delivery?: components["schemas"]["CategoryAssessment"];
             skills?: components["schemas"]["CategoryAssessment"];
+            aptitude?: components["schemas"]["CategoryAssessment"];
             overall?: components["schemas"]["CategoryAssessment"];
         };
         /**
-         * @description Full replace of the eight assessment values. An omitted category (or field) counts as
+         * @description Full replace of the ten assessment values. An omitted category (or field) counts as
          *     unset — legal while DRAFT; in CALIBRATION the payload must be complete (400 otherwise).
          */
         PerformanceReviewUpdateRequest: {
             attitude?: components["schemas"]["CategoryAssessment"];
             delivery?: components["schemas"]["CategoryAssessment"];
             skills?: components["schemas"]["CategoryAssessment"];
+            aptitude?: components["schemas"]["CategoryAssessment"];
             overall?: components["schemas"]["CategoryAssessment"];
         };
         PerformanceReviewResponse: {
@@ -5892,6 +5894,7 @@ export interface components {
             attitude: components["schemas"]["CategoryAssessment"];
             delivery: components["schemas"]["CategoryAssessment"];
             skills: components["schemas"]["CategoryAssessment"];
+            aptitude: components["schemas"]["CategoryAssessment"];
             overall: components["schemas"]["CategoryAssessment"];
             /**
              * Format: int64
@@ -5930,6 +5933,7 @@ export interface components {
             attitudeRating: number | null;
             deliveryRating: number | null;
             skillsRating: number | null;
+            aptitudeRating: number | null;
             overallRating: number | null;
             /** Format: int64 */
             createdAt: number;
@@ -5968,7 +5972,7 @@ export interface components {
             /**
              * @description Interpolation params for the localized rendering — the category enum name
              *     (`RATING_CHANGED`/`SUMMARY_CHANGED`) and status enum names (`STATUS_CHANGED`).
-             *     Never summary text and never rating values (all eight assessment fields are
+             *     Never summary text and never rating values (all ten assessment fields are
              *     encrypted at rest; this trail is plaintext by design). Empty object when the
              *     event kind needs none.
              */

@@ -18,6 +18,7 @@ const COMPLETE: ReviewFormValues = {
   attitude: { rating: "3", summary: "a" },
   delivery: { rating: "4", summary: "b" },
   skills: { rating: "5", summary: "c" },
+  aptitude: { rating: "3", summary: "e" },
   overall: { rating: "4", summary: "d" },
 };
 
@@ -49,18 +50,21 @@ describe("reviewRatings", () => {
       attitude: { rating: 5, summary: "great" },
       delivery: { rating: null, summary: null },
       skills: { rating: 2, summary: null },
+      aptitude: { rating: 6, summary: "sharp" },
       overall: { rating: null, summary: "only text" },
       createdAt: 1, lastModified: 1, managerName: "M", subordinateName: "S",
     };
     const values = toReviewFormValues(response);
     expect(values.attitude).toEqual({ rating: "5", summary: "great" });
     expect(values.delivery).toEqual({ rating: "", summary: "" });
+    expect(values.aptitude).toEqual({ rating: "6", summary: "sharp" });
 
     const body = toReviewBody({ ...values, skills: { rating: "2", summary: "   " } });
     expect(body.attitude).toEqual({ rating: 5, summary: "great" });
     expect(body.delivery).toEqual({ rating: null, summary: null });
     // Whitespace-only summaries are the same non-value as empty.
     expect(body.skills).toEqual({ rating: 2, summary: null });
+    expect(body.aptitude).toEqual({ rating: 6, summary: "sharp" });
   });
 
   test("isReviewComplete demands every rating and a non-blank summary", () => {

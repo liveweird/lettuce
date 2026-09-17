@@ -22,7 +22,7 @@ export default function RatingBadge({
 }
 
 /**
- * The four rating table cells in category order — a badge per set rating, a dimmed dash for
+ * The five rating table cells in category order — a badge per set rating, a dimmed dash for
  * an unset one. Shared by the review tables and the dashboard so the cells stay identical.
  */
 export function RatingCells({ ratings, labels }: { ratings: (number | null)[]; labels: string[] }) {

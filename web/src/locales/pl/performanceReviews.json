@@ -53,18 +53,21 @@
     "attitude": "Postawa",
     "delivery": "Realizacja",
     "skills": "Umiejętności",
+    "aptitude": "Potencjał",
     "overall": "Ocena ogólna"
   },
   "section": {
     "attitude": "Postawa",
     "delivery": "Realizacja",
     "skills": "Umiejętności",
+    "aptitude": "Potencjał",
     "overall": "Ocena ogólna"
   },
   "categoryShort": {
     "attitude": "Postawa",
     "delivery": "Realizacja",
     "skills": "Umiejętności",
+    "aptitude": "Potencjał",
     "overall": "Ogólna"
   },
   "rating": {
@@ -92,7 +95,7 @@
   },
   "error": {
     "duplicate": "Ten członek zespołu ma już ocenę za ten okres.",
-    "incomplete": "Najpierw wypełnij wszystkie cztery oceny i podsumowania.",
+    "incomplete": "Najpierw wypełnij wszystkie pięć ocen i podsumowań.",
     "invalidTransition": "To działanie nie jest dostępne w bieżącym stanie oceny.",
     "savePermission": "Nie możesz modyfikować tej oceny.",
     "gone": "Ocena już nie istnieje.",

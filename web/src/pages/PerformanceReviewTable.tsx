@@ -116,7 +116,7 @@ export default function PerformanceReviewTable({
     ...BASE_SORT_FIELDS,
     ...visibleColumns.map((c) => c.field),
   ];
-  // Sortable columns + the four (unsortable) rating columns + the actions column.
+  // Sortable columns + the five (unsortable) rating columns + the actions column.
   const columnCount = sortFields.length + REVIEW_CATEGORIES.length + 1;
 
   const storeKey = settingsKey ?? `performanceReviews.${view}`;
@@ -298,6 +298,7 @@ export default function PerformanceReviewTable({
                 r.attitudeRating,
                 r.deliveryRating,
                 r.skillsRating,
+                r.aptitudeRating,
                 r.overallRating,
               ];
               return (

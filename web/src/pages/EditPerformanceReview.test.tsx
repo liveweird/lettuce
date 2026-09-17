@@ -30,6 +30,7 @@ const DRAFT = {
   attitude: { rating: 4, summary: "Positive influence." },
   delivery: { rating: 3, summary: "Delivers." },
   skills: { rating: 5, summary: "Deep knowledge." },
+  aptitude: { rating: 2, summary: "Learns fast." },
   overall: { rating: null, summary: null },
   createdAt: 1, lastModified: 1,
 };
@@ -101,6 +102,7 @@ describe("EditPerformanceReview page", () => {
     const body = JSON.parse(String(put![1]!.body));
     expect(body.overall).toEqual({ rating: 6, summary: null });
     expect(body.attitude).toEqual({ rating: 4, summary: "Positive influence." });
+    expect(body.aptitude).toEqual({ rating: 2, summary: "Learns fast." });
   });
 
   test("Save & submit refuses an incomplete draft client-side, then submits once complete", async () => {
@@ -110,14 +112,14 @@ describe("EditPerformanceReview page", () => {
     await screen.findByDisplayValue("Positive influence.");
     await userEvent.click(screen.getByRole("button", { name: "Save & submit" }));
     expect(
-      await screen.findByText("All four ratings and summaries must be filled in first."),
+      await screen.findByText("All five ratings and summaries must be filled in first."),
     ).toBeInTheDocument();
     expect(mockFetch.mock.calls.some((c) => c[1]?.method === "PUT")).toBe(false);
 
     // Complete the overall category — the submit goes through: PUT then POST /submit.
     fireEvent.click(screen.getByLabelText("Overall", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "4 — Sometimes exceeds expectations" }));
-    await userEvent.type(screen.getAllByLabelText("Summary")[3], "Rounded, reliable half-year.");
+    await userEvent.type(screen.getAllByLabelText("Summary")[4], "Rounded, reliable half-year.");
     await userEvent.click(screen.getByRole("button", { name: "Save & submit" }));
 
     await waitFor(() => expect(screen.getByTestId("probe").textContent).toBe("/performance?tab=managed"));
@@ -145,7 +147,7 @@ describe("EditPerformanceReview page", () => {
     await userEvent.clear(screen.getAllByLabelText("Summary")[0]);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(
-      await screen.findByText("All four ratings and summaries must be filled in first."),
+      await screen.findByText("All five ratings and summaries must be filled in first."),
     ).toBeInTheDocument();
     expect(mockFetch.mock.calls.some((c) => c[1]?.method === "PUT")).toBe(false);
   });

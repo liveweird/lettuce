@@ -32,7 +32,7 @@ function conflictReviewId(err: unknown): number | null {
 /**
  * Deliberately minimal (the CreateOneOnOne idiom): pick the direct report (skipped when a card
  * prefilled it) and the period, create the empty DRAFT, and land straight in the editor where
- * the four assessments are filled in. A subordinate has at most one review per period — an
+ * the five assessments are filled in. A subordinate has at most one review per period — an
  * occupied slot is a 409 with a link to the existing review.
  */
 export default function CreatePerformanceReview() {

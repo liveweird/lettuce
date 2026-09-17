@@ -66,6 +66,7 @@ class PerformanceReviewRoutesTest {
         attitude: CategoryAssessment = CategoryAssessment(3, "attitude ok"),
         delivery: CategoryAssessment = CategoryAssessment(4, "delivery ok"),
         skills: CategoryAssessment = CategoryAssessment(5, "skills ok"),
+        aptitude: CategoryAssessment = CategoryAssessment(5, "aptitude ok"),
         overall: CategoryAssessment = CategoryAssessment(4, "overall ok"),
     ): PerformanceReviewResponse {
         val response = post("/api/v1/performance-reviews") {
@@ -77,6 +78,7 @@ class PerformanceReviewRoutesTest {
                     attitude = attitude,
                     delivery = delivery,
                     skills = skills,
+                    aptitude = aptitude,
                     overall = overall,
                 ),
             )
@@ -466,7 +468,8 @@ class PerformanceReviewRoutesTest {
                 setBody(
                     PerformanceReviewUpdateRequest(
                         attitude = review.attitude, delivery = review.delivery,
-                        skills = CategoryAssessment(5, "   "), overall = review.overall,
+                        skills = CategoryAssessment(5, "   "), aptitude = review.aptitude,
+                        overall = review.overall,
                     ),
                 )
             }.status,
@@ -480,7 +483,8 @@ class PerformanceReviewRoutesTest {
                 setBody(
                     PerformanceReviewUpdateRequest(
                         attitude = review.attitude, delivery = review.delivery,
-                        skills = CategoryAssessment(5, "now complete"), overall = review.overall,
+                        skills = CategoryAssessment(5, "now complete"), aptitude = review.aptitude,
+                        overall = review.overall,
                     ),
                 )
             }.status,
@@ -570,6 +574,7 @@ class PerformanceReviewRoutesTest {
             attitude = CategoryAssessment(2, "attitude reconsidered"),
             delivery = review.delivery,
             skills = review.skills,
+            aptitude = review.aptitude,
             overall = review.overall,
         )
         // DRAFT edit; a partial payload is fine (blanking delivery entirely).
@@ -625,7 +630,11 @@ class PerformanceReviewRoutesTest {
                 contentType(ContentType.Application.Json)
                 setBody(
                     PerformanceReviewUpdateRequest(
-                        review.attitude, review.delivery, review.skills, review.overall,
+                        attitude = review.attitude,
+                        delivery = review.delivery,
+                        skills = review.skills,
+                        aptitude = review.aptitude,
+                        overall = review.overall,
                     ),
                 )
             }.status,
@@ -642,6 +651,7 @@ class PerformanceReviewRoutesTest {
                         attitude = CategoryAssessment(1, review.attitude.summary),
                         delivery = CategoryAssessment(review.delivery.rating, "reworded delivery"),
                         skills = review.skills,
+                        aptitude = review.aptitude,
                         overall = review.overall,
                     ),
                 )
@@ -727,6 +737,7 @@ class PerformanceReviewRoutesTest {
             val row = subordinate.get("/api/v1/performance-reviews?view=own")
                 .body<PerformanceReviewPageResponse>().items.first { it.id == review.id }
             assertEquals(3, row.attitudeRating)
+            assertEquals(5, row.aptitudeRating)
             assertEquals(period.startMonth, row.periodStartMonth)
             assertEquals("Mona Manager", row.managerName)
 

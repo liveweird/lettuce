@@ -53,18 +53,21 @@
     "attitude": "Attitude",
     "delivery": "Delivery",
     "skills": "Skills",
+    "aptitude": "Aptitude",
     "overall": "Overall"
   },
   "section": {
     "attitude": "Attitude",
     "delivery": "Delivery",
     "skills": "Skills",
+    "aptitude": "Aptitude",
     "overall": "Overall"
   },
   "categoryShort": {
     "attitude": "Attitude",
     "delivery": "Delivery",
     "skills": "Skills",
+    "aptitude": "Aptitude",
     "overall": "Overall"
   },
   "rating": {
@@ -92,7 +95,7 @@
   },
   "error": {
     "duplicate": "This team member already has a review for this period.",
-    "incomplete": "All four ratings and summaries must be filled in first.",
+    "incomplete": "All five ratings and summaries must be filled in first.",
     "invalidTransition": "This action is not available in the review's current state.",
     "savePermission": "You are not allowed to modify this review.",
     "gone": "The review no longer exists.",

@@ -34,9 +34,9 @@
      preselected (the newest **started** period is the default, never the future one); the fresh
      future period is offered in the Period picker but **greyed out/disabled** — the server would
      reject it.
-5. They create the review; the editor opens directly. They rate all four categories (Attitude,
-   Delivery, Skills, Overall) at "4 — Sometimes exceeds expectations" with a summary each, then
-   **Save & submit**.
+5. They create the review; the editor opens directly. They rate all five categories (Attitude,
+   Delivery, Skills, Aptitude, Overall) at "4 — Sometimes exceeds expectations" with a summary
+   each, then **Save & submit**.
    - *Expected*: back on the Team's-performance tab, the reviewee's row reads **Calibration**.
 6. The calibration row's action is **View** — the lifecycle lives on the view screen. The manager
    opens it and clicks **Publish**.
@@ -46,7 +46,7 @@
    - *Expected*: category tabs (Attitude … Overall) show, with "1 of 1 people rated" — also after
      switching to the Skills category.
 8. They flip to the **Quadrants** view (v2.7.0) — the same selection on the 6×6 lattice.
-   - *Expected*: the default axes are Delivery (X) × Attitude (Y); the reviewee (all four ratings
+   - *Expected*: the default axes are Delivery (X) × Attitude (Y); the reviewee (all five ratings
      4) sits at the (4, 4) cell with a details link, "1 of 1 people rated". Picking Delivery on
      the Y axis swaps the axes (they can never coincide) and re-plots instantly — the reviewee
      stays at (4, 4) on the swapped axes too.
@@ -55,8 +55,8 @@
    - *Expected*: a "published your performance review" notification.
 10. The reviewee opens the **Performance** nav page, which lands on its default **My performance**
     tab, and views the current period's row.
-    - *Expected*: the row reads Published; the view shows the rating wording and the attitude
-      summary, with zero write affordances — no Unpublish, no Edit.
+    - *Expected*: the row reads Published; the view shows the rating wording and the attitude and
+      aptitude summaries, with zero write affordances — no Unpublish, no Edit.
 11. The reviewee signs out; Manager AAA signs back in, opens the review, and clicks **Unpublish**.
     - *Expected*: back on the Team's-performance tab, the row reads **Calibration** again.
 12. They reopen the review and click **Return to draft**.

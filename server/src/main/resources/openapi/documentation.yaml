@@ -3992,10 +3992,10 @@ paths:
         no ADMIN create-on-behalf. The stored manager stays the author even if the subordinate
         later moves teams (the goals model). A **deactivated** subordinate is rejected with `400`.
 
-        The four category assessments (attitude, delivery, skills, overall) may be **partial**
-        — a DRAFT is the manager's scratch space; each set rating must be on the 1–6 scale and
-        each summary within bounds. Completeness (all four ratings + non-blank summaries) is
-        required only to enter calibration (`POST …/submit`).
+        The five category assessments (attitude, delivery, skills, aptitude, overall) may be
+        **partial** — a DRAFT is the manager's scratch space; each set rating must be on the 1–6
+        scale and each summary within bounds. Completeness (all five ratings + non-blank
+        summaries) is required only to enter calibration (`POST …/submit`).
 
         The chosen period must have **started**: a review for a period whose start month is
         after the current month is rejected (`400`) — the currently-running period is fine.
@@ -4053,7 +4053,7 @@ paths:
       operationId: getPerformanceReview
       summary: Fetch a performance review
       description: |
-        Returns the full review document — parties, period, status, and the four category
+        Returns the full review document — parties, period, status, and the five category
         assessments (rating + summary each). Readable by the review's **manager** (the author)
         at every status and by the **HR auditor** (audit-logged) at every status; by the
         **subordinate** only once **PUBLISHED** (a review in DRAFT or CALIBRATION is invisible
@@ -4078,7 +4078,7 @@ paths:
       operationId: updatePerformanceReview
       summary: Edit a review's assessments
       description: |
-        Replaces the review's eight assessment values (the four categories' ratings and
+        Replaces the review's ten assessment values (the five categories' ratings and
         summaries). **Manager-only** (the subordinate has read rights only; nobody else — ADMIN
         included — gets write access). Accepted while **DRAFT or CALIBRATION**; a PUBLISHED
         review is read-only (`409`) — unpublish it first. In CALIBRATION the payload must stay
@@ -4143,7 +4143,7 @@ paths:
       summary: Submit a draft review to calibration
       description: |
         Moves the review `DRAFT → CALIBRATION` (any other current status is `409`).
-        **Manager-only.** The review must be **complete** — all four ratings set and all four
+        **Manager-only.** The review must be **complete** — all five ratings set and all five
         summaries non-blank (`400`) — an incomplete draft cannot enter calibration. Once in
         calibration, the review becomes visible to the subordinate's wider management chain
         (not to the subordinate). Nobody is notified — the calibration phase is invisible to
@@ -4238,7 +4238,7 @@ paths:
         fact), status transition, and deletion — newest first (id descending as the same-instant
         tiebreaker). Each entry is structural: an
         event `type` plus a `params` map (category/status enum names only — never summary text
-        and never rating values, since all eight assessment fields are encrypted at rest while
+        and never rating values, since all ten assessment fields are encrypted at rest while
         this trail is plaintext), with the acting user resolved to `userName`; no rendered
         string is stored (clients localize the description). Authorization matches the
         single-GET above:
@@ -9015,17 +9015,19 @@ components:
         attitude: { $ref: '#/components/schemas/CategoryAssessment' }
         delivery: { $ref: '#/components/schemas/CategoryAssessment' }
         skills: { $ref: '#/components/schemas/CategoryAssessment' }
+        aptitude: { $ref: '#/components/schemas/CategoryAssessment' }
         overall: { $ref: '#/components/schemas/CategoryAssessment' }
 
     PerformanceReviewUpdateRequest:
       type: object
       description: |
-        Full replace of the eight assessment values. An omitted category (or field) counts as
+        Full replace of the ten assessment values. An omitted category (or field) counts as
         unset — legal while DRAFT; in CALIBRATION the payload must be complete (400 otherwise).
       properties:
         attitude: { $ref: '#/components/schemas/CategoryAssessment' }
         delivery: { $ref: '#/components/schemas/CategoryAssessment' }
         skills: { $ref: '#/components/schemas/CategoryAssessment' }
+        aptitude: { $ref: '#/components/schemas/CategoryAssessment' }
         overall: { $ref: '#/components/schemas/CategoryAssessment' }
 
     PerformanceReviewResponse:
@@ -9041,6 +9043,7 @@ components:
         - attitude
         - delivery
         - skills
+        - aptitude
         - overall
         - createdAt
         - lastModified
@@ -9063,6 +9066,7 @@ components:
         attitude: { $ref: '#/components/schemas/CategoryAssessment' }
         delivery: { $ref: '#/components/schemas/CategoryAssessment' }
         skills: { $ref: '#/components/schemas/CategoryAssessment' }
+        aptitude: { $ref: '#/components/schemas/CategoryAssessment' }
         overall: { $ref: '#/components/schemas/CategoryAssessment' }
         createdAt:
           type: integer
@@ -9096,6 +9100,7 @@ components:
         - attitudeRating
         - deliveryRating
         - skillsRating
+        - aptitudeRating
         - overallRating
         - createdAt
         - lastModified
@@ -9120,6 +9125,7 @@ components:
         attitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
         deliveryRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
         skillsRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        aptitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
         overallRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
         createdAt: { type: integer, format: int64 }
         lastModified: { type: integer, format: int64 }
@@ -9169,7 +9175,7 @@ components:
           description: |
             Interpolation params for the localized rendering — the category enum name
             (`RATING_CHANGED`/`SUMMARY_CHANGED`) and status enum names (`STATUS_CHANGED`).
-            Never summary text and never rating values (all eight assessment fields are
+            Never summary text and never rating values (all ten assessment fields are
             encrypted at rest; this trail is plaintext by design). Empty object when the
             event kind needs none.
 

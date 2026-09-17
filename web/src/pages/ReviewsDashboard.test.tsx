@@ -50,7 +50,7 @@ const REVIEW = {
   subordinateId: 8, subordinateName: "Ann Alpha", subordinateDeleted: false,
   periodId: 5, periodStartMonth: "2026-01", periodEndMonth: "2026-06",
   status: "CALIBRATION",
-  attitudeRating: 4, deliveryRating: 3, skillsRating: 5, overallRating: 4,
+  attitudeRating: 4, deliveryRating: 3, skillsRating: 5, aptitudeRating: 2, overallRating: 4,
   createdAt: 1, lastModified: 1,
 };
 
@@ -124,6 +124,7 @@ describe("ReviewsDashboard tab", () => {
     // Ann's ratings render as numbers; her CALIBRATION row opens the view screen (the
     // lifecycle actions live there — Edit is the DRAFT rows' action).
     expect(screen.getByText("5")).toBeInTheDocument();
+    expect(within(table).getByText("2")).toBeInTheDocument(); // Ann's aptitude rating
     expect(
       screen.getByRole("link", { name: "View the performance review of Ann Alpha" }),
     ).toBeInTheDocument();

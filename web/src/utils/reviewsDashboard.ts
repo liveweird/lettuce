@@ -80,6 +80,7 @@ export const REVIEWS_DASHBOARD_SORT_FIELDS = [
   "attitude",
   "delivery",
   "skills",
+  "aptitude",
   "overall",
 ] as const;
 export type ReviewsDashboardSortField = (typeof REVIEWS_DASHBOARD_SORT_FIELDS)[number];
@@ -93,6 +94,7 @@ const RATING_FIELDS: Partial<
   attitude: (r) => r.review?.attitudeRating ?? null,
   delivery: (r) => r.review?.deliveryRating ?? null,
   skills: (r) => r.review?.skillsRating ?? null,
+  aptitude: (r) => r.review?.aptitudeRating ?? null,
   overall: (r) => r.review?.overallRating ?? null,
 };
 

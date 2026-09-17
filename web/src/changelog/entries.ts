@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.10.0",
+    date: "2026-09-17",
+    en: `New **Aptitude** review dimension — performance reviews now include a fifth assessment category capturing a person's growth potential, adaptability, and appetite for change, rated and summarised just like the existing categories.`,
+    pl: `Nowy wymiar oceny — **Potencjał**: oceny zawierają teraz piątą kategorię obejmującą potencjał rozwoju danej osoby, jej zdolność adaptacji i otwartość na zmiany — oceniany i opisywany tak samo jak pozostałe kategorie.`,
+  },
+  {
     version: "3.9.1",
     date: "2026-09-17",
     en: `Managers and HR can now see when a person last signed in, shown on their profile card. It's a simple signal of how actively someone is using Lettuce. You can always see your own last sign-in.`,

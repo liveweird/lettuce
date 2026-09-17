@@ -43,7 +43,7 @@ const ACTIONS: Record<
   ],
 };
 
-function CategoryBlock({ category, assessment }: { category: "attitude" | "delivery" | "skills" | "overall"; assessment: CategoryAssessment }) {
+function CategoryBlock({ category, assessment }: { category: "attitude" | "delivery" | "skills" | "aptitude" | "overall"; assessment: CategoryAssessment }) {
   const { t } = useTranslation();
   return (
     <Stack gap={4}>

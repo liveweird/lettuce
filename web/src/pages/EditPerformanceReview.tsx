@@ -55,6 +55,7 @@ const EMPTY_VALUES: ReviewFormValues = {
   attitude: { rating: "", summary: "" },
   delivery: { rating: "", summary: "" },
   skills: { rating: "", summary: "" },
+  aptitude: { rating: "", summary: "" },
   overall: { rating: "", summary: "" },
 };
 

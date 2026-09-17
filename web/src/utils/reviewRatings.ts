@@ -8,7 +8,7 @@ export const MAX_REVIEW_SUMMARY_LENGTH = 4000;
 /** The fixed 1–6 scale — the numeric value travels on the wire; the wording is i18n. */
 export const RATING_VALUES = [1, 2, 3, 4, 5, 6] as const;
 
-export const REVIEW_CATEGORIES = ["attitude", "delivery", "skills", "overall"] as const;
+export const REVIEW_CATEGORIES = ["attitude", "delivery", "skills", "aptitude", "overall"] as const;
 export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
 
 // The consistent rating color scale: a monotonic orange→green gradient (the lower the more
@@ -64,6 +64,7 @@ export function toReviewFormValues(review: PerformanceReviewResponse): ReviewFor
     attitude: toCategoryFormValues(review.attitude),
     delivery: toCategoryFormValues(review.delivery),
     skills: toCategoryFormValues(review.skills),
+    aptitude: toCategoryFormValues(review.aptitude),
     overall: toCategoryFormValues(review.overall),
   };
 }
@@ -80,6 +81,7 @@ export function toReviewBody(values: ReviewFormValues): PerformanceReviewUpdateB
     attitude: toAssessment(values.attitude),
     delivery: toAssessment(values.delivery),
     skills: toAssessment(values.skills),
+    aptitude: toAssessment(values.aptitude),
     overall: toAssessment(values.overall),
   };
 }

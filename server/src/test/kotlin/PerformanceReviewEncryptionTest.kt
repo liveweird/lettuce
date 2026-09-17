@@ -31,8 +31,8 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 /**
- * Encryption-at-rest of performance-review content: what PostgreSQL stores in all EIGHT
- * assessment columns — the four `*_summary` texts and, since V45, the four `*_rating` numbers —
+ * Encryption-at-rest of performance-review content: what PostgreSQL stores in all TEN
+ * assessment columns — the five `*_summary` texts and, since V45, the five `*_rating` numbers —
  * is an `enc:v1:` AES-GCM envelope, while the API serves plaintext; the plaintext event params
  * carry neither the summary texts nor the rating values. Raw column state is asserted by
  * selecting the Exposed table directly, bypassing the service's decrypt layer.
@@ -42,6 +42,8 @@ class PerformanceReviewEncryptionTest {
     private data class RawReview(
         val attitudeRating: String?,
         val attitudeSummary: String?,
+        val aptitudeRating: String?,
+        val aptitudeSummary: String?,
         val overallSummary: String?,
     )
 
@@ -54,6 +56,8 @@ class PerformanceReviewEncryptionTest {
                     RawReview(
                         attitudeRating = it[t.attitudeRating],
                         attitudeSummary = it[t.attitudeSummary],
+                        aptitudeRating = it[t.aptitudeRating],
+                        aptitudeSummary = it[t.aptitudeSummary],
                         overallSummary = it[t.overallSummary],
                     )
                 }
@@ -75,6 +79,7 @@ class PerformanceReviewEncryptionTest {
             val manager = authedClient(managerEmail, "pw")
 
             val secret = "Confidential assessment: struggles under pressure"
+            val aptitudeSecret = "Confidential assessment: learns fast"
             val response = manager.post("/api/v1/performance-reviews") {
                 contentType(ContentType.Application.Json)
                 setBody(
@@ -82,6 +87,7 @@ class PerformanceReviewEncryptionTest {
                         subordinateId = subordinateId,
                         periodId = period.id,
                         attitude = CategoryAssessment(2, secret),
+                        aptitude = CategoryAssessment(4, aptitudeSecret),
                     ),
                 )
             }
@@ -94,6 +100,9 @@ class PerformanceReviewEncryptionTest {
             assertTrue(raw.attitudeRating!!.startsWith(FieldCipher.PREFIX))
             assertTrue(raw.attitudeSummary!!.startsWith(FieldCipher.PREFIX))
             assertFalse("Confidential" in raw.attitudeSummary)
+            assertTrue(raw.aptitudeRating!!.startsWith(FieldCipher.PREFIX))
+            assertTrue(raw.aptitudeSummary!!.startsWith(FieldCipher.PREFIX))
+            assertFalse("Confidential" in raw.aptitudeSummary)
             assertNull(raw.overallSummary)
 
             // What the API serves: the plaintext, decrypted transparently.
@@ -101,6 +110,8 @@ class PerformanceReviewEncryptionTest {
                 .body<PerformanceReviewResponse>()
             assertEquals(2, fetched.attitude.rating)
             assertEquals(secret, fetched.attitude.summary)
+            assertEquals(4, fetched.aptitude.rating)
+            assertEquals(aptitudeSecret, fetched.aptitude.summary)
 
             // The event trail is plaintext by design — so it must never carry the secret texts.
             val rawEventParams = suspendTransaction(TestServices.performanceReviews.database) {
