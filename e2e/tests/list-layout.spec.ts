@@ -236,7 +236,11 @@ test("list rows stay contained and usable across desktop and mobile widths", asy
       await expect(receivedRow.getByText(requester.name, { exact: true })).toBeVisible();
       await expect(receivedRow.getByText(receivedProvider.name, { exact: true })).toBeVisible();
       await expect(receivedRow.getByText(receivedContent, { exact: true })).toBeVisible();
-      await expect(receivedRow.getByText("Provider + requester + subject", { exact: true })).toBeVisible();
+      const receivedVisibilityPill = receivedRow.locator(
+        '[title="Provider + requester + subject"]',
+      );
+      await expect(receivedVisibilityPill).toBeVisible();
+      await expect(receivedVisibilityPill).toHaveText("P+R+S");
       await expectAllRowActionsInViewport(page, table);
     }
 
@@ -334,7 +338,9 @@ test("list rows stay contained and usable across desktop and mobile widths", asy
         await expectAllRowActionsInViewport(page, table);
       }
       if (tab === "received") {
-        await expect(row.getByText("Wystawiający + proszący + podmiot", { exact: true })).toBeVisible();
+        const plVisibilityPill = row.locator('[title="Wystawiający + proszący + podmiot"]');
+        await expect(plVisibilityPill).toBeVisible();
+        await expect(plVisibilityPill).toHaveText("W+Pr+Po");
       } else {
         await expect(row.getByText("Publiczna", { exact: true })).toBeVisible();
         const deadlineRow = table.getByRole("row").filter({ hasText: requester.name });

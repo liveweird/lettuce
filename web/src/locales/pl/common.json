@@ -87,6 +87,12 @@
     "PROVIDER_REQUESTER_SUBJECT": "Wystawiający + proszący + podmiot",
     "PUBLIC": "Publiczna"
   },
+  "visibilityShort": {
+    "PROVIDER_SUBJECT": "W+Po",
+    "PROVIDER_REQUESTER": "W+Pr",
+    "PROVIDER_REQUESTER_SUBJECT": "W+Pr+Po",
+    "PUBLIC": "Publiczna"
+  },
   "role": {
     "ADMIN": "Administrator",
     "HR": "HR"

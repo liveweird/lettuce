@@ -14,8 +14,9 @@
    email and employee identifiers, then creates a 99-character unbroken team name.
 2. It gives the employee a received feedback with a long requester, visible content, and
    Provider + requester + subject visibility. At 1440, 1280, 1024, and 390 pixels:
-   - *Expected*: the page has no horizontal overflow; the requester, provider, preview, visibility,
-     and row action remain discoverable; the action stays inside the viewport.
+   - *Expected*: the page has no horizontal overflow; the requester, provider, preview, the
+     compact "P+R+S" visibility pill (its full wording on hover), and row action remain
+     discoverable; the action stays inside the viewport.
 3. At 390 pixels the employee opens the received feedback through its visible View action.
    - *Expected*: the correct feedback detail opens and retains the full content.
 4. The employee opens Provided, which contains a public three-recipient feedback, a draft, and a
@@ -31,8 +32,9 @@
      reachable, switching direction updates the active tab, and the page remains contained.
 7. The employee switches to Polish and repeats Received and Provided at representative desktop
    and mobile widths (1280 and 390 pixels).
-   - *Expected*: longer Polish visibility and status labels, the deadline, content, and actions
-     remain available without widening the page.
+   - *Expected*: the compact Polish visibility pill (full wording on hover), the longer Polish
+     status labels, the deadline, content, and actions remain available without widening the
+     page.
 8. Back in English, the employee filters Users to a colleague with maximum-length identity
    values and checks the list at all four widths.
    - *Expected*: the name, email, employee identifier, exact Teams link, and Feedback menu remain

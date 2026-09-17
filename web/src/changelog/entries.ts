@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.10.2",
+    date: "2026-09-17",
+    en: `Feedback visibility is now shown as a compact pill — P+S, P+R, P+R+S or Public — with the full wording on hover, so the lists no longer spend a wide column on it; screen readers still get the full text.`,
+    pl: `Widoczność feedbacku jest teraz pokazywana jako zwięzła etykieta — W+Po, W+Pr, W+Pr+Po lub Publiczna — z pełnym opisem po najechaniu, więc listy nie tracą już szerokiej kolumny; czytniki ekranu nadal otrzymują pełny tekst.`,
+  },
+  {
     version: "3.10.1",
     date: "2026-09-17",
     en: `The one-of-many view selectors (e.g. Table / Distribution / Quadrants on Team's performance, and the team and calculation pickers on Pulse results) and the list tables' column headers and cells no longer break their text mid-word or take extra rows on a wide screen — selector labels stay on one line again (wrapping only at word boundaries on a phone), and table text wraps only between words while long values such as emails still fit their column.`,
