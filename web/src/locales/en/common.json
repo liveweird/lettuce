@@ -87,6 +87,12 @@
     "PROVIDER_REQUESTER_SUBJECT": "Provider + requester + subject",
     "PUBLIC": "Public"
   },
+  "visibilityShort": {
+    "PROVIDER_SUBJECT": "P+S",
+    "PROVIDER_REQUESTER": "P+R",
+    "PROVIDER_REQUESTER_SUBJECT": "P+R+S",
+    "PUBLIC": "Public"
+  },
   "role": {
     "ADMIN": "Admin",
     "HR": "HR"

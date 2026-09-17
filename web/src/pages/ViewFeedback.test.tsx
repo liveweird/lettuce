@@ -75,7 +75,9 @@ describe("ViewFeedback page", () => {
     expect(screen.getByText("Recipients")).toBeInTheDocument();
     // No requester on this feedback → no Requester cell.
     expect(screen.queryByText("Requester")).toBeNull();
-    expect(screen.getByLabelText("Visibility")).toHaveTextContent("Public");
+    const visibilityPill = screen.getByLabelText("Visibility: Public");
+    expect(visibilityPill).toHaveTextContent("Public");
+    expect(visibilityPill).toHaveAttribute("title", "Public");
     expect(screen.getByLabelText("Status")).toHaveTextContent("Sent");
     // Content renders as read-only markdown, not an editable form control.
     expect(screen.getByText("Nice work on the launch")).toBeInTheDocument();
