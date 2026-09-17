@@ -146,8 +146,8 @@ spec:
               memory: "320Mi"
             limits:
               memory: "512Mi"
-          # Pod hardening (Checkup #34 Tier A): the image already runs as the non-root `lettuce`
-          # user (see Dockerfile), so runAsNonRoot only enforces what's already true; the
+          # Pod hardening (Checkup #34 Tier A): the image already runs as numeric uid/gid 1000
+          # (no named user — see Dockerfile), so runAsNonRoot only enforces what's already true; the
           # container never needs Linux capabilities, privilege escalation, or a writable root
           # filesystem — the app logs to stdout only (logback.xml has no file appender) and
           # Flyway/R2DBC never write to disk. /tmp is the one path the JVM itself expects to be

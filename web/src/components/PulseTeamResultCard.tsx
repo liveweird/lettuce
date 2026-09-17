@@ -140,7 +140,7 @@ export default function PulseTeamResultCard({
     <Paper withBorder shadow="sm" p="lg" radius="md">
       <Stack gap="sm">
         <Group justify="space-between" align="baseline" style={{ minWidth: 0 }}>
-          <Title order={4} style={{ minWidth: 0, overflowWrap: "anywhere" }}>{teamName}</Title>
+          <Title order={4} style={{ minWidth: 0, overflowWrap: "break-word" }}>{teamName}</Title>
           {data && (
             <Text size="sm" c="dimmed">
               {t("pulse.results.responses", {

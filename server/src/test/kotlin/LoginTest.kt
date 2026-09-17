@@ -250,6 +250,8 @@ class LoginTest {
         // enumeration oracle — and the legitimate owner learns why they cannot get in.
         assertEquals(HttpStatusCode.Forbidden, response.status)
         assertEquals("Account is deactivated", response.body<ProblemDetail>().detail)
+        // The 403 path is not a login completion — lastLoginAt must not advance.
+        assertEquals(0L, TestServices.users.read(userId)?.lastLoginAt)
     }
 
     @Test

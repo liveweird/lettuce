@@ -195,6 +195,7 @@ class IntegrationGraphQlTest {
         val period = TestReviewPeriods.append()
         val manager = authedClient(managerEmail, "pw")
         val secret = "Integration-visible summary ${UUID.randomUUID()}"
+        val aptitudeSecret = "Integration-visible aptitude summary ${UUID.randomUUID()}"
         val created = manager.post("/api/v1/performance-reviews") {
             contentType(ContentType.Application.Json)
             setBody(
@@ -202,6 +203,7 @@ class IntegrationGraphQlTest {
                     subordinateId = subordinateId,
                     periodId = period.id,
                     attitude = CategoryAssessment(2, secret),
+                    aptitude = CategoryAssessment(4, aptitudeSecret),
                 ),
             )
         }.body<PerformanceReviewResponse>()
@@ -209,7 +211,8 @@ class IntegrationGraphQlTest {
         val reviews = jsonClient().graphql(
             key,
             """{ performanceReviews(subordinateId: ${subordinateId.toInt()}) {
-                 items { id status attitude { rating summary } overall { rating summary } subordinateName }
+                 items { id status attitude { rating summary } aptitude { rating summary }
+                         overall { rating summary } subordinateName }
                  total } }""",
         ).data()["performanceReviews"]!!.jsonObject
         val item = reviews["items"]!!.jsonArray.single().jsonObject
@@ -219,6 +222,8 @@ class IntegrationGraphQlTest {
         assertEquals("DRAFT", item["status"]!!.jsonPrimitive.content)
         assertEquals(2, item["attitude"]!!.jsonObject["rating"]!!.jsonPrimitive.content.toInt())
         assertEquals(secret, item["attitude"]!!.jsonObject["summary"]!!.jsonPrimitive.content)
+        assertEquals(4, item["aptitude"]!!.jsonObject["rating"]!!.jsonPrimitive.content.toInt())
+        assertEquals(aptitudeSecret, item["aptitude"]!!.jsonObject["summary"]!!.jsonPrimitive.content)
         assertTrue(item["overall"]!!.jsonObject["rating"] is kotlinx.serialization.json.JsonNull)
 
         // The registry root sees the period.
@@ -567,6 +572,7 @@ class IntegrationGraphQlTest {
         )
         val period = TestReviewPeriods.append()
         val reviewSecret = "Gql review secret ${UUID.randomUUID()}"
+        val reviewAptitudeSecret = "Gql review aptitude secret ${UUID.randomUUID()}"
         assertEquals(
             HttpStatusCode.Created,
             manager.post("/api/v1/performance-reviews") {
@@ -576,6 +582,7 @@ class IntegrationGraphQlTest {
                         subordinateId = ownerId,
                         periodId = period.id,
                         attitude = CategoryAssessment(3, reviewSecret),
+                        aptitude = CategoryAssessment(5, reviewAptitudeSecret),
                     ),
                 )
             }.status,
@@ -585,7 +592,7 @@ class IntegrationGraphQlTest {
             key,
             """{ user(id: ${ownerId.toInt()}) {
                  daysOffCorrections(year: 2063) { operation days comment }
-                 performanceReviews { status attitude { rating summary } } } }""",
+                 performanceReviews { status attitude { rating summary } aptitude { rating summary } } } }""",
         ).data()["user"]!!.jsonObject
         val correction = user["daysOffCorrections"]!!.jsonArray.single().jsonObject
         assertEquals("ADD", correction["operation"]!!.jsonPrimitive.content)
@@ -593,6 +600,7 @@ class IntegrationGraphQlTest {
         val review = user["performanceReviews"]!!.jsonArray.single().jsonObject
         assertEquals("DRAFT", review["status"]!!.jsonPrimitive.content)
         assertEquals(reviewSecret, review["attitude"]!!.jsonObject["summary"]!!.jsonPrimitive.content)
+        assertEquals(reviewAptitudeSecret, review["aptitude"]!!.jsonObject["summary"]!!.jsonPrimitive.content)
     }
 
     @Test

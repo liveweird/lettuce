@@ -521,6 +521,17 @@ suspend fun requireDaysOffRead(
 enum class DaysOffReadGrant { OWNER, HR, CHAIN, TEAMMATE }
 
 /**
+ * The shared body behind [requireDaysOffManage] and [requireDaysOffAllowanceWrite] — both are
+ * "any manager in the target's TRANSITIVE chain, nobody else" and differ only in their 403
+ * message (each pinned by its own test), so they collapse to one implementation.
+ */
+private suspend fun requireManagesOwner(managesOwner: suspend () -> Boolean, message: String) {
+    if (!managesOwner()) {
+        throw ForbiddenException(message)
+    }
+}
+
+/**
  * Managing a user's paid-leave record (v3.9.0 — the requireDaysOffResolve successor: "resolve"
  * no longer names anything once accept/reject are gone, but the corrections writes and the
  * pool-archive right ride the exact same rule): any manager in the owner's TRANSITIVE
@@ -529,11 +540,8 @@ enum class DaysOffReadGrant { OWNER, HR, CHAIN, TEAMMATE }
  * chain qualifies via the walk like anyone.
  */
 @Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
-suspend fun requireDaysOffManage(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) {
-    if (!managesOwner()) {
-        throw ForbiddenException("Only a manager in the owner's management chain may manage this days-off record")
-    }
-}
+suspend fun requireDaysOffManage(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) =
+    requireManagesOwner(managesOwner, "Only a manager in the owner's management chain may manage this days-off record")
 
 /**
  * Delete (v3.9.0 — the requireDaysOffCancel successor, unchanged reach): the owner, or any
@@ -561,11 +569,11 @@ suspend fun requireDaysOffDelete(
  * uniform 403 as a non-manager (the corrections-POST idiom).
  */
 @Suppress("UnusedParameter") // caller kept for the uniform caller-first guard signature
-suspend fun requireDaysOffAllowanceWrite(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) {
-    if (!managesOwner()) {
-        throw ForbiddenException("Only a manager in the user's management chain may change their paid days-off allowance")
-    }
-}
+suspend fun requireDaysOffAllowanceWrite(caller: CallerPrincipal, managesOwner: suspend () -> Boolean) =
+    requireManagesOwner(
+        managesOwner,
+        "Only a manager in the user's management chain may change their paid days-off allowance",
+    )
 
 /**
  * Reading a user's budget corrections (v1.43.0): the subordinate themselves, the HR auditor

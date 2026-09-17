@@ -243,8 +243,22 @@ class DaysOffRoutesTest {
                 assertEquals(HttpStatusCode.Forbidden, denied.deleteDaysOff(guarded.id).status)
             }
 
-            // The direct manager may delete — frees the overlap slot and the budget.
-            assertEquals(HttpStatusCode.NoContent, m.deleteDaysOff(guarded.id).status)
+            // The direct manager may delete — frees the overlap slot and the budget. Audited
+            // as days_off.deleted, byUserId the acting manager, targetUserId the owner.
+            val deleteCapture = LogCapture("ch.nokillswit.audit")
+            try {
+                assertEquals(HttpStatusCode.NoContent, m.deleteDaysOff(guarded.id).status)
+                assertNotNull(
+                    deleteCapture.awaitEvent { event ->
+                        event.message == "days_off.deleted" &&
+                            event.keyValuePairs?.any { it.key == "byUserId" && it.value == mId.toLong() } == true &&
+                            event.keyValuePairs?.any { it.key == "targetUserId" && it.value == sId.toLong() } == true &&
+                            event.keyValuePairs?.any { it.key == "requestId" && it.value == guarded.id.toLong() } == true
+                    },
+                )
+            } finally {
+                deleteCapture.detach()
+            }
             assertEquals(HttpStatusCode.Created, s.createDaysOff(mon.toString(), mon.plusDays(1).toString()).status)
             // A second delete of the same (now already-deleted) id is 404.
             assertEquals(HttpStatusCode.NotFound, m.deleteDaysOff(guarded.id).status)

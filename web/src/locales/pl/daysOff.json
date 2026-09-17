@@ -34,6 +34,7 @@
   "deleteForAria": "Usuń wpis dni wolnych {{name}} od {{date}}",
   "deleteTitle": "Usunąć ten wpis dni wolnych?",
   "deleteMessage": "Tej operacji nie można cofnąć. Zespół właściciela oraz jego menedżer/jego menedżerka otrzymają powiadomienie.",
+  "deleteFailed": "Usunięcie wpisu dni wolnych nie powiodło się",
   "toast": {
     "created": "Dni wolne dodane",
     "recorded": "Dni wolne zapisane",

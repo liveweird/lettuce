@@ -49,7 +49,7 @@ export default function PageHeader({ title, tourId, description, back, badge, ac
           )}
         </Group>
         {description && (
-          <Text size="sm" c="dimmed" maw={720} style={{ overflowWrap: "anywhere" }}>
+          <Text size="sm" c="dimmed" maw={720} style={{ overflowWrap: "break-word" }}>
             {description}
           </Text>
         )}

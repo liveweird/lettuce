@@ -34,6 +34,7 @@
   "deleteForAria": "Delete {{name}}'s days-off entry starting {{date}}",
   "deleteTitle": "Delete this days-off entry?",
   "deleteMessage": "This cannot be undone. The owner's team and their manager are notified.",
+  "deleteFailed": "Deleting the days-off entry failed",
   "toast": {
     "created": "Days off added",
     "recorded": "Days off recorded",

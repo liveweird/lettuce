@@ -19,7 +19,7 @@
      another — the whole left menu (Feedback, Kudos, 1:1 meetings, Goals, Impact log, Team
      KPIs, Performance, Career, Days off, Pulse, Succession plans, Config, Changelog included) and
      every tab of the views those sections open (My goals / Goals I've set, My performance /
-     Team's performance, My career / Team pyramid, Calendar / My requests / My team, Current
+     Team's performance, My career / Team pyramid, Calendar / My days off / My team, Current
      survey / Results / Trend / Participation, Review periods / Public holidays /
      Dictionaries…), before the header icons (Notifications, language switch, theme toggle,
      account menu, Replay). Anchors or steps that vanish or reorder fail the walk.
