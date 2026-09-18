@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.12.2",
+    date: "2026-09-18",
+    en: `Fix: the sign-in code's attempt limit now follows its configured value. Since 3.11.0 every emailed sign-in code silently allowed exactly three guesses regardless of the setting (the default is five); a wrong guess counted correctly, but the limit itself was fixed. Nothing changes for you unless your administrator tuned that limit.`,
+    pl: `Poprawka: limit prób dla kodu logowania stosuje teraz skonfigurowaną wartość. Od wersji 3.11.0 każdy kod logowania wysłany e-mailem po cichu dopuszczał dokładnie trzy próby niezależnie od ustawienia (domyślnie pięć); błędne próby liczyliśmy poprawnie, ale sam limit był stały. Nic się dla Ciebie nie zmienia, chyba że administrator/ka dostroił/a ten limit.`,
+  },
+  {
     version: "3.12.1",
     date: "2026-09-18",
     en: `The new succession plan form is easier to read: the seat's criticality, retention risk and target bench depth sit in one "Seat & criticality" section on three evenly aligned columns, the loss-impact list has its own section, and the same layout applies while editing a plan and to the nomination form's readiness, type and awareness fields.`,
@@ -1307,4 +1313,3 @@ Poprawione przy okazji: wybór menedżera w formularzach zespołów i filtrze Ze
     pl: `Pierwsze wydanie: pełny cykl życia feedbacku (proszenie o feedback, szkice, wysyłanie, wycofywanie), autorefleksje, zarządzanie zespołami, szablony feedbacku, powiadomienia w aplikacji, alerty administracyjne oraz dwujęzyczny interfejs (angielski i polski).`,
   },
 ];
-

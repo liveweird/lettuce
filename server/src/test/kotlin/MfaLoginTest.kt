@@ -158,7 +158,9 @@ class MfaLoginTest {
 
     @Test
     fun `wrong codes are uniform 401s and exhausting the attempt cap kills the challenge`() = testApplication {
-        configureApp("security.mfa.maxAttempts" to "3")
+        // cap ≠ 3 on purpose: 3 is Exposed's Transaction.maxAttempts default, which shadowed the
+        // store's configured cap until v3.12.2 — this route-level pin must see the CONFIG value.
+        configureApp("security.mfa.maxAttempts" to "2")
         startApplication()
         val email = uniqueEmail("mfa-cap")
         seedMfaUser(email, "pw-123456789")
@@ -171,7 +173,7 @@ class MfaLoginTest {
             // A deliberately wrong 6-digit code that can never collide with the real one.
             val wrong = if (code == "000000") "000001" else "000000"
 
-            repeat(3) {
+            repeat(2) {
                 assertEquals(HttpStatusCode.Unauthorized, client.verify(challenge.challengeId, wrong).status)
             }
             assertNotNull(
