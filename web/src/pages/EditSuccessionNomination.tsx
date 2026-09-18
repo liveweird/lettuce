@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   Alert,
   Button,
@@ -22,6 +27,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
+import FieldGrid from "../components/FieldGrid";
 import { createGoal, listGoals, type GoalListItem } from "../api/goals";
 import {
   createSuccessionNomination,
@@ -41,7 +47,11 @@ import MetaStrip from "../components/MetaStrip";
 import OrderedTextListEditor from "../components/OrderedTextListEditor";
 import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
-import { renderUserOption, userOption, type UserOption } from "../components/userOptions";
+import {
+  renderUserOption,
+  userOption,
+  type UserOption,
+} from "../components/userOptions";
 import { useAllUsers } from "../hooks/useAllUsers";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { useManagedReports } from "../hooks/useManagedReports";
@@ -73,7 +83,11 @@ const READINESS: readonly SuccessorReadiness[] = [
   "EMERGENCY_INTERIM",
 ];
 const TYPES: readonly NominationType[] = ["PRIMARY", "SECONDARY", "CROSS_TEAM"];
-const AWARENESS: readonly CandidateAwareness[] = ["TRANSPARENT", "IMPLICIT", "CONFIDENTIAL"];
+const AWARENESS: readonly CandidateAwareness[] = [
+  "TRANSPARENT",
+  "IMPLICIT",
+  "CONFIDENTIAL",
+];
 
 const EMPTY_GOAL_VALUES: GoalDefinitionFormValues = {
   title: "",
@@ -103,10 +117,23 @@ function buildCandidateOptions(
   // The edited nomination's OWN candidate stays pickable even if since deactivated — the
   // server allows keeping them (the delta rule), and dropping the option would blank the
   // Select while the form silently resubmits the id (checkup-29).
-  const keepId = plan.nominations.find((n) => n.id === nominationId)?.candidateId;
+  const keepId = plan.nominations.find(
+    (n) => n.id === nominationId,
+  )?.candidateId;
   return (userPool ?? [])
-    .filter((u) => u.id !== plan.userId && (!u.deactivated || u.id === keepId) && !taken.has(u.id))
-    .map((u) => userOption(u.id, u.name, (u.teams ?? []).map((team) => team.name)));
+    .filter(
+      (u) =>
+        u.id !== plan.userId &&
+        (!u.deactivated || u.id === keepId) &&
+        !taken.has(u.id),
+    )
+    .map((u) =>
+      userOption(
+        u.id,
+        u.name,
+        (u.teams ?? []).map((team) => team.name),
+      ),
+    );
 }
 
 // The linkable pool plus any already-linked goals outside it (e.g. another chain manager's) —
@@ -161,9 +188,14 @@ function DevelopmentGoalModal({
     setGoalError(null);
     setGoalSubmitting(true);
     try {
-      const created = await createGoal({ subordinateId: candidateId, ...toDefinitionBody(values) });
+      const created = await createGoal({
+        subordinateId: candidateId,
+        ...toDefinitionBody(values),
+      });
       await invalidateGoal(queryClient);
-      await queryClient.invalidateQueries({ queryKey: ["succession", "linkableGoals", candidateId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["succession", "linkableGoals", candidateId],
+      });
       showSuccessToast(t("succession.toast.goalCreated"));
       // Linked by default: the fresh DRAFT joins the selection immediately.
       onCreated(String(created.id));
@@ -259,7 +291,13 @@ function NominationForm({
       <Stack>
         {/* The seat's context line (v3.5.0) — the person never changes on this screen. */}
         <MetaStrip
-          items={[{ key: "person", label: t("succession.person"), value: <PersonaChip name={seatName} /> }]}
+          items={[
+            {
+              key: "person",
+              label: t("succession.person"),
+              value: <PersonaChip name={seatName} />,
+            },
+          ]}
         />
 
         <Fieldset legend={t("succession.section.candidate")}>
@@ -274,10 +312,12 @@ function NominationForm({
               nothingFoundMessage={t("succession.noCandidates")}
               {...form.getInputProps("candidateId")}
               error={
-                usersError ? t("common.error.optionsFailed") : form.errors.candidateId
+                usersError
+                  ? t("common.error.optionsFailed")
+                  : form.errors.candidateId
               }
             />
-            <Group gap="xl" align="flex-start">
+            <FieldGrid>
               <Select
                 label={t("succession.readinessLabel")}
                 data={READINESS.map((value) => ({
@@ -285,7 +325,6 @@ function NominationForm({
                   label: t(`succession.readiness.${value}`),
                 }))}
                 allowDeselect={false}
-                w={230}
                 {...form.getInputProps("readiness")}
               />
               <Select
@@ -295,7 +334,6 @@ function NominationForm({
                   label: t(`succession.nominationType.${value}`),
                 }))}
                 allowDeselect={false}
-                w={200}
                 {...form.getInputProps("nominationType")}
               />
               <Select
@@ -305,10 +343,9 @@ function NominationForm({
                   label: t(`succession.awareness.${value}`),
                 }))}
                 allowDeselect={false}
-                w={200}
                 {...form.getInputProps("awareness")}
               />
-            </Group>
+            </FieldGrid>
           </Stack>
         </Fieldset>
 
@@ -317,16 +354,25 @@ function NominationForm({
           <OrderedTextListEditor
             form={form}
             field="competencyGaps"
-            onAdd={() => form.insertListItem("competencyGaps", emptyTextRowDraft())}
+            onAdd={() =>
+              form.insertListItem("competencyGaps", emptyTextRowDraft())
+            }
             emptyLabel={t("succession.noCompetencyGaps")}
             addLabel={t("succession.addCompetencyGap")}
             rowAria={{
-              item: (position) => t("succession.competencyGapAria", { position }),
-              moveUp: (position) => t("succession.competencyGapMoveUp", { position }),
-              moveDown: (position) => t("succession.competencyGapMoveDown", { position }),
-              remove: (position) => t("succession.competencyGapRemove", { position }),
+              item: (position) =>
+                t("succession.competencyGapAria", { position }),
+              moveUp: (position) =>
+                t("succession.competencyGapMoveUp", { position }),
+              moveDown: (position) =>
+                t("succession.competencyGapMoveDown", { position }),
+              remove: (position) =>
+                t("succession.competencyGapRemove", { position }),
             }}
-            flag={{ aria: (position) => t("succession.competencyGapFilledAria", { position }) }}
+            flag={{
+              aria: (position) =>
+                t("succession.competencyGapFilledAria", { position }),
+            }}
           />
         </Fieldset>
 
@@ -335,7 +381,11 @@ function NominationForm({
             <MultiSelect
               label={t("succession.developmentGoals")}
               description={t("succession.developmentGoalsHint")}
-              placeholder={candidateId == null ? t("succession.pickCandidateFirst") : undefined}
+              placeholder={
+                candidateId == null
+                  ? t("succession.pickCandidateFirst")
+                  : undefined
+              }
               data={goalOptions}
               searchable
               disabled={candidateId == null}
@@ -365,10 +415,19 @@ function NominationForm({
         )}
 
         <FormFooter sticky>
-          <Button type="button" variant="default" onClick={onCancel} disabled={submitting}>
+          <Button
+            type="button"
+            variant="default"
+            onClick={onCancel}
+            disabled={submitting}
+          >
             {t("common.action.cancel")}
           </Button>
-          <Button type="submit" loading={submitting} disabled={candidateId == null}>
+          <Button
+            type="submit"
+            loading={submitting}
+            disabled={candidateId == null}
+          >
             {editing ? t("common.action.save") : t("common.action.create")}
           </Button>
         </FormFooter>
@@ -394,19 +453,30 @@ export default function EditSuccessionNomination() {
 
   const planId = Number(params.id);
   const planIdIsValid = Number.isFinite(planId) && planId > 0;
-  const nominationId = params.nominationId != null ? Number(params.nominationId) : null;
+  const nominationId =
+    params.nominationId != null ? Number(params.nominationId) : null;
   const editing = nominationId != null;
   const backTo =
-    safeBackParam(searchParams) ?? (planIdIsValid ? successionPlanViewLink(planId) : "/succession");
+    safeBackParam(searchParams) ??
+    (planIdIsValid ? successionPlanViewLink(planId) : "/succession");
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [goalModalOpen, { open: openGoalModal, close: closeGoalModal }] = useDisclosure(false);
-  const [primaryConfirmOpen, { open: openPrimaryConfirm, close: closePrimaryConfirm }] =
+  const [goalModalOpen, { open: openGoalModal, close: closeGoalModal }] =
     useDisclosure(false);
-  const [pendingValues, setPendingValues] = useState<SuccessionNominationFormValues | null>(null);
+  const [
+    primaryConfirmOpen,
+    { open: openPrimaryConfirm, close: closePrimaryConfirm },
+  ] = useDisclosure(false);
+  const [pendingValues, setPendingValues] =
+    useState<SuccessionNominationFormValues | null>(null);
 
-  const { data: plan, isLoading, isError, error: fetchError } = useQuery({
+  const {
+    data: plan,
+    isLoading,
+    isError,
+    error: fetchError,
+  } = useQuery({
     queryKey: ["successionPlan", planId],
     queryFn: () => getSuccessionPlan(planId),
     enabled: planIdIsValid,
@@ -441,7 +511,9 @@ export default function EditSuccessionNomination() {
   if (!editing && plan && !form.initialized) {
     form.initialize({
       ...emptyNominationValues(),
-      nominationType: plan.nominations.some((nomination) => nomination.nominationType === "PRIMARY")
+      nominationType: plan.nominations.some(
+        (nomination) => nomination.nominationType === "PRIMARY",
+      )
         ? "SECONDARY"
         : "PRIMARY",
     });
@@ -450,13 +522,15 @@ export default function EditSuccessionNomination() {
   // The one-PRIMARY-per-plan rule (V69): the server demotes this nomination's rival to
   // SECONDARY in the same write, so a submit that sets PRIMARY beside it must be confirmed.
   const otherPrimary = plan?.nominations.find(
-    (nomination) => nomination.nominationType === "PRIMARY" && nomination.id !== nominationId,
+    (nomination) =>
+      nomination.nominationType === "PRIMARY" && nomination.id !== nominationId,
   );
 
   const { userPool, usersError } = useAllUsers();
   const { reports } = useManagedReports(true);
 
-  const candidateId = form.values.candidateId != null ? Number(form.values.candidateId) : null;
+  const candidateId =
+    form.values.candidateId != null ? Number(form.values.candidateId) : null;
 
   const candidateOptions = useMemo(
     () => buildCandidateOptions(plan, userPool, nominationId),
@@ -479,17 +553,22 @@ export default function EditSuccessionNomination() {
     enabled: candidateId != null,
   });
   const goalOptions = useMemo(
-    () => buildGoalOptions(linkableGoals?.items ?? [], existing?.goals ?? [], t),
+    () =>
+      buildGoalOptions(linkableGoals?.items ?? [], existing?.goals ?? [], t),
     [linkableGoals, existing, t],
   );
 
   // The goal-create modal only makes sense for candidates in the caller's own chain.
   const canCreateGoal =
-    candidateId != null && reports.some((report) => report.userId === candidateId);
+    candidateId != null &&
+    reports.some((report) => report.userId === candidateId);
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("SUCCESSION_PLANS")) return <Navigate to="/" replace />;
-  if (!planIdIsValid || (editing && !(Number.isFinite(nominationId) && nominationId! > 0))) {
+  if (
+    !planIdIsValid ||
+    (editing && !(Number.isFinite(nominationId) && nominationId! > 0))
+  ) {
     return <Navigate to="/succession" replace />;
   }
 
@@ -527,12 +606,18 @@ export default function EditSuccessionNomination() {
   }
 
   const pendingCandidateName =
-    candidateOptions.find((option) => option.value === pendingValues?.candidateId)?.label ?? "";
+    candidateOptions.find(
+      (option) => option.value === pendingValues?.candidateId,
+    )?.label ?? "";
 
   return (
     <>
       <PageHeader
-        title={editing ? t("succession.editNominationTitle") : t("succession.addNominationTitle")}
+        title={
+          editing
+            ? t("succession.editNominationTitle")
+            : t("succession.addNominationTitle")
+        }
         description={t("succession.nominationHint")}
         mb="lg"
       />
@@ -552,7 +637,11 @@ export default function EditSuccessionNomination() {
                     : t("succession.error.nominationNotFound")}
               </Alert>
               <FormFooter>
-                <Button type="button" variant="default" onClick={() => navigate(backTo)}>
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => navigate(backTo)}
+                >
                   {t("common.action.close")}
                 </Button>
               </FormFooter>
@@ -582,7 +671,9 @@ export default function EditSuccessionNomination() {
         opened={goalModalOpen}
         onClose={closeGoalModal}
         candidateId={candidateId}
-        onCreated={(goalId) => form.setFieldValue("goalIds", [...form.values.goalIds, goalId])}
+        onCreated={(goalId) =>
+          form.setFieldValue("goalIds", [...form.values.goalIds, goalId])
+        }
       />
 
       <ConfirmActionModal

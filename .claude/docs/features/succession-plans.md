@@ -139,7 +139,13 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   from `description` into a `HintIcon` (the PulseTeamResultCard reusable) beside the label;
   and the loss-impact list via **`components/OrderedTextListEditor.tsx`** — the
   GoalMilestonesEditor generalized over the form type, reusing `RowControls`; used again for
-  competency gaps). **`/succession/:id/view` is the Review screen**
+  competency gaps). **Since v3.12.1 the shared block draws its own two `Fieldset` sections** —
+  "Seat & criticality" (the two sliders + bench depth on an equal three-column
+  `components/FieldGrid.tsx`, one column on a phone) and "Loss impact" (the legend names the
+  list, the editor renders without its own label) — in BOTH the create screen and the Review
+  edit state, the same sections the Review read-only view already drew; the nomination
+  editor's readiness / type / awareness row rides the same `FieldGrid`. Before that the three
+  planning fields were a content-sized `Group` of fixed-width inputs that lined up with nothing. **`/succession/:id/view` is the Review screen**
   (`ReviewSuccessionPlan.tsx`, v2.44.0 — the former read-only view + `/succession/:id/edit`
   page folded into one, no view/edit switching): three Tabs (`keepMounted={false}`, the
   EditGoal-inside-form idiom) — **Basic info** (party row — the seat's name links to user details since v2.47.2, the PersonaChip no-deleted-flag caveat applies — + Last reviewed; the definition

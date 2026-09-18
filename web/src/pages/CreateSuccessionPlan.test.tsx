@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,13 +20,27 @@ const USER_ID_KEY = "lettuce.auth.userId";
 
 function PathProbe() {
   const location = useLocation();
-  return <div data-testid="probe">{`${location.pathname}${location.search}`}</div>;
+  return (
+    <div data-testid="probe">{`${location.pathname}${location.search}`}</div>
+  );
 }
 
 const REPORTS = {
   items: [
-    { userId: 8, name: "Sam Seat", email: "sam@example.com", teamId: 1, teamName: "alpha" },
-    { userId: 11, name: "Bob Brown", email: "bob@example.com", teamId: 1, teamName: "alpha" },
+    {
+      userId: 8,
+      name: "Sam Seat",
+      email: "sam@example.com",
+      teamId: 1,
+      teamName: "alpha",
+    },
+    {
+      userId: 11,
+      name: "Bob Brown",
+      email: "bob@example.com",
+      teamId: 1,
+      teamName: "alpha",
+    },
   ],
   page: 1,
   pageSize: 100,
@@ -45,20 +65,27 @@ const CREATED = {
 };
 
 function renderScreen({ createStatus = 201 } = {}) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   const mockFetch = vi.fn((url: string, init?: RequestInit) => {
     const u = String(url);
     if (u === "/api/v1/succession-plans" && init?.method === "POST") {
       return Promise.resolve(
         createStatus === 201
           ? jsonResponse(201, CREATED)
-          : jsonResponse(createStatus, { title: "Conflict", status: createStatus }),
+          : jsonResponse(createStatus, {
+              title: "Conflict",
+              status: createStatus,
+            }),
       );
     }
     if (u.includes("/api/v1/teams/members")) {
       return Promise.resolve(jsonResponse(200, REPORTS));
     }
-    return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    return Promise.resolve(
+      jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }),
+    );
   });
   vi.stubGlobal("fetch", mockFetch);
   render(
@@ -92,7 +119,9 @@ describe("CreateSuccessionPlan page", () => {
     const user = userEvent.setup();
     const mockFetch = renderScreen();
 
-    expect(await screen.findByRole("heading", { name: "New succession plan" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "New succession plan" }),
+    ).toBeInTheDocument();
     // Create stays disabled until a person is picked.
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
 
@@ -101,15 +130,21 @@ describe("CreateSuccessionPlan page", () => {
 
     // The sliders (v2.44.0): defaults CORE/MEDIUM sit mid-scale; one ArrowRight promotes
     // each to the severe end (the CareerPyramid keyboard-driving idiom).
-    fireEvent.keyDown(screen.getByRole("slider", { name: "Role criticality" }), {
-      key: "ArrowRight",
-    });
+    fireEvent.keyDown(
+      screen.getByRole("slider", { name: "Role criticality" }),
+      {
+        key: "ArrowRight",
+      },
+    );
     fireEvent.keyDown(screen.getByRole("slider", { name: "Retention risk" }), {
       key: "ArrowRight",
     });
 
     await user.click(screen.getByRole("button", { name: "Add impact item" }));
-    await user.type(screen.getByLabelText("Loss-impact item 1"), "Client trust");
+    await user.type(
+      screen.getByLabelText("Loss-impact item 1"),
+      "Client trust",
+    );
 
     await user.click(screen.getByRole("button", { name: "Create" }));
 
@@ -129,19 +164,47 @@ describe("CreateSuccessionPlan page", () => {
       });
     });
     // Nominating successors is the natural next step — land on the fresh plan.
-    expect(await screen.findByTestId("probe")).toHaveTextContent("/succession/42/view");
+    expect(await screen.findByTestId("probe")).toHaveTextContent(
+      "/succession/42/view",
+    );
+  });
+
+  test("the definition renders as two sections: the planning fields on one grid, the loss-impact list (v3.12.1)", async () => {
+    renderScreen();
+
+    const seat = await screen.findByRole("group", {
+      name: "Seat & criticality",
+    });
+    expect(
+      within(seat).getByRole("slider", { name: "Role criticality" }),
+    ).toBeInTheDocument();
+    expect(
+      within(seat).getByRole("slider", { name: "Retention risk" }),
+    ).toBeInTheDocument();
+    expect(within(seat).getByLabelText("Target bench depth")).toHaveValue("2");
+
+    const lossImpact = screen.getByRole("group", { name: "Loss impact" });
+    expect(
+      within(lossImpact).getByRole("button", { name: "Add impact item" }),
+    ).toBeInTheDocument();
+    // The legend names the list — no second "Loss impact" label inside the section.
+    expect(within(lossImpact).getAllByText("Loss impact")).toHaveLength(1);
   });
 
   test("a 409 (duplicate open plan) renders the conflict wording inline", async () => {
     const user = userEvent.setup();
     renderScreen({ createStatus: 409 });
 
-    await user.click(await screen.findByLabelText("Person", { selector: "input" }));
+    await user.click(
+      await screen.findByLabelText("Person", { selector: "input" }),
+    );
     await user.click(await screen.findByRole("option", { name: /Sam Seat/ }));
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(
-      await screen.findByText(/an open plan for this person may already exist/i),
+      await screen.findByText(
+        /an open plan for this person may already exist/i,
+      ),
     ).toBeInTheDocument();
   });
 });
