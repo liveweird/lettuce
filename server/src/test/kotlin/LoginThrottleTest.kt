@@ -85,8 +85,9 @@ class LoginThrottleTest {
         val t = throttle(threshold = 1, lockoutMillis = 1_000)
         val email = uniqueEmail("throttle-prune")
         assertTrue(t.recordFailure(email)) // trips immediately
-        // Past both lockedUntil AND lastTouched + lockoutMillis.
-        now += 2_001
+        // Past lockedUntil AND past the week-long counter retention (a full lockout window
+        // alone is NOT enough — an idle sub-threshold counter must survive it).
+        now += 7L * 24 * 60 * 60 * 1000 + 2_001
         // Any write — even for an unrelated key — sweeps stale rows opportunistically.
         t.recordFailure(uniqueEmail("throttle-prune-trigger"))
         val remaining = suspendTransaction(TestServices.database) {

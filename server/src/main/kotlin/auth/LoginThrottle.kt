@@ -15,8 +15,9 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
  *
  * **DB-backed since v3.11.0/V81** (`login_lockouts`): replicas share the counters and a
  * restart no longer resets them. There is no background sweeper — every write
- * ([recordFailure]) opportunistically prunes rows whose lock has both expired AND gone
- * untouched for a full [lockoutMillis] window, so an abandoned key eventually disappears
+ * ([recordFailure]) opportunistically prunes rows whose lock has expired AND that have gone
+ * untouched for [COUNTER_RETENTION_MILLIS] (a week — far longer than a lockout window, so a
+ * sub-threshold counter cannot be waited out between guesses), so an abandoned key eventually disappears
  * without a dedicated job. A successful login clears the account's counter.
  */
 class LoginThrottle(
@@ -35,6 +36,11 @@ class LoginThrottle(
 
     private fun key(email: String) = email.trim().lowercase()
 
+    private companion object {
+        /** How long an idle, unlocked failure counter is kept before the write-path prune drops it. */
+        const val COUNTER_RETENTION_MILLIS = 7L * 24 * 60 * 60 * 1000
+    }
+
     /** True while the account is locked out. A pure read — pruning only happens on the write
      *  path ([recordFailure]), so an expired-but-untouched lock is simply no longer `> now`. */
     suspend fun isLocked(email: String): Boolean = suspendTransaction(database) {
@@ -48,10 +54,14 @@ class LoginThrottle(
     /** Record a failed attempt; returns true when this failure trips the lockout. */
     suspend fun recordFailure(email: String): Boolean = suspendTransaction(database) {
         val now = clock()
-        // Opportunistic prune: a row that is both stale (untouched for a full lockout window)
-        // and not currently locked will never be read as locked again, so it is safe to drop.
+        // Opportunistic prune: a row that is not currently locked and has gone untouched for
+        // COUNTER_RETENTION_MILLIS will never be read as locked again, so it is safe to drop.
+        // The retention is deliberately much longer than the lockout window: pruning idle
+        // sub-threshold counters after one window would let a low-and-slow attacker stay
+        // under the threshold forever by spacing guesses a window apart (the in-memory map
+        // never decayed a counter; this keeps that property to within a week).
         LoginLockouts.deleteWhere {
-            (LoginLockouts.lastTouched less (now - lockoutMillis)) and (LoginLockouts.lockedUntil lessEq now)
+            (LoginLockouts.lastTouched less (now - COUNTER_RETENTION_MILLIS)) and (LoginLockouts.lockedUntil lessEq now)
         }
         val k = key(email)
         val newFailures = LoginLockouts.upsertReturning(

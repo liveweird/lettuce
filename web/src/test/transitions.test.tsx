@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { expect, test, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
-import { Button, Transition } from "@mantine/core";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { Button, MantineProvider, Transition } from "@mantine/core";
 import { renderWithProviders } from "./render";
 
 // Pins that Mantine transitions are synchronous under test (see the comment in ./setup.ts): with
@@ -38,6 +38,28 @@ test("Mantine transitions mount/unmount synchronously and leave no pending timer
     fireEvent.click(screen.getByRole("button", { name: "toggle" }));
 
     expect(screen.queryByText("content")).not.toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+// The second half of the setup.ts fix: many page tests render through a bare
+// `<MantineProvider env="test">` with no `theme={theme}`, which resolves to Mantine's shared
+// DEFAULT_THEME — whose `respectReducedMotion` setup.ts flips to true. Without that flip the
+// forced media query is ignored on the bare provider and the timer chain comes back.
+test("a bare MantineProvider (no app theme) also transitions synchronously", () => {
+  vi.useFakeTimers();
+  try {
+    render(
+      <MantineProvider env="test">
+        <Flippable />
+      </MantineProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "toggle" }));
+
+    expect(screen.getByText("content")).toBeInTheDocument();
     expect(vi.getTimerCount()).toBe(0);
   } finally {
     vi.useRealTimers();
