@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.12.0",
+    date: "2026-09-18",
+    en: `Old notifications are now cleaned up automatically: a notification you have already seen, or one you deleted, is removed for good 30 days after it was created. Unread notifications stay until you see them. There is nothing to do on your side — the cleanup runs quietly in the background whenever new notifications are created.`,
+    pl: `Stare powiadomienia sprzątamy teraz automatycznie: powiadomienie, które już zobaczyłeś/aś lub usunąłeś/usunęłaś, usuwamy na stałe 30 dni po jego utworzeniu. Nieprzeczytane powiadomienia zostają, dopóki ich nie zobaczysz. Nie musisz nic robić — porządki uruchamiamy po cichu przy tworzeniu nowych powiadomień.`,
+  },
+  {
     version: "3.11.1",
     date: "2026-09-18",
     en: `Team's performance table now fits a laptop screen: the five rating headers stand upright so those columns take a fifth of the width they did, the specialty column and filter read "Specialty", and the scroll hint appears only when there is actually something to scroll.`,

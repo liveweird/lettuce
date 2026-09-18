@@ -7,6 +7,7 @@ import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
@@ -15,6 +16,7 @@ import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.slf4j.LoggerFactory
 
 val NotificationServiceKey = AttributeKey<NotificationService>("NotificationService")
 
@@ -38,11 +40,47 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "timestamp" to NotificationService.Notifications.timestamp,
 )
 
+private val log = LoggerFactory.getLogger(NotificationService::class.java)
+
+/**
+ * **Auto-purge (v3.12.0, V82) — a registered, deliberate exception to the soft-delete
+ * convention.** A notification that is seen (`wasSeen`) OR user-deleted (`markedAsDeleted`) AND
+ * older than [retentionMillis] is HARD-deleted, not just flagged: notifications are ephemeral UX
+ * (a bell dropdown, not a record of anything), and the actual trail already lives elsewhere —
+ * `audit`/the feature-local `*_events` tables for security/business history, and the email
+ * mirror ([NotificationEmailer]) already fired at mint time. An unseen, non-deleted row is never
+ * purged regardless of age.
+ *
+ * **Trigger: on mint, not a scheduler.** There is no background job in this app (the
+ * `FeedbackService.expireOverdueRequests` lazy-sweep precedent): garbage only appears when a row
+ * is minted, so pruning at the END of [create]/[createAll] — after the insert transaction has
+ * committed, so the DELETE never contends for the same rows/locks — bounds the table without a
+ * dedicated process — the `LoginThrottle.recordFailure` opportunistic-prune-on-write idiom. The
+ * purge is org-wide (every recipient's stale rows, not just the one minted for): housekeeping on
+ * the whole table, so the freshly minted row — unseen by construction — is never a candidate.
+ *
+ * **Bounded per instance.** [purgeIntervalMillis] gates how often the purge actually runs a
+ * DELETE (0 = every mint) via the same `compareAndSet` gate as
+ * `FeedbackService.expireOverdueRequests` — a race among concurrent mints picks exactly one
+ * winner per interval; every other caller inside the window skips the DB round-trip entirely.
+ * The DELETE itself is naturally idempotent and safe across replicas — a row already gone from
+ * an earlier purge (on this or another instance) simply matches nothing on a later run.
+ */
 class NotificationService(
     val database: R2dbcDatabase,
     // Mirrors every mint by email (v2.3.0) — null in service-level tests that don't care.
     private val emailer: NotificationEmailer? = null,
+    // config `notifications.retentionDays`; 0 disables the purge entirely.
+    private val retentionMillis: Long = DEFAULT_RETENTION_MILLIS,
+    // config `notifications.purgeIntervalSeconds`; 0 = every mint (the test suite pins this).
+    private val purgeIntervalMillis: Long = 0,
+    // Injectable for deterministic gate tests, the `LoginThrottle`/`FeedbackService` idiom.
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    private companion object {
+        const val DEFAULT_RETENTION_MILLIS = 30L * 24 * 60 * 60 * 1000
+    }
+
     object Notifications : UIntIdTable("notifications") {
         val recipientId = reference("recipient_id", UserService.Users)
         val timestamp = long("created_at")
@@ -54,6 +92,11 @@ class NotificationService(
     }
 
     private fun active(): Op<Boolean> = Notifications.markedAsDeleted eq false
+
+    // The per-instance purge gate: a compareAndSet winner is the one purger among concurrent
+    // mints within the interval; a skipped purge just leaves the garbage for the next mint that
+    // actually runs one — never a correctness issue, only a bound on DB round-trips.
+    private val lastPurgeAtMillis = AtomicLong(0)
 
     /**
      * Inserts a notification. The generation timestamp and the unseen flag are set here,
@@ -72,6 +115,8 @@ class NotificationService(
             }
             newRecord[Notifications.id].value
         }
+        // Own transaction, after the insert commits — a big DELETE must not hold the mint's locks.
+        purgeStale()
         // Email mirror AFTER the commit, fire-and-forget — see NotificationEmailer.
         emailer?.dispatch(listOf(notification))
         return id
@@ -95,8 +140,36 @@ class NotificationService(
                 }
             }
         }
+        // Own transaction, after the insert commits — see create().
+        purgeStale()
         // Email mirror AFTER the commit — one background loop for the whole batch.
         emailer?.dispatch(notifications)
+    }
+
+    /**
+     * Hard-deletes every stale row (see the class doc) org-wide — not scoped to the recipient
+     * just minted for, since the purge is housekeeping on the whole table, not a per-recipient
+     * operation. A failure here must never fail the mint that triggered it.
+     */
+    private suspend fun purgeStale() {
+        if (retentionMillis == 0L) return
+        val now = clock()
+        if (purgeIntervalMillis > 0) {
+            val last = lastPurgeAtMillis.get()
+            if (now - last < purgeIntervalMillis || !lastPurgeAtMillis.compareAndSet(last, now)) {
+                return
+            }
+        }
+        runCatching {
+            suspendTransaction(database) {
+                Notifications.deleteWhere {
+                    (Notifications.timestamp less (now - retentionMillis)) and
+                        ((Notifications.wasSeen eq true) or (Notifications.markedAsDeleted eq true))
+                }
+            }
+        }.onSuccess { deleted ->
+            if (deleted > 0) log.info("Purged {} stale notifications", deleted)
+        }.onFailure { log.warn("Stale-notification purge failed", it) }
     }
 
     suspend fun read(id: UInt): NotificationResponse? = suspendTransaction(database) {

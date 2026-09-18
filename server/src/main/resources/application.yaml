@@ -188,6 +188,16 @@ feedbacks:
   # existing "every GET sweeps" assertions keep working).
   expirySweepIntervalSeconds: "$FEEDBACK_EXPIRY_SWEEP_INTERVAL_SECONDS:60"
 
+notifications:
+  # v3.12.0/V82: NotificationService.purgeStale hard-deletes a notification once it is seen or
+  # user-deleted AND older than this many days — the registered exception to the soft-delete
+  # convention (notifications are ephemeral UX; the audit log and the feature-local `*_events`
+  # tables are the real trail). 0 disables the purge entirely.
+  retentionDays: "$NOTIFICATION_RETENTION_DAYS:30"
+  # Bounds how often the purge actually runs a DELETE (per app instance) — the same gate shape
+  # as feedbacks.expirySweepIntervalSeconds above. 0 = every mint (the test suite pins this).
+  purgeIntervalSeconds: "$NOTIFICATION_PURGE_INTERVAL_SECONDS:3600"
+
 postgres:
   jdbcUrl: "$POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/lettuce"
   r2dbcUrl: "$POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/lettuce"

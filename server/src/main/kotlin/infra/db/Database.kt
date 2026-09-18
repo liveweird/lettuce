@@ -117,7 +117,14 @@ suspend fun Application.configureDatabase() {
         appUrl = mailAppUrl(),
         userService = userService,
     )
-    attributes.put(NotificationServiceKey, NotificationService(database, notificationEmailer))
+    val notificationRetentionMillis =
+        environment.config.property("notifications.retentionDays").getString().toLong() * 24 * 60 * 60 * 1000
+    val notificationPurgeIntervalMillis =
+        environment.config.property("notifications.purgeIntervalSeconds").getString().toLong() * 1000
+    attributes.put(
+        NotificationServiceKey,
+        NotificationService(database, notificationEmailer, notificationRetentionMillis, notificationPurgeIntervalMillis),
+    )
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))
 }
