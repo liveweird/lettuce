@@ -9,7 +9,7 @@ import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.IdTable
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
@@ -17,10 +17,16 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 /**
  * The shared shape of the seven per-record audit-event tables (feedback/1:1/goal/team-KPI/
- * performance-review/impact-log `*_events` — all V15 clones): an FK to the owning record, the acting
- * user, a creation timestamp, and a structured (type + JSON params) event the SPA localizes.
- * Feature packages declare `object XEvents : EventLogTable("x_events", "x_id", XTable)` and
- * keep their typed create/list wrappers; the mechanics live once in [EventLog].
+ * performance-review/impact-log/succession-plan `*_events` — all V15/V70 clones): an FK to the
+ * owning record, the acting user, a creation timestamp, and a structured (type + JSON params)
+ * event the SPA localizes. Feature packages declare
+ * `object XEvents : EventLogTable("x_events", "x_id", XTable)` and keep their typed create/list
+ * wrappers; the mechanics live once in [EventLog].
+ *
+ * **System actor (v3.11.0/V80).** [userId] is nullable: a null actor means the event was
+ * system-originated (no human performed it) — e.g. the feedback v3.8.0 REQUEST_EXPIRED lazy
+ * expiry sweep. [EventLogRow.userName] is null in lockstep; the SPA renders a generic
+ * "Automatic" label for a null actor rather than a resolved name.
  */
 abstract class EventLogTable(
     name: String,
@@ -28,7 +34,7 @@ abstract class EventLogTable(
     ownerTable: IdTable<UInt>,
 ) : UIntIdTable(name) {
     val ownerId: Column<EntityID<UInt>> = reference(ownerColumn, ownerTable)
-    val userId = reference("user_id", UserService.Users)
+    val userId = reference("user_id", UserService.Users).nullable()
     val timestamp = long("created_at")
     // Structured event so the SPA can localize it: the kind plus a JSON params map.
     val eventType = varchar("event_type", 40)
@@ -45,8 +51,9 @@ abstract class EventLogTable(
 data class EventLogRow(
     val id: UInt,
     val ownerId: UInt,
-    val userId: UInt,
-    val userName: String,
+    // Null = system-originated (no acting user) — see EventLogTable's KDoc.
+    val userId: UInt?,
+    val userName: String?,
     val timestamp: Long,
     val type: String,
     val params: Map<String, String>,
@@ -56,13 +63,14 @@ data class EventLogRow(
 
 class EventLog(private val database: R2dbcDatabase, private val table: EventLogTable) {
     /**
-     * Inserts an audit event. The timestamp is set here, never taken from a caller. [comment]
-     * (already encrypted by the owning service) requires the table to declare
+     * Inserts an audit event. The timestamp is set here, never taken from a caller.
+     * [actingUserId] null means system-originated (no human actor). [comment] (already
+     * encrypted by the owning service) requires the table to declare
      * [EventLogTable.commentColumn].
      */
     suspend fun create(
         ownerId: UInt,
-        actingUserId: UInt,
+        actingUserId: UInt?,
         type: String,
         eventParams: Map<String, String>,
         comment: String? = null,
@@ -84,10 +92,11 @@ class EventLog(private val database: R2dbcDatabase, private val table: EventLogT
     /**
      * The record's history, newest first, with acting user names. The id tiebreaker is descending
      * too: one mutation mints several events in the same millisecond, and they must read as a true
-     * reversal of mint order — not the notifications list's always-ascending-id quirk.
+     * reversal of mint order — not the notifications list's always-ascending-id quirk. A LEFT JOIN
+     * (not INNER) — an inner join would silently drop system-originated (null-actor) rows.
      */
     suspend fun listFor(ownerId: UInt): List<EventLogRow> = suspendTransaction(database) {
-        (table innerJoin UserService.Users)
+        (table leftJoin UserService.Users)
             .selectAll()
             .where { table.ownerId eq ownerId }
             .orderBy(table.timestamp to SortOrder.DESC, table.id to SortOrder.DESC)
@@ -95,8 +104,8 @@ class EventLog(private val database: R2dbcDatabase, private val table: EventLogT
                 EventLogRow(
                     id = row[table.id].value,
                     ownerId = ownerId,
-                    userId = row[table.userId].value,
-                    userName = row[UserService.Users.name],
+                    userId = row[table.userId]?.value,
+                    userName = row.getOrNull(UserService.Users.name),
                     timestamp = row[table.timestamp],
                     type = row[table.eventType],
                     params = decodeParams(row[table.params]),

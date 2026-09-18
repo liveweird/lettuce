@@ -61,11 +61,20 @@ This evidence does not establish production readiness. In particular:
   follow-up. Full automated deployment journeys through both deployment paths,
   representative visual/accessibility review, load testing, exhaustive penetration
   testing, and long-term flake analysis remain unverified by these audits.
-- Multi-instance deployment remains unverified. Instance-local authentication state
-  and rate limits need an explicit design review before scaling. Rolling-deployment
-  overlap on the existing single-replica deployment is addressed: `k8s/templates/app-deployment.yaml`
-  sets `strategy: type: Recreate`, so the old pod is torn down before the new one starts —
-  two pods never briefly share (and split) in-memory session/rate-limit state.
+- Multi-instance deployment remains unverified at the deployment-tooling level (no
+  actual N-replica rollout was exercised), but the auth-state blocker this note used to
+  flag is now closed: the login lockout, the password-reset throttle, and the MFA
+  challenge store moved from per-instance in-memory maps into Postgres (v3.11.0/V81,
+  `login_lockouts`/`password_reset_requests`/`mfa_challenges`) and `AuthStateAcrossInstancesTest`
+  proves state written via one app instance is visible via another over the shared
+  database. What remains per-pod is the per-IP `RateLimit` token bucket (login/refresh/
+  password-reset/mfa/integration) — a narrower, already-bounded surface (documented in
+  `security.md`) that a rotating-host attacker can sidestep regardless of replica count,
+  so splitting it across pods does not change the threat model the way the auth-state
+  stores did. Rolling-deployment overlap on the existing single-replica deployment is
+  addressed: `k8s/templates/app-deployment.yaml` sets `strategy: type: Recreate`, so the
+  old pod is torn down before the new one starts — two pods never briefly share (and
+  split) the per-pod rate-limit state.
 - Container/dependency pins do not prove byte-for-byte reproducibility or publisher
   authenticity. Remaining package/toolchain inputs and checksum trust are documented
   in the linked image and dependency runbooks; reviewed updates remain necessary.

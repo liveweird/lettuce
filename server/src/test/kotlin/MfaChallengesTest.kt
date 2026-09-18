@@ -1,26 +1,35 @@
 package ch.nokillswit
 
 import ch.nokillswit.auth.MfaChallenges
-import java.lang.management.ManagementFactory
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.r2dbc.selectAll
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-/** Unit tests for the in-memory email-MFA challenge store (deterministic via an injected clock). */
+/**
+ * Tests for the DB-backed email-MFA challenge store (V81, `mfa_challenges` over the shared
+ * Testcontainers Postgres; deterministic via an injected clock, except the real-concurrency
+ * races below). Every test issues its own challenge(s) — the table is shared, live,
+ * container-wide state.
+ */
 class MfaChallengesTest {
 
     private var now = 1_000_000L
     private fun store(ttlMillis: Long = 300_000, maxAttempts: Int = 5) =
-        MfaChallenges(ttlMillis, maxAttempts) { now }
+        MfaChallenges(TestServices.database, ttlMillis, maxAttempts) { now }
 
     @Test
-    fun `a correct code succeeds exactly once - the challenge is single-use`() {
+    fun `a correct code succeeds exactly once - the challenge is single-use`(): Unit = runBlocking {
         val s = store()
         val issued = s.issue(42u)
         assertEquals(6, issued.code.length)
@@ -38,7 +47,7 @@ class MfaChallengesTest {
     }
 
     @Test
-    fun `an expired challenge fails and is dropped`() {
+    fun `an expired challenge fails and is dropped`(): Unit = runBlocking {
         val s = store(ttlMillis = 60_000)
         val issued = s.issue(7u)
         now += 60_000
@@ -53,7 +62,7 @@ class MfaChallengesTest {
     }
 
     @Test
-    fun `wrong codes count toward the attempt cap and exhausting it kills the challenge`() {
+    fun `wrong codes count toward the attempt cap and exhausting it kills the challenge`(): Unit = runBlocking {
         val s = store(maxAttempts = 3)
         val issued = s.issue(7u)
         assertEquals("wrong_code", (s.verify(issued.challengeId, "x") as MfaChallenges.Outcome.Failure).reason)
@@ -70,67 +79,7 @@ class MfaChallengesTest {
     }
 
     @Test
-    fun `competing correct guesses consume a challenge only once`() {
-        val coordinatedClock = CoordinatedVerificationClock(now)
-        val s = MfaChallenges(ttlMillis = 300_000, maxAttempts = 5, clock = coordinatedClock::read)
-        val issued = s.issue(42u)
-        coordinatedClock.coordinateNextRace()
-
-        val outcomes = raceVerifications(
-            clock = coordinatedClock,
-            firstVerify = { s.verify(issued.challengeId, issued.code) },
-        )
-
-        assertEquals(1, outcomes.count { it is MfaChallenges.Outcome.Success })
-        assertEquals(
-            listOf("unknown_challenge"),
-            outcomes.filterIsInstance<MfaChallenges.Outcome.Failure>().map { it.reason },
-        )
-    }
-
-    @Test
-    fun `concurrent wrong guesses atomically exhaust the attempt cap`() {
-        val coordinatedClock = CoordinatedVerificationClock(now)
-        val s = MfaChallenges(ttlMillis = 300_000, maxAttempts = 2, clock = coordinatedClock::read)
-        val issued = s.issue(7u)
-        coordinatedClock.coordinateNextRace()
-
-        val outcomes = raceVerifications(
-            clock = coordinatedClock,
-            firstVerify = { s.verify(issued.challengeId, "wrong") },
-        )
-
-        assertEquals(
-            listOf("too_many_attempts", "wrong_code"),
-            outcomes.filterIsInstance<MfaChallenges.Outcome.Failure>().map { it.reason }.sorted(),
-        )
-        assertEquals(
-            "unknown_challenge",
-            (s.verify(issued.challengeId, issued.code) as MfaChallenges.Outcome.Failure).reason,
-        )
-    }
-
-    @Test
-    fun `a final wrong guess wins over a competing correct code`() {
-        val coordinatedClock = CoordinatedVerificationClock(now)
-        val s = MfaChallenges(ttlMillis = 300_000, maxAttempts = 1, clock = coordinatedClock::read)
-        val issued = s.issue(7u)
-        coordinatedClock.coordinateNextRace()
-
-        val outcomes = raceVerifications(
-            clock = coordinatedClock,
-            firstVerify = { s.verify(issued.challengeId, "wrong") },
-            competingVerify = { s.verify(issued.challengeId, issued.code) },
-        )
-
-        assertEquals(
-            listOf("too_many_attempts", "unknown_challenge"),
-            outcomes.map { (it as MfaChallenges.Outcome.Failure).reason },
-        )
-    }
-
-    @Test
-    fun `an unknown challenge id fails uniformly`() {
+    fun `an unknown challenge id fails uniformly`(): Unit = runBlocking {
         val s = store()
         val outcome = s.verify("no-such-challenge", "123456")
         assertIs<MfaChallenges.Outcome.Failure>(outcome)
@@ -138,7 +87,7 @@ class MfaChallengesTest {
     }
 
     @Test
-    fun `challenge ids are unique and opaque`() {
+    fun `challenge ids are unique and opaque`(): Unit = runBlocking {
         val s = store()
         val a = s.issue(1u)
         val b = s.issue(1u)
@@ -150,12 +99,18 @@ class MfaChallengesTest {
     }
 
     @Test
-    fun `the store prunes expired entries once oversized instead of growing without bound`() {
+    fun `issuing prunes challenges that have already expired`(): Unit = runBlocking {
         val s = store(ttlMillis = 1_000)
-        val stale = (1..10_001).map { s.issue(it.toUInt()) }
+        val stale = (1..3).map { s.issue(it.toUInt()) }
         now += 2_000
-        // The next issue triggers the prune; every stale entry is now unknown.
+        // The next issue triggers the prune; every stale entry is now gone from the table.
         val fresh = s.issue(99u)
+        val remaining = suspendTransaction(TestServices.database) {
+            MfaChallenges.Challenges.selectAll()
+                .where { MfaChallenges.Challenges.id inList stale.map { it.challengeId } }
+                .toList()
+        }
+        assertTrue(remaining.isEmpty(), "the stale challenges should have been pruned")
         assertEquals(
             "unknown_challenge",
             (s.verify(stale.first().challengeId, stale.first().code) as MfaChallenges.Outcome.Failure).reason,
@@ -163,89 +118,64 @@ class MfaChallengesTest {
         assertIs<MfaChallenges.Outcome.Success>(s.verify(fresh.challengeId, fresh.code))
     }
 
-    private fun raceVerifications(
-        clock: CoordinatedVerificationClock,
-        firstVerify: () -> MfaChallenges.Outcome,
-        competingVerify: () -> MfaChallenges.Outcome = firstVerify,
-    ): List<MfaChallenges.Outcome> {
-        val executor = Executors.newFixedThreadPool(2)
-        val firstThreadId = AtomicLong()
-        val competingThreadId = AtomicLong()
-        val competitorStarted = CountDownLatch(1)
-        try {
-            val first = executor.submit<MfaChallenges.Outcome> {
-                firstThreadId.set(Thread.currentThread().threadId())
-                firstVerify()
-            }
-            assertTrue(clock.awaitFirstVerification(), "first verification did not reach the clock")
-            val second = executor.submit<MfaChallenges.Outcome> {
-                competingThreadId.set(Thread.currentThread().threadId())
-                competitorStarted.countDown()
-                competingVerify()
-            }
-            assertTrue(competitorStarted.await(5, TimeUnit.SECONDS), "competing verification did not start")
-            assertTrue(
-                clock.awaitCompetitorAtClockOrBlocked(firstThreadId.get(), competingThreadId.get()),
-                "competitor neither reached the clock nor blocked on the atomic verification",
-            )
-            clock.release()
-            return listOf(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS))
-        } finally {
-            clock.release()
-            executor.shutdownNow()
-            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "verification executor did not stop")
+    @Test
+    fun `N concurrent correct guesses consume the challenge exactly once`(): Unit = runBlocking {
+        val s = store(maxAttempts = 5)
+        val issued = s.issue(42u)
+        val outcomes = coroutineScope {
+            List(8) { async(Dispatchers.IO) { s.verify(issued.challengeId, issued.code) } }.awaitAll()
         }
+        assertEquals(1, outcomes.count { it is MfaChallenges.Outcome.Success })
+        val failures = outcomes.filterIsInstance<MfaChallenges.Outcome.Failure>()
+        assertEquals(7, failures.size)
+        assertTrue(failures.all { it.reason == "unknown_challenge" })
     }
 
-    /**
-     * Holds the first verification after it has read the challenge. A racy implementation lets
-     * the competitor reach the clock from the same snapshot; a per-key atomic implementation
-     * blocks the competitor on the first thread's map lock. The harness observes either state
-     * before release, and its bounded detection plus finally block guarantee cleanup on failure.
-     */
-    private class CoordinatedVerificationClock(private val currentTime: Long) {
-        private val firstArrival = CountDownLatch(1)
-        private val arrivals = CountDownLatch(2)
-        private val release = CountDownLatch(1)
+    @Test
+    fun `N concurrent wrong guesses atomically exhaust the attempt cap`(): Unit = runBlocking {
+        val cap = 3
+        val n = 8
+        val s = store(maxAttempts = cap)
+        val issued = s.issue(7u)
+        val outcomes = coroutineScope {
+            List(n) { async(Dispatchers.IO) { s.verify(issued.challengeId, "wrong") } }.awaitAll()
+        }
+        val reasons = outcomes.filterIsInstance<MfaChallenges.Outcome.Failure>().map { it.reason }
+        assertEquals(n, reasons.size, "every concurrent guess must resolve to a failure")
+        assertEquals(cap - 1, reasons.count { it == "wrong_code" })
+        assertEquals(1, reasons.count { it == "too_many_attempts" })
+        assertEquals(n - cap, reasons.count { it == "unknown_challenge" })
+        // Even the correct code no longer works — the challenge is gone.
+        assertEquals(
+            "unknown_challenge",
+            (s.verify(issued.challengeId, issued.code) as MfaChallenges.Outcome.Failure).reason,
+        )
+    }
 
-        @Volatile
-        private var coordinate = false
-
-        fun read(): Long {
-            if (coordinate) {
-                arrivals.countDown()
-                firstArrival.countDown()
-                release.await()
+    @Test
+    fun `a final wrong guess can beat a concurrent correct code under a cap of one`(): Unit = runBlocking {
+        val s = store(maxAttempts = 1)
+        val issued = s.issue(7u)
+        val outcomes = coroutineScope {
+            listOf(
+                async(Dispatchers.IO) { s.verify(issued.challengeId, "wrong") },
+                async(Dispatchers.IO) { s.verify(issued.challengeId, issued.code) },
+            ).awaitAll()
+        }
+        val reasons = outcomes.map {
+            when (it) {
+                is MfaChallenges.Outcome.Success -> "success"
+                is MfaChallenges.Outcome.Failure -> it.reason
             }
-            return currentTime
-        }
-
-        fun coordinateNextRace() {
-            coordinate = true
-        }
-
-        fun awaitFirstVerification(): Boolean = firstArrival.await(5, TimeUnit.SECONDS)
-
-        fun awaitCompetitorAtClockOrBlocked(firstThreadId: Long, competingThreadId: Long): Boolean {
-            val threadMxBean = ManagementFactory.getThreadMXBean()
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-            while (System.nanoTime() < deadline) {
-                if (arrivals.count == 0L) return true
-                val competitor = threadMxBean.getThreadInfo(competingThreadId)
-                if (
-                    competitor?.threadState == Thread.State.BLOCKED &&
-                    competitor.lockOwnerId == firstThreadId
-                ) {
-                    return true
-                }
-                Thread.sleep(1)
-            }
-            return false
-        }
-
-        fun release() {
-            coordinate = false
-            release.countDown()
-        }
+        }.sorted()
+        // Whichever mutation (the correct-code delete or the wrong-code cap trip) commits
+        // first wins the row; the loser always sees it already gone (unknown_challenge). A
+        // Success can therefore never coexist with a "real" failure (too_many_attempts /
+        // wrong_code) — only with unknown_challenge.
+        assertTrue(
+            reasons == listOf("success", "unknown_challenge") ||
+                reasons == listOf("too_many_attempts", "unknown_challenge"),
+            "unexpected outcome combination: $reasons",
+        )
     }
 }

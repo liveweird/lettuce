@@ -22,6 +22,22 @@ spec:
       labels:
         io.kompose.service: postgres
     spec:
+      # Pod hardening (v3.11.0, checkup-#35 Tier D — the app-deployment.yaml treatment applied to
+      # the database): the container starts DIRECTLY as the image's `postgres` user (uid/gid 70
+      # on the alpine image), so the entrypoint's root-only chown + su-exec step never runs and
+      # every capability can be dropped. `fsGroup: 70` makes a freshly provisioned PVC writable;
+      # a volume populated earlier by the root-start path is already owned by 70:70 and needs
+      # nothing. A data directory RESTORED as root (backup-and-restore.md) must be `chown -R
+      # 70:70` once — the symptom is a permission-denied crash loop at startup, never data loss.
+      # Proven live on OrbStack (uid 70, read-only rootfs, pod restart against a populated PVC).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - env:
             - name: POSTGRES_DB
@@ -61,11 +77,27 @@ spec:
           ports:
             - containerPort: 5432
               protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           volumeMounts:
             - mountPath: /var/lib/postgresql
               name: postgres-data
+            # The two places postgres must write outside its data directory under a read-only
+            # root filesystem: the Unix socket directory (`pg_isready` in the probes above and the
+            # entrypoint's bootstrap both use it) and scratch space.
+            - mountPath: /var/run/postgresql
+              name: run
+            - mountPath: /tmp
+              name: tmp
       restartPolicy: Always
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
             claimName: postgres-data
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

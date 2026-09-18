@@ -154,7 +154,8 @@ typealias TeamKpiPageResponse = PageResponse<TeamKpiListItem>
 @Serializable
 data class TeamKpiEvent(
     val kpiId: UInt,
-    val userId: UInt,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
     val type: TeamKpiEventType,
     val params: Map<String, String> = emptyMap(),
 )
@@ -163,8 +164,9 @@ data class TeamKpiEvent(
 data class TeamKpiEventResponse(
     val id: UInt,
     val kpiId: UInt,
-    val userId: UInt,
-    val userName: String,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
+    val userName: String?,
     val timestamp: Long,
     val type: TeamKpiEventType,
     val params: Map<String, String> = emptyMap(),

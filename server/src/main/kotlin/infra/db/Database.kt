@@ -63,7 +63,13 @@ import ch.nokillswit.users.CareerPositionServiceKey
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
+import io.ktor.util.AttributeKey
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+
+/** Published so a later module (e.g. `configureAuthRoutes`, whose DB-backed auth-state stores
+ *  — login lockout/password-reset throttle/MFA challenges, V81 — need a handle) can reuse the
+ *  same connected [R2dbcDatabase] without opening a second connection. */
+val R2dbcDatabaseKey = AttributeKey<R2dbcDatabase>("R2dbcDatabase")
 
 suspend fun Application.configureDatabase() {
     val database = R2dbcDatabase.connect(
@@ -71,12 +77,14 @@ suspend fun Application.configureDatabase() {
         user = environment.config.property("postgres.user").getString(),
         password = environment.config.property("postgres.password").getString(),
     )
+    attributes.put(R2dbcDatabaseKey, database)
     val userService = UserService(database)
     attributes.put(UserServiceKey, userService)
     attributes.put(CareerPositionServiceKey, CareerPositionService(database))
     attributes.put(TeamServiceKey, TeamService(database))
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
-    attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey]))
+    val sweepIntervalMillis = environment.config.property("feedbacks.expirySweepIntervalSeconds").getString().toLong() * 1000
+    attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey], sweepIntervalMillis))
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
     attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))

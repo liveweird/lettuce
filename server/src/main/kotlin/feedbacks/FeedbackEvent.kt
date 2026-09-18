@@ -11,8 +11,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class FeedbackEvent(
     val feedbackId: UInt,
-    // The user who performed the change (the acting caller).
-    val userId: UInt,
+    // The user who performed the change (the acting caller). Null = system-originated
+    // (no acting user) — e.g. the v3.8.0 REQUEST_EXPIRED lazy expiry sweep (v3.11.0/V80).
+    val userId: UInt?,
     // Structured event; the SPA renders it in the viewer's language.
     val type: FeedbackEventType,
     val params: Map<String, String> = emptyMap(),
@@ -22,9 +23,10 @@ data class FeedbackEvent(
 data class FeedbackEventResponse(
     val id: UInt,
     val feedbackId: UInt,
-    val userId: UInt,
-    // Display name of the acting user; server-resolved, read-only.
-    val userName: String,
+    // Null = system-originated (no acting user) — see FeedbackEvent.userId.
+    val userId: UInt?,
+    // Display name of the acting user; server-resolved, read-only. Null in lockstep with userId.
+    val userName: String?,
     // Epoch milliseconds when the event was recorded. Server-managed.
     val timestamp: Long,
     // Structured event for client-side localization.

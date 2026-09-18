@@ -109,7 +109,8 @@ typealias PerformanceReviewPageResponse = PageResponse<PerformanceReviewListItem
 @Serializable
 data class PerformanceReviewEvent(
     val reviewId: UInt,
-    val userId: UInt,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
     val type: PerformanceReviewEventType,
     val params: Map<String, String> = emptyMap(),
 )
@@ -118,8 +119,9 @@ data class PerformanceReviewEvent(
 data class PerformanceReviewEventResponse(
     val id: UInt,
     val reviewId: UInt,
-    val userId: UInt,
-    val userName: String,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
+    val userName: String?,
     val timestamp: Long,
     val type: PerformanceReviewEventType,
     val params: Map<String, String> = emptyMap(),

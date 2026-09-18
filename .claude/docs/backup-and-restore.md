@@ -90,7 +90,9 @@ there. `pg_restore --list database.dump` must succeed before accepting the archi
 
 Use a fresh target, a fresh volume, and the same PostgreSQL major. Never attach the source volume.
 For the official PostgreSQL 18+ container image, mount the volume at `/var/lib/postgresql`, not the
-old `/var/lib/postgresql/data` target; the image deliberately refuses the old layout. Confirm the
+old `/var/lib/postgresql/data` target; the image deliberately refuses the old layout. When the
+target is the Kubernetes PVC, the restored files must be owned by uid/gid 70 (`chown -R 70:70`):
+the hardened pod starts as that user and never runs the image's root-only ownership fix. Confirm the
 target has no published host ports. For a rehearsal, attach it only to a newly created Docker
 `--internal` network.
 

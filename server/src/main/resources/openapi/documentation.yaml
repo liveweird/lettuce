@@ -7553,15 +7553,21 @@ components:
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         feedbackId: { type: integer, format: int32, minimum: 0 }
-        userId: { type: integer, format: int32, minimum: 0 }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: >-
+            The acting user's id, or null = system-originated (no acting user) — e.g. the
+            REQUEST_EXPIRED lazy expiry sweep (v3.8.0/V80), which has no human actor.
         userName:
           type: string
+          nullable: true
           description: >-
-            Display name of the user recorded against this event. Server-resolved, read-only.
-            For most event types this is the user who performed the change; the exception is
-            REQUEST_EXPIRED (v3.8.0), whose flip is automated — it is recorded against the
-            provider only because this column is NOT NULL, and the client should not present
-            that name as the actor.
+            Display name of the acting user. Server-resolved, read-only. Null = system-originated
+            (no acting user) — the client renders a generic "Automatic" label in that case
+            (e.g. REQUEST_EXPIRED, v3.8.0/V80).
         timestamp:
           type: integer
           format: int64
@@ -7800,10 +7806,18 @@ components:
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         meetingId: { type: integer, format: int32, minimum: 0 }
-        userId: { type: integer, format: int32, minimum: 0 }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The acting user's id, or null = system-originated (no acting user).
         userName:
           type: string
-          description: Display name of the user who performed the change. Server-resolved, read-only.
+          nullable: true
+          description: >-
+            Display name of the user who performed the change. Server-resolved, read-only.
+            Null = system-originated (no acting user).
         timestamp:
           type: integer
           format: int64
@@ -8158,10 +8172,18 @@ components:
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         goalId: { type: integer, format: int32, minimum: 0 }
-        userId: { type: integer, format: int32, minimum: 0 }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The acting user's id, or null = system-originated (no acting user).
         userName:
           type: string
-          description: Display name of the user who performed the change. Server-resolved, read-only.
+          nullable: true
+          description: >-
+            Display name of the user who performed the change. Server-resolved, read-only.
+            Null = system-originated (no acting user).
         timestamp:
           type: integer
           format: int64
@@ -8324,10 +8346,18 @@ components:
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         entryId: { type: integer, format: int32, minimum: 0 }
-        userId: { type: integer, format: int32, minimum: 0 }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The acting user's id, or null = system-originated (no acting user).
         userName:
           type: string
-          description: Display name of the user who performed the change. Server-resolved, read-only.
+          nullable: true
+          description: >-
+            Display name of the user who performed the change. Server-resolved, read-only.
+            Null = system-originated (no acting user).
         timestamp:
           type: integer
           format: int64
@@ -8421,10 +8451,18 @@ components:
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         planId: { type: integer, format: int32, minimum: 0 }
-        userId: { type: integer, format: int32, minimum: 0 }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The acting user's id, or null = system-originated (no acting user).
         userName:
           type: string
-          description: Display name of the user who performed the change. Server-resolved, read-only.
+          nullable: true
+          description: >-
+            Display name of the user who performed the change. Server-resolved, read-only.
+            Null = system-originated (no acting user).
         timestamp:
           type: integer
           format: int64
@@ -8902,10 +8940,18 @@ components:
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         kpiId: { type: integer, format: int32, minimum: 0 }
-        userId: { type: integer, format: int32, minimum: 0 }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The acting user's id, or null = system-originated (no acting user).
         userName:
           type: string
-          description: Display name of the user who performed the change. Server-resolved, read-only.
+          nullable: true
+          description: >-
+            Display name of the user who performed the change. Server-resolved, read-only.
+            Null = system-originated (no acting user).
         timestamp:
           type: integer
           format: int64
@@ -9152,10 +9198,18 @@ components:
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         reviewId: { type: integer, format: int32, minimum: 0 }
-        userId: { type: integer, format: int32, minimum: 0 }
+        userId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The acting user's id, or null = system-originated (no acting user).
         userName:
           type: string
-          description: Display name of the user who performed the change. Server-resolved, read-only.
+          nullable: true
+          description: >-
+            Display name of the user who performed the change. Server-resolved, read-only.
+            Null = system-originated (no acting user).
         timestamp:
           type: integer
           format: int64

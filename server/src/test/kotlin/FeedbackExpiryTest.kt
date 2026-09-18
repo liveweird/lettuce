@@ -7,6 +7,7 @@ import ch.nokillswit.feedbacks.FeedbackEventListResponse
 import ch.nokillswit.feedbacks.FeedbackEventType
 import ch.nokillswit.feedbacks.FeedbackPageResponse
 import ch.nokillswit.feedbacks.FeedbackResponse
+import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.notifications.NotificationPageResponse
@@ -120,9 +121,10 @@ class FeedbackExpiryTest {
             val events = provider.get("/api/v1/feedbacks/$id/events").body<FeedbackEventListResponse>()
             val expiry = events.items.single { it.type == FeedbackEventType.REQUEST_EXPIRED }
             assertEquals(emptyMap(), expiry.params)
-            // feedback_events.user_id is NOT NULL — the expiry event is attributed to the
-            // provider (the sentence itself carries no actor).
-            assertEquals(providerId, expiry.userId)
+            // feedback_events.user_id is nullable since v3.11.0/V80 — the expiry event is a
+            // genuine system event (null actor; the sentence itself carries no actor either way).
+            assertNull(expiry.userId)
+            assertNull(expiry.userName)
 
             val requesterNotes = requester.get("/api/v1/notifications").body<NotificationPageResponse>().items
             val toRequester = requesterNotes.single { it.type == NotificationType.FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER }
@@ -267,7 +269,8 @@ class FeedbackExpiryTest {
             outcomes.forEach { outcome ->
                 outcome.notifications.forEach { TestNotifications.service.create(it) }
                 TestFeedbackEvents.service.create(
-                    FeedbackEvent(feedbackId = outcome.feedbackId, userId = outcome.providerId, type = FeedbackEventType.REQUEST_EXPIRED),
+                    // System-originated (v3.11.0/V80) — mirrors the route's persistOutcome call.
+                    FeedbackEvent(feedbackId = outcome.feedbackId, userId = null, type = FeedbackEventType.REQUEST_EXPIRED),
                 )
             }
 
@@ -448,4 +451,97 @@ class FeedbackExpiryTest {
         val row = page.items.single { it.id == created.id }
         assertEquals(deadline, row.expiresOn)
     }
+
+    // ---- v3.11.0: bounding the sweep's placement + rate ----
+
+    @Test
+    fun `an unknown view is 400 and the sweep never runs`() = testApplication {
+        usePostgresTestcontainer()
+        val requesterEmail = uniqueEmail("requester")
+        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", roles = emptySet())
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", roles = emptySet())
+        val id = seedOverdueRequest(providerId, requesterId, requesterId, expiresOn = "2020-01-01")
+
+        val requester = authedClient(requesterEmail, "pw")
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            requester.get("/api/v1/feedbacks") { parameter("view", "bogus") }.status,
+        )
+        // The 400 happened before the sweep (moved after param parsing, v3.11.0) — still REQUESTED.
+        assertEquals(
+            FeedbackStatus.REQUESTED,
+            requester.get("/api/v1/feedbacks/$id").body<FeedbackResponse>().status,
+        )
+    }
+
+    @Test
+    fun `view=kudos never sweeps, a following view=received GET does`() = testApplication {
+        usePostgresTestcontainer()
+        val requesterEmail = uniqueEmail("requester")
+        val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", roles = emptySet())
+        val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", roles = emptySet())
+        val id = seedOverdueRequest(providerId, requesterId, requesterId, expiresOn = "2020-01-01")
+
+        val requester = authedClient(requesterEmail, "pw")
+        // providerId scopes the org-wide kudos page to this test's rows (the FeedbackRoutesTest
+        // idiom): the shared DB carries other suites' PUBLIC+SENT residue, some of it
+        // re-encrypted under a throwaway key by the rotation test, which an unscoped page
+        // would try to decrypt.
+        assertEquals(
+            HttpStatusCode.OK,
+            requester.get("/api/v1/feedbacks") {
+                parameter("view", "kudos")
+                parameter("providerId", providerId.toString())
+            }.status,
+        )
+        assertEquals(
+            FeedbackStatus.REQUESTED,
+            requester.get("/api/v1/feedbacks/$id").body<FeedbackResponse>().status,
+            "kudos never shows REQUESTED rows, so it skips the sweep",
+        )
+
+        assertEquals(
+            HttpStatusCode.OK,
+            requester.get("/api/v1/feedbacks") { parameter("view", "received") }.status,
+        )
+        assertEquals(
+            FeedbackStatus.REJECTED,
+            requester.get("/api/v1/feedbacks/$id").body<FeedbackResponse>().status,
+        )
+    }
+
+    @Test
+    fun `the sweep gate bounds DB round-trips per instance, and reopens once the interval elapses`() =
+        testApplication {
+            // A wide window (1h) so an ordinary test run never crosses it by wall-clock alone.
+            configureApp("feedbacks.expirySweepIntervalSeconds" to "3600")
+            startApplication()
+            val appFeedbackService = application.attributes[FeedbackServiceKey]
+
+            val requesterEmail = uniqueEmail("requester")
+            val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", roles = emptySet())
+            val providerId = TestUsers.seed(email = uniqueEmail("provider"), password = "pw", roles = emptySet())
+            val id1 = seedOverdueRequest(providerId, requesterId, requesterId, expiresOn = "2020-01-01")
+
+            val requester = authedClient(requesterEmail, "pw")
+            // First GET wins the gate and sweeps.
+            requester.get("/api/v1/feedbacks")
+            assertEquals(
+                FeedbackStatus.REJECTED,
+                requester.get("/api/v1/feedbacks/$id1").body<FeedbackResponse>().status,
+            )
+
+            // A second overdue row created inside the gate window is NOT swept by another GET.
+            val id2 = seedOverdueRequest(providerId, requesterId, requesterId, expiresOn = "2020-01-01")
+            requester.get("/api/v1/feedbacks")
+            assertEquals(
+                FeedbackStatus.REQUESTED,
+                requester.get("/api/v1/feedbacks/$id2").body<FeedbackResponse>().status,
+                "the gate is still closed for this instance within the interval",
+            )
+
+            // Driving the SAME instance's gate past the interval reopens it.
+            val outcomes = appFeedbackService.expireOverdueRequests(nowMillis = System.currentTimeMillis() + 3_601_000)
+            assertEquals(setOf(id2), outcomes.map { it.feedbackId }.toSet())
+        }
 }

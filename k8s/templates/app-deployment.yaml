@@ -9,10 +9,12 @@ metadata:
   name: app
 spec:
   replicas: 1
-  # Single-replica in-memory state (login lockout, MFA challenges, throttles — all
-  # security.md-documented as per-instance) means two pods can never briefly overlap the
-  # way a default RollingUpdate would; Recreate always tears the old pod down first (the
-  # postgres-deployment.yaml precedent — same rationale, different state).
+  # Login lockout, MFA challenges, and the password-reset throttle are DB-backed since
+  # v3.11.0/V81 (shared by replicas), but the per-IP RateLimit token buckets in front of
+  # login/refresh/password-reset/mfa/integration (security.md) are still per-pod state —
+  # two pods can never briefly overlap the way a default RollingUpdate would; Recreate
+  # always tears the old pod down first (the postgres-deployment.yaml precedent — same
+  # rationale, different state).
   strategy:
     type: Recreate
   selector:

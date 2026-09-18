@@ -57,7 +57,8 @@ ktor:
 security:
   # Per-account login lockout (complements the per-IP rate limit): after `threshold`
   # consecutive failures for one email, further attempts are 429 for `durationSeconds`.
-  # A successful login resets the counter. In-memory, per-instance.
+  # A successful login resets the counter. DB-backed since v3.11.0/V81 — shared by
+  # replicas, a restart no longer resets it.
   lockout:
     threshold: "$LOGIN_LOCKOUT_THRESHOLD:5"
     durationSeconds: "$LOGIN_LOCKOUT_DURATION_SECONDS:900"
@@ -70,13 +71,13 @@ security:
     loginPerMinute: "$LOGIN_RATE_LIMIT_PER_MINUTE:"
   # Self-service password reset (POST /api/v1/password-reset): one request per
   # submitted email per interval, uniformly whether or not the account exists.
-  # In-memory, per-instance, like the lockout above.
+  # DB-backed since v3.11.0/V81, like the lockout above.
   passwordReset:
     minIntervalSeconds: "$PASSWORD_RESET_MIN_INTERVAL_SECONDS:60"
   # Email MFA (opt-in per user via the MFA feature flag): a login with correct credentials
   # mints a challenge and emails a 6-digit code; the code must come back to
-  # POST /api/v1/login/mfa within the TTL and attempt cap. Challenges are in-memory,
-  # per-instance, like the lockout above (a restart just means signing in again).
+  # POST /api/v1/login/mfa within the TTL and attempt cap. Challenges are DB-backed
+  # since v3.11.0/V81, like the lockout above (a restart no longer invalidates them).
   mfa:
     codeTtlSeconds: "$MFA_CODE_TTL_SECONDS:300"
     maxAttempts: "$MFA_MAX_ATTEMPTS:5"
@@ -176,6 +177,16 @@ integration:
   enabled: "$INTEGRATION_ENABLED:false"
   # Per-API-key token bucket (requests/minute) on the /integration endpoints.
   rateLimitPerMinute: "$INTEGRATION_RATE_LIMIT_PER_MINUTE:120"
+
+feedbacks:
+  # The v3.8.0 lazy expiry sweep (FeedbackService.expireOverdueRequests) is a WRITE on the
+  # GET /api/v1/feedbacks read path — bounded since v3.11.0 so a burst of list requests
+  # doesn't hit the DB on every single one: at most one sweep actually runs per this many
+  # seconds per app instance (a per-instance in-memory gate, the DB predicate stays the
+  # correctness backstop — an overdue row is picked up by the next sweep that runs, never
+  # missed). 0 = every call (the pre-v3.11.0 behavior; the test suite pins this so the
+  # existing "every GET sweeps" assertions keep working).
+  expirySweepIntervalSeconds: "$FEEDBACK_EXPIRY_SWEEP_INTERVAL_SECONDS:60"
 
 postgres:
   jdbcUrl: "$POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/lettuce"

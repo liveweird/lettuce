@@ -26,6 +26,7 @@ import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.mergeWith
 import io.ktor.server.testing.ApplicationTestBuilder
+import io.ktor.server.testing.TestApplicationBuilder
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
@@ -41,8 +42,12 @@ import org.jetbrains.exposed.v1.r2dbc.update
  * callers that assert startup behavior (fail-closed checks) add their own overrides and call
  * `startApplication()` themselves. Later duplicate keys win in [MapApplicationConfig], so
  * [overrides] may replace the defaults listed first.
+ *
+ * Receiver is the base [TestApplicationBuilder] (not [ApplicationTestBuilder]) so this also
+ * works inside an explicit `TestApplication { … }` block — needed to boot two independent
+ * app instances over the shared container (see `AuthStateAcrossInstancesTest`).
  */
-fun ApplicationTestBuilder.configureApp(vararg overrides: Pair<String, String>) {
+fun TestApplicationBuilder.configureApp(vararg overrides: Pair<String, String>) {
     environment {
         config = ApplicationConfig("application.yaml").mergeWith(
             MapApplicationConfig(
@@ -51,6 +56,10 @@ fun ApplicationTestBuilder.configureApp(vararg overrides: Pair<String, String>) 
                 "postgres.user" to PostgresTestSupport.user,
                 "postgres.password" to PostgresTestSupport.password,
                 "security.csrf.enabled" to "false",
+                // 0 = every GET sweeps (the pre-v3.11.0 semantics) — matches TestServices.feedbacks
+                // above so route-level and service-level test assertions stay in lockstep; a test
+                // exercising the gate itself overrides this explicitly.
+                "feedbacks.expirySweepIntervalSeconds" to "0",
                 *overrides,
             )
         )
@@ -137,6 +146,9 @@ fun ch.qos.logback.classic.spi.ILoggingEvent.hasKeyValue(key: String, value: Str
     keyValuePairs?.any { it.key == key && it.value == value } == true
 
 private val sharedTestDatabase: R2dbcDatabase by lazy {
+    // Guarantees the schema exists even when no testApplication has booted yet in this JVM
+    // (see the note on PostgresTestSupport.ensureMigrated).
+    PostgresTestSupport.ensureMigrated()
     R2dbcDatabase.connect(
         url = PostgresTestSupport.r2dbcUrl,
         user = PostgresTestSupport.user,
@@ -202,6 +214,16 @@ object TestSeedState {
                     it[UserService.UserDisabledFeatures.feature] = ch.nokillswit.users.Feature.MFA.name
                 }
             }
+            // Also drop any DB-backed auth state (V81) a test left on the seed accounts — a
+            // lingering lockout/throttle row would otherwise leak into later tests reusing the
+            // same seed email (e.g. BootstrapTest's deliberate 401 on admin@lettuce.local).
+            val seedEmails = DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL
+            ch.nokillswit.auth.LoginThrottle.LoginLockouts.deleteWhere {
+                ch.nokillswit.auth.LoginThrottle.LoginLockouts.email inList seedEmails
+            }
+            ch.nokillswit.auth.PasswordResetThrottle.PasswordResetRequests.deleteWhere {
+                ch.nokillswit.auth.PasswordResetThrottle.PasswordResetRequests.email inList seedEmails
+            }
         }
     }
 }
@@ -217,13 +239,19 @@ object TestFeedbackEvents {
 // filter strings are stripped by optionalString before a service ever sees them, and the
 // routes 404 on a missing row before calling editContent/transition/addMember.
 object TestServices {
+    // The shared handle itself — e.g. for tests that assert directly against the DB-backed
+    // auth-state tables (login_lockouts/password_reset_requests/mfa_challenges, V81).
+    val database: R2dbcDatabase get() = sharedTestDatabase
+
     // Same dev-default key the booted test app uses (application.yaml), so service-level writes
     // and route-level reads interoperate.
     val cipher: ch.nokillswit.infra.crypto.FieldCipher by lazy {
         ch.nokillswit.infra.crypto.FieldCipher(ch.nokillswit.infra.crypto.DEV_DATA_ENCRYPTION_KEY)
     }
     val feedbacks: ch.nokillswit.feedbacks.FeedbackService by lazy {
-        ch.nokillswit.feedbacks.FeedbackService(sharedTestDatabase, cipher)
+        // sweepIntervalMillis = 0: every call sweeps (the pre-v3.11.0 semantics), matching the
+        // booted test app's config override below.
+        ch.nokillswit.feedbacks.FeedbackService(sharedTestDatabase, cipher, sweepIntervalMillis = 0)
     }
     val teams: ch.nokillswit.teams.TeamService by lazy {
         ch.nokillswit.teams.TeamService(sharedTestDatabase)

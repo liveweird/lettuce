@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.11.0",
+    date: "2026-09-18",
+    en: `Hardening round. Automatic history entries — such as a feedback request expiring — are now stored with no acting person and always read as "Automatic", instead of being filed under the provider. Login lockouts, password-reset throttling and sign-in codes are kept in the database, so they survive a restart and are shared by every instance. The feedback-request expiry check runs at most once a minute instead of on every list load. Under the hood: CI actions pinned to exact commits with automatic update proposals, a fix for the flaky web test job, a hardened database pod, and a written protocol for breaking changes in the integration API.`,
+    pl: `Runda wzmacniająca. Automatyczne wpisy w historii — na przykład wygaśnięcie prośby o feedback — zapisujemy teraz bez osoby wykonującej i zawsze pokazujemy jako „Automatycznie”, zamiast przypisywać je wystawiającemu. Blokady logowania, ograniczenie resetów hasła i kody logowania trzymamy w bazie danych, więc przetrwają restart i są wspólne dla wszystkich instancji. Sprawdzanie wygasłych próśb o feedback uruchamiamy najwyżej raz na minutę, a nie przy każdym wczytaniu listy. Pod maską: akcje CI przypięliśmy do konkretnych commitów z automatycznymi propozycjami aktualizacji, naprawiliśmy niestabilne zadanie testów webowych, wzmocniliśmy pod bazy danych i spisaliśmy protokół zmian łamiących w API integracyjnym.`,
+  },
+  {
     version: "3.10.3",
     date: "2026-09-18",
     en: `Checkup #35 round. The product tour now describes days off as they actually work: add or remove your own, no approvals involved. Deleting a day off uses the same confirmation dialog as every other list. Long words no longer break mid-word on page headers, the dictionary editor, and pulse cards. Documentation refreshed to match.`,

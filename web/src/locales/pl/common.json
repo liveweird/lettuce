@@ -140,5 +140,6 @@
   },
   "buildInfo": "Wersja aplikacji",
   "deletedSuffix": "{{name}} (usunięty)",
-  "charCount": "{{current}} / {{max}}"
+  "charCount": "{{current}} / {{max}}",
+  "systemActor": "Automatycznie"
 }

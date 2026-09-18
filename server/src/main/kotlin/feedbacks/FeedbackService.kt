@@ -17,6 +17,7 @@ import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
@@ -56,8 +57,8 @@ data class FeedbackCreateResult(
  * One row flipped by [FeedbackService.expireOverdueRequests] — the caller (the feedback list
  * route) persists these exactly like the manual `POST …/reject` path: the notifications via
  * `NotificationService.create`, then the event via `feedbackExpiryEvent().toEvent(feedbackId,
- * providerId)` (`feedback_events.user_id` is `NOT NULL`, so the event is attributed to the
- * provider — see `feedbackExpiryEvent`).
+ * null)` — a system-originated event since v3.11.0/V80 (see `feedbackExpiryEvent`). [providerId]
+ * is retained for building the notifications, not as the event's actor.
  */
 data class ExpiredOutcome(
     val feedbackId: UInt,
@@ -102,8 +103,21 @@ const val CONTENT_PREVIEW_LENGTH = 200
 // content/requester_message are encrypted at rest (see infra/crypto/FieldCipher.kt): the cipher
 // wraps every write and unwraps every read, so nothing above this service ever sees ciphertext.
 // Neither column is filtered/sorted/searched in SQL, so queries are unaffected.
-class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {
+class FeedbackService(
+    val database: R2dbcDatabase,
+    private val cipher: FieldCipher,
+    // Bounds the v3.8.0 lazy expiry sweep (see expireOverdueRequests): at most one sweep runs
+    // per this many milliseconds per instance. 0 = every call (config `feedbacks.
+    // expirySweepIntervalSeconds`; the test suite pins it to 0 so the existing "every GET
+    // sweeps" assertions keep working).
+    private val sweepIntervalMillis: Long = 0,
+) : EncryptedAtRest {
     override val encryptedRowLabel = "feedback"
+
+    // The per-instance sweep gate: a compareAndSet winner is the one sweeper among concurrent
+    // GETs within the interval; the DB predicate in expireOverdueRequests stays the correctness
+    // backstop regardless of which caller's sweep (if any) actually runs.
+    private val lastSweepAtMillis = AtomicLong(0)
 
     object Feedbacks : UIntIdTable("feedbacks") {
         val requesterId = reference("requester_id", UserService.Users).nullable()
@@ -379,9 +393,26 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
      * Idempotent — a row already flipped no longer matches the `REQUESTED` predicate, so a second
      * call returns nothing for it. [today] is injectable, the `validateGoalDueDate` testability
      * pattern.
+     *
+     * **Bounded since v3.11.0**: [sweepIntervalMillis] gates how often the sweep actually hits
+     * the DB (a per-instance in-memory gate, `lastSweepAtMillis` — a `compareAndSet` winner is
+     * the one sweeper among concurrent callers within the interval; every other concurrent/later
+     * caller inside the window gets `emptyList()` with no DB round-trip). The DB predicate above
+     * stays the correctness backstop regardless — an overdue row is simply picked up by the next
+     * sweep that actually runs. [nowMillis] is injectable alongside [today] so tests can drive
+     * the gate deterministically without sleeping.
      */
-    suspend fun expireOverdueRequests(today: LocalDate = LocalDate.now()): List<ExpiredOutcome> =
-        suspendTransaction(database) {
+    suspend fun expireOverdueRequests(
+        today: LocalDate = LocalDate.now(),
+        nowMillis: Long = System.currentTimeMillis(),
+    ): List<ExpiredOutcome> {
+        if (sweepIntervalMillis > 0) {
+            val last = lastSweepAtMillis.get()
+            if (nowMillis - last < sweepIntervalMillis || !lastSweepAtMillis.compareAndSet(last, nowMillis)) {
+                return emptyList()
+            }
+        }
+        return suspendTransaction(database) {
             val todayIso = today.toString()
             // Materialize the returning rows FIRST (closing that result cursor) before running
             // any further query below — resolvePartyNames() must not interleave with an open
@@ -427,6 +458,7 @@ class FeedbackService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 )
             }
         }
+    }
 
     /** The recipients' direct managers: id → name, plus which recipients each one manages. */
     private data class SubjectManagers(

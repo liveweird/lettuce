@@ -1,46 +1,53 @@
 package ch.nokillswit.auth
 
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.r2dbc.*
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 /**
  * Per-email throttle for the self-service password reset: at most one request per submitted
  * email per [minIntervalMillis] — uniformly, whether or not the account exists (so the 429
- * carries no enumeration signal). Sibling of [LoginThrottle]: in-memory and per-instance by
- * design (single-replica deployment; a restart only resets the throttle).
+ * carries no enumeration signal). Sibling of [LoginThrottle].
+ *
+ * **DB-backed since v3.11.0/V81** (`password_reset_requests`): replicas share the throttle
+ * and a restart no longer resets it. No background sweeper — [tryAcquire] opportunistically
+ * prunes rows already outside the interval on every call.
  */
 class PasswordResetThrottle(
+    private val database: R2dbcDatabase,
     private val minIntervalMillis: Long,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val lastRequestAt = ConcurrentHashMap<String, Long>()
+    object PasswordResetRequests : Table("password_reset_requests") {
+        val email = varchar("email", 254)
+        val lastRequestAt = long("last_request_at")
+        override val primaryKey = PrimaryKey(email)
+    }
 
     private fun key(email: String) = email.trim().lowercase()
 
-    /** Atomically claims a slot for this email; false while the previous one is still fresh. */
-    fun tryAcquire(email: String): Boolean {
-        pruneIfOversized()
+    /** Atomically claims a slot for this email; false while the previous one is still fresh.
+     *  A rejected attempt does not extend the wait — the `where` clause only lets the update
+     *  through once the interval has actually elapsed, so a blocked conflict leaves the stored
+     *  timestamp (and the RETURNING row) untouched. */
+    suspend fun tryAcquire(email: String): Boolean = suspendTransaction(database) {
         val now = clock()
-        var acquired = false
-        lastRequestAt.compute(key(email)) { _, last ->
-            if (last != null && now - last < minIntervalMillis) {
-                last // still throttled — keep the original timestamp
-            } else {
-                acquired = true
-                now
-            }
+        PasswordResetRequests.deleteWhere {
+            PasswordResetRequests.lastRequestAt less (now - minIntervalMillis)
         }
-        return acquired
-    }
-
-    // Memory bound: spraying distinct emails must not grow the map without limit (same
-    // opportunistic prune as LoginThrottle).
-    private fun pruneIfOversized() {
-        if (lastRequestAt.size <= MAX_TRACKED) return
-        val cutoff = clock() - minIntervalMillis
-        lastRequestAt.entries.removeIf { it.value < cutoff }
-    }
-
-    private companion object {
-        const val MAX_TRACKED = 10_000
+        val k = key(email)
+        val acquired = PasswordResetRequests.upsertReturning(
+            returning = listOf(PasswordResetRequests.lastRequestAt),
+            onUpdate = { it[PasswordResetRequests.lastRequestAt] = now },
+            where = { PasswordResetRequests.lastRequestAt lessEq (now - minIntervalMillis) },
+        ) {
+            // Fully qualified — see the note in LoginThrottle.recordFailure: a local of the
+            // same name (email) would otherwise shadow the receiver's column.
+            it[PasswordResetRequests.email] = k
+            it[PasswordResetRequests.lastRequestAt] = now
+        }.toList()
+        acquired.isNotEmpty()
     }
 }

@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.integration.parseIntegrationSchema
 import graphql.schema.GraphQLEnumType
 import graphql.schema.GraphQLFieldsContainer
+import graphql.schema.GraphQLInputFieldsContainer
 import graphql.schema.GraphQLNamedType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -92,6 +93,51 @@ class IntegrationSchemaContractTest {
             .flatMap { type -> type.fieldDefinitions.map { type.name to it.name } }
             .filter { (_, field) -> field in forbidden }
         assertTrue(leaked.isEmpty(), "capability/secret fields leaked into the schema: $leaked")
+    }
+
+    @Test
+    fun `every deprecated member names its removal version (GQL-CON-005)`() {
+        // GQL-CON-005: a member scheduled for removal carries @deprecated(reason: "... Removed
+        // in <MAJOR>.0.0.") so the exact removal version is machine-checkable, not just prose in
+        // the known-gaps register. Walk every field/argument/input-field/enum-value the way the
+        // documentation test above does and pin the reason format on whichever ones are
+        // deprecated right now.
+        val schema = parseIntegrationSchema(sdl)
+        val reasons = mutableListOf<String>()
+        schema.typeMap.values
+            .filterIsInstance<GraphQLNamedType>()
+            .filterNot { it.name.startsWith("__") }
+            .forEach { type ->
+                if (type is GraphQLFieldsContainer) {
+                    type.fieldDefinitions.forEach { field ->
+                        if (field.isDeprecated) reasons += field.deprecationReason
+                        field.arguments.forEach { arg ->
+                            if (arg.isDeprecated) reasons += arg.deprecationReason
+                        }
+                    }
+                }
+                if (type is GraphQLInputFieldsContainer) {
+                    type.fieldDefinitions.forEach { inputField ->
+                        if (inputField.isDeprecated) reasons += inputField.deprecationReason
+                    }
+                }
+                if (type is GraphQLEnumType) {
+                    type.values.forEach { value ->
+                        if (value.isDeprecated) reasons += value.deprecationReason
+                    }
+                }
+            }
+        // No member is deprecated as of this writing (checkup #35 Tier D: v3.9.0's days-off
+        // lifecycle removal predates GQL-CON-005 and is a registered gap, not a deprecation) —
+        // this loop is deliberately not asserted non-empty so the test doesn't fail on arrival;
+        // it starts enforcing the moment the first GQL-CON-005 deprecation lands.
+        val removalVersion = Regex("""Removed in \d+\.0\.0\.?$""")
+        reasons.forEach { reason ->
+            assertTrue(
+                removalVersion.containsMatchIn(reason),
+                "deprecation reason does not name its removal version (GQL-CON-005): $reason",
+            )
+        }
     }
 
     private companion object {

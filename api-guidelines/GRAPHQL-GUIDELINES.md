@@ -25,6 +25,17 @@ the runtime schema cannot drift from it.
   description string —
   the schema is self-documenting via introspection (which stays enabled) and
   `GET /integration/graphql/schema`. **Check**: contract test walks the schema.
+- **GQL-CON-005** `[test]` Any non-additive change (rename, removal, or nullability
+  tightening) follows a fixed two-step protocol instead of an ad hoc breaking change: (a) in a
+  MINOR app release, mark every affected member `@deprecated(reason: "<why>. Removed in
+  <MAJOR>.0.0.")` and add a "scheduled" row to the known-gaps register below naming the target
+  major version; (b) the removal itself lands ONLY in that MAJOR app release, together with the
+  SDL header's `Schema version` bump (`v1` → `v2`) and a changelog entry naming every removed
+  member. The endpoint path (`/integration/graphql`) never changes — there is no URL
+  versioning; clients pin the app version instead. An already-shipped, unregistered removal
+  (see the v3.9.0 row below) becomes a register row when discovered — the register is never
+  rewritten as if the deprecation window had happened. **Check**: `IntegrationSchemaContractTest`
+  pins that every `@deprecated` reason names its removal version in that exact form.
 
 ## Naming & shape
 
@@ -100,8 +111,9 @@ the change is additive [GQL-CON-003]; (2) every new member documented [GQL-CON-0
 collections paged [GQL-LIST-001] and batched [GQL-LIST-002]; (4) new data flows through the
 owning service, encrypted columns decrypt there [GQL-SEC-002]; (5) no capability flags or
 secrets [GQL-SEC-003]; (6) scope additions deliberate + documented [GQL-SEC-004]; (7) the
-contract test's root-field list updated consciously; (8) `IntegrationGraphQlTest` covers the
-new surface's happy path and its error shape.
+contract test's root-field list updated consciously; (8) every `@deprecated` reason names its
+removal version [GQL-CON-005]; (9) `IntegrationGraphQlTest` covers the new surface's happy path
+and its error shape.
 
 ## Appendix: known-gaps / decision register
 
@@ -113,9 +125,9 @@ its rationale, rather than treated as undocumented drift. Reviewers cite a regis
 
 | Rule | What happened | Rationale | Decision |
 |---|---|---|---|
-| GQL-CON-003 | v3.9.0 removed the days-off approval lifecycle from the schema without a deprecation window: the `DaysOffStatus` enum; `DaysOff.status`/`resolvedById`/`resolvedByName`/`resolvedAt`/`cancelledAt`/`cancelledById`/`cancelledByName`/`cancelReason`; the `daysOff(status:)` root argument; and `DaysOffBudget.reserved` | Internal v1 contract with no external consumer yet, and the endpoint is off by default (`INTEGRATION_ENABLED=false`, fail-closed) — no deployed integration could have depended on the removed members | Accepted without a major app version bump |
+| GQL-CON-003 | v3.9.0 removed the days-off approval lifecycle from the schema without a deprecation window: the `DaysOffStatus` enum; `DaysOff.status`/`resolvedById`/`resolvedByName`/`resolvedAt`/`cancelledAt`/`cancelledById`/`cancelledByName`/`cancelReason`; the `daysOff(status:)` root argument; and `DaysOffBudget.reserved` | Internal v1 contract with no external consumer yet, and the endpoint is off by default (`INTEGRATION_ENABLED=false`, fail-closed) — no deployed integration could have depended on the removed members | Accepted without a major app version bump; the next removal follows GQL-CON-005 |
 
 **Going forward**: the next removal or breaking change to any member already exposed in a
-shipped schema MUST follow GQL-CON-003 in full (major app version + a `@deprecated` window of
-at least one major version first) unless it is registered here first, with a rationale, before
-the change ships.
+shipped schema MUST follow GQL-CON-005 in full (a MINOR release's `@deprecated` window naming
+the removal version, then the removal itself only in that MAJOR app release) unless it is
+registered here first, with a rationale, before the change ships.
