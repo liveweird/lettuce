@@ -13,6 +13,10 @@ Do not run builds with `--dependency-verification lenient` or `off`, and do not 
 patterns or configuration exclusions. A missing checksum or a checksum mismatch is a build failure
 that must be investigated.
 
+This process deliberately does not cover GitHub Actions dependencies — those are SHA-pinned in the
+workflow files and bumped via `.github/dependabot.yml`; see "Automatic CI gates" in
+`.claude/docs/testing.md`.
+
 ## What is covered
 
 Strict locking applies to every resolvable project configuration in the root, `core`, and `server`

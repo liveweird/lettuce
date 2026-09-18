@@ -2,7 +2,10 @@
 
 **Automatic CI gates.** `.github/workflows/quality.yml` runs for every pull request, pushes to
 `master`, and manual dispatches without path filters. Its least-privilege, independent jobs run the
-following checks on JDK 21 and Node 24:
+following checks on JDK 21 and Node 24. Every `uses:` in `.github/workflows/*.yml` is pinned to a
+commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/dependabot.yml`
+(the `github-actions` ecosystem only — Gradle/npm updates stay on the lockfile process in
+`.claude/docs/dependency-reproducibility.md`) proposes the SHA+comment bumps weekly.
 
 - **Backend:** `./scripts/test-render-app-deployment.sh` checks release image validation;
   `python3 -m unittest discover -s scripts -p 'test_*.py'` checks the offline recovery

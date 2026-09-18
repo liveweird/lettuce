@@ -1,0 +1,19 @@
+# Dependabot covers GitHub Actions only. Gradle (core/server) and npm (web/e2e) dependency
+# updates deliberately go through the strict lockfile + verification-metadata process instead
+# (see .claude/docs/dependency-reproducibility.md) — Dependabot has no story for Gradle's
+# dependency-verification metadata or npm's --legacy-peer-deps install, so it would either be
+# ignored or produce PRs that fail the reproducibility gate. Action `uses:` lines are pinned to
+# a commit SHA with a trailing `# vX.Y.Z` comment (see the two workflow files); Dependabot
+# updates the SHA and that comment together on a bump.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
