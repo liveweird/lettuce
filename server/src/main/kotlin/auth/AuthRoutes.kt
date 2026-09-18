@@ -165,7 +165,7 @@ fun Application.configureAuthRoutes() {
     val mfaChallenges = MfaChallenges(
         database = database,
         ttlMillis = mfaTtlSeconds * 1000,
-        maxAttempts = environment.config.property("security.mfa.maxAttempts").getString().toInt(),
+        attemptCap = environment.config.property("security.mfa.maxAttempts").getString().toInt(),
     )
     val mfaTtlMinutes = (mfaTtlSeconds + 59) / 60
 

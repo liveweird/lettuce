@@ -63,9 +63,10 @@ class MfaChallengesTest {
 
     @Test
     fun `wrong codes count toward the attempt cap and exhausting it kills the challenge`(): Unit = runBlocking {
-        val s = store(maxAttempts = 3)
+        // cap ≠ 3 on purpose (see the concurrent-wrong-guesses case): a cap of 3 could not tell the
+        // store's setting from Exposed's Transaction.maxAttempts default that shadowed it.
+        val s = store(maxAttempts = 2)
         val issued = s.issue(7u)
-        assertEquals("wrong_code", (s.verify(issued.challengeId, "x") as MfaChallenges.Outcome.Failure).reason)
         assertEquals("wrong_code", (s.verify(issued.challengeId, "x") as MfaChallenges.Outcome.Failure).reason)
         assertEquals(
             "too_many_attempts",
@@ -133,7 +134,9 @@ class MfaChallengesTest {
 
     @Test
     fun `N concurrent wrong guesses atomically exhaust the attempt cap`(): Unit = runBlocking {
-        val cap = 3
+        // cap ≠ 3 on purpose: 3 is Exposed's Transaction.maxAttempts default, which shadowed the
+        // store's cap inside suspendTransaction until v3.12.2 — a cap of 3 could never tell.
+        val cap = 4
         val n = 8
         val s = store(maxAttempts = cap)
         val issued = s.issue(7u)
@@ -151,6 +154,17 @@ class MfaChallengesTest {
             (s.verify(issued.challengeId, issued.code) as MfaChallenges.Outcome.Failure).reason,
         )
     }
+
+    @Test
+    fun `the configured cap is honoured - under a cap of one a single wrong guess kills the challenge`(): Unit =
+        runBlocking {
+            // Regression pin for the shadowing bug (v3.11.0 until v3.12.2) (Transaction.maxAttempts = 3 won
+            // over the store's property, so every challenge silently allowed 3 guesses).
+            val s = store(maxAttempts = 1)
+            val issued = s.issue(7u)
+            assertEquals("too_many_attempts", (s.verify(issued.challengeId, "wrong") as MfaChallenges.Outcome.Failure).reason)
+            assertEquals("unknown_challenge", (s.verify(issued.challengeId, issued.code) as MfaChallenges.Outcome.Failure).reason)
+        }
 
     @Test
     fun `a final wrong guess can beat a concurrent correct code under a cap of one`(): Unit = runBlocking {

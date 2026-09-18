@@ -12,13 +12,13 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
  * Store of pending email-MFA challenges (v2.4.0): a login with correct credentials by an
  * MFA-enabled user mints a challenge — an opaque id handed to the client plus a 6-digit code
  * emailed to the account — and the pair must come back to POST /api/v1/login/mfa within
- * [ttlMillis] and [maxAttempts] guesses. A challenge is single-use: consumed on success, dropped
+ * [ttlMillis] and [attemptCap] guesses. A challenge is single-use: consumed on success, dropped
  * on expiry or when the attempt cap is exceeded.
  *
  * **DB-backed since v3.11.0/V81** (`mfa_challenges`): replicas share pending challenges and a
  * restart no longer invalidates them mid-flight. Multiple live challenges per account
  * (repeated logins) are accepted: the short TTL, the attempt cap, and the login rate bucket
- * bound the guessing surface (≤ maxAttempts·10⁻⁶ per challenge).
+ * bound the guessing surface (≤ attemptCap·10⁻⁶ per challenge).
  *
  * The 6-digit code itself is stored only as a SHA-256 hash (reusing [apiKeyHash], the
  * integration API-key digest — same primitive, different secret shape): honest framing, not a
@@ -33,7 +33,14 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 class MfaChallenges(
     private val database: R2dbcDatabase,
     private val ttlMillis: Long,
-    private val maxAttempts: Int,
+    // Deliberately NOT named `maxAttempts`: inside a `suspendTransaction { }` lambda the implicit
+    // receiver is Exposed's R2dbcTransaction, whose own `maxAttempts` (the statement-retry count,
+    // `DatabaseConfig.defaultMaxAttempts` = 3) silently SHADOWS a same-named property of the
+    // enclosing class — the innermost implicit receiver wins over the outer one, the mirror image
+    // of the local-shadows-receiver note in LoginThrottle. That shadowing capped every challenge
+    // at 3 guesses regardless of `security.mfa.maxAttempts` from v3.11.0 until v3.12.2
+    // (MfaChallengesTest pins a cap ≠ 3).
+    private val attemptCap: Int,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     object Challenges : Table("mfa_challenges") {
@@ -115,7 +122,7 @@ class MfaChallenges(
 
         // (4) Cap exhausted: kill the challenge too, else it stays a wrong-code result.
         val newAttempts = updated.single()[Challenges.attempts]
-        if (newAttempts >= maxAttempts) {
+        if (newAttempts >= attemptCap) {
             Challenges.deleteWhere { Challenges.id eq challengeId }
             Outcome.Failure("too_many_attempts")
         } else {
