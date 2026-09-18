@@ -106,6 +106,8 @@ Render and review the app Deployment before applying it. The renderer rejects mu
 and missing or malformed digests. The app Deployment and host-specific Ingress both live in
 `k8s/templates/`, so a non-recursive `kubectl apply -f k8s/` cannot overwrite the selected app
 image or Ingress host. The Ingress host, ConfigMap `MAIL_APP_URL`, and certificate SAN must agree.
+Both pods run non-root with a read-only root filesystem and no capabilities (app uid 1000,
+PostgreSQL uid 70); a database directory restored into the PVC as root needs `chown -R 70:70`.
 
 ```sh
 : "${LETTUCE_APP_IMAGE:?Set the verified registry image digest for this release}"
