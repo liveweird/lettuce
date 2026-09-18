@@ -60,6 +60,9 @@ fun TestApplicationBuilder.configureApp(vararg overrides: Pair<String, String>) 
                 // above so route-level and service-level test assertions stay in lockstep; a test
                 // exercising the gate itself overrides this explicitly.
                 "feedbacks.expirySweepIntervalSeconds" to "0",
+                // Same idiom as above for the v3.12.0 notification purge (retention stays the
+                // 30-day default) — the gate test overrides this explicitly.
+                "notifications.purgeIntervalSeconds" to "0",
                 *overrides,
             )
         )
