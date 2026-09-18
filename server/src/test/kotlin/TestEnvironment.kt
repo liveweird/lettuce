@@ -51,6 +51,10 @@ fun ApplicationTestBuilder.configureApp(vararg overrides: Pair<String, String>) 
                 "postgres.user" to PostgresTestSupport.user,
                 "postgres.password" to PostgresTestSupport.password,
                 "security.csrf.enabled" to "false",
+                // 0 = every GET sweeps (the pre-v3.11.0 semantics) — matches TestServices.feedbacks
+                // above so route-level and service-level test assertions stay in lockstep; a test
+                // exercising the gate itself overrides this explicitly.
+                "feedbacks.expirySweepIntervalSeconds" to "0",
                 *overrides,
             )
         )
@@ -223,7 +227,9 @@ object TestServices {
         ch.nokillswit.infra.crypto.FieldCipher(ch.nokillswit.infra.crypto.DEV_DATA_ENCRYPTION_KEY)
     }
     val feedbacks: ch.nokillswit.feedbacks.FeedbackService by lazy {
-        ch.nokillswit.feedbacks.FeedbackService(sharedTestDatabase, cipher)
+        // sweepIntervalMillis = 0: every call sweeps (the pre-v3.11.0 semantics), matching the
+        // booted test app's config override below.
+        ch.nokillswit.feedbacks.FeedbackService(sharedTestDatabase, cipher, sweepIntervalMillis = 0)
     }
     val teams: ch.nokillswit.teams.TeamService by lazy {
         ch.nokillswit.teams.TeamService(sharedTestDatabase)

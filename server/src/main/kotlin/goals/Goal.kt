@@ -181,7 +181,8 @@ typealias GoalPageResponse = PageResponse<GoalListItem>
 @Serializable
 data class GoalEvent(
     val goalId: UInt,
-    val userId: UInt,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
     val type: GoalEventType,
     val params: Map<String, String> = emptyMap(),
     // Optional progress-update context (plaintext here; GoalEventService encrypts at rest).
@@ -192,8 +193,9 @@ data class GoalEvent(
 data class GoalEventResponse(
     val id: UInt,
     val goalId: UInt,
-    val userId: UInt,
-    val userName: String,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
+    val userName: String?,
     val timestamp: Long,
     val type: GoalEventType,
     val params: Map<String, String> = emptyMap(),

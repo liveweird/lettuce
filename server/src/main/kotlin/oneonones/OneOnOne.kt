@@ -155,7 +155,8 @@ data class ActionItemHistoryResponse(
 data class OneOnOneEvent(
     val meetingId: UInt,
     // The user who performed the change (the acting caller — in practice always the manager).
-    val userId: UInt,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
     // Structured event; the SPA renders it in the viewer's language.
     val type: OneOnOneEventType,
     val params: Map<String, String> = emptyMap(),
@@ -165,9 +166,10 @@ data class OneOnOneEvent(
 data class OneOnOneEventResponse(
     val id: UInt,
     val meetingId: UInt,
-    val userId: UInt,
-    // Display name of the acting user; server-resolved, read-only.
-    val userName: String,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
+    // Display name of the acting user; server-resolved, read-only. Null in lockstep with userId.
+    val userName: String?,
     // Epoch milliseconds when the event was recorded. Server-managed.
     val timestamp: Long,
     // Structured event for client-side localization.

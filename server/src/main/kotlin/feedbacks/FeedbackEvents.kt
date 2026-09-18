@@ -41,9 +41,10 @@ internal fun feedbackDeletionEvent(): FeedbackEventDescriptor =
 /**
  * Structured event recorded when a REQUESTED feedback auto-rejects past its `expiresOn`
  * deadline (the lazy sweep, v3.8.0 — `FeedbackService.expireOverdueRequests`). Side-effect-free
- * and empty-params like [feedbackDeletionEvent] — the rendered sentence carries no actor, so the
- * event is attributed to the PROVIDER purely because `feedback_events.user_id` is `NOT NULL`
- * (there is no cheap system-user id); the resolved `userName` on that row is immaterial.
+ * and empty-params like [feedbackDeletionEvent] — the rendered sentence carries no actor. Since
+ * v3.11.0/V80 `feedback_events.user_id` is nullable, so this event is a genuine system event:
+ * the route persists it with a null acting user (no more attributing it to the provider as a
+ * NOT NULL workaround).
  */
 internal fun feedbackExpiryEvent(): FeedbackEventDescriptor =
     FeedbackEventDescriptor(FeedbackEventType.REQUEST_EXPIRED)

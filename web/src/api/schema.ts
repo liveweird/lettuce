@@ -4786,10 +4786,13 @@ export interface components {
             id: number;
             /** Format: int32 */
             feedbackId: number;
-            /** Format: int32 */
-            userId: number;
-            /** @description Display name of the user recorded against this event. Server-resolved, read-only. For most event types this is the user who performed the change; the exception is REQUEST_EXPIRED (v3.8.0), whose flip is automated — it is recorded against the provider only because this column is NOT NULL, and the client should not present that name as the actor. */
-            userName: string;
+            /**
+             * Format: int32
+             * @description The acting user's id, or null = system-originated (no acting user) — e.g. the REQUEST_EXPIRED lazy expiry sweep (v3.8.0/V80), which has no human actor.
+             */
+            userId: number | null;
+            /** @description Display name of the acting user. Server-resolved, read-only. Null = system-originated (no acting user) — the client renders a generic "Automatic" label in that case (e.g. REQUEST_EXPIRED, v3.8.0/V80). */
+            userName: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds when the event was recorded. Server-managed.
@@ -4979,10 +4982,13 @@ export interface components {
             id: number;
             /** Format: int32 */
             meetingId: number;
-            /** Format: int32 */
-            userId: number;
-            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
-            userName: string;
+            /**
+             * Format: int32
+             * @description The acting user's id, or null = system-originated (no acting user).
+             */
+            userId: number | null;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. Null = system-originated (no acting user). */
+            userName: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds when the event was recorded. Server-managed.
@@ -5225,10 +5231,13 @@ export interface components {
             id: number;
             /** Format: int32 */
             goalId: number;
-            /** Format: int32 */
-            userId: number;
-            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
-            userName: string;
+            /**
+             * Format: int32
+             * @description The acting user's id, or null = system-originated (no acting user).
+             */
+            userId: number | null;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. Null = system-originated (no acting user). */
+            userName: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds when the event was recorded. Server-managed.
@@ -5343,10 +5352,13 @@ export interface components {
             id: number;
             /** Format: int32 */
             entryId: number;
-            /** Format: int32 */
-            userId: number;
-            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
-            userName: string;
+            /**
+             * Format: int32
+             * @description The acting user's id, or null = system-originated (no acting user).
+             */
+            userId: number | null;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. Null = system-originated (no acting user). */
+            userName: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds when the event was recorded. Server-managed.
@@ -5416,10 +5428,13 @@ export interface components {
             id: number;
             /** Format: int32 */
             planId: number;
-            /** Format: int32 */
-            userId: number;
-            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
-            userName: string;
+            /**
+             * Format: int32
+             * @description The acting user's id, or null = system-originated (no acting user).
+             */
+            userId: number | null;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. Null = system-originated (no acting user). */
+            userName: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds of the change. Server-managed.
@@ -5786,10 +5801,13 @@ export interface components {
             id: number;
             /** Format: int32 */
             kpiId: number;
-            /** Format: int32 */
-            userId: number;
-            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
-            userName: string;
+            /**
+             * Format: int32
+             * @description The acting user's id, or null = system-originated (no acting user).
+             */
+            userId: number | null;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. Null = system-originated (no acting user). */
+            userName: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds when the event was recorded. Server-managed.
@@ -5955,10 +5973,13 @@ export interface components {
             id: number;
             /** Format: int32 */
             reviewId: number;
-            /** Format: int32 */
-            userId: number;
-            /** @description Display name of the user who performed the change. Server-resolved, read-only. */
-            userName: string;
+            /**
+             * Format: int32
+             * @description The acting user's id, or null = system-originated (no acting user).
+             */
+            userId: number | null;
+            /** @description Display name of the user who performed the change. Server-resolved, read-only. Null = system-originated (no acting user). */
+            userName: string | null;
             /**
              * Format: int64
              * @description Epoch milliseconds when the event was recorded. Server-managed.

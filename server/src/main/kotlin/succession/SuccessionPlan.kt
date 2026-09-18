@@ -163,7 +163,8 @@ typealias SuccessionPlanPageResponse = PageResponse<SuccessionPlanListItem>
 @Serializable
 data class SuccessionPlanEvent(
     val planId: UInt,
-    val userId: UInt,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
     val type: SuccessionEventType,
     val params: Map<String, String> = emptyMap(),
 )
@@ -172,8 +173,9 @@ data class SuccessionPlanEvent(
 data class SuccessionPlanEventResponse(
     val id: UInt,
     val planId: UInt,
-    val userId: UInt,
-    val userName: String,
+    // Null = system-originated (no acting user) — see infra/db/EventLog.kt.
+    val userId: UInt?,
+    val userName: String?,
     val timestamp: Long,
     val type: SuccessionEventType,
     val params: Map<String, String> = emptyMap(),

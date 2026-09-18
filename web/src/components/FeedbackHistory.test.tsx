@@ -43,19 +43,19 @@ describe("FeedbackHistory", () => {
     expect(screen.getAllByText(/Paula/).length).toBeGreaterThan(0);
   });
 
-  test("renders the auto-expiry sentence for a REQUEST_EXPIRED event, with the system label as actor (never the provider's name)", async () => {
+  test("renders the auto-expiry sentence for a REQUEST_EXPIRED event, with the system label as actor (never a resolved name)", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         items: [
-          { id: 1, feedbackId: 5, userId: 10, userName: "Paula", timestamp: 1, type: "REQUEST_EXPIRED", params: {} },
+          { id: 1, feedbackId: 5, userId: null, userName: null, timestamp: 1, type: "REQUEST_EXPIRED", params: {} },
         ],
       }),
     );
     renderWithProviders(<FeedbackHistory feedbackId={5} />);
 
     expect(await screen.findByText("The feedback request expired.")).toBeInTheDocument();
-    // The event is stored against the provider (Paula) for schema reasons only — the automated
-    // flip must render as "Automatic", never her name.
+    // The event is stored with a null actor (v3.11.0/V80) — the automated flip renders as
+    // "Automatic", never a resolved name (the provider's name is "Paula" elsewhere in this file).
     expect(await screen.findByText(/Automatic/)).toBeInTheDocument();
     expect(screen.queryByText(/Paula/)).toBeNull();
   });

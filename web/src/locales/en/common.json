@@ -140,5 +140,6 @@
   },
   "buildInfo": "Build version",
   "deletedSuffix": "{{name}} (deleted)",
-  "charCount": "{{current}} / {{max}}"
+  "charCount": "{{current}} / {{max}}",
+  "systemActor": "Automatic"
 }

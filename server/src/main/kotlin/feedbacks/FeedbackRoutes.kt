@@ -67,7 +67,8 @@ class Feedbacks {
 }
 
 // Turn a structured event descriptor into the persistable audit event (the SPA localizes it).
-private fun FeedbackEventDescriptor.toEvent(feedbackId: UInt, userId: UInt) = FeedbackEvent(
+// userId null = system-originated (no acting user) — the REQUEST_EXPIRED lazy sweep.
+private fun FeedbackEventDescriptor.toEvent(feedbackId: UInt, userId: UInt?) = FeedbackEvent(
     feedbackId = feedbackId,
     userId = userId,
     type = type,
@@ -121,7 +122,8 @@ fun Application.configureFeedbackRoutes() {
         notifications: List<Notification>,
         eventDescriptor: FeedbackEventDescriptor?,
         feedbackId: UInt,
-        userId: UInt,
+        // Null = system-originated (no acting user) — the REQUEST_EXPIRED lazy sweep.
+        userId: UInt?,
     ) {
         notifications.forEach { notificationService.create(it) }
         eventDescriptor?.let { feedbackEventService.create(it.toEvent(feedbackId, userId)) }
@@ -147,18 +149,6 @@ fun Application.configureFeedbackRoutes() {
         authenticate {
             get<Feedbacks> {
                 val caller = call.feedbackCaller()
-                // The lazy expiry sweep (v3.8.0 — no background job): flip overdue REQUESTED rows
-                // to REJECTED and persist their event + notifications exactly like the manual
-                // `POST …/reject` path, so the list built below already reflects them. This is a
-                // deliberate exception, not an established pattern: it is the first WRITE this
-                // codebase performs on a read-only GET path (AlertService.visible is a read-side
-                // filter with no write of its own, and TokenBlocklistService's prune runs on the
-                // logout WRITE path, not a GET — neither is a precedent for this). Chosen because
-                // a background job was out of scope and the list route is hit constantly, keeping
-                // expiry prompt in practice.
-                feedbackService.expireOverdueRequests(LocalDate.now()).forEach { outcome ->
-                    persistOutcome(outcome.notifications, feedbackExpiryEvent(), outcome.feedbackId, outcome.providerId)
-                }
                 val params = call.request.queryParameters
                 val view = when (val raw = params.optionalString("view") ?: "received") {
                     "received" -> FeedbackListView.RECEIVED
@@ -182,6 +172,27 @@ fun Application.configureFeedbackRoutes() {
                 val userId = params.uintOnlyForView("userId", view, FeedbackListView.USER)
                 if (view == FeedbackListView.USER) {
                     requireAuditListAccess(caller, "feedback", userId!!)
+                }
+                // The lazy expiry sweep (v3.8.0 — no background job): flip overdue REQUESTED rows
+                // to REJECTED and persist their event + notifications exactly like the manual
+                // `POST …/reject` path, so the list built below already reflects them. This is a
+                // deliberate exception, not an established pattern: it is the first WRITE this
+                // codebase performs on a read-only GET path (AlertService.visible is a read-side
+                // filter with no write of its own, and TokenBlocklistService's prune runs on the
+                // logout WRITE path, not a GET — neither is a precedent for this). Chosen because
+                // a background job was out of scope and the list route is hit constantly, keeping
+                // expiry prompt in practice. Placed AFTER param parsing/paging/the audit-view guard
+                // (v3.11.0) — a malformed request must 400 without writing anything — and SKIPPED
+                // for `view=kudos` (v3.11.0), which never shows REQUESTED rows anyway; bounded via
+                // FeedbackService's own per-instance sweep gate (`feedbacks.
+                // expirySweepIntervalSeconds`) so a burst of list requests doesn't hit the DB on
+                // every single one.
+                if (view != FeedbackListView.KUDOS) {
+                    feedbackService.expireOverdueRequests(LocalDate.now()).forEach { outcome ->
+                        // System-originated: null actor (v3.11.0/V80) — the flip was automated, not
+                        // performed by the provider (see feedbackExpiryEvent's KDoc).
+                        persistOutcome(outcome.notifications, feedbackExpiryEvent(), outcome.feedbackId, null)
+                    }
                 }
                 val filter = FeedbackListFilter(
                     requesterName = params.optionalString("requesterName"),
