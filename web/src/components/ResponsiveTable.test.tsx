@@ -59,7 +59,52 @@ describe("ResponsiveTable", () => {
       </ResponsiveTable>,
     );
     expect(screen.getByRole("region", { name: "Scrollable table" })).toHaveAttribute("tabindex", "0");
-    expect(screen.getByText("Scroll horizontally to see all columns.")).toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  test("Th vertical emits data-vertical", () => {
+    renderWithProviders(
+      <ResponsiveTable>
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th sortable vertical>Overall</ResponsiveTable.Th>
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+      </ResponsiveTable>,
+    );
+    expect(screen.getByRole("columnheader")).toHaveAttribute("data-vertical");
+  });
+
+  test("the matrix scroll hint stays hidden when the viewport does not actually overflow", () => {
+    // happy-dom reports scrollWidth/clientWidth as 0/0 by default — never overflowing — so the
+    // hint (and data-overflowing) must not render even though mode is "matrix".
+    renderWithProviders(
+      <ResponsiveTable mode="matrix" minWidth={1100}>
+        <ResponsiveTable.Tbody><ResponsiveTable.Tr><ResponsiveTable.Td>Comparison</ResponsiveTable.Td></ResponsiveTable.Tr></ResponsiveTable.Tbody>
+      </ResponsiveTable>,
+    );
+    expect(screen.queryByText("Scroll horizontally to see all columns.")).not.toBeInTheDocument();
+    expect(screen.getByRole("region").closest("[data-mode]")).not.toHaveAttribute("data-overflowing");
+  });
+
+  test("the matrix scroll hint shows once the viewport actually overflows", () => {
+    // Override the geometry getters at the prototype level BEFORE mount, so the component's
+    // mount-time overflow check (the ResizeObserver-less happy-dom fallback) reads them.
+    const scrollWidthDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "scrollWidth");
+    const clientWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+    Object.defineProperty(Element.prototype, "scrollWidth", { configurable: true, value: 2000 });
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, value: 500 });
+    try {
+      renderWithProviders(
+        <ResponsiveTable mode="matrix" minWidth={1100}>
+          <ResponsiveTable.Tbody><ResponsiveTable.Tr><ResponsiveTable.Td>Comparison</ResponsiveTable.Td></ResponsiveTable.Tr></ResponsiveTable.Tbody>
+        </ResponsiveTable>,
+      );
+      expect(screen.getByText("Scroll horizontally to see all columns.")).toBeInTheDocument();
+      expect(screen.getByRole("region").closest("[data-mode]")).toHaveAttribute("data-overflowing", "true");
+    } finally {
+      if (scrollWidthDescriptor) Object.defineProperty(Element.prototype, "scrollWidth", scrollWidthDescriptor);
+      if (clientWidthDescriptor) Object.defineProperty(HTMLElement.prototype, "clientWidth", clientWidthDescriptor);
+    }
   });
 });

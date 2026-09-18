@@ -25,11 +25,21 @@ export default function RatingBadge({
  * The five rating table cells in category order — a badge per set rating, a dimmed dash for
  * an unset one. Shared by the review tables and the dashboard so the cells stay identical.
  */
-export function RatingCells({ ratings, labels }: { ratings: (number | null)[]; labels: string[] }) {
+export function RatingCells({
+  ratings,
+  labels,
+  align,
+}: {
+  ratings: (number | null)[];
+  labels: string[];
+  /** Text-align override for the cell — the reviews dashboard centers its rotated-header
+      rating columns (v3.11.1); PerformanceReviewTable leaves this unset. */
+  align?: "left" | "center" | "right";
+}) {
   return (
     <>
       {ratings.map((rating, index) => (
-        <ResponsiveTable.Td key={REVIEW_CATEGORIES[index]} label={labels[index]}>
+        <ResponsiveTable.Td key={REVIEW_CATEGORIES[index]} label={labels[index]} ta={align}>
           {rating != null ? (
             <RatingBadge rating={rating} />
           ) : (

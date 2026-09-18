@@ -42,4 +42,31 @@ describe("SortHeader", () => {
     );
     expect(container.querySelector(".tabler-icon-arrows-sort")).not.toBeNull();
   });
+
+  test("defaults to horizontal orientation with no vertical class", () => {
+    renderWithProviders(
+      <SortHeader field="name" label="Name" activeField="name" activeDir="asc" onToggle={() => {}} />,
+    );
+    const button = screen.getByRole("button", { name: "Name" });
+    expect(button.className).not.toMatch(/vertical/i);
+  });
+
+  test("orientation=\"vertical\" rotates the label but keeps the accessible name and click behavior", async () => {
+    const onToggle = vi.fn();
+    renderWithProviders(
+      <SortHeader
+        field="overall"
+        label="Overall"
+        activeField="overall"
+        activeDir="asc"
+        onToggle={onToggle}
+        orientation="vertical"
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Overall" });
+    expect(button.className).toMatch(/vertical/i);
+    const user = userEvent.setup();
+    await user.click(button);
+    expect(onToggle).toHaveBeenCalledExactlyOnceWith("overall");
+  });
 });

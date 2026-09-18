@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.11.1",
+    date: "2026-09-18",
+    en: `Team's performance table now fits a laptop screen: the five rating headers stand upright so those columns take a fifth of the width they did, the specialty column and filter read "Specialty", and the scroll hint appears only when there is actually something to scroll.`,
+    pl: `Tabela wyników zespołu mieści się teraz na ekranie laptopa: nagłówki pięciu ocen ustawiliśmy pionowo, więc te kolumny zajmują teraz jedną piątą dotychczasowej szerokości; kolumnę i filtr nazwaliśmy „Specjalność”; podpowiedź o przewijaniu pokazujemy tylko wtedy, gdy jest co przewijać.`,
+  },
+  {
     version: "3.11.0",
     date: "2026-09-18",
     en: `Hardening round. Automatic history entries — such as a feedback request expiring — are now stored with no acting person and always read as "Automatic", instead of being filed under the provider. Login lockouts, password-reset throttling and sign-in codes are kept in the database, so they survive a restart and are shared by every instance. The feedback-request expiry check runs at most once a minute instead of on every list load. Under the hood: CI actions pinned to exact commits with automatic update proposals, a fix for the flaky web test job, a hardened database pod, and a written protocol for breaking changes in the integration API.`,

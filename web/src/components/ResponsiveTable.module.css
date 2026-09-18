@@ -18,6 +18,10 @@
 .table th { white-space: normal; overflow-wrap: normal; }
 .table td { vertical-align: top; white-space: normal; overflow-wrap: break-word; }
 .table th[data-actions] { width: 96px; }
+/* A matrix-mode affordance for narrow numeric columns (e.g. a rotated SortHeader) — the
+   HEADER, not the cell, sets a numeric column's width, so shrinking it here is what actually
+   collapses the column (v3.11.1). */
+.table th[data-vertical] { vertical-align: bottom; width: 1%; padding-inline: 8px; }
 .content { min-width: 0; max-width: 100%; }
 .label { display: none; }
 .label::before { content: attr(data-label); }

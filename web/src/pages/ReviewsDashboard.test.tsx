@@ -242,6 +242,22 @@ describe("ReviewsDashboard tab", () => {
     expect(within(screen.getByRole("table")).queryByText("Zoe Zeta")).toBeNull();
   });
 
+  test("the five rating headers carry data-vertical, and the specialty column + filter read Specialty", async () => {
+    setupMocks();
+    renderTab();
+
+    await screen.findByText("Zoe Zeta");
+    const table = screen.getByRole("table");
+    for (const name of ["Attitude", "Delivery", "Skills", "Aptitude", "Overall"]) {
+      const header = within(table).getByRole("columnheader", { name });
+      expect(header).toHaveAttribute("data-vertical");
+    }
+    expect(within(table).getByRole("columnheader", { name: "Specialty" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    expect(screen.getByLabelText("Specialty", { selector: "input" })).toBeInTheDocument();
+  });
+
   test("sortable headers: Overall orders numerically with no-review rows last both ways", async () => {
     setupMocks();
     renderTab();
