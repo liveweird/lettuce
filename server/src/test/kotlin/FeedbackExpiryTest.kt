@@ -475,7 +475,7 @@ class FeedbackExpiryTest {
     }
 
     @Test
-    fun `view=kudos never sweeps; a following view=received GET does`() = testApplication {
+    fun `view=kudos never sweeps, a following view=received GET does`() = testApplication {
         usePostgresTestcontainer()
         val requesterEmail = uniqueEmail("requester")
         val requesterId = TestUsers.seed(email = requesterEmail, password = "pw", roles = emptySet())
@@ -483,9 +483,16 @@ class FeedbackExpiryTest {
         val id = seedOverdueRequest(providerId, requesterId, requesterId, expiresOn = "2020-01-01")
 
         val requester = authedClient(requesterEmail, "pw")
+        // providerId scopes the org-wide kudos page to this test's rows (the FeedbackRoutesTest
+        // idiom): the shared DB carries other suites' PUBLIC+SENT residue, some of it
+        // re-encrypted under a throwaway key by the rotation test, which an unscoped page
+        // would try to decrypt.
         assertEquals(
             HttpStatusCode.OK,
-            requester.get("/api/v1/feedbacks") { parameter("view", "kudos") }.status,
+            requester.get("/api/v1/feedbacks") {
+                parameter("view", "kudos")
+                parameter("providerId", providerId.toString())
+            }.status,
         )
         assertEquals(
             FeedbackStatus.REQUESTED,
