@@ -57,7 +57,8 @@ ktor:
 security:
   # Per-account login lockout (complements the per-IP rate limit): after `threshold`
   # consecutive failures for one email, further attempts are 429 for `durationSeconds`.
-  # A successful login resets the counter. In-memory, per-instance.
+  # A successful login resets the counter. DB-backed since v3.11.0/V81 — shared by
+  # replicas, a restart no longer resets it.
   lockout:
     threshold: "$LOGIN_LOCKOUT_THRESHOLD:5"
     durationSeconds: "$LOGIN_LOCKOUT_DURATION_SECONDS:900"
@@ -70,13 +71,13 @@ security:
     loginPerMinute: "$LOGIN_RATE_LIMIT_PER_MINUTE:"
   # Self-service password reset (POST /api/v1/password-reset): one request per
   # submitted email per interval, uniformly whether or not the account exists.
-  # In-memory, per-instance, like the lockout above.
+  # DB-backed since v3.11.0/V81, like the lockout above.
   passwordReset:
     minIntervalSeconds: "$PASSWORD_RESET_MIN_INTERVAL_SECONDS:60"
   # Email MFA (opt-in per user via the MFA feature flag): a login with correct credentials
   # mints a challenge and emails a 6-digit code; the code must come back to
-  # POST /api/v1/login/mfa within the TTL and attempt cap. Challenges are in-memory,
-  # per-instance, like the lockout above (a restart just means signing in again).
+  # POST /api/v1/login/mfa within the TTL and attempt cap. Challenges are DB-backed
+  # since v3.11.0/V81, like the lockout above (a restart no longer invalidates them).
   mfa:
     codeTtlSeconds: "$MFA_CODE_TTL_SECONDS:300"
     maxAttempts: "$MFA_MAX_ATTEMPTS:5"

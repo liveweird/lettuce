@@ -4,6 +4,7 @@ import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
+import ch.nokillswit.infra.db.R2dbcDatabaseKey
 import ch.nokillswit.infra.mail.Mailer
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
@@ -132,29 +133,37 @@ fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
     val userService = attributes[UserServiceKey]
     val blocklist = attributes[TokenBlocklistServiceKey]
+    // The connected R2dbcDatabase (published by configureDatabase) — reused rather than
+    // opening a second connection for the DB-backed auth-state stores below (V81).
+    val database = attributes[R2dbcDatabaseKey]
     // For the password-changed notification on reset (published by configureDatabase).
     val notificationService = attributes[NotificationServiceKey]
     val mailer = mailer()
 
     // Per-account lockout, complementing the per-IP RateLimit below (which rotating hosts
     // sidestep): N consecutive failures for one email → locked for the configured window.
+    // DB-backed since V81: replicas share the counters and a restart no longer resets them.
     val loginThrottle = LoginThrottle(
+        database = database,
         threshold = environment.config.property("security.lockout.threshold").getString().toInt(),
         lockoutMillis = environment.config.property("security.lockout.durationSeconds").getString().toLong() * 1000,
     )
 
     // Self-service password reset: one request per submitted email per interval, uniformly
-    // whether or not the account exists (the 429 carries no enumeration signal).
+    // whether or not the account exists (the 429 carries no enumeration signal). DB-backed
+    // since V81, like the lockout above.
     val resetThrottle = PasswordResetThrottle(
+        database = database,
         minIntervalMillis = environment.config
             .property("security.passwordReset.minIntervalSeconds").getString().toLong() * 1000,
     )
     val mailAppUrl = mailAppUrl()
 
-    // Email MFA (v2.4.0): pending challenges for MFA-enabled accounts mid-login. In-memory,
-    // per-instance, like the throttles above.
+    // Email MFA (v2.4.0): pending challenges for MFA-enabled accounts mid-login. DB-backed
+    // since V81, like the lockout above (a restart no longer invalidates a pending challenge).
     val mfaTtlSeconds = environment.config.property("security.mfa.codeTtlSeconds").getString().toLong()
     val mfaChallenges = MfaChallenges(
+        database = database,
         ttlMillis = mfaTtlSeconds * 1000,
         maxAttempts = environment.config.property("security.mfa.maxAttempts").getString().toInt(),
     )
