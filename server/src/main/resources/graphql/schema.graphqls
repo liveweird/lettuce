@@ -3,7 +3,10 @@ Lettuce read-only integration API v1 (v3.0.0). THE hand-maintained contract for
 POST /integration/graphql (the documentation.yaml sibling — see api-guidelines/GRAPHQL-GUIDELINES.md;
 IntegrationSchemaContractTest pins the runtime schema to this file). Authenticated by an
 integration-client API key; every read is unscoped by design (no per-caller authorization) —
-scope changes are additive, deprecations carry @deprecated(reason), removals need a major version.
+scope changes are additive; a non-additive change (rename/removal/nullability tightening) follows
+the GQL-CON-005 protocol (a MINOR release's @deprecated(reason: "... Removed in <MAJOR>.0.0.")
+window, then the removal only in that MAJOR release).
+Schema version: v1 — breaking changes land only in app 4.0.0 (GQL-CON-005).
 Conventions: ids are unsigned 31-bit Int; dates are ISO strings (YYYY-MM-DD, months YYYY-MM);
 timestamps are epoch milliseconds (Long). There is deliberately no Mutation type.
 Dangling references: records retain the ids/names of soft-deleted users and teams (data is

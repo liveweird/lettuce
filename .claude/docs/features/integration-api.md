@@ -88,7 +88,10 @@ goals, impact log, pulse, notifications, alerts, templates.
   field on `DaysOff`, and the `daysOff(status:)` root argument were REMOVED from the schema (not
   deprecated — registered in the GraphQL known-gaps register, `GRAPHQL-GUIDELINES.md`
   GQL-CON-003); `DaysOffBudget` likewise lost `reserved` (every active entry now counts as
-  `used`, no reserved/used split).
+  `used`, no reserved/used split). **The next removal follows the GQL-CON-005 protocol**
+  instead (a MINOR release's `@deprecated` window naming the exact removal version, then the
+  removal itself only in that MAJOR app release) — see "Contract & evolution" in
+  `GRAPHQL-GUIDELINES.md`.
 - **Audit**: every executed request → `integration.request` (clientId, clientName,
   operationName, root field names — never query text/variables); `integration.auth_failed`
   (reason) on every rejected key.
