@@ -140,6 +140,7 @@
   },
   "dashboard": {
     "team": "Team",
+    "specialty": "Specialty",
     "noReviewYet": "No review yet",
     "noPeriods": "There are no review periods yet — an administrator creates them under Config → Review periods.",
     "empty": "No team members match the filters.",

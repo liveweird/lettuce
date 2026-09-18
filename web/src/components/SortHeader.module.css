@@ -1,0 +1,24 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  /* Mantine's UnstyledButton sets `text-align: start`; `left` is equivalent in this LTR-only
+     app. Same specificity as Mantine's class, so the module's later import order decides. */
+  text-align: left;
+}
+
+/* Vertical orientation for numeric matrix columns (e.g. the five rating columns on the
+   performance-reviews dashboard, v3.11.1): a sortable HEADER, not the data cell, sets a
+   numeric column's width, so rotating the label to read bottom-to-top collapses a
+   wrapped-word ~100px column down to ~49px (measured on ReviewsDashboard). The sort icon
+   stays at the base end — nearest the data cells — via the reversed flex direction. */
+.vertical {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  flex-direction: row-reverse;
+}

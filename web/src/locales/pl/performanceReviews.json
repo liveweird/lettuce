@@ -140,6 +140,7 @@
   },
   "dashboard": {
     "team": "Zespół",
+    "specialty": "Specjalność",
     "noReviewYet": "Brak oceny",
     "noPeriods": "Nie ma jeszcze okresów ocen — administrator tworzy je w Konfiguracja → Okresy ocen.",
     "empty": "Żaden członek zespołu nie pasuje do filtrów.",

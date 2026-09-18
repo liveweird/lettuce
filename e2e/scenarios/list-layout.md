@@ -5,8 +5,10 @@
   recipients; the seed administrator only creates and removes the fixture
 - **Owns** (exclusive server-side state): six throwaway users, one 99-character E2E-named team,
   and four feedbacks whose parties are all throwaways; feedbacks are closed or deleted, then the
-  team and users are deleted in cleanup
-- **Since**: responsive list-table pass following the 14 September 2026 overflow audit
+  team and users are deleted in cleanup. The second scenario below is read-only (it only signs in
+  as the seeded Manager AAA and sorts a list client-side) and creates or mutates nothing.
+- **Since**: responsive list-table pass following the 14 September 2026 overflow audit; the
+  Team's-performance matrix scenario since the v3.11.1 rotated-header round
 
 ## Scenario: list rows stay contained and usable across desktop and mobile widths
 
@@ -46,6 +48,22 @@
    local horizontal scrolling.
    - *Expected*: the document remains contained while the calendar's own scroll region is wider
      than its viewport and can be scrolled horizontally.
+
+## Scenario: Team's performance table fits a 1280px laptop without horizontal scroll
+
+1. Manager AAA signs in and opens the Performance page's Team's-performance tab at a 1280×900
+   viewport — the width the rotated rating headers (v3.11.1) were measured to fit.
+   - *Expected*: the sortable "Overall" column header is visible, the table's own scroll region
+     is no wider than its viewport (it does not need to scroll), and the scroll hint is not
+     shown — there is nothing to scroll to.
+2. They click the "Overall" header.
+   - *Expected*: the list re-sorts with no error and the header stays visible — sorting still
+     works with the rating column's rotated label.
+3. They switch to Polish and repeat the same check at the same viewport, using the Polish
+   "Ogólna" header and its scroll-hint wording.
+   - *Expected*: the table and its region still fit with no scroll needed, the Polish hint is
+     not shown, and the header remains clickable — the longer Polish labels were the original
+     failure case (1302px demanded) this table now clears.
 
 ## Not covered here (and why)
 

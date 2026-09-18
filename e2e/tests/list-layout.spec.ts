@@ -4,6 +4,7 @@ import {
   ADMIN,
   expect,
   login,
+  MANAGER_AAA,
   openFilters,
   switchLanguage,
   test,
@@ -480,4 +481,36 @@ test("list rows stay contained and usable across desktop and mobile widths", asy
       );
     }
   }
+});
+
+test("Team's performance table fits a 1280px laptop without horizontal scroll", async ({ page }) => {
+  // Manager AAA has a subordinate (Manager AAA's Team's-performance tab, seeded) — the rotated
+  // rating headers (v3.11.1) are what let the 12-column matrix fit the default 900px minimum at
+  // this width in both languages, instead of needing the pre-v3.11.1 wider override.
+  await login(page, MANAGER_AAA);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  async function expectTableFitsAndSorts(overallLabel: string, scrollHintText: RegExp): Promise<void> {
+    await page.goto("/performance?tab=managed");
+    const overallHeader = page.getByRole("button", { name: overallLabel, exact: true });
+    await expect(overallHeader).toBeVisible();
+
+    const region = page.getByRole("region");
+    await expect(region).toBeVisible();
+    await expect
+      .poll(() => region.evaluate((el) => el.scrollWidth <= el.clientWidth + 1))
+      .toBe(true);
+    await expect(page.getByText(scrollHintText)).not.toBeVisible();
+
+    // Sorting still works with the rotated header — the click toggles the field with no error.
+    await overallHeader.click();
+    await expect(overallHeader).toBeVisible();
+  }
+
+  await expectTableFitsAndSorts("Overall", /^Scroll horizontally to see all columns\.$/);
+
+  await switchLanguage(page, "Polski");
+  await expectTableFitsAndSorts("Ogólna", /^Przewiń w poziomie, aby zobaczyć wszystkie kolumny\.$/);
+
+  await switchLanguage(page, "English");
 });

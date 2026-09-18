@@ -255,7 +255,7 @@ export default function ReviewsDashboard() {
           w={200}
         />
         <Select
-          label={t("common.field.careerSpecialization")}
+          label={t("performanceReview.dashboard.specialty")}
           data={[{ value: "", label: t("common.state.all") }, ...specOptions]}
           value={specFilter}
           onChange={(v) => setSpecFilter(v ?? "")}
@@ -290,10 +290,11 @@ export default function ReviewsDashboard() {
         <ReviewQuadrants rows={filteredRows} />
       ) : (
       <>
-      {/* The widest table in the app (10 columns + the per-row New-review button) — it can
-          exceed the viewport (PL labels especially), so it scrolls inside its own container
-          instead of widening the page body (2026-08 audit round). */}
-      <ResponsiveTable mode="matrix" density="normal" minWidth={1100}>
+      {/* 12 columns + the per-row New-review button. The five rating columns carry rotated,
+          full-word headers (v3.11.1, measured ~49px/column vs ~100px wrapped horizontally) so
+          the table fits the default 900px matrix minimum at both a 1280px laptop and in Polish
+          — the matrix scroll below stays only the narrow-screen fallback, not the normal case. */}
+      <ResponsiveTable mode="matrix" density="normal">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
             <ResponsiveTable.Th sortable><SortHeader
@@ -322,7 +323,7 @@ export default function ReviewsDashboard() {
             </ResponsiveTable.Th>
             <ResponsiveTable.Th sortable><SortHeader
                 field="careerSpecialization"
-                label={t("users.profile.specialization")}
+                label={t("performanceReview.dashboard.specialty")}
                 activeField={sortField}
                 activeDir={sortDir}
                 onToggle={toggleSort}
@@ -345,7 +346,8 @@ export default function ReviewsDashboard() {
               />
             </ResponsiveTable.Th>
             {RATING_COLUMNS.map(({ category, field }) => (
-              <ResponsiveTable.Th sortable key={category}><SortHeader
+              <ResponsiveTable.Th sortable vertical key={category}><SortHeader
+                  orientation="vertical"
                   field={field}
                   label={t(`performanceReview.categoryShort.${category}`)}
                   activeField={sortField}
@@ -403,7 +405,7 @@ export default function ReviewsDashboard() {
                         : "—"}
                     </Text>
                   </ResponsiveTable.Td>
-                  <ResponsiveTable.Td label={t("users.profile.specialization")}>
+                  <ResponsiveTable.Td label={t("performanceReview.dashboard.specialty")}>
                     <Text size="sm" c={person.careerSpecialization ? undefined : "dimmed"}>
                       {person.careerSpecialization
                         ? pickLocalized(person.careerSpecialization.values, i18n.resolvedLanguage)
@@ -426,7 +428,11 @@ export default function ReviewsDashboard() {
                       </Badge>
                     )}
                   </ResponsiveTable.Td>
-                  <RatingCells ratings={ratings} labels={REVIEW_CATEGORIES.map((c) => t(`performanceReview.categoryShort.${c}`))} />
+                  <RatingCells
+                    ratings={ratings}
+                    labels={REVIEW_CATEGORIES.map((c) => t(`performanceReview.categoryShort.${c}`))}
+                    align="center"
+                  />
                   <ResponsiveTable.Td actions>
                     {review ? (
                       <RowActions
