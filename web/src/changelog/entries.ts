@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.12.1",
+    date: "2026-09-18",
+    en: `The new succession plan form is easier to read: the seat's criticality, retention risk and target bench depth sit in one "Seat & criticality" section on three evenly aligned columns, the loss-impact list has its own section, and the same layout applies while editing a plan and to the nomination form's readiness, type and awareness fields.`,
+    pl: `Formularz nowego planu sukcesji czyta się teraz łatwiej: krytyczność stanowiska, ryzyko odejścia i docelową głębokość ławki umieściliśmy w jednej sekcji „Stanowisko i krytyczność” w trzech równo wyrównanych kolumnach, lista skutków utraty dostała własną sekcję, a ten sam układ stosujemy podczas edycji planu oraz w polach gotowości, typu i świadomości w formularzu nominacji.`,
+  },
+  {
     version: "3.12.0",
     date: "2026-09-18",
     en: `Old notifications are now cleaned up automatically: a notification you have already seen, or one you deleted, is removed for good 30 days after it was created. Unread notifications stay until you see them. There is nothing to do on your side — the cleanup runs quietly in the background whenever new notifications are created.`,
