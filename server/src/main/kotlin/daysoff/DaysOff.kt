@@ -2,10 +2,13 @@ package ch.nokillswit.daysoff
 
 import ch.nokillswit.infra.paging.PageResponse
 import ch.nokillswit.infra.parseIsoDateStrict
+import ch.nokillswit.teams.TeamRef
 import io.ktor.server.plugins.BadRequestException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -143,6 +146,14 @@ data class DaysOffListItem(
     // (transitively).
     val canDelete: Boolean,
     val lastModified: Long,
+    // Scope teams (v3.13.0) — the teams via which the owner is in the caller's MANAGED scope
+    // (the caller's own teams, plus teams managed further down under includeIndirect;
+    // non-deleted, name-ascending). Computed on view=managed rows ONLY — the users-list
+    // `teams` idiom (User.kt:251-258): @EncodeDefault(NEVER) OMITS the key (never
+    // "teams": null) on every other view.
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val teams: List<TeamRef>? = null,
 )
 
 typealias DaysOffPageResponse = PageResponse<DaysOffListItem>
@@ -167,6 +178,11 @@ data class DaysOffCalendarUser(
     val userId: UInt,
     val userName: String,
     val userDeleted: Boolean,
+    // The teams via which the person is in the requested scope (v3.13.0) — the caller's own
+    // teams (plus teams managed further down under includeIndirect) on scope=managed, the
+    // teams shared with the caller on scope=member; non-deleted, name-ascending; may be
+    // empty. Always computed (unlike the managed-only DaysOffListItem/DaysOffBudget teams).
+    val teams: List<TeamRef>,
     val entries: List<DaysOffCalendarEntry>,
 )
 
@@ -220,6 +236,11 @@ data class DaysOffBudget(
     // edit the allowance (the wider chain right — its capability is the row's presence in
     // view=managed itself).
     val canCorrect: Boolean,
+    // Scope teams (v3.13.0) — same rule as DaysOffListItem.teams above: computed on
+    // view=managed rows ONLY, OMITTED (not "teams": null) on view=own.
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val teams: List<TeamRef>? = null,
 )
 
 @Serializable

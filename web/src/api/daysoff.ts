@@ -75,12 +75,16 @@ export type DaysOffCalendarEntry = DaysOffCalendarUser["entries"][number];
 export type DaysOffCalendarScope = "member" | "managed";
 
 /** The month's leave-planner payload (unpaged): the scope's users with their marked days
- * plus the month's public holidays. */
+ * plus the month's public holidays. `includeIndirect` (v3.13.0) widens `scope=managed` from
+ * direct reports to the caller's whole transitive management chain — omit-when-false, invalid
+ * with `scope=member`. */
 export async function getDaysOffCalendar(
   month: string,
   scope: DaysOffCalendarScope,
+  includeIndirect?: boolean,
 ): Promise<DaysOffCalendarResponse> {
-  return jsonRequest<DaysOffCalendarResponse>(`/api/v1/days-off/calendar?month=${month}&scope=${scope}`);
+  const params = buildQuery({ month, scope, includeIndirect: includeIndirect || undefined });
+  return jsonRequest<DaysOffCalendarResponse>(`/api/v1/days-off/calendar?${params}`);
 }
 
 export type DaysOffBudget =

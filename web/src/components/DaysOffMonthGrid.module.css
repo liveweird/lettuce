@@ -26,7 +26,7 @@
   left: 0;
   z-index: 1;
   background: var(--mantine-color-body);
-  padding: 6px 12px 6px 0;
+  padding: 4px 12px 4px 0;
   text-align: left;
   width: 180px;
   min-width: 140px;
@@ -35,6 +35,9 @@
   overflow-wrap: break-word;
   font-weight: 500;
   font-size: var(--mantine-font-size-sm);
+  /* Keeps a widened managed-scope row's optional team subtitle (v3.13.0) tucked close to the
+     name instead of stretching the row. */
+  line-height: 1.25;
 }
 
 .dayHeader {

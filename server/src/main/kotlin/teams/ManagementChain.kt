@@ -82,6 +82,45 @@ private suspend fun managersOf(userIds: Set<UInt>): Set<UInt> =
         .toList()
         .toSet()
 
+/**
+ * Non-deleted teams managed by any of [managerIds] (the days-off calendar/list scope-teams
+ * helper, v3.13.0) — a thin alias of [teamsManagedBy] (TeamTree.kt) kept here so the
+ * scope-teams helper pair reads together with [teamRefsByUserIds] below. Empty [managerIds]
+ * short-circuits without a query. Runs in the caller's transaction.
+ */
+suspend fun teamIdsManagedBy(managerIds: Set<UInt>): Set<UInt> = teamsManagedBy(managerIds)
+
+/**
+ * One (user id → team refs) map: for every user in [userIds], the non-deleted teams in
+ * [teamIds] they are a member of (name-ascending, then id) — ONE join over team_members ⋈
+ * teams filtered on both sets. A user with no matching row is ABSENT from the map (never an
+ * empty list) — callers default with `?: emptyList()`. Either [teamIds] or [userIds] empty
+ * short-circuits without a query. Runs in the caller's transaction.
+ */
+suspend fun teamRefsByUserIds(teamIds: Set<UInt>, userIds: Set<UInt>): Map<UInt, List<TeamRef>> {
+    if (teamIds.isEmpty() || userIds.isEmpty()) return emptyMap()
+    return TeamService.TeamMembers
+        .join(
+            TeamService.Teams,
+            JoinType.INNER,
+            onColumn = TeamService.TeamMembers.teamId,
+            otherColumn = TeamService.Teams.id,
+        )
+        .select(TeamService.TeamMembers.userId, TeamService.Teams.id, TeamService.Teams.name)
+        .where {
+            (TeamService.TeamMembers.teamId inList teamIds) and
+                (TeamService.TeamMembers.userId inList userIds) and
+                (TeamService.Teams.markedAsDeleted eq false)
+        }
+        .orderBy(TeamService.Teams.name to SortOrder.ASC, TeamService.Teams.id to SortOrder.ASC)
+        .map { row ->
+            row[TeamService.TeamMembers.userId].value to
+                TeamRef(row[TeamService.Teams.id].value, row[TeamService.Teams.name])
+        }
+        .toList()
+        .groupBy({ it.first }) { it.second }
+}
+
 /** Members of the non-deleted teams managed by any of [managerIds]. */
 private suspend fun membersOfTeamsManagedBy(managerIds: Set<UInt>): Set<UInt> =
     TeamService.TeamMembers

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
 import DaysOffBudgetsTable from "./DaysOffBudgetsTable";
@@ -10,6 +10,7 @@ type FetchMock = ReturnType<typeof vi.fn>;
 const YEAR = new Date().getFullYear();
 const ROW = {
   userId: 9, userName: "Riley Report", userDeleted: false, year: YEAR,
+  teams: [{ id: 1, name: "AAA" }],
   poolId: 41, poolTypeId: 1, poolName: "Paid days off", carriesOver: true, isDefault: true, poolArchived: false,
   allowance: 20, carriedOver: 0, corrected: 0, used: 0, remaining: 20, canCorrect: true,
 };
@@ -45,6 +46,21 @@ describe("DaysOffBudgetsTable", () => {
     expect(screen.getAllByText("Riley Report")).toHaveLength(3);
     expect(screen.getAllByLabelText(/^Budget corrections of/)).toHaveLength(1);
     expect(screen.getByLabelText("Budget corrections of Riley Report")).toBeInTheDocument();
+  });
+
+  test("a Team column carries the report's team badges (v3.13.0)", async () => {
+    renderWithProviders(<DaysOffBudgetsTable />);
+    expect(await screen.findByRole("columnheader", { name: "Team" })).toBeInTheDocument();
+    expect(await screen.findAllByText("AAA")).toHaveLength(3);
+  });
+
+  test("includeIndirect rides the budgets query (v3.13.0)", async () => {
+    renderWithProviders(<DaysOffBudgetsTable includeIndirect />);
+    await screen.findByText("Study leave");
+    await waitFor(() => {
+      const call = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.includes("/budgets"));
+      expect(call).toContain("includeIndirect=true");
+    });
   });
 
   test("the corrections modal receives the person's non-archived pools", async () => {

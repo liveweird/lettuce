@@ -287,7 +287,17 @@ fun Application.configureDaysOffRoutes() {
                     "managed" -> DaysOffCalendarScope.MANAGED
                     else -> throw BadRequestException("Unknown scope: $raw (allowed: member, managed)")
                 }
-                call.respond(HttpStatusCode.OK, daysOffService.calendar(scope, caller.userId, month))
+                // includeIndirect (v3.13.0): widens scope=managed from direct reports to the
+                // caller's whole transitive management chain — the budgets/list rule; 400 with
+                // any other scope (the standard strict-boolean shape rule).
+                val includeIndirect = params.optionalBoolean("includeIndirect")
+                if (includeIndirect != null && scope != DaysOffCalendarScope.MANAGED) {
+                    throw BadRequestException("includeIndirect is only supported for scope=managed")
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    daysOffService.calendar(scope, caller.userId, month, includeIndirect == true),
+                )
             }
             // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────
             get<DaysOffCorrections> {
@@ -394,9 +404,23 @@ fun Application.configureDaysOffRoutes() {
                     }
                     else -> throw BadRequestException("Unknown view: $view (allowed: own, managed)")
                 }
+                // Scope teams (v3.13.0): managed rows carry `teams`, keyed on the SAME
+                // manager-id set the widened managed scope already resolved above (reused, not
+                // re-walked) or just the caller for the direct managed view; own stays null.
+                val teamScopeManagerIds: Set<UInt>? = when (view) {
+                    "managed" -> if (includeIndirect == true) userIds + caller.userId else setOf(caller.userId)
+                    else -> null
+                }
                 call.respond(
                     HttpStatusCode.OK,
-                    DaysOffBudgetList(daysOffService.budgets(userIds, year, correctable = view == "managed")),
+                    DaysOffBudgetList(
+                        daysOffService.budgets(
+                            userIds,
+                            year,
+                            correctable = view == "managed",
+                            teamScopeManagerIds = teamScopeManagerIds,
+                        ),
+                    ),
                 )
             }
             put<DaysOffAllowance> {
