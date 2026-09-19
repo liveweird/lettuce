@@ -26,6 +26,7 @@ import java.time.temporal.TemporalAdjusters
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -168,8 +169,13 @@ class DaysOffAllowanceTest {
         assertTrue(widened.items.single { it.userId == mId }.canCorrect)
         assertTrue(widened.items.single { it.userId == sId }.canCorrect)
         assertEquals(30, widened.items.single { it.userId == sId }.allowance)
-        // Own rows never carry the pen.
-        assertFalse(s.get("/api/v1/days-off/budgets?year=2061").body<DaysOffBudgetList>().items.single().canCorrect)
+        // Scope teams (v3.13.0): S's widened budget row names X, M's direct budget row Y.
+        assertEquals(listOf(teamX), widened.items.single { it.userId == sId }.teams?.map { it.id })
+        assertEquals(listOf(teamY), direct.items.single().teams?.map { it.id })
+        // Own rows never carry the pen, nor the scope teams (OMITTED, not an empty list).
+        val ownBudget = s.get("/api/v1/days-off/budgets?year=2061").body<DaysOffBudgetList>().items.single()
+        assertFalse(ownBudget.canCorrect)
+        assertNull(ownBudget.teams)
 
         // Requests list: G's direct managed view is empty of S's rows; includeIndirect
         // surfaces them with canDelete set — the delete right is chain-wide since v2.33.0.
@@ -180,6 +186,9 @@ class DaysOffAllowanceTest {
             .body<DaysOffPageResponse>()
         val chainRow = gWide.items.single()
         assertTrue(chainRow.canDelete)
+        // Scope teams (v3.13.0): the widened list row names the team through which S sits in
+        // G's chain (X, managed by M).
+        assertEquals(listOf(teamX), chainRow.teams?.map { it.id })
         val directRow = m.get("/api/v1/days-off?view=managed&userId=$sId").body<DaysOffPageResponse>().items.single()
         assertTrue(directRow.canDelete)
         // The owner's own row is deletable too.

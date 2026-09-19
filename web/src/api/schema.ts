@@ -2765,7 +2765,12 @@ export interface paths {
          *     scope is an empty user list):
          *     - `scope=member` (the default): everyone sharing a non-deleted team with the caller,
          *       the caller included (a team-less caller sees just themselves).
-         *     - `scope=managed`: the caller's direct reports.
+         *     - `scope=managed`: the caller's direct reports — or, with `includeIndirect=true`
+         *       (v3.13.0), the caller's whole transitive management chain.
+         *
+         *     Every user row carries `teams` — the teams via which the person is in the requested
+         *     scope (the caller's subtree teams they belong to on `managed`, the teams shared with
+         *     the caller on `member`), so a widened calendar still says where each person sits.
          *
          *     Unpaged by construction — bounded by (scope users × ≤31 days). Users sort by name.
          */
@@ -6082,6 +6087,13 @@ export interface components {
             userId: number;
             userName: string;
             userDeleted: boolean;
+            /**
+             * @description The teams via which the owner is in the caller's managed scope (v3.13.0 — the
+             *     caller's own teams, plus teams managed further down under `includeIndirect`;
+             *     non-deleted, name-ascending). Present on `view=managed` rows only, OMITTED (not
+             *     computed) on every other view — the users-list `teams` idiom.
+             */
+            teams?: components["schemas"]["TeamRef"][];
             /** @enum {string} */
             type: "PAID" | "UNPAID";
             /**
@@ -6133,6 +6145,14 @@ export interface components {
             userId: number;
             userName: string;
             userDeleted: boolean;
+            /**
+             * @description The teams via which the person is in the requested scope (v3.13.0): on
+             *     `scope=managed` the caller's subtree teams they belong to (direct reports: the
+             *     caller's own teams; with `includeIndirect` also teams managed further down), on
+             *     `scope=member` the teams shared with the caller. Non-deleted, name-ascending;
+             *     may be empty (the caller's own row in the member scope, for instance).
+             */
+            teams: components["schemas"]["TeamRef"][];
             /** @description The user's marked days inside the month, date-ascending; may be empty. */
             entries: components["schemas"]["DaysOffCalendarEntry"][];
         };
@@ -6148,6 +6168,13 @@ export interface components {
             userId: number;
             userName: string;
             userDeleted: boolean;
+            /**
+             * @description The teams via which the person is in the caller's managed scope (v3.13.0 — the
+             *     caller's own teams, plus teams managed further down under `includeIndirect`;
+             *     non-deleted, name-ascending). Present on `view=managed` rows only, OMITTED (not
+             *     computed) on `view=own` — the users-list `teams` idiom.
+             */
+            teams?: components["schemas"]["TeamRef"][];
             year: number;
             /**
              * Format: int32
@@ -11067,6 +11094,12 @@ export interface operations {
                 month: string;
                 /** @description Whose days off to show — teammates (member) or direct reports (managed). */
                 scope?: "member" | "managed";
+                /**
+                 * @description Only valid with `scope=managed` (else `400`; strict `true`/`false`). When `true`,
+                 *     widens the scope from direct reports to the caller's whole transitive management
+                 *     chain (v3.13.0) — the budgets/list `includeIndirect` rule.
+                 */
+                includeIndirect?: boolean;
             };
             header?: never;
             path?: never;

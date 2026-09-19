@@ -13,16 +13,25 @@ import RowActions from "./RowActions";
 import PersonCell from "./PersonCell";
 import TableLoadingRow from "./TableLoadingRow";
 
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 9;
 
 /**
- * The manager's budget overview: one row per (direct report, paid pool) for the picked
- * calendar year (current ±1 — carry-over makes the neighbors the only interesting ones);
- * since v3.2.0 a person spans as many rows as they hold pools (the default first — the Pool
- * column names it). Corrections are chain-editable (v2.33.0), so every row here — direct by
- * construction — is manage-capable; the action opens the modal on that row's pool.
+ * The manager's budget overview: one row per (report, paid pool) for the picked calendar year
+ * (current ±1 — carry-over makes the neighbors the only interesting ones); since v3.2.0 a
+ * person spans as many rows as they hold pools (the default first — the Pool column names it).
+ * Direct reports by default, or the caller's whole transitive chain with `includeIndirect`
+ * (v3.13.0) — the Team column (the person's teams within the caller's scope) shows where a
+ * widened row sits. Corrections are chain-editable (v2.33.0), so every row here — direct or
+ * indirect — stays manage-capable via the server-computed `canCorrect`; the action opens the
+ * modal on that row's pool.
  */
-export default function DaysOffBudgetsTable() {
+export default function DaysOffBudgetsTable({
+  includeIndirect,
+}: {
+  /** Widen from direct reports to the whole transitive subtree (v3.13.0) — the calendar/list
+   * idiom. */
+  includeIndirect?: boolean;
+} = {}) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const currentYear = new Date().getFullYear();
@@ -30,8 +39,8 @@ export default function DaysOffBudgetsTable() {
   // Whose corrections modal is open (the manager's edit surface — v1.43.0), on which pool.
   const [correctionsFor, setCorrectionsFor] = useState<DaysOffBudget | null>(null);
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["daysOffBudgets", "managed", year],
-    queryFn: () => listDaysOffBudgets("managed", year),
+    queryKey: ["daysOffBudgets", "managed", year, includeIndirect],
+    queryFn: () => listDaysOffBudgets("managed", year, { includeIndirect }),
   });
   const days = (v: number) => formatDays(v, i18n.language);
   const poolsOf = (userId: number) =>
@@ -69,6 +78,7 @@ export default function DaysOffBudgetsTable() {
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
             <ResponsiveTable.Th>{t("daysOff.calendar.personColumn")}</ResponsiveTable.Th>
+            <ResponsiveTable.Th>{t("teams.team")}</ResponsiveTable.Th>
             <ResponsiveTable.Th>{t("daysOff.pool.label")}</ResponsiveTable.Th>
             <ResponsiveTable.Th>{t("daysOff.budget.allowance")}</ResponsiveTable.Th>
             <ResponsiveTable.Th>{t("daysOff.budget.carriedOver")}</ResponsiveTable.Th>
@@ -93,6 +103,15 @@ export default function DaysOffBudgetsTable() {
                     deleted={b.userDeleted}
                     currentUserId={currentUserId}
                   />
+                </ResponsiveTable.Td>
+                <ResponsiveTable.Td label={t("teams.team")}>
+                  <Group gap={4}>
+                    {(b.teams ?? []).map((team) => (
+                      <Badge key={team.id} variant="light" color="gray">
+                        {team.name}
+                      </Badge>
+                    ))}
+                  </Group>
                 </ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("daysOff.pool.label")}>
                   <Group gap={6} wrap="wrap">

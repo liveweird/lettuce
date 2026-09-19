@@ -448,6 +448,8 @@ class DaysOffRoutesTest {
         // Scope member: every teammate appears, entries or not, sorted by name (Mate < Sub).
         assertEquals(listOf(tId, sId), march.users.map { it.userId }.filter { it in setOf(sId, tId) })
         val sMarch = march.users.first { it.userId == sId }
+        // Scope teams (v3.13.0): the member scope names the team shared with the caller (T).
+        assertEquals(listOf(teamId), sMarch.teams.map { it.id })
         // Clipped to the month: 28..31 (weekends included — the bar renders continuously).
         assertEquals(listOf("2058-03-28", "2058-03-29", "2058-03-30", "2058-03-31"), sMarch.entries.map { it.date })
         assertTrue(sMarch.entries.first().half) // the half start day
@@ -473,6 +475,58 @@ class DaysOffRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, lone.get("/api/v1/days-off/calendar?month=2058-3").status)
         assertEquals(HttpStatusCode.BadRequest, lone.get("/api/v1/days-off/calendar").status)
         assertEquals(HttpStatusCode.BadRequest, lone.get("/api/v1/days-off/calendar?month=2058-03&scope=bogus").status)
+    }
+
+    @Test
+    fun `the calendar widens to the subtree with includeIndirect and names the scope teams`() = testApplication {
+        usePostgresTestcontainer()
+        // G manages team Y {M}; M manages team X {S, T}.
+        val gEmail = uniqueEmail("do-cal-ii-g")
+        val mEmail = uniqueEmail("do-cal-ii-m")
+        val sEmail = uniqueEmail("do-cal-ii-s")
+        val tEmail = uniqueEmail("do-cal-ii-t")
+        val gId = TestUsers.seed(gEmail, "pw", name = "CalII Grand", roles = emptySet())
+        val mId = TestUsers.seed(mEmail, "pw", name = "CalII Mgr", roles = emptySet())
+        val sId = TestUsers.seed(sEmail, "pw", name = "CalII Sub", roles = emptySet())
+        val tId = TestUsers.seed(tEmail, "pw", name = "CalII Mate", roles = emptySet())
+        val teamY = TestServices.teams.create(Team(name = "cal-ii-Y-${java.util.UUID.randomUUID()}", managerId = gId))
+        TestServices.teams.addMember(teamY, mId)
+        val teamX = TestServices.teams.create(Team(name = "cal-ii-X-${java.util.UUID.randomUUID()}", managerId = mId))
+        TestServices.teams.addMember(teamX, sId)
+        TestServices.teams.addMember(teamX, tId)
+        val g = authedClient(gEmail, "pw")
+        val s = authedClient(sEmail, "pw")
+
+        val month = "2064-05"
+
+        // Direct managed scope: G sees only M, whose scope team is Y (the team G manages).
+        val direct = g.get("/api/v1/days-off/calendar?month=$month&scope=managed").body<DaysOffCalendarResponse>()
+        assertEquals(setOf(mId), direct.users.map { it.userId }.toSet())
+        assertEquals(listOf(teamY), direct.users.single { it.userId == mId }.teams.map { it.id })
+
+        // includeIndirect widens to the whole subtree; each row names the team through which
+        // the person sits in G's chain — S/T via X (managed by M, in the subtree), M via Y.
+        val widened = g.get("/api/v1/days-off/calendar?month=$month&scope=managed&includeIndirect=true")
+            .body<DaysOffCalendarResponse>()
+        assertEquals(setOf(mId, sId, tId), widened.users.map { it.userId }.toSet())
+        assertEquals(listOf(teamX), widened.users.single { it.userId == sId }.teams.map { it.id })
+        assertEquals(listOf(teamX), widened.users.single { it.userId == tId }.teams.map { it.id })
+        assertEquals(listOf(teamY), widened.users.single { it.userId == mId }.teams.map { it.id })
+
+        // Member scope (S's default view): S and T share X, both rows name it.
+        val member = s.get("/api/v1/days-off/calendar?month=$month").body<DaysOffCalendarResponse>()
+        assertEquals(listOf(teamX), member.users.single { it.userId == sId }.teams.map { it.id })
+        assertEquals(listOf(teamX), member.users.single { it.userId == tId }.teams.map { it.id })
+
+        // The strict-boolean shape rule: includeIndirect only with scope=managed.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            s.get("/api/v1/days-off/calendar?month=$month&includeIndirect=true").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            g.get("/api/v1/days-off/calendar?month=$month&scope=managed&includeIndirect=maybe").status,
+        )
     }
 
     @Test

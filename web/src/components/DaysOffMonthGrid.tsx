@@ -1,4 +1,4 @@
-import { Group, Text } from "@mantine/core";
+import { Group, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { DaysOffCalendarEntry, DaysOffCalendarResponse } from "../api/daysoff";
 import { getUserId } from "../api/session";
@@ -46,9 +46,17 @@ function LegendItem({ swatch, label }: { swatch: string; label: string }) {
  * holiday columns are dimmed (the holiday's name rides the column header tooltip); every active
  * entry renders as a solid bar (PAID teal / UNPAID gray — no lifecycle since v3.9.0, so nothing
  * is tentative), half days as half-filled cells. A real `<table>` with per-cell `title`
- * descriptions; hand-rolled — no calendar dependency.
+ * descriptions; hand-rolled — no calendar dependency. `showTeams` (v3.13.0, the managed scope
+ * only — a widened chain view says where each report sits) renders a dimmed team-name line
+ * under a row's name, mirroring the person-picker subtitle idiom; never on the caller's own row.
  */
-export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarResponse }) {
+export default function DaysOffMonthGrid({
+  data,
+  showTeams = false,
+}: {
+  data: DaysOffCalendarResponse;
+  showTeams?: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
   const dates = monthDates(data.month);
@@ -95,14 +103,22 @@ export default function DaysOffMonthGrid({ data }: { data: DaysOffCalendarRespon
         <tbody>
           {data.users.map((user) => {
             const byDate = new Map(user.entries.map((e) => [e.date, e]));
-            const name =
-              user.userId === currentUserId ? t("common.state.you") : user.userName;
+            const isYou = user.userId === currentUserId;
+            const name = isYou ? t("common.state.you") : user.userName;
+            const teamNames = user.teams.map((team) => team.name);
             return (
               <tr key={user.userId}>
                 <th className={classes.nameCell} scope="row">
-                  <Text size="sm" fw={500} c={user.userDeleted ? "dimmed" : undefined} span>
-                    {name}
-                  </Text>
+                  <Stack gap={0}>
+                    <Text size="sm" fw={500} c={user.userDeleted ? "dimmed" : undefined}>
+                      {name}
+                    </Text>
+                    {showTeams && !isYou && teamNames.length > 0 && (
+                      <Text size="xs" c="dimmed" lineClamp={1} title={teamNames.join(" · ")}>
+                        {teamNames.join(" · ")}
+                      </Text>
+                    )}
+                  </Stack>
                 </th>
                 {dates.map((iso) => {
                   const entry = byDate.get(iso);

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.13.0",
+    date: "2026-09-19",
+    en: `Days off across your whole chain. Managers can switch the days-off calendar and the My team tab from direct reports to all reports, including indirect ones — the same Reports choice as on the other team screens. Every person on the managed calendar and in the team tables now shows the team they belong to.`,
+    pl: `Dni wolne w całym Twoim łańcuchu. Jako menedżer możesz przełączyć kalendarz dni wolnych i zakładkę Mój zespół z bezpośrednich podwładnych na wszystkich, także pośrednich — tym samym wyborem "Podwładni" co na innych ekranach zespołu. Każda osoba w zarządzanym kalendarzu i w tabelach zespołu pokazuje teraz zespół, do którego należy.`,
+  },
+  {
     version: "3.12.2",
     date: "2026-09-18",
     en: `Fix: the sign-in code's attempt limit now follows its configured value. Since 3.11.0 every emailed sign-in code silently allowed exactly three guesses regardless of the setting (the default is five); a wrong guess counted correctly, but the limit itself was fixed. Nothing changes for you unless your administrator tuned that limit.`,

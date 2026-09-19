@@ -118,6 +118,31 @@ describe("DaysOffTable", () => {
     ).toBeNull();
   });
 
+  test("managed view: a Team column carries the report's team badges (v3.13.0)", async () => {
+    setupList([row({ id: 21, canDelete: true, teams: [{ id: 1, name: "AAA" }] })]);
+    renderWithProviders(<DaysOffTable view="managed" />);
+
+    expect(await screen.findByRole("columnheader", { name: "Team" })).toBeInTheDocument();
+    expect(await screen.findByText("AAA")).toBeInTheDocument();
+  });
+
+  test("own view: no Team column (the caller is implied)", async () => {
+    setupList([row({ id: 1, canDelete: true })]);
+    renderWithProviders(<DaysOffTable view="own" />);
+
+    await screen.findByText("Paid days off");
+    expect(screen.queryByRole("columnheader", { name: "Team" })).toBeNull();
+    expect(screen.queryByText("AAA")).toBeNull();
+  });
+
+  test("managed view pinned to one user (a drill-down): no Team column", async () => {
+    setupList([row({ id: 21, canDelete: true, teams: [{ id: 1, name: "AAA" }] })]);
+    renderWithProviders(<DaysOffTable view="managed" userId={9} />);
+
+    await screen.findByText("Paid days off");
+    expect(screen.queryByRole("columnheader", { name: "Team" })).toBeNull();
+  });
+
   test("user (audit) view: read-only rows, no actions", async () => {
     setupList([row({ id: 41, canDelete: false })]);
     renderWithProviders(<DaysOffTable view="user" userId={9} />);
