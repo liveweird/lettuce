@@ -11,8 +11,9 @@
 ## Scenario: the feedback tutorial walks a manager through 12 read-only steps and returns to the Feedback page
 
 1. Manager AAA signs in; the alert banner is collapsed first (a pre-existing active alert's
-   expanded banner would overlay the header). They open the Feedback page and note their current
-   Provided and Received feedback totals via the API, to prove afterward that nothing changed.
+   expanded banner would overlay the header). They open the Feedback page; from here on every
+   non-GET API request the page issues is recorded, to prove afterward that nothing was written
+   (list totals are not a safe oracle: parallel specs write feedback as Manager AAA).
 2. They click "How feedback works" in the page header, next to New feedback, and click "Next"
    through every step until "Done".
    - *Expected*: exactly 12 steps for a manager (intro, lifecycle, Received, Provided, My team,
@@ -26,8 +27,8 @@
      My managers card) → "Request feedback" (the dashboard's My reports card) → "Kudos wall".
 3. The tutorial finishes with "Done".
    - *Expected*: they land back on Feedback, on the Received tab.
-   - *Expected*: their Provided and Received totals, re-read from the API, are unchanged —
-     nothing was created, sent, or modified while looking around.
+   - *Expected*: the page issued no non-GET API request during the walk (the token refresh
+     excepted) — nothing was created, sent, or modified while looking around.
 
 ## Scenario: the feedback tutorial shows a non-manager 9 steps without the team steps
 
@@ -38,3 +39,5 @@
      "Request feedback".
 2. The tutorial finishes with "Done".
    - *Expected*: they land back on Feedback, on the Received tab.
+   - *Expected*: the page issued no non-GET API request during the walk (the token refresh
+     excepted) — the non-manager walk is read-only too.

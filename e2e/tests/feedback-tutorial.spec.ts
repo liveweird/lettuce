@@ -1,5 +1,5 @@
 import { AAA_ONE, MANAGER_AAA, collapseAlertsBanner, expect, login, test } from "./helpers";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 // The "How feedback works" tutorial (v3.14.0) walked as a manager and as a non-manager, asserting
 // the landmark order the script promises and the read-only invariant — nothing is created,
@@ -51,29 +51,30 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-/** The caller's own feedback list total for `view` — the tour.spec bearer-token idiom. */
-async function feedbackTotal(
-  page: Page,
-  request: APIRequestContext,
-  view: "provided" | "received",
-): Promise<number> {
-  const token = await page.evaluate(() => localStorage.getItem("lettuce.auth.token"));
-  const res = await request.get(`/api/v1/feedbacks?view=${view}&pageSize=1`, {
-    headers: { Authorization: `Bearer ${token}` },
+/**
+ * Every non-GET `/api/` request the page issues from now on — the read-only oracle. List totals
+ * are NOT a safe before/after comparison for this walker: parallel specs write as the same seed
+ * account (hr.spec drafts a feedback as Manager AAA), so a total can move mid-walk through no
+ * fault of the tutorial. The walker's own traffic is exactly what "nothing is saved" promises.
+ * `/api/v1/refresh` is a token exchange, not a write, and is allowed.
+ */
+function recordApiWrites(page: Page): string[] {
+  const writes: string[] = [];
+  page.on("request", (r) => {
+    const path = new URL(r.url()).pathname;
+    if (path.startsWith("/api/") && r.method() !== "GET" && path !== "/api/v1/refresh") {
+      writes.push(`${r.method()} ${path}`);
+    }
   });
-  return ((await res.json()) as { total: number }).total;
+  return writes;
 }
 
-test("the feedback tutorial walks a manager through 12 read-only steps and returns to the Feedback page", async ({
-  page,
-  request,
-}) => {
+test("the feedback tutorial walks a manager through 12 read-only steps and returns to the Feedback page", async ({ page }) => {
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
   await page.goto("/feedback");
 
-  const providedBefore = await feedbackTotal(page, request, "provided");
-  const receivedBefore = await feedbackTotal(page, request, "received");
+  const writes = recordApiWrites(page);
 
   const seen = await walkTutorial(page);
 
@@ -81,12 +82,12 @@ test("the feedback tutorial walks a manager through 12 read-only steps and retur
   assertLandmarkOrder(seen, MANAGER_LANDMARKS);
   await expect(page).toHaveURL(/\/feedback\?tab=received/);
 
-  expect(await feedbackTotal(page, request, "provided")).toBe(providedBefore);
-  expect(await feedbackTotal(page, request, "received")).toBe(receivedBefore);
+  expect(writes).toEqual([]);
 });
 
 test("the feedback tutorial shows a non-manager 9 steps without the team steps", async ({ page }) => {
   await login(page, AAA_ONE);
+  const writes = recordApiWrites(page);
   await collapseAlertsBanner(page);
   await page.goto("/feedback");
 
@@ -98,4 +99,5 @@ test("the feedback tutorial shows a non-manager 9 steps without the team steps",
     expect(text).not.toContain("Request feedback");
   }
   await expect(page).toHaveURL(/\/feedback\?tab=received/);
+  expect(writes).toEqual([]);
 });

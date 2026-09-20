@@ -10,6 +10,7 @@ import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.csrf.*
 import io.ktor.util.AttributeKey
+import kotlinx.coroutines.CancellationException
 
 data class JwtConfig(
     val secret: String,
@@ -19,6 +20,13 @@ data class JwtConfig(
     val accessExpiresInSeconds: Long,
     val refreshExpiresInSeconds: Long,
 )
+
+/**
+ * Set on the call when the token-blocklist lookup inside `validate` threw: the challenge answers
+ * the catch-all's 500 instead of the 401 a missing principal would otherwise produce — an outage
+ * must never read as an invalid bearer token (see "Authorization model" in authorization.md).
+ */
+private val BlocklistFailureKey = AttributeKey<Throwable>("BlocklistFailure")
 
 val JwtConfigKey = AttributeKey<JwtConfig>("JwtConfig")
 
@@ -72,13 +80,39 @@ fun Application.configureSecurity() {
                 val audOk = credential.payload.audience.contains(jwtConfig.audience)
                 // Only access tokens authenticate API calls; a refresh token used as a bearer is rejected.
                 val typOk = credential.payload.getClaim("typ").asString() == TOKEN_TYPE_ACCESS
+                // A structurally invalid token never reaches the database (no outage 500 for junk).
+                if (!audOk || !typOk) return@validate null
                 val jti = credential.payload.id
-                val revoked = jti != null && application.attributes[TokenBlocklistServiceKey].isRevoked(jti)
-                if (audOk && typOk && !revoked) JWTPrincipal(credential.payload) else null
+                val revoked = if (jti == null) {
+                    false
+                } else {
+                    try {
+                        application.attributes[TokenBlocklistServiceKey].isRevoked(jti)
+                    } catch (cause: CancellationException) {
+                        // The call was cancelled (client gone) mid-lookup — unwind, never swallow
+                        // (the NotificationService.purgeCatchingFailures idiom, checkup #36/C4).
+                        throw cause
+                    } catch (cause: Exception) {
+                        // The lookup itself failed (database unreachable, pool acquire timeout) —
+                        // that is an outage, not an invalid token. Ktor's JWT provider turns ANY
+                        // throw out of validate into a plain challenge, so the cause is stashed
+                        // on the call for the challenge below to answer with the catch-all's 500
+                        // (v3.16.2; measured during the v3.16.1 pool work: 7 of a 120-request
+                        // burst answered 401 this way, which the SPA reads as session expiry).
+                        attributes.put(BlocklistFailureKey, cause)
+                        return@validate null
+                    }
+                }
+                if (!revoked) JWTPrincipal(credential.payload) else null
             }
             // The challenge runs outside StatusPages, so emit the RFC 7807 body here too.
             challenge { _, _ ->
-                call.respondProblem(HttpStatusCode.Unauthorized, "Missing or invalid bearer token")
+                val failure = call.attributes.getOrNull(BlocklistFailureKey)
+                if (failure != null) {
+                    call.respondInternalError(failure)
+                } else {
+                    call.respondProblem(HttpStatusCode.Unauthorized, "Missing or invalid bearer token")
+                }
             }
         }
     }
