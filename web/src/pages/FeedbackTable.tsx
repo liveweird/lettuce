@@ -327,7 +327,7 @@ export default function FeedbackTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId="feedback-filters">
         <ClearableTextInput
           label={t("common.field.requester")}
           value={requesterFilter}

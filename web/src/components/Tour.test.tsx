@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MantineProvider } from "@mantine/core";
 import type { ReactNode } from "react";
@@ -70,6 +70,18 @@ function Replayer() {
   return <button onClick={startTour}>replay</button>;
 }
 
+// Starts the feedback tutorial — the only tutorial registered today, so it stands in for
+// "any tutorial" below.
+function TutorialStarter() {
+  const { startTutorial } = useTour();
+  return <button onClick={() => startTutorial("feedbacks")}>start-tutorial</button>;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
+
 // TourProvider uses react-router's useNavigate (to switch tabs/routes) and a react-query query
 // (to detect managers), so it must render inside both a Router and a QueryClientProvider.
 const renderTour = (ui: ReactNode) =>
@@ -107,7 +119,7 @@ describe("Tour", () => {
 
   test("buildSteps resolves content through the translator and includes Config for everyone", () => {
     const t = (k: string) => k;
-    const steps = buildSteps(t, false);
+    const steps = buildSteps(TOUR_STEPS, t, false);
 
     // Config is no longer admin-gated — its nav + subsection steps are present for any caller.
     expect(steps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
@@ -120,8 +132,8 @@ describe("Tour", () => {
 
   test("buildSteps gates the manager-only steps on being a manager", () => {
     const t = (k: string) => k;
-    const nonManager = buildSteps(t, false);
-    const manager = buildSteps(t, true);
+    const nonManager = buildSteps(TOUR_STEPS, t, false);
+    const manager = buildSteps(TOUR_STEPS, t, true);
 
     // Feedback "My team", the two manager-side 1:1 tabs, the manager-side Goals, Team-KPI and
     // Performance tabs, the Days-off team tab, and the Succession nav step are manager-only.
@@ -167,13 +179,13 @@ describe("Tour", () => {
     ];
 
     // The navbar appends these three leaves for ADMIN alone, so the steps follow.
-    const plain = buildSteps(t, false);
+    const plain = buildSteps(TOUR_STEPS, t, false);
     for (const target of adminOnlyTargets) {
       expect(plain.some((s) => s.target === target), target).toBe(false);
     }
 
     localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
-    const admin = buildSteps(t, false);
+    const admin = buildSteps(TOUR_STEPS, t, false);
     for (const target of adminOnlyTargets) {
       expect(admin.some((s) => s.target === target), target).toBe(true);
     }
@@ -193,23 +205,23 @@ describe("Tour", () => {
     const t = (k: string) => k;
     const target = '[data-tour="pulse-participation"]';
 
-    expect(buildSteps(t, false).some((s) => s.target === target)).toBe(false);
+    expect(buildSteps(TOUR_STEPS, t, false).some((s) => s.target === target)).toBe(false);
 
     // The page shows the tab when `isManager || isHr()` — the step's managerOrHr gate matches.
     localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
-    expect(buildSteps(t, false).some((s) => s.target === target)).toBe(true);
+    expect(buildSteps(TOUR_STEPS, t, false).some((s) => s.target === target)).toBe(true);
     // HR alone unlocks nothing else — the admin-only Config leaves stay hidden.
-    expect(buildSteps(t, false).some((s) => s.target === '[data-tour="config-alerts"]')).toBe(false);
+    expect(buildSteps(TOUR_STEPS, t, false).some((s) => s.target === '[data-tour="config-alerts"]')).toBe(false);
   });
 
   test("buildSteps drops a disabled feature's steps and renumbers against the shrunk total", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
-    const all = buildSteps(t, true);
+    const all = buildSteps(TOUR_STEPS, t, true);
 
     localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["GOALS"]));
     try {
-      const filtered = buildSteps(t, true);
+      const filtered = buildSteps(TOUR_STEPS, t, true);
 
       const goalTargets = [
         '[data-tour="nav-my-goals"]',
@@ -246,7 +258,7 @@ describe("Tour", () => {
       ]),
     );
     try {
-      const steps = buildSteps((k) => k, true);
+      const steps = buildSteps(TOUR_STEPS, (k) => k, true);
 
       // Exactly the untagged steps survive, in order: welcome, the dashboard block, the
       // Config block, Dictionaries, account/changelog, the header chrome, and the closing
@@ -287,7 +299,7 @@ describe("Tour", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
 
-    const steps = buildSteps(t, false);
+    const steps = buildSteps(TOUR_STEPS, t, false);
     const total = steps.length;
     expect(steps[0].title).toBe(`1/${total}`);
     expect(steps[total - 1].title).toBe(`${total}/${total}`);
@@ -299,7 +311,7 @@ describe("Tour", () => {
     // manager=true so the Feedback "My team" step is included, ADMIN so the admin-only Config
     // leaves are too (this table covers every navigating step); userId feeds the :userId navTo.
     localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
-    const steps = buildSteps(t, true, navigateTo, 7);
+    const steps = buildSteps(TOUR_STEPS, t, true, navigateTo, 7);
 
     const cases: { target: string; path: string }[] = [
       // Each lazy section's nav step navigates a step early so its subsections' targets exist.
@@ -387,7 +399,7 @@ describe("Tour", () => {
 
   test("a :userId navTo degrades to not navigating when the caller id is unknown", async () => {
     const navigateTo = vi.fn(() => Promise.resolve());
-    const steps = buildSteps((k) => k, false, navigateTo, null);
+    const steps = buildSteps(TOUR_STEPS, (k) => k, false, navigateTo, null);
 
     const account = steps.find((s) => s.target === '[data-tour="nav-change-password"]');
     await account!.before!({} as never);
@@ -401,7 +413,7 @@ describe("Tour", () => {
   test("every step disables Joyride scrolling and pins the window to the top itself", async () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     try {
-      const steps = buildSteps((k) => k, true, vi.fn(() => Promise.resolve()));
+      const steps = buildSteps(TOUR_STEPS, (k) => k, true, vi.fn(() => Promise.resolve()));
       // Joyride's own scroll would drag page titles under the fixed header — off on every step.
       expect(steps.every((s) => s.skipScroll === true)).toBe(true);
       for (const step of steps) await step.before!({} as never);
@@ -504,6 +516,103 @@ describe("Tour", () => {
     await userEvent.click(screen.getByText("replay"));
     await waitFor(() => expect(lastProps().run).toBe(true));
   });
+
+  test("startTutorial('feedbacks') runs the tutorial's own (audience-filtered) step list, read-only", async () => {
+    const user = userEvent.setup();
+    renderTour(
+      <TourProvider>
+        <TutorialStarter />
+      </TourProvider>,
+    );
+
+    await user.click(screen.getByText("start-tutorial"));
+    // Non-manager (the beforeEach fetch stub reports zero managed teams): 9 of the tutorial's
+    // 12 steps — My team / Reports scope / Request feedback are manager-only.
+    await waitFor(() => expect(lastProps().steps).toHaveLength(9));
+    expect(
+      lastProps().steps.every(
+        (s) => (s as unknown as { blockTargetInteraction?: boolean }).blockTargetInteraction === true,
+      ),
+    ).toBe(true);
+  });
+
+  test("Pause is hidden while a tutorial runs", async () => {
+    const user = userEvent.setup();
+    renderTour(
+      <TourProvider>
+        <TutorialStarter />
+      </TourProvider>,
+    );
+
+    await user.click(screen.getByText("start-tutorial"));
+    await waitFor(() => expect(lastProps().run).toBe(true));
+
+    expect(screen.queryByText("Pause")).not.toBeInTheDocument();
+    expect(screen.getByText("Abandon")).toBeInTheDocument();
+  });
+
+  test("finishing a tutorial navigates to its home and never marks the whirlwind seen", async () => {
+    const user = userEvent.setup();
+    renderTour(
+      <TourProvider>
+        <TutorialStarter />
+        <LocationProbe />
+      </TourProvider>,
+    );
+
+    await user.click(screen.getByText("start-tutorial"));
+    await waitFor(() => expect(lastProps().steps).toHaveLength(9));
+
+    await act(async () => {
+      lastProps().onEvent({}, controlsWithStatus("finished"));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/feedback?tab=received"),
+    );
+    expect(hasSeenTour(7)).toBe(false);
+  });
+
+  test("abandoning a tutorial navigates to its home and never marks the whirlwind seen", async () => {
+    const user = userEvent.setup();
+    renderTour(
+      <TourProvider>
+        <TutorialStarter />
+        <LocationProbe />
+      </TourProvider>,
+    );
+
+    await user.click(screen.getByText("start-tutorial"));
+    await waitFor(() => expect(lastProps().steps).toHaveLength(9));
+
+    await user.click(screen.getByText("Abandon"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/feedback?tab=received"),
+    );
+    expect(hasSeenTour(7)).toBe(false);
+    expect(lastProps().run).toBe(false);
+  });
+
+  test("startTour after a tutorial rebuilds the whirlwind's step list", async () => {
+    const user = userEvent.setup();
+    renderTour(
+      <TourProvider>
+        <TutorialStarter />
+        <Replayer />
+      </TourProvider>,
+    );
+
+    await user.click(screen.getByText("start-tutorial"));
+    await waitFor(() => expect(lastProps().steps).toHaveLength(9));
+    // Tutorial steps never carry the whirlwind's Config anchor.
+    expect(lastProps().steps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(false);
+
+    await user.click(screen.getByText("replay"));
+    await waitFor(() =>
+      expect(lastProps().steps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true),
+    );
+  });
 });
 
 // Build a minimal-but-typed TooltipRenderProps for rendering TourTooltip in isolation. Only the
@@ -576,5 +685,39 @@ describe("TourTooltip", () => {
     expect(screen.getByText("Back")).toBeInTheDocument();
     expect(screen.getByText("Done")).toBeInTheDocument();
     expect(screen.queryByText("Next")).not.toBeInTheDocument();
+  });
+
+  test("hides Pause when the running tour reports itself not pausable (a tutorial)", () => {
+    const props = makeTooltipProps();
+    renderWithProviders(
+      <TourActionsContext.Provider value={{ abandon: vi.fn(), pausable: false }}>
+        <TourTooltip {...props} />
+      </TourActionsContext.Provider>,
+    );
+
+    expect(screen.queryByText("Pause")).not.toBeInTheDocument();
+    expect(screen.getByText("Abandon")).toBeInTheDocument();
+  });
+
+  test("renders non-string step content raw (not wrapped in Text) in the wider box", () => {
+    // tooltipProps (spread onto the Paper) carries role="dialog", so the Paper itself is the
+    // dialog-role element — a robust handle regardless of Mantine's injected <style> tags.
+    renderWithProviders(<TourTooltip {...makeTooltipProps()} />);
+    const plainPaper = screen.getByRole("dialog");
+    cleanup();
+
+    const richProps = makeTooltipProps({
+      step: { title: "Step 2 of 3", content: <svg data-testid="diagram" role="img" /> } as never,
+    });
+    renderWithProviders(<TourTooltip {...richProps} />);
+    const richPaper = screen.getByRole("dialog");
+
+    // An SVG inside Mantine Text's <p> is invalid HTML, so rich content skips it entirely.
+    expect(screen.getByTestId("diagram")).toBeInTheDocument();
+    // The wide box (maw=560) beats the ordinary text box (maw=360) — implementation-agnostic:
+    // just assert the rich Paper is strictly wider, not a pinned unit/value. Mantine renders
+    // `maw` as `max-width: calc(<rem> * var(--mantine-scale))`, not a bare px/rem value.
+    const remValue = (style: string) => Number(/calc\(([\d.]+)rem/.exec(style)?.[1] ?? NaN);
+    expect(remValue(richPaper.style.maxWidth)).toBeGreaterThan(remValue(plainPaper.style.maxWidth));
   });
 });

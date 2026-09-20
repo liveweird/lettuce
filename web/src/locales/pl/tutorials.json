@@ -1,0 +1,19 @@
+{
+  "feedbacks": {
+    "launch": "Jak działa feedback",
+    "steps": {
+      "intro": "Feedback to krótka pisemna notatka jednej osoby o pracy drugiej. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działa feedback\".",
+      "lifecycle": "Feedback zaczyna się ze statusem Poproszono (ktoś o niego poprosił/a) albo jako Twoja własna Wersja robocza, a dociera do innych dopiero, gdy ma status Wysłano. Prośba może zakończyć się statusem Odrzucono, a wysłany feedback może przejść w status Wycofano.",
+      "received": "Otrzymane pokazuje feedback, który wysłali Ci inni. Nigdy nie zobaczysz wersji roboczej — tylko to, co zostało wysłane.",
+      "provided": "Wystawione to wszystko, co piszesz: wersje robocze, wysłany feedback oraz prośby czekające na Ciebie (status Poproszono). Otwórz prośbę, aby ją przyjąć albo odrzucić.",
+      "team": "Mój zespół pokazuje feedback o osobach, które Ci podlegają — dopiero gdy zostanie wysłany. Wersje robocze pozostają prywatne dla ich autora/autorki.",
+      "teamScope": "W Filtrach pole \"Podwładni\" przełącza między Twoimi bezpośrednimi podwładnymi a wszystkimi podwładnymi poniżej. Pozostałe filtry zawężają listę według osoby, statusu i widoczności.",
+      "new": "Pisanie feedbacku zaczyna się tutaj. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie zapisane, dopóki nie klikniesz przycisku zapisu.",
+      "setup": "Wybierz maksymalnie czterech odbiorców, a potem zdecyduj, kto może to przeczytać: Wystawiający + podmiot zostawia to między Wami, Publiczna pokazuje wpis na ścianie Kudos.",
+      "actions": "Zapisz wersję roboczą utrzymuje wpis jako prywatny, dopóki nie będziesz gotowy/a; Zapisz i wyślij go dostarcza. Wysłany feedback możesz później nadal wycofać.",
+      "ask": "Chcesz feedbacku o sobie? Na karcie osoby użyj przycisku \"Poproś o feedback\" — dostanie ona prośbę w swojej zakładce Wystawione.",
+      "request": "Jako menedżer/ka możesz też użyć przycisku \"Zamów feedback dla\" na karcie podwładnego, by poprosić o niego kogoś innego. Widzisz, że taka prośba istnieje, a treść przeczytasz, gdy wystawiający/a ją wyśle.",
+      "kudos": "Publiczny, wysłany feedback pojawia się na ścianie Kudos dla wszystkich. To cały przepływ — Gotowe wraca do feedbacku."
+    }
+  }
+}

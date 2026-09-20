@@ -9,10 +9,14 @@ export function FilterToggle({
   open,
   onToggle,
   activeFilterCount,
+  tourId,
 }: {
   open: boolean;
   onToggle: () => void;
   activeFilterCount: number;
+  /** Becomes `data-tour` on the toggle — a tutorial anchor for the always-rendered control
+   *  (the filter body only mounts while open, so a step that needs it targets this instead). */
+  tourId?: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -21,6 +25,7 @@ export function FilterToggle({
       size="xs"
       onClick={onToggle}
       aria-expanded={open}
+      data-tour={tourId}
       leftSection={<IconFilter size={16} />}
       rightSection={
         <Group gap={6} wrap="nowrap" component="span">
@@ -67,17 +72,25 @@ export function FilterPanelBody({ children }: { children: ReactNode }) {
 export default function FilterPanel({
   activeFilterCount,
   storageKey,
+  tourId,
   children,
 }: {
   activeFilterCount: number;
   storageKey: string;
+  /** Forwarded to the Filters toggle as `data-tour` (a tutorial anchor). */
+  tourId?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useFilterPanel(storageKey);
   return (
     <div>
       <Group gap="xs" mb={open ? "sm" : 0}>
-        <FilterToggle open={open} onToggle={() => setOpen(!open)} activeFilterCount={activeFilterCount} />
+        <FilterToggle
+          open={open}
+          onToggle={() => setOpen(!open)}
+          activeFilterCount={activeFilterCount}
+          tourId={tourId}
+        />
       </Group>
       {open && <FilterPanelBody>{children}</FilterPanelBody>}
     </div>

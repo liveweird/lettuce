@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.14.0",
+    date: "2026-09-20",
+    en: `How feedback works — a short guided walkthrough from the Feedback page: what feedback is, how it moves from a request through a draft to sent, where received and written feedback live, how to write and send one, and how to ask for it. Managers additionally see the My team tab, the Reports scope and requesting feedback about a report. It only looks around — nothing is created or changed.`,
+    pl: `Jak działa feedback — krótki przewodnik uruchamiany ze strony Feedback: czym jest feedback, jak przechodzi od prośby przez wersję roboczą do wysłania, gdzie znajdziesz feedback otrzymany i wystawiony, jak go napisać i wysłać oraz jak o niego poprosić. Jeśli zarządzasz zespołem, zobaczysz dodatkowo zakładkę Mój zespół, zakres podwładnych i proszenie o feedback o podwładnym. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia.`,
+  },
+  {
     version: "3.13.3",
     date: "2026-09-20",
     en: `Sign-in codes are capped per account. An account with the emailed second factor can have at most five pending sign-in codes at a time; further sign-ins are refused with a clear message until the earlier codes expire. This stops someone who knows a password from flooding the account's mailbox with codes. Each code keeps its own expiry and guess limit as before.`,
