@@ -15,5 +15,22 @@
       "request": "As a manager you can also use \"Request feedback for\" on a report's card to ask someone else about them. You see that it exists, and read it once the provider sends it.",
       "kudos": "Public, sent feedback appears on the Kudos wall for everyone. That's the whole flow — Done takes you back to Feedback."
     }
+  },
+  "goals": {
+    "launch": "How goals work",
+    "steps": {
+      "intro": "A goal is something your manager sets for you and tracks over time. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How goals work\" button.",
+      "lifecycle": "A goal starts as a Draft, goes live as Active, and ends as Archived with a summary. Every step can be reversed — an active goal can return to draft, and an archived one can be reopened.",
+      "own": "My goals lists every goal your managers set for you, drafts included. You see a goal from the moment it is created, not only once it is active.",
+      "filters": "Under Filters you narrow the list by title, status and creation date. The choice is remembered the next time you come back.",
+      "progress": "While a goal is Active, both you and your manager record progress: tick milestones on a Plan, or enter the current value on a Number or Percentage goal. An optional comment lands in the goal's history, and the other side is notified.",
+      "managed": "Goals I've set lists the goals you set for your reports. Under Filters, \"Reports\" widens it from your direct reports to everyone below you.",
+      "new": "Creating a goal starts here. Let's open the form to look — nothing is created until you press Create.",
+      "definition": "Pick the team member, give the goal a title, choose its kind — Plan with milestones, Number or Percentage with a target — and set a due date. A new goal always lands as a Draft.",
+      "actions": "Create saves the draft and then asks whether to activate it right away. We won't press it now — nothing is created in this walkthrough.",
+      "manage": "On a goal's page you run its lifecycle: Activate a draft, Return to draft an active goal, Archive it with a summary, or Reopen an archived one. Only the manager who set the goal can do this.",
+      "subordinates": "Each card on My subordinates has a Goals button listing what you set for that person, and New goal to add one. The card also counts their active goals.",
+      "managers": "Each card on My managers has a Goals button showing the goals that manager set for you, and counts the active ones. That's the whole flow — Done takes you back to Goals."
+    }
   }
 }

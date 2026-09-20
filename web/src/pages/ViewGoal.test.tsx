@@ -182,6 +182,18 @@ describe("ViewGoal page", () => {
     expect(screen.getByText(/Done well\./)).toBeInTheDocument();
   });
 
+  test("renders the Lifecycle tab with the state diagram highlighting the current status", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByText("Raise coverage");
+    await user.click(screen.getByRole("tab", { name: "Lifecycle" }));
+    expect(await screen.findByRole("img", { name: /lifecycle/i })).toBeInTheDocument();
+    // The goal is ACTIVE — its node label still shows even while highlighted.
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
+  });
+
   test("the subordinate gets no lifecycle actions and no Edit — but Update on ACTIVE (v2.8.0)", async () => {
     setupMocks();
     renderScreen();

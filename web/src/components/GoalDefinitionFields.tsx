@@ -25,9 +25,12 @@ const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
 export default function GoalDefinitionFields({
   form,
   typeChangeWarning = false,
+  tourId,
 }: {
   form: UseFormReturnType<GoalDefinitionFormValues>;
   typeChangeWarning?: boolean;
+  /** Becomes `data-tour` on the type/target/direction/due-date row — a tutorial anchor. */
+  tourId?: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -54,7 +57,7 @@ export default function GoalDefinitionFields({
           </Text>
         )}
       </Stack>
-      <Group gap="xl" align="flex-start">
+      <Group gap="xl" align="flex-start" data-tour={tourId}>
         <Select
           label={t("goal.type.label")}
           data={(["PLAN", "NUMBER", "PERCENTAGE"] as const).map((type) => ({

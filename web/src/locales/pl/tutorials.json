@@ -15,5 +15,22 @@
       "request": "Jako menedżer/ka możesz też użyć przycisku \"Zamów feedback dla\" na karcie podwładnego, by poprosić o niego kogoś innego. Widzisz, że taka prośba istnieje, a treść przeczytasz, gdy wystawiający/a ją wyśle.",
       "kudos": "Publiczny, wysłany feedback pojawia się na ścianie Kudos dla wszystkich. To cały przepływ — Gotowe wraca do feedbacku."
     }
+  },
+  "goals": {
+    "launch": "Jak działają cele",
+    "steps": {
+      "intro": "Cel to coś, co Twój menedżer/ka wyznacza dla Ciebie i śledzi w czasie. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają cele\".",
+      "lifecycle": "Cel zaczyna się jako Szkic, staje się aktywny jako Aktywny, a kończy jako Zarchiwizowany wraz z podsumowaniem. Każdy krok można cofnąć — aktywny cel może wrócić do szkicu, a zarchiwizowany można otworzyć ponownie.",
+      "own": "Moje cele pokazują każdy cel, który wyznaczyli Ci Twoi menedżerowie, łącznie ze szkicami. Widzisz cel od momentu jego utworzenia, nie dopiero gdy stanie się aktywny.",
+      "filters": "W Filtrach zawężasz listę według tytułu, statusu i daty utworzenia. Wybór zapamiętujemy do następnej wizyty.",
+      "progress": "Gdy cel jest Aktywny, zarówno Ty, jak i Twój menedżer/ka zapisujecie postęp: odhaczacie kamienie milowe w Planie albo wpisujecie bieżącą wartość w celu Liczbowym lub Procentowym. Opcjonalny komentarz trafia do historii celu, a druga strona dostaje powiadomienie.",
+      "managed": "Cele wyznaczone przeze mnie pokazują cele, które wyznaczyłeś/aś swoim podwładnym. W Filtrach pole \"Podwładni\" poszerza listę z Twoich bezpośrednich podwładnych na wszystkich poniżej.",
+      "new": "Tworzenie celu zaczyna się tutaj. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie utworzone, dopóki nie klikniesz Utwórz.",
+      "definition": "Wybierz członka zespołu, nadaj celowi tytuł, wybierz jego rodzaj — Plan z kamieniami milowymi, Liczbę lub Procent z wartością docelową — i ustaw termin. Nowy cel zawsze trafia jako Szkic.",
+      "actions": "Utwórz zapisuje szkic, a potem pyta, czy od razu go aktywować. Teraz tego nie klikniemy — nic nie zostanie utworzone w tym przewodniku.",
+      "manage": "Na stronie celu prowadzisz jego cykl życia: Aktywuj szkic, Wróć do szkicu aktywny cel, Zarchiwizuj go z podsumowaniem albo Otwórz ponownie zarchiwizowany. Może to zrobić tylko menedżer/ka, który/a wyznaczył/a cel.",
+      "subordinates": "Każda karta na liście Moi podwładni ma przycisk Cele pokazujący to, co wyznaczyłeś/aś tej osobie, oraz Nowy cel, by dodać kolejny. Karta liczy też jej aktywne cele.",
+      "managers": "Każda karta na liście Moi menedżerowie ma przycisk Cele pokazujący cele, które ten menedżer/ka Ci wyznaczył/a, i liczy te aktywne. To cały przepływ — Gotowe wraca do Celów."
+    }
   }
 }
