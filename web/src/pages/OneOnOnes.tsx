@@ -6,6 +6,7 @@ import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import OneOnOneTable from "./OneOnOneTable";
 import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 
 const TABS = ["own", "managed", "team"] as const;
 type OneOnOneTab = (typeof TABS)[number];
@@ -40,11 +41,19 @@ export default function OneOnOnes() {
       <PageHeader
         title={t("oneOnOne.sectionTitle")}
         actions={
-          isManager && (
-            <Button component={RouterLink} to="/one-on-ones/new" leftSection={<IconPlus size={16} />}>
-              {t("oneOnOne.newMeeting")}
-            </Button>
-          )
+          <>
+            {isManager && (
+              <Button
+                component={RouterLink}
+                to="/one-on-ones/new"
+                leftSection={<IconPlus size={16} />}
+                data-tour="one-on-one-new"
+              >
+                {t("oneOnOne.newMeeting")}
+              </Button>
+            )}
+            <TutorialButton id="oneOnOnes" tourId="one-on-one-tutorial" />
+          </>
         }
       />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
@@ -70,7 +79,7 @@ export default function OneOnOnes() {
           </Tabs.Panel>
         )}
         <Tabs.Panel value="own" pt="md">
-          <OneOnOneTable view="own" />
+          <OneOnOneTable view="own" tourId="one-on-one-filters" />
         </Tabs.Panel>
         {isManager && (
           <Tabs.Panel value="team" pt="md">

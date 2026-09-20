@@ -68,5 +68,23 @@
       "manage": "On a review's page you run its lifecycle: Submit for calibration once all five ratings and summaries are filled, Return to draft, Publish, or Unpublish. Only the manager who wrote the review can do this, and the report is notified when it is published or unpublished.",
       "periods": "Reviews attach to Review periods — a global timeline an administrator extends without gaps; a period can't be changed once added, and a review needs a period that has started. That's the whole flow — Done takes you back to Performance."
     }
+  },
+  "oneOnOnes": {
+    "launch": "How 1:1 meetings work",
+    "steps": {
+      "intro": "A 1:1 meeting is a dated record of what you and your manager discussed — points, decisions and action items — written by the manager after the meeting. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How 1:1 meetings work\" button.",
+      "own": "I'm a subordinate lists every 1:1 your managers documented with you, newest first, with counts of points, decisions and action items — and how many are still open. Open one to read it: the manager writes, you read.",
+      "filters": "Under Filters you narrow the list by manager name and meeting date. The choice is remembered the next time you come back.",
+      "document": "A meeting's page has three lists — Points discussed, Decisions made and Action items. Each action item has an owner, you or the manager, an optional due date and an Open or Resolved state, plus a history icon that follows the item across meetings.",
+      "carryOver": "Action items still open when the next 1:1 is created are carried over into it automatically, marked \"Carried over since\" the meeting they first appeared in, until someone resolves them. Only the pair's latest meeting can be edited — older ones are the record.",
+      "managed": "I'm a manager lists the 1:1s you documented with your reports. The pair's latest meeting shows Edit; older ones open read-only.",
+      "team": "My subordinate's a manager shows the 1:1s your reports run as managers themselves — direct reports by default, or your whole chain under \"Reports\" in Filters. Read-only: a look at how your managers manage.",
+      "new": "A new 1:1 starts here, or from a report's card on My subordinates. Let's open the form to look — nothing is created until you press Create.",
+      "form": "Pick the team member — anyone below you, indirect reports included — and the meeting date. A meeting can't be dated before the pair's previous one, so meetings stay in order.",
+      "actions": "Create saves the meeting and opens the editor, where you write the points, decisions and action items — and the open items from the previous 1:1 are already waiting there. We won't press it now — nothing is created in this walkthrough.",
+      "edit": "In the editor you add and reorder paragraphs, assign each action item to you or the report with a due date, and tick items resolved. Save replaces the whole document and notifies the report; only the pair's latest meeting is editable, and deleting it makes the previous one editable again.",
+      "subordinates": "Each card on My subordinates shows the Last 1:1 with that person and how many action items are open, and its 1:1 meetings menu offers New 1:1 and the list of your meetings together.",
+      "managers": "Each card on My managers shows your Last 1:1 with that manager and the open action items, and its 1:1 meetings menu lists every meeting you had together. That's the whole flow — Done takes you back to 1:1 meetings."
+    }
   }
 }

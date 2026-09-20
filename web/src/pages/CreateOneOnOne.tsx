@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Box, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import DateField from "../components/DateField";
@@ -108,51 +108,55 @@ export default function CreateOneOnOne() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack>
             {/* The context line (v3.5.0): the pair and the date — the controls keep their
-                names via aria-label (the e2e "Team member" combobox / "Meeting date" input). */}
-            <MetaStrip
-              items={[
-                {
-                  key: "manager",
-                  label: t("oneOnOne.manager"),
-                  value: <Text size="sm">{t("common.state.you")}</Text>,
-                },
-                {
-                  key: "subordinate",
-                  label: t("oneOnOne.subordinate"),
-                  value: showPicker ? (
-                    <Select
-                      aria-label={t("oneOnOne.subordinate")}
-                      placeholder={t("oneOnOne.pickSubordinate")}
-                      data={options}
-                      renderOption={renderUserOption}
-                      value={picked}
-                      onChange={setPicked}
-                      searchable
-                      clearable
-                      nothingFoundMessage={t("oneOnOne.noReports")}
-                      error={reportsError ? t("common.error.optionsFailed") : undefined}
-                      w={260}
-                    />
-                  ) : (
-                    // Launched from a subordinate's Dashboard card: the party is fixed, not editable.
-                    // The `#id` placeholder shows only until the pool resolves the canonical name.
-                    <PersonaChip name={preselectedReport?.name ?? `#${preselectedId}`} />
-                  ),
-                },
-                {
-                  key: "meetingDate",
-                  label: t("oneOnOne.meetingDate"),
-                  value: (
-                    <DateField
-                      aria-label={t("oneOnOne.meetingDate")}
-                      value={meetingDate}
-                      onChange={(iso) => setMeetingDate(iso)}
-                      w={180}
-                    />
-                  ),
-                },
-              ]}
-            />
+                names via aria-label (the e2e "Team member" combobox / "Meeting date" input).
+                MetaStrip takes no data-tour of its own, so a wrapper Box carries the tutorial
+                anchor. */}
+            <Box data-tour="one-on-one-form">
+              <MetaStrip
+                items={[
+                  {
+                    key: "manager",
+                    label: t("oneOnOne.manager"),
+                    value: <Text size="sm">{t("common.state.you")}</Text>,
+                  },
+                  {
+                    key: "subordinate",
+                    label: t("oneOnOne.subordinate"),
+                    value: showPicker ? (
+                      <Select
+                        aria-label={t("oneOnOne.subordinate")}
+                        placeholder={t("oneOnOne.pickSubordinate")}
+                        data={options}
+                        renderOption={renderUserOption}
+                        value={picked}
+                        onChange={setPicked}
+                        searchable
+                        clearable
+                        nothingFoundMessage={t("oneOnOne.noReports")}
+                        error={reportsError ? t("common.error.optionsFailed") : undefined}
+                        w={260}
+                      />
+                    ) : (
+                      // Launched from a subordinate's Dashboard card: the party is fixed, not editable.
+                      // The `#id` placeholder shows only until the pool resolves the canonical name.
+                      <PersonaChip name={preselectedReport?.name ?? `#${preselectedId}`} />
+                    ),
+                  },
+                  {
+                    key: "meetingDate",
+                    label: t("oneOnOne.meetingDate"),
+                    value: (
+                      <DateField
+                        aria-label={t("oneOnOne.meetingDate")}
+                        value={meetingDate}
+                        onChange={(iso) => setMeetingDate(iso)}
+                        w={180}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </Box>
 
             {error && (
               <Alert color="red" variant="light">
@@ -161,17 +165,19 @@ export default function CreateOneOnOne() {
             )}
 
             <FormFooter>
-              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button
-                type="button"
-                onClick={submit}
-                loading={submitting}
-                disabled={!subordinateId || !meetingDate}
-              >
-                {t("common.action.create")}
-              </Button>
+              <Group gap="sm" data-tour="one-on-one-form-actions">
+                <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={submit}
+                  loading={submitting}
+                  disabled={!subordinateId || !meetingDate}
+                >
+                  {t("common.action.create")}
+                </Button>
+              </Group>
             </FormFooter>
           </Stack>
         </Paper>

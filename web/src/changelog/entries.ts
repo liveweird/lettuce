@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.18.0",
+    date: "2026-09-20",
+    en: `How 1:1 meetings work — a short guided walkthrough from the 1:1 meetings page: what a meeting record holds (points, decisions, action items with owners, due dates and history), how open action items carry over to the next 1:1, why only the latest meeting is editable, your list and its filters, and the Last 1:1 stat on the My managers cards. Managers additionally see their own and their subordinates' meeting lists, the New 1:1 form, the editor, and the My subordinates cards. It only looks around — nothing is created or changed.`,
+    pl: `Jak działają spotkania 1:1 — krótki przewodnik uruchamiany ze strony Spotkania 1:1: co zawiera dokument spotkania (omówione punkty, podjęte decyzje, zadania z właścicielami, terminami i historią), jak otwarte zadania przenoszą się na następne 1:1, dlaczego edytować można tylko ostatnie spotkanie, Twoja lista i filtry, oraz statystyka Ostatnie 1:1 na kartach Moi menedżerowie. Jeśli zarządzasz zespołem, zobaczysz dodatkowo swoje spotkania i spotkania swoich podwładnych, formularz Nowe 1:1, edytor i karty Moi podwładni. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia.`,
+  },
+  {
     version: "3.17.0",
     date: "2026-09-20",
     en: `How performance reviews work — a short guided walkthrough from the Performance page: the Draft → Calibration → Published lifecycle (with a new Lifecycle tab on every review), My performance and its filters, and the five rated categories. Managers additionally see Team's performance with its Period picker, the Table | Distribution | Quadrants views and filters, the New review form, and the lifecycle actions. It only looks around — nothing is created or changed.`,
