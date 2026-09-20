@@ -31,6 +31,7 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
+import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
@@ -129,6 +130,35 @@ private fun JwtConfig.authResponse(
     )
 }
 
+/**
+ * Boot-time range validation for a numeric auth-security config value (checkup #36, C5): a
+ * malformed or out-of-range lockout/MFA/password-reset setting is a config error, not a runtime
+ * concern — `LOGIN_LOCKOUT_DURATION_SECONDS=0` would never lock while `login.lockout` still
+ * audits, and `threshold=0` would lock on the first attempt. Refuses to start in EVERY mode (the
+ * `security.encryption.key` malformed-key precedent in infra/crypto/Crypto.kt and
+ * plugins/Security.kt's `error(message)` shape — this is not gated by `developmentMode`).
+ * [min] is inclusive; a non-numeric override is rejected the same way as an out-of-range one.
+ */
+private fun requireConfigInt(config: ApplicationConfig, key: String, min: Int, max: Int = Int.MAX_VALUE): Int {
+    val raw = config.property(key).getString()
+    val value = raw.toIntOrNull()
+    if (value == null || value < min || value > max) {
+        val bound = if (max == Int.MAX_VALUE) ">= $min" else "between $min and $max"
+        error("Config \"$key\" must be an integer $bound (was \"$raw\")")
+    }
+    return value
+}
+
+/** The [requireConfigInt] sibling for the `Long`-typed duration/interval settings. */
+private fun requireConfigLong(config: ApplicationConfig, key: String, min: Long): Long {
+    val raw = config.property(key).getString()
+    val value = raw.toLongOrNull()
+    if (value == null || value < min) {
+        error("Config \"$key\" must be an integer >= $min (was \"$raw\")")
+    }
+    return value
+}
+
 fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
     val userService = attributes[UserServiceKey]
@@ -145,8 +175,8 @@ fun Application.configureAuthRoutes() {
     // DB-backed since V81: replicas share the counters and a restart no longer resets them.
     val loginThrottle = LoginThrottle(
         database = database,
-        threshold = environment.config.property("security.lockout.threshold").getString().toInt(),
-        lockoutMillis = environment.config.property("security.lockout.durationSeconds").getString().toLong() * 1000,
+        threshold = requireConfigInt(environment.config, "security.lockout.threshold", min = 1),
+        lockoutMillis = requireConfigLong(environment.config, "security.lockout.durationSeconds", min = 1) * 1000,
     )
 
     // Self-service password reset: one request per submitted email per interval, uniformly
@@ -154,18 +184,19 @@ fun Application.configureAuthRoutes() {
     // since V81, like the lockout above.
     val resetThrottle = PasswordResetThrottle(
         database = database,
-        minIntervalMillis = environment.config
-            .property("security.passwordReset.minIntervalSeconds").getString().toLong() * 1000,
+        minIntervalMillis = requireConfigLong(
+            environment.config, "security.passwordReset.minIntervalSeconds", min = 1,
+        ) * 1000,
     )
     val mailAppUrl = mailAppUrl()
 
     // Email MFA (v2.4.0): pending challenges for MFA-enabled accounts mid-login. DB-backed
     // since V81, like the lockout above (a restart no longer invalidates a pending challenge).
-    val mfaTtlSeconds = environment.config.property("security.mfa.codeTtlSeconds").getString().toLong()
+    val mfaTtlSeconds = requireConfigLong(environment.config, "security.mfa.codeTtlSeconds", min = 1)
     val mfaChallenges = MfaChallenges(
         database = database,
         ttlMillis = mfaTtlSeconds * 1000,
-        attemptCap = environment.config.property("security.mfa.maxAttempts").getString().toInt(),
+        attemptCap = requireConfigInt(environment.config, "security.mfa.maxAttempts", min = 1, max = 100),
     )
     val mfaTtlMinutes = (mfaTtlSeconds + 59) / 60
 
@@ -379,7 +410,7 @@ fun Application.configureAuthRoutes() {
                 val req = call.receive<MfaVerifyRequest>()
                 when (val outcome = mfaChallenges.verify(req.challengeId, req.code)) {
                     is MfaChallenges.Outcome.Failure -> {
-                        audit("login.mfa_failure", "reason" to outcome.reason)
+                        audit("login.mfa_failure", "ip" to call.request.origin.remoteHost, "reason" to outcome.reason)
                         // Uniform for every failure mode — a guesser learns nothing about
                         // whether the challenge exists, expired, or the code was wrong.
                         throw UnauthorizedException("Invalid or expired sign-in code")
@@ -390,7 +421,12 @@ fun Application.configureAuthRoutes() {
                         // active, and the pair is minted from their current roles/flags.
                         val user = userService.read(userId)
                         if (user == null) {
-                            audit("login.mfa_failure", "reason" to "user_gone", "userId" to userId.toLong())
+                            audit(
+                                "login.mfa_failure",
+                                "ip" to call.request.origin.remoteHost,
+                                "reason" to "user_gone",
+                                "userId" to userId.toLong(),
+                            )
                             throw UnauthorizedException("Invalid or expired sign-in code")
                         }
                         if (user.deactivated) {

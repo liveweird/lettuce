@@ -218,14 +218,21 @@ object TestSeedState {
                 }
             }
             // Also drop any DB-backed auth state (V81) a test left on the seed accounts — a
-            // lingering lockout/throttle row would otherwise leak into later tests reusing the
-            // same seed email (e.g. BootstrapTest's deliberate 401 on admin@lettuce.local).
+            // lingering lockout/throttle/challenge row would otherwise leak into later tests
+            // reusing the same seed email (e.g. BootstrapTest's deliberate 401 on
+            // admin@lettuce.local).
             val seedEmails = DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL
             ch.nokillswit.auth.LoginThrottle.LoginLockouts.deleteWhere {
                 ch.nokillswit.auth.LoginThrottle.LoginLockouts.email inList seedEmails
             }
             ch.nokillswit.auth.PasswordResetThrottle.PasswordResetRequests.deleteWhere {
                 ch.nokillswit.auth.PasswordResetThrottle.PasswordResetRequests.email inList seedEmails
+            }
+            // …and any pending MFA challenges (v3.11.0/V81) a test left mid-flight on a seed
+            // account — keyed by user id (not email, unlike the two throttle stores above), so
+            // reuse the seedIds gathered for the feature-flag reset just above.
+            ch.nokillswit.auth.MfaChallenges.Challenges.deleteWhere {
+                ch.nokillswit.auth.MfaChallenges.Challenges.userId inList seedIds.map { it.toLong() }
             }
         }
     }

@@ -159,6 +159,93 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun `a zero login lockout threshold refuses to start in every mode`() = testApplication {
+        // threshold=0 would lock out the very first attempt (checkup #36, C5) — a config error,
+        // not a runtime concern, so this must fail closed even in development.
+        configureApp("security.lockout.threshold" to "0")
+
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on a zero lockout threshold")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.lockout.threshold" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `a zero login lockout duration refuses to start in every mode`() = testApplication {
+        // durationSeconds=0 would never actually lock while login.lockout still audits a trip.
+        configureApp("security.lockout.durationSeconds" to "0")
+
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on a zero lockout duration")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.lockout.durationSeconds" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `a non-numeric lockout threshold refuses to start with a clear message`() = testApplication {
+        configureApp("security.lockout.threshold" to "not-a-number")
+
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on a non-numeric config value")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.lockout.threshold" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `a zero password-reset interval refuses to start in every mode`() = testApplication {
+        configureApp("security.passwordReset.minIntervalSeconds" to "0")
+
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on a zero password-reset interval")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.passwordReset.minIntervalSeconds" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `a zero MFA code TTL refuses to start in every mode`() = testApplication {
+        configureApp("security.mfa.codeTtlSeconds" to "0")
+
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on a zero MFA code TTL")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.mfa.codeTtlSeconds" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `an out-of-range MFA attempt cap refuses to start in every mode`() = testApplication {
+        // Below the floor.
+        configureApp("security.mfa.maxAttempts" to "0")
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on a zero MFA attempt cap")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.mfa.maxAttempts" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `an MFA attempt cap above the ceiling refuses to start in every mode`() = testApplication {
+        configureApp("security.mfa.maxAttempts" to "101")
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on an MFA attempt cap above 100")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.mfa.maxAttempts" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `boundary values for the lockout, MFA and password-reset config boot cleanly`() = testApplication {
+        // The inclusive minimums (and the MFA cap's ceiling) are accepted, not rejected.
+        configureApp(
+            "security.lockout.threshold" to "1",
+            "security.lockout.durationSeconds" to "1",
+            "security.mfa.codeTtlSeconds" to "1",
+            "security.mfa.maxAttempts" to "100",
+            "security.passwordReset.minIntervalSeconds" to "1",
+        )
+        startApplication()
+        val response = jsonClient().get("/api/v1/notifications")
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
     fun `enabling CSRF blocks unsafe requests without an origin`() = testApplication {
         configureApp("security.csrf.enabled" to "true")
         startApplication()

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.13.2",
+    date: "2026-09-20",
+    en: `Housekeeping. Team badges look and behave the same everywhere: the Team columns on the days-off team tab now link to the team's details, like the badges on person cards and the feature-flags list. The app refuses to start on a nonsensical sign-in lockout or sign-in code setting (a zero duration, a zero threshold) instead of silently running with it, and a browser that abandons a page download mid-way no longer leaves an error in the server log.`,
+    pl: `Porządki. Odznaki zespołów wyglądają i działają wszędzie tak samo: kolumny Zespół na zakładce Mój zespół w dniach wolnych prowadzą teraz do szczegółów zespołu, tak jak odznaki na kartach osób i na liście flag funkcji. Aplikacja odmawia startu przy bezsensownym ustawieniu blokady logowania lub kodu logowania (zerowy czas, zerowy próg), zamiast po cichu z nim pracować, a przeglądarka, która przerwie pobieranie strony w połowie, nie zostawia już błędu w logu serwera.`,
+  },
+  {
     version: "3.13.1",
     date: "2026-09-20",
     en: `Fix: the sign-in lockout now counts simultaneous attempts exactly. Each attempt is reserved before the password is checked, so a burst of wrong passwords fired at the same moment can no longer slip past the limit of failed attempts per account. Nothing changes for an ordinary sign-in.`,

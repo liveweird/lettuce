@@ -404,12 +404,13 @@ fun Application.configureDaysOffRoutes() {
                     }
                     else -> throw BadRequestException("Unknown view: $view (allowed: own, managed)")
                 }
-                // Scope teams (v3.13.0): managed rows carry `teams`, keyed on the SAME
-                // manager-id set the widened managed scope already resolved above (reused, not
-                // re-walked) or just the caller for the direct managed view; own stays null.
-                val teamScopeManagerIds: Set<UInt>? = when (view) {
-                    "managed" -> if (includeIndirect == true) userIds + caller.userId else setOf(caller.userId)
-                    else -> null
+                // Scope teams (v3.13.0): managed rows carry `teams`. The route only names the
+                // caller + includeIndirect; DaysOffService.budgets derives the manager-id set
+                // from the SAME `userIds` subtree it already receives (no second chain walk).
+                val managedScope = if (view == "managed") {
+                    DaysOffBudgetsManagedScope(caller.userId, includeIndirect == true)
+                } else {
+                    null
                 }
                 call.respond(
                     HttpStatusCode.OK,
@@ -418,7 +419,7 @@ fun Application.configureDaysOffRoutes() {
                             userIds,
                             year,
                             correctable = view == "managed",
-                            teamScopeManagerIds = teamScopeManagerIds,
+                            managedScope = managedScope,
                         ),
                     ),
                 )

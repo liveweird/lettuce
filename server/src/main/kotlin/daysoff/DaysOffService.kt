@@ -15,8 +15,8 @@ import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.teams.memberTeamIds
 import ch.nokillswit.teams.membersOf
-import ch.nokillswit.teams.teamIdsManagedBy
 import ch.nokillswit.teams.teamRefsByUserIds
+import ch.nokillswit.teams.teamsManagedBy
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.userNameOf
 import io.ktor.server.plugins.BadRequestException
@@ -71,6 +71,15 @@ data class DaysOffPoolRow(val id: UInt, val userId: UInt, val kind: PoolKind, va
  * held no active pool of that kind — a fresh grant) plus the resolved kind, so the route can
  * detect a no-op re-PUT and name the pool in the audit/notification. */
 data class PoolUpsert(val previous: Int?, val kind: PoolKind)
+
+/**
+ * The [DaysOffService.budgets] scope-teams request (checkup #36, C3): what the route knows —
+ * the caller and whether the managed view is widened — not the manager-id set itself, which
+ * [DaysOffService.budgets] derives from the SAME `userIds` subtree the route already passed it
+ * (no second chain walk). Pass null on view=own (the [DaysOffBudget.teams] key then stays
+ * OMITTED, never a computed-but-empty list).
+ */
+data class DaysOffBudgetsManagedScope(val callerUserId: UInt, val includeIndirect: Boolean)
 
 private val ownerUsers = UserService.Users.alias("owner_users")
 
@@ -405,7 +414,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         // list's own transaction; other views leave every row's `teams` at its null default).
         val items = if (view == DaysOffListView.MANAGED) {
             val managerIds = if (includeIndirect) subtree + callerUserId else setOf(callerUserId)
-            val teamsByUser = teamRefsByUserIds(teamIdsManagedBy(managerIds), rows.map { it.userId }.toSet())
+            val teamsByUser = teamRefsByUserIds(teamsManagedBy(managerIds), rows.map { it.userId }.toSet())
             rows.map { it.copy(teams = teamsByUser[it.userId] ?: emptyList()) }
         } else {
             rows
@@ -444,7 +453,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         }
         val teamsByUser: Map<UInt, List<TeamRef>> = when (scope) {
             DaysOffCalendarScope.MEMBER -> teamRefsByUserIds(memberTeamIds(callerUserId), userIds)
-            DaysOffCalendarScope.MANAGED -> teamRefsByUserIds(teamIdsManagedBy(subtree + callerUserId), userIds)
+            DaysOffCalendarScope.MANAGED -> teamRefsByUserIds(teamsManagedBy(subtree + callerUserId), userIds)
         }
         val monthStart = "$month-01"
         val monthEnd = YearMonth.parse(month).atEndOfMonth().toString()
@@ -536,19 +545,23 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * [correctable] stamps every row's `canCorrect` capability flag: since v2.33.0 the
      * corrections write is chain-wide, so every managed-view row (the caller's subtree by
      * construction) is correctable and view=own rows never are — decided route-side.
-     * [teamScopeManagerIds] (v3.13.0), non-null on the managed view only, attaches every row's
-     * `teams` — the teams managed by any id in the set that the row's user belongs to; null
-     * (view=own) leaves `teams` at its OMITTED default (the DaysOffListItem/User.kt idiom).
+     * [managedScope] (v3.13.0, reshaped checkup #36/C3), non-null on the managed view only,
+     * attaches every row's `teams`: the manager-id set is derived HERE from [userIds] — the
+     * same subtree the route already fetched via `directReports`/`transitiveReports`, reused
+     * rather than re-walked — plus the caller under `includeIndirect` (else just the caller
+     * alone); null (view=own) leaves `teams` at its OMITTED default (the DaysOffListItem/User.kt
+     * idiom).
      */
     suspend fun budgets(
         userIds: Set<UInt>,
         year: Int,
         correctable: Boolean = false,
-        teamScopeManagerIds: Set<UInt>? = null,
+        managedScope: DaysOffBudgetsManagedScope? = null,
     ): List<DaysOffBudget> = suspendTransaction(database) {
         if (userIds.isEmpty()) return@suspendTransaction emptyList()
-        val teamsByUser: Map<UInt, List<TeamRef>>? = teamScopeManagerIds?.let {
-            teamRefsByUserIds(teamIdsManagedBy(it), userIds)
+        val teamsByUser: Map<UInt, List<TeamRef>>? = managedScope?.let { scope ->
+            val managerIds = if (scope.includeIndirect) userIds + scope.callerUserId else setOf(scope.callerUserId)
+            teamRefsByUserIds(teamsManagedBy(managerIds), userIds)
         }
         data class ActiveRow(val year: Int, val costH: Int)
         val rowsByUserPool: Map<Pair<UInt, UInt>, List<ActiveRow>> = Requests

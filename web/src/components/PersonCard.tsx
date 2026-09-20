@@ -1,8 +1,6 @@
 import { type ReactNode } from "react";
-import { Avatar, Badge, Group, Paper, Stack, Text } from "@mantine/core";
-import { Link as RouterLink } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { teamDetailsLink } from "../utils/teamLinks";
+import { Avatar, Group, Paper, Stack, Text } from "@mantine/core";
+import TeamBadges from "./TeamBadges";
 import type { TeamRef } from "../utils/teamRows";
 import classes from "./PersonCard.module.css";
 
@@ -23,7 +21,6 @@ export default function PersonCard({
   teams: TeamRef[];
   body?: ReactNode;
 }) {
-  const { t } = useTranslation();
   return (
     <Paper component="li" withBorder radius="md" p="md" shadow="xs" className={classes.card}>
       <Stack gap="sm" h="100%">
@@ -34,20 +31,7 @@ export default function PersonCard({
               <Text fw={600} size="sm" truncate style={{ minWidth: 0 }}>
                 {name}
               </Text>
-              {/* Each badge links to that team's details view (the v2.5.4 convention). */}
-              {teams.map((team) => (
-                <Badge
-                  key={team.id}
-                  component={RouterLink}
-                  to={teamDetailsLink(team.id)}
-                  aria-label={t("teams.detailsForAria", { name: team.name })}
-                  variant="light"
-                  size="sm"
-                  style={{ cursor: "pointer" }}
-                >
-                  {team.name}
-                </Badge>
-              ))}
+              <TeamBadges teams={teams} />
             </Group>
             <Text size="xs" c="dimmed" truncate>
               {email}
