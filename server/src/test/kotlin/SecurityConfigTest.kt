@@ -231,6 +231,25 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun `a zero MFA max-pending-challenges cap refuses to start in every mode`() = testApplication {
+        // Checkup #36 Tier D — the same C5 range-check shape as the attempt cap above.
+        configureApp("security.mfa.maxPendingChallenges" to "0")
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on a zero MFA max-pending-challenges cap")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.mfa.maxPendingChallenges" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `an MFA max-pending-challenges cap above the ceiling refuses to start in every mode`() = testApplication {
+        configureApp("security.mfa.maxPendingChallenges" to "101")
+        val failure = runCatching { startApplication() }.exceptionOrNull()
+        assertNotNull(failure, "startup must fail closed on an MFA max-pending-challenges cap above 100")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("security.mfa.maxPendingChallenges" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
     fun `boundary values for the lockout, MFA and password-reset config boot cleanly`() = testApplication {
         // The inclusive minimums (and the MFA cap's ceiling) are accepted, not rejected.
         configureApp(
@@ -238,6 +257,7 @@ class SecurityConfigTest {
             "security.lockout.durationSeconds" to "1",
             "security.mfa.codeTtlSeconds" to "1",
             "security.mfa.maxAttempts" to "100",
+            "security.mfa.maxPendingChallenges" to "100",
             "security.passwordReset.minIntervalSeconds" to "1",
         )
         startApplication()

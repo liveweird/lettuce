@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.13.3",
+    date: "2026-09-20",
+    en: `Sign-in codes are capped per account. An account with the emailed second factor can have at most five pending sign-in codes at a time; further sign-ins are refused with a clear message until the earlier codes expire. This stops someone who knows a password from flooding the account's mailbox with codes. Each code keeps its own expiry and guess limit as before.`,
+    pl: `Kody logowania mają limit na konto. Konto z drugim składnikiem wysyłanym e-mailem może mieć naraz najwyżej pięć oczekujących kodów logowania; kolejne logowania odrzucamy z czytelnym komunikatem, dopóki wcześniejsze kody nie wygasną. Dzięki temu osoba znająca hasło nie zaleje skrzynki tego konta kodami. Każdy kod zachowuje jak dotąd własny termin ważności i limit prób.`,
+  },
+  {
     version: "3.13.2",
     date: "2026-09-20",
     en: `Housekeeping. Team badges look and behave the same everywhere: the Team columns on the days-off team tab now link to the team's details, like the badges on person cards and the feature-flags list. The app refuses to start on a nonsensical sign-in lockout or sign-in code setting (a zero duration, a zero threshold) instead of silently running with it, and a browser that abandons a page download mid-way no longer leaves an error in the server log.`,

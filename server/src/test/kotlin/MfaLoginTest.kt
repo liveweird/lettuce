@@ -5,6 +5,7 @@ import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.auth.MfaChallengeResponse
 import ch.nokillswit.auth.MfaChallenges
 import ch.nokillswit.auth.MfaVerifyRequest
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserFeaturesUpdateRequest
 import io.ktor.client.HttpClient
@@ -157,6 +158,70 @@ class MfaLoginTest {
             assertTrue(stamped >= before, "lastLoginAt should be stamped at/after the code exchange")
         } finally {
             mail.detach()
+        }
+    }
+
+    @Test
+    fun `too many pending challenges answer 429 and exchanging one code frees a slot`() = testApplication {
+        // Checkup #36 Tier D: caps LIVE pending challenges per account — pinned low so the
+        // route-level throttling is reachable without minting dozens of challenges.
+        configureApp("security.mfa.maxPendingChallenges" to "2")
+        startApplication()
+        val email = uniqueEmail("mfa-pending-cap")
+        seedMfaUser(email, "pw-123456789")
+        val mail = LogCapture("ch.nokillswit.mail")
+        val auditEvents = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = jsonClient()
+
+            // Two correct-password logins mint fresh challenges (200 + mfaRequired) — one live
+            // challenge each, still under the cap of 2.
+            val firstRes = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.OK, firstRes.status)
+            val first = firstRes.body<MfaChallengeResponse>()
+            assertTrue(first.mfaRequired)
+            val secondRes = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.OK, secondRes.status)
+            assertTrue(secondRes.body<MfaChallengeResponse>().mfaRequired)
+            assertEquals(
+                2,
+                auditEvents.events.count { it.message == "login.mfa_challenge" && it.hasKeyValue("email", email) },
+            )
+
+            // The third correct-password login is throttled: no new challenge, no email, a
+            // uniform-looking but distinct 429 (the "sign-in codes" phrase, not the lockout's
+            // "failed login attempts" phrase).
+            val third = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.TooManyRequests, third.status)
+            val problem = third.body<ProblemDetail>()
+            assertTrue(
+                problem.detail?.contains("sign-in codes") == true,
+                "unexpected detail: ${problem.detail}",
+            )
+            assertNotNull(
+                auditEvents.awaitEvent {
+                    it.message == "login.mfa_throttled" && it.hasKeyValue("email", email) &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" } &&
+                        it.keyValuePairs.any { kv -> kv.key == "userId" }
+                },
+            )
+            assertEquals(
+                2,
+                auditEvents.events.count { it.message == "login.mfa_challenge" && it.hasKeyValue("email", email) },
+                "the throttled attempt must not mint a third challenge",
+            )
+
+            // Exchanging one of the two live codes frees a slot: a further login mints again.
+            val code = mail.codeFor(email)
+            val verified = client.verify(first.challengeId, code)
+            assertEquals(HttpStatusCode.OK, verified.status)
+
+            val fourthRes = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.OK, fourthRes.status)
+            assertTrue(fourthRes.body<MfaChallengeResponse>().mfaRequired)
+        } finally {
+            mail.detach()
+            auditEvents.detach()
         }
     }
 
