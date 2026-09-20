@@ -8,6 +8,7 @@ import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
@@ -149,7 +150,8 @@ class NotificationService(
     /**
      * Hard-deletes every stale row (see the class doc) org-wide — not scoped to the recipient
      * just minted for, since the purge is housekeeping on the whole table, not a per-recipient
-     * operation. A failure here must never fail the mint that triggered it.
+     * operation. An ordinary failure here must never fail the mint that triggered it (JVM
+     * `Error`s and cancellation do propagate — see [purgeCatchingFailures]).
      */
     private suspend fun purgeStale() {
         if (retentionMillis == 0L) return
@@ -160,16 +162,15 @@ class NotificationService(
                 return
             }
         }
-        runCatching {
-            suspendTransaction(database) {
+        purgeCatchingFailures {
+            val deleted = suspendTransaction(database) {
                 Notifications.deleteWhere {
                     (Notifications.timestamp less (now - retentionMillis)) and
                         ((Notifications.wasSeen eq true) or (Notifications.markedAsDeleted eq true))
                 }
             }
-        }.onSuccess { deleted ->
             if (deleted > 0) log.info("Purged {} stale notifications", deleted)
-        }.onFailure { log.warn("Stale-notification purge failed", it) }
+        }
     }
 
     suspend fun read(id: UInt): NotificationResponse? = suspendTransaction(database) {
@@ -244,4 +245,25 @@ class NotificationService(
         link = this[Notifications.link],
         wasSeen = this[Notifications.wasSeen],
     )
+}
+
+/**
+ * Runs [block], swallowing every other [Exception] into a WARN log — a purge is best-effort
+ * housekeeping and an ordinary failure must never fail the mint that triggered it (a JVM
+ * `Error` is deliberately NOT caught: never swallow those) — but rethrowing
+ * [CancellationException] untouched (checkup #36, C4): catching a plain [Exception] here would
+ * also catch it, since [CancellationException] extends [Exception], silently continuing (or
+ * half-finishing) a purge whose owning request was itself cancelled instead of unwinding with
+ * it — the standard coroutine idiom of never swallowing cancellation. Extracted as a standalone
+ * `internal` top-level function so [NotificationPurgeTest] can pin the rethrow, and the WARN
+ * path, without a live database.
+ */
+internal suspend fun purgeCatchingFailures(block: suspend () -> Unit) {
+    try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        log.warn("Stale-notification purge failed", e)
+    }
 }

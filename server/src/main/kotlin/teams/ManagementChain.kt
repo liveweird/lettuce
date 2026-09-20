@@ -83,14 +83,6 @@ private suspend fun managersOf(userIds: Set<UInt>): Set<UInt> =
         .toSet()
 
 /**
- * Non-deleted teams managed by any of [managerIds] (the days-off calendar/list scope-teams
- * helper, v3.13.0) — a thin alias of [teamsManagedBy] (TeamTree.kt) kept here so the
- * scope-teams helper pair reads together with [teamRefsByUserIds] below. Empty [managerIds]
- * short-circuits without a query. Runs in the caller's transaction.
- */
-suspend fun teamIdsManagedBy(managerIds: Set<UInt>): Set<UInt> = teamsManagedBy(managerIds)
-
-/**
  * One (user id → team refs) map: for every user in [userIds], the non-deleted teams in
  * [teamIds] they are a member of (name-ascending, then id) — ONE join over team_members ⋈
  * teams filtered on both sets. A user with no matching row is ABSENT from the map (never an

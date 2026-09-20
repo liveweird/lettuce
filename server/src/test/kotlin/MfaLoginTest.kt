@@ -3,6 +3,7 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.auth.MfaChallengeResponse
+import ch.nokillswit.auth.MfaChallenges
 import ch.nokillswit.auth.MfaVerifyRequest
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserFeaturesUpdateRequest
@@ -20,6 +21,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.r2dbc.update
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -178,14 +182,16 @@ class MfaLoginTest {
             }
             assertNotNull(
                 auditEvents.awaitEvent {
-                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "too_many_attempts")
+                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "too_many_attempts") &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" }
                 },
             )
             // The correct code no longer works — the challenge is gone (still a uniform 401).
             assertEquals(HttpStatusCode.Unauthorized, client.verify(challenge.challengeId, code).status)
             assertNotNull(
                 auditEvents.awaitEvent {
-                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "unknown_challenge")
+                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "unknown_challenge") &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" }
                 },
             )
         } finally {
@@ -196,9 +202,10 @@ class MfaLoginTest {
 
     @Test
     fun `an expired challenge answers the same uniform 401`() = testApplication {
-        // TTL 0: the challenge is born expired — no sleeping in tests.
-        configureApp("security.mfa.codeTtlSeconds" to "0")
-        startApplication()
+        // codeTtlSeconds must be >= 1 (checkup #36, C5 — a boot-time range check), so a
+        // born-expired challenge can no longer be minted via TTL=0; back-date the DB row
+        // directly instead (the NotificationPurgeTest `backdate` idiom) — no sleeping in tests.
+        usePostgresTestcontainer()
         val email = uniqueEmail("mfa-expired")
         seedMfaUser(email, "pw-123456789")
         val mail = LogCapture("ch.nokillswit.mail")
@@ -207,10 +214,16 @@ class MfaLoginTest {
             val client = jsonClient()
             val challenge = client.login(email, "pw-123456789").body<MfaChallengeResponse>()
             val code = mail.codeFor(email)
+            suspendTransaction(TestServices.database) {
+                MfaChallenges.Challenges.update({ MfaChallenges.Challenges.id eq challenge.challengeId }) {
+                    it[expiresAt] = 0
+                }
+            }
             assertEquals(HttpStatusCode.Unauthorized, client.verify(challenge.challengeId, code).status)
             assertNotNull(
                 auditEvents.awaitEvent {
-                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "expired")
+                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "expired") &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" }
                 },
             )
         } finally {

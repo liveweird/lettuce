@@ -16,6 +16,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -182,6 +183,12 @@ class DaysOffAllowanceTest {
         val ownBudget = s.get("/api/v1/days-off/budgets?year=2061").body<DaysOffBudgetList>().items.single()
         assertFalse(ownBudget.canCorrect)
         assertNull(ownBudget.teams)
+        // Raw-JSON pin (checkup #36, C9): assertNull alone cannot tell an OMITTED key (the
+        // @EncodeDefault NEVER contract) apart from a present `"teams":null`.
+        assertFalse(
+            s.get("/api/v1/days-off/budgets?year=2061").bodyAsText().contains("\"teams\""),
+            "own budget row must omit the teams key entirely",
+        )
 
         // Requests list: G's direct managed view is empty of S's rows; includeIndirect
         // surfaces them with canDelete set — the delete right is chain-wide since v2.33.0.
@@ -202,6 +209,11 @@ class DaysOffAllowanceTest {
         // The owner's own row is deletable too.
         val ownRow = s.get("/api/v1/days-off").body<DaysOffPageResponse>().items.single()
         assertTrue(ownRow.canDelete)
+        // Raw-JSON pin (checkup #36, C9): the own list row's `teams` is likewise OMITTED, not null.
+        assertFalse(
+            s.get("/api/v1/days-off").bodyAsText().contains("\"teams\""),
+            "own list row must omit the teams key entirely",
+        )
 
         // The strict-boolean shape rule on both endpoints.
         assertEquals(HttpStatusCode.BadRequest, g.get("/api/v1/days-off/budgets?includeIndirect=true").status)

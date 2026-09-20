@@ -51,7 +51,8 @@ describe("DaysOffBudgetsTable", () => {
   test("a Team column carries the report's team badges (v3.13.0)", async () => {
     renderWithProviders(<DaysOffBudgetsTable />);
     expect(await screen.findByRole("columnheader", { name: "Team" })).toBeInTheDocument();
-    expect(await screen.findAllByText("AAA")).toHaveLength(3);
+    // The badge links to the team's details view — the shared TeamBadges idiom (Checkup #36 M4).
+    expect(await screen.findAllByRole("link", { name: "Team details for AAA" })).toHaveLength(3);
   });
 
   test("includeIndirect rides the budgets query (v3.13.0)", async () => {

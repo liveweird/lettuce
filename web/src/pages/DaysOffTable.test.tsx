@@ -123,7 +123,11 @@ describe("DaysOffTable", () => {
     renderWithProviders(<DaysOffTable view="managed" />);
 
     expect(await screen.findByRole("columnheader", { name: "Team" })).toBeInTheDocument();
-    expect(await screen.findByText("AAA")).toBeInTheDocument();
+    // The badge links to the team's details view — the shared TeamBadges idiom (Checkup #36 M4).
+    expect(await screen.findByRole("link", { name: "Team details for AAA" })).toHaveAttribute(
+      "href",
+      "/teams/1/details",
+    );
   });
 
   test("own view: no Team column (the caller is implied)", async () => {

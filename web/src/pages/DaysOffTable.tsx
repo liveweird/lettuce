@@ -1,4 +1,4 @@
-import { Alert, Badge, Group, Select, Stack, Text } from "@mantine/core";
+import { Alert, Group, Select, Stack, Text } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconBeach, IconTrash } from "@tabler/icons-react";
@@ -17,6 +17,7 @@ import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
+import TeamBadges from "../components/TeamBadges";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
@@ -230,13 +231,7 @@ export default function DaysOffTable({
                 )}
                 {teamsVisible && (
                   <ResponsiveTable.Td label={t("teams.team")}>
-                    <Group gap={4}>
-                      {(r.teams ?? []).map((team) => (
-                        <Badge key={team.id} variant="light" color="gray">
-                          {team.name}
-                        </Badge>
-                      ))}
-                    </Group>
+                    <TeamBadges teams={r.teams ?? []} />
                   </ResponsiveTable.Td>
                 )}
                 <ResponsiveTable.Td label={t("daysOff.column.startDate")}>

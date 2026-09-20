@@ -1,4 +1,5 @@
 import { Alert, Badge, Group, Modal, Select, Stack, Text } from "@mantine/core";
+import TeamBadges from "./TeamBadges";
 import ResponsiveTable from "./ResponsiveTable";
 import { IconAdjustments, IconBeach } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -105,13 +106,7 @@ export default function DaysOffBudgetsTable({
                   />
                 </ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("teams.team")}>
-                  <Group gap={4}>
-                    {(b.teams ?? []).map((team) => (
-                      <Badge key={team.id} variant="light" color="gray">
-                        {team.name}
-                      </Badge>
-                    ))}
-                  </Group>
+                  <TeamBadges teams={b.teams ?? []} />
                 </ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("daysOff.pool.label")}>
                   <Group gap={6} wrap="wrap">
