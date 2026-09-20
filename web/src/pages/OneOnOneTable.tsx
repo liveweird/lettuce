@@ -161,6 +161,7 @@ export default function OneOnOneTable({
   userId,
   settingsKey,
   backTo,
+  tourId,
 }: {
   view: OneOnOneListView;
   /** Required with view="with": the other party's user id. */
@@ -171,6 +172,9 @@ export default function OneOnOneTable({
   settingsKey?: string;
   /** When set, action links carry a back=… override so detail pages return here. */
   backTo?: string;
+  /** Forwarded to the Filters toggle as `data-tour` (a tutorial anchor). Only the hub's own
+   *  tab passes it — OneOnOneTable is also embedded by UserOneOnOnes. */
+  tourId?: string;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -249,7 +253,7 @@ export default function OneOnOneTable({
   return (
     <Stack gap="md">
       {showFilters && (
-        <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+        <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
           {config.personColumns.map((col) => {
             const filter = personFilters[col.field];
             return (

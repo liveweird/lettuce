@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
+import { TourContext } from "../components/tourSupport";
 import OneOnOnes from "./OneOnOnes";
 import { jsonResponse } from "../test/http";
 
@@ -24,6 +25,21 @@ function stubFetch(mockFetch: FetchMock, { isManager }: { isManager: boolean }) 
   });
 }
 
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy (the
+// Performance.test.tsx idiom).
+function renderOneOnOnes(
+  route = "/one-on-ones",
+  startTutorial: (id: string) => void = () => {},
+) {
+  return renderWithProviders(
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+      <OneOnOnes />
+    </TourContext.Provider>,
+    { route },
+  );
+}
+
 describe("OneOnOnes page", () => {
   let mockFetch: FetchMock;
 
@@ -42,7 +58,7 @@ describe("OneOnOnes page", () => {
 
   test("a non-manager sees only the subordinate tab and no create button", async () => {
     stubFetch(mockFetch, { isManager: false });
-    renderWithProviders(<OneOnOnes />);
+    renderOneOnOnes();
 
     expect(await screen.findByRole("tab", { name: "I'm a subordinate" })).toBeInTheDocument();
     await waitFor(() =>
@@ -55,7 +71,7 @@ describe("OneOnOnes page", () => {
 
   test("a manager sees all three tabs, the create button, and can switch tabs", async () => {
     stubFetch(mockFetch, { isManager: true });
-    renderWithProviders(<OneOnOnes />);
+    renderOneOnOnes();
 
     expect(await screen.findByRole("tab", { name: "I'm a manager" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "My subordinate's a manager" })).toBeInTheDocument();
@@ -76,6 +92,18 @@ describe("OneOnOnes page", () => {
         mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/one-on-ones?view=managed")),
       ).toBe(true),
     );
+  });
+
+  test("the tutorial launcher starts the 1:1 meetings tutorial via useTour", async () => {
+    stubFetch(mockFetch, { isManager: false });
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    renderOneOnOnes("/one-on-ones", startTutorial);
+
+    const launcher = await screen.findByRole("button", { name: "How 1:1 meetings work" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("oneOnOnes");
   });
 
   test("a disabled ONE_ON_ONES feature redirects the page to / (v1.53.0)", async () => {

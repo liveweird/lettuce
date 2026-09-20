@@ -68,5 +68,23 @@
       "manage": "Na stronie oceny prowadzisz jej cykl życia: Prześlij do kalibracji, gdy wszystkie pięć ocen i podsumowań jest wypełnionych, Wróć do szkicu, Opublikuj albo Wycofaj publikację. Może to zrobić tylko menedżer/ka, który/a napisał/a ocenę, a podwładny dostaje powiadomienie, gdy zostanie opublikowana lub gdy publikacja zostanie wycofana.",
       "periods": "Oceny są przypisane do Okresów ocen — globalnej osi czasu, którą administrator rozszerza bez luk; okresu nie można zmienić po dodaniu, a ocena wymaga okresu, który już się rozpoczął. To cały przepływ — Gotowe wraca do Ocen okresowych."
     }
+  },
+  "oneOnOnes": {
+    "launch": "Jak działają spotkania 1:1",
+    "steps": {
+      "intro": "Spotkanie 1:1 to datowany zapis tego, co omówiliście Ty i Twój menedżer/ka — punkty, decyzje i zadania — spisany przez menedżera/kę po spotkaniu. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają spotkania 1:1\".",
+      "own": "Jestem podwładnym/ą pokazuje każde spotkanie 1:1, które udokumentowali z Tobą Twoi menedżerowie, od najnowszego, wraz z liczbą punktów, decyzji i zadań — oraz tym, ile z nich jest wciąż otwartych. Otwórz jedno, aby je przeczytać: menedżer/ka pisze, Ty czytasz.",
+      "filters": "W Filtrach zawężasz listę według nazwiska menedżera i daty spotkania. Wybór zapamiętujemy do następnej wizyty.",
+      "document": "Strona spotkania ma trzy listy — Omówione punkty, Podjęte decyzje i Zadania. Każde zadanie ma właściciela, Ciebie albo menedżera/kę, opcjonalny termin i status Otwarte albo Zrealizowane, a także ikonę historii, która podąża za zadaniem przez kolejne spotkania.",
+      "carryOver": "Zadania wciąż otwarte w chwili utworzenia kolejnego 1:1 są automatycznie do niego przenoszone, oznaczone jako \"Przeniesione od\" spotkania, na którym pojawiły się po raz pierwszy, dopóki ktoś ich nie zrealizuje. Edytować można tylko najnowsze spotkanie danej pary — starsze są już zapisem.",
+      "managed": "Jestem menedżerem/ką pokazuje 1:1, które udokumentowałeś/aś ze swoimi podwładnymi. Najnowsze spotkanie danej pary ma przycisk Edytuj; starsze otwierają się tylko do odczytu.",
+      "team": "Mój podwładny/a jest menedżerem/ką pokazuje spotkania 1:1, które Twoi podwładni prowadzą jako menedżerowie — domyślnie bezpośredni podwładni, albo cały Twój łańcuch pod polem \"Podwładni\" w Filtrach. Tylko do odczytu: spojrzenie na to, jak zarządzają Twoi menedżerowie.",
+      "new": "Nowe 1:1 zaczyna się tutaj albo z karty podwładnego na liście Moi podwładni. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie utworzone, dopóki nie klikniesz Utwórz.",
+      "form": "Wybierz członka zespołu — każdego poniżej Ciebie, łącznie z pośrednimi podwładnymi — i datę spotkania. Spotkanie nie może mieć daty wcześniejszej niż poprzednie spotkanie tej pary, dzięki czemu spotkania zachowują porządek chronologiczny.",
+      "actions": "Utwórz zapisuje spotkanie i otwiera edytor, w którym piszesz punkty, decyzje i zadania — a otwarte pozycje z poprzedniego 1:1 już tam na Ciebie czekają. Teraz tego nie klikniemy — nic nie zostanie utworzone w tym przewodniku.",
+      "edit": "W edytorze dodajesz i zmieniasz kolejność akapitów, przypisujesz każde zadanie sobie albo podwładnemu/podwładnej z terminem i odhaczasz zadania jako zrealizowane. Zapisz zastępuje cały dokument i powiadamia podwładnego/podwładną; edytować można tylko najnowsze spotkanie danej pary, a jego usunięcie sprawia, że poprzednie znów staje się edytowalne.",
+      "subordinates": "Każda karta na liście Moi podwładni pokazuje Ostatnie 1:1 z tą osobą i liczbę otwartych zadań, a jej menu Spotkania 1:1 oferuje Nowe 1:1 oraz listę Waszych wspólnych spotkań.",
+      "managers": "Każda karta na liście Moi menedżerowie pokazuje Twoje Ostatnie 1:1 z tą osobą i otwarte zadania, a jej menu Spotkania 1:1 zawiera listę wszystkich spotkań, które mieliście razem. To cały przepływ — Gotowe wraca do Spotkań 1:1."
+    }
   }
 }

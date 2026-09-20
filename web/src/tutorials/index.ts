@@ -5,6 +5,7 @@
 import { DAYS_OFF_TUTORIAL } from "./daysOff";
 import { FEEDBACKS_TUTORIAL } from "./feedbacks";
 import { GOALS_TUTORIAL } from "./goals";
+import { ONE_ON_ONES_TUTORIAL } from "./oneOnOnes";
 import { PERFORMANCE_REVIEWS_TUTORIAL } from "./performanceReviews";
 import type { TutorialDef, TutorialId } from "./types";
 
@@ -13,4 +14,5 @@ export const TUTORIALS: Record<TutorialId, TutorialDef> = {
   goals: GOALS_TUTORIAL,
   daysOff: DAYS_OFF_TUTORIAL,
   performanceReviews: PERFORMANCE_REVIEWS_TUTORIAL,
+  oneOnOnes: ONE_ON_ONES_TUTORIAL,
 };

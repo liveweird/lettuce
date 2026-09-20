@@ -129,6 +129,7 @@ scenario file is the design.
 - [`navigation.spec.ts`](scenarios/navigation.md) — shell navigation: the in-shell 404 catch-all, the legacy performance redirects, the dashboard Peers tab (2026-08 audit round).
 - [`notifications.spec.ts`](scenarios/notifications.md) — bell mechanics: badge, seen/unseen, mark all, delete.
 - [`one-on-ones.spec.ts`](scenarios/one-on-ones.md) — documenting 1:1s, action-item carry-over, subordinate notification.
+- [`one-on-ones-tutorial.spec.ts`](scenarios/one-on-ones-tutorial.md) — the "How 1:1 meetings work" guided tutorial (v3.18.0): the manager's 13-step and the non-manager's 6-step read-only walk, landmark order, and the return to the 1:1 meetings page with no non-GET API request issued during the walk.
 - [`org-chart.spec.ts`](scenarios/org-chart.md) — the org-chart canvas and its drill-downs, plus the v2.40.0 team collapse/expand (cascading fold of a hidden member's own subtree).
 - [`password-reset.spec.ts`](scenarios/password-reset.md) — the Forgot-password flow (neutral answers, working new password; Mailpit-gated).
 - [`performance-reviews.spec.ts`](scenarios/performance-reviews.md) — review periods, the full review lifecycle, Distribution + Quadrants views.
