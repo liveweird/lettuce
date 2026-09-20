@@ -32,6 +32,7 @@ import enEmailNotifications from "./locales/en/emailNotifications.json";
 import enAlerts from "./locales/en/alerts.json";
 import enChangelog from "./locales/en/changelog.json";
 import enTour from "./locales/en/tour.json";
+import enTutorials from "./locales/en/tutorials.json";
 import enOrg from "./locales/en/org.json";
 
 
@@ -99,6 +100,7 @@ export const en = {
   alerts: enAlerts,
   changelog: enChangelog,
   tour: enTour,
+  tutorials: enTutorials,
   org: enOrg,
 };
 

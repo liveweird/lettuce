@@ -2,11 +2,14 @@
 // contexts and the useTour hook. Kept out of Tour.tsx so that file only exports components and
 // stays compatible with React Fast Refresh (react-refresh/only-export-components).
 import type { ParseKeys } from "i18next";
-import { createContext, useContext } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 // Types only — erased at build time. The runtime react-joyride import lives solely in
 // TourJoyride.tsx, which Tour.tsx lazy-loads so the library stays out of the entry chunk.
 import type { Step } from "react-joyride";
 import { hasFeature, isAdmin, isHr, type Feature } from "../api/session";
+// Type-only — erased at build time (verbatimModuleSyntax), so this doesn't create a runtime
+// cycle even though tutorials/types.ts itself imports TourStepDef from this module.
+import type { TutorialId } from "../tutorials/types";
 
 const SEEN_PREFIX = "lettuce.tour.seen.";
 const seenKey = (userId: number) => `${SEEN_PREFIX}${userId}`;
@@ -21,10 +24,14 @@ export function markSeen(userId: number | null) {
   if (userId != null) localStorage.setItem(seenKey(userId), "1");
 }
 
-type TourStepDef = {
+export type TourStepDef = {
   target: string;
   contentKey: ParseKeys;
   placement?: Step["placement"];
+  /** Rich tooltip content for a concept step (the feedback tutorial's lifecycle diagram) —
+   *  `text` is the translated `contentKey`, which stays required as the plain-text fallback
+   *  and the e2e landmark. Omitted for ordinary text steps. */
+  render?: (text: string) => ReactNode;
   /** Shown only to callers who manage a team (e.g. the Feedback "My team" tab and the 1:1
    *  "I'm a manager" / "My subordinate's a manager" tabs are manager-only). */
   managerOnly?: boolean;
@@ -165,25 +172,45 @@ export function waitForElement(selector: string, timeoutMs = 4000): Promise<void
   });
 }
 
-/** Build the audience-filtered, translated Joyride steps. Exported for unit tests. */
+/** Applied to every tutorial step (never the whirlwind's `TOUR_STEPS`): react-joyride 3.2.0
+ *  leaves the spotlighted element clickable by default (`blockTargetInteraction: false`,
+ *  `node_modules/react-joyride/src/defaults.ts` — `Overlay.tsx` sets `pointerEvents: 'auto'`
+ *  whenever it is false) and dismisses on either an overlay click or Escape. A tutorial never
+ *  clicks real data and never lets the caller wander off-script, so every tutorial step blocks
+ *  target interaction and both dismiss paths — the "a tutorial never clicks" invariant in code. */
+export const READ_ONLY_STEP_DEFAULTS: Partial<Step> = {
+  blockTargetInteraction: true,
+  overlayClickAction: false,
+  dismissKeyAction: false,
+};
+
+/**
+ * Build the audience-filtered, translated Joyride steps from `defs` — `TOUR_STEPS` for the
+ * whirlwind, or a `TutorialDef`'s `steps` for a per-feature tutorial (`tutorials/*.tsx`).
+ * `stepDefaults` (e.g. `READ_ONLY_STEP_DEFAULTS`) is spread into every step before the
+ * per-step fields, so a step's own values (none collide today) would still win. Exported for
+ * unit tests.
+ */
 export function buildSteps(
+  defs: readonly TourStepDef[],
   translate: (key: ParseKeys, opts?: Record<string, unknown>) => string,
   manager: boolean,
   navigateTo?: (path: string, target?: string) => Promise<void> | void,
   userId?: number | null,
+  stepDefaults: Partial<Step> = {},
 ): Step[] {
   // The total is the audience-filtered count, so headers read "Step X of Y" against the steps this
   // caller will actually see.
   // Roles come straight from the stored session (the `hasFeature` idiom — a render-time read, not
   // reactive), so the caller-relative `manager` flag stays the only argument buildSteps needs.
-  const defs = TOUR_STEPS.filter(
+  const filtered = defs.filter(
     (s) =>
       (!s.managerOnly || manager) &&
       (!s.managerOrHr || manager || isHr()) &&
       (!s.adminOnly || isAdmin()) &&
       (!s.feature || hasFeature(s.feature)),
   );
-  const total = defs.length;
+  const total = filtered.length;
   // A per-user navTo (`:userId`) is unresolvable without a caller id — degrade to not navigating
   // (defensive only; the tour never runs unauthenticated).
   const resolveNavTo = (navTo: string): string | undefined =>
@@ -192,29 +219,39 @@ export function buildSteps(
         ? navTo.replace(":userId", String(userId))
         : undefined
       : navTo;
-  return defs.map((s, i) => ({
-    target: s.target,
-    title: translate("tour.stepCounter", { current: i + 1, total }),
-    content: translate(s.contentKey),
-    placement: s.placement,
-    disableBeacon: true,
-    // Joyride's own scrolling is disabled: it aligns targets ~20px from the viewport top, which
-    // drags page titles halfway under the fixed AppShell header. No target needs scrolling (see
-    // the contract above) — instead every step resets the scroll itself in its `before` hook.
-    skipScroll: true,
-    // Steps with a `navTo` change the view (tab/route) before they show; the tour awaits this
-    // hook, which navigates and then waits for the step's target to actually mount (cold lazy
-    // routes). Every step then pins the window to the top, clearing residue from Joyride-scrolled
-    // pre-fix sessions or a replay started mid-scroll.
-    before: async () => {
-      const navTo = s.navTo && resolveNavTo(s.navTo);
-      if (navTo && navigateTo) await navigateTo(navTo, s.target);
-      window.scrollTo({ top: 0 });
-    },
-  }));
+  return filtered.map((s, i) => {
+    const text = translate(s.contentKey);
+    return {
+      ...stepDefaults,
+      target: s.target,
+      title: translate("tour.stepCounter", { current: i + 1, total }),
+      content: s.render ? s.render(text) : text,
+      placement: s.placement,
+      disableBeacon: true,
+      // Joyride's own scrolling is disabled: it aligns targets ~20px from the viewport top, which
+      // drags page titles halfway under the fixed AppShell header. No target needs scrolling (see
+      // the contract above) — instead every step resets the scroll itself in its `before` hook.
+      skipScroll: true,
+      // Steps with a `navTo` change the view (tab/route) before they show; the tour awaits this
+      // hook, which navigates and then waits for the step's target to actually mount (cold lazy
+      // routes). Every step then pins the window to the top, clearing residue from Joyride-scrolled
+      // pre-fix sessions or a replay started mid-scroll.
+      before: async () => {
+        const navTo = s.navTo && resolveNavTo(s.navTo);
+        if (navTo && navigateTo) await navigateTo(navTo, s.target);
+        window.scrollTo({ top: 0 });
+      },
+    };
+  });
 }
 
-type TourContextValue = { startTour: () => void };
+type TourContextValue = {
+  /** (Re)starts the whirlwind — resets `tutorial` to null so a replay after a tutorial rebuilds
+   *  the whirlwind's step list. */
+  startTour: () => void;
+  /** Starts a per-feature tutorial (feature-gated by the caller — `Tour.tsx`). */
+  startTutorial: (id: TutorialId) => void;
+};
 export const TourContext = createContext<TourContextValue | null>(null);
 
 export function useTour(): TourContextValue {
@@ -226,6 +263,12 @@ export function useTour(): TourContextValue {
 // Provider-level actions the custom tooltip needs but Joyride's render props don't expose. Joyride
 // renders the tooltip into a portal, but React context still flows through portals, so the tooltip
 // (mounted under TourProvider) can read this.
-type TourActions = { abandon: () => void };
+type TourActions = {
+  abandon: () => void;
+  /** False while a tutorial runs — Pause would strand a resumable beacon inside a form the
+   *  tutorial has since navigated away from, so TourTooltip hides it. Undefined/true = pausable
+   *  (the whirlwind, and every pre-tutorial caller of TourActionsContext in tests). */
+  pausable?: boolean;
+};
 // Exported for unit tests (so a test can supply a spy `abandon`).
 export const TourActionsContext = createContext<TourActions | null>(null);

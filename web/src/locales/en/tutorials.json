@@ -1,0 +1,19 @@
+{
+  "feedbacks": {
+    "launch": "How feedback works",
+    "steps": {
+      "intro": "Feedback is a short written note from one person about another's work. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How feedback works\" button.",
+      "lifecycle": "A feedback starts as Requested (someone asked for it) or as your own Draft, and reaches people only when it is Sent. A request can be Rejected, and a sent feedback can be Withdrawn.",
+      "received": "Received lists feedback others sent you. You never see a draft — only what has been sent.",
+      "provided": "Provided is everything you write: drafts, sent feedback, and requests waiting for you (status Requested). Open a request to pick it up or decline it.",
+      "team": "My team shows feedback about the people who report to you — only once it is sent. Drafts stay private to their author.",
+      "teamScope": "Under Filters, \"Reports\" switches between your direct reports and everyone below you. The other filters narrow by person, status and visibility.",
+      "new": "Writing feedback starts here. Let's open the form to look — nothing is saved until you press a save button.",
+      "setup": "Pick up to four recipients, then choose who may read it: Provider + subject keeps it between you, Public shows it on the Kudos wall.",
+      "actions": "Save draft keeps it private until you are ready; Save & send delivers it. You can still withdraw a sent feedback later.",
+      "ask": "Want feedback about yourself? On a person's card use \"Ask for feedback\" — they get a request in their Provided tab.",
+      "request": "As a manager you can also use \"Request feedback for\" on a report's card to ask someone else about them. You see that it exists, and read it once the provider sends it.",
+      "kudos": "Public, sent feedback appears on the Kudos wall for everyone. That's the whole flow — Done takes you back to Feedback."
+    }
+  }
+}

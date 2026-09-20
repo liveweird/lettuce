@@ -234,7 +234,7 @@ export default function FeedbackForm({
   // The interactive controls live in one compact row right above the editor (not in a
   // metadata grid up top) so the editor keeps the bulk of the viewport.
   const editorControls = (
-    <Group gap="sm" align="flex-end" wrap="wrap">
+    <Group gap="sm" align="flex-end" wrap="wrap" data-tour="feedback-setup">
       {subjectControl}
       {visibilityReadOnly ? (
         <ReadOnlyField label={t("common.field.visibility")}>
@@ -350,24 +350,26 @@ export default function FeedbackForm({
                 >
                   {t("common.action.cancel")}
                 </Button>
-                <Button
-                  type="submit"
-                  variant="light"
-                  loading={submitting === "DRAFT"}
-                  disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
-                >
-                  {t("feedback.action.saveDraft")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (!form.validate().hasErrors) onSubmit("SENT", form.values);
-                  }}
-                  loading={submitting === "SENT"}
-                  disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
-                >
-                  {t("feedback.action.saveAndSend")}
-                </Button>
+                <Group gap="sm" data-tour="feedback-actions">
+                  <Button
+                    type="submit"
+                    variant="light"
+                    loading={submitting === "DRAFT"}
+                    disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
+                  >
+                    {t("feedback.action.saveDraft")}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!form.validate().hasErrors) onSubmit("SENT", form.values);
+                    }}
+                    loading={submitting === "SENT"}
+                    disabled={submitting !== null || deleting || duplicate != null || submitDisabled}
+                  >
+                    {t("feedback.action.saveAndSend")}
+                  </Button>
+                </Group>
               </FormFooter>
             </Stack>
           </form>

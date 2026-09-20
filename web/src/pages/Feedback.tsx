@@ -8,6 +8,7 @@ import { feedbackCreateLink } from "../utils/feedbackLinks";
 import FeedbackTable from "./FeedbackTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 
 const TABS = ["received", "provided", "team"] as const;
 type FeedbackTab = (typeof TABS)[number];
@@ -44,13 +45,17 @@ export default function Feedback() {
       <PageHeader
         title={t("feedback.sectionTitle")}
         actions={
-          <Button
-            component={RouterLink}
-            to={feedbackCreateLink("/feedback?tab=provided")}
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("feedback.newFeedback")}
-          </Button>
+          <>
+            <Button
+              component={RouterLink}
+              to={feedbackCreateLink("/feedback?tab=provided")}
+              leftSection={<IconPlus size={16} />}
+              data-tour="feedback-new"
+            >
+              {t("feedback.newFeedback")}
+            </Button>
+            <TutorialButton id="feedbacks" tourId="feedback-tutorial" />
+          </>
         }
       />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>

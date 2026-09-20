@@ -7,7 +7,7 @@ const TourJoyride = lazy(() => import("./TourJoyride"));
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { getUserId } from "../api/session";
+import { hasFeature, getUserId } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 // Steps, seen-state, contexts and useTour live in tourSupport.ts so this file only exports
 // components (react-refresh/only-export-components).
@@ -15,10 +15,14 @@ import {
   buildSteps,
   hasSeenTour,
   markSeen,
+  READ_ONLY_STEP_DEFAULTS,
   TourActionsContext,
   TourContext,
+  TOUR_STEPS,
   waitForElement,
 } from "./tourSupport";
+import { TUTORIALS } from "../tutorials";
+import type { TutorialId } from "../tutorials/types";
 
 /**
  * Custom Joyride tooltip — replaces the library default so we can drop its corner "x" and offer two
@@ -39,20 +43,30 @@ export function TourTooltip({
 }: TooltipRenderProps) {
   const { t } = useTranslation();
   const actions = useContext(TourActionsContext);
+  // A tutorial's rich step (buildSteps' `render`) supplies non-string content — e.g. an SVG
+  // beside its caption. An SVG inside Mantine Text's <p> is invalid HTML, so rich content is
+  // rendered raw instead, and the wider box gives a diagram room to breathe.
+  const rich = typeof step.content !== "string";
+  // Hidden while a tutorial runs (`pausable: false`) — Pause would strand a resumable beacon
+  // inside a screen the tutorial has since navigated away from, and a tutorial is meant to be
+  // replayed from its own launcher rather than resumed mid-flight.
+  const pausable = actions?.pausable !== false;
   return (
-    <Paper {...tooltipProps} p="md" radius="md" shadow="md" withBorder maw={360}>
+    <Paper {...tooltipProps} p="md" radius="md" shadow="md" withBorder maw={rich ? 560 : 360}>
       <Stack gap="sm">
         {step.title && (
           <Text size="xs" fw={600} c="dimmed">
             {step.title}
           </Text>
         )}
-        <Text size="sm">{step.content}</Text>
+        {rich ? step.content : <Text size="sm">{step.content}</Text>}
         <Group justify="space-between" gap="xs" wrap="nowrap">
           <Group gap="xs" wrap="nowrap">
-            <Button size="xs" variant="default" onClick={() => controls.close()}>
-              {t("tour.nav.pause")}
-            </Button>
+            {pausable && (
+              <Button size="xs" variant="default" onClick={() => controls.close()}>
+                {t("tour.nav.pause")}
+              </Button>
+            )}
             <Button size="xs" variant="light" color="red" onClick={() => actions?.abandon()}>
               {t("tour.nav.abandon")}
             </Button>
@@ -97,15 +111,40 @@ export function TourProvider({
       if (target) void waitForElement(target).then(resolve);
       else setTimeout(resolve, 0);
     });
-  const steps = buildSteps((k, o) => t(k, o), isManager, navigateTo, userId);
+  // Non-null while a per-feature tutorial (tutorials/*.tsx) is running instead of the whirlwind —
+  // its step list replaces TOUR_STEPS, and READ_ONLY_STEP_DEFAULTS is spread into every one of its
+  // steps (never the whirlwind's) so a tutorial only ever looks, never touches real data.
+  const [tutorial, setTutorial] = useState<TutorialId | null>(null);
+  const defs = tutorial ? TUTORIALS[tutorial].steps : TOUR_STEPS;
+  const steps = buildSteps(
+    defs,
+    (k, o) => t(k, o),
+    isManager,
+    navigateTo,
+    userId,
+    tutorial ? READ_ONLY_STEP_DEFAULTS : {},
+  );
 
   // Auto-start once per account: run on mount when authenticated and not yet seen.
   const [run, setRun] = useState(() => userId != null && !hasSeenTour(userId));
-  // Bumped on Replay so Joyride remounts and restarts from the first step.
+  // Bumped on Replay/a (re)start so Joyride remounts and restarts from the first step.
   const [tourKey, setTourKey] = useState(0);
 
   function startTour() {
     onStart?.();
+    // Rebuilds the whirlwind's step list even right after a tutorial finished/was abandoned.
+    setTutorial(null);
+    setTourKey((k) => k + 1);
+    setRun(true);
+  }
+
+  function startTutorial(id: TutorialId) {
+    const def = TUTORIALS[id];
+    // Mirrors the page guards' `hasFeature` check — a caller without the feature gets no
+    // tutorial (its own anchors wouldn't exist to spotlight either).
+    if (def.feature && !hasFeature(def.feature)) return;
+    onStart?.();
+    setTutorial(id);
     setTourKey((k) => k + 1);
     setRun(true);
   }
@@ -119,22 +158,38 @@ export function TourProvider({
 
   function handleFinished() {
     setRun(false);
-    markSeen(userId);
+    if (tutorial) {
+      const home = TUTORIALS[tutorial].home;
+      setTutorial(null);
+      navigate(home, { replace: true });
+    } else {
+      markSeen(userId);
+    }
   }
 
-  // "Abandon": stop the tour, remount so the internal step index resets to the first step, and mark
-  // it seen (so it won't auto-pop again; Replay still re-runs). With run=false no beacon is shown —
-  // the difference from "Pause" (controls.close()), which keeps the resumable beacon.
+  // "Abandon": stop the tour, remount so the internal step index resets to the first step. The
+  // whirlwind marks itself seen (so it won't auto-pop again; Replay still re-runs) — a tutorial
+  // never does (it always starts fresh from its own launcher) and instead returns to its home,
+  // the same landing spot Finish uses. With run=false no beacon is shown — the difference from
+  // "Pause" (controls.close()), which keeps the resumable beacon.
   function handleAbandon() {
     setRun(false);
     setTourKey((k) => k + 1);
-    markSeen(userId);
+    if (tutorial) {
+      const home = TUTORIALS[tutorial].home;
+      setTutorial(null);
+      navigate(home, { replace: true });
+    } else {
+      markSeen(userId);
+    }
   }
 
   return (
-    <TourContext.Provider value={{ startTour }}>
+    <TourContext.Provider value={{ startTour, startTutorial }}>
       {children}
-      <TourActionsContext.Provider value={{ abandon: handleAbandon }}>
+      {/* Pause is hidden while a tutorial runs (pausable: false) — a paused tutorial would
+          strand a resumable beacon inside the form it navigated into. */}
+      <TourActionsContext.Provider value={{ abandon: handleAbandon, pausable: tutorial == null }}>
         {/* Mounted only once the tour has (ever) run this session, so returning users who've
             seen it never download the react-joyride chunk. Pause keeps run=true, so the
             resumable beacon survives; a replay bumps tourKey and keeps it mounted. */}

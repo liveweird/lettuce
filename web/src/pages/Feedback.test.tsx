@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
 import Feedback from "./Feedback";
 import { jsonResponse } from "../test/http";
+import { TourContext } from "../components/tourSupport";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
@@ -37,12 +38,14 @@ function LocationProbe() {
   return <div data-testid="location">{location.pathname + location.search}</div>;
 }
 
-function renderFeedback(route = "/feedback") {
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy.
+function renderFeedback(route = "/feedback", startTutorial: (id: string) => void = () => {}) {
   return renderWithProviders(
-    <>
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
       <Feedback />
       <LocationProbe />
-    </>,
+    </TourContext.Provider>,
     { route },
   );
 }
@@ -106,6 +109,18 @@ describe("Feedback page", () => {
     renderFeedback();
 
     expect(screen.getByRole("link", { name: /new feedback/i })).toBeInTheDocument();
+  });
+
+  test("the tutorial launcher starts the feedbacks tutorial via useTour", async () => {
+    mockApi(mockFetch, 0);
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    renderFeedback("/feedback", startTutorial);
+
+    const launcher = screen.getByRole("button", { name: "How feedback works" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("feedbacks");
   });
 
   test("manager sees the My team tab", async () => {
