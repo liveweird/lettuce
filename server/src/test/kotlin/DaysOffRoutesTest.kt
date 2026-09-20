@@ -29,6 +29,7 @@ import java.time.temporal.TemporalAdjusters
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -494,6 +495,11 @@ class DaysOffRoutesTest {
         val teamX = TestServices.teams.create(Team(name = "cal-ii-X-${java.util.UUID.randomUUID()}", managerId = mId))
         TestServices.teams.addMember(teamX, sId)
         TestServices.teams.addMember(teamX, tId)
+        // S also sits in team Z, managed by U who is NOWHERE in G's chain: Z must never be
+        // named as a scope team, in any scope (the `teamId inList` predicate's negative pin).
+        val uId = TestUsers.seed(uniqueEmail("do-cal-ii-u"), "pw", name = "CalII Outsider", roles = emptySet())
+        val teamZ = TestServices.teams.create(Team(name = "cal-ii-Z-${java.util.UUID.randomUUID()}", managerId = uId))
+        TestServices.teams.addMember(teamZ, sId)
         val g = authedClient(gEmail, "pw")
         val s = authedClient(sEmail, "pw")
 
@@ -512,10 +518,12 @@ class DaysOffRoutesTest {
         assertEquals(listOf(teamX), widened.users.single { it.userId == sId }.teams.map { it.id })
         assertEquals(listOf(teamX), widened.users.single { it.userId == tId }.teams.map { it.id })
         assertEquals(listOf(teamY), widened.users.single { it.userId == mId }.teams.map { it.id })
+        assertTrue(widened.users.flatMap { it.teams }.none { it.id == teamZ }, "out-of-chain team Z leaked")
 
-        // Member scope (S's default view): S and T share X, both rows name it.
+        // Member scope (S's default view): rows name the caller's member teams the person
+        // shares. S sits in X and Z, so S's own row names both; T shares only X with S.
         val member = s.get("/api/v1/days-off/calendar?month=$month").body<DaysOffCalendarResponse>()
-        assertEquals(listOf(teamX), member.users.single { it.userId == sId }.teams.map { it.id })
+        assertEquals(setOf(teamX, teamZ), member.users.single { it.userId == sId }.teams.map { it.id }.toSet())
         assertEquals(listOf(teamX), member.users.single { it.userId == tId }.teams.map { it.id })
 
         // The strict-boolean shape rule: includeIndirect only with scope=managed.

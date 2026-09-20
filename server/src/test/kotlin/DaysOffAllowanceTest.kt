@@ -146,6 +146,12 @@ class DaysOffAllowanceTest {
         TestServices.teams.addMember(teamY, mId)
         val teamX = TestServices.teams.create(Team(name = "iiX-${java.util.UUID.randomUUID()}", managerId = mId))
         TestServices.teams.addMember(teamX, sId)
+        // S also sits in team Z, managed by U who is NOWHERE in G's or M's chain: the
+        // `listOf(teamX)` scope-team assertions below therefore also pin that an out-of-chain
+        // team never rides a managed row (the `teamId inList` predicate's negative case).
+        val uId = TestUsers.seed(uniqueEmail("do-ii-u"), "pw", roles = emptySet())
+        val teamZ = TestServices.teams.create(Team(name = "iiZ-${java.util.UUID.randomUUID()}", managerId = uId))
+        TestServices.teams.addMember(teamZ, sId)
         TestDaysOff.setAllowance(sId, 30)
         val g = authedClient(gEmail, "pw")
         val m = authedClient(mEmail, "pw")
@@ -191,6 +197,8 @@ class DaysOffAllowanceTest {
         assertEquals(listOf(teamX), chainRow.teams?.map { it.id })
         val directRow = m.get("/api/v1/days-off?view=managed&userId=$sId").body<DaysOffPageResponse>().items.single()
         assertTrue(directRow.canDelete)
+        // M's direct view names X only — never Z, the team outside M's chain.
+        assertEquals(listOf(teamX), directRow.teams?.map { it.id })
         // The owner's own row is deletable too.
         val ownRow = s.get("/api/v1/days-off").body<DaysOffPageResponse>().items.single()
         assertTrue(ownRow.canDelete)
