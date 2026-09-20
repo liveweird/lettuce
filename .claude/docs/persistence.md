@@ -21,7 +21,7 @@ Current migrations are `V1`–`V82`. **The per-migration catalog lives in `.clau
   capping concurrency (measured 2026-09-20 on the compose stack: 120 parallel
   `GET /api/v1/teams/members?view=managed&includeIndirect=true` → ALL 100 backends of PostgreSQL's
   default `max_connections` taken, 6 × `500` "sorry, too many clients already" and 7 × `401` —
-  the JWT validation's blocklist read failed and surfaced as an invalid token). Bounds come from
+  the JWT validation's blocklist read failed and surfaced as an invalid token — fixed in v3.16.2: a throwing blocklist lookup now answers the catch-all's 500, never 401). Bounds come from
   `application.yaml`'s `postgres.pool` block, each boot-validated (startup fails outside the
   range, the `security.lockout.*` idiom): `maxSize` (`POSTGRES_POOL_MAX_SIZE`, default 20,
   1..1000), `initialSize` (`POSTGRES_POOL_INITIAL_SIZE`, default 2, 0..maxSize — the floor the pool

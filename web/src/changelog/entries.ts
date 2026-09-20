@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.16.2",
+    date: "2026-09-20",
+    en: `A database outage while your request was being authenticated used to answer "invalid token", so the app signed you out for no reason of yours. It now reports a server error and keeps your session, so a retry a moment later just works.`,
+    pl: `Awaria bazy danych w trakcie uwierzytelniania Twojego żądania kończyła się odpowiedzią "niepoprawny token", więc aplikacja wylogowywała Cię bez Twojej winy. Teraz zgłasza błąd serwera i zachowuje Twoją sesję, więc ponowna próba chwilę później po prostu działa.`,
+  },
+  {
     version: "3.16.1",
     date: "2026-09-20",
     en: `Database connections now go through a bounded pool (20 per instance by default), so a burst of parallel requests can no longer exhaust PostgreSQL's connection limit and fail with server errors. No visible change in normal use.`,

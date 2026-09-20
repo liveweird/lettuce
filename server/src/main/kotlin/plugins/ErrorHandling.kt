@@ -103,7 +103,9 @@ private suspend fun ApplicationCall.respondDbFailure(cause: Throwable) = when {
     else -> respondInternalError(cause)
 }
 
-private suspend fun ApplicationCall.respondInternalError(cause: Throwable) {
+/** The catch-all's 500: logged with the cause, answered with the fixed problem body. Module-visible
+ *  because the JWT challenge in plugins/Security.kt reuses it for a failed blocklist lookup. */
+internal suspend fun ApplicationCall.respondInternalError(cause: Throwable) {
     application.log.error("Unhandled exception while processing ${request.local.method.value} ${request.local.uri}", cause)
     respondProblem(HttpStatusCode.InternalServerError, "An unexpected error occurred")
 }
