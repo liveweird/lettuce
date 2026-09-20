@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link as RouterLink, Navigate } from "react-router-dom";
-import { Alert, Badge, Button, Group, Select, Stack, Switch, Text } from "@mantine/core";
+import { Navigate } from "react-router-dom";
+import { Alert, Button, Group, Select, Stack, Switch, Text } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import PageHeader from "../components/PageHeader";
 import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
+import TeamBadges from "../components/TeamBadges";
 import { useBulkFeatureUpdate } from "../hooks/useBulkFeatureUpdate";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
@@ -23,7 +24,6 @@ import { listUsers, updateUserFeatures, type UserPage } from "../api/users";
 import { listAllTeams } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
-import { teamDetailsLink } from "../utils/teamLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { invalidateUser } from "../utils/userQueries";
 
@@ -355,21 +355,7 @@ export default function FeatureFlags() {
                 </ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("users.featureFlags.teamsHeader")}>
                   {u.teams && u.teams.length > 0 ? (
-                    <Group gap={4}>
-                      {u.teams.map((team) => (
-                        <Badge
-                          key={team.id}
-                          component={RouterLink}
-                          to={teamDetailsLink(team.id)}
-                          aria-label={t("teams.detailsForAria", { name: team.name })}
-                          variant="light"
-                          size="sm"
-                          style={{ cursor: "pointer" }}
-                        >
-                          {team.name}
-                        </Badge>
-                      ))}
-                    </Group>
+                    <TeamBadges teams={u.teams} />
                   ) : (
                     <Text size="sm" c="dimmed">
                       —

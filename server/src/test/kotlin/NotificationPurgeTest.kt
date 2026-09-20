@@ -3,6 +3,8 @@ package ch.nokillswit
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationService
 import ch.nokillswit.notifications.NotificationType
+import ch.nokillswit.notifications.purgeCatchingFailures
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.r2dbc.selectAll
@@ -10,6 +12,8 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.update
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 private const val THIRTY_ONE_DAYS_MILLIS = 31L * 24 * 60 * 60 * 1000
 private const val THIRTY_DAYS_MILLIS = 30L * 24 * 60 * 60 * 1000
@@ -176,5 +180,50 @@ class NotificationPurgeTest {
             now += PAST_ONE_HOUR_MILLIS
             gated.create(dummyNotification(recipientId, "three"))
             assertEquals(0L, rowCount(id2))
+        }
+
+    /**
+     * The WARN-not-fail path (checkup #36, C4), pinned against the extracted
+     * `purgeCatchingFailures` helper rather than a real DB failure — [NotificationService.purgeStale]
+     * has no seam to inject one without also breaking every other test sharing the container.
+     */
+    @Test
+    fun `a purge failure other than cancellation is logged as a WARN and does not propagate`(): Unit =
+        runBlocking {
+            val warnings = LogCapture("ch.nokillswit.notifications.NotificationService")
+            try {
+                // Must not throw — the whole point of the WARN-not-fail path.
+                purgeCatchingFailures { throw IllegalStateException("boom") }
+                assertNotNull(
+                    warnings.events.find { it.message == "Stale-notification purge failed" },
+                    "expected a WARN log for the swallowed failure",
+                )
+            } finally {
+                warnings.detach()
+            }
+        }
+
+    /**
+     * A coroutine cancellation must propagate rather than being swallowed into the WARN path
+     * above — [CancellationException] extends [Exception], so a plain `catch (e: Exception)`
+     * would otherwise also catch it and leave a cancelled request's purge silently
+     * continuing/ending inconsistently (checkup #36, C4).
+     */
+    @Test
+    fun `a CancellationException from the purge block propagates instead of being logged`(): Unit =
+        runBlocking {
+            val warnings = LogCapture("ch.nokillswit.notifications.NotificationService")
+            try {
+                var caught: CancellationException? = null
+                try {
+                    purgeCatchingFailures { throw CancellationException("purge cancelled") }
+                } catch (e: CancellationException) {
+                    caught = e
+                }
+                assertNotNull(caught, "expected the CancellationException to propagate out")
+                assertTrue(warnings.events.isEmpty(), "cancellation must never be logged as a purge failure")
+            } finally {
+                warnings.detach()
+            }
         }
 }

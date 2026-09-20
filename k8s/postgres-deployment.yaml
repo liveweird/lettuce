@@ -77,6 +77,15 @@ spec:
           ports:
             - containerPort: 5432
               protocol: TCP
+          # Sized like the app pod (Checkup #36 Tier C): a single-tenant PostgreSQL with the
+          # default 128 MiB shared_buffers idles well under 256 MiB; the limit bounds a runaway
+          # backend without starving the app on a small node.
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              memory: "512Mi"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

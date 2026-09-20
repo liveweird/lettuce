@@ -90,6 +90,49 @@ describe("Login page", () => {
     expect(localStorage.getItem("lettuce.auth.token")).toBeNull();
   });
 
+  test("a lockout 429 surfaces the too-many-attempts message", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ detail: "Too many failed login attempts for this account — try again later" }),
+        { status: 429, headers: { "Content-Type": "application/problem+json" } },
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, { route: "/login" });
+
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText("Password"), "wrong-again");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText(/too many failed login attempts/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sign-in codes were requested/i)).toBeNull();
+  });
+
+  test("a pending-codes 429 (v3.13.3) surfaces the sign-in-code cap message, not the lockout one", async () => {
+    const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          detail: "Too many pending sign-in codes for this account — wait for them to expire and try again",
+        }),
+        { status: 429, headers: { "Content-Type": "application/problem+json" } },
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, { route: "/login" });
+
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-password");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText(/too many sign-in codes were requested/i)).toBeInTheDocument();
+    expect(screen.queryByText(/too many failed login attempts/i)).toBeNull();
+    expect(localStorage.getItem("lettuce.auth.token")).toBeNull();
+  });
+
   test("surfaces a generic message for a non-401 server error", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(

@@ -17,6 +17,7 @@ import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
+import TeamBadges from "../components/TeamBadges";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isString, useStoredState } from "../hooks/useStoredState";
@@ -35,11 +36,13 @@ const isTypeFilter = (v: unknown): v is string | null =>
 
 /**
  * The days-off entries list (the GoalTable shape): view `own` = the caller's own entries,
- * `managed` = the direct reports' entries, `user` = the read-only HR auditor view. There is no
- * approval lifecycle since v3.9.0 — every entry is active from creation, and the only row
- * action is Delete (the owner or any manager in their transitive chain, the server-computed
- * `canDelete`). The person column shows on managed/user (own is caller-implied) and hides when
- * a drill-down pins the user.
+ * `managed` = the reports' entries (direct by default, or the whole transitive chain with
+ * `includeIndirect` — v3.13.0), `user` = the read-only HR auditor view. There is no approval
+ * lifecycle since v3.9.0 — every entry is active from creation, and the only row action is
+ * Delete (the owner or any manager in their transitive chain, the server-computed `canDelete`).
+ * The person column shows on managed/user (own is caller-implied) and hides when a drill-down
+ * pins the user; the unpinned managed view also carries a Team column (v3.13.0) naming each
+ * report's teams within the caller's scope.
  */
 export default function DaysOffTable({
   view,
@@ -63,10 +66,13 @@ export default function DaysOffTable({
   const queryClient = useQueryClient();
   const currentUserId = getUserId();
   const personVisible = view !== "own" && userId == null;
+  // The Team column (v3.13.0): each report's teams within the caller's managed scope — only
+  // meaningful on the unpinned managed view (a drill-down pinned to one user already names them).
+  const teamsVisible = view === "managed" && userId == null;
   const sortFields: readonly SortField[] = personVisible
     ? [...BASE_SORT_FIELDS, "userName"]
     : BASE_SORT_FIELDS;
-  const columnCount = sortFields.length + 1;
+  const columnCount = sortFields.length + 1 + (teamsVisible ? 1 : 0);
 
   const storeKey = settingsKey ?? `daysOff.${view}`;
   const [userFilter, setUserFilter] = useStoredState(`${storeKey}.filter.user`, "", isString);
@@ -193,6 +199,7 @@ export default function DaysOffTable({
                 />
               </ResponsiveTable.Th>
             )}
+            {teamsVisible && <ResponsiveTable.Th>{t("teams.team")}</ResponsiveTable.Th>}
             {(["startDate", "endDate", "days", "type", "createdAt"] as const).map((f) => (
               <ResponsiveTable.Th sortable key={f}><SortHeader
                   field={f}
@@ -220,6 +227,11 @@ export default function DaysOffTable({
                       deleted={r.userDeleted}
                       currentUserId={currentUserId}
                     />
+                  </ResponsiveTable.Td>
+                )}
+                {teamsVisible && (
+                  <ResponsiveTable.Td label={t("teams.team")}>
+                    <TeamBadges teams={r.teams ?? []} />
                   </ResponsiveTable.Td>
                 )}
                 <ResponsiveTable.Td label={t("daysOff.column.startDate")}>

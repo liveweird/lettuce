@@ -114,7 +114,9 @@ paths:
         6-digit code is emailed to the account, and the client exchanges it together with the
         `challengeId` at `POST /api/v1/login/mfa` for the ordinary `LoginResponse`. On a
         deployment without outbound email (`MAIL_TRANSPORT=disabled`) an MFA-enabled login
-        fails closed with `503`.
+        fails closed with `503`. An account with too many live pending challenges already
+        outstanding (default 5, `MFA_MAX_PENDING_CHALLENGES`) instead answers `429` — no new
+        code is emailed.
       security: []
       requestBody:
         required: true
@@ -4449,7 +4451,12 @@ paths:
         scope is an empty user list):
         - `scope=member` (the default): everyone sharing a non-deleted team with the caller,
           the caller included (a team-less caller sees just themselves).
-        - `scope=managed`: the caller's direct reports.
+        - `scope=managed`: the caller's direct reports — or, with `includeIndirect=true`
+          (v3.13.0), the caller's whole transitive management chain.
+
+        Every user row carries `teams` — the teams via which the person is in the requested
+        scope (the caller's subtree teams they belong to on `managed`, the teams shared with
+        the caller on `member`), so a widened calendar still says where each person sits.
 
         Unpaged by construction — bounded by (scope users × ≤31 days). Users sort by name.
       parameters:
@@ -4463,6 +4470,14 @@ paths:
           required: false
           schema: { type: string, enum: [member, managed], default: member }
           description: Whose days off to show — teammates (member) or direct reports (managed).
+        - name: includeIndirect
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            Only valid with `scope=managed` (else `400`; strict `true`/`false`). When `true`,
+            widens the scope from direct reports to the caller's whole transitive management
+            chain (v3.13.0) — the budgets/list `includeIndirect` rule.
       responses:
         '200':
           description: The month's calendar payload
@@ -9337,6 +9352,14 @@ components:
         userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         userDeleted: { type: boolean }
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: |
+            The teams via which the owner is in the caller's managed scope (v3.13.0 — the
+            caller's own teams, plus teams managed further down under `includeIndirect`;
+            non-deleted, name-ascending). Present on `view=managed` rows only, OMITTED (not
+            computed) on every other view — the users-list `teams` idiom.
         type: { type: string, enum: [PAID, UNPAID] }
         poolTypeId:
           type: integer
@@ -9396,11 +9419,20 @@ components:
 
     DaysOffCalendarUser:
       type: object
-      required: [userId, userName, userDeleted, entries]
+      required: [userId, userName, userDeleted, teams, entries]
       properties:
         userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         userDeleted: { type: boolean }
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: |
+            The teams via which the person is in the requested scope (v3.13.0): on
+            `scope=managed` the caller's subtree teams they belong to (direct reports: the
+            caller's own teams; with `includeIndirect` also teams managed further down), on
+            `scope=member` the teams shared with the caller. Non-deleted, name-ascending;
+            may be empty (the caller's own row in the member scope, for instance).
         entries:
           type: array
           items:
@@ -9432,6 +9464,14 @@ components:
         userId: { type: integer, format: int32, minimum: 0 }
         userName: { type: string }
         userDeleted: { type: boolean }
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: |
+            The teams via which the person is in the caller's managed scope (v3.13.0 — the
+            caller's own teams, plus teams managed further down under `includeIndirect`;
+            non-deleted, name-ascending). Present on `view=managed` rows only, OMITTED (not
+            computed) on `view=own` — the users-list `teams` idiom.
         year: { type: integer }
         poolId:
           type: integer

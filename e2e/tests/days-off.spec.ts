@@ -8,6 +8,7 @@ import {
   login,
   logout,
   MANAGER_AAA,
+  MANAGER_CCC,
   notificationCard,
   openBell,
   pickSelectOption,
@@ -28,7 +29,10 @@ import type { APIRequestContext, Page } from "@playwright/test";
 // also records a day ON BEHALF of AAA Two (v2.29.0, kept — just a plain entry now, no
 // "auto-accepted" wording), which the MANAGER deletes at the end (the chain-wide delete right
 // that replaced the mandatory-reason manager-side cancel). A budget correction (v1.43.0) rides
-// along unchanged.
+// along unchanged. While AAA Two's default-pool Mon–Tue entry is still active, Manager CCC — an
+// INDIRECT chain manager two levels up (team CCC's manager; AAA Two reports to Manager AAA, who
+// sits on team CCC) — widens both the Calendar and the Team tab's Reports scope to the whole
+// chain and sees AAA Two, with her team named on the row (v3.13.0).
 //
 // The request window is a run-specific future Monday (weeks vary per run), so residue from a
 // failed earlier run rarely collides via the overlap rule — but the sweep below is what
@@ -338,6 +342,34 @@ test("days off end to end: holiday, allowance, entries, delete, calendar", async
     await page.getByLabel("Next month").click();
   }
   await expect(page.locator(`[title="${TUESDAY_CELL_TITLE}"]`)).toBeVisible();
+  await logout(page);
+
+  // ── Manager CCC — an INDIRECT chain manager (team CCC's manager; AAA Two reports to Manager
+  // AAA, who sits on team CCC) — widens the Calendar's "Whose calendar" and the Team tab's
+  // "Reports" to the whole chain and sees AAA Two, with her team named (v3.13.0). AAA Two's
+  // Mon–Tue entry (still active — deleted only near the end of this test) is what both checks
+  // key on. ──
+  await login(page, MANAGER_CCC);
+  await collapseAlertsBanner(page);
+  await page.goto("/days-off?tab=calendar");
+  await page.getByRole("combobox", { name: "Whose calendar" }).click();
+  await page.getByRole("option", { name: "All my reports (including indirect)" }).click();
+  const chainCalendarRow = page.locator("tr", { hasText: "AAA Two" }).first();
+  await expect(chainCalendarRow).toBeVisible();
+  await expect(chainCalendarRow.getByText("AAA", { exact: true })).toBeVisible();
+
+  await page.goto("/days-off?tab=team");
+  await page.getByRole("combobox", { name: "Reports" }).click();
+  await page.getByRole("option", { name: "All reports (including indirect)" }).click();
+  // Filter-anchored, not a bare page-1 assumption — the shared list may hold other entries.
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("userName=") && r.ok()),
+    page.getByLabel("Person").fill("AAA Two"),
+  ]);
+  const chainTeamRow = page.locator("tr", { hasText: "AAA Two" }).first();
+  await expect(chainTeamRow).toBeVisible();
+  await expect(chainTeamRow.getByText("AAA", { exact: true })).toBeVisible();
   await logout(page);
 
   // ── Manager: records days off ON BEHALF of AAA Two (v2.29.0, kept) — a plain active entry,

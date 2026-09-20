@@ -4,7 +4,9 @@
 - **Actors**: the seed admin (`admin@lettuce.local`), AAA Two (`aaa-two@lettuce.local`, the
   entry owner), Manager AAA (`manager-aaa@lettuce.local`, AAA Two's direct manager and a chain
   manager), AAA One (`aaa-one@lettuce.local`, AAA Two's teammate on team AAA — the
-  create/delete notification fan-out's teammate leg)
+  create/delete notification fan-out's teammate leg), Manager CCC (`manager-ccc@lettuce.local`,
+  an INDIRECT chain manager two levels up — team CCC's manager; AAA Two reports to Manager AAA,
+  who sits on team CCC — the includeIndirect widening leg, v3.13.0)
 - **Owns** (exclusive server-side state): the public-holidays registry, the paid-leave pool
   kinds registry (the "E2E Pool" kinds, v3.2.0), plus AAA Two's days-off entries, paid pools
   and allowances, and budget corrections — this file is their single writer under parallel
@@ -13,7 +15,9 @@
   v2.29.0 (the manager's on-behalf recording), v2.32.0 (the manager-set allowance),
   v3.2.0 (paid pools), **v3.9.0 (the approval lifecycle is gone: every entry is active from
   creation, delete replaces accept/reject/cancel, and create/delete fan out a notification to
-  the owner's whole team + their direct manager, minus whoever acted)**
+  the owner's whole team + their direct manager, minus whoever acted)**, v3.13.0 (the calendar's
+  "Whose calendar" and the Team tab's "Reports" both widen from direct reports to the caller's
+  whole transitive chain, and every widened row carries the person's team(s))
 
 **Preconditions.** The booked window is a run-varying future Monday (4–43 weeks out); the whole
 week stays inside one calendar year and clear of the seeded Polish statutory holidays (their
@@ -75,25 +79,36 @@ where a run died.
 9. On the Calendar tab, AAA Two pages forward to the Monday–Tuesday entry's month.
    - *Expected*: the team days-off calendar marks the still-active Tuesday — "AAA Two — \<date\>:
      Paid days off (1 day)" — no status wording rides the cell title anymore (v3.9.0).
-10. Manager AAA opens Days off, clicks the header's "Record days off" button (the on-behalf
+10. Manager CCC — an indirect chain manager (AAA Two reports to Manager AAA, who sits on team
+    CCC, Manager CCC's own team) — signs in, opens Days off's Calendar tab, and switches "Whose
+    calendar" from the default to "All my reports (including indirect)".
+    - *Expected*: AAA Two's row appears in the calendar grid — every scoped person renders a
+      row regardless of that month's entries — with her team, "AAA", named beneath her name
+      (v3.13.0).
+11. Still as Manager CCC, on the My team tab's Reports select, switches from "Direct reports
+    only" to "All reports (including indirect)", then filters the entries list to "AAA Two".
+    - *Expected*: AAA Two's still-active Monday–Tuesday entry row appears, carrying the "AAA"
+      team badge beside her name (v3.13.0) — an indirect report Manager CCC could not otherwise
+      see or manage directly.
+12. Manager AAA opens Days off, clicks the header's "Record days off" button (the on-behalf
     entry, kept from v2.29.0), picks AAA Two in the "On behalf of" picker, books the booked
     week's Thursday (a PAID single day from the default pool), and clicks "Submit".
     - *Expected*: the cost preview reads "1 working day"; back on Days off with the "Days off
       recorded" toast (no "auto-accepted" wording — there is no acceptance step); the entry
       sits active on the team's Entries list immediately.
-11. AAA Two signs in and opens the bell.
+13. AAA Two signs in and opens the bell.
     - *Expected*: "Manager AAA added a day off" — the on-behalf entry reached its owner through
       the same team fan-out as any other create, not a dedicated on-behalf receipt (the acting
       manager, being the one who acted, is excluded from their own fan-out and gets no
       self-receipt this time — unlike the pre-v3.9.0 "you recorded on behalf of" notice).
-12. Still on the Team tab, Manager AAA switches the team view to **Budgets**, opens "Budget
+14. Still on the Team tab, Manager AAA switches the team view to **Budgets**, opens "Budget
     corrections of AAA Two" and adds a +2-day correction with the comment
     "E2E correction \<Monday\>".
     - *Expected*: "Correction added", and the correction is listed in the modal.
-13. AAA Two signs in, checks the bell, then opens their own Corrections modal from My days off.
+15. AAA Two signs in, checks the bell, then opens their own Corrections modal from My days off.
     - *Expected*: an "added 2 day(s) to your "Paid days off" budget" notification; the
       correction shows read-only — no "Add correction" form and no per-row actions.
-14. Manager AAA (from the Team tab's Entries view) deletes the recorded Thursday entry on
+16. Manager AAA (from the Team tab's Entries view) deletes the recorded Thursday entry on
     AAA Two's behalf — the owner-or-chain delete right that replaced the mandatory-reason
     manager-side cancel.
     - *Expected*: "Days-off entry deleted"; the row disappears from the team list; the budget's

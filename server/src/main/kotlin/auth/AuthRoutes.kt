@@ -31,6 +31,7 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
+import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
@@ -129,6 +130,35 @@ private fun JwtConfig.authResponse(
     )
 }
 
+/**
+ * Boot-time range validation for a numeric auth-security config value (checkup #36, C5): a
+ * malformed or out-of-range lockout/MFA/password-reset setting is a config error, not a runtime
+ * concern — `LOGIN_LOCKOUT_DURATION_SECONDS=0` would never lock while `login.lockout` still
+ * audits, and `threshold=0` would lock on the first attempt. Refuses to start in EVERY mode (the
+ * `security.encryption.key` malformed-key precedent in infra/crypto/Crypto.kt and
+ * plugins/Security.kt's `error(message)` shape — this is not gated by `developmentMode`).
+ * [min] is inclusive; a non-numeric override is rejected the same way as an out-of-range one.
+ */
+private fun requireConfigInt(config: ApplicationConfig, key: String, min: Int, max: Int = Int.MAX_VALUE): Int {
+    val raw = config.property(key).getString()
+    val value = raw.toIntOrNull()
+    if (value == null || value < min || value > max) {
+        val bound = if (max == Int.MAX_VALUE) ">= $min" else "between $min and $max"
+        error("Config \"$key\" must be an integer $bound (was \"$raw\")")
+    }
+    return value
+}
+
+/** The [requireConfigInt] sibling for the `Long`-typed duration/interval settings. */
+private fun requireConfigLong(config: ApplicationConfig, key: String, min: Long): Long {
+    val raw = config.property(key).getString()
+    val value = raw.toLongOrNull()
+    if (value == null || value < min) {
+        error("Config \"$key\" must be an integer >= $min (was \"$raw\")")
+    }
+    return value
+}
+
 fun Application.configureAuthRoutes() {
     val jwtConfig = attributes[JwtConfigKey]
     val userService = attributes[UserServiceKey]
@@ -145,8 +175,8 @@ fun Application.configureAuthRoutes() {
     // DB-backed since V81: replicas share the counters and a restart no longer resets them.
     val loginThrottle = LoginThrottle(
         database = database,
-        threshold = environment.config.property("security.lockout.threshold").getString().toInt(),
-        lockoutMillis = environment.config.property("security.lockout.durationSeconds").getString().toLong() * 1000,
+        threshold = requireConfigInt(environment.config, "security.lockout.threshold", min = 1),
+        lockoutMillis = requireConfigLong(environment.config, "security.lockout.durationSeconds", min = 1) * 1000,
     )
 
     // Self-service password reset: one request per submitted email per interval, uniformly
@@ -154,18 +184,22 @@ fun Application.configureAuthRoutes() {
     // since V81, like the lockout above.
     val resetThrottle = PasswordResetThrottle(
         database = database,
-        minIntervalMillis = environment.config
-            .property("security.passwordReset.minIntervalSeconds").getString().toLong() * 1000,
+        minIntervalMillis = requireConfigLong(
+            environment.config, "security.passwordReset.minIntervalSeconds", min = 1,
+        ) * 1000,
     )
     val mailAppUrl = mailAppUrl()
 
     // Email MFA (v2.4.0): pending challenges for MFA-enabled accounts mid-login. DB-backed
     // since V81, like the lockout above (a restart no longer invalidates a pending challenge).
-    val mfaTtlSeconds = environment.config.property("security.mfa.codeTtlSeconds").getString().toLong()
+    val mfaTtlSeconds = requireConfigLong(environment.config, "security.mfa.codeTtlSeconds", min = 1)
     val mfaChallenges = MfaChallenges(
         database = database,
         ttlMillis = mfaTtlSeconds * 1000,
-        maxAttempts = environment.config.property("security.mfa.maxAttempts").getString().toInt(),
+        attemptCap = requireConfigInt(environment.config, "security.mfa.maxAttempts", min = 1, max = 100),
+        maxPendingChallenges = requireConfigInt(
+            environment.config, "security.mfa.maxPendingChallenges", min = 1, max = 100,
+        ),
     )
     val mfaTtlMinutes = (mfaTtlSeconds + 59) / 60
 
@@ -188,7 +222,23 @@ fun Application.configureAuthRoutes() {
             call.respondMailUnavailable("multi-factor login")
             return
         }
-        val challenge = mfaChallenges.issue(userId)
+        val challenge = when (val outcome = mfaChallenges.issue(userId)) {
+            is MfaChallenges.IssueOutcome.Throttled -> {
+                // Checkup #36 Tier D: too many live challenges already pending for this
+                // account — no email is sent, and login.mfa_challenge is deliberately NOT
+                // emitted (thrown, not respondProblem'ed — the StatusPages 429 rule).
+                audit(
+                    "login.mfa_throttled",
+                    "ip" to call.request.origin.remoteHost,
+                    "email" to user.email,
+                    "userId" to userId.toLong(),
+                )
+                throw TooManyRequestsException(
+                    "Too many pending sign-in codes for this account — wait for them to expire and try again",
+                )
+            }
+            is MfaChallenges.IssueOutcome.Issued -> outcome.challenge
+        }
         audit("login.mfa_challenge", "email" to user.email, "userId" to userId.toLong())
         // Challenge stored BEFORE responding (the user submits the code right away);
         // only the delivery is fire-and-forget, like the password-reset email.
@@ -312,7 +362,13 @@ fun Application.configureAuthRoutes() {
                 // submission matches its account (and keeps sharing one lockout bucket, which
                 // was already folding its keys).
                 val email = canonicalEmail(req.email)
-                if (loginThrottle.isLocked(email)) {
+                // Reserved BEFORE password verification (checkup #36 M1): a concurrent burst of
+                // wrong-password attempts for one email must not all pass a stale "not locked
+                // yet" read while every one of them is off doing its own ~100ms bcrypt — the
+                // reservation is the atomic, single-upsert admission check.
+                val reservation = loginThrottle.reserveAttempt(email)
+                if (reservation.locked) {
+                    if (reservation.tripped) audit("login.lockout", "email" to email)
                     audit("login.rejected_locked", "ip" to call.request.origin.remoteHost, "email" to email)
                     // Thrown (not respondProblem) so StatusPages marks the call handled and its
                     // generic 429 status handler cannot replace this specific detail.
@@ -325,22 +381,29 @@ fun Application.configureAuthRoutes() {
                 // use the default-cost dummy hash, then still fail because no record exists.
                 val passwordVerified = verifyLoginPassword(req.password, record?.second?.passwordHash)
                 if (record == null || !passwordVerified) {
-                    val tripped = loginThrottle.recordFailure(email)
                     audit(
                         "login.failure",
                         "ip" to call.request.origin.remoteHost,
                         "email" to email,
                         "reason" to if (record == null) "unknown_email" else "wrong_password",
                     )
-                    if (tripped) audit("login.lockout", "email" to email)
+                    // This reservation's own incremented count already IS the failure count —
+                    // trip the lock once it reaches the threshold (reserveAttempt's own backstop
+                    // only catches a burst that overruns the threshold before this point).
+                    if (reservation.failures >= loginThrottle.threshold && loginThrottle.lock(email)) {
+                        audit("login.lockout", "email" to email)
+                    }
                     throw UnauthorizedException("Unknown email or wrong password")
                 }
                 val (userId, user) = record
                 // Correct password, disabled account: a distinct 403 — only reachable AFTER the
-                // password verified, so it is no enumeration oracle. Deliberately neither
-                // recordFailure (correct credentials must not feed the lockout) nor recordSuccess
-                // (nothing to reset matters); a locked account still answers 429 first, above.
+                // password verified, so it is no enumeration oracle. The reservation taken above
+                // is released rather than left standing (correct credentials must not feed the
+                // lockout) and rather than cleared outright (recordSuccess resets to zero, which
+                // would erase prior failures a 403 attempt did not earn); a locked account still
+                // answers 429 first, above.
                 if (user.deactivated) {
+                    loginThrottle.release(email)
                     audit("login.failure", "ip" to call.request.origin.remoteHost, "email" to email, "reason" to "deactivated")
                     throw ForbiddenException("Account is deactivated")
                 }
@@ -366,7 +429,7 @@ fun Application.configureAuthRoutes() {
                 val req = call.receive<MfaVerifyRequest>()
                 when (val outcome = mfaChallenges.verify(req.challengeId, req.code)) {
                     is MfaChallenges.Outcome.Failure -> {
-                        audit("login.mfa_failure", "reason" to outcome.reason)
+                        audit("login.mfa_failure", "ip" to call.request.origin.remoteHost, "reason" to outcome.reason)
                         // Uniform for every failure mode — a guesser learns nothing about
                         // whether the challenge exists, expired, or the code was wrong.
                         throw UnauthorizedException("Invalid or expired sign-in code")
@@ -377,7 +440,12 @@ fun Application.configureAuthRoutes() {
                         // active, and the pair is minted from their current roles/flags.
                         val user = userService.read(userId)
                         if (user == null) {
-                            audit("login.mfa_failure", "reason" to "user_gone", "userId" to userId.toLong())
+                            audit(
+                                "login.mfa_failure",
+                                "ip" to call.request.origin.remoteHost,
+                                "reason" to "user_gone",
+                                "userId" to userId.toLong(),
+                            )
                             throw UnauthorizedException("Invalid or expired sign-in code")
                         }
                         if (user.deactivated) {

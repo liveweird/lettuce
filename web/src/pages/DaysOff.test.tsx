@@ -17,8 +17,8 @@ const CALENDAR = {
   month: "2026-08",
   holidays: [],
   users: [
-    { userId: 5, userName: "Me Myself", userDeleted: false, entries: [] },
-    { userId: 6, userName: "Mate Person", userDeleted: false, entries: [] },
+    { userId: 5, userName: "Me Myself", userDeleted: false, teams: [], entries: [] },
+    { userId: 6, userName: "Mate Person", userDeleted: false, teams: [{ id: 1, name: "AAA" }], entries: [] },
   ],
 };
 
@@ -105,6 +105,66 @@ describe("DaysOff page", () => {
     expect(screen.queryByText("Paid-days budgets")).toBeNull();
     await userEvent.click(screen.getByRole("radio", { name: "Budgets" }));
     expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
+  });
+
+  test("managers see the three calendar scope options, including the widened chain (v3.13.0)", async () => {
+    setupMocks({ managed: 1 });
+    renderWithProviders(<DaysOff />, { route: "/days-off" });
+
+    await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual(["My teams", "My direct reports", "All my reports (including indirect)"]);
+  });
+
+  test("choosing the widened calendar scope requests includeIndirect; direct reports doesn't (v3.13.0)", async () => {
+    setupMocks({ managed: 1 });
+    renderWithProviders(<DaysOff />, { route: "/days-off" });
+
+    await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
+
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    await userEvent.click(screen.getByRole("option", { name: "My direct reports" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/calendar") && u.includes("scope=managed"));
+      expect(call).toBeDefined();
+      expect(call).not.toContain("includeIndirect");
+    });
+
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    await userEvent.click(screen.getByRole("option", { name: "All my reports (including indirect)" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/calendar") && u.includes("includeIndirect=true"));
+      expect(call).toBeDefined();
+    });
+  });
+
+  test("the team tab's Reports select widens both the entries list and the budgets to the chain (v3.13.0)", async () => {
+    setupMocks({ managed: 1 });
+    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+
+    expect(await screen.findByRole("combobox", { name: "Reports" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Reports" }));
+    await userEvent.click(screen.getByRole("option", { name: "All reports (including indirect)" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/api/v1/days-off?") && u.includes("includeIndirect=true"));
+      expect(call).toBeDefined();
+    });
+
+    await userEvent.click(screen.getByRole("radio", { name: "Budgets" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/api/v1/days-off/budgets") && u.includes("includeIndirect=true"));
+      expect(call).toBeDefined();
+    });
   });
 
   test("a stored budgets pick restores the Budgets segment on the team tab (v3.4.0)", async () => {

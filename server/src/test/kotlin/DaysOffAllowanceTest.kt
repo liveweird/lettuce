@@ -16,6 +16,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -26,6 +27,7 @@ import java.time.temporal.TemporalAdjusters
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -145,6 +147,12 @@ class DaysOffAllowanceTest {
         TestServices.teams.addMember(teamY, mId)
         val teamX = TestServices.teams.create(Team(name = "iiX-${java.util.UUID.randomUUID()}", managerId = mId))
         TestServices.teams.addMember(teamX, sId)
+        // S also sits in team Z, managed by U who is NOWHERE in G's or M's chain: the
+        // `listOf(teamX)` scope-team assertions below therefore also pin that an out-of-chain
+        // team never rides a managed row (the `teamId inList` predicate's negative case).
+        val uId = TestUsers.seed(uniqueEmail("do-ii-u"), "pw", roles = emptySet())
+        val teamZ = TestServices.teams.create(Team(name = "iiZ-${java.util.UUID.randomUUID()}", managerId = uId))
+        TestServices.teams.addMember(teamZ, sId)
         TestDaysOff.setAllowance(sId, 30)
         val g = authedClient(gEmail, "pw")
         val m = authedClient(mEmail, "pw")
@@ -168,8 +176,19 @@ class DaysOffAllowanceTest {
         assertTrue(widened.items.single { it.userId == mId }.canCorrect)
         assertTrue(widened.items.single { it.userId == sId }.canCorrect)
         assertEquals(30, widened.items.single { it.userId == sId }.allowance)
-        // Own rows never carry the pen.
-        assertFalse(s.get("/api/v1/days-off/budgets?year=2061").body<DaysOffBudgetList>().items.single().canCorrect)
+        // Scope teams (v3.13.0): S's widened budget row names X, M's direct budget row Y.
+        assertEquals(listOf(teamX), widened.items.single { it.userId == sId }.teams?.map { it.id })
+        assertEquals(listOf(teamY), direct.items.single().teams?.map { it.id })
+        // Own rows never carry the pen, nor the scope teams (OMITTED, not an empty list).
+        val ownBudget = s.get("/api/v1/days-off/budgets?year=2061").body<DaysOffBudgetList>().items.single()
+        assertFalse(ownBudget.canCorrect)
+        assertNull(ownBudget.teams)
+        // Raw-JSON pin (checkup #36, C9): assertNull alone cannot tell an OMITTED key (the
+        // @EncodeDefault NEVER contract) apart from a present `"teams":null`.
+        assertFalse(
+            s.get("/api/v1/days-off/budgets?year=2061").bodyAsText().contains("\"teams\""),
+            "own budget row must omit the teams key entirely",
+        )
 
         // Requests list: G's direct managed view is empty of S's rows; includeIndirect
         // surfaces them with canDelete set — the delete right is chain-wide since v2.33.0.
@@ -180,11 +199,21 @@ class DaysOffAllowanceTest {
             .body<DaysOffPageResponse>()
         val chainRow = gWide.items.single()
         assertTrue(chainRow.canDelete)
+        // Scope teams (v3.13.0): the widened list row names the team through which S sits in
+        // G's chain (X, managed by M).
+        assertEquals(listOf(teamX), chainRow.teams?.map { it.id })
         val directRow = m.get("/api/v1/days-off?view=managed&userId=$sId").body<DaysOffPageResponse>().items.single()
         assertTrue(directRow.canDelete)
+        // M's direct view names X only — never Z, the team outside M's chain.
+        assertEquals(listOf(teamX), directRow.teams?.map { it.id })
         // The owner's own row is deletable too.
         val ownRow = s.get("/api/v1/days-off").body<DaysOffPageResponse>().items.single()
         assertTrue(ownRow.canDelete)
+        // Raw-JSON pin (checkup #36, C9): the own list row's `teams` is likewise OMITTED, not null.
+        assertFalse(
+            s.get("/api/v1/days-off").bodyAsText().contains("\"teams\""),
+            "own list row must omit the teams key entirely",
+        )
 
         // The strict-boolean shape rule on both endpoints.
         assertEquals(HttpStatusCode.BadRequest, g.get("/api/v1/days-off/budgets?includeIndirect=true").status)

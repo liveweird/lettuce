@@ -17,7 +17,9 @@ test("a manager walks My teams into the team view and a drill-down round-trips b
   await page.getByRole("link", { name: "Team details for AAA" }).click();
   await expect(page).toHaveURL(/\/teams\/\d+\/details\?from=myTeams/);
   await expect(page.getByRole("heading", { name: "Team details" })).toBeVisible();
-  await expect(page.getByText("AAA", { exact: true })).toBeVisible();
+  // The Name field specifically — the person cards below also carry "AAA" team badges
+  // (a bare getByText("AAA") is a strict-mode collision since Mantine 9.6).
+  await expect(page.locator("dl").getByText("AAA", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Subordinates" })).toBeVisible();
 
   // The same person cards as My subordinates: stats block + the direct-report actions

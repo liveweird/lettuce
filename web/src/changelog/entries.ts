@@ -17,6 +17,36 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.13.3",
+    date: "2026-09-20",
+    en: `Sign-in codes are capped per account. An account with the emailed second factor can have at most five pending sign-in codes at a time; further sign-ins are refused with a clear message until the earlier codes expire. This stops someone who knows a password from flooding the account's mailbox with codes. Each code keeps its own expiry and guess limit as before.`,
+    pl: `Kody logowania mają limit na konto. Konto z drugim składnikiem wysyłanym e-mailem może mieć naraz najwyżej pięć oczekujących kodów logowania; kolejne logowania odrzucamy z czytelnym komunikatem, dopóki wcześniejsze kody nie wygasną. Dzięki temu osoba znająca hasło nie zaleje skrzynki tego konta kodami. Każdy kod zachowuje jak dotąd własny termin ważności i limit prób.`,
+  },
+  {
+    version: "3.13.2",
+    date: "2026-09-20",
+    en: `Housekeeping. Team badges look and behave the same everywhere: the Team columns on the days-off team tab now link to the team's details, like the badges on person cards and the feature-flags list. The app refuses to start on a nonsensical sign-in lockout or sign-in code setting (a zero duration, a zero threshold) instead of silently running with it, and a browser that abandons a page download mid-way no longer leaves an error in the server log.`,
+    pl: `Porządki. Odznaki zespołów wyglądają i działają wszędzie tak samo: kolumny Zespół na zakładce Mój zespół w dniach wolnych prowadzą teraz do szczegółów zespołu, tak jak odznaki na kartach osób i na liście flag funkcji. Aplikacja odmawia startu przy bezsensownym ustawieniu blokady logowania lub kodu logowania (zerowy czas, zerowy próg), zamiast po cichu z nim pracować, a przeglądarka, która przerwie pobieranie strony w połowie, nie zostawia już błędu w logu serwera.`,
+  },
+  {
+    version: "3.13.1",
+    date: "2026-09-20",
+    en: `Fix: the sign-in lockout now counts simultaneous attempts exactly. Each attempt is reserved before the password is checked, so a burst of wrong passwords fired at the same moment can no longer slip past the limit of failed attempts per account. Nothing changes for an ordinary sign-in.`,
+    pl: `Poprawka: blokada logowania liczy teraz dokładnie także równoczesne próby. Każdą próbę rezerwujemy, zanim sprawdzimy hasło, więc seria błędnych haseł wysłanych w tej samej chwili nie prześlizgnie się już poza limit nieudanych prób na konto. Dla zwykłego logowania nic się nie zmienia.`,
+  },
+  {
+    version: "3.13.0",
+    date: "2026-09-19",
+    en: `Days off across your whole chain. Managers can switch the days-off calendar and the My team tab from direct reports to all reports, including indirect ones — the same Reports choice as on the other team screens. Every person on the managed calendar and in the team tables now shows the team they belong to.`,
+    pl: `Dni wolne w całym Twoim łańcuchu. Jako menedżer możesz przełączyć kalendarz dni wolnych i zakładkę Mój zespół z bezpośrednich podwładnych na wszystkich, także pośrednich — tym samym wyborem "Podwładni" co na innych ekranach zespołu. Każda osoba w zarządzanym kalendarzu i w tabelach zespołu pokazuje teraz zespół, do którego należy.`,
+  },
+  {
+    version: "3.12.2",
+    date: "2026-09-18",
+    en: `Fix: the sign-in code's attempt limit now follows its configured value. Since 3.11.0 every emailed sign-in code silently allowed exactly three guesses regardless of the setting (the default is five); a wrong guess counted correctly, but the limit itself was fixed. Nothing changes for you unless your administrator tuned that limit.`,
+    pl: `Poprawka: limit prób dla kodu logowania stosuje teraz skonfigurowaną wartość. Od wersji 3.11.0 każdy kod logowania wysłany e-mailem po cichu dopuszczał dokładnie trzy próby niezależnie od ustawienia (domyślnie pięć); błędne próby liczyliśmy poprawnie, ale sam limit był stały. Nic się dla Ciebie nie zmienia, chyba że administrator/ka dostroił/a ten limit.`,
+  },
+  {
     version: "3.12.1",
     date: "2026-09-18",
     en: `The new succession plan form is easier to read: the seat's criticality, retention risk and target bench depth sit in one "Seat & criticality" section on three evenly aligned columns, the loss-impact list has its own section, and the same layout applies while editing a plan and to the nomination form's readiness, type and awareness fields.`,
@@ -1307,4 +1337,3 @@ Poprawione przy okazji: wybór menedżera w formularzach zespołów i filtrze Ze
     pl: `Pierwsze wydanie: pełny cykl życia feedbacku (proszenie o feedback, szkice, wysyłanie, wycofywanie), autorefleksje, zarządzanie zespołami, szablony feedbacku, powiadomienia w aplikacji, alerty administracyjne oraz dwujęzyczny interfejs (angielski i polski).`,
   },
 ];
-

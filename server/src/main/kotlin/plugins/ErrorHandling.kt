@@ -20,6 +20,8 @@ import io.ktor.server.plugins.CannotTransformContentToTypeException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
 import io.ktor.server.response.respond
+import io.ktor.util.cio.ChannelWriteException
+import io.ktor.utils.io.ClosedByteChannelException
 import io.r2dbc.spi.R2dbcException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -143,6 +145,25 @@ private fun ApplicationCall.hasNegativeIdSegment(): Boolean {
         path.split('/').any { NEGATIVE_ID_SEGMENT.matches(it.decodeURLPart()) }
 }
 
+// A client disconnecting mid-response (a browser aborting a static-asset download, e.g.) is not
+// a server fault — the response channel is already gone by the time this fires, so there is
+// nothing left to write a body to. Seen twice per e2e run on `/assets/*.js` GETs (checkup #36,
+// C10) as [ClosedByteChannelException] ("Cannot write to channel"); its sibling
+// [ChannelWriteException] wraps the same failure on the CIO engine's other write paths. Kept to
+// these two NAMED Ktor types rather than a generic IOException-with-closed-cause heuristic,
+// which would risk swallowing a genuine server-side write fault under the same DEBUG line.
+internal fun isClientDisconnect(cause: Throwable): Boolean =
+    cause is ClosedByteChannelException || cause is ChannelWriteException
+
+private fun ApplicationCall.logClientDisconnect(cause: Throwable) {
+    application.log.debug(
+        "Client disconnected mid-response ({}): {} {}",
+        cause.message,
+        request.local.method.value,
+        request.local.uri,
+    )
+}
+
 fun Application.configureErrorHandling() {
     install(StatusPages) {
         // The per-IP RateLimit plugin rejects with a bodiless 429; give it the same RFC 7807
@@ -202,6 +223,10 @@ fun Application.configureErrorHandling() {
         exception<R2dbcException> { call, cause ->
             call.respondDbFailure(cause)
         }
+        // Registered BEFORE the catch-all (checkup #36, C10) — a client-disconnect write
+        // failure logs at DEBUG (no stack) and attempts no response; the channel is already gone.
+        exception<ClosedByteChannelException> { call, cause -> call.logClientDisconnect(cause) }
+        exception<ChannelWriteException> { call, cause -> call.logClientDisconnect(cause) }
         exception<Throwable> { call, cause ->
             call.respondInternalError(cause)
         }

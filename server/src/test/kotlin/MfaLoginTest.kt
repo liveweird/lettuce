@@ -3,7 +3,9 @@ package ch.nokillswit
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.auth.MfaChallengeResponse
+import ch.nokillswit.auth.MfaChallenges
 import ch.nokillswit.auth.MfaVerifyRequest
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserFeaturesUpdateRequest
 import io.ktor.client.HttpClient
@@ -20,6 +22,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.r2dbc.update
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -157,8 +162,74 @@ class MfaLoginTest {
     }
 
     @Test
+    fun `too many pending challenges answer 429 and exchanging one code frees a slot`() = testApplication {
+        // Checkup #36 Tier D: caps LIVE pending challenges per account — pinned low so the
+        // route-level throttling is reachable without minting dozens of challenges.
+        configureApp("security.mfa.maxPendingChallenges" to "2")
+        startApplication()
+        val email = uniqueEmail("mfa-pending-cap")
+        seedMfaUser(email, "pw-123456789")
+        val mail = LogCapture("ch.nokillswit.mail")
+        val auditEvents = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = jsonClient()
+
+            // Two correct-password logins mint fresh challenges (200 + mfaRequired) — one live
+            // challenge each, still under the cap of 2.
+            val firstRes = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.OK, firstRes.status)
+            val first = firstRes.body<MfaChallengeResponse>()
+            assertTrue(first.mfaRequired)
+            val secondRes = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.OK, secondRes.status)
+            assertTrue(secondRes.body<MfaChallengeResponse>().mfaRequired)
+            assertEquals(
+                2,
+                auditEvents.events.count { it.message == "login.mfa_challenge" && it.hasKeyValue("email", email) },
+            )
+
+            // The third correct-password login is throttled: no new challenge, no email, a
+            // uniform-looking but distinct 429 (the "sign-in codes" phrase, not the lockout's
+            // "failed login attempts" phrase).
+            val third = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.TooManyRequests, third.status)
+            val problem = third.body<ProblemDetail>()
+            assertTrue(
+                problem.detail?.contains("sign-in codes") == true,
+                "unexpected detail: ${problem.detail}",
+            )
+            assertNotNull(
+                auditEvents.awaitEvent {
+                    it.message == "login.mfa_throttled" && it.hasKeyValue("email", email) &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" } &&
+                        it.keyValuePairs.any { kv -> kv.key == "userId" }
+                },
+            )
+            assertEquals(
+                2,
+                auditEvents.events.count { it.message == "login.mfa_challenge" && it.hasKeyValue("email", email) },
+                "the throttled attempt must not mint a third challenge",
+            )
+
+            // Exchanging one of the two live codes frees a slot: a further login mints again.
+            val code = mail.codeFor(email)
+            val verified = client.verify(first.challengeId, code)
+            assertEquals(HttpStatusCode.OK, verified.status)
+
+            val fourthRes = client.login(email, "pw-123456789")
+            assertEquals(HttpStatusCode.OK, fourthRes.status)
+            assertTrue(fourthRes.body<MfaChallengeResponse>().mfaRequired)
+        } finally {
+            mail.detach()
+            auditEvents.detach()
+        }
+    }
+
+    @Test
     fun `wrong codes are uniform 401s and exhausting the attempt cap kills the challenge`() = testApplication {
-        configureApp("security.mfa.maxAttempts" to "3")
+        // cap ≠ 3 on purpose: 3 is Exposed's Transaction.maxAttempts default, which shadowed the
+        // store's configured cap until v3.12.2 — this route-level pin must see the CONFIG value.
+        configureApp("security.mfa.maxAttempts" to "2")
         startApplication()
         val email = uniqueEmail("mfa-cap")
         seedMfaUser(email, "pw-123456789")
@@ -171,19 +242,21 @@ class MfaLoginTest {
             // A deliberately wrong 6-digit code that can never collide with the real one.
             val wrong = if (code == "000000") "000001" else "000000"
 
-            repeat(3) {
+            repeat(2) {
                 assertEquals(HttpStatusCode.Unauthorized, client.verify(challenge.challengeId, wrong).status)
             }
             assertNotNull(
                 auditEvents.awaitEvent {
-                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "too_many_attempts")
+                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "too_many_attempts") &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" }
                 },
             )
             // The correct code no longer works — the challenge is gone (still a uniform 401).
             assertEquals(HttpStatusCode.Unauthorized, client.verify(challenge.challengeId, code).status)
             assertNotNull(
                 auditEvents.awaitEvent {
-                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "unknown_challenge")
+                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "unknown_challenge") &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" }
                 },
             )
         } finally {
@@ -194,9 +267,10 @@ class MfaLoginTest {
 
     @Test
     fun `an expired challenge answers the same uniform 401`() = testApplication {
-        // TTL 0: the challenge is born expired — no sleeping in tests.
-        configureApp("security.mfa.codeTtlSeconds" to "0")
-        startApplication()
+        // codeTtlSeconds must be >= 1 (checkup #36, C5 — a boot-time range check), so a
+        // born-expired challenge can no longer be minted via TTL=0; back-date the DB row
+        // directly instead (the NotificationPurgeTest `backdate` idiom) — no sleeping in tests.
+        usePostgresTestcontainer()
         val email = uniqueEmail("mfa-expired")
         seedMfaUser(email, "pw-123456789")
         val mail = LogCapture("ch.nokillswit.mail")
@@ -205,10 +279,16 @@ class MfaLoginTest {
             val client = jsonClient()
             val challenge = client.login(email, "pw-123456789").body<MfaChallengeResponse>()
             val code = mail.codeFor(email)
+            suspendTransaction(TestServices.database) {
+                MfaChallenges.Challenges.update({ MfaChallenges.Challenges.id eq challenge.challengeId }) {
+                    it[expiresAt] = 0
+                }
+            }
             assertEquals(HttpStatusCode.Unauthorized, client.verify(challenge.challengeId, code).status)
             assertNotNull(
                 auditEvents.awaitEvent {
-                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "expired")
+                    it.message == "login.mfa_failure" && it.hasKeyValue("reason", "expired") &&
+                        it.keyValuePairs.any { kv -> kv.key == "ip" }
                 },
             )
         } finally {
