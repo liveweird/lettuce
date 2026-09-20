@@ -312,7 +312,13 @@ fun Application.configureAuthRoutes() {
                 // submission matches its account (and keeps sharing one lockout bucket, which
                 // was already folding its keys).
                 val email = canonicalEmail(req.email)
-                if (loginThrottle.isLocked(email)) {
+                // Reserved BEFORE password verification (checkup #36 M1): a concurrent burst of
+                // wrong-password attempts for one email must not all pass a stale "not locked
+                // yet" read while every one of them is off doing its own ~100ms bcrypt — the
+                // reservation is the atomic, single-upsert admission check.
+                val reservation = loginThrottle.reserveAttempt(email)
+                if (reservation.locked) {
+                    if (reservation.tripped) audit("login.lockout", "email" to email)
                     audit("login.rejected_locked", "ip" to call.request.origin.remoteHost, "email" to email)
                     // Thrown (not respondProblem) so StatusPages marks the call handled and its
                     // generic 429 status handler cannot replace this specific detail.
@@ -325,22 +331,29 @@ fun Application.configureAuthRoutes() {
                 // use the default-cost dummy hash, then still fail because no record exists.
                 val passwordVerified = verifyLoginPassword(req.password, record?.second?.passwordHash)
                 if (record == null || !passwordVerified) {
-                    val tripped = loginThrottle.recordFailure(email)
                     audit(
                         "login.failure",
                         "ip" to call.request.origin.remoteHost,
                         "email" to email,
                         "reason" to if (record == null) "unknown_email" else "wrong_password",
                     )
-                    if (tripped) audit("login.lockout", "email" to email)
+                    // This reservation's own incremented count already IS the failure count —
+                    // trip the lock once it reaches the threshold (reserveAttempt's own backstop
+                    // only catches a burst that overruns the threshold before this point).
+                    if (reservation.failures >= loginThrottle.threshold && loginThrottle.lock(email)) {
+                        audit("login.lockout", "email" to email)
+                    }
                     throw UnauthorizedException("Unknown email or wrong password")
                 }
                 val (userId, user) = record
                 // Correct password, disabled account: a distinct 403 — only reachable AFTER the
-                // password verified, so it is no enumeration oracle. Deliberately neither
-                // recordFailure (correct credentials must not feed the lockout) nor recordSuccess
-                // (nothing to reset matters); a locked account still answers 429 first, above.
+                // password verified, so it is no enumeration oracle. The reservation taken above
+                // is released rather than left standing (correct credentials must not feed the
+                // lockout) and rather than cleared outright (recordSuccess resets to zero, which
+                // would erase prior failures a 403 attempt did not earn); a locked account still
+                // answers 429 first, above.
                 if (user.deactivated) {
+                    loginThrottle.release(email)
                     audit("login.failure", "ip" to call.request.origin.remoteHost, "email" to email, "reason" to "deactivated")
                     throw ForbiddenException("Account is deactivated")
                 }
