@@ -509,8 +509,13 @@ test("Team's performance table fits a 1280px laptop without horizontal scroll", 
 
   await expectTableFitsAndSorts("Overall", /^Scroll horizontally to see all columns\.$/);
 
+  // The language is server-synced (PUT /users/{id}/language) on a SHARED seed account, so
+  // the revert must survive a failed Polish assertion — otherwise the residue strands
+  // Manager AAA in Polish for every later form login on the long-lived e2e volume.
   await switchLanguage(page, "Polski");
-  await expectTableFitsAndSorts("Ogólna", /^Przewiń w poziomie, aby zobaczyć wszystkie kolumny\.$/);
-
-  await switchLanguage(page, "English");
+  try {
+    await expectTableFitsAndSorts("Ogólna", /^Przewiń w poziomie, aby zobaczyć wszystkie kolumny\.$/);
+  } finally {
+    await switchLanguage(page, "English");
+  }
 });
