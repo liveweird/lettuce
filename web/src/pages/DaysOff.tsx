@@ -30,6 +30,7 @@ import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
 import { loadErrorMessage } from "../utils/saveError";
 import EmptyCtaLink from "../components/EmptyCtaLink";
+import TutorialButton from "../components/TutorialButton";
 
 const TEAM_VIEWS = ["requests", "budgets"] as const;
 type TeamView = (typeof TEAM_VIEWS)[number];
@@ -67,7 +68,7 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
   return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-end" wrap="wrap">
-        <Group gap="xs" align="center">
+        <Group gap="xs" align="center" data-tour="days-off-month">
           <ActionIcon
             variant="default"
             onClick={() => setMonth((m) => addIsoMonths(m, -1))}
@@ -96,6 +97,10 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
             // Wide enough for the longest option in either language ("All my reports
             // (including indirect)" / "Wszyscy moi podwładni (także pośredni)").
             w={{ base: "100%", sm: 330 }}
+            // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour
+            // anchor must ride wrapperProps or it would land on the input, not the label+input
+            // pair the tutorial spotlights.
+            wrapperProps={{ "data-tour": "days-off-calendar-scope" }}
           />
         )}
       </Group>
@@ -167,6 +172,7 @@ export default function DaysOff() {
                 to={daysOffCreateLink(daysOffListLink("team"), true)}
                 variant="default"
                 leftSection={<IconPlus size={16} />}
+                data-tour="days-off-record"
               >
                 {t("daysOff.newForReport")}
               </Button>
@@ -175,9 +181,11 @@ export default function DaysOff() {
               component={RouterLink}
               to={daysOffCreateLink(daysOffListLink("requests"))}
               leftSection={<IconPlus size={16} />}
+              data-tour="days-off-new"
             >
               {t("daysOff.newRequest")}
             </Button>
+            <TutorialButton id="daysOff" tourId="days-off-tutorial" />
           </>
         }
       />
@@ -202,7 +210,7 @@ export default function DaysOff() {
 
         <Tabs.Panel value="requests" pt="md">
           <Stack gap="md">
-            <DaysOffBudgetCard year={new Date().getFullYear()} />
+            <DaysOffBudgetCard year={new Date().getFullYear()} tourId="days-off-budget" />
             <DaysOffTable
               view="own"
               emptyAction={
@@ -233,6 +241,7 @@ export default function DaysOff() {
                     value={teamView}
                     onChange={(v) => setTeamView(v as TeamView)}
                     data={TEAM_VIEWS.map((v) => ({ value: v, label: t(`daysOff.teamView.${v}`) }))}
+                    data-tour="days-off-team-view"
                   />
                 </Group>
               </Group>

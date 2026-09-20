@@ -261,51 +261,56 @@ export default function CreateDaysOff() {
               />
             )}
 
-            {/* The pool picker (v3.2.0): the person's paid pools + Unpaid; "Type" stays the
-                label — the answer is still "which kind of days off". */}
-            <Select
-              label={t("daysOff.type.label")}
-              data={poolOptions}
-              value={pickValue}
-              placeholder={t(onBehalf && subjectId == null ? "daysOff.pickReport" : "daysOff.pool.loadingPools")}
-              onChange={(v) => v && setPick(v)}
-              allowDeselect={false}
-              w={260}
-            />
+            {/* The tutorial's form step spotlights the type/dates/half-day fields as one
+                block — same gap as the parent Stack, so wrapping it changes no layout. The
+                cost preview below stays outside: it only renders once a cost is computable. */}
+            <Stack gap="md" data-tour="days-off-form">
+              {/* The pool picker (v3.2.0): the person's paid pools + Unpaid; "Type" stays the
+                  label — the answer is still "which kind of days off". */}
+              <Select
+                label={t("daysOff.type.label")}
+                data={poolOptions}
+                value={pickValue}
+                placeholder={t(onBehalf && subjectId == null ? "daysOff.pickReport" : "daysOff.pool.loadingPools")}
+                onChange={(v) => v && setPick(v)}
+                allowDeselect={false}
+                w={260}
+              />
 
-            <Group align="flex-end" gap="md" wrap="wrap">
-              <DateField
-                label={t("daysOff.column.startDate")}
-                value={startDate}
-                onChange={(iso) => {
-                  const v = iso;
-                  setStartDate(v);
-                  // Keep the range ordered as the user moves the start forward.
-                  if (v > endDate) setEndDate(v);
-                }}
-                w={180}
-              />
-              <DateField
-                label={t("daysOff.column.endDate")}
-                value={endDate}
-                minIso={startDate}
-                onChange={(iso) => setEndDate(iso)}
-                w={180}
-              />
-            </Group>
-            <Group gap="xl">
-              <Checkbox
-                label={t("daysOff.startHalfLabel")}
-                checked={startHalf}
-                onChange={(e) => setStartHalf(e.currentTarget.checked)}
-              />
-              <Checkbox
-                label={t("daysOff.endHalfLabel")}
-                checked={singleDay ? false : endHalf}
-                onChange={(e) => setEndHalf(e.currentTarget.checked)}
-                disabled={singleDay}
-              />
-            </Group>
+              <Group align="flex-end" gap="md" wrap="wrap">
+                <DateField
+                  label={t("daysOff.column.startDate")}
+                  value={startDate}
+                  onChange={(iso) => {
+                    const v = iso;
+                    setStartDate(v);
+                    // Keep the range ordered as the user moves the start forward.
+                    if (v > endDate) setEndDate(v);
+                  }}
+                  w={180}
+                />
+                <DateField
+                  label={t("daysOff.column.endDate")}
+                  value={endDate}
+                  minIso={startDate}
+                  onChange={(iso) => setEndDate(iso)}
+                  w={180}
+                />
+              </Group>
+              <Group gap="xl">
+                <Checkbox
+                  label={t("daysOff.startHalfLabel")}
+                  checked={startHalf}
+                  onChange={(e) => setStartHalf(e.currentTarget.checked)}
+                />
+                <Checkbox
+                  label={t("daysOff.endHalfLabel")}
+                  checked={singleDay ? false : endHalf}
+                  onChange={(e) => setEndHalf(e.currentTarget.checked)}
+                  disabled={singleDay}
+                />
+              </Group>
+            </Stack>
 
             {!ordered && (
               <Alert color="red" variant="light">
@@ -366,12 +371,14 @@ export default function CreateDaysOff() {
             )}
 
             <FormFooter>
-              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button onClick={() => void submit()} loading={submitting} disabled={!submittable}>
-                {t("daysOff.action.submit")}
-              </Button>
+              <Group gap="sm" data-tour="days-off-form-actions">
+                <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button onClick={() => void submit()} loading={submitting} disabled={!submittable}>
+                  {t("daysOff.action.submit")}
+                </Button>
+              </Group>
             </FormFooter>
           </Stack>
         </Paper>

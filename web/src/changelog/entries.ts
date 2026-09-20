@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.16.0",
+    date: "2026-09-20",
+    en: `How days off work — a short guided walkthrough from the Days off page: you record absences yourself and nobody approves them, the team calendar with its month pager, your own entries and the paid-days budget per pool, and the New days off form with its working-day cost preview and Submit. Managers additionally see the calendar's Whose calendar scope, the My team tab with Entries | Budgets, and Record days off on a report's behalf. It only looks around — nothing is recorded or deleted.`,
+    pl: `Jak działają dni wolne — krótki przewodnik uruchamiany ze strony Dni wolne: dni wolne zapisujesz samodzielnie i nikt ich nie zatwierdza, kalendarz zespołu z przełączaniem miesięcy, Twoje wpisy i budżet płatnych dni w każdej puli oraz formularz Nowe dni wolne z podglądem kosztu w dniach roboczych i przyciskiem Wyślij. Jeśli zarządzasz zespołem, zobaczysz dodatkowo pole "Czyj kalendarz", zakładkę Mój zespół z przełącznikiem Wpisy | Budżety oraz Zapisz dni wolne w imieniu podwładnego/podwładnej. Przewodnik tylko pokazuje — niczego nie zapisuje ani nie usuwa.`,
+  },
+  {
     version: "3.15.0",
     date: "2026-09-20",
     en: `How goals work — a short guided walkthrough from the Goals page: what a goal is, how it moves from draft to active to archived, where your goals live, how both sides record progress, and the Goals button on your managers' cards. Managers additionally see Goals I've set, the Reports scope, the New goal form, the lifecycle actions and the subordinates cards. It only looks around — nothing is created or changed. A goal's page also gained a Lifecycle tab with the same diagram.`,

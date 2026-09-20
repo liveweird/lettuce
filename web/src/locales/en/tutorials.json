@@ -32,5 +32,22 @@
       "subordinates": "Each card on My subordinates has a Goals button listing what you set for that person, and New goal to add one. The card also counts their active goals.",
       "managers": "Each card on My managers has a Goals button showing the goals that manager set for you, and counts the active ones. That's the whole flow — Done takes you back to Goals."
     }
+  },
+  "daysOff": {
+    "launch": "How days off work",
+    "steps": {
+      "intro": "Days off are absences you record yourself — nobody approves them. Paid days come out of a yearly budget per pool and unpaid ones are unlimited; this walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How days off work\" button.",
+      "calendar": "Calendar is the leave planner: one row per person on your teams, paid days in teal, unpaid in gray, half days half-filled. Weekend and public-holiday columns are shaded.",
+      "scope": "Whose calendar switches between your teams, your direct reports and all your reports, including indirect ones. On the reports scopes each person's team shows under their name.",
+      "month": "Flip months with the arrows — the calendar always opens on the current month. Hover a shaded column header to see which public holiday it is.",
+      "requests": "My days off lists every entry of yours, newest first. There is nothing to approve or cancel — Delete is the only action, and a deleted entry frees its days at once.",
+      "budget": "Your paid days off shows, per paid pool, the allowance, what you have used and what remains this year. Unused days carry over to next year or reset every January, depending on the pool kind.",
+      "team": "My team lists your reports' entries — direct reports by default, or your whole chain under \"Reports\". You can delete any of them, just as the owner can.",
+      "teamView": "Entries | Budgets switches to one row per report and pool, where you set the yearly allowance and add corrections. Both views follow the Reports scope.",
+      "record": "Record days off records an absence on a report's behalf — for example to backfill vacation history. It is the same form you use for yourself, plus a report picker.",
+      "new": "Recording your own days off starts here. Let's open the form to look — nothing is recorded until you press Submit.",
+      "form": "Pick Paid from one of your pools or Unpaid, then the first and last day — one entry stays within one calendar year, and either edge can be a half day. The preview below counts working days only: weekends and public holidays are free.",
+      "actions": "Submit records the entry at once — your teammates and your manager are notified, and you can delete it later from My days off. We won't press it now; Done takes you back to Days off."
+    }
   }
 }
