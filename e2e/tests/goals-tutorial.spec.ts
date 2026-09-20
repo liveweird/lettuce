@@ -3,7 +3,10 @@ import type { APIRequestContext, Page } from "@playwright/test";
 
 // The "How goals work" tutorial (v3.15.0) walked as a manager and as a non-manager, asserting
 // the landmark order the script promises and the read-only invariant — nothing is created,
-// changed or deleted, so the own/managed goal totals must be unchanged before vs. after the walk.
+// changed or deleted, so the walker's OWN goal total must be unchanged before vs. after the walk.
+// Only `view=own` is compared: goals.spec.ts runs in a parallel worker and creates goals as
+// Manager AAA for AAA Two, which ride Manager AAA's `view=managed` list — a race, not a signal.
+// Nobody creates goals FOR Manager AAA, so their own total is stable.
 // Reuses the guided tour's counter-loop idiom (tests/tour.spec.ts), same as feedback-tutorial.spec.ts:
 // the same custom tooltip, the same "Step N of M" counter, Next/Done by exact accessible name.
 
@@ -51,11 +54,11 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-/** The caller's own/managed goal list total for `view` — the tour.spec bearer-token idiom. */
+/** The caller's own goal list total — the tour.spec bearer-token idiom. */
 async function goalTotal(
   page: Page,
   request: APIRequestContext,
-  view: "own" | "managed",
+  view: "own",
 ): Promise<number> {
   const token = await page.evaluate(() => localStorage.getItem("lettuce.auth.token"));
   const res = await request.get(`/api/v1/goals?view=${view}&pageSize=1`, {
@@ -73,7 +76,6 @@ test("the goals tutorial walks a manager through 12 read-only steps and returns 
   await page.goto("/goals");
 
   const ownBefore = await goalTotal(page, request, "own");
-  const managedBefore = await goalTotal(page, request, "managed");
 
   const seen = await walkTutorial(page);
 
@@ -82,7 +84,6 @@ test("the goals tutorial walks a manager through 12 read-only steps and returns 
   await expect(page).toHaveURL(/\/goals\?tab=own/);
 
   expect(await goalTotal(page, request, "own")).toBe(ownBefore);
-  expect(await goalTotal(page, request, "managed")).toBe(managedBefore);
 });
 
 test("the goals tutorial shows a non-manager 6 steps without the manager steps", async ({ page }) => {

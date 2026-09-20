@@ -12,7 +12,8 @@
 
 1. Manager AAA signs in; the alert banner is collapsed first (a pre-existing active alert's
    expanded banner would overlay the header). They open the Goals page and note their current
-   own and managed goal totals via the API, to prove afterward that nothing changed.
+   own goal total via the API, to prove afterward that nothing changed (the managed total is
+   deliberately not compared: the parallel `goals.spec.ts` creates goals for AAA Two as Manager AAA).
 2. They click "How goals work" in the page header and click "Next" through every step until
    "Done".
    - *Expected*: exactly 12 steps for a manager (intro, lifecycle, My goals, Filters, progress,
@@ -28,7 +29,7 @@
      you back to Goals" (the dashboard's My managers card).
 3. The tutorial finishes with "Done".
    - *Expected*: they land back on Goals, on the own-goals tab.
-   - *Expected*: their own and managed goal totals, re-read from the API, are unchanged — nothing
+   - *Expected*: their own goal total, re-read from the API, is unchanged — nothing
      was created, activated, or modified while looking around.
 
 ## Scenario: the goals tutorial shows a non-manager 6 steps without the manager steps
