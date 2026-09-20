@@ -13,7 +13,7 @@ The current indexes include both `linux/amd64` and `linux/arm64` images.
 | Node 24 Alpine | `Dockerfile` web stage |
 | Temurin 21 JDK and JRE | `Dockerfile` server and runtime stages |
 | PostgreSQL 18.4 Alpine 3.24 | `docker-compose.yaml`, `k8s/postgres-deployment.yaml`, `server/src/test/kotlin/PostgresTestSupport.kt` |
-| Mailpit 1.30.6 | `docker-compose.yaml` |
+| Mailpit 1.31.2 | `docker-compose.yaml` |
 
 Initial registry verification: 2026-09-06. PostgreSQL and Mailpit preserve the images
 already running in the development stack. Their exact version tags were checked
@@ -22,6 +22,15 @@ tag already points to a newer patch release; updating the database is a separate
 reviewed operation. The Node, Temurin, and Dockerfile frontend pins were resolved
 from their existing release-family tags on that date; both Temurin stages use
 21.0.12+8. This is an identity record, not a vulnerability assessment.
+
+Refresh record: 2026-09-20. Node moved to 24.21.0 (the `24-alpine` family tag), both
+Temurin stages stayed on 21.0.12+8 but their Ubuntu base was rebuilt (2026-09-12
+image), and Mailpit moved to 1.31.2 (a security release: single-frame thumbnail
+decode, GHSA-2vgv-6hcp-mf43, plus the 1.31.x SMTP/SSRF hardening). The Dockerfile
+frontend digest was unchanged. PostgreSQL was deliberately left on 18.4: its
+`18.4-alpine3.24` digest is unchanged, the `18-alpine` tag has reached 18.6, and a
+database release change is the separate reviewed operation described below (the
+running development volume is 18.4).
 
 ## Updating a pin
 
