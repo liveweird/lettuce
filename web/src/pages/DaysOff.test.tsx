@@ -4,6 +4,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { useLocation } from "react-router-dom";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
+import { TourContext } from "../components/tourSupport";
 import DaysOff from "./DaysOff";
 
 function LocationProbe() {
@@ -33,6 +34,18 @@ const BUDGET = {
   used: 3,
   remaining: 17.5,
 };
+
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy (the
+// MyGoals.test.tsx idiom).
+function renderDaysOff(route = "/days-off", startTutorial: (id: string) => void = () => {}) {
+  return renderWithProviders(
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+      <DaysOff />
+    </TourContext.Provider>,
+    { route },
+  );
+}
 
 describe("DaysOff page", () => {
   let mockFetch: FetchMock;
@@ -70,7 +83,7 @@ describe("DaysOff page", () => {
 
   test("defaults to the calendar tab and hides the team tab and scope picker for non-managers", async () => {
     setupMocks({ managed: 0 });
-    renderWithProviders(<DaysOff />, { route: "/days-off" });
+    renderDaysOff("/days-off");
 
     expect(await screen.findByRole("table", { name: "Team days-off calendar" })).toBeInTheDocument();
     expect(screen.getByText("Mate Person")).toBeInTheDocument();
@@ -92,7 +105,7 @@ describe("DaysOff page", () => {
 
   test("managers get the scope picker and the team tab with budgets", async () => {
     setupMocks({ managed: 1 });
-    renderWithProviders(<DaysOff />, { route: "/days-off" });
+    renderDaysOff("/days-off");
 
     expect(await screen.findByRole("tab", { name: "My team" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "My team" })).toHaveAttribute("data-tour", "days-off-team");
@@ -109,7 +122,7 @@ describe("DaysOff page", () => {
 
   test("managers see the three calendar scope options, including the widened chain (v3.13.0)", async () => {
     setupMocks({ managed: 1 });
-    renderWithProviders(<DaysOff />, { route: "/days-off" });
+    renderDaysOff("/days-off");
 
     await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
     await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
@@ -119,7 +132,7 @@ describe("DaysOff page", () => {
 
   test("choosing the widened calendar scope requests includeIndirect; direct reports doesn't (v3.13.0)", async () => {
     setupMocks({ managed: 1 });
-    renderWithProviders(<DaysOff />, { route: "/days-off" });
+    renderDaysOff("/days-off");
 
     await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
 
@@ -145,7 +158,7 @@ describe("DaysOff page", () => {
 
   test("the team tab's Reports select widens both the entries list and the budgets to the chain (v3.13.0)", async () => {
     setupMocks({ managed: 1 });
-    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+    renderDaysOff("/days-off?tab=team");
 
     expect(await screen.findByRole("combobox", { name: "Reports" })).toBeInTheDocument();
 
@@ -170,7 +183,7 @@ describe("DaysOff page", () => {
   test("a stored budgets pick restores the Budgets segment on the team tab (v3.4.0)", async () => {
     setupMocks({ managed: 1 });
     localStorage.setItem("lettuce.viewSettings.daysOff.team.view", JSON.stringify("budgets"));
-    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+    renderDaysOff("/days-off?tab=team");
 
     // No click: the segment opens on Budgets and the budgets table renders straight away.
     expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
@@ -180,7 +193,7 @@ describe("DaysOff page", () => {
 
   test("picking the Budgets segment stores the choice", async () => {
     setupMocks({ managed: 1 });
-    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+    renderDaysOff("/days-off?tab=team");
 
     await userEvent.click(await screen.findByRole("radio", { name: "Budgets" }));
     expect(await screen.findByText("Paid-days budgets")).toBeInTheDocument();
@@ -189,7 +202,7 @@ describe("DaysOff page", () => {
 
   test("the team tab shows the Record days off on-behalf button under the request list", async () => {
     setupMocks({ managed: 1 });
-    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+    renderDaysOff("/days-off?tab=team");
 
     // The on-behalf entry (v2.29.0) sits below the managed list, right-aligned — the house
     // footer convention — and opens the create screen in onBehalf mode, returning here.
@@ -201,7 +214,7 @@ describe("DaysOff page", () => {
 
   test("the requests tab shows the budget card and the New days off button", async () => {
     setupMocks();
-    renderWithProviders(<DaysOff />, { route: "/days-off?tab=requests" });
+    renderDaysOff("/days-off?tab=requests");
 
     expect(await screen.findByText(`Your paid days off in ${BUDGET.year}`)).toBeInTheDocument();
     expect(await screen.findByText("17.5")).toBeInTheDocument();
@@ -213,14 +226,14 @@ describe("DaysOff page", () => {
 
   test("a non-manager's deep link to the team tab falls back to the calendar", async () => {
     setupMocks({ managed: 0 });
-    renderWithProviders(<DaysOff />, { route: "/days-off?tab=team" });
+    renderDaysOff("/days-off?tab=team");
     expect(await screen.findByRole("table", { name: "Team days-off calendar" })).toBeInTheDocument();
     expect(screen.queryByText("Paid-days budgets")).toBeNull();
   });
 
   test("the month pager steps the calendar query", async () => {
     setupMocks();
-    renderWithProviders(<DaysOff />, { route: "/days-off" });
+    renderDaysOff("/days-off");
     await screen.findByRole("table", { name: "Team days-off calendar" });
 
     await userEvent.click(screen.getByLabelText("Next month"));
@@ -238,10 +251,10 @@ describe("DaysOff page", () => {
     try {
       setupMocks();
       renderWithProviders(
-        <>
+        <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {} }}>
           <DaysOff />
           <LocationProbe />
-        </>,
+        </TourContext.Provider>,
         { route: "/days-off" },
       );
 
@@ -251,5 +264,16 @@ describe("DaysOff page", () => {
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }
+  });
+
+  test("the tutorial launcher starts the days-off tutorial via useTour", async () => {
+    setupMocks();
+    const startTutorial = vi.fn();
+    renderDaysOff("/days-off", startTutorial);
+
+    const launcher = await screen.findByRole("button", { name: "How days off work" });
+    await userEvent.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("daysOff");
   });
 });

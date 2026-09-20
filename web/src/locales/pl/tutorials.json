@@ -32,5 +32,22 @@
       "subordinates": "Każda karta na liście Moi podwładni ma przycisk Cele pokazujący to, co wyznaczyłeś/aś tej osobie, oraz Nowy cel, by dodać kolejny. Karta liczy też jej aktywne cele.",
       "managers": "Każda karta na liście Moi menedżerowie ma przycisk Cele pokazujący cele, które ten menedżer/ka Ci wyznaczył/a, i liczy te aktywne. To cały przepływ — Gotowe wraca do Celów."
     }
+  },
+  "daysOff": {
+    "launch": "Jak działają dni wolne",
+    "steps": {
+      "intro": "Dni wolne to nieobecności, które zapisujesz sam/a — nikt ich nie zatwierdza. Płatne dni pochodzą z rocznego budżetu danej puli, a bezpłatne są nieograniczone; ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają dni wolne\".",
+      "calendar": "Kalendarz to planer urlopów: jeden wiersz na osobę w Twoich zespołach, płatne dni w kolorze morskim, bezpłatne w szarym, połówki dni wypełnione do połowy. Kolumny weekendów i świąt są wyróżnione tłem.",
+      "scope": "Czyj kalendarz przełącza między Twoimi zespołami, Twoimi bezpośrednimi podwładnymi a wszystkimi Twoimi podwładnymi, łącznie z pośrednimi. Przy zakresach podwładnych pod nazwiskiem każdej osoby widać jej zespół.",
+      "month": "Zmieniaj miesiące strzałkami — kalendarz zawsze otwiera się na bieżącym miesiącu. Najedź na wyróżniony nagłówek kolumny, żeby zobaczyć, jakie to święto.",
+      "requests": "Moje dni wolne pokazują każdy Twój wpis, od najnowszego. Nie ma tu nic do zatwierdzenia ani anulowania — Usuń to jedyna dostępna akcja, a usunięty wpis od razu zwalnia swoje dni.",
+      "budget": "Twoje płatne dni wolne pokazują, dla każdej płatnej puli, pulę roczną, ile już wykorzystałeś/aś i ile zostało w tym roku. Niewykorzystane dni przechodzą na kolejny rok albo zerują się co stycznia — zależnie od rodzaju puli.",
+      "team": "Mój zespół pokazuje wpisy Twoich podwładnych — domyślnie bezpośrednich, albo cały Twój łańcuch pod polem \"Podwładni\". Możesz usunąć każdy z nich, tak samo jak właściciel wpisu.",
+      "teamView": "Wpisy | Budżety przełącza na jeden wiersz na podwładnego i pulę, gdzie ustawiasz roczną pulę i dodajesz korekty. Oba widoki podążają za zakresem Podwładnych.",
+      "record": "Zapisz dni wolne zapisuje nieobecność w imieniu podwładnego — na przykład, żeby uzupełnić historię urlopów. To ten sam formularz, którego używasz dla siebie, plus wybór podwładnego.",
+      "new": "Zapisywanie własnych dni wolnych zaczyna się tutaj. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie zapisane, dopóki nie klikniesz Wyślij.",
+      "form": "Wybierz Płatne z jednej ze swoich pul albo Bezpłatne, a potem pierwszy i ostatni dzień — jeden wpis mieści się w jednym roku kalendarzowym, a każda z krawędzi może być połówką dnia. Podgląd poniżej liczy tylko dni robocze: weekendy i święta są darmowe.",
+      "actions": "Wyślij od razu zapisuje wpis — Twój zespół oraz Twój menedżer/Twoja menedżerka dostają powiadomienie, a Ty możesz go później usunąć z Moich dni wolnych. Teraz tego nie klikniemy; Gotowe wraca do Dni wolnych."
+    }
   }
 }

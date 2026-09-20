@@ -75,7 +75,7 @@ function PoolStats({ pool, titled }: { pool: DaysOffBudget; titled: boolean }) {
  * being no lifecycle to reserve against). An unconfigured default allowance gets the orange
  * hint — PAID entries in that pool are impossible until a manager sets one.
  */
-export default function DaysOffBudgetCard({ year }: { year: number }) {
+export default function DaysOffBudgetCard({ year, tourId }: { year: number; tourId?: string }) {
   const { t } = useTranslation();
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
   const currentUserId = getUserId();
@@ -94,7 +94,7 @@ export default function DaysOffBudgetCard({ year }: { year: number }) {
   }
 
   return (
-    <Paper withBorder p="md" radius="md">
+    <Paper withBorder p="md" radius="md" data-tour={tourId}>
       <Stack gap="md">
         <Group justify="space-between" align="center">
           <Text size="sm" fw={600}>
