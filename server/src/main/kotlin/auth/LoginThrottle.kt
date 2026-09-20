@@ -15,14 +15,19 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
  *
  * **DB-backed since v3.11.0/V81** (`login_lockouts`): replicas share the counters and a
  * restart no longer resets them. There is no background sweeper — every write
- * ([recordFailure]) opportunistically prunes rows whose lock has expired AND that have gone
- * untouched for [COUNTER_RETENTION_MILLIS] (a week — far longer than a lockout window, so a
- * sub-threshold counter cannot be waited out between guesses), so an abandoned key eventually disappears
- * without a dedicated job. A successful login clears the account's counter.
+ * ([reserveAttempt]) opportunistically prunes rows whose lock has expired AND that have gone
+ * untouched for a week (far longer than a lockout window, so a sub-threshold counter cannot be
+ * waited out between guesses), so an abandoned key eventually disappears without a dedicated job.
+ * A successful login clears the account's counter.
+ *
+ * **Reservation shape (v3.13.1, checkup #36 M1):** the login route reserves an attempt
+ * ([reserveAttempt]) BEFORE password verification, not after — see [reserveAttempt] for why.
  */
 class LoginThrottle(
     private val database: R2dbcDatabase,
-    private val threshold: Int,
+    /** Readable by the login route so it can decide, once a reserved attempt turns out to be a
+     *  wrong password, whether THIS attempt is the one that trips the lock (see [lock]). */
+    val threshold: Int,
     private val lockoutMillis: Long,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -34,6 +39,10 @@ class LoginThrottle(
         override val primaryKey = PrimaryKey(email)
     }
 
+    /** The outcome of [reserveAttempt]: either the attempt is locked out already (`failures` is
+     *  meaningless then), or it is allowed with the freshly incremented failure count. */
+    data class Reservation(val locked: Boolean, val failures: Int, val tripped: Boolean = false)
+
     private fun key(email: String) = email.trim().lowercase()
 
     private companion object {
@@ -42,7 +51,7 @@ class LoginThrottle(
     }
 
     /** True while the account is locked out. A pure read — pruning only happens on the write
-     *  path ([recordFailure]), so an expired-but-untouched lock is simply no longer `> now`. */
+     *  path ([reserveAttempt]), so an expired-but-untouched lock is simply no longer `> now`. */
     suspend fun isLocked(email: String): Boolean = suspendTransaction(database) {
         LoginLockouts.selectAll()
             .where { LoginLockouts.email eq key(email) }
@@ -51,8 +60,22 @@ class LoginThrottle(
             ?.let { it > clock() } ?: false
     }
 
-    /** Record a failed attempt; returns true when this failure trips the lockout. */
-    suspend fun recordFailure(email: String): Boolean = suspendTransaction(database) {
+    /**
+     * Atomically reserves one login attempt for [email] — called BEFORE password verification
+     * (checkup #36 M1: a burst of concurrent wrong-password attempts that all read "not locked
+     * yet" before any of them finishes bcrypt used to all get verified, so the per-window bound
+     * was "threshold + in-flight burst" rather than [threshold]). One `suspendTransaction`:
+     *  - already locked → [Reservation.locked] `true`, no further write;
+     *  - otherwise the counter is incremented (unless the row is locked, handled above — an
+     *    attempt arriving while locked must never move the counter, so it "starts fresh" once
+     *    the window ends) and, if the incremented count now EXCEEDS [threshold], this is itself
+     *    the (threshold + 1)-th or later concurrent reservation in the burst: trip the lock right
+     *    here — the backstop that bounds the burst even though the threshold-th attempt's own
+     *    [lock] call (from the route, once its bcrypt result is known) hasn't run yet;
+     *  - else → `locked = false` with the incremented failure count, for the caller to decide
+     *    (after verifying the password) whether this is the attempt that trips the lock.
+     */
+    suspend fun reserveAttempt(email: String): Reservation = suspendTransaction(database) {
         val now = clock()
         // Opportunistic prune: a row that is not currently locked and has gone untouched for
         // COUNTER_RETENTION_MILLIS will never be read as locked again, so it is safe to drop.
@@ -64,10 +87,12 @@ class LoginThrottle(
             (LoginLockouts.lastTouched less (now - COUNTER_RETENTION_MILLIS)) and (LoginLockouts.lockedUntil lessEq now)
         }
         val k = key(email)
-        val newFailures = LoginLockouts.upsertReturning(
-            returning = listOf(LoginLockouts.failures),
+        val row = LoginLockouts.upsertReturning(
+            returning = listOf(LoginLockouts.failures, LoginLockouts.lockedUntil),
             onUpdate = {
-                it[LoginLockouts.failures] = LoginLockouts.failures + 1
+                it[LoginLockouts.failures] = Case()
+                    .When(LoginLockouts.lockedUntil greater now, LoginLockouts.failures)
+                    .Else(LoginLockouts.failures + 1)
                 it[LoginLockouts.lastTouched] = now
             },
         ) {
@@ -78,16 +103,49 @@ class LoginThrottle(
             it[LoginLockouts.failures] = 1
             it[LoginLockouts.lockedUntil] = 0
             it[LoginLockouts.lastTouched] = now
-        }.toList().single()[LoginLockouts.failures]
+        }.toList().single()
 
-        if (newFailures >= threshold) {
+        val lockedUntil = row[LoginLockouts.lockedUntil]
+        if (lockedUntil > now) {
+            return@suspendTransaction Reservation(locked = true, failures = row[LoginLockouts.failures])
+        }
+        val failures = row[LoginLockouts.failures]
+        if (failures > threshold) {
             LoginLockouts.update({ LoginLockouts.email eq k }) {
                 it[LoginLockouts.failures] = 0
                 it[LoginLockouts.lockedUntil] = now + lockoutMillis
             }
-            true
-        } else {
-            false
+            // `tripped`: THIS reservation turned the lock on — the route audits `login.lockout`
+            // for it, so a burst (or a correct-password attempt racing one) still leaves exactly
+            // one lockout record; the threshold-th attempt's own [lock] then finds it set.
+            return@suspendTransaction Reservation(locked = true, failures = failures, tripped = true)
+        }
+        Reservation(locked = false, failures = failures)
+    }
+
+    /** Trips the lock after a verified wrong-password attempt (the sequential, non-burst case —
+     *  [reserveAttempt]'s own backstop covers the concurrent-burst case). Returns true when THIS
+     *  call turned the lock on; false when the row was already locked (the backstop got there
+     *  first), so the caller audits `login.lockout` exactly once per trip. */
+    suspend fun lock(email: String): Boolean = suspendTransaction(database) {
+        val now = clock()
+        LoginLockouts.update({ (LoginLockouts.email eq key(email)) and (LoginLockouts.lockedUntil lessEq now) }) {
+            it[LoginLockouts.failures] = 0
+            it[LoginLockouts.lockedUntil] = now + lockoutMillis
+        } > 0
+    }
+
+    /** Undoes one [reserveAttempt] without resetting the counter — used by the
+     *  correct-password-but-deactivated 403 path, so correct credentials never feed the lockout
+     *  while the reservation taken before bcrypt still gets released. */
+    suspend fun release(email: String) {
+        suspendTransaction(database) {
+            LoginLockouts.update({ LoginLockouts.email eq key(email) }) {
+                // No portable GREATEST() in Exposed core — a CASE does the same clamp.
+                it[LoginLockouts.failures] = Case()
+                    .When(LoginLockouts.failures greater 0, LoginLockouts.failures - 1)
+                    .Else(intLiteral(0))
+            }
         }
     }
 

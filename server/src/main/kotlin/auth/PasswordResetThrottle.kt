@@ -43,7 +43,7 @@ class PasswordResetThrottle(
             onUpdate = { it[PasswordResetRequests.lastRequestAt] = now },
             where = { PasswordResetRequests.lastRequestAt lessEq (now - minIntervalMillis) },
         ) {
-            // Fully qualified — see the note in LoginThrottle.recordFailure: a local of the
+            // Fully qualified — see the note in LoginThrottle.reserveAttempt: a local of the
             // same name (email) would otherwise shadow the receiver's column.
             it[PasswordResetRequests.email] = k
             it[PasswordResetRequests.lastRequestAt] = now

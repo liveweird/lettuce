@@ -72,7 +72,7 @@ class MfaChallenges(
         val expiresAt = now + ttlMillis
         // Fully qualified throughout: several local names here (id/code/expiresAt) collide with
         // column names, and a local always shadows an implicit-receiver member of the same name
-        // in Kotlin — the LoginThrottle.recordFailure note applies here too.
+        // in Kotlin — the LoginThrottle.reserveAttempt note applies here too.
         Challenges.insert {
             it[Challenges.id] = id
             it[Challenges.userId] = userId.toLong()

@@ -55,7 +55,7 @@ private val log = LoggerFactory.getLogger(NotificationService::class.java)
  * `FeedbackService.expireOverdueRequests` lazy-sweep precedent): garbage only appears when a row
  * is minted, so pruning at the END of [create]/[createAll] — after the insert transaction has
  * committed, so the DELETE never contends for the same rows/locks — bounds the table without a
- * dedicated process — the `LoginThrottle.recordFailure` opportunistic-prune-on-write idiom. The
+ * dedicated process — the `LoginThrottle.reserveAttempt` opportunistic-prune-on-write idiom. The
  * purge is org-wide (every recipient's stale rows, not just the one minted for): housekeeping on
  * the whole table, so the freshly minted row — unseen by construction — is never a candidate.
  *

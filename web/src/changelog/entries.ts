@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.13.1",
+    date: "2026-09-20",
+    en: `Fix: the sign-in lockout now counts simultaneous attempts exactly. Each attempt is reserved before the password is checked, so a burst of wrong passwords fired at the same moment can no longer slip past the limit of failed attempts per account. Nothing changes for an ordinary sign-in.`,
+    pl: `Poprawka: blokada logowania liczy teraz dokładnie także równoczesne próby. Każdą próbę rezerwujemy, zanim sprawdzimy hasło, więc seria błędnych haseł wysłanych w tej samej chwili nie prześlizgnie się już poza limit nieudanych prób na konto. Dla zwykłego logowania nic się nie zmienia.`,
+  },
+  {
     version: "3.13.0",
     date: "2026-09-19",
     en: `Days off across your whole chain. Managers can switch the days-off calendar and the My team tab from direct reports to all reports, including indirect ones — the same Reports choice as on the other team screens. Every person on the managed calendar and in the team tables now shows the team they belong to.`,
