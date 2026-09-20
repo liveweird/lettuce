@@ -88,6 +88,14 @@ fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient { lettuceTest
 /** A unique throwaway email so tests never collide on the partial-unique active-email index. */
 fun uniqueEmail(prefix: String) = "$prefix-${java.util.UUID.randomUUID()}@test"
 
+/** Asserts the app refuses to start and that the failure cause chain mentions [messagePart]. */
+suspend fun assertStartupFails(messagePart: String, start: suspend () -> Unit) {
+    val failure = runCatching { start() }.exceptionOrNull()
+    kotlin.test.assertNotNull(failure, "startup must fail closed")
+    val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+    kotlin.test.assertTrue(messagePart in messages, "unexpected startup failure: $messages")
+}
+
 /**
  * A strong (random, non-burned) 64-hex-char data-encryption key. Production-mode boot tests
  * override `security.encryption.key` with this, since the application.yaml dev default is on

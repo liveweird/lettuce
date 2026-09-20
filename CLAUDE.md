@@ -13,6 +13,7 @@ Gradle wrapper is at `./gradlew` (use `gradlew.bat` on Windows). JDK 21 toolchai
 - Run a single test: `./gradlew :server:test --tests "ch.nokillswit.ServerTest.security headers are set on responses"`
 - Static analysis (detekt, both Kotlin modules): `./gradlew detekt` — rides `check`/`build`, zero-findings gate (no baseline file). Rule tuning lives in `config/detekt/detekt.yml` ONLY, one commented override per deliberate repo idiom; never add an uncommented `@Suppress`.
 - Dependency-family alignment guard: `./gradlew :server:checkDependencyAlignment` — rides `check`; fails when a family that must move as one (`io.netty`, `io.opentelemetry` incl. its `-alpha` artifacts, kotlin-stdlib/kotlin-reflect) resolves to several versions on the server runtime classpath — the `netty` and `opentelemetry` notes in `gradle/libs.versions.toml` explain the pins.
+- Database connections go through one bounded R2DBC pool (`postgres.pool.*` in `application.yaml`: `POSTGRES_POOL_MAX_SIZE` 20, `POSTGRES_POOL_INITIAL_SIZE`, `POSTGRES_POOL_MAX_ACQUIRE_SECONDS`, `POSTGRES_POOL_MAX_IDLE_SECONDS`; every connection tagged `application_name = lettuce`) — see "Connection pool" in `.claude/docs/persistence.md`.
 - Package the server for deployment: `./gradlew :server:installDist`. **Never use `:server:buildFatJar`** — the fat JAR breaks Flyway's `ServiceLoader` discovery and NPEs at startup (details in the `run-stack` skill).
 - JVM memory flags are pre-tuned in `server/build.gradle.kts` (`applicationDefaultJvmArgs`) — rationale and per-deploy overrides in the `run-stack` skill.
 - **Run the whole stack with one command: `docker compose up --build`** (only Docker required). See "Running the full stack" below.
@@ -49,7 +50,7 @@ metadata. Normal builds enforce the committed state; intentional updates follow
 ch.nokillswit
 ├── main.kt
 ├── plugins/            cross-cutting Ktor wiring (configureXxx that only `install` plugins)
-├── infra/db/           Flyway migrations + R2DBC connection bootstrap + the shared EventLog base behind the seven `*_events` services (v2.4.1)
+├── infra/db/           Flyway migrations + the bounded R2DBC connection pool (v3.16.1) + the shared EventLog base behind the seven `*_events` services (v2.4.1)
 ├── infra/paging/       list-endpoint paging/sort/filter helper (parsePaging, applyPaging + the repeated-key 400 singleValue)
 ├── infra/validation/   cross-feature text sanitation: sanitizeSingleLine (v2.35.0 — see "Single-line identity fields" in `.claude/docs/security.md`)
 ├── infra/mail/         outbound email: Mailer (smtp via Jakarta/Angus, log, disabled) + configureMail (see "Outbound email" in `.claude/docs/security.md`)
@@ -92,7 +93,7 @@ The following convention docs are imported into this file — treat them exactly
 @.claude/docs/observability.md
 @.claude/docs/testing.md
 
-(`persistence.md` = Persistence + the soft-delete convention; `list-endpoints.md` = the list endpoint conventions; `security.md` = the dev/prod security posture + encryption at rest; `authorization.md` = the layered RBAC model incl. every per-resource rule and the error/ProblemDetail mapping; `observability.md` = OTel wiring + the audit trail; `testing.md` = Testcontainers setup, coverage gates, OpenAPI conformance.)
+(`persistence.md` = Persistence + the connection pool + the soft-delete convention; `list-endpoints.md` = the list endpoint conventions; `security.md` = the dev/prod security posture + encryption at rest; `authorization.md` = the layered RBAC model incl. every per-resource rule and the error/ProblemDetail mapping; `observability.md` = OTel wiring + the audit trail; `testing.md` = Testcontainers setup, coverage gates, OpenAPI conformance.)
 
 ### Feature deep-dives (on demand — MANDATORY reads)
 

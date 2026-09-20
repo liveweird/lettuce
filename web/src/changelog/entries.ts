@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.16.1",
+    date: "2026-09-20",
+    en: `Database connections now go through a bounded pool (20 per instance by default), so a burst of parallel requests can no longer exhaust PostgreSQL's connection limit and fail with server errors. No visible change in normal use.`,
+    pl: `Połączenia z bazą danych przechodzą teraz przez ograniczoną pulę (domyślnie 20 na instancję), więc nagły wysyp równoległych żądań nie wyczerpie już limitu połączeń PostgreSQL i nie skończy się błędami serwera. W codziennym użyciu nic się nie zmienia.`,
+  },
+  {
     version: "3.16.0",
     date: "2026-09-20",
     en: `How days off work — a short guided walkthrough from the Days off page: you record absences yourself and nobody approves them, the team calendar with its month pager, your own entries and the paid-days budget per pool, and the New days off form with its working-day cost preview and Submit. Managers additionally see the calendar's Whose calendar scope, the My team tab with Entries | Budgets, and Record days off on a report's behalf. It only looks around — nothing is recorded or deleted.`,
