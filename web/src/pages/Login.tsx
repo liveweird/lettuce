@@ -66,7 +66,11 @@ export default function Login() {
             : err.status === 403
               ? t("auth.accountDeactivated")
               : err.status === 429
-                ? t("auth.accountLocked")
+                ? // Two 429s share the status: the lockout (failed attempts) and, since v3.13.3,
+                  // the per-account cap on pending sign-in codes — told apart by the detail.
+                  err.detail?.includes("sign-in codes")
+                  ? t("auth.mfaThrottled")
+                  : t("auth.accountLocked")
                 : err.status === 503
                   ? t("auth.mfaUnavailable")
                   : t("auth.loginFailedStatus", { status: err.status }),

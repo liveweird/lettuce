@@ -81,6 +81,10 @@ security:
   mfa:
     codeTtlSeconds: "$MFA_CODE_TTL_SECONDS:300"
     maxAttempts: "$MFA_MAX_ATTEMPTS:5"
+    # Checkup #36 Tier D: caps LIVE (unexpired) pending challenges per account — blunts an
+    # email-flood by someone holding the password (only the per-IP login bucket limited this
+    # before; rotating hosts sidestep it).
+    maxPendingChallenges: "$MFA_MAX_PENDING_CHALLENGES:5"
   csrf:
     # TEMPLATE PLACEHOLDER — CSRF protection is off by default because this API
     # authenticates via bearer JWT in the Authorization header, which browsers

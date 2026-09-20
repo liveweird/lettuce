@@ -197,6 +197,9 @@ fun Application.configureAuthRoutes() {
         database = database,
         ttlMillis = mfaTtlSeconds * 1000,
         attemptCap = requireConfigInt(environment.config, "security.mfa.maxAttempts", min = 1, max = 100),
+        maxPendingChallenges = requireConfigInt(
+            environment.config, "security.mfa.maxPendingChallenges", min = 1, max = 100,
+        ),
     )
     val mfaTtlMinutes = (mfaTtlSeconds + 59) / 60
 
@@ -219,7 +222,23 @@ fun Application.configureAuthRoutes() {
             call.respondMailUnavailable("multi-factor login")
             return
         }
-        val challenge = mfaChallenges.issue(userId)
+        val challenge = when (val outcome = mfaChallenges.issue(userId)) {
+            is MfaChallenges.IssueOutcome.Throttled -> {
+                // Checkup #36 Tier D: too many live challenges already pending for this
+                // account — no email is sent, and login.mfa_challenge is deliberately NOT
+                // emitted (thrown, not respondProblem'ed — the StatusPages 429 rule).
+                audit(
+                    "login.mfa_throttled",
+                    "ip" to call.request.origin.remoteHost,
+                    "email" to user.email,
+                    "userId" to userId.toLong(),
+                )
+                throw TooManyRequestsException(
+                    "Too many pending sign-in codes for this account — wait for them to expire and try again",
+                )
+            }
+            is MfaChallenges.IssueOutcome.Issued -> outcome.challenge
+        }
         audit("login.mfa_challenge", "email" to user.email, "userId" to userId.toLong())
         // Challenge stored BEFORE responding (the user submits the code right away);
         // only the delivery is fire-and-forget, like the password-reset email.

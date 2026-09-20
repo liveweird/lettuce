@@ -114,7 +114,9 @@ paths:
         6-digit code is emailed to the account, and the client exchanges it together with the
         `challengeId` at `POST /api/v1/login/mfa` for the ordinary `LoginResponse`. On a
         deployment without outbound email (`MAIL_TRANSPORT=disabled`) an MFA-enabled login
-        fails closed with `503`.
+        fails closed with `503`. An account with too many live pending challenges already
+        outstanding (default 5, `MFA_MAX_PENDING_CHALLENGES`) instead answers `429` — no new
+        code is emailed.
       security: []
       requestBody:
         required: true

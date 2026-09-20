@@ -16,9 +16,14 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
  * on expiry or when the attempt cap is exceeded.
  *
  * **DB-backed since v3.11.0/V81** (`mfa_challenges`): replicas share pending challenges and a
- * restart no longer invalidates them mid-flight. Multiple live challenges per account
- * (repeated logins) are accepted: the short TTL, the attempt cap, and the login rate bucket
- * bound the guessing surface (≤ attemptCap·10⁻⁶ per challenge).
+ * restart no longer invalidates them mid-flight. Multiple live challenges per account (repeated
+ * logins) are accepted up to [maxPendingChallenges] (checkup #36 Tier D) — beyond that, a further
+ * correct-password login does not mint a fresh challenge (see [IssueOutcome.Throttled]), blunting
+ * an email flood by someone who holds the password; the short TTL, the attempt cap, and the login
+ * rate bucket bound the guessing surface of each individual challenge
+ * (≤ attemptCap·10⁻⁶ per challenge). [issue] serializes concurrent calls for the SAME account
+ * behind a Postgres advisory lock so the cap actually bounds concurrent floods too — see the
+ * comment at its first line.
  *
  * The 6-digit code itself is stored only as a SHA-256 hash (reusing [apiKeyHash], the
  * integration API-key digest — same primitive, different secret shape): honest framing, not a
@@ -41,6 +46,10 @@ class MfaChallenges(
     // at 3 guesses regardless of `security.mfa.maxAttempts` from v3.11.0 until v3.12.2
     // (MfaChallengesTest pins a cap ≠ 3).
     private val attemptCap: Int,
+    // Checkup #36 Tier D: caps LIVE (unexpired) pending challenges per account. Deliberately NOT
+    // named after any R2dbcTransaction member (the attemptCap note above) — read inside
+    // suspendTransaction below, so the same shadowing trap applies.
+    private val maxPendingChallenges: Int,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     object Challenges : Table("mfa_challenges") {
@@ -54,6 +63,13 @@ class MfaChallenges(
 
     data class IssuedChallenge(val challengeId: String, val code: String, val expiresAt: Long)
 
+    sealed interface IssueOutcome {
+        data class Issued(val challenge: IssuedChallenge) : IssueOutcome
+
+        /** The account already has [maxPendingChallenges] live challenges — no email is sent. */
+        data object Throttled : IssueOutcome
+    }
+
     sealed interface Outcome {
         data class Success(val userId: UInt) : Outcome
 
@@ -63,10 +79,29 @@ class MfaChallenges(
 
     private fun digestOf(challengeId: String, code: String): String = apiKeyHash("$challengeId:$code")
 
-    suspend fun issue(userId: UInt): IssuedChallenge = suspendTransaction(database) {
+    suspend fun issue(userId: UInt): IssueOutcome = suspendTransaction(database) {
+        // Serialize concurrent issues for THIS account before the prune+count below — at
+        // READ COMMITTED (Postgres' default), N concurrent transactions doing SELECT COUNT then
+        // INSERT would all read the same pre-insert count and all pass the cap check, the same
+        // race class `LoginThrottle.reserveAttempt` closed in v3.13.1. A Postgres
+        // transaction-scoped advisory lock (auto-released on commit/rollback, no cleanup needed)
+        // is used rather than `SELECT ... FOR UPDATE` on a `users` row: `mfa_challenges` has no
+        // existing per-account row to lock (it may hold zero rows for this account), and this
+        // keeps the store self-contained rather than coupling it to another feature's table for
+        // a lock that has nothing to do with user data. Concurrent issues for DIFFERENT accounts
+        // never block each other — the lock key is the account id.
+        exec("SELECT pg_advisory_xact_lock(?)", listOf(LongColumnType() to userId.toLong()))
         val now = clock()
-        // No background sweeper: every issue prunes challenges that have already expired.
+        // No background sweeper: every issue prunes challenges that have already expired — this
+        // must run BEFORE the live-count check below, else an account sitting on nothing but
+        // expired rows would be wrongly throttled.
         Challenges.deleteWhere { Challenges.expiresAt lessEq now }
+        val liveCount = Challenges.selectAll()
+            .where { (Challenges.userId eq userId.toLong()) and (Challenges.expiresAt greater now) }
+            .count()
+        if (liveCount >= maxPendingChallenges.toLong()) {
+            return@suspendTransaction IssueOutcome.Throttled
+        }
         val id = generateChallengeId()
         val code = generateMfaCode()
         val expiresAt = now + ttlMillis
@@ -80,7 +115,7 @@ class MfaChallenges(
             it[Challenges.expiresAt] = expiresAt
             it[Challenges.attempts] = 0
         }
-        IssuedChallenge(id, code, expiresAt)
+        IssueOutcome.Issued(IssuedChallenge(id, code, expiresAt))
     }
 
     /**
