@@ -8,6 +8,7 @@ import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 
 const TABS = ["own", "managed"] as const;
 type GoalsTab = (typeof TABS)[number];
@@ -46,15 +47,19 @@ export default function MyGoals() {
       <PageHeader
         title={t("goal.sectionTitle")}
         actions={
-          isManager && (
-            <Button
-              component={RouterLink}
-              to={goalCreateLink(undefined, "/goals?tab=managed")}
-              leftSection={<IconPlus size={16} />}
-            >
-              {t("goal.newGoal")}
-            </Button>
-          )
+          <>
+            {isManager && (
+              <Button
+                component={RouterLink}
+                to={goalCreateLink(undefined, "/goals?tab=managed")}
+                leftSection={<IconPlus size={16} />}
+                data-tour="goals-new"
+              >
+                {t("goal.newGoal")}
+              </Button>
+            )}
+            <TutorialButton id="goals" tourId="goals-tutorial" />
+          </>
         }
       />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
@@ -75,7 +80,7 @@ export default function MyGoals() {
               {t("goal.myGoalsHint")}
             </Text>
             {/* No backTo: the detail pages already default their return target to /goals. */}
-            <GoalTable view="own" />
+            <GoalTable view="own" tourId="goals-filters" />
           </Stack>
         </Tabs.Panel>
         {isManager && (
@@ -86,6 +91,7 @@ export default function MyGoals() {
               </Text>
               <GoalTable
                 view="managed"
+                tourId="goals-filters"
                 withReportsScope
                 backTo="/goals?tab=managed"
                 emptyAction={

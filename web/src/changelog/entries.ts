@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.15.0",
+    date: "2026-09-20",
+    en: `How goals work — a short guided walkthrough from the Goals page: what a goal is, how it moves from draft to active to archived, where your goals live, how both sides record progress, and the Goals button on your managers' cards. Managers additionally see Goals I've set, the Reports scope, the New goal form, the lifecycle actions and the subordinates cards. It only looks around — nothing is created or changed. A goal's page also gained a Lifecycle tab with the same diagram.`,
+    pl: `Jak działają cele — krótki przewodnik uruchamiany ze strony Cele: czym jest cel, jak przechodzi od szkicu przez aktywny do zarchiwizowanego, gdzie znajdziesz swoje cele, jak obie strony zapisują postęp i przycisk Cele na kartach Twoich menedżerów. Jeśli zarządzasz zespołem, zobaczysz dodatkowo zakładkę Cele wyznaczone przeze mnie, zakres podwładnych, formularz nowego celu, akcje cyklu życia i karty podwładnych. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia. Strona celu zyskała też zakładkę Cykl życia z tym samym diagramem.`,
+  },
+  {
     version: "3.14.0",
     date: "2026-09-20",
     en: `How feedback works — a short guided walkthrough from the Feedback page: what feedback is, how it moves from a request through a draft to sent, where received and written feedback live, how to write and send one, and how to ask for it. Managers additionally see the My team tab, the Reports scope and requesting feedback about a report. It only looks around — nothing is created or changed.`,

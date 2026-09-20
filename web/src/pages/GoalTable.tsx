@@ -105,6 +105,7 @@ export default function GoalTable({
   backTo,
   withReportsScope,
   emptyAction,
+  tourId,
 }: {
   view: GoalListView;
   /** Scope to one manager's goals (the per-manager drill-down). */
@@ -124,6 +125,8 @@ export default function GoalTable({
   withReportsScope?: boolean;
   /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
   emptyAction?: ReactNode;
+  /** Forwarded to the Filters toggle as `data-tour` (a tutorial anchor). */
+  tourId?: string;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -251,7 +254,7 @@ export default function GoalTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
         <ClearableTextInput
           label={t("goal.title")}
           value={titleFilter}

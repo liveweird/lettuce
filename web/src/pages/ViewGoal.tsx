@@ -13,6 +13,7 @@ import ConfirmActionModal from "../components/ConfirmActionModal";
 import DateCell from "../components/DateCell";
 import GoalCloseModal from "../components/GoalCloseModal";
 import GoalHistory from "../components/GoalHistory";
+import GoalLifecycle from "../components/GoalLifecycle";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import MarkdownView from "../components/MarkdownView";
 import MetaStrip from "../components/MetaStrip";
@@ -242,6 +243,7 @@ export default function ViewGoal() {
                   <Tabs.List>
                     <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                     <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
+                    <Tabs.Tab value="lifecycle">{t("goal.action.lifecycle")}</Tabs.Tab>
                   </Tabs.List>
 
                   <Tabs.Panel value="content" pt="md">
@@ -268,6 +270,10 @@ export default function ViewGoal() {
 
                   <Tabs.Panel value="history" pt="md">
                     <GoalHistory goalId={id} />
+                  </Tabs.Panel>
+
+                  <Tabs.Panel value="lifecycle" pt="md">
+                    <GoalLifecycle currentStatus={data.status} />
                   </Tabs.Panel>
                 </Tabs>
               </Stack>

@@ -50,6 +50,8 @@
     "NUMBER": "Number",
     "PERCENTAGE": "Percentage"
   },
+  "lifecycleAlt": "Diagram of the goal lifecycle",
+  "lifecycleHint": "Set as a draft, tracked while active, archived with a summary — each move can be undone by the manager.",
   "viewTitle": "Goal",
   "editTitle": "Edit goal",
   "editProgressTitle": "Update progress",

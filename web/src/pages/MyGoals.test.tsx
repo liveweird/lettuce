@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
 import MyGoals from "./MyGoals";
 import { jsonResponse } from "../test/http";
+import { TourContext } from "../components/tourSupport";
 
 function LocationProbe() {
   const location = useLocation();
@@ -79,6 +80,18 @@ function goalUrls(mockFetch: FetchMock): string[] {
     .filter((u) => u.startsWith("/api/v1/goals?"));
 }
 
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy.
+function renderMyGoals(route = "/goals", startTutorial: (id: string) => void = () => {}) {
+  return renderWithProviders(
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+      <MyGoals />
+      <LocationProbe />
+    </TourContext.Provider>,
+    { route },
+  );
+}
+
 describe("MyGoals page", () => {
   let mockFetch: FetchMock;
 
@@ -96,7 +109,7 @@ describe("MyGoals page", () => {
 
   test("non-manager: single My-goals tab listing own goals with the Manager column", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<MyGoals />);
+    renderMyGoals();
 
     expect(await screen.findByRole("heading", { name: "Goals" })).toBeInTheDocument();
     // The tab carries the guided tour's anchor.
@@ -123,7 +136,7 @@ describe("MyGoals page", () => {
 
   test("own rows carry no back override — the detail pages already default to /goals", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<MyGoals />);
+    renderMyGoals();
 
     // The caller is the subordinate of this ACTIVE row → the Update entry point (v2.8.0).
     const update = await screen.findByRole("link", { name: "Update goal Ship four reports" });
@@ -134,7 +147,7 @@ describe("MyGoals page", () => {
   test("manager: the Goals-I've-set tab lists view=managed with the Team-member column and tab-preserving back links", async () => {
     mockApi(mockFetch, { managerOfTeams: 1, goals: [SET_FOR_CAROL] });
     const user = userEvent.setup();
-    renderWithProviders(<MyGoals />);
+    renderMyGoals();
 
     const managedTab = await screen.findByRole("tab", { name: "Goals I've set" });
     // The manager-only tab carries the guided tour's anchor.
@@ -154,8 +167,9 @@ describe("MyGoals page", () => {
     expect(update.getAttribute("href")).toContain(`back=${encodeURIComponent("/goals?tab=managed")}`);
 
     // The footer create entry point (v1.30.1 — the MyTeamKpis pattern): unprefilled create,
-    // returning to this tab.
+    // returning to this tab, and carrying the guided tour's anchor.
     const create = screen.getByRole("link", { name: "New goal" });
+    expect(create).toHaveAttribute("data-tour", "goals-new");
     expect(create.getAttribute("href")).toContain("/goals/new");
     expect(create.getAttribute("href")).not.toContain("subordinateId");
     expect(create.getAttribute("href")).toContain(`back=${encodeURIComponent("/goals?tab=managed")}`);
@@ -164,7 +178,7 @@ describe("MyGoals page", () => {
   test("manager: switching Reports to all adds includeIndirect=true to the managed query", async () => {
     mockApi(mockFetch, { managerOfTeams: 1, goals: [SET_FOR_CAROL] });
     const user = userEvent.setup();
-    renderWithProviders(<MyGoals />);
+    renderMyGoals();
 
     await user.click(await screen.findByRole("tab", { name: "Goals I've set" }));
     await screen.findByText("Carol");
@@ -188,7 +202,7 @@ describe("MyGoals page", () => {
 
   test("?tab=managed deep-links a manager to the managed tab", async () => {
     mockApi(mockFetch, { managerOfTeams: 1, goals: [SET_FOR_CAROL] });
-    renderWithProviders(<MyGoals />, { route: "/goals?tab=managed" });
+    renderMyGoals("/goals?tab=managed");
 
     expect(await screen.findByText("Carol")).toBeInTheDocument();
     expect(goalUrls(mockFetch).at(-1)).toContain("view=managed");
@@ -196,24 +210,30 @@ describe("MyGoals page", () => {
 
   test("?tab=managed falls back to My goals for a non-manager", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<MyGoals />, { route: "/goals?tab=managed" });
+    renderMyGoals("/goals?tab=managed");
 
     expect(await screen.findByText("Alice")).toBeInTheDocument();
     expect(goalUrls(mockFetch).at(-1)).toContain("view=own");
     expect(screen.queryByRole("tab", { name: "Goals I've set" })).not.toBeInTheDocument();
   });
 
+  test("the tutorial launcher starts the goals tutorial via useTour", async () => {
+    mockApi(mockFetch);
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    renderMyGoals("/goals", startTutorial);
+
+    const launcher = await screen.findByRole("button", { name: "How goals work" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("goals");
+  });
+
   test("a disabled GOALS feature redirects the page to / (v1.53.0)", async () => {
     localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["GOALS"]));
     try {
       mockApi(mockFetch);
-      renderWithProviders(
-        <>
-          <MyGoals />
-          <LocationProbe />
-        </>,
-        { route: "/goals" },
-      );
+      renderMyGoals("/goals");
 
       await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/));
       expect(screen.queryByRole("heading", { name: "Goals" })).toBeNull();
