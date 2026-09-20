@@ -14,6 +14,7 @@ import PageHeader from "../components/PageHeader";
 import PerformanceReviewHistory from "../components/PerformanceReviewHistory";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import PersonCell from "../components/PersonCell";
+import ReviewLifecycle from "../components/ReviewLifecycle";
 import RatingBadge from "../components/RatingBadge";
 import ProseBox from "../components/ProseBox";
 import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
@@ -245,6 +246,7 @@ export default function ViewPerformanceReview() {
                 <Tabs.List>
                   <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                   <Tabs.Tab value="history">{t("performanceReview.history")}</Tabs.Tab>
+                  <Tabs.Tab value="lifecycle">{t("performanceReview.lifecycle")}</Tabs.Tab>
                 </Tabs.List>
                 <Tabs.Panel value="content" pt="md">
                   <Stack gap="lg">
@@ -255,6 +257,9 @@ export default function ViewPerformanceReview() {
                 </Tabs.Panel>
                 <Tabs.Panel value="history" pt="md">
                   <PerformanceReviewHistory reviewId={id} />
+                </Tabs.Panel>
+                <Tabs.Panel value="lifecycle" pt="md">
+                  <ReviewLifecycle currentStatus={data.status} />
                 </Tabs.Panel>
               </Tabs>
             </Stack>

@@ -49,5 +49,24 @@
       "form": "Wybierz Płatne z jednej ze swoich pul albo Bezpłatne, a potem pierwszy i ostatni dzień — jeden wpis mieści się w jednym roku kalendarzowym, a każda z krawędzi może być połówką dnia. Podgląd poniżej liczy tylko dni robocze: weekendy i święta są darmowe.",
       "actions": "Wyślij od razu zapisuje wpis — Twój zespół oraz Twój menedżer/Twoja menedżerka dostają powiadomienie, a Ty możesz go później usunąć z Moich dni wolnych. Teraz tego nie klikniemy; Gotowe wraca do Dni wolnych."
     }
+  },
+  "performanceReviews": {
+    "launch": "Jak działają oceny okresowe",
+    "steps": {
+      "intro": "Ocena okresowa to ocena Twojego menedżera/menedżerki za jeden okres — pięć kategorii, każda oceniana od 1 do 6 wraz z pisemnym podsumowaniem. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają oceny okresowe\".",
+      "lifecycle": "Ocena zaczyna się jako Szkic widoczny tylko dla jej autora/autorki, przechodzi do Kalibracji, gdzie mogą ją porównać menedżerowie wyżej w hierarchii, a na koniec zostaje Opublikowana dla Ciebie. Każdy krok można cofnąć — opublikowaną ocenę można wycofać, a kalibrację zwrócić do szkicu — i ocena nigdy nie pomija Kalibracji.",
+      "own": "Moje oceny pokazują oceny opublikowane o Tobie, od najnowszego okresu. Ocenę widzisz dopiero, gdy zostanie Opublikowana — szkice i kalibracja zostają u menedżerów — a powiadomienie informuje Cię, gdy taka ocena się pojawi.",
+      "filters": "W Filtrach zawężasz listę według menedżera, okresu i statusu. Wybór zapamiętujemy do następnej wizyty.",
+      "categories": "Każda ocena obejmuje pięć kategorii — Postawę, Realizację, Umiejętności, Potencjał i Ocenę ogólną — w skali od 1, nie spełnia oczekiwań, do 6, poziom wyjątkowy, każda z pisemnym podsumowaniem. Strona oceny pokazuje je w zakładce Treść; Historia zawiera każdą zmianę, a Cykl życia wyjaśnia etapy.",
+      "managed": "Oceny zespołu pokazują jeden wiersz na podwładnego dla wybranego okresu: status i oceny jego oceny albo \"Brak oceny\". Edytować może ją tylko autor/autorka oceny; od Kalibracji mogą ją też odczytać menedżerowie wyżej niż autor/autorka.",
+      "period": "Wybór okresu obejmuje całą zakładkę — otwiera się na najnowszym okresie, a ten obejmujący dzisiejszą datę jest oznaczony jako Bieżący.",
+      "views": "Tabela | Rozkład | Kwadranty to trzy widoki tych samych osób: tabela ukończenia, wykresy rozkładu ocen dla każdej kategorii oraz płaszczyzna dwuosiowa, która umieszcza każdą osobę według dwóch wybranych przez Ciebie kategorii.",
+      "dashboardFilters": "W Filtrach pole \"Podwładni\" poszerza zakres z Twoich bezpośrednich podwładnych na wszystkich poniżej, a Zespół oraz filtry kariery go zawężają. Sortowanie i stronicowanie działają na przefiltrowanych wierszach.",
+      "new": "Podwładny bez oceny za dany okres pokazuje w swoim wierszu Nową ocenę — jedna ocena na osobę i okres. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie utworzone, dopóki nie klikniesz Utwórz.",
+      "form": "Wybierz członka zespołu i okres. Okresów, które jeszcze się nie zaczęły, nie można wybrać, a podwładny, który ma już ocenę za dany okres, zostanie odrzucony wraz z linkiem do istniejącej oceny.",
+      "actions": "Utwórz zapisuje pusty szkic i otwiera edytor, w którym oceniasz pięć kategorii i piszesz podsumowania. Teraz tego nie klikniemy — nic nie zostanie utworzone w tym przewodniku.",
+      "manage": "Na stronie oceny prowadzisz jej cykl życia: Prześlij do kalibracji, gdy wszystkie pięć ocen i podsumowań jest wypełnionych, Wróć do szkicu, Opublikuj albo Wycofaj publikację. Może to zrobić tylko menedżer/ka, który/a napisał/a ocenę, a podwładny dostaje powiadomienie, gdy zostanie opublikowana lub gdy publikacja zostanie wycofana.",
+      "periods": "Oceny są przypisane do Okresów ocen — globalnej osi czasu, którą administrator rozszerza bez luk; okresu nie można zmienić po dodaniu, a ocena wymaga okresu, który już się rozpoczął. To cały przepływ — Gotowe wraca do Ocen okresowych."
+    }
   }
 }

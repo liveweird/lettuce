@@ -388,3 +388,23 @@ export async function fillDate(root: Page | Locator, label: string, iso: string,
   await input.fill(iso);
   await input.press("Tab");
 }
+
+/**
+ * Every non-GET `/api/` request the page issues from now on — the read-only oracle shared by the
+ * feature tutorials (feedback, goals, days off, performance reviews). List totals are NOT a safe
+ * before/after comparison for these walkers: parallel specs write as the same seed accounts, so a
+ * total can move mid-walk through no fault of the tutorial. The walker's own traffic is exactly
+ * what "nothing is saved" promises. `/api/v1/refresh` is a token exchange, not a write, and is
+ * allowed. Call it right before `walkTutorial` — any setup writes (e.g. a precondition) issued on
+ * the same page beforehand are not recorded, by design.
+ */
+export function recordApiWrites(page: Page): string[] {
+  const writes: string[] = [];
+  page.on("request", (r) => {
+    const path = new URL(r.url()).pathname;
+    if (path.startsWith("/api/") && r.method() !== "GET" && path !== "/api/v1/refresh") {
+      writes.push(`${r.method()} ${path}`);
+    }
+  });
+  return writes;
+}

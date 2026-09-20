@@ -1,4 +1,12 @@
-import { AAA_ONE, MANAGER_AAA, collapseAlertsBanner, expect, login, test } from "./helpers";
+import {
+  AAA_ONE,
+  MANAGER_AAA,
+  collapseAlertsBanner,
+  expect,
+  login,
+  recordApiWrites,
+  test,
+} from "./helpers";
 import type { Page } from "@playwright/test";
 
 // The "How feedback works" tutorial (v3.14.0) walked as a manager and as a non-manager, asserting
@@ -49,24 +57,6 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
     expect(at, `landmark "${landmark}" after step ${cursor + 1}`).toBeGreaterThan(cursor);
     cursor = at;
   }
-}
-
-/**
- * Every non-GET `/api/` request the page issues from now on — the read-only oracle. List totals
- * are NOT a safe before/after comparison for this walker: parallel specs write as the same seed
- * account (hr.spec drafts a feedback as Manager AAA), so a total can move mid-walk through no
- * fault of the tutorial. The walker's own traffic is exactly what "nothing is saved" promises.
- * `/api/v1/refresh` is a token exchange, not a write, and is allowed.
- */
-function recordApiWrites(page: Page): string[] {
-  const writes: string[] = [];
-  page.on("request", (r) => {
-    const path = new URL(r.url()).pathname;
-    if (path.startsWith("/api/") && r.method() !== "GET" && path !== "/api/v1/refresh") {
-      writes.push(`${r.method()} ${path}`);
-    }
-  });
-  return writes;
 }
 
 test("the feedback tutorial walks a manager through 12 read-only steps and returns to the Feedback page", async ({ page }) => {

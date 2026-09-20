@@ -1,7 +1,9 @@
-import { Stack, Tabs, Text, Title } from "@mantine/core";
+import { Stack, Tabs, Text } from "@mantine/core";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
+import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 import { useIsManager } from "../hooks/useIsManager";
 import PerformanceReviewTable from "./PerformanceReviewTable";
 import ReviewsDashboard from "./ReviewsDashboard";
@@ -42,7 +44,10 @@ export default function Performance() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("performanceReview.sectionTitle")}</Title>
+      <PageHeader
+        title={t("performanceReview.sectionTitle")}
+        actions={<TutorialButton id="performanceReviews" tourId="performance-tutorial" />}
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="own" data-tour="performance-own">
@@ -61,7 +66,7 @@ export default function Performance() {
               {t("performanceReview.myHint")}
             </Text>
             {/* No backTo: the detail pages already default their return target to /performance. */}
-            <PerformanceReviewTable view="own" />
+            <PerformanceReviewTable view="own" tourId="performance-filters" />
           </Stack>
         </Tabs.Panel>
         {isManager && (

@@ -105,6 +105,18 @@ describe("ViewPerformanceReview page", () => {
     expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
   });
 
+  test("renders the Lifecycle tab with the state diagram highlighting the current status", async () => {
+    setupMocks();
+    const user = userEvent.setup();
+    renderScreen();
+
+    await screen.findByText("Mona Manager");
+    await user.click(screen.getByRole("tab", { name: "Lifecycle" }));
+    expect(await screen.findByRole("img", { name: /lifecycle/i })).toBeInTheDocument();
+    // The review is CALIBRATION — its node label still shows even while highlighted.
+    expect(screen.getAllByText("Calibration").length).toBeGreaterThan(0);
+  });
+
   test("the manager's CALIBRATION view offers Return to draft + Publish; publishing navigates back", async () => {
     localStorage.setItem(USER_ID_KEY, "7"); // the manager views
     setupMocks();
