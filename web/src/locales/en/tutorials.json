@@ -49,5 +49,24 @@
       "form": "Pick Paid from one of your pools or Unpaid, then the first and last day — one entry stays within one calendar year, and either edge can be a half day. The preview below counts working days only: weekends and public holidays are free.",
       "actions": "Submit records the entry at once — your teammates and your manager are notified, and you can delete it later from My days off. We won't press it now; Done takes you back to Days off."
     }
+  },
+  "performanceReviews": {
+    "launch": "How performance reviews work",
+    "steps": {
+      "intro": "A performance review is your manager's assessment of one review period — five categories, each rated 1 to 6 with a written summary. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How performance reviews work\" button.",
+      "lifecycle": "A review starts as a Draft only its author can see, moves to Calibration where the managers above can compare it, and is Published to you at the end. Every step can be reversed — a published review can be unpublished, a calibration returned to draft — and a review never skips Calibration.",
+      "own": "My performance lists the reviews published about you, newest period first. You see a review only once it is Published — drafts and calibration stay with the managers — and a notification tells you when one arrives.",
+      "filters": "Under Filters you narrow the list by manager, period and status. The choice is remembered the next time you come back.",
+      "categories": "Every review rates five categories — Attitude, Delivery, Skills, Aptitude and Overall — from 1, doesn't meet expectations, to 6, exceptional, each with a written summary. A review's page shows them on its Content tab; History lists every change, and Lifecycle explains the stages.",
+      "managed": "Team's performance shows one row per report for the selected period: their review's status and ratings, or \"No review yet\". Only the review's author can edit it; from Calibration on, managers above the author can read it too.",
+      "period": "The Period picker scopes the whole tab — it opens on the latest period, and the one containing today is marked Current.",
+      "views": "Table | Distribution | Quadrants are three views of the same people: the completion table, rating-balance charts per category, and a two-axis plane that places everyone by two categories of your choice.",
+      "dashboardFilters": "Under Filters, \"Reports\" widens the scope from your direct reports to everyone below you, and Team plus the career filters narrow it. Sorting and paging work on the filtered rows.",
+      "new": "A report without a review for the period shows New review in their row — one review per person and period. Let's open the form to look — nothing is created until you press Create.",
+      "form": "Pick the team member and the period. Periods still in the future can't be chosen, and a report who already has a review for that period is refused with a link to the existing one.",
+      "actions": "Create saves an empty draft and opens the editor, where you rate the five categories and write the summaries. We won't press it now — nothing is created in this walkthrough.",
+      "manage": "On a review's page you run its lifecycle: Submit for calibration once all five ratings and summaries are filled, Return to draft, Publish, or Unpublish. Only the manager who wrote the review can do this, and the report is notified when it is published or unpublished.",
+      "periods": "Reviews attach to Review periods — a global timeline an administrator extends without gaps; a period can't be changed once added, and a review needs a period that has started. That's the whole flow — Done takes you back to Performance."
+    }
   }
 }

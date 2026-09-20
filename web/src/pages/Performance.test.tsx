@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
+import { TourContext } from "../components/tourSupport";
 import Performance from "./Performance";
 import { jsonResponse } from "../test/http";
 
@@ -40,6 +41,18 @@ function reviewUrls(mockFetch: FetchMock): string[] {
     .filter((u) => u.startsWith("/api/v1/performance-reviews?"));
 }
 
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy (the
+// MyGoals.test.tsx/DaysOff.test.tsx idiom).
+function renderPerformance(route = "/performance", startTutorial: (id: string) => void = () => {}) {
+  return renderWithProviders(
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+      <Performance />
+    </TourContext.Provider>,
+    { route },
+  );
+}
+
 describe("Performance page", () => {
   let mockFetch: FetchMock;
 
@@ -57,7 +70,7 @@ describe("Performance page", () => {
 
   test("non-manager: single My-performance tab listing the own (published-only) view", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<Performance />);
+    renderPerformance();
 
     expect(await screen.findByRole("heading", { name: "Performance" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "My performance" })).toBeInTheDocument();
@@ -83,7 +96,7 @@ describe("Performance page", () => {
   test("manager: the Team's-performance tab carries the tour anchor and opens the completion dashboard", async () => {
     mockApi(mockFetch, { managerOfTeams: 1 });
     const user = userEvent.setup();
-    renderWithProviders(<Performance />);
+    renderPerformance();
 
     const managedTab = await screen.findByRole("tab", { name: "Team's performance" });
     expect(managedTab).toHaveAttribute("data-tour", "performance-managed");
@@ -95,18 +108,30 @@ describe("Performance page", () => {
 
   test("?tab=managed deep-links a manager straight to the Team's-performance tab", async () => {
     mockApi(mockFetch, { managerOfTeams: 1 });
-    renderWithProviders(<Performance />, { route: "/performance?tab=managed" });
+    renderPerformance("/performance?tab=managed");
 
     expect(await screen.findByText(NO_PERIODS_MESSAGE)).toBeInTheDocument();
   });
 
   test("?tab=managed falls back to My performance for a non-manager", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<Performance />, { route: "/performance?tab=managed" });
+    renderPerformance("/performance?tab=managed");
 
     expect(await screen.findByText("No performance reviews")).toBeInTheDocument();
     expect(reviewUrls(mockFetch).at(-1)).toContain("view=own");
     expect(screen.queryByRole("tab", { name: "Team's performance" })).not.toBeInTheDocument();
+  });
+
+  test("the tutorial launcher starts the performance reviews tutorial via useTour", async () => {
+    mockApi(mockFetch);
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    renderPerformance("/performance", startTutorial);
+
+    const launcher = await screen.findByRole("button", { name: "How performance reviews work" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("performanceReviews");
   });
 
   test("a disabled PERFORMANCE_REVIEWS feature redirects the page to / (v1.53.0)", async () => {

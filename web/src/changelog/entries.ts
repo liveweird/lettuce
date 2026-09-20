@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.17.0",
+    date: "2026-09-20",
+    en: `How performance reviews work — a short guided walkthrough from the Performance page: the Draft → Calibration → Published lifecycle (with a new Lifecycle tab on every review), My performance and its filters, and the five rated categories. Managers additionally see Team's performance with its Period picker, the Table | Distribution | Quadrants views and filters, the New review form, and the lifecycle actions. It only looks around — nothing is created or changed.`,
+    pl: `Jak działają oceny okresowe — krótki przewodnik uruchamiany ze strony Oceny okresowe: cykl Szkic → Kalibracja → Opublikowana (z nową zakładką Cykl życia na każdej ocenie), Moje oceny i ich filtry oraz pięć ocenianych kategorii. Menedżerowie/menedżerki widzą dodatkowo Oceny zespołu z wyborem okresu, widoki Tabela | Rozkład | Kwadranty i filtry, formularz nowej oceny oraz akcje cyklu życia. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia.`,
+  },
+  {
     version: "3.16.2",
     date: "2026-09-20",
     en: `A database outage while your request was being authenticated used to answer "invalid token", so the app signed you out for no reason of yours. It now reports a server error and keeps your session, so a retry a moment later just works.`,

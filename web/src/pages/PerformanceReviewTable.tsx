@@ -88,6 +88,7 @@ export default function PerformanceReviewTable({
   settingsKey,
   backTo,
   includeIndirect,
+  tourId,
 }: {
   view: Exclude<PerformanceReviewListView, "team">;
   /** Scope to one manager's reviews (the "reviews from this manager" drill-down). */
@@ -102,6 +103,9 @@ export default function PerformanceReviewTable({
   backTo?: string;
   /** Widen view=managed to chain-authored reviews (the per-subordinate "all reviews" drill-down). */
   includeIndirect?: boolean;
+  /** Forwarded to the Filters toggle as `data-tour` (a tutorial anchor). Only Performance.tsx
+   *  passes it — PerformanceReviewTable is also embedded by UserPerformanceReviews. */
+  tourId?: string;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -200,7 +204,7 @@ export default function PerformanceReviewTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
         {visibleColumns.map((c) => (
           <ClearableTextInput
             key={c.field}

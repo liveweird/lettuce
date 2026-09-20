@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Anchor, Box, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -122,53 +122,56 @@ export default function CreatePerformanceReview() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack gap="md">
             {/* The context line (v3.5.0): the pair and the period — the pickers keep their
-                names via aria-label (the "Team member" / "Period" comboboxes). */}
-            <MetaStrip
-              items={[
-                {
-                  key: "manager",
-                  label: t("performanceReview.manager"),
-                  value: <Text size="sm">{t("common.state.you")}</Text>,
-                },
-                {
-                  key: "subordinate",
-                  label: t("performanceReview.subordinate"),
-                  value: showPicker ? (
-                    <Select
-                      aria-label={t("performanceReview.subordinate")}
-                      placeholder={t("performanceReview.pickSubordinate")}
-                      data={options}
-                      renderOption={renderUserOption}
-                      value={picked}
-                      onChange={setPicked}
-                      searchable
-                      clearable
-                      nothingFoundMessage={t("performanceReview.noReports")}
-                      error={reportsError ? t("common.error.optionsFailed") : undefined}
-                      w={260}
-                    />
-                  ) : (
-                    // The `#id` placeholder shows only until the pool resolves the canonical name.
-                    <PersonaChip name={preselectedReport?.name ?? `#${preselectedId}`} />
-                  ),
-                },
-                {
-                  key: "period",
-                  label: t("performanceReview.period"),
-                  value: (
-                    <Select
-                      aria-label={t("performanceReview.period")}
-                      data={periodOptions}
-                      value={effectivePeriod}
-                      onChange={setPeriodId}
-                      allowDeselect={false}
-                      renderOption={renderPeriodOption}
-                      w={260}
-                    />
-                  ),
-                },
-              ]}
-            />
+                names via aria-label (the "Team member" / "Period" comboboxes). MetaStrip takes
+                no data-tour of its own, so a wrapper Box carries the tutorial anchor. */}
+            <Box data-tour="performance-form">
+              <MetaStrip
+                items={[
+                  {
+                    key: "manager",
+                    label: t("performanceReview.manager"),
+                    value: <Text size="sm">{t("common.state.you")}</Text>,
+                  },
+                  {
+                    key: "subordinate",
+                    label: t("performanceReview.subordinate"),
+                    value: showPicker ? (
+                      <Select
+                        aria-label={t("performanceReview.subordinate")}
+                        placeholder={t("performanceReview.pickSubordinate")}
+                        data={options}
+                        renderOption={renderUserOption}
+                        value={picked}
+                        onChange={setPicked}
+                        searchable
+                        clearable
+                        nothingFoundMessage={t("performanceReview.noReports")}
+                        error={reportsError ? t("common.error.optionsFailed") : undefined}
+                        w={260}
+                      />
+                    ) : (
+                      // The `#id` placeholder shows only until the pool resolves the canonical name.
+                      <PersonaChip name={preselectedReport?.name ?? `#${preselectedId}`} />
+                    ),
+                  },
+                  {
+                    key: "period",
+                    label: t("performanceReview.period"),
+                    value: (
+                      <Select
+                        aria-label={t("performanceReview.period")}
+                        data={periodOptions}
+                        value={effectivePeriod}
+                        onChange={setPeriodId}
+                        allowDeselect={false}
+                        renderOption={renderPeriodOption}
+                        w={260}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </Box>
 
             {periods != null && periods.length === 0 && (
               <Alert color="orange" variant="light">
@@ -194,16 +197,18 @@ export default function CreatePerformanceReview() {
             )}
 
             <FormFooter>
-              <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
-                {t("common.action.cancel")}
-              </Button>
-              <Button
-                onClick={() => void save()}
-                loading={submitting}
-                disabled={!subordinateId || !effectivePeriod}
-              >
-                {t("common.action.create")}
-              </Button>
+              <Group gap="sm" data-tour="performance-form-actions">
+                <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                  {t("common.action.cancel")}
+                </Button>
+                <Button
+                  onClick={() => void save()}
+                  loading={submitting}
+                  disabled={!subordinateId || !effectivePeriod}
+                >
+                  {t("common.action.create")}
+                </Button>
+              </Group>
             </FormFooter>
           </Stack>
         </Paper>

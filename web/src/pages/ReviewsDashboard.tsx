@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import {
   Alert,
   Badge,
+  Box,
   Group,
   SegmentedControl,
   Select,
@@ -198,12 +199,16 @@ export default function ReviewsDashboard() {
           allowDeselect={false}
           renderOption={renderPeriodOption}
           w={240}
+          // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour anchor
+          // must ride wrapperProps or it would land on the input, not the label+input pair.
+          wrapperProps={{ "data-tour": "performance-period" }}
         />
         <SegmentedControl
           value={view}
           onChange={(v) => {
             if (isOneOf(VIEW_MODES)(v)) setView(v);
           }}
+          data-tour="performance-view"
           data={[
             {
               value: "table",
@@ -236,7 +241,7 @@ export default function ReviewsDashboard() {
         />
       </Group>
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY} tourId="performance-dashboard-filters">
         <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
         <Select
           label={t("performanceReview.dashboard.team")}
@@ -278,6 +283,10 @@ export default function ReviewsDashboard() {
         </Alert>
       )}
 
+      {/* The current view's container — table / Distribution / Quadrants — carries the tour
+          anchor; the empty-timeline EmptyState above returns before this renders, so it stays
+          anchor-free (Joyride skips a missing target). */}
+      <Box data-tour="performance-dashboard">
       {view === "chart" ? (
         // The Distribution view replaces the table + pagination; the period and every filter
         // above keep applying — filteredRows is the filtered-but-unpaginated selection.
@@ -486,6 +495,7 @@ export default function ReviewsDashboard() {
       />
       </>
       )}
+      </Box>
     </Stack>
   );
 }
