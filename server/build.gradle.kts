@@ -88,6 +88,8 @@ dependencies {
     implementation(libs.bcrypt)
     implementation(libs.exposed.core)
     implementation(libs.exposed.r2dbc)
+    implementation(libs.r2dbc.pool)
+    implementation(libs.reactor.pool)
     implementation(libs.flyway.core)
     implementation(libs.flyway.database.postgresql)
     implementation(libs.graphql.java)

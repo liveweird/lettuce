@@ -11,6 +11,60 @@ The `org.postgresql:postgresql` JDBC driver is on the classpath solely for Flywa
 
 Current migrations are `V1`–`V82`. **The per-migration catalog lives in `.claude/docs/features/migrations.md`** — read it before adding a migration or reasoning about schema history.
 
+### Connection pool
+
+- **Applies when:** touching `infra/db/Database.kt`'s connect call, the `postgres.pool.*`
+  configuration, or reasoning about how many PostgreSQL backends one Lettuce instance can hold.
+- **Requirement:** Exposed connects through ONE bounded `io.r2dbc:r2dbc-pool` `ConnectionPool`
+  (v3.16.1, ported from Toadie 2.11.2) wrapping the plain PostgreSQL R2DBC factory — never a raw
+  `r2dbc:postgresql://` connect, which opens one backend per `suspendTransaction` with nothing
+  capping concurrency (measured 2026-09-20 on the compose stack: 120 parallel
+  `GET /api/v1/teams/members?view=managed&includeIndirect=true` → ALL 100 backends of PostgreSQL's
+  default `max_connections` taken, 6 × `500` "sorry, too many clients already" and 7 × `401` —
+  the JWT validation's blocklist read failed and surfaced as an invalid token). Bounds come from
+  `application.yaml`'s `postgres.pool` block, each boot-validated (startup fails outside the
+  range, the `security.lockout.*` idiom): `maxSize` (`POSTGRES_POOL_MAX_SIZE`, default 20,
+  1..1000), `initialSize` (`POSTGRES_POOL_INITIAL_SIZE`, default 2, 0..maxSize — the floor the pool
+  fills up to on its FIRST acquire, not at construction: r2dbc-pool warms up lazily and
+  `warmup()` is deliberately not called; in practice `configureBootstrap`'s backfill
+  transactions acquire during boot, so the floor is open before the first request),
+  `maxAcquireTimeSeconds` (`POSTGRES_POOL_MAX_ACQUIRE_SECONDS`, default 10, 1..600) and
+  `maxIdleTimeSeconds` (`POSTGRES_POOL_MAX_IDLE_SECONDS`, default 600, 1..86400). Every pooled
+  connection carries `application_name = lettuce` (`postgres.pool.applicationName`, test-only
+  override), so operators count this instance's backends with
+  `SELECT count(*) FROM pg_stat_activity WHERE application_name = 'lettuce'`. Size it as
+  `maxSize × replicas + 1` (Flyway's short-lived JDBC connection, `infra/db/Flyway.kt`) well under
+  the server's `max_connections`. A caller that waits past the acquire deadline fails with the
+  pool's timeout exception, which `plugins/ErrorHandling.kt`'s catch-all renders as a logged
+  `500` — deliberately NOT a new declared status, since the OpenAPI conformance gate would need
+  it on every operation. The pool is disposed on `ApplicationStopped`, so every `testApplication`
+  the suite boots (~800 per JVM against one Testcontainer) releases its connections. Exposed's
+  `R2dbcDatabase.connect(connectionFactory, databaseConfig)` derives the dialect from
+  `databaseConfig.connectionFactoryOptions` alone, so the parsed options (still
+  `driver=postgresql`) are threaded into the config unchanged while traffic goes through the
+  pool. The same config pins `defaultMaxAttempts = 1`: Exposed would otherwise retry ANY
+  `R2dbcException` three times, and the pool's acquire timeout is one — a saturated pool would
+  cost 3 × the acquire budget per request and re-enter the acquire queue each time; Lettuce's
+  writes serialize on the atomic `reserveAttempt` upsert and `pg_advisory_xact_lock`, never on
+  serialization failures, so no code path relied on the retry. **Dependency alignment:**
+  r2dbc-pool 1.0.2 declares reactor-pool 1.0.8 (built on reactor-core 3.5.20), but Lettuce
+  resolves reactor-core 3.8.7 via the reactor-netty 1.3.7 pin (Reactor BOM 2025.0.7), so
+  `gradle/libs.versions.toml` declares `reactor-pool` explicitly at that BOM's 1.2.7 — move it
+  together with the reactor-netty line.
+- **Reference:** `infra/db/Database.kt` (`connectPooled`, `readPoolBounds`), `application.yaml`
+  `postgres.pool`.
+- **Enforcement:** `ConnectionPoolTest` — concurrent transactions never exceed `maxSize` in
+  `pg_stat_activity`, a saturated pool times out an acquire instead of hanging, the pool releases
+  every connection when the application stops (also when a later module refuses startup), and
+  out-of-range bounds fail startup.
+- **Exception:** the pool runs r2dbc-pool's defaults for liveness (`ValidationDepth.LOCAL`, no
+  `maxLifeTime`): a connection killed server-side between uses is handed out once and fails that
+  request with a 500 — accepted until a deployment introduces an idle killer or proxy. The
+  one background path that can outlive the dispose is `NotificationEmailer`'s fire-and-forget
+  dispatch (launched on the Application scope, off the request path): a batch still running at
+  `ApplicationStopped` fails its next pooled read against the disposed pool, which its blanket
+  catch logs as an ERROR — the email is simply not sent; nothing reaches a client.
+
 ### Consistency model (mutations vs. events & notifications) — deliberate
 
 A business mutation, its history event, and its in-app notifications do **not** share one transaction — by design, not oversight (confirmed and accepted in the 2026-08-10 audit review, AUD-001). The shape, uniform across the event-producing features (feedbacks, 1:1s, goals, team KPIs, reviews, the impact log, and — events only, no notifications — succession plans): the service method commits the mutation in its own `suspendTransaction` and returns *notification descriptors*; the route then persists each notification (`NotificationService.create`, one transaction per recipient; pulse's org-wide fan-outs use the batch `createAll`) and appends the history event (`EventLog.create`, own transaction), then responds. Consequences, accepted at this app's scale (single instance, small payloads, low contention): a failure after the mutation commit yields a `500` with the state already changed, possibly with partial notification fan-out or a missing history event; a client retry then hits the domain guard (`409`). The email mirror is a further, separately documented best-effort layer after the notification commit. Do **not** "fix" individual routes toward atomicity piecemeal — that would fork the convention; if audit-grade history or multi-instance deployment ever becomes a requirement, revisit wholesale (transaction-aware unit of work or an outbox) as its own project. **System-originated events (v3.11.0/V80):** a history event minted by the server itself rather than a caller (e.g. the feedback expiry sweep's `REQUEST_EXPIRED`) stores `user_id NULL` on the owning `*_events` table — all seven are nullable since V80 — rather than being attributed to a party for schema reasons; `EventLog.listFor` LEFT JOINs so a null-actor row is still listed, with a null resolved `userName`.

@@ -30,7 +30,14 @@ opentelemetry = "1.65.0"
 opentelemetry-ktor = "2.31.1-alpha"
 opentelemetry-semconv = "1.43.0"
 r2dbc-postgresql = "1.1.2.RELEASE"
+# Bounded pooling over the plain R2DBC factory (`infra/db/Database.kt`, `.claude/docs/persistence.md`
+# "Connection pool"); r2dbc-spi 1.0.0.RELEASE is already transitive via r2dbc-postgresql.
+r2dbc-pool = "1.0.2.RELEASE"
 reactor-netty = "1.3.7"
+# r2dbc-pool 1.0.2 declares reactor-pool 1.0.8, built for reactor-core 3.5.20; Lettuce resolves
+# reactor-core 3.8.7 via the reactor-netty 1.3.7 pin above (Reactor BOM 2025.0.7), whose paired
+# reactor-pool is 1.2.7 — keep this line in step with the reactor-netty pin.
+reactor-pool = "1.2.7"
 swagger-request-validator = "3.0.0"
 testcontainers = "2.0.5"
 
@@ -52,8 +59,10 @@ opentelemetry-sdkAutoconfigure = { module = "io.opentelemetry:opentelemetry-sdk-
 opentelemetry-semconv = { module = "io.opentelemetry.semconv:opentelemetry-semconv", version.ref = "opentelemetry-semconv" }
 netty-bom = { module = "io.netty:netty-bom", version.ref = "netty" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.13" }
+r2dbc-pool = { module = "io.r2dbc:r2dbc-pool", version.ref = "r2dbc-pool" }
 r2dbc-postgresql = { module = "org.postgresql:r2dbc-postgresql", version.ref = "r2dbc-postgresql" }
 reactor-netty-core = { module = "io.projectreactor.netty:reactor-netty-core", version.ref = "reactor-netty" }
+reactor-pool = { module = "io.projectreactor.addons:reactor-pool", version.ref = "reactor-pool" }
 swagger-request-validator-core = { module = "com.atlassian.oai:openapi-request-validator-core", version.ref = "swagger-request-validator" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 

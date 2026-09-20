@@ -63,20 +63,110 @@ import ch.nokillswit.users.CareerPositionServiceKey
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
+import io.ktor.server.config.ApplicationConfig
 import io.ktor.util.AttributeKey
+import io.r2dbc.pool.ConnectionPool
+import io.r2dbc.pool.ConnectionPoolConfiguration
+import io.r2dbc.postgresql.PostgresqlConnectionFactoryProvider
+import io.r2dbc.spi.ConnectionFactories
+import io.r2dbc.spi.ConnectionFactoryOptions
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
+import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabaseConfig
+import java.time.Duration
 
 /** Published so a later module (e.g. `configureAuthRoutes`, whose DB-backed auth-state stores
  *  — login lockout/password-reset throttle/MFA challenges, V81 — need a handle) can reuse the
- *  same connected [R2dbcDatabase] without opening a second connection. */
+ *  same connected [R2dbcDatabase] without opening a second connection, and `ConnectionPoolTest`,
+ *  which opens transactions directly against the SAME pool the app's services use to observe
+ *  `pg_stat_activity` bounded by `postgres.pool.maxSize`. */
 val R2dbcDatabaseKey = AttributeKey<R2dbcDatabase>("R2dbcDatabase")
 
-suspend fun Application.configureDatabase() {
-    val database = R2dbcDatabase.connect(
-        url = environment.config.property("postgres.r2dbcUrl").getString(),
-        user = environment.config.property("postgres.user").getString(),
-        password = environment.config.property("postgres.password").getString(),
+/**
+ * The bounded pool sizing read from `postgres.pool.*` (`.claude/docs/persistence.md`
+ * "Connection pool") — boot-validated the `requireConfigInt`/`requireConfigLong` way (a range
+ * failure throws [IllegalArgumentException] before any connection is attempted).
+ */
+private data class PoolBounds(
+    val maxSize: Int,
+    val initialSize: Int,
+    val maxAcquireTimeSeconds: Long,
+    val maxIdleTimeSeconds: Long,
+    val applicationName: String,
+)
+
+private fun readPoolBounds(config: ApplicationConfig): PoolBounds {
+    val maxSize = config.property("postgres.pool.maxSize").getString().toInt()
+        .also { require(it in 1..1000) { "postgres.pool.maxSize must be between 1 and 1000" } }
+    val initialSize = config.property("postgres.pool.initialSize").getString().toInt()
+        .also { require(it in 0..maxSize) { "postgres.pool.initialSize must be between 0 and postgres.pool.maxSize ($maxSize)" } }
+    val maxAcquireTimeSeconds = config.property("postgres.pool.maxAcquireTimeSeconds").getString().toLong()
+        .also { require(it in 1..600) { "postgres.pool.maxAcquireTimeSeconds must be between 1 and 600" } }
+    val maxIdleTimeSeconds = config.property("postgres.pool.maxIdleTimeSeconds").getString().toLong()
+        .also { require(it in 1..86400) { "postgres.pool.maxIdleTimeSeconds must be between 1 and 86400" } }
+    // application_name = lettuce on every pooled connection by default (deliberate — ops can
+    // count Lettuce's own connections in pg_stat_activity, and ConnectionPoolTest relies on
+    // it); overridable per test application instance so overlapping test apps sharing the
+    // Testcontainer never share one count.
+    val applicationName = config.propertyOrNull("postgres.pool.applicationName")?.getString() ?: "lettuce"
+    return PoolBounds(maxSize, initialSize, maxAcquireTimeSeconds, maxIdleTimeSeconds, applicationName)
+}
+
+/**
+ * Connects Exposed to a bounded R2DBC [ConnectionPool] instead of a raw per-transaction
+ * connection factory (`.claude/docs/persistence.md` "Connection pool"): a plain
+ * `r2dbc:postgresql://` connect opens one PostgreSQL backend per `suspendTransaction` with
+ * nothing capping how many run at once — measured against the compose stack (2026-09-20), 120
+ * parallel `GET /api/v1/teams/members?view=managed&includeIndirect=true` took ALL 100 backends of
+ * PostgreSQL's default `max_connections` (6 × 500 "too many clients", 7 × 401 because the JWT
+ * validation's blocklist read failed too); pooled, the same burst peaks at `maxSize` = 20.
+ *
+ * [ConnectionFactoryOptions.parse] plus the user/password/application-name mutations produce
+ * [options], from which [ConnectionFactories.get] resolves the PLAIN (unpooled) PostgreSQL
+ * factory that [ConnectionPool] then wraps. Exposed's
+ * `R2dbcDatabase.connect(connectionFactory, databaseConfig, ...)` overload derives its SQL
+ * dialect and reported URL from `databaseConfig.connectionFactoryOptions` alone — it only calls
+ * `ConnectionFactories.get(options)` itself when the `connectionFactory` argument is null, and
+ * otherwise reads `getDialectName`/`getUrlString` straight off `options` — so [options] (still
+ * carrying `driver=postgresql`) is threaded into `databaseConfig` unchanged even though actual
+ * traffic goes through the pool. The pool is disposed on [ApplicationStopped] so the hundreds
+ * of `testApplication`s the suite boots each release their connections.
+ */
+private fun Application.connectPooled(): R2dbcDatabase {
+    val config = environment.config
+    val bounds = readPoolBounds(config)
+    val options = ConnectionFactoryOptions.parse(config.property("postgres.r2dbcUrl").getString())
+        .mutate()
+        .option(ConnectionFactoryOptions.USER, config.property("postgres.user").getString())
+        .option(ConnectionFactoryOptions.PASSWORD, config.property("postgres.password").getString())
+        .option(PostgresqlConnectionFactoryProvider.APPLICATION_NAME, bounds.applicationName)
+        .build()
+    val rawFactory = ConnectionFactories.get(options)
+    val pool = ConnectionPool(
+        ConnectionPoolConfiguration.builder(rawFactory)
+            .maxSize(bounds.maxSize)
+            .initialSize(bounds.initialSize)
+            .maxAcquireTime(Duration.ofSeconds(bounds.maxAcquireTimeSeconds))
+            .maxIdleTime(Duration.ofSeconds(bounds.maxIdleTimeSeconds))
+            .build(),
     )
+    monitor.subscribe(ApplicationStopped) { pool.dispose() }
+    val databaseConfig = R2dbcDatabaseConfig.Builder().apply {
+        connectionFactoryOptions = options
+        // ONE attempt per suspendTransaction: Exposed's default of three retries any
+        // R2dbcException, and the pool's acquire timeout is one — retrying a saturated pool
+        // three times would turn the 10-second acquire budget into 30 s of queueing per request
+        // exactly when the pool is already full. Lettuce has no path relying on Exposed's
+        // retry: its writes serialize on the atomic `reserveAttempt` upsert
+        // (`auth/LoginThrottle.kt`) and `pg_advisory_xact_lock` (`auth/MfaChallenges.kt`), never
+        // on serialization failures — and the MfaChallenges `attemptCap` note already documents
+        // the `R2dbcTransaction.maxAttempts` shadowing trap this same property name invites.
+        defaultMaxAttempts = 1
+    }
+    return R2dbcDatabase.connect(connectionFactory = pool, databaseConfig = databaseConfig)
+}
+
+suspend fun Application.configureDatabase() {
+    val database = connectPooled()
     attributes.put(R2dbcDatabaseKey, database)
     val userService = UserService(database)
     attributes.put(UserServiceKey, userService)
