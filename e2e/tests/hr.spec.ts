@@ -171,6 +171,20 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   // Read-only: the auditor never gets the manager's create entry point.
   await expect(page.getByRole("link", { name: "New team KPI" })).toHaveCount(0);
 
+  // 6e. The org-wide calendar (v3.25.0) — the auditor's Days off calendar used to contain only
+  //     themselves (member scope) since they belong to no team and manage nobody. Reach
+  //     assertion: the auditor-only scope exists, picking it asks the server for scope=org, and
+  //     the team narrowing appears. WHO shows up that month is demo-volume state other specs
+  //     own, so it is not asserted here; the data rule lives in DaysOffRoutesTest.
+  await page.goto("/days-off");
+  await page.getByRole("combobox", { name: "Whose calendar" }).click();
+  const [orgCalendar] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/v1/days-off/calendar") && r.url().includes("scope=org")),
+    page.getByRole("option", { name: "All teams (auditor)" }).click(),
+  ]);
+  expect(orgCalendar.ok()).toBe(true);
+  await expect(page.getByRole("combobox", { name: "Team", exact: true })).toBeVisible();
+
   // 7. No admin surface: the Config group never offers Alerts to HR.
   await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);
 });

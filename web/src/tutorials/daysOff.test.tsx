@@ -25,11 +25,13 @@ describe("DAYS_OFF_TUTORIAL step list", () => {
     localStorage.removeItem(DISABLED_FEATURES_KEY);
   });
 
-  test("8 steps for a non-manager, 12 for a manager — exactly the managerOnly targets widen it", () => {
+  test("8 steps for a non-manager, 12 for a manager — exactly the manager-gated targets widen it", () => {
     const t = (k: string) => k;
     const nonManager = buildSteps(DAYS_OFF_TUTORIAL.steps, t, false);
     const manager = buildSteps(DAYS_OFF_TUTORIAL.steps, t, true);
 
+    // The scope picker's step is managerOrHr since v3.25.0 (the HR auditor's org-wide scope
+    // lives in that Select) — for a plain manager vs. non-manager the split is unchanged.
     const managerOnlyTargets = [
       '[data-tour="days-off-calendar-scope"]',
       '[data-tour="days-off-team"]',
@@ -46,6 +48,23 @@ describe("DAYS_OFF_TUTORIAL step list", () => {
     // concept step (there is no lifecycle to diagram since v3.9.0): 1 for everyone.
     expect(nonManager.filter((s) => s.target === "body")).toHaveLength(1);
     expect(manager.filter((s) => s.target === "body")).toHaveLength(1);
+  });
+
+  test("an HR auditor who manages nobody still gets the calendar-scope step (v3.25.0)", () => {
+    const t = (k: string) => k;
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    try {
+      const auditor = buildSteps(DAYS_OFF_TUTORIAL.steps, t, false);
+      // The scope Select renders for managers AND auditors, so its step must too — the three
+      // genuinely manager-only steps (team tab, team view, record) stay out.
+      expect(auditor).toHaveLength(9);
+      expect(auditor.some((s) => s.target === '[data-tour="days-off-calendar-scope"]')).toBe(true);
+      for (const target of ['[data-tour="days-off-team"]', '[data-tour="days-off-team-view"]', '[data-tour="days-off-record"]']) {
+        expect(auditor.some((s) => s.target === target), target).toBe(false);
+      }
+    } finally {
+      localStorage.removeItem(ROLE_KEY);
+    }
   });
 
   test("a caller without DAYS_OFF enabled sees no steps at all", () => {

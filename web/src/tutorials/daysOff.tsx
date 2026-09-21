@@ -34,7 +34,9 @@ const STEPS: readonly TourStepDef[] = [
     contentKey: "tutorials.daysOff.steps.scope",
     placement: "bottom",
     navTo: CALENDAR,
-    managerOnly: true,
+    // The picker renders for managers AND, since v3.25.0, for HR auditors (their org-wide
+    // "All teams" scope lives in it), so the step follows the same audience.
+    managerOrHr: true,
     feature: "DAYS_OFF",
   },
   {

@@ -72,18 +72,24 @@ export type DaysOffCalendarResponse =
   paths["/api/v1/days-off/calendar"]["get"]["responses"]["200"]["content"]["application/json"];
 type DaysOffCalendarUser = DaysOffCalendarResponse["users"][number];
 export type DaysOffCalendarEntry = DaysOffCalendarUser["entries"][number];
-export type DaysOffCalendarScope = "member" | "managed";
+export type DaysOffCalendarScope = "member" | "managed" | "org";
 
 /** The month's leave-planner payload (unpaged): the scope's users with their marked days
  * plus the month's public holidays. `includeIndirect` (v3.13.0) widens `scope=managed` from
  * direct reports to the caller's whole transitive management chain — omit-when-false, invalid
- * with `scope=member`. */
+ * with `scope=member`. `scope=org` (v3.25.0) is the HR auditor's org-wide scope — `teamId`
+ * narrows it to one team, sent only with that scope. */
 export async function getDaysOffCalendar(
   month: string,
   scope: DaysOffCalendarScope,
-  includeIndirect?: boolean,
+  opts: { includeIndirect?: boolean; teamId?: number } = {},
 ): Promise<DaysOffCalendarResponse> {
-  const params = buildQuery({ month, scope, includeIndirect: includeIndirect || undefined });
+  const params = buildQuery({
+    month,
+    scope,
+    includeIndirect: opts.includeIndirect || undefined,
+    teamId: scope === "org" ? opts.teamId : undefined,
+  });
   return jsonRequest<DaysOffCalendarResponse>(`/api/v1/days-off/calendar?${params}`);
 }
 

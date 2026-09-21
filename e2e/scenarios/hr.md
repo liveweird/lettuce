@@ -62,7 +62,14 @@ pair is freed for later runs.
       team page opens with the auditor hint and no "New team KPI" entry point. Which rows
       appear belongs to other specs — the KPI data rule (an auditor lists another team's KPIs
       at every status, a manager/ADMIN gets 403) is pinned in the server suite.
-11. The auditor checks for an admin surface.
+11. The auditor opens Days off and switches the calendar's "Whose calendar" picker to
+    "All teams (auditor)" (v3.25.0: before it, an auditor who belongs to no team and manages
+    nobody saw a calendar containing only themselves).
+    - *Expected*: the auditor-only scope is offered, picking it asks the server for
+      `scope=org`, and a team narrowing picker appears beside it. Who is off that month is
+      demo-volume state other specs own, so it is not asserted here — the data rule is pinned
+      in `DaysOffRoutesTest`.
+12. The auditor checks for an admin surface.
    - *Expected*: none — the Config group never offers Alerts to HR.
 
 ## Not covered here (and why)

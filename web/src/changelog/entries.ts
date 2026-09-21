@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.25.0",
+    date: "2026-09-21",
+    en: `HR auditors can now see the whole organization's days off in the calendar — a new "All teams" scope on the Days off calendar, optionally narrowed to one team, showing everyone who is off that month.`,
+    pl: `Audytorzy/audytorki HR mogą teraz zobaczyć wszystkie dni wolne w całej organizacji w kalendarzu — nowy zakres "Wszystkie zespoły" w kalendarzu dni wolnych, opcjonalnie zawężony do jednego zespołu, pokazujący wszystkich, którzy mają wolne w tym miesiącu.`,
+  },
+  {
     version: "3.24.0",
     date: "2026-09-21",
     en: `HR auditors can now open any team's KPIs — a new "All teams" tab on Team KPIs and a Team KPIs link on a team's page. They can also see the paid-leave budget behind the corrections they audit, and pick an explicit "All teams" scope in Pulse Results and Trend.`,

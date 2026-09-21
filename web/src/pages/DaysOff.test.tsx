@@ -23,6 +23,11 @@ const CALENDAR = {
   ],
 };
 
+const ORG_TEAMS = [
+  { id: 1, name: "AAA" },
+  { id: 2, name: "BBB" },
+];
+
 const BUDGET = {
   userId: 5,
   userName: "Me Myself",
@@ -50,11 +55,20 @@ function renderDaysOff(route = "/days-off", startTutorial: (id: string) => void 
 describe("DaysOff page", () => {
   let mockFetch: FetchMock;
 
-  function setupMocks({ managed = 0 }: { managed?: number } = {}) {
+  function setupMocks({
+    managed = 0,
+    orgTeams = [] as typeof ORG_TEAMS,
+  }: { managed?: number; orgTeams?: typeof ORG_TEAMS } = {}) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
       if (u.includes("/api/v1/teams?")) {
-        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: managed }));
+        // useIsManager's probe carries managerId; listAllTeams (the org team picker) doesn't.
+        if (u.includes("managerId=")) {
+          return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: managed }));
+        }
+        return Promise.resolve(
+          jsonResponse(200, { items: orgTeams, page: 1, pageSize: 100, total: orgTeams.length }),
+        );
       }
       if (u.includes("/api/v1/days-off/calendar")) {
         return Promise.resolve(jsonResponse(200, CALENDAR));
@@ -152,6 +166,82 @@ describe("DaysOff page", () => {
       const call = mockFetch.mock.calls
         .map(([u]) => String(u))
         .find((u) => u.includes("/calendar") && u.includes("includeIndirect=true"));
+      expect(call).toBeDefined();
+    });
+  });
+
+  test("the org calendar scope is offered only to an HR auditor (v3.25.0)", async () => {
+    setupMocks({ managed: 0, orgTeams: ORG_TEAMS });
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    renderDaysOff("/days-off");
+
+    // An HR auditor gets the scope picker even though they don't manage any team.
+    await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual(["My teams", "All teams (auditor)"]);
+  });
+
+  test("the org calendar scope is not offered to a plain user", async () => {
+    setupMocks({ managed: 0 });
+    renderDaysOff("/days-off");
+
+    await screen.findByRole("table", { name: "Team days-off calendar" });
+    expect(screen.queryAllByLabelText("Whose calendar")).toHaveLength(0);
+  });
+
+  test("the org calendar scope is not offered to a non-HR manager", async () => {
+    setupMocks({ managed: 1 });
+    renderDaysOff("/days-off");
+
+    await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).not.toContain("All teams (auditor)");
+  });
+
+  test("picking the org calendar scope sends scope=org and no includeIndirect, and shows the team picker (v3.25.0)", async () => {
+    setupMocks({ managed: 0, orgTeams: ORG_TEAMS });
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    renderDaysOff("/days-off");
+
+    await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
+    expect(screen.queryByRole("combobox", { name: "Team" })).toBeNull();
+
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    await userEvent.click(screen.getByRole("option", { name: "All teams (auditor)" }));
+
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/calendar") && u.includes("scope=org"));
+      expect(call).toBeDefined();
+      expect(call).not.toContain("includeIndirect");
+    });
+    expect(await screen.findByRole("combobox", { name: "Team" })).toBeInTheDocument();
+
+    // Picking a specific team adds teamId to the calendar request.
+    await userEvent.click(screen.getByRole("combobox", { name: "Team" }));
+    await userEvent.click(await screen.findByRole("option", { name: "AAA" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/calendar") && u.includes("teamId=1"));
+      expect(call).toBeDefined();
+    });
+  });
+
+  test("a stored org calendar scope falls back to member for a non-auditor (v3.25.0)", async () => {
+    setupMocks({ managed: 1 });
+    localStorage.setItem("lettuce.viewSettings.daysOff.calendar.scope", JSON.stringify("org"));
+    renderDaysOff("/days-off");
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Whose calendar" })).toHaveValue("My teams"));
+    expect(screen.queryByRole("combobox", { name: "Team" })).toBeNull();
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/calendar") && u.includes("scope=member"));
       expect(call).toBeDefined();
     });
   });

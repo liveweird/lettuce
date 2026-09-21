@@ -4453,16 +4453,25 @@ paths:
         so bars render continuously), plus the month's public holidays. Deleted entries never
         appear (v3.9.0 — no approval lifecycle left to filter on).
 
-        Scopes (both caller-relative — any authenticated caller may use either; an empty
-        scope is an empty user list):
+        Scopes — the first two are caller-relative (any authenticated caller may use either;
+        an empty scope is an empty user list), the third is the HR auditor's:
         - `scope=member` (the default): everyone sharing a non-deleted team with the caller,
           the caller included (a team-less caller sees just themselves).
         - `scope=managed`: the caller's direct reports — or, with `includeIndirect=true`
           (v3.13.0), the caller's whole transitive management chain.
+        - `scope=org` (v3.25.0): **HR only** (`403` for anyone else, ADMIN included — the
+          `view=all` rule of the team-KPI list), audit-logged as `hr.list`. Optionally narrowed
+          to one team with `teamId`. Unlike the caller-relative scopes it lists **only the
+          people with at least one active entry in the month**, never the whole roster: an
+          auditor scans absences rather than a roster, and it keeps an unpaged payload bounded
+          on an org of any size — a month nobody is off in answers with an empty user list. It
+          also keeps the paid-pool names (the v3.2.1 teammate redaction is a `member`-scope
+          rule; HR reads the pool on the entry GET and in the auditor list anyway).
 
         Every user row carries `teams` — the teams via which the person is in the requested
         scope (the caller's subtree teams they belong to on `managed`, the teams shared with
-        the caller on `member`), so a widened calendar still says where each person sits.
+        the caller on `member`, and the person's own teams on `org`), so a widened calendar
+        still says where each person sits.
 
         Unpaged by construction — bounded by (scope users × ≤31 days). Users sort by name.
       parameters:
@@ -4474,8 +4483,17 @@ paths:
         - name: scope
           in: query
           required: false
-          schema: { type: string, enum: [member, managed], default: member }
-          description: Whose days off to show — teammates (member) or direct reports (managed).
+          schema: { type: string, enum: [member, managed, org], default: member }
+          description: >-
+            Whose days off to show — teammates (member), direct reports (managed), or the whole
+            organization (org, HR only).
+        - name: teamId
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 0 }
+          description: >-
+            Only valid with `scope=org` (else `400`): narrows the auditor calendar to the
+            members of one team.
         - name: includeIndirect
           in: query
           required: false
