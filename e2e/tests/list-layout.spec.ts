@@ -483,10 +483,78 @@ test("list rows stay contained and usable across desktop and mobile widths", asy
   }
 });
 
-test("Team's performance table fits a 1280px laptop without horizontal scroll", async ({ page }) => {
+test("Team's performance table fits a 1280px laptop and still shows its rating numbers", async ({
+  page,
+  request,
+}) => {
   // Manager AAA has a subordinate (Manager AAA's Team's-performance tab, seeded) — the rotated
   // rating headers (v3.11.1) are what let the 12-column matrix fit the default 900px minimum at
   // this width in both languages, instead of needing the pre-v3.11.1 wider override.
+  //
+  // This file OWNS the rated review it measures (v3.25.1): the demo seed ships none, and the
+  // reviews other specs create are deleted at the end of their own runs — so without seeding,
+  // the "no rating pill is clipped" assertion below would have nothing to measure and would
+  // pass vacuously on a fresh stack. A throwaway subordinate in a throwaway team keeps it off
+  // every other spec's state; both are removed afterwards.
+  const adminToken = await apiToken(request, ADMIN);
+  const stamp = Date.now();
+  const password = "Layout-Rev-1234";
+  const reviewee = await createUser(request, adminToken, {
+    name: `E2E Rated ${stamp}`,
+    email: `e2e-rated-${stamp}@lettuce.local`,
+    password,
+  });
+  const managerId = await request
+    .get(`/api/v1/users?email=${encodeURIComponent(MANAGER_AAA)}`, { headers: authHeader(adminToken) })
+    .then(async (r) => {
+      await expectApiOk(r, "find Manager AAA");
+      return ((await r.json()) as { items: { id: number }[] }).items[0].id;
+    });
+  const teamResponse = await request.post("/api/v1/teams", {
+    headers: authHeader(adminToken),
+    data: { name: `E2E-Rated-${stamp}`, managerId, memberIds: [reviewee.id] },
+  });
+  await expectApiOk(teamResponse, "create the rated-review team");
+  const ratedTeamId = ((await teamResponse.json()) as { id: number }).id;
+
+  const managerToken = await apiToken(request, MANAGER_AAA);
+  const periodsResponse = await request.get("/api/v1/review-periods", { headers: authHeader(managerToken) });
+  await expectApiOk(periodsResponse, "list review periods");
+  const periods = ((await periodsResponse.json()) as {
+    items: { id: number; startMonth: string; endMonth: string }[];
+  }).items;
+  // The dashboard opens on the CURRENT period (an admin may pre-append future ones, and the
+  // server refuses a review for a period that has not started), so the review must sit there.
+  const nowMonth = new Date().toISOString().slice(0, 7);
+  let periodId = periods.find((p) => p.startMonth <= nowMonth && nowMonth <= p.endMonth)?.id;
+  if (periodId == null) {
+    // A fresh stack has no timeline at all: append one that contains today, the way the
+    // performance-reviews tutorial spec does.
+    const created = await request.post("/api/v1/review-periods", {
+      headers: authHeader(adminToken),
+      data: { startMonth: nowMonth, endMonth: nowMonth },
+    });
+    await expectApiOk(created, "create a review period");
+    periodId = ((await created.json()) as { id: number }).id;
+  }
+  const reviewResponse = await request.post("/api/v1/performance-reviews", {
+    headers: authHeader(managerToken),
+    data: { subordinateId: reviewee.id, periodId },
+  });
+  await expectApiOk(reviewResponse, "create the rated review");
+  const reviewId = ((await reviewResponse.json()) as { id: number }).id;
+  const rated = await request.put(`/api/v1/performance-reviews/${reviewId}`, {
+    headers: authHeader(managerToken),
+    data: {
+      attitude: { rating: 5 },
+      delivery: { rating: 4 },
+      skills: { rating: 6 },
+      aptitude: { rating: 3 },
+      overall: { rating: 5 },
+    },
+  });
+  await expectApiOk(rated, "rate the review");
+
   await login(page, MANAGER_AAA);
   await page.setViewportSize({ width: 1280, height: 900 });
 
@@ -501,6 +569,25 @@ test("Team's performance table fits a 1280px laptop without horizontal scroll", 
       .poll(() => region.evaluate((el) => el.scrollWidth <= el.clientWidth + 1))
       .toBe(true);
     await expect(page.getByText(scrollHintText)).not.toBeVisible();
+
+    // …and fitting must never be paid for with the CONTENT (v3.25.1): the rating pills used to
+    // shrink inside those squeezed columns until Mantine's `overflow: hidden` badge label ate
+    // the digit, leaving an empty coloured box. A clipped label is invisible to a DOM
+    // assertion, so measure: every rating pill renders its whole number.
+    const measured = await page.evaluate(() =>
+      [...document.querySelectorAll("main table tbody [data-atomic] .mantine-Badge-label")].map((el) => ({
+        text: (el.textContent || "").trim(),
+        clientWidth: (el as HTMLElement).clientWidth,
+        scrollWidth: (el as HTMLElement).scrollWidth,
+      })),
+    );
+    // The seeded review guarantees a rated row, so an empty measurement means the selector (or
+    // the page) broke — never that "nothing was clipped".
+    expect(measured.length, "rating pills measured").toBeGreaterThanOrEqual(5);
+    expect(
+      measured.filter((m) => m.scrollWidth > m.clientWidth + 1),
+      "rating pills whose digit is clipped",
+    ).toEqual([]);
 
     // Sorting still works with the rotated header — the click toggles the field with no error.
     await overallHeader.click();
@@ -517,5 +604,9 @@ test("Team's performance table fits a 1280px laptop without horizontal scroll", 
     await expectTableFitsAndSorts("Ogólna", /^Przewiń w poziomie, aby zobaczyć wszystkie kolumny\.$/);
   } finally {
     await switchLanguage(page, "English");
+    // This file's own state goes back out: the review first (DRAFT-only delete), then the team;
+    // the throwaway user rides the suite's residue sweep like every other spec's.
+    await request.delete(`/api/v1/performance-reviews/${reviewId}`, { headers: authHeader(managerToken) });
+    await request.delete(`/api/v1/teams/${ratedTeamId}`, { headers: authHeader(adminToken) });
   }
 });

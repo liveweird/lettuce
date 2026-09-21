@@ -22,6 +22,12 @@
    HEADER, not the cell, sets a numeric column's width, so shrinking it here is what actually
    collapses the column (v3.11.1). */
 .table th[data-vertical] { vertical-align: bottom; width: 1%; padding-inline: 8px; }
+/* …and the DATA cells of such a column need the same tight padding (v3.25.1): the table's
+   `horizontalSpacing: "sm"` costs 12px per side, which left a 42px rating column just 18px for a
+   25px pill — Mantine's badge label is `overflow: hidden`, so the digit vanished silently instead
+   of overflowing. 8px per side hands the pill its width back and costs no column width, since the
+   header is what sizes the column. */
+.table td[data-numeric] { padding-inline: 8px; }
 .content { min-width: 0; max-width: 100%; }
 .label { display: none; }
 .label::before { content: attr(data-label); }
@@ -35,7 +41,10 @@
   max-width: 100%;
 }
 .content :where(:global(.mantine-Group-root)) { min-width: 0; max-width: 100%; }
-.content :where(:global(.mantine-Badge-root)) {
+/* `:not([data-atomic])` (v3.25.1): an atomic pill is a single token that must never be clipped —
+   it keeps its own `min-width: max-content`, so a column too narrow for it GROWS rather than
+   hiding its content. Everything else still shrinks. */
+.content :where(:global(.mantine-Badge-root):not([data-atomic])) {
   min-width: 0 !important; /* Scoped override of StatusPill's desktop intrinsic-width guard. */
   max-width: 100%;
   height: auto;

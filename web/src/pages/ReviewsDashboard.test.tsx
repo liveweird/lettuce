@@ -258,6 +258,35 @@ describe("ReviewsDashboard tab", () => {
     expect(screen.getByLabelText("Specialty", { selector: "input" })).toBeInTheDocument();
   });
 
+  test("the rating cells are numeric cells and their pills are atomic (v3.25.1)", async () => {
+    setupMocks();
+    renderTab();
+
+    // The reviews query is scoped by the period picker — wait for it to settle on the latest
+    // period, or the rows render in their no-review state and carry dashes, not pills.
+    await waitFor(() =>
+      expect(screen.getByLabelText("Period", { selector: "input" })).toHaveValue(
+        "January 2026 – June 2026",
+      ),
+    );
+    await screen.findByText("Ann Alpha");
+    const table = screen.getByRole("table");
+    await waitFor(() => expect(within(table).getByText("Calibration")).toBeInTheDocument());
+    // A rotated header squeezes its column to ~42px; the cell therefore carries the header's
+    // tight padding (data-numeric) and the pill refuses to shrink (data-atomic) — without both,
+    // Mantine's `overflow: hidden` badge label silently ate the digit and the box rendered empty.
+    const row = within(table)
+      .getAllByRole("row")
+      .find((r) => (r.textContent ?? "").includes("Ann Alpha"))!;
+    const numericCells = within(row).getAllByRole("cell").filter((c) => c.hasAttribute("data-numeric"));
+    expect(numericCells).toHaveLength(5);
+    for (const cell of numericCells) {
+      const pill = cell.querySelector("[data-atomic]");
+      expect(pill).not.toBeNull();
+      expect(pill?.textContent?.trim()).toMatch(/^[1-6]$/);
+    }
+  });
+
   test("sortable headers: Overall orders numerically with no-review rows last both ways", async () => {
     setupMocks();
     renderTab();
