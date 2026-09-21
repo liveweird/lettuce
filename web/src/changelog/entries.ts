@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.20.0",
+    date: "2026-09-21",
+    en: `How team KPIs work — a short guided walkthrough from the Team KPIs page: the Draft → Active → Archived lifecycle (with a new Lifecycle tab on every KPI), your teams' KPIs and their filters, how the team records values on the KPI data tab, and the Graph and History tabs. Managers additionally see Managed KPIs with the Reports scope, the New team KPI form, the lifecycle actions, and the Team KPIs button on My teams. It only looks around — nothing is created or changed.`,
+    pl: `Jak działają KPI zespołów — krótki przewodnik uruchamiany ze strony KPI zespołów: cykl Szkic → Aktywne → Zarchiwizowane (z nową zakładką Cykl życia na każdym KPI), KPI moich zespołów i ich filtry, jak zespół zapisuje wartości na zakładce Dane KPI oraz zakładki Wykres i Historia. Jeśli zarządzasz zespołem, zobaczysz dodatkowo Zarządzane KPI z zakresem Podwładni, formularz Nowe KPI zespołu, akcje cyklu życia i przycisk KPI zespołu na zakładce Moje zespoły. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia.`,
+  },
+  {
     version: "3.19.0",
     date: "2026-09-21",
     en: `How the impact log works — a short guided walkthrough from the Impact log page: what a journal entry holds (a title, the period it covers and the four sections — what happened, my contribution, why it mattered, evidence), how the step-by-step form works, who can read your journal and who is notified, your list and its filters, and the entry's Content and History tabs. Managers additionally see My subordinates' journals with the Reports scope and the Impact log button on the My subordinates cards. It only looks around — nothing is created or changed.`,

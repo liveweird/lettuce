@@ -1,15 +1,20 @@
-import type { ParseKeys } from "i18next";
 import { Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { GoalStatus } from "../api/goals";
+import type { TeamKpiStatus } from "../api/teamkpis";
 
-// A simplified, end-user-facing diagram of how a goal moves through its states (the
-// FeedbackLifecycle shape, own geometry — every goal transition is reversible, so there is no
-// terminal-node dimming to model). Hand-authored inline SVG (no charting dependency); colors use
-// Mantine CSS variables so it follows light/dark mode. When `currentStatus` is given, that node
-// is highlighted ("you are here").
+// A simplified, end-user-facing diagram of how a goal (or, since v3.20.0, a team KPI — the
+// identical DRAFT/ACTIVE/ARCHIVED machine) moves through its states (the FeedbackLifecycle
+// shape, own geometry — every transition is reversible, so there is no terminal-node dimming to
+// model). Hand-authored inline SVG (no charting dependency); colors use Mantine CSS variables so
+// it follows light/dark mode. When `currentStatus` is given, that node is highlighted ("you are
+// here"). `keyPrefix` (the GoalCloseModal precedent) picks the locale area every label derives
+// from — "goal" (default) or "teamKpi", each defining the same status.*/action.*/lifecycleAlt/
+// lifecycleHint keys.
 
-type NodeDef = { status: GoalStatus; x: number; y: number };
+type LifecycleStatus = GoalStatus | TeamKpiStatus;
+
+type NodeDef = { status: LifecycleStatus; x: number; y: number };
 
 const NODE_W = 170;
 const NODE_H = 60;
@@ -21,41 +26,46 @@ const NODES: NodeDef[] = [
 ];
 
 // Paired forward/return edges between neighbouring nodes — every transition can be undone, so
-// each pair renders as two parallel arrows, each with its own action caption.
+// each pair renders as two parallel arrows, each with its own action caption. The action name is
+// resolved against `${keyPrefix}.action.<action>` at render time, so the edge geometry itself
+// stays keyPrefix-agnostic.
 type EdgeDef = {
   x1: number;
   y1: number;
   x2: number;
   y2: number;
-  labelKey: ParseKeys;
+  action: "activate" | "deactivate" | "close" | "reopen";
   labelX: number;
   labelY: number;
 };
 
 const EDGES: EdgeDef[] = [
-  { x1: 190, y1: 67, x2: 275, y2: 67, labelKey: "goal.action.activate", labelX: 232, labelY: 55 },
-  { x1: 275, y1: 83, x2: 190, y2: 83, labelKey: "goal.action.deactivate", labelX: 232, labelY: 108 },
-  { x1: 445, y1: 67, x2: 530, y2: 67, labelKey: "goal.action.close", labelX: 487, labelY: 55 },
-  { x1: 530, y1: 83, x2: 445, y2: 83, labelKey: "goal.action.reopen", labelX: 487, labelY: 108 },
+  { x1: 190, y1: 67, x2: 275, y2: 67, action: "activate", labelX: 232, labelY: 55 },
+  { x1: 275, y1: 83, x2: 190, y2: 83, action: "deactivate", labelX: 232, labelY: 108 },
+  { x1: 445, y1: 67, x2: 530, y2: 67, action: "close", labelX: 487, labelY: 55 },
+  { x1: 530, y1: 83, x2: 445, y2: 83, action: "reopen", labelX: 487, labelY: 108 },
 ];
 
 export default function GoalLifecycle({
   currentStatus,
+  keyPrefix = "goal",
 }: {
-  currentStatus?: GoalStatus;
+  currentStatus?: LifecycleStatus;
+  keyPrefix?: "goal" | "teamKpi";
 }) {
   const { t } = useTranslation();
+  const markerId = `${keyPrefix}-lc-arrow`;
   return (
     <Stack gap="xs" align="center">
       <svg
         role="img"
-        aria-label={t("goal.lifecycleAlt")}
+        aria-label={t(`${keyPrefix}.lifecycleAlt`)}
         viewBox="0 0 720 150"
         style={{ width: "100%", maxWidth: 720, height: "auto" }}
       >
         <defs>
           <marker
-            id="goal-lc-arrow"
+            id={markerId}
             viewBox="0 0 10 10"
             refX="9"
             refY="5"
@@ -67,7 +77,7 @@ export default function GoalLifecycle({
           </marker>
         </defs>
         {EDGES.map((e) => (
-          <g key={e.labelKey}>
+          <g key={e.action}>
             <line
               x1={e.x1}
               y1={e.y1}
@@ -75,10 +85,10 @@ export default function GoalLifecycle({
               y2={e.y2}
               stroke="var(--mantine-color-dimmed)"
               strokeWidth={1.5}
-              markerEnd="url(#goal-lc-arrow)"
+              markerEnd={`url(#${markerId})`}
             />
             <text x={e.labelX} y={e.labelY} textAnchor="middle" fontSize={13} fill="var(--mantine-color-dimmed)">
-              {t(e.labelKey)}
+              {t(`${keyPrefix}.action.${e.action}`)}
             </text>
           </g>
         ))}
@@ -107,14 +117,14 @@ export default function GoalLifecycle({
                 fontWeight={active ? 600 : 400}
                 fill="var(--mantine-color-text)"
               >
-                {t(`goal.status.${n.status}`)}
+                {t(`${keyPrefix}.status.${n.status}`)}
               </text>
             </g>
           );
         })}
       </svg>
       <Text size="sm" c="dimmed" ta="center">
-        {t("goal.lifecycleHint")}
+        {t(`${keyPrefix}.lifecycleHint`)}
       </Text>
     </Stack>
   );

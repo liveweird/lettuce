@@ -103,5 +103,24 @@
       "subordinates": "Każda karta na liście Moi podwładni ma przycisk Dziennik wpływu w sekcji Wyniki — cały dziennik tej osoby, tylko do odczytu, w jednym miejscu.",
       "entry": "Otwarcie wpisu z Mojego dziennika pokazuje jego zakładkę Treść — cztery sekcje, każda zwijalna — oraz zakładkę Historia z każdą zmianą: utworzeniem, każdą edycją wraz z tym, co się zmieniło, i każdym przesunięciem okresu. To cały przepływ — Gotowe wraca do Dziennika wpływu."
     }
+  },
+  "teamKpis": {
+    "launch": "Jak działają KPI zespołów",
+    "steps": {
+      "intro": "KPI zespołu to miara, którą menedżer/ka wyznacza dla zespołu, którym zarządza — cel, który zespół śledzi w czasie za pomocą datowanych wartości. Każdy w zespole widzi je, gdy tylko stanie się aktywne, i każdy w zespole może zapisywać wartości. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają KPI zespołów\".",
+      "lifecycle": "KPI zaczyna się jako Szkic, widoczny tylko dla menedżera/ki zespołu i menedżerów wyżej w hierarchii. Aktywuj sprawia, że staje się widoczne dla całego zespołu; Zarchiwizuj zamyka je krótkim podsumowaniem. Oba ruchy można cofnąć — Wróć do szkicu i Otwórz ponownie.",
+      "own": "KPI moich zespołów pokazuje każde aktywne lub zarchiwizowane KPI zespołów, do których należysz — szkice pozostają ukryte, dopóki menedżer/ka ich nie aktywuje. Otwórz jedno, aby zobaczyć jego definicję, dane i wykres.",
+      "filters": "W Filtrach zawężasz listę według tytułu, zespołu, daty utworzenia i statusu. Wybór zapamiętujemy do następnej wizyty.",
+      "data": "Strona KPI ma zakładkę Dane KPI: zapisane wartości, od najnowszej, każda z datą i odległością od celu. Gdy KPI jest aktywne, każdy w zespole — i menedżer/ka — może dodać wartość na dany dzień, poprawić ją albo usunąć: jedna wartość na datę, dzisiejszą lub wcześniejszą, zapisywana od razu. Wartość bieżąca zawsze podąża za najnowszą datą.",
+      "graph": "Zakładka Wykres kreśli wartości w czasie na tle przerywanej linii celu, z podświetloną dobrą stroną celu; zakładka Historia zawiera każdą zmianę definicji, zmianę statusu i zapisaną wartość.",
+      "managed": "Zarządzane KPI pokazują KPI zespołów, którymi zarządzasz — w każdym statusie, wraz ze szkicami — z kolumną Utworzył/a pokazującą, kto ustawił każde z nich.",
+      "managedFilters": "Tutaj Filtry dodają zakres Podwładni: domyślnie Twoje własne zespoły, albo każdy zespół zarządzany przez kogokolwiek poniżej Ciebie pod polem \"Wszyscy podwładni (także pośredni)\". Menedżerowie powyżej Ciebie widzą KPI Twoich zespołów w ten sam sposób i również mogą je ustawiać albo edytować.",
+      "new": "Nowe KPI zespołu zaczyna się tutaj albo z przycisku KPI zespołu danego zespołu na Pulpicie. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie utworzone, dopóki nie klikniesz Utwórz.",
+      "definition": "Wybierz zespół — dowolny w Twoim łańcuchu zarządzania — a potem zdefiniuj KPI: tytuł, opcjonalny opis, typ (liczba albo procent), wartość docelową i jej kierunek, co najmniej albo co najwyżej.",
+      "actions": "Utwórz zapisuje KPI jako Szkic i proponuje jego natychmiastową aktywację. Teraz tego nie klikniemy — nic nie zostanie utworzone w tym przewodniku.",
+      "lifecycleActions": "Na stronie KPI menedżer/ka prowadzi jego cykl życia: Aktywuj szkic, Wróć do szkicu, Zarchiwizuj z podsumowaniem, Otwórz ponownie. Definicję można edytować tylko w szkicu — zmiana typu usuwa zapisane wartości — a usunąć można tylko szkic.",
+      "myTeams": "Każdy zespół na liście Moje zespoły ma przycisk KPI zespołu: własną listę KPI tego zespołu, z przyciskiem Nowe KPI zespołu już ustawionym na ten zespół.",
+      "end": "Każda zmiana statusu i każda zapisana wartość powiadamia członków zespołu i jego menedżera/kę — poza tym, kto dokonał zmiany. To cały przepływ — Gotowe wraca do KPI zespołów."
+    }
   }
 }

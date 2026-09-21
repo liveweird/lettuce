@@ -23,9 +23,13 @@ const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
 export default function TeamKpiDefinitionFields({
   form,
   typeChangeWarning = false,
+  tourId,
 }: {
   form: UseFormReturnType<TeamKpiDefinitionFormValues>;
   typeChangeWarning?: boolean;
+  /** Becomes `data-tour` on the type/target/direction row — a tutorial anchor
+   *  (the GoalDefinitionFields precedent). */
+  tourId?: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -52,7 +56,7 @@ export default function TeamKpiDefinitionFields({
           </Text>
         )}
       </Stack>
-      <Group gap="xl" align="flex-start">
+      <Group gap="xl" align="flex-start" data-tour={tourId}>
         <Select
           label={t("teamKpi.type.label")}
           data={(["NUMBER", "PERCENTAGE"] as const).map((type) => ({

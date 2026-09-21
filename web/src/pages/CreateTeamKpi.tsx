@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -135,7 +135,7 @@ export default function CreateTeamKpi() {
                 ]}
               />
 
-              <TeamKpiDefinitionFields form={form} />
+              <TeamKpiDefinitionFields form={form} tourId="team-kpis-definition" />
 
               {flow.error && (
                 <Alert color="red" variant="light">
@@ -144,12 +144,14 @@ export default function CreateTeamKpi() {
               )}
 
               <FormFooter>
-                <Button type="button" variant="default" onClick={requestCancel} disabled={flow.submitting}>
-                  {t("common.action.cancel")}
-                </Button>
-                <Button type="submit" loading={flow.submitting} disabled={!teamId || flow.createdId != null}>
-                  {t("common.action.create")}
-                </Button>
+                <Group gap="sm" data-tour="team-kpis-form-actions">
+                  <Button type="button" variant="default" onClick={requestCancel} disabled={flow.submitting}>
+                    {t("common.action.cancel")}
+                  </Button>
+                  <Button type="submit" loading={flow.submitting} disabled={!teamId || flow.createdId != null}>
+                    {t("common.action.create")}
+                  </Button>
+                </Group>
               </FormFooter>
             </Stack>
           </form>

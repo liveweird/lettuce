@@ -8,6 +8,7 @@ import { GOALS_TUTORIAL } from "./goals";
 import { IMPACT_LOG_TUTORIAL } from "./impactLog";
 import { ONE_ON_ONES_TUTORIAL } from "./oneOnOnes";
 import { PERFORMANCE_REVIEWS_TUTORIAL } from "./performanceReviews";
+import { TEAM_KPIS_TUTORIAL } from "./teamKpis";
 import type { TutorialDef, TutorialId } from "./types";
 
 export const TUTORIALS: Record<TutorialId, TutorialDef> = {
@@ -17,4 +18,5 @@ export const TUTORIALS: Record<TutorialId, TutorialDef> = {
   performanceReviews: PERFORMANCE_REVIEWS_TUTORIAL,
   oneOnOnes: ONE_ON_ONES_TUTORIAL,
   impactLog: IMPACT_LOG_TUTORIAL,
+  teamKpis: TEAM_KPIS_TUTORIAL,
 };

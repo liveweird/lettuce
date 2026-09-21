@@ -16,4 +16,18 @@ describe("GoalLifecycle", () => {
     expect(screen.getByRole("img", { name: /lifecycle/i })).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
   });
+
+  test("keyPrefix=\"teamKpi\" renders the team KPI diagram (v3.20.0)", () => {
+    renderWithProviders(<GoalLifecycle keyPrefix="teamKpi" currentStatus="ARCHIVED" />);
+    expect(
+      screen.getByRole("img", { name: "Diagram of the team KPI lifecycle" }),
+    ).toBeInTheDocument();
+    for (const label of ["Draft", "Active", "Archived"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    // The four action captions, including "Archive" (not "Archive goal" — team KPIs reword it).
+    for (const action of ["Activate", "Return to draft", "Archive", "Reopen"]) {
+      expect(screen.getByText(action)).toBeInTheDocument();
+    }
+  });
 });

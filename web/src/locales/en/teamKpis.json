@@ -68,6 +68,9 @@
   "targetLine": "Target: {{target}}",
   "history": "History",
   "noHistory": "No history.",
+  "lifecycle": "Lifecycle",
+  "lifecycleAlt": "Diagram of the team KPI lifecycle",
+  "lifecycleHint": "Set as a draft, tracked while active, archived with a summary — each move can be undone by the manager.",
   "action": {
     "activate": "Activate",
     "deactivate": "Return to draft",

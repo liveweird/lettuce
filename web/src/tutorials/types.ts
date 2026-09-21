@@ -12,7 +12,8 @@ export type TutorialId =
   | "daysOff"
   | "performanceReviews"
   | "oneOnOnes"
-  | "impactLog";
+  | "impactLog"
+  | "teamKpis";
 
 export type TutorialDef = {
   id: TutorialId;

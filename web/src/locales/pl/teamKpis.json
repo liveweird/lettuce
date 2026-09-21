@@ -68,6 +68,9 @@
   "targetLine": "Cel: {{target}}",
   "history": "Historia",
   "noHistory": "Brak historii.",
+  "lifecycle": "Cykl życia",
+  "lifecycleAlt": "Diagram cyklu życia KPI zespołu",
+  "lifecycleHint": "Wyznaczone jako szkic, śledzone jako aktywne, zarchiwizowane z podsumowaniem — każdy ruch menedżer/ka może cofnąć.",
   "action": {
     "activate": "Aktywuj",
     "deactivate": "Wróć do szkicu",
