@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TourContext } from "../components/tourSupport";
 import ImpactLog from "./ImpactLog";
 import { jsonResponse } from "../test/http";
 
@@ -18,7 +19,13 @@ function PathProbe() {
 
 const EMPTY_PAGE = { items: [], page: 1, pageSize: 20, total: 0 };
 
-function renderScreen(route = "/impact-log", { manages = false } = {}) {
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy (the
+// OneOnOnes.test.tsx idiom).
+function renderScreen(
+  route = "/impact-log",
+  { manages = false, startTutorial = (): void => {} }: { manages?: boolean; startTutorial?: (id: string) => void } = {},
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const mockFetch = vi.fn((url: string) => {
     const u = String(url);
@@ -37,12 +44,14 @@ function renderScreen(route = "/impact-log", { manages = false } = {}) {
   render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[route]}>
-          <Routes>
-            <Route path="/impact-log" element={<ImpactLog />} />
-            <Route path="*" element={<PathProbe />} />
-          </Routes>
-        </MemoryRouter>
+        <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+          <MemoryRouter initialEntries={[route]}>
+            <Routes>
+              <Route path="/impact-log" element={<ImpactLog />} />
+              <Route path="*" element={<PathProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </TourContext.Provider>
       </QueryClientProvider>
     </MantineProvider>,
   );
@@ -96,6 +105,17 @@ describe("ImpactLog page", () => {
     const mockFetch = renderScreen("/impact-log?tab=managed");
     expect(await screen.findByText("No journal entries.")).toBeInTheDocument();
     expect(mockFetch.mock.calls.some(([u]) => String(u).includes("view=managed"))).toBe(false);
+  });
+
+  test("the tutorial launcher starts the impact log tutorial via useTour", async () => {
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    renderScreen("/impact-log", { startTutorial });
+
+    const launcher = await screen.findByRole("button", { name: "How the impact log works" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("impactLog");
   });
 
   test("a disabled IMPACT_LOG flag redirects home", () => {

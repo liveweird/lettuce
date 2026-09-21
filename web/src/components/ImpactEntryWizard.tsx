@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import {
   Alert,
+  Box,
   Button,
   Group,
   Skeleton,
@@ -90,48 +91,56 @@ export default function ImpactEntryWizard({
   return (
     <Stack gap="lg">
       {/* The entry's header identity (v2.37.0) — like the period pair, the title is NOT a
-          step: it stays visible and editable on every step. */}
-      <TextInput
-        withAsterisk
-        label={t("impactLog.title")}
-        maxLength={MAX_IMPACT_TITLE_LENGTH}
-        description={charCountDescription(form.values.title.length, MAX_IMPACT_TITLE_LENGTH)}
-        {...form.getInputProps("title")}
-      />
-      <Group align="flex-end" gap="md" wrap="wrap">
-        <DateField
-          withAsterisk
-          label={t("impactLog.periodStart")}
-          value={form.values.periodStart}
-          error={form.errors.periodStart}
-          onChange={(iso) => {
-            const v = iso;
-            form.setFieldValue("periodStart", v);
-            // Keep the range ordered (the CreateDaysOff nudge).
-            if (v && form.values.periodEnd && v > form.values.periodEnd) {
-              form.setFieldValue("periodEnd", v);
-            }
-          }}
-          w={180}
-        />
-        <DateField
-          withAsterisk
-          label={t("impactLog.periodEnd")}
-          minIso={form.values.periodStart || undefined}
-          value={form.values.periodEnd}
-          error={form.errors.periodEnd}
-          onChange={(iso) => form.setFieldValue("periodEnd", iso)}
-          w={180}
-        />
-      </Group>
+          step: it stays visible and editable on every step. A TextInput spreads unknown props
+          onto the inner <input>, so the tutorial anchor lives on a wrapper Box instead (the
+          Mantine Select finding). */}
+      <Box data-tour="impact-log-form-header">
+        <Stack gap="lg">
+          <TextInput
+            withAsterisk
+            label={t("impactLog.title")}
+            maxLength={MAX_IMPACT_TITLE_LENGTH}
+            description={charCountDescription(form.values.title.length, MAX_IMPACT_TITLE_LENGTH)}
+            {...form.getInputProps("title")}
+          />
+          <Group align="flex-end" gap="md" wrap="wrap">
+            <DateField
+              withAsterisk
+              label={t("impactLog.periodStart")}
+              value={form.values.periodStart}
+              error={form.errors.periodStart}
+              onChange={(iso) => {
+                const v = iso;
+                form.setFieldValue("periodStart", v);
+                // Keep the range ordered (the CreateDaysOff nudge).
+                if (v && form.values.periodEnd && v > form.values.periodEnd) {
+                  form.setFieldValue("periodEnd", v);
+                }
+              }}
+              w={180}
+            />
+            <DateField
+              withAsterisk
+              label={t("impactLog.periodEnd")}
+              minIso={form.values.periodStart || undefined}
+              value={form.values.periodEnd}
+              error={form.errors.periodEnd}
+              onChange={(iso) => form.setFieldValue("periodEnd", iso)}
+              w={180}
+            />
+          </Group>
+        </Stack>
+      </Box>
 
       {/* Visited steps are click-to-return; future steps stay unclickable (no skipping). */}
-      <Stepper active={step} onStepClick={setStep} allowNextStepsSelect={false} size="sm">
-        {SECTIONS.map(({ field, stepKey }) => (
-          <Stepper.Step key={field} label={t(stepKey)} />
-        ))}
-        <Stepper.Step label={t("impactLog.step.review")} />
-      </Stepper>
+      <Box data-tour="impact-log-form-steps">
+        <Stepper active={step} onStepClick={setStep} allowNextStepsSelect={false} size="sm">
+          {SECTIONS.map(({ field, stepKey }) => (
+            <Stepper.Step key={field} label={t(stepKey)} />
+          ))}
+          <Stepper.Step label={t("impactLog.step.review")} />
+        </Stepper>
+      </Box>
 
       {step < REVIEW_STEP ? (
         <Stack gap={4}>
@@ -168,26 +177,28 @@ export default function ImpactEntryWizard({
 
       {/* Sticky (v3.5.0): the step buttons stay reachable while a long section scrolls. */}
       <FormFooter sticky>
-        <Button type="button" variant="default" onClick={onCancel} disabled={submitting}>
-          {t("common.action.cancel")}
-        </Button>
-        <Button
-          type="button"
-          variant="default"
-          onClick={() => setStep((s) => Math.max(s - 1, 0))}
-          disabled={step === 0 || submitting}
-        >
-          {t("impactLog.action.back")}
-        </Button>
-        {step < REVIEW_STEP ? (
-          <Button type="button" onClick={next}>
-            {t("impactLog.action.next")}
+        <Group gap="sm" data-tour="impact-log-form-actions">
+          <Button type="button" variant="default" onClick={onCancel} disabled={submitting}>
+            {t("common.action.cancel")}
           </Button>
-        ) : (
-          <Button type="button" onClick={onSubmit} loading={submitting}>
-            {submitLabel}
+          <Button
+            type="button"
+            variant="default"
+            onClick={() => setStep((s) => Math.max(s - 1, 0))}
+            disabled={step === 0 || submitting}
+          >
+            {t("impactLog.action.back")}
           </Button>
-        )}
+          {step < REVIEW_STEP ? (
+            <Button type="button" onClick={next}>
+              {t("impactLog.action.next")}
+            </Button>
+          ) : (
+            <Button type="button" onClick={onSubmit} loading={submitting}>
+              {submitLabel}
+            </Button>
+          )}
+        </Group>
       </FormFooter>
     </Stack>
   );

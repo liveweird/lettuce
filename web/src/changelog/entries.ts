@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.19.0",
+    date: "2026-09-21",
+    en: `How the impact log works — a short guided walkthrough from the Impact log page: what a journal entry holds (a title, the period it covers and the four sections — what happened, my contribution, why it mattered, evidence), how the step-by-step form works, who can read your journal and who is notified, your list and its filters, and the entry's Content and History tabs. Managers additionally see My subordinates' journals with the Reports scope and the Impact log button on the My subordinates cards. It only looks around — nothing is created or changed.`,
+    pl: `Jak działa dziennik wpływu — krótki przewodnik uruchamiany ze strony Dziennik wpływu: co zawiera wpis w dzienniku (tytuł, okres jaki obejmuje oraz cztery sekcje — co się wydarzyło, mój wkład, dlaczego to ważne, dowody), jak działa krok po kroku formularz, kto może czytać Twój dziennik i kto otrzymuje powiadomienia, Twoja lista i filtry oraz zakładki Treść i Historia wpisu. Jeśli zarządzasz zespołem, zobaczysz dodatkowo Dzienniki moich podwładnych z zakresem Podwładni oraz przycisk Dziennik wpływu na kartach Moi podwładni. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia.`,
+  },
+  {
     version: "3.18.0",
     date: "2026-09-20",
     en: `How 1:1 meetings work — a short guided walkthrough from the 1:1 meetings page: what a meeting record holds (points, decisions, action items with owners, due dates and history), how open action items carry over to the next 1:1, why only the latest meeting is editable, your list and its filters, and the Last 1:1 stat on the My managers cards. Managers additionally see their own and their subordinates' meeting lists, the New 1:1 form, the editor, and the My subordinates cards. It only looks around — nothing is created or changed.`,

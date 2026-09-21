@@ -86,5 +86,22 @@
       "subordinates": "Each card on My subordinates shows the Last 1:1 with that person and how many action items are open, and its 1:1 meetings menu offers New 1:1 and the list of your meetings together.",
       "managers": "Each card on My managers shows your Last 1:1 with that manager and the open action items, and its 1:1 meetings menu lists every meeting you had together. That's the whole flow — Done takes you back to 1:1 meetings."
     }
+  },
+  "impactLog": {
+    "launch": "How the impact log works",
+    "steps": {
+      "intro": "The impact log is your personal journal of accomplishments: each entry covers a period and tells one story in four sections — what happened, your contribution, why it mattered and what backs it up. Your managers can read it; only you write it. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How the impact log works\" button.",
+      "own": "My journal lists your entries, most recent period first, with each one's title and the period it covers. Open one to read it; Edit and Delete are yours alone — nobody else can change your journal, not even an administrator.",
+      "filters": "Under Filters you narrow the list by title. The choice is remembered the next time you come back.",
+      "new": "A new entry starts here. Let's open the form to look — nothing is saved until you press Create at the very end.",
+      "header": "The title and the period stay visible on every step: a short name for the accomplishment and the dates it covers. Periods may overlap between entries; the only rule is that the end can't come before the start.",
+      "steps": "Below them the entry is written one section at a time — What happened, My contribution, Why it mattered, Evidence — and then reviewed as a whole. Next checks the current section before moving on, and you can step back to any visited section without losing what you typed.",
+      "sections": "Each section is markdown, up to 5000 characters: What happened describes the situation, My contribution what you did, Why it mattered the outcome or effect, and Evidence the feedback, numbers or artefacts that back it up.",
+      "actions": "Back and Next move between the sections; on the Review step Next becomes Create, which saves the entry and notifies your direct managers. We won't press it now — nothing is saved in this walkthrough.",
+      "managed": "My subordinates' journals lists the entries of the people who report to you — read-only, you never write in someone else's journal. Every entry a direct report creates, edits or deletes also sends you a notification.",
+      "managedFilters": "Here Filters add the author and the Reports scope: direct reports only by default, or your whole management chain under \"All reports (including indirect)\". The managers above you see your reports' journals the same way.",
+      "subordinates": "Each card on My subordinates has an Impact log button in its Performance section — that person's whole journal, read-only, in one place.",
+      "entry": "Opening an entry from My journal shows its Content tab — the four sections, each collapsible — and a History tab with every change: the creation, each edit with what changed, and any move of the period. That's the whole flow — Done takes you back to the Impact log."
+    }
   }
 }

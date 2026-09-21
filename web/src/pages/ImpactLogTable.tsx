@@ -48,6 +48,7 @@ export default function ImpactLogTable({
   withReportsScope,
   includeIndirect: includeIndirectProp,
   emptyAction,
+  tourId,
 }: {
   view: ImpactLogListView;
   /**
@@ -66,6 +67,9 @@ export default function ImpactLogTable({
   emptyAction?: ReactNode;
   /** Fixed chain scope (the pinned drill-down — mutually exclusive with withReportsScope). */
   includeIndirect?: boolean;
+  /** Forwarded to the Filters toggle as `data-tour` (a tutorial anchor). Only the hub's own
+   *  tab passes it — ImpactLogTable is also embedded by UserImpactLog. */
+  tourId?: string;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -146,7 +150,7 @@ export default function ImpactLogTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
         <ClearableTextInput
           label={t("impactLog.title")}
           value={titleFilter}
