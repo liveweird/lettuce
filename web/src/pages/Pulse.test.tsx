@@ -1,21 +1,28 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import Pulse from "./Pulse";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
+import { TourContext } from "../components/tourSupport";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
 describe("Pulse hub", () => {
   let mockFetch: FetchMock;
 
-  function renderHub(route = "/pulse") {
+  // The header now always renders a TutorialButton (useTour()), so every render needs a
+  // TourContext — a no-op startTutorial by default; the launcher test below supplies a spy (the
+  // MyTeamKpis.test.tsx idiom).
+  function renderHub(route = "/pulse", startTutorial: (id: string) => void = () => {}) {
     return renderWithProviders(
-      <Routes>
-        <Route path="/pulse" element={<Pulse />} />
-        <Route path="/" element={<div>HOME</div>} />
-      </Routes>,
+      <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+        <Routes>
+          <Route path="/pulse" element={<Pulse />} />
+          <Route path="/" element={<div>HOME</div>} />
+        </Routes>
+      </TourContext.Provider>,
       { route },
     );
   }
@@ -100,5 +107,17 @@ describe("Pulse hub", () => {
     setupMocks();
     renderHub("/pulse?tab=trend");
     expect(await screen.findByRole("tab", { name: "Trend" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("the tutorial launcher starts the pulse tutorial via useTour", async () => {
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    setupMocks();
+    renderHub("/pulse", startTutorial);
+
+    const launcher = await screen.findByRole("button", { name: "How pulse surveys work" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("pulse");
   });
 });

@@ -1,4 +1,4 @@
-import { Grid, Stack } from "@mantine/core";
+import { Box, Grid, Stack } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
@@ -29,13 +29,19 @@ export default function PulseCycles() {
       <PageHeader title={t("pulse.admin.title")} tourId="config-pulse-cycles" />
       <Grid>
         <Grid.Col span={{ base: 12, md: 5 }}>
-          <PulseSettingsCard settings={settings.data} settingsError={settings.isError} />
+          <Box data-tour="pulse-admin-settings">
+            <PulseSettingsCard settings={settings.data} settingsError={settings.isError} />
+          </Box>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 7 }}>
-          <PulseScheduleCard settings={settings.data} cycles={cycles.data} />
+          <Box data-tour="pulse-admin-schedule">
+            <PulseScheduleCard settings={settings.data} cycles={cycles.data} />
+          </Box>
         </Grid.Col>
       </Grid>
-      <PulseCycleTable cycles={cycles.data} isLoading={cycles.isLoading} isError={cycles.isError} />
+      <Box data-tour="pulse-admin-cycles">
+        <PulseCycleTable cycles={cycles.data} isLoading={cycles.isLoading} isError={cycles.isError} />
+      </Box>
     </Stack>
   );
 }
