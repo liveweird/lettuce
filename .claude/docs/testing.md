@@ -46,7 +46,13 @@ read as real failures) — and never `docker compose down -v` against a long-liv
    `git diff --exit-code -- web/src/api/schema.ts` (the local twin of the **API contract** CI job's
    clean-diff assertion — a spec change, even a description-only edit, can still change the
    generated types; the CI job fails the same way if the committed file drifts).
-2. `./gradlew --dependency-verification strict check :server:installDist` (`--rerun` on
+2. The three Docker-free script gates the **Backend** CI job runs BEFORE gradle (they fail the
+   job just as surely, so run them locally rather than discovering them in CI):
+   `./scripts/test-render-app-deployment.sh` (release-image validation),
+   `python3 -m unittest discover -s scripts -p 'test_*.py'` (the offline recovery schema
+   comparator) and `./scripts/test-docker-build-context.sh` (the build context includes Git refs
+   for `build/*` branches and excludes generated output). Then
+   `./gradlew --dependency-verification strict check :server:installDist` (`--rerun` on
    `:server:test` if you need a clean, non-cached run), then
    `git diff --exit-code -- gradle.lockfile core/gradle.lockfile server/gradle.lockfile settings-gradle.lockfile gradle/verification-metadata.xml`
    (the local twin of the **Backend** CI job's lock/checksum clean-diff check — see
