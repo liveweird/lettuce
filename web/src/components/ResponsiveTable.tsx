@@ -82,12 +82,19 @@ function Th({ sortable, actions, primary, vertical, ...props }: Table.Th.Props &
   return <Table.Th {...props} role="columnheader" scope="col" data-sortable={sortable || undefined}
     data-actions={actions || undefined} data-primary={primary || undefined} data-vertical={vertical || undefined} />;
 }
-function Td({ label, actions, primary, children, className, ...props }: Table.Td.Props & {
+function Td({ label, actions, primary, numeric, children, className, ...props }: Table.Td.Props & {
   /** Translated column label; also shown when the row stacks. Omit for spanning states. */
   label?: string; actions?: boolean; primary?: boolean;
+  /**
+   * A narrow single-token column (a rating pill, a count) — the cell then carries the SAME
+   * tight inline padding as a `vertical` header instead of the table's 12px, so the token has
+   * room inside a column the rotated header has already squeezed (v3.25.1).
+   */
+  numeric?: boolean;
 }) {
   return (
     <Table.Td {...props} role="cell" data-actions={actions || undefined} data-primary={primary || undefined}
+      data-numeric={numeric || undefined}
       className={[classes.cell, className].filter(Boolean).join(" ")}>
       {label && <span className={classes.label} data-label={label} aria-hidden="true" />}
       <div className={classes.content}>{children}</div>

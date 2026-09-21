@@ -49,13 +49,17 @@
    - *Expected*: the document remains contained while the calendar's own scroll region is wider
      than its viewport and can be scrolled horizontally.
 
-## Scenario: Team's performance table fits a 1280px laptop without horizontal scroll
+## Scenario: Team's performance table fits a 1280px laptop and still shows its rating numbers
 
 1. Manager AAA signs in and opens the Performance page's Team's-performance tab at a 1280×900
    viewport — the width the rotated rating headers (v3.11.1) were measured to fit.
    - *Expected*: the sortable "Overall" column header is visible, the table's own scroll region
      is no wider than its viewport (it does not need to scroll), and the scroll hint is not
      shown — there is nothing to scroll to.
+   - *Expected* (v3.25.1): every rating pill in the body shows its whole number. The columns are
+     squeezed on purpose, and a badge label that overflows is HIDDEN rather than spilling, so
+     this is measured (a pill's label scrolls no wider than it renders) — the regression it
+     guards rendered five empty coloured boxes per row while every digit sat in the DOM.
 2. They click the "Overall" header.
    - *Expected*: the list re-sorts with no error and the header stays visible — sorting still
      works with the rating column's rotated label.

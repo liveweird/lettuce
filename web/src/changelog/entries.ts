@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.25.1",
+    date: "2026-09-21",
+    en: `The "Team's performance" table shows its rating values again — the coloured boxes had become too narrow for their digits, so they rendered empty.`,
+    pl: `Tabela na karcie "Oceny zespołu" znowu pokazuje wartości ocen — kolorowe pola zrobiły się za wąskie na cyfry i renderowały się puste.`,
+  },
+  {
     version: "3.25.0",
     date: "2026-09-21",
     en: `HR auditors can now see the whole organization's days off in the calendar — a new "All teams" scope on the Days off calendar, optionally narrowed to one team, showing everyone who is off that month.`,

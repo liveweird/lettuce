@@ -441,6 +441,7 @@ export default function ReviewsDashboard() {
                     ratings={ratings}
                     labels={REVIEW_CATEGORIES.map((c) => t(`performanceReview.categoryShort.${c}`))}
                     align="center"
+                    numeric
                   />
                   <ResponsiveTable.Td actions>
                     {review ? (
