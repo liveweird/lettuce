@@ -7,6 +7,7 @@ import { useIsManager } from "../hooks/useIsManager";
 import { successionPlanCreateLink } from "../utils/successionLinks";
 import SuccessionPlanTable from "./SuccessionPlanTable";
 import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 
 const TABS = ["own", "team"] as const;
 type SuccessionTab = (typeof TABS)[number];
@@ -48,21 +49,31 @@ export default function SuccessionPlans() {
       <PageHeader
         title={t("succession.sectionTitle")}
         actions={
-          isManager && (
-            <Button
-              component={RouterLink}
-              to={successionPlanCreateLink("/succession")}
-              leftSection={<IconPlus size={16} />}
-            >
-              {t("succession.newPlan")}
-            </Button>
-          )
+          <>
+            {isManager && (
+              <Button
+                component={RouterLink}
+                to={successionPlanCreateLink("/succession")}
+                leftSection={<IconPlus size={16} />}
+                data-tour="succession-new"
+              >
+                {t("succession.newPlan")}
+              </Button>
+            )}
+            <TutorialButton id="succession" tourId="succession-tutorial" />
+          </>
         }
       />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="own">{t("succession.tab.own")}</Tabs.Tab>
-          {isManager && <Tabs.Tab value="team">{t("succession.tab.team")}</Tabs.Tab>}
+          <Tabs.Tab value="own" data-tour="succession-own">
+            {t("succession.tab.own")}
+          </Tabs.Tab>
+          {isManager && (
+            <Tabs.Tab value="team" data-tour="succession-team">
+              {t("succession.tab.team")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="own" pt="md">
@@ -70,7 +81,7 @@ export default function SuccessionPlans() {
             <Text size="sm" c="dimmed">
               {t("succession.ownHint")}
             </Text>
-            <SuccessionPlanTable view="own" backTo="/succession" />
+            <SuccessionPlanTable view="own" backTo="/succession" tourId="succession-filters" />
           </Stack>
         </Tabs.Panel>
         {isManager && (

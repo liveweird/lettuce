@@ -90,13 +90,19 @@ function LevelSlider<V extends string>({
  */
 export default function SuccessionPlanFields({
   form,
+  tourIds,
 }: {
   form: UseFormReturnType<SuccessionPlanFormValues>;
+  /** Tutorial anchors for the two Fieldset sections (the create screen only — the Review
+   *  screen passes nothing) — a wrapper Box carries `data-tour`, since Fieldset doesn't
+   *  forward unknown props. */
+  tourIds?: { seat?: string; lossImpact?: string };
 }) {
   const { t } = useTranslation();
 
   return (
     <Stack>
+      <Box data-tour={tourIds?.seat}>
       <Fieldset legend={t("succession.section.seat")}>
         <FieldGrid>
           <LevelSlider
@@ -136,8 +142,10 @@ export default function SuccessionPlanFields({
           />
         </FieldGrid>
       </Fieldset>
+      </Box>
 
       {/* The legend names the list — the editor renders without its own label. */}
+      <Box data-tour={tourIds?.lossImpact}>
       <Fieldset legend={t("succession.section.lossImpact")}>
         <OrderedTextListEditor
           form={form}
@@ -156,6 +164,7 @@ export default function SuccessionPlanFields({
           }}
         />
       </Fieldset>
+      </Box>
     </Stack>
   );
 }

@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TourContext } from "../components/tourSupport";
 import SuccessionPlans from "./SuccessionPlans";
 import { jsonResponse } from "../test/http";
 
@@ -18,7 +19,13 @@ function PathProbe() {
 
 const EMPTY_PAGE = { items: [], page: 1, pageSize: 20, total: 0 };
 
-function renderScreen(route = "/succession", { manages = false } = {}) {
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy (the
+// OneOnOnes.test.tsx/ImpactLog.test.tsx idiom).
+function renderScreen(
+  route = "/succession",
+  { manages = false, startTutorial = (): void => {} }: { manages?: boolean; startTutorial?: (id: string) => void } = {},
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const mockFetch = vi.fn((url: string) => {
     const u = String(url);
@@ -34,12 +41,14 @@ function renderScreen(route = "/succession", { manages = false } = {}) {
   render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[route]}>
-          <Routes>
-            <Route path="/succession" element={<SuccessionPlans />} />
-            <Route path="*" element={<PathProbe />} />
-          </Routes>
-        </MemoryRouter>
+        <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+          <MemoryRouter initialEntries={[route]}>
+            <Routes>
+              <Route path="/succession" element={<SuccessionPlans />} />
+              <Route path="*" element={<PathProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </TourContext.Provider>
       </QueryClientProvider>
     </MantineProvider>,
   );
@@ -82,6 +91,17 @@ describe("SuccessionPlans page", () => {
         mockFetch.mock.calls.some(([url]) => String(url).includes("view=team")),
       ).toBe(true);
     });
+  });
+
+  test("the tutorial launcher starts the succession plans tutorial via useTour", async () => {
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    renderScreen("/succession", { startTutorial });
+
+    const launcher = await screen.findByRole("button", { name: "How succession plans work" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("succession");
   });
 
   test("a disabled SUCCESSION_PLANS feature bounces to the dashboard", async () => {

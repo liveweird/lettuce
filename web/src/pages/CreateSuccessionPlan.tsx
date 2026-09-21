@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -117,7 +117,10 @@ export default function CreateSuccessionPlan() {
                 ]}
               />
 
-              <SuccessionPlanFields form={form} />
+              <SuccessionPlanFields
+                form={form}
+                tourIds={{ seat: "succession-form-seat", lossImpact: "succession-form-loss-impact" }}
+              />
 
               {error && (
                 <Alert color="red" variant="light">
@@ -126,12 +129,14 @@ export default function CreateSuccessionPlan() {
               )}
 
               <FormFooter>
-                <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
-                  {t("common.action.cancel")}
-                </Button>
-                <Button type="submit" loading={submitting} disabled={!userId}>
-                  {t("common.action.create")}
-                </Button>
+                <Group gap="sm" data-tour="succession-form-actions">
+                  <Button type="button" variant="default" onClick={requestCancel} disabled={submitting}>
+                    {t("common.action.cancel")}
+                  </Button>
+                  <Button type="submit" loading={submitting} disabled={!userId}>
+                    {t("common.action.create")}
+                  </Button>
+                </Group>
               </FormFooter>
             </Stack>
           </form>

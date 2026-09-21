@@ -53,6 +53,7 @@ export default function SuccessionPlanTable({
   settingsKey,
   backTo,
   withReportsScope,
+  tourId,
 }: {
   view: SuccessionListView;
   /** Required with view="user" (the HR auditor view): whose plans to list. */
@@ -63,6 +64,8 @@ export default function SuccessionPlanTable({
   backTo?: string;
   /** Show the "Reports" direct/all filter and derive includeIndirect from it (team only). */
   withReportsScope?: boolean;
+  /** Forwarded to FilterPanel's Filters toggle as `data-tour` (a tutorial anchor). */
+  tourId?: string;
 }) {
   const { t } = useTranslation();
   const currentUserId = getUserId();
@@ -143,7 +146,7 @@ export default function SuccessionPlanTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
         <ClearableTextInput
           label={t("succession.person")}
           value={personFilter}
