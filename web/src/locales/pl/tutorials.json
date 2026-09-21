@@ -86,5 +86,22 @@
       "subordinates": "Każda karta na liście Moi podwładni pokazuje Ostatnie 1:1 z tą osobą i liczbę otwartych zadań, a jej menu Spotkania 1:1 oferuje Nowe 1:1 oraz listę Waszych wspólnych spotkań.",
       "managers": "Każda karta na liście Moi menedżerowie pokazuje Twoje Ostatnie 1:1 z tą osobą i otwarte zadania, a jej menu Spotkania 1:1 zawiera listę wszystkich spotkań, które mieliście razem. To cały przepływ — Gotowe wraca do Spotkań 1:1."
     }
+  },
+  "impactLog": {
+    "launch": "Jak działa dziennik wpływu",
+    "steps": {
+      "intro": "Dziennik wpływu to Twój osobisty dziennik osiągnięć: każdy wpis obejmuje okres i opowiada jedną historię w czterech sekcjach — co się wydarzyło, Twój wkład, dlaczego miało to znaczenie i co to potwierdza. Twoi menedżerowie mogą go czytać; tylko Ty w nim piszesz. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działa dziennik wpływu\".",
+      "own": "Mój dziennik pokazuje Twoje wpisy, od najnowszego okresu, wraz z tytułem i okresem każdego z nich. Otwórz wpis, aby go przeczytać; Edytuj i Usuń należą tylko do Ciebie — nikt inny nie może zmienić Twojego dziennika, nawet administrator.",
+      "filters": "W Filtrach zawężasz listę według tytułu. Wybór zapamiętujemy do następnej wizyty.",
+      "new": "Nowy wpis zaczyna się tutaj. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie zapisane, dopóki na samym końcu nie klikniesz Utwórz.",
+      "header": "Tytuł i okres pozostają widoczne na każdym kroku: krótka nazwa osiągnięcia oraz daty, których dotyczy. Okresy różnych wpisów mogą się nakładać; jedyna zasada to, że koniec nie może być wcześniejszy niż początek.",
+      "steps": "Poniżej nich wpis powstaje sekcja po sekcji — Co się wydarzyło, Mój wkład, Dlaczego to ważne, Dowody — a na koniec jest przeglądany w całości. Dalej sprawdza bieżącą sekcję przed przejściem do następnej, a Ty możesz wrócić do każdej odwiedzonej sekcji bez utraty tego, co wpisałeś/aś.",
+      "sections": "Każda sekcja to markdown, do 5000 znaków: Co się wydarzyło opisuje sytuację, Mój wkład to, co zrobiłeś/aś, Dlaczego to ważne skutek lub efekt, a Dowody feedback, liczby lub materiały, które to potwierdzają.",
+      "actions": "Wstecz i Dalej przełączają między sekcjami; na kroku Podsumowanie Dalej zmienia się w Utwórz, co zapisuje wpis i powiadamia Twoich bezpośrednich menedżerów. Teraz tego nie klikniemy — nic nie zostanie zapisane w tym przewodniku.",
+      "managed": "Dzienniki moich podwładnych pokazują wpisy osób, które Ci podlegają — tylko do odczytu, nigdy nie piszesz w cudzym dzienniku. Każdy wpis, który bezpośredni podwładny utworzy, zmieni albo usunie, wysyła Ci też powiadomienie.",
+      "managedFilters": "Tutaj Filtry dodają autora oraz zakres Podwładni: domyślnie tylko bezpośredni podwładni, albo cały Twój łańcuch zarządzania pod polem \"Wszyscy podwładni (także pośredni)\". Menedżerowie powyżej Ciebie widzą dzienniki Twoich podwładnych w ten sam sposób.",
+      "subordinates": "Każda karta na liście Moi podwładni ma przycisk Dziennik wpływu w sekcji Wyniki — cały dziennik tej osoby, tylko do odczytu, w jednym miejscu.",
+      "entry": "Otwarcie wpisu z Mojego dziennika pokazuje jego zakładkę Treść — cztery sekcje, każda zwijalna — oraz zakładkę Historia z każdą zmianą: utworzeniem, każdą edycją wraz z tym, co się zmieniło, i każdym przesunięciem okresu. To cały przepływ — Gotowe wraca do Dziennika wpływu."
+    }
   }
 }

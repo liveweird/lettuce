@@ -6,7 +6,13 @@ import type { TourStepDef } from "../components/tourSupport";
 
 /** One entry per shipped tutorial. Add the next feature's id here (see web/CLAUDE.md's
  *  "Feature tutorials" recipe). */
-export type TutorialId = "feedbacks" | "goals" | "daysOff" | "performanceReviews" | "oneOnOnes";
+export type TutorialId =
+  | "feedbacks"
+  | "goals"
+  | "daysOff"
+  | "performanceReviews"
+  | "oneOnOnes"
+  | "impactLog";
 
 export type TutorialDef = {
   id: TutorialId;

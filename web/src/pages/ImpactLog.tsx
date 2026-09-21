@@ -8,6 +8,7 @@ import { impactEntryCreateLink } from "../utils/impactLogLinks";
 import ImpactLogTable from "./ImpactLogTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 
 const TABS = ["own", "managed"] as const;
 type ImpactLogTab = (typeof TABS)[number];
@@ -45,19 +46,29 @@ export default function ImpactLog() {
       <PageHeader
         title={t("impactLog.sectionTitle")}
         actions={
-          <Button
-            component={RouterLink}
-            to={impactEntryCreateLink("/impact-log")}
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("impactLog.newEntry")}
-          </Button>
+          <>
+            <Button
+              component={RouterLink}
+              to={impactEntryCreateLink("/impact-log")}
+              leftSection={<IconPlus size={16} />}
+              data-tour="impact-log-new"
+            >
+              {t("impactLog.newEntry")}
+            </Button>
+            <TutorialButton id="impactLog" tourId="impact-log-tutorial" />
+          </>
         }
       />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="own">{t("impactLog.tab.own")}</Tabs.Tab>
-          {isManager && <Tabs.Tab value="managed">{t("impactLog.tab.managed")}</Tabs.Tab>}
+          <Tabs.Tab value="own" data-tour="impact-log-own">
+            {t("impactLog.tab.own")}
+          </Tabs.Tab>
+          {isManager && (
+            <Tabs.Tab value="managed" data-tour="impact-log-managed">
+              {t("impactLog.tab.managed")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="own" pt="md">
@@ -67,6 +78,7 @@ export default function ImpactLog() {
             </Text>
             <ImpactLogTable
               view="own"
+              tourId="impact-log-filters"
               emptyAction={
                 <EmptyCtaLink to={impactEntryCreateLink("/impact-log")}>{t("impactLog.emptyCta")}</EmptyCtaLink>
               }
@@ -83,6 +95,7 @@ export default function ImpactLog() {
                 view="managed"
                 withReportsScope
                 backTo="/impact-log?tab=managed"
+                tourId="impact-log-managed-filters"
               />
             </Stack>
           </Tabs.Panel>
