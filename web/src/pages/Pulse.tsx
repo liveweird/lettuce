@@ -1,8 +1,10 @@
-import { Stack, Tabs, Title } from "@mantine/core";
+import { Stack, Tabs } from "@mantine/core";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasFeature, isHr } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
+import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 import PulseParticipation from "./PulseParticipation";
 import PulseResults from "./PulseResults";
 import PulseSurvey from "./PulseSurvey";
@@ -45,7 +47,10 @@ export default function Pulse() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("pulse.sectionTitle")}</Title>
+      <PageHeader
+        title={t("pulse.sectionTitle")}
+        actions={<TutorialButton id="pulse" tourId="pulse-tutorial" />}
+      />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="survey" data-tour="pulse-survey">

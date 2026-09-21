@@ -13,7 +13,8 @@ export type TutorialId =
   | "performanceReviews"
   | "oneOnOnes"
   | "impactLog"
-  | "teamKpis";
+  | "teamKpis"
+  | "pulse";
 
 export type TutorialDef = {
   id: TutorialId;

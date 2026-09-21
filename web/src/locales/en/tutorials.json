@@ -122,5 +122,22 @@
       "myTeams": "Each team on My teams has a Team KPIs button: that team's own KPI list, with a New team KPI button already set to the team.",
       "end": "Every status change and every recorded value notifies the team's members and its manager — except whoever made the change. That's the whole flow — Done takes you back to Team KPIs."
     }
+  },
+  "pulse": {
+    "launch": "How pulse surveys work",
+    "steps": {
+      "intro": "A pulse survey is a short anonymous check-in the whole company answers every few weeks: how likely you'd be to recommend working here, five quick statements and an optional comment. Answers are only ever shown added up per team, never per person. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How pulse surveys work\" button.",
+      "survey": "Current survey is where you answer while a cycle is open — one question per step, Back and Next to move. Between cycles there is nothing here; when a cycle opens you get a notification and a tile on the Dashboard.",
+      "questions": "Seven steps: the 0–10 recommendation score, four statements and one rotating question rated 1–5 or \"not applicable\", and an optional comment. All six ratings are required, and you can come back and edit your answers until the cycle closes.",
+      "anonymity": "Your answers are encrypted and visible to nobody but you, and only while the cycle is open — afterwards not even you can reopen them. Results are aggregates per team, withheld under three responses, and comments are shown without names, in random order. Keep names and identifying details out of your comment.",
+      "results": "Results shows closed cycles: pick a cycle, then switch between Teams I belong to and Teams I manage — the eNPS score with its promoters, passives and detractors, each statement's average and favourable share, and the change since the previous cycle. You see a cycle's results only if you answered it yourself.",
+      "trend": "Trend follows one measure — eNPS or a statement's favourable share — across the closed cycles, one line per team you toggle on. A gap is a cycle where that team's numbers were withheld or you didn't respond.",
+      "participation": "Participation shows who in your teams has already submitted — a plain yes or no per person, live while the cycle is open, never their answers. Managers also read their teams' anonymized comments on the Results cards.",
+      "cycles": "Pulse cycles is the admin registry. A cycle moves Scheduled → Open → Closed by hand — the app never opens or closes one on its own — and can be cancelled at any point; only one scheduled or open cycle exists at a time.",
+      "settings": "Settings hold the cadence in weeks and how many days a cycle stays open. They only prefill the next cycle's dates — nothing runs on a timer.",
+      "schedule": "New cycle schedules the next one: two planned dates, prefilled from the settings, and a rotating question the app picks from the dictionary — the least-used one goes next. Everyone eligible is told a survey is coming.",
+      "registry": "The registry lists every cycle with its status and actions: Open now takes the participant snapshot, Close now publishes the results, Edit dates and Cancel. Admins see counts only — participants, responses, the rate — never aggregates or comments.",
+      "end": "Notifications carry each cycle: scheduled tells everyone eligible, opened tells the participants, closed tells the respondents where the results are. That's the whole flow — Done takes you back to Pulse surveys."
+    }
   }
 }

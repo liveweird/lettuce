@@ -122,5 +122,22 @@
       "myTeams": "Każdy zespół na liście Moje zespoły ma przycisk KPI zespołu: własną listę KPI tego zespołu, z przyciskiem Nowe KPI zespołu już ustawionym na ten zespół.",
       "end": "Każda zmiana statusu i każda zapisana wartość powiadamia członków zespołu i jego menedżera/kę — poza tym, kto dokonał zmiany. To cały przepływ — Gotowe wraca do KPI zespołów."
     }
+  },
+  "pulse": {
+    "launch": "Jak działają ankiety pulsu",
+    "steps": {
+      "intro": "Ankieta pulsu to krótkie, anonimowe badanie nastrojów, na które cała firma odpowiada co kilka tygodni: jak bardzo prawdopodobne jest, że polecisz pracę tutaj, pięć krótkich stwierdzeń i opcjonalny komentarz. Odpowiedzi pokazujemy wyłącznie zsumowane dla zespołu, nigdy dla pojedynczej osoby. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają ankiety pulsu\".",
+      "survey": "Bieżąca ankieta to miejsce, w którym odpowiadasz, gdy cykl jest otwarty — jedno pytanie na krok, Wstecz i Dalej, żeby się poruszać. Między cyklami nie ma tu nic; gdy cykl się otwiera, dostajesz powiadomienie i kafelek na Pulpicie.",
+      "questions": "Siedem kroków: ocena polecenia w skali 0–10, cztery stwierdzenia i jedno pytanie rotacyjne ocenione w skali 1–5 albo jako \"nie dotyczy\", oraz opcjonalny komentarz. Wszystkie sześć ocen jest wymaganych, a swoje odpowiedzi możesz wracać i poprawiać aż do zamknięcia cyklu.",
+      "anonymity": "Twoje odpowiedzi są szyfrowane i widoczne wyłącznie dla Ciebie, i tylko dopóki cykl jest otwarty — potem nawet Ty nie możesz ich ponownie otworzyć. Wyniki to zbiorcze dane dla zespołu, ukrywane poniżej trzech odpowiedzi, a komentarze pokazujemy bez nazwisk, w losowej kolejności. Nie umieszczaj w komentarzu imion ani innych danych pozwalających na identyfikację.",
+      "results": "Wyniki pokazują zamknięte cykle: wybierz cykl, a potem przełączaj się między Zespołami, do których należę, a Zespołami, którymi zarządzam — wynik eNPS z liczbą promotorów, neutralnych i krytyków, średnia i udział pozytywnych odpowiedzi dla każdego stwierdzenia oraz zmiana względem poprzedniego cyklu. Wyniki cyklu widzisz tylko wtedy, gdy sam/a na niego odpowiedziałeś/aś.",
+      "trend": "Trend śledzi jedną miarę — eNPS albo udział pozytywnych odpowiedzi na dane stwierdzenie — na przestrzeni zamkniętych cykli, po jednej linii na każdy włączony zespół. Przerwa oznacza cykl, w którym liczby tego zespołu były ukryte albo w którym nie odpowiedziałeś/aś.",
+      "participation": "Udział pokazuje, kto w Twoich zespołach już wypełnił ankietę — proste tak lub nie dla każdej osoby, na żywo, dopóki cykl jest otwarty, nigdy ich odpowiedzi. Menedżerowie czytają też anonimizowane komentarze swoich zespołów na kartach Wyników.",
+      "cycles": "Cykle pulsu to rejestr administratora. Cykl przechodzi ręcznie Zaplanowany → Otwarty → Zamknięty — aplikacja nigdy sama nie otwiera ani nie zamyka cyklu — i można go anulować w dowolnym momencie; w danej chwili istnieje tylko jeden zaplanowany albo otwarty cykl.",
+      "settings": "Ustawienia przechowują odstęp w tygodniach i liczbę dni, przez które cykl pozostaje otwarty. Podpowiadają tylko daty następnego cyklu — nic nie działa na czasomierzu.",
+      "schedule": "Nowy cykl planuje kolejny cykl: dwie planowane daty, podpowiedziane z ustawień, i pytanie rotacyjne, które aplikacja wybiera ze słownika — następne jest to najrzadziej używane. Każda uprawniona osoba dostaje informację, że nadchodzi ankieta.",
+      "registry": "Rejestr wymienia każdy cykl z jego statusem i akcjami: Otwórz teraz robi migawkę uczestników, Zamknij teraz publikuje wyniki, a do dyspozycji są też Edytuj daty i Anuluj. Administratorzy widzą wyłącznie liczby — uczestników, odpowiedzi, wskaźnik — nigdy zbiorczych wyników ani komentarzy.",
+      "end": "Powiadomienia towarzyszą każdemu cyklowi: zaplanowanie informuje wszystkich uprawnionych, otwarcie informuje uczestników, a zamknięcie informuje osoby, które odpowiedziały, gdzie znaleźć wyniki. To cały przepływ — Gotowe wraca do Ankiet pulsu."
+    }
   }
 }

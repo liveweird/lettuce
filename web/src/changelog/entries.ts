@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.21.0",
+    date: "2026-09-21",
+    en: `How pulse surveys work — a short guided walkthrough from the Pulse surveys page: what the survey asks and how answering works, how anonymity is protected, and what the Results and Trend tabs show. Managers additionally see the Participation tab; administrators see the Pulse cycles page — settings, scheduling a cycle and the cycle registry with its actions. It only looks around — nothing is created or changed.`,
+    pl: `Jak działają ankiety pulsu — krótki przewodnik uruchamiany ze strony Ankiety pulsu: o co pyta ankieta i jak się na nią odpowiada, jak chroniona jest anonimowość oraz co pokazują zakładki Wyniki i Trend. Jeśli zarządzasz zespołem, zobaczysz dodatkowo zakładkę Udział. Administratorzy/administratorki zobaczą stronę Cykle pulsu — Ustawienia, Nowy cykl i rejestr cykli z jego akcjami. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia.`,
+  },
+  {
     version: "3.20.0",
     date: "2026-09-21",
     en: `How team KPIs work — a short guided walkthrough from the Team KPIs page: the Draft → Active → Archived lifecycle (with a new Lifecycle tab on every KPI), your teams' KPIs and their filters, how the team records values on the KPI data tab, and the Graph and History tabs. Managers additionally see Managed KPIs with the Reports scope, the New team KPI form, the lifecycle actions, and the Team KPIs button on My teams. It only looks around — nothing is created or changed.`,
