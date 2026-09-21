@@ -83,8 +83,12 @@ val R2dbcDatabaseKey = AttributeKey<R2dbcDatabase>("R2dbcDatabase")
 
 /**
  * The bounded pool sizing read from `postgres.pool.*` (`.claude/docs/persistence.md`
- * "Connection pool") — boot-validated the `requireConfigInt`/`requireConfigLong` way (a range
- * failure throws [IllegalArgumentException] before any connection is attempted).
+ * "Connection pool") — boot-validated in the same fail-closed spirit as the auth knobs (a range
+ * failure throws [IllegalArgumentException] before any connection is attempted), but NOT through
+ * the same helper: `requireConfigInt`/`requireConfigLong` are private to `auth/AuthRoutes.kt`, so
+ * this is a second implementation with its own wording, and a non-numeric override surfaces as a
+ * raw [NumberFormatException] rather than a config-error message (checkup #37 M5 — hoisting the
+ * helpers into shared infrastructure is the fix, not this comment).
  */
 private data class PoolBounds(
     val maxSize: Int,
