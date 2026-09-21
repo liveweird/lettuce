@@ -45,7 +45,7 @@ export default function Dashboard() {
           <Tabs.Tab value="managers" data-tour="dashboard-managers">
             {t("dashboard.tabs.managers")}
           </Tabs.Tab>
-          <Tabs.Tab value="peers" data-tour="dashboard-peers">
+          <Tabs.Tab value="peers">
             {t("dashboard.tabs.peers")}
           </Tabs.Tab>
           <Tabs.Tab value="subordinates" data-tour="dashboard-subordinates">

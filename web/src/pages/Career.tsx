@@ -64,11 +64,11 @@ export default function Career() {
       <Title order={2}>{t("career.title")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
-          <Tabs.Tab value="my" data-tour="career-my">
+          <Tabs.Tab value="my">
             {t("career.tab.my")}
           </Tabs.Tab>
           {isManager && (
-            <Tabs.Tab value="pyramid" data-tour="career-pyramid">
+            <Tabs.Tab value="pyramid">
               {t("career.tab.pyramid")}
             </Tabs.Tab>
           )}

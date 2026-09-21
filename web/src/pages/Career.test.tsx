@@ -60,10 +60,7 @@ describe("Career page", () => {
     renderWithProviders(<Career />, { route: "/career" });
 
     expect(await screen.findByRole("heading", { name: "Career" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "My career" })).toHaveAttribute(
-      "data-tour",
-      "career-my",
-    );
+    expect(screen.getByRole("tab", { name: "My career" })).toBeInTheDocument();
     // The own timeline loads for user 7 and renders read-only (no editor buttons).
     expect(await screen.findByText("Current")).toBeInTheDocument();
     expect(screen.getByText("Engineer")).toBeInTheDocument();
@@ -88,12 +85,11 @@ describe("Career page", () => {
     );
   });
 
-  test("a manager gets the pyramid tab (tour-anchored) and ?tab=pyramid opens it", async () => {
+  test("a manager gets the pyramid tab and ?tab=pyramid opens it", async () => {
     mockApi(mockFetch, { managerOfTeams: 1 });
     renderWithProviders(<Career />, { route: "/career?tab=pyramid" });
 
-    const pyramidTab = await screen.findByRole("tab", { name: "Team pyramid" });
-    expect(pyramidTab).toHaveAttribute("data-tour", "career-pyramid");
+    expect(await screen.findByRole("tab", { name: "Team pyramid" })).toBeInTheDocument();
     await waitFor(() =>
       expect(
         mockFetch.mock.calls.some(([u]) => String(u).startsWith("/api/v1/career/pyramid")),

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.23.0",
+    date: "2026-09-21",
+    en: `A shorter welcome tour — the guided tour now just walks the menu: one short stop per item on the left, then the icons at the top, without opening any page. Every feature page keeps its own "How … works" walkthrough for the details. Replay the tour any time from the help icon.`,
+    pl: `Krótszy przewodnik powitalny — przewodnik przechodzi teraz tylko po menu: jeden krótki przystanek przy każdej pozycji po lewej, potem ikony u góry, bez otwierania żadnej strony. Każda strona funkcji zachowuje własny przewodnik "Jak działa…" ze szczegółami. Przewodnik możesz odtworzyć w każdej chwili z ikony pomocy.`,
+  },
+  {
     version: "3.22.0",
     date: "2026-09-21",
     en: `How succession plans work — a short guided walkthrough from the Succession plans page: what a plan records (the seat, role criticality, retention risk, bench depth and loss impact), your plans and their filters, your subordinates' plans with the Reports scope, the New plan form, how nominations work (readiness, one Primary, competency gaps, development action items), the Review screen with Complete review and Close plan, who can read a plan, and the Succession plan button on the My subordinates cards. It only looks around — nothing is created or changed.`,

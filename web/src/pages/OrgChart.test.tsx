@@ -99,8 +99,8 @@ describe("OrgChart page", () => {
     mockApi(mockFetch);
     renderOrg();
 
-    // The heading (with the tour anchor) renders immediately; nodes after the data lands.
-    expect(screen.getByRole("heading", { name: "Org chart" })).toHaveAttribute("data-tour", "config-org");
+    // The heading renders immediately; nodes after the data lands.
+    expect(screen.getByRole("heading", { name: "Org chart" })).toBeInTheDocument();
     expect(await screen.findByText("AAA One")).toBeInTheDocument();
     expect(screen.getByText("Manager AAA")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Members of AAA" })).toBeInTheDocument();

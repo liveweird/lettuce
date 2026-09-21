@@ -101,11 +101,6 @@ describe("Users page", () => {
 
     await screen.findByText("Alice");
     expect(screen.getAllByRole("button", { name: /modify actions for /i })).toHaveLength(2);
-    // The heading carries the data-tour anchor the guided tour targets for the Config → Users step.
-    expect(screen.getByRole("heading", { name: "Users" })).toHaveAttribute(
-      "data-tour",
-      "config-users",
-    );
 
     // The menu keeps the old buttons' accessible names — role changed to menuitem.
     await openModifyMenu(user, "Bob");
