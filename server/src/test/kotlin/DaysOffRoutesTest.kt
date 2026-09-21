@@ -30,7 +30,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -624,6 +623,17 @@ class DaysOffRoutesTest {
         // A month nobody is off in answers with an empty user list.
         val empty = hr.get("/api/v1/days-off/calendar?month=2069-07&scope=org").body<DaysOffCalendarResponse>()
         assertEquals(emptyList(), empty.users)
+
+        // A SOFT-DELETED team narrows to nobody too — the comment above claims `membersOf`
+        // filters deleted teams out, and an id that still resolves to rows in `team_members`
+        // is the case an unknown id cannot prove. S keeps their entry and is still visible
+        // org-wide, so the empty result is the narrowing, not a vanished entry.
+        assertEquals(1, TestServices.teams.delete(teamX))
+        val deletedTeam = hr.get("/api/v1/days-off/calendar?month=$month&scope=org&teamId=$teamX")
+            .body<DaysOffCalendarResponse>()
+        assertEquals(emptyList(), deletedTeam.users)
+        val stillOrgWide = hr.get("/api/v1/days-off/calendar?month=$month&scope=org").body<DaysOffCalendarResponse>()
+        assertTrue(stillOrgWide.users.any { it.userId == sId })
     }
 
     @Test
@@ -715,6 +725,14 @@ class DaysOffRoutesTest {
         // 400 when userId rides own/managed — budgets has no pin-filter there.
         assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off/budgets?view=own&userId=$sId").status)
         assertEquals(HttpStatusCode.BadRequest, m.get("/api/v1/days-off/budgets?view=managed&userId=$sId").status)
+
+        // An unknown userId is NOT an existence probe: the auditor view answers an empty list,
+        // never a 404 and never a fallback to the caller's own budgets. (The probe still leaves
+        // an `hr.list` trail carrying the requested id — pinned in AuditTest, which owns the
+        // appender.)
+        val unknown = h.get("/api/v1/days-off/budgets?view=user&userId=999999&year=2059")
+        assertEquals(HttpStatusCode.OK, unknown.status)
+        assertEquals(emptyList(), unknown.body<DaysOffBudgetList>().items)
     }
 
     @Test

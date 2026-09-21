@@ -662,6 +662,16 @@ class AuditTest {
             }
             assertNotNull(budgetsEvent, "the days-off budgets auditor view should be audited")
             assertEquals(subId.toLong(), budgetsEvent.keyValuePairs.first { it.key == "targetUserId" }.value)
+
+            // The guard audits the REQUESTED id, before anything is read — so an id that
+            // matches nobody is recorded too (the list comes back empty; see the budgets
+            // view=user case in DaysOffRoutesTest). An auditor probing ids leaves a trail.
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/days-off/budgets?view=user&userId=999999").status)
+            val unknownTargetEvent = appender.events.last {
+                it.message == "hr.list" &&
+                    it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "daysOffBudgets" }
+            }
+            assertEquals(999999L, unknownTargetEvent.keyValuePairs.first { it.key == "targetUserId" }.value)
         } finally {
             appender.detach()
         }
@@ -698,6 +708,48 @@ class AuditTest {
                     it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "daysOffCalendar" }
             }
             assertEquals(teamId.toLong(), narrowedEvent.keyValuePairs.first { it.key == "teamId" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+    @Test
+    fun `a refused auditor list emits no hr list event (v3_24_0, v3_25_0)`() = testApplication {
+        usePostgresTestcontainer()
+        // The audit trail must record auditor READS, never mere attempts: `hr.list` is written
+        // by the guard AFTER the role check passes (authz/Guards.kt), so a 403 leaves no trace
+        // of a list the caller never saw. Without this pin, moving the write above the check
+        // would still pass every positive test while filling the trail with phantom reads.
+        val managerEmail = uniqueEmail("hrlist-deny-mgr")
+        val managerId = TestUsers.seed(managerEmail, "pw", roles = emptySet())
+        val manager = authedClient(managerEmail, "pw")
+        val admin = authedClient("admin@lettuce.local", "changeme")
+        val subId = TestUsers.seed(uniqueEmail("hrlist-deny-sub"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "hrlist-deny-${UUID.randomUUID()}", managerId = managerId))
+        TestServices.teams.addMember(teamId, subId)
+
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            // All three v3.24.0/v3.25.0 auditor surfaces, refused for a chain manager and for
+            // an ADMIN (the narrowed-ADMIN rule — management is not audit).
+            val refused = listOf(
+                "/api/v1/team-kpis?view=all&teamId=$teamId",
+                "/api/v1/days-off/budgets?view=user&userId=$subId",
+                "/api/v1/days-off/calendar?month=2059-01&scope=org&teamId=$teamId",
+            )
+            for (path in refused) {
+                assertEquals(HttpStatusCode.Forbidden, manager.get(path).status, "manager should be refused: $path")
+                assertEquals(HttpStatusCode.Forbidden, admin.get(path).status, "admin should be refused: $path")
+            }
+
+            assertTrue(
+                appender.events.none { it.message == "hr.list" },
+                "a refused auditor list must not be recorded as an HR read",
+            )
+            // The denial itself IS recorded — the trail keeps the attempt under authz.denied.
+            assertTrue(
+                appender.events.count { it.message == "authz.denied" } >= refused.size * 2,
+                "every refusal should still emit authz.denied",
+            )
         } finally {
             appender.detach()
         }

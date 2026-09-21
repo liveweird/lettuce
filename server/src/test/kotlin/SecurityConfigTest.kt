@@ -266,6 +266,21 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun `the MFA caps boot at their floor of one`() = testApplication {
+        // The sibling boundary test above pins the CEILING (100) for both MFA caps; the floor
+        // is the operator setting that actually tightens security (one guess per challenge,
+        // one live challenge per account), so a range check that rejected it would fail closed
+        // against the strictest configuration.
+        configureApp(
+            "security.mfa.maxAttempts" to "1",
+            "security.mfa.maxPendingChallenges" to "1",
+        )
+        startApplication()
+        val response = jsonClient().get("/api/v1/notifications")
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
     fun `enabling CSRF blocks unsafe requests without an origin`() = testApplication {
         configureApp("security.csrf.enabled" to "true")
         startApplication()
