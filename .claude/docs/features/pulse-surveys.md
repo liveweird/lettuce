@@ -26,7 +26,7 @@ The team hierarchy is derived, not stored: **team T2 is below T1 iff T2's manage
 - `monitoredTeamIds(user)` = managed + below — the MONITORING scope (participation + comments).
 - `memberTeamIds(user)` = teams the user is currently a MEMBER of — the `memberTeams` scope (v2.12.0; the `TeamService` wrapper is named `membershipTeamIds` — a same-name wrapper would shadow the free function inside its own lambda).
 - `teamScopeUserIds(team, mode)`: `direct` = current members; `subtree` = members + every transitive subordinate of a member. A manager is never a plain member of their own team — their response aggregates under the team they are a MEMBER of.
-- `GET /pulse-surveys/visible-teams` serves all three lists (`resultsTeams`/`monitoredTeams`/`memberTeams`, v2.12.0) to the SPA's pickers (HR: all teams in each).
+- `GET /pulse-surveys/visible-teams` serves the three caller-scoped lists (`resultsTeams`/`monitoredTeams`/`memberTeams`, v2.12.0) to the SPA's pickers for managers and members; **for an HR caller (v3.24.0) the three buckets are now honest** (previously HR got every team in all three, which made the caller-relative scopes indistinguishable and mislabeled in the UI) — HR additionally gets a new **`allTeams`** bucket, omitted for everyone else, backing an explicit "All teams" scope in the Results/Trend tabs.
 
 ## Access matrix (who sees what)
 

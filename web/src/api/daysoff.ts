@@ -89,20 +89,26 @@ export async function getDaysOffCalendar(
 
 export type DaysOffBudget =
   paths["/api/v1/days-off/budgets"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
-export type DaysOffBudgetView = "own" | "managed";
+export type DaysOffBudgetView = "own" | "managed" | "user";
 
 /** Paid-days budget rows for a calendar year — since v3.2.0 ONE ROW PER (user, paid pool):
  * the default pool's row always (default-first per user), then the user's extra pools by name
  * (own = the caller's rows, managed = direct reports', or the whole transitive subtree with
- * includeIndirect — v2.32.0). Each row carries `canCorrect` — whether the caller may write
- * corrections for that user — and the pool (`poolTypeId`/`poolName`/`carriesOver`/`isDefault`,
- * the active grant's `poolId`, and `poolArchived` for history-only rows). */
+ * includeIndirect — v2.32.0; user = the HR auditor's one-person view, v3.24.0 — `userId`
+ * required, `canCorrect` always false). Each row carries `canCorrect` — whether the caller may
+ * write corrections for that user — and the pool (`poolTypeId`/`poolName`/`carriesOver`/
+ * `isDefault`, the active grant's `poolId`, and `poolArchived` for history-only rows). */
 export async function listDaysOffBudgets(
   view: DaysOffBudgetView,
   year: number,
-  opts: { includeIndirect?: boolean } = {},
+  opts: { includeIndirect?: boolean; userId?: number } = {},
 ): Promise<DaysOffBudget[]> {
-  const params = buildQuery({ view, year, includeIndirect: opts.includeIndirect || undefined });
+  const params = buildQuery({
+    view,
+    year,
+    includeIndirect: opts.includeIndirect || undefined,
+    userId: opts.userId,
+  });
   return (await jsonRequest<{ items: DaysOffBudget[] }>(`/api/v1/days-off/budgets?${params}`)).items;
 }
 

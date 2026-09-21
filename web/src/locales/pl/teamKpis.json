@@ -2,12 +2,15 @@
   "sectionTitle": "KPI zespołów",
   "tab": {
     "own": "KPI moich zespołów",
-    "managed": "Zarządzane KPI"
+    "managed": "Zarządzane KPI",
+    "all": "Wszystkie zespoły"
   },
   "myKpisHint": "Aktywne i zarchiwizowane KPI zespołów, do których należysz.",
   "managedKpisHint": "KPI zespołów, którymi zarządzasz — w każdym statusie, wraz ze szkicami. Rozszerz filtr Podwładni, aby zobaczyć też KPI zespołów zarządzanych poniżej Ciebie, niezależnie od tego, kto je wyznaczył/a.",
+  "allKpisHint": "KPI wszystkich zespołów w całej organizacji — w każdym statusie, wraz ze szkicami. Ten audytorski dostęp jest rejestrowany.",
   "kpisOf": "KPI zespołu {{team}}",
   "kpisOfHint": "KPI tego zespołu, w każdym statusie, który możesz zobaczyć.",
+  "kpisOfAuditHint": "KPI tego zespołu, w każdym statusie — widok audytorski, ponieważ nie zarządzasz tym zespołem. Ten dostęp jest rejestrowany.",
   "newKpi": "Nowe KPI zespołu",
   "createTitle": "Nowe KPI zespołu",
   "createHint": "Wybierz dowolny zespół, którym zarządzasz bezpośrednio lub pośrednio, i zdefiniuj KPI. Zaczyna jako szkic — aktywuj je, gdy ma zacząć obowiązywać.",

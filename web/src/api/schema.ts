@@ -2018,9 +2018,13 @@ export interface paths {
          *       in the caller's transitive management subtree. Soft-deleted teams included (their
          *       `teamDeleted` flag is set), so a manager keeps the history of a disbanded team.
          *
-         *     There is deliberately no HR auditor list view (`view=user` on the goal/feedback/1:1
-         *     lists is per-user; a team KPI is per-team) — the HR auditor instead has audit-logged
-         *     access to every single GET. The `teamId` filter powers the per-team drill-down.
+         *     - `view=all` (v3.24.0): the HR auditor view — every team's KPIs at every status,
+         *       regardless of the caller's teams. HR only (`403` for anyone else, ADMIN included —
+         *       the `view=user` rule of the per-user lists; a team KPI is per-team, so the auditor
+         *       view is scope-keyed rather than user-keyed), audit-logged as `hr.list`. Combine it
+         *       with the `teamId` filter to audit one team. `includeIndirect` is not valid with it.
+         *
+         *     The `teamId` filter powers the per-team drill-down on every view.
          *
          *     Rows carry the team, manager, and creator names (`createdBy` is informational — no
          *     right keys on it), the caller's `canManage` capability, title, type, status, and the
@@ -2816,15 +2820,18 @@ export interface paths {
          *     non-carry-over kind resets every January: `remaining = allowance + corrected − used`
          *     over that year alone. Deleted entries never count.
          *
-         *     Views (both caller-relative): `view=own` (the default) — the caller's rows;
-         *     `view=managed` — the rows of every **direct report** (the manager's budget overview;
-         *     empty for a caller who manages no team), or of every user in the caller's whole
-         *     **transitive subtree** with `includeIndirect=true` (v2.32.0 — the drill-down's chain
-         *     mode; strict boolean, 400 with any other view). Rows sort by user name, then the
-         *     default pool first, then pool name. Each row carries the server-computed
-         *     `canCorrect` capability — whether the CALLER may write budget corrections for that
-         *     user (chain-wide since v2.33.0, so true on every managed-view row; always false on
-         *     view=own).
+         *     Views: `view=own` (the default) — the caller's rows; `view=managed` — the rows of
+         *     every **direct report** (the manager's budget overview; empty for a caller who manages
+         *     no team), or of every user in the caller's whole **transitive subtree** with
+         *     `includeIndirect=true` (v2.32.0 — the drill-down's chain mode; strict boolean, 400
+         *     with any other view); `view=user` with a required `userId` (v3.24.0) — the HR auditor
+         *     view of ONE person's rows, HR only (`403` for anyone else, ADMIN included — the
+         *     `view=user` rule of the days-off list), audit-logged as `hr.list`: it completes the
+         *     auditor's picture, who could already read that person's corrections but not the budget
+         *     those corrections adjust. Rows sort by user name, then the default pool first, then
+         *     pool name. Each row carries the server-computed `canCorrect` capability — whether the
+         *     CALLER may write budget corrections for that user (chain-wide since v2.33.0, so true on
+         *     every managed-view row; always false on view=own and on the read-only view=user).
          */
         get: operations["listDaysOffBudgets"];
         put?: never;
@@ -6677,12 +6684,14 @@ export interface components {
             name: string;
         };
         PulseVisibleTeams: {
-            /** @description Teams the caller may open results for (own + managed + below; HR all). */
+            /** @description Teams the caller may open results for (own + managed + below). */
             resultsTeams: components["schemas"]["TeamRef"][];
-            /** @description Teams the caller may monitor (managed + below; HR all; empty for non-managers). */
+            /** @description Teams the caller may monitor (managed + below; empty for non-managers). */
             monitoredTeams: components["schemas"]["TeamRef"][];
-            /** @description Teams the caller is a MEMBER of (the "Teams I belong to" results view; HR all). */
+            /** @description Teams the caller is a MEMBER of (the "Teams I belong to" results view). */
             memberTeams: components["schemas"]["TeamRef"][];
+            /** @description HR auditors only (v3.24.0 — omitted for everyone else): every team, backing the explicit "All teams" scope. Until v3.24.0 an HR caller got every team in the three buckets above instead, which made the caller-relative scopes indistinguishable and mislabeled; those three are honest for HR now. */
+            allTeams?: components["schemas"]["TeamRef"][];
         };
         PulseSettings: {
             /** @description Suggested weeks between cycle opens (admin-form prefill only). */
@@ -10028,8 +10037,8 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which slice of team KPIs to list — always caller-relative. */
-                view?: "own" | "managed";
+                /** @description Which slice of team KPIs to list. `own`/`managed` are caller-relative; `all` is the HR auditor view (403 for anyone else). */
+                view?: "own" | "managed" | "all";
                 /** @description Only valid with `view=managed` (any other view → 400; strict `true`/`false`). When true, widens the scope from teams the caller manages directly to every team managed by anyone in their transitive management subtree (v2.26.0). */
                 includeIndirect?: boolean;
                 /** @description Case- and accent-insensitive substring match against the team's name. */
@@ -11127,8 +11136,10 @@ export interface operations {
     listDaysOffBudgets: {
         parameters: {
             query?: {
-                /** @description Whose budgets — the caller's own or their direct reports'. */
-                view?: "own" | "managed";
+                /** @description Whose budgets — the caller's own, their reports', or (HR only) one named user's. */
+                view?: "own" | "managed" | "user";
+                /** @description Required with view=user (400 without it), rejected with any other view (400): the person whose budget rows the HR auditor reads. */
+                userId?: number;
                 /** @description Only with view=managed (400 otherwise; strict true/false): widens the scope from direct reports to the caller's whole transitive management subtree. */
                 includeIndirect?: boolean;
                 /** @description The calendar year; defaults to the server's current year. */

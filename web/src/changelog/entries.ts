@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.24.0",
+    date: "2026-09-21",
+    en: `HR auditors can now open any team's KPIs — a new "All teams" tab on Team KPIs and a Team KPIs link on a team's page. They can also see the paid-leave budget behind the corrections they audit, and pick an explicit "All teams" scope in Pulse Results and Trend.`,
+    pl: `Audytorzy/audytorki HR mogą teraz otwierać KPI każdego zespołu — nowa zakładka "Wszystkie zespoły" na stronie KPI zespołów i link KPI zespołu na stronie zespołu. Mogą również zobaczyć budżet płatnych dni stojący za poprawkami, które audytują, i wybrać osobny zakres "Wszystkie zespoły" w wynikach i trendach pulsu.`,
+  },
+  {
     version: "3.23.0",
     date: "2026-09-21",
     en: `A shorter welcome tour — the guided tour now just walks the menu: one short stop per item on the left, then the icons at the top, without opening any page. Every feature page keeps its own "How … works" walkthrough for the details. Replay the tour any time from the help icon.`,

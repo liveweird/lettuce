@@ -2,6 +2,7 @@ package ch.nokillswit.teamkpis
 
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.requireAuditScopeListAccess
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireTeamKpiManage
@@ -193,18 +194,9 @@ fun Application.configureTeamKpiRoutes() {
                 val view = when (val raw = params.optionalString("view") ?: "own") {
                     "own" -> TeamKpiListView.OWN
                     "managed" -> TeamKpiListView.MANAGED
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed)")
+                    "all" -> TeamKpiListView.ALL
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, all)")
                 }
-                // Direct-vs-subtree scope (v2.26.0): only meaningful on view=managed, 400
-                // elsewhere (the shared strict-boolean helper).
-                val includeIndirect = params.optionalIncludeIndirect(view, listOf(TeamKpiListView.MANAGED))
-                val paging = call.parsePaging(
-                    sortable = setOf(
-                        "id", "teamName", "managerName", "creatorName", "title", "type", "status",
-                        "targetValue", "currentValue", "createdAt", "lastModified",
-                    ),
-                    defaultSort = listOf(SortField("createdAt", descending = true)),
-                )
                 val filter = TeamKpiListFilter(
                     teamName = params.optionalString("teamName"),
                     teamId = params.optionalUInt("teamId"),
@@ -213,6 +205,24 @@ fun Application.configureTeamKpiRoutes() {
                     status = params.optionalEnum<TeamKpiStatus>("status"),
                     createdAtGte = params.optionalLong("createdAt[gte]"),
                     lastModifiedGte = params.optionalLong("lastModified[gte]"),
+                )
+                // The HR auditor view (v3.24.0): every team's KPIs, org-wide, every status —
+                // HR only (403 for anyone else, ADMIN included — the view=user rule of the
+                // per-user lists); every use is audit-logged (hr.list), the teamId filter
+                // riding along so an audit reader can tell a scoped read from an org-wide one.
+                if (view == TeamKpiListView.ALL) {
+                    requireAuditScopeListAccess(caller, "teamKpis", filter.teamId)
+                }
+                // Direct-vs-subtree scope (v2.26.0): only meaningful on view=managed, 400
+                // elsewhere (the shared strict-boolean helper) — ALL stays out of the allowed
+                // list too, so it 400s like OWN.
+                val includeIndirect = params.optionalIncludeIndirect(view, listOf(TeamKpiListView.MANAGED))
+                val paging = call.parsePaging(
+                    sortable = setOf(
+                        "id", "teamName", "managerName", "creatorName", "title", "type", "status",
+                        "targetValue", "currentValue", "createdAt", "lastModified",
+                    ),
+                    defaultSort = listOf(SortField("createdAt", descending = true)),
                 )
                 val result = kpiService.list(view, caller.userId, filter, paging, includeIndirect)
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))

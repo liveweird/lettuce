@@ -2,7 +2,7 @@ import { Button, Stack, Tabs, Text } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/session";
+import { canAudit, hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 import { teamKpiCreateLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
@@ -10,7 +10,7 @@ import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
 import TutorialButton from "../components/TutorialButton";
 
-const TABS = ["own", "managed"] as const;
+const TABS = ["own", "managed", "all"] as const;
 type TeamKpisTab = (typeof TABS)[number];
 
 function isTeamKpisTab(value: string | null): value is TeamKpisTab {
@@ -23,19 +23,26 @@ function isTeamKpisTab(value: string | null): value is TeamKpisTab {
 // managers set for subtree teams; managers only, the MyGoals gate) is the unpinned managed
 // view, every status, with the Creator column, the direct-vs-indirect scope filter, and the
 // "New team KPI" entry point. The useIsManager probe stays correct for the subtree scope:
-// every manager in anyone's subtree directly manages at least one team.
+// every manager in anyone's subtree directly manages at least one team. Tab "All teams"
+// (v3.24.0, HR-only — canAudit()) is the org-wide auditor view backed by GET ?view=all.
 export default function MyTeamKpis() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
+  const auditor = canAudit();
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
 
   const requestedTab = searchParams.get("tab");
   const activeTab: TeamKpisTab =
-    isTeamKpisTab(requestedTab) && (requestedTab === "own" || isManager) ? requestedTab : "own";
+    isTeamKpisTab(requestedTab) &&
+    (requestedTab === "own"
+      || (requestedTab === "managed" && isManager)
+      || (requestedTab === "all" && auditor))
+      ? requestedTab
+      : "own";
 
   function selectTab(value: string | null) {
     if (!isTeamKpisTab(value)) return;
@@ -75,6 +82,11 @@ export default function MyTeamKpis() {
               {t("teamKpi.tab.managed")}
             </Tabs.Tab>
           )}
+          {auditor && (
+            <Tabs.Tab value="all">
+              {t("teamKpi.tab.all")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="own" pt="md">
@@ -101,6 +113,16 @@ export default function MyTeamKpis() {
                   <EmptyCtaLink to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}>{t("teamKpi.emptyCta")}</EmptyCtaLink>
                 }
               />
+            </Stack>
+          </Tabs.Panel>
+        )}
+        {auditor && (
+          <Tabs.Panel value="all" pt="md">
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">
+                {t("teamKpi.allKpisHint")}
+              </Text>
+              <TeamKpiTable view="all" settingsKey="teamKpis.all" />
             </Stack>
           </Tabs.Panel>
         )}

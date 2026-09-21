@@ -74,6 +74,21 @@ describe("PulseParticipation", () => {
     expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/cycles/6/participation-status"))).toBe(true);
   });
 
+  test("the hint speaks org-wide for an HR auditor, of one's reports for a manager (v3.24.0)", async () => {
+    setupMocks();
+    renderWithProviders(<PulseParticipation />);
+    expect(
+      await screen.findByText("Who of your reports has submitted the survey — never their answers."),
+    ).toBeInTheDocument();
+
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    setupMocks();
+    renderWithProviders(<PulseParticipation />);
+    expect(
+      await screen.findByText("Who has submitted the survey across the whole organization — never their answers."),
+    ).toBeInTheDocument();
+  });
+
   test("a non-manager gets the no-teams empty state", async () => {
     setupMocks({ status: { teams: [] } });
     renderWithProviders(<PulseParticipation />);

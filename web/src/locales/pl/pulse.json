@@ -75,9 +75,11 @@
   "view": {
     "member": "Zespoły, do których należę",
     "managed": "Zespoły, którymi zarządzam",
+    "all": "Wszystkie zespoły",
     "aria": "Widok",
     "noMemberTeams": "Nie należysz do żadnego zespołu.",
-    "noManagedTeams": "Nie zarządzasz żadnym zespołem."
+    "noManagedTeams": "Nie zarządzasz żadnym zespołem.",
+    "noAllTeams": "W organizacji nie ma jeszcze żadnych zespołów."
   },
   "calc": {
     "direct": "Tylko bezpośredni członkowie",
@@ -140,6 +142,7 @@
   },
   "participation": {
     "hint": "Kto z Twoich podwładnych wypełnił ankietę — nigdy ich odpowiedzi.",
+    "hintAudit": "Kto w całej organizacji wypełnił ankietę — nigdy ich odpowiedzi.",
     "summary": "Wypełniło {{submitted}} z {{total}} ({{rate}}%)",
     "submitted": "Wypełniono",
     "notSubmitted": "Jeszcze nie",

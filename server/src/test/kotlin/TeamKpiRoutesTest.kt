@@ -1058,9 +1058,47 @@ class TeamKpiRoutesTest {
         val teamName = "kpi-other"
         assertTrue(ids("teamName=$teamName").contains(two.id))
 
-        // Unknown view and unknown sort field are 400.
-        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/team-kpis?view=user").status)
+        // Unknown view and unknown sort field are 400 (view=all exists now — the HR auditor
+        // view, covered in its own test — so an actually-unknown value proves the vocabulary).
+        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/team-kpis?view=bogus").status)
         assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/team-kpis?sort=dueDate").status)
+    }
+
+    @Test
+    fun `view=all is the HR auditor's org-wide view, every status, 403 for anyone else`() = testApplication {
+        usePostgresTestcontainer()
+        val team = seedTeam()
+        val manager = authedClient(team.managerEmail, "pw")
+        val marker = "kpi-all-${UUID.randomUUID()}"
+        val draft = manager.createKpi(team.teamId, title = "$marker draft")
+        val active = manager.createKpi(team.teamId, title = "$marker active")
+        manager.post("/api/v1/team-kpis/${active.id}/activate")
+
+        val hrEmail = uniqueEmail("kpi-all-hr")
+        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
+
+        // HR sees every status, including the DRAFT the caller has no relationship to.
+        val all = hr.get("/api/v1/team-kpis?view=all&title=$marker&sort=id").body<TeamKpiPageResponse>()
+        assertEquals(listOf(draft.id, active.id), all.items.map { it.id })
+        // The auditor is never a writer — canManage stays false even for an HR caller.
+        assertTrue(all.items.none { it.canManage })
+
+        // teamId still pins one team on view=all.
+        val pinned = hr.get("/api/v1/team-kpis?view=all&teamId=${team.teamId}&title=$marker")
+            .body<TeamKpiPageResponse>()
+        assertEquals(setOf(draft.id, active.id), pinned.items.map { it.id }.toSet())
+
+        // A manager and an ADMIN each get 403 — the view=user rule of the per-user lists.
+        assertEquals(HttpStatusCode.Forbidden, manager.get("/api/v1/team-kpis?view=all").status)
+        val admin = authedClient("admin@lettuce.local", "changeme")
+        assertEquals(HttpStatusCode.Forbidden, admin.get("/api/v1/team-kpis?view=all").status)
+
+        // includeIndirect is managed-only — 400 with view=all too.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/team-kpis?view=all&includeIndirect=true").status,
+        )
     }
 
     // ---- the current-manager derivation ----

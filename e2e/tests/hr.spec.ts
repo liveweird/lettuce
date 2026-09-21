@@ -116,6 +116,61 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   ).toBeVisible();
   await page.goBack();
 
+  // 6c. The four remaining audit drill-downs (v3.24.0 — until then only feedbacks/1:1s/goals
+  //     were walked here). Headings and the ABSENCE of write affordances are the assertions:
+  //     AAA Three's reviews/days off/journal/plans belong to other specs, so row counts are
+  //     not this file's to assert (the cross-pair matrix is pinned in HrRoleTest). The career
+  //     step above ended with goBack(), so this starts ON the details page — no back-link click.
+  await page.getByRole("link", { name: "Audit performance reviews of AAA Three" }).click();
+  await expect(
+    page.getByRole("heading", { name: "All performance reviews of AAA Three" }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: /back to user details/i }).click();
+  await page.getByRole("link", { name: "Audit days off of AAA Three" }).click();
+  await expect(page.getByRole("heading", { name: "Days off of AAA Three" })).toBeVisible();
+  // v3.24.0: the auditor now also sees the paid-leave BUDGET behind the corrections they could
+  // already read — read-only, so the manager affordances must all be absent.
+  await expect(page.getByText(/Paid days off of AAA Three in \d{4}/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /add pool|archive/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /edit the .* allowance/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /add a correction/i })).toHaveCount(0);
+
+  await page.getByRole("link", { name: /back to user details/i }).click();
+  await page.getByRole("link", { name: "Audit AAA Three's impact log" }).click();
+  await expect(page.getByRole("heading", { name: "Impact log — AAA Three" })).toBeVisible();
+
+  await page.getByRole("link", { name: /back to user details/i }).click();
+  await page.getByRole("link", { name: "Succession plans involving AAA Three (audit)" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Succession plans of AAA Three (audit)" }),
+  ).toBeVisible();
+
+  // 6d. The team-KPI auditor path (v3.24.0) — until then HR could read any KPI record by id
+  //     but nothing listed or linked them. Both entry points, by clicking only: the hub's
+  //     auditor tab, and the team-details link (Config -> Teams -> a team the auditor neither
+  //     manages nor belongs to). The DATA rule (an auditor lists another team's KPIs at every
+  //     status; a manager/ADMIN gets 403) is pinned server-side in TeamKpiRoutesTest — this
+  //     walk asserts REACH, so it never depends on rows another spec owns.
+  await page.getByRole("link", { name: "Team KPIs" }).click();
+  await expect(page.getByRole("tab", { name: "All teams" })).toBeVisible();
+  await page.getByRole("tab", { name: "All teams" }).click();
+  await expect(
+    page.getByText("Every team's KPIs, org-wide — at every status, drafts included."),
+  ).toBeVisible();
+
+  // /teams directly (the house idiom of every other spec — the Config nav group collapses off
+  // its own routes, so a click path through it would depend on the group's expanded state).
+  await page.goto("/teams");
+  await page.getByRole("link", { name: "Team details for AAA" }).click();
+  // Scoped to main: the nav leaf carries the same accessible name ("Team KPIs" is the button's
+  // visible text — the page-header action takes no per-team aria-label).
+  await page.locator("main").getByRole("link", { name: "Team KPIs" }).click();
+  await expect(page.getByRole("heading", { name: "Team KPIs of AAA" })).toBeVisible();
+  await expect(page.getByText(/an auditor view, since you don't manage this team/)).toBeVisible();
+  // Read-only: the auditor never gets the manager's create entry point.
+  await expect(page.getByRole("link", { name: "New team KPI" })).toHaveCount(0);
+
   // 7. No admin surface: the Config group never offers Alerts to HR.
   await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);
 });

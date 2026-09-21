@@ -4,6 +4,7 @@ import { IconChartLine } from "@tabler/icons-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { type TeamRef } from "../api/teams";
+import { canAudit } from "../api/session";
 import { getPulseTrend, getPulseVisibleTeams, type PulseAggregationMode, type PulseTrendResponse } from "../api/pulse";
 import EmptyState from "../components/EmptyState";
 import { HintIcon } from "../components/PulseTeamResultCard";
@@ -18,7 +19,8 @@ import {
 
 const PulseTrendChart = lazy(() => import("../components/PulseTrendChart"));
 
-const VIEWS = ["member", "managed"] as const;
+// "all" (v3.24.0, HR-only via canAudit()) mirrors PulseResults' scope set — see its comment.
+const VIEWS = ["member", "managed", "all"] as const;
 type TrendView = (typeof VIEWS)[number];
 const CALCS = ["direct", "indirect"] as const;
 type TrendCalc = (typeof CALCS)[number];
@@ -39,7 +41,8 @@ const SERIES_COLORS = ["lettuce.6", "indigo.6", "teal.6", "orange.6", "grape.6",
 export default function PulseTrend() {
   const { t } = useTranslation();
   const teams = useQuery({ queryKey: ["pulseVisibleTeams"], queryFn: getPulseVisibleTeams });
-  const [view, setView] = useStoredState<TrendView>("pulse.trend.view", "member", isOneOf(VIEWS));
+  const auditor = canAudit();
+  const [storedView, setView] = useStoredState<TrendView>("pulse.trend.view", "member", isOneOf(VIEWS));
   const [calc, setCalc] = useStoredState<TrendCalc>("pulse.trend.calc", "direct", isOneOf(CALCS));
   const [metric, setMetric] = useStoredState<TrendMetric>(
     "pulse.trend.metric",
@@ -47,8 +50,20 @@ export default function PulseTrend() {
     isOneOf(TREND_METRICS),
   );
 
-  const viewTeams = (view === "member" ? teams.data?.memberTeams : teams.data?.monitoredTeams) ?? [];
-  const wireMode: PulseAggregationMode = view === "managed" && calc === "indirect" ? "subtree" : "direct";
+  // A stored "all" value must never apply to a non-auditor (a role downgrade, or a stale
+  // cross-device value) — fall back to the member view, never rewriting storage here.
+  const safeView: TrendView = storedView === "all" && !auditor ? "member" : storedView;
+  const availableViews = auditor ? VIEWS : VIEWS.filter((v) => v !== "all");
+  const noOwnTeams =
+    teams.isSuccess && (teams.data.memberTeams?.length ?? 0) === 0 && (teams.data.monitoredTeams?.length ?? 0) === 0;
+  // The org-wide auditor scope is the sensible default for an HR caller with no own/managed
+  // teams — otherwise they would land on a permanently-empty "Teams I belong to".
+  const view: TrendView = safeView === "member" && auditor && noOwnTeams ? "all" : safeView;
+
+  const viewTeams =
+    (view === "member" ? teams.data?.memberTeams : view === "all" ? teams.data?.allTeams : teams.data?.monitoredTeams) ?? [];
+  const wireMode: PulseAggregationMode =
+    (view === "managed" || view === "all") && calc === "indirect" ? "subtree" : "direct";
 
   if (teams.isLoading) return <Skeleton height={280} radius="md" />;
   if (teams.isError) {
@@ -67,9 +82,9 @@ export default function PulseTrend() {
             aria-label={t("pulse.view.aria")}
             value={view}
             onChange={(value) => setView(value as TrendView)}
-            data={VIEWS.map((v) => ({ value: v, label: t(`pulse.view.${v}`) }))}
+            data={availableViews.map((v) => ({ value: v, label: t(`pulse.view.${v}`) }))}
           />
-          {view === "managed" && (
+          {(view === "managed" || view === "all") && (
             <SegmentedControl
               aria-label={t("pulse.calc.aria")}
               value={calc}
@@ -100,7 +115,13 @@ export default function PulseTrend() {
       {viewTeams.length === 0 ? (
         <EmptyState
           icon={<IconChartLine size={32} />}
-          label={t(view === "member" ? "pulse.view.noMemberTeams" : "pulse.view.noManagedTeams")}
+          label={t(
+            view === "member"
+              ? "pulse.view.noMemberTeams"
+              : view === "all"
+                ? "pulse.view.noAllTeams"
+                : "pulse.view.noManagedTeams",
+          )}
         />
       ) : (
         <TrendChartSection key={view} teams={viewTeams} wireMode={wireMode} metric={metric} />

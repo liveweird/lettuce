@@ -99,6 +99,7 @@ describe("PulseTrend", () => {
       { id: 22, name: "BBB" },
       { id: 11, name: "CCC" },
     ] as { id: number; name: string }[],
+    allTeams = undefined as { id: number; name: string }[] | undefined,
   } = {}) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
@@ -108,6 +109,8 @@ describe("PulseTrend", () => {
             resultsTeams: [...member, ...monitored],
             monitoredTeams: monitored,
             memberTeams: member,
+            // Omitted entirely for a non-auditor — the server contract (v3.24.0).
+            ...(allTeams != null ? { allTeams } : {}),
           }),
         );
       }
@@ -271,6 +274,25 @@ describe("PulseTrend", () => {
     renderWithProviders(<PulseTrend />);
     expect(await screen.findByText("You don't manage any teams.")).toBeInTheDocument();
     expect(screen.queryByTestId("trend-chart")).toBeNull();
+  });
+
+  test("HR: the All-teams scope lists the allTeams bucket and defaults when there are no own/managed teams (v3.24.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    setupMocks({ member: [], monitored: [], allTeams: [{ id: 11, name: "CCC" }] });
+    renderWithProviders(<PulseTrend />);
+
+    expect(await screen.findByRole("checkbox", { name: "CCC" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "All teams" })).toBeInTheDocument();
+    // The calc toggle applies to "all" like it does to "managed".
+    expect(screen.getByRole("radio", { name: "Direct members only" })).toBeInTheDocument();
+  });
+
+  test("a non-HR caller never sees the All-teams scope option", async () => {
+    presetManaged();
+    setupMocks();
+    renderWithProviders(<PulseTrend />);
+    await screen.findByTestId("trend-chart");
+    expect(screen.queryByRole("radio", { name: "All teams" })).toBeNull();
   });
 
   test("a single renderable point renders the pending note, not a one-point chart", async () => {

@@ -169,6 +169,30 @@ describe("TeamKpiTable", () => {
     );
   });
 
+  test("view=all sends that param; rows stay View-only for the org-wide auditor (v3.24.0)", async () => {
+    // Even a DRAFT row stays View — the HR auditor never gets the server's canManage.
+    const auditorDraft = {
+      ...OWN_DRAFT,
+      id: 4,
+      canManage: false,
+      managerId: 40,
+      managerName: "Mona",
+      creatorId: 40,
+      creatorName: "Mona",
+    };
+    mockApi(mockFetch, [BASE, auditorDraft]);
+    renderWithProviders(<TeamKpiTable view="all" settingsKey="teamKpis.testAll" />);
+
+    expect(await screen.findByText("Deploy weekly")).toBeInTheDocument();
+    await waitFor(() => expect(kpiUrls(mockFetch).some((u) => u.includes("view=all"))).toBe(true));
+
+    // The Creator column rides the org-wide view too (v3.24.0), the managed-view precedent.
+    expect(screen.getByRole("button", { name: "Creator" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View team KPI Deploy weekly" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View team KPI Ship the docs" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Edit team KPI/ })).not.toBeInTheDocument();
+  });
+
   test("empty list renders the empty state", async () => {
     mockApi(mockFetch, []);
     renderWithProviders(<TeamKpiTable view="own" settingsKey="teamKpis.test3" />);

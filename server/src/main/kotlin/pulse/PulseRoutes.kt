@@ -528,22 +528,19 @@ fun Application.configurePulseRoutes() {
             }
             get<PulseSurveys.VisibleTeams> {
                 val caller = call.pulseCaller()
-                // Just team names/ids (readable by any authenticated user via /teams anyway) —
-                // no audit needed for the HR branch.
-                if (caller.isHr()) {
-                    val all = teamService.allTeamRefs()
-                    call.respond(
-                        HttpStatusCode.OK,
-                        PulseVisibleTeams(resultsTeams = all, monitoredTeams = all, memberTeams = all),
-                    )
-                    return@get
-                }
+                // Every caller — HR included — gets their own honest caller-relative buckets
+                // (v3.24.0: until now HR got every team in all three, which made the
+                // caller-relative scopes indistinguishable and mislabeled for them). An HR
+                // caller additionally gets `allTeams`, the explicit org-wide scope. Just team
+                // names/ids (readable by any authenticated user via /teams anyway) — no audit
+                // needed for the HR branch.
                 call.respond(
                     HttpStatusCode.OK,
                     PulseVisibleTeams(
                         resultsTeams = teamService.teamRefs(teamService.visibleTeamTreeIds(caller.userId)),
                         monitoredTeams = teamService.teamRefs(teamService.managedTeamTreeIds(caller.userId)),
                         memberTeams = teamService.teamRefs(teamService.membershipTeamIds(caller.userId)),
+                        allTeams = if (caller.isHr()) teamService.allTeamRefs() else null,
                     ),
                 )
             }

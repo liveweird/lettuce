@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/http";
-import { isHr } from "../api/session";
+import { canAudit, isHr } from "../api/session";
 import { getPulseResults, getPulseVisibleTeams, listPulseCycles, type PulseAggregationMode } from "../api/pulse";
 import EmptyState from "../components/EmptyState";
 import PulseTeamResultCard from "../components/PulseTeamResultCard";
@@ -13,8 +13,10 @@ import { closedCycleOptions } from "../utils/pulseResults";
 
 // The v2.12.0 two-view layout: which teams are LISTED follows the view, not just how each
 // card aggregates. "member" = teams the caller belongs to (always direct numbers); "managed"
-// = the monitored tree, with its own direct/indirect calculation toggle.
-const VIEWS = ["member", "managed"] as const;
+// = the monitored tree, with its own direct/indirect calculation toggle. "all" (v3.24.0,
+// HR-only via canAudit()) = every team in the org, fed by visible-teams' allTeams bucket —
+// omitted for everyone else, so a non-auditor never sees the option.
+const VIEWS = ["member", "managed", "all"] as const;
 type ResultsView = (typeof VIEWS)[number];
 const CALCS = ["direct", "indirect"] as const;
 type ResultsCalc = (typeof CALCS)[number];
@@ -31,7 +33,8 @@ export default function PulseResults() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const [searchParams, setSearchParams] = useSearchParams();
-  const [view, setView] = useStoredState<ResultsView>("pulse.results.view", "member", isOneOf(VIEWS));
+  const auditor = canAudit();
+  const [storedView, setView] = useStoredState<ResultsView>("pulse.results.view", "member", isOneOf(VIEWS));
   const [calc, setCalc] = useStoredState<ResultsCalc>("pulse.results.calc", "direct", isOneOf(CALCS));
 
   const cycles = useQuery({ queryKey: ["pulseCycles"], queryFn: listPulseCycles });
@@ -46,10 +49,22 @@ export default function PulseResults() {
         ? Number(options[0].value)
         : null;
 
+  // A stored "all" value must never apply to a non-auditor (a role downgrade, or a stale
+  // cross-device value) — fall back to the member view, never rewriting storage here.
+  const safeView: ResultsView = storedView === "all" && !auditor ? "member" : storedView;
+  const availableViews = auditor ? VIEWS : VIEWS.filter((v) => v !== "all");
+  const noOwnTeams =
+    teams.isSuccess && (teams.data.memberTeams?.length ?? 0) === 0 && (teams.data.monitoredTeams?.length ?? 0) === 0;
+  // The org-wide auditor scope is the sensible default for an HR caller with no own/managed
+  // teams — otherwise they would land on a permanently-empty "Teams I belong to".
+  const view: ResultsView = safeView === "member" && auditor && noOwnTeams ? "all" : safeView;
+
   const monitoredIds = new Set((teams.data?.monitoredTeams ?? []).map((team) => team.id));
-  // The member view is always direct numbers; the managed view follows its calc toggle.
-  const viewTeams = (view === "member" ? teams.data?.memberTeams : teams.data?.monitoredTeams) ?? [];
-  const wireMode: PulseAggregationMode = view === "managed" && calc === "indirect" ? "subtree" : "direct";
+  // The member view is always direct numbers; the managed/all views follow the calc toggle.
+  const viewTeams =
+    (view === "member" ? teams.data?.memberTeams : view === "all" ? teams.data?.allTeams : teams.data?.monitoredTeams) ?? [];
+  const wireMode: PulseAggregationMode =
+    (view === "managed" || view === "all") && calc === "indirect" ? "subtree" : "direct";
   const firstTeam = viewTeams[0];
 
   // The fill-gate probe: shares its query key with the active view's first card, so no
@@ -96,9 +111,9 @@ export default function PulseResults() {
             aria-label={t("pulse.view.aria")}
             value={view}
             onChange={(value) => setView(value as ResultsView)}
-            data={VIEWS.map((v) => ({ value: v, label: t(`pulse.view.${v}`) }))}
+            data={availableViews.map((v) => ({ value: v, label: t(`pulse.view.${v}`) }))}
           />
-          {view === "managed" && (
+          {(view === "managed" || view === "all") && (
             <SegmentedControl
               aria-label={t("pulse.calc.aria")}
               value={calc}
@@ -114,7 +129,13 @@ export default function PulseResults() {
       {viewTeams.length === 0 ? (
         <EmptyState
           icon={<IconChartBar size={32} />}
-          label={t(view === "member" ? "pulse.view.noMemberTeams" : "pulse.view.noManagedTeams")}
+          label={t(
+            view === "member"
+              ? "pulse.view.noMemberTeams"
+              : view === "all"
+                ? "pulse.view.noAllTeams"
+                : "pulse.view.noManagedTeams",
+          )}
         />
       ) : gated ? (
         <>

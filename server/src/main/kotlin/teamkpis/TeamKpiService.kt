@@ -26,7 +26,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val TeamKpiServiceKey = AttributeKey<TeamKpiService>("TeamKpiService")
 
-enum class TeamKpiListView { OWN, MANAGED }
+enum class TeamKpiListView { OWN, MANAGED, ALL }
 
 data class TeamKpiListFilter(
     val teamName: String? = null,
@@ -439,6 +439,12 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
                     .where { managerScope }
                 TeamKpis.teamId inSubQuery managedTeams
             }
+            // The HR auditor view (v3.24.0): every team's KPIs, org-wide, every status
+            // (DRAFTs included), soft-deleted teams included too — the same reach as MANAGED,
+            // minus the caller-relative scoping. The route guards this view HR-only
+            // (requireAuditScopeListAccess); the teamId filter still composes on top for a
+            // one-team drill-down.
+            TeamKpiListView.ALL -> Op.TRUE
         }
         val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
         val join = joined()

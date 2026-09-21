@@ -28,6 +28,7 @@ import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.assertNull
@@ -579,6 +580,53 @@ class DaysOffRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off/budgets?year=1999").status)
         assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off/budgets?year=abc").status)
         assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off/budgets?view=bogus").status)
+    }
+
+    @Test
+    fun `budgets view=user is the HR auditor's read-only view of one person, 403 for anyone else`() = testApplication {
+        usePostgresTestcontainer()
+        val mEmail = uniqueEmail("do-bud-user-m")
+        val sEmail = uniqueEmail("do-bud-user-s")
+        val hEmail = uniqueEmail("do-bud-user-h")
+        val mId = TestUsers.seed(mEmail, "pw", name = "Audited Mgr", roles = emptySet())
+        val sId = TestUsers.seed(sEmail, "pw", name = "Audited Sub", roles = emptySet())
+        TestUsers.seed(hEmail, "pw", roles = setOf(UserRole.HR))
+        val teamId = TestServices.teams.create(Team(name = "bud-u-${java.util.UUID.randomUUID()}", managerId = mId))
+        TestServices.teams.addMember(teamId, sId)
+        TestDaysOff.setAllowance(sId, 10)
+        val m = authedClient(mEmail, "pw")
+        val s = authedClient(sEmail, "pw")
+        val h = authedClient(hEmail, "pw")
+        val a = authedClient("admin@lettuce.local", "changeme")
+
+        val mon = monday(2059, 4)
+        s.createDaysOff(mon.toString(), mon.plusDays(1).toString()) // 2.0 days
+
+        val audited = h.get("/api/v1/days-off/budgets?view=user&userId=$sId&year=2059").body<DaysOffBudgetList>()
+        val row = audited.items.single()
+        assertEquals(sId, row.userId)
+        assertEquals(10, row.allowance)
+        assertEquals(2.0, row.used)
+        // A read-only audit view — never correctable, even though HR could otherwise read the
+        // corrections.
+        assertFalse(row.canCorrect)
+
+        // 403 for a manager (chain rights don't carry the auditor scope) and for ADMIN.
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            m.get("/api/v1/days-off/budgets?view=user&userId=$sId").status,
+        )
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            a.get("/api/v1/days-off/budgets?view=user&userId=$sId").status,
+        )
+
+        // 400 without userId.
+        assertEquals(HttpStatusCode.BadRequest, h.get("/api/v1/days-off/budgets?view=user").status)
+
+        // 400 when userId rides own/managed — budgets has no pin-filter there.
+        assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off/budgets?view=own&userId=$sId").status)
+        assertEquals(HttpStatusCode.BadRequest, m.get("/api/v1/days-off/budgets?view=managed&userId=$sId").status)
     }
 
     @Test

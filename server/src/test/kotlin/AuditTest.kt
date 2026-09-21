@@ -633,4 +633,37 @@ class AuditTest {
             appender.detach()
         }
     }
+
+    @Test
+    fun `hr list is audited for the team-KPI and days-off-budget auditor views (v3_24_0)`() = testApplication {
+        usePostgresTestcontainer()
+        val hrEmail = uniqueEmail("hrlist-hr")
+        val hrId = TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
+        val subId = TestUsers.seed(uniqueEmail("hrlist-sub"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "hrlist-${UUID.randomUUID()}", managerId = subId))
+
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            // view=all on the team-KPI list — resource teamKpis, carrying teamId when filtered.
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/team-kpis?view=all&teamId=$teamId").status)
+            val kpiEvent = appender.events.find {
+                it.message == "hr.list" && it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "teamKpis" }
+            }
+            assertNotNull(kpiEvent, "the team-KPI auditor view should be audited")
+            assertEquals(hrId.toLong(), kpiEvent.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals(teamId.toLong(), kpiEvent.keyValuePairs.first { it.key == "teamId" }.value)
+
+            // view=user on the days-off budgets — resource daysOffBudgets, carrying targetUserId.
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/days-off/budgets?view=user&userId=$subId").status)
+            val budgetsEvent = appender.events.find {
+                it.message == "hr.list" &&
+                    it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "daysOffBudgets" }
+            }
+            assertNotNull(budgetsEvent, "the days-off budgets auditor view should be audited")
+            assertEquals(subId.toLong(), budgetsEvent.keyValuePairs.first { it.key == "targetUserId" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
 }
