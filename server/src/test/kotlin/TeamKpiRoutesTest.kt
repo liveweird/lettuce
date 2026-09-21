@@ -1099,6 +1099,14 @@ class TeamKpiRoutesTest {
             HttpStatusCode.BadRequest,
             hr.get("/api/v1/team-kpis?view=all&includeIndirect=true").status,
         )
+
+        // An unknown teamId narrows to nobody rather than silently falling back to the org-wide
+        // set — the equality-filter idiom (the org calendar's sibling pin). A fallback here
+        // would hand the auditor MORE than they asked for, so the empty page is the contract.
+        val unknownTeam = hr.get("/api/v1/team-kpis?view=all&teamId=999999&title=$marker")
+            .body<TeamKpiPageResponse>()
+        assertEquals(emptyList(), unknownTeam.items)
+        assertEquals(0, unknownTeam.total)
     }
 
     // ---- the current-manager derivation ----
