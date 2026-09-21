@@ -103,5 +103,24 @@
       "subordinates": "Each card on My subordinates has an Impact log button in its Performance section — that person's whole journal, read-only, in one place.",
       "entry": "Opening an entry from My journal shows its Content tab — the four sections, each collapsible — and a History tab with every change: the creation, each edit with what changed, and any move of the period. That's the whole flow — Done takes you back to the Impact log."
     }
+  },
+  "teamKpis": {
+    "launch": "How team KPIs work",
+    "steps": {
+      "intro": "A team KPI is a measure a manager sets for a team they manage — a target the team tracks over time with dated values. Everyone on the team sees it once it is active, and everyone on the team can record values. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How team KPIs work\" button.",
+      "lifecycle": "A KPI starts as a Draft, visible only to the team's manager and the managers above them. Activate makes it live for the whole team; Archive closes it with a short summary. Both moves can be undone — Return to draft and Reopen.",
+      "own": "My teams' KPIs lists every active or archived KPI of the teams you belong to — drafts stay hidden until the manager activates them. Open one to see its definition, its data and its graph.",
+      "filters": "Under Filters you narrow the list by title, team, creation date and status. The choice is remembered the next time you come back.",
+      "data": "A KPI's page has a KPI data tab: the recorded values, newest first, each with its date and its distance from the target. While the KPI is active, anyone on the team — and the manager — can add a value for a day, correct one or remove it: one value per date, today or earlier, saved immediately. The Current value always follows the latest date.",
+      "graph": "The Graph tab plots the values over time against the dashed target line, with the good side of the target tinted; the History tab lists every definition change, status change and recorded value.",
+      "managed": "Managed KPIs lists the KPIs of the teams you manage — every status, drafts included — with a Creator column showing who set each one up.",
+      "managedFilters": "Here Filters add the Reports scope: your own teams by default, or every team managed by anyone below you under \"All reports (including indirect)\". The managers above you see your teams' KPIs the same way, and can set or edit them too.",
+      "new": "A new team KPI starts here, or from a team's Team KPIs button on the dashboard. Let's open the form to look — nothing is created until you press Create.",
+      "definition": "Pick the team — any team in your management chain — then define the KPI: a title, an optional description, the type (a number or a percentage), the target and its direction, at least or at most.",
+      "actions": "Create saves the KPI as a Draft and offers to activate it right away. We won't press it now — nothing is created in this walkthrough.",
+      "lifecycleActions": "On a KPI's page the manager drives the lifecycle: Activate a draft, Return to draft, Archive with a summary, Reopen. The definition is editable only while a draft — changing the type wipes the recorded values — and only a draft can be deleted.",
+      "myTeams": "Each team on My teams has a Team KPIs button: that team's own KPI list, with a New team KPI button already set to the team.",
+      "end": "Every status change and every recorded value notifies the team's members and its manager — except whoever made the change. That's the whole flow — Done takes you back to Team KPIs."
+    }
   }
 }

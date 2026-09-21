@@ -11,6 +11,7 @@ import { activateTeamKpi, archiveTeamKpi, deactivateTeamKpi, getTeamKpi, reopenT
 import CenteredLoader from "../components/CenteredLoader";
 import DateCell from "../components/DateCell";
 import GoalCloseModal from "../components/GoalCloseModal";
+import GoalLifecycle from "../components/GoalLifecycle";
 import MarkdownView from "../components/MarkdownView";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
@@ -229,6 +230,7 @@ export default function ViewTeamKpi() {
                     <Tabs.Tab value="data">{t("teamKpi.data")}</Tabs.Tab>
                     <Tabs.Tab value="graph">{t("teamKpi.graph")}</Tabs.Tab>
                     <Tabs.Tab value="history">{t("teamKpi.history")}</Tabs.Tab>
+                    <Tabs.Tab value="lifecycle">{t("teamKpi.lifecycle")}</Tabs.Tab>
                   </Tabs.List>
 
                   <Tabs.Panel value="general" pt="md">
@@ -269,6 +271,10 @@ export default function ViewTeamKpi() {
 
                   <Tabs.Panel value="history" pt="md">
                     <TeamKpiHistory kpiId={id} type={data.type} />
+                  </Tabs.Panel>
+
+                  <Tabs.Panel value="lifecycle" pt="md">
+                    <GoalLifecycle keyPrefix="teamKpi" currentStatus={data.status} />
                   </Tabs.Panel>
                 </Tabs>
               </Stack>

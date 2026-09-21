@@ -48,6 +48,7 @@ export default function TeamKpiTable({
   backTo,
   withReportsScope = false,
   emptyAction,
+  tourId,
 }: {
   view: TeamKpiListView;
   /** Scope to one team's KPIs (the per-team drill-down); hides the Team column. */
@@ -60,6 +61,8 @@ export default function TeamKpiTable({
   withReportsScope?: boolean;
   /** The hub page's creation link for the empty state (v3.4.0, see EmptyCtaLink). */
   emptyAction?: ReactNode;
+  /** Forwarded to the Filters toggle as `data-tour` (a tutorial anchor). */
+  tourId?: string;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -140,7 +143,7 @@ export default function TeamKpiTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
+      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
         {withReportsScope && (
           <ReportsScopeSelect
             value={reportsScope}

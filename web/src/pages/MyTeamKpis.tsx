@@ -8,6 +8,7 @@ import { teamKpiCreateLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
 import PageHeader from "../components/PageHeader";
+import TutorialButton from "../components/TutorialButton";
 
 const TABS = ["own", "managed"] as const;
 type TeamKpisTab = (typeof TABS)[number];
@@ -49,15 +50,19 @@ export default function MyTeamKpis() {
       <PageHeader
         title={t("teamKpi.sectionTitle")}
         actions={
-          isManager && (
-            <Button
-              component={RouterLink}
-              to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}
-              leftSection={<IconPlus size={16} />}
-            >
-              {t("teamKpi.newKpi")}
-            </Button>
-          )
+          <>
+            {isManager && (
+              <Button
+                component={RouterLink}
+                to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}
+                leftSection={<IconPlus size={16} />}
+                data-tour="team-kpis-new"
+              >
+                {t("teamKpi.newKpi")}
+              </Button>
+            )}
+            <TutorialButton id="teamKpis" tourId="team-kpis-tutorial" />
+          </>
         }
       />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
@@ -78,7 +83,7 @@ export default function MyTeamKpis() {
               {t("teamKpi.myKpisHint")}
             </Text>
             {/* No backTo: the detail pages already default their return target to /team-kpis. */}
-            <TeamKpiTable view="own" />
+            <TeamKpiTable view="own" tourId="team-kpis-filters" />
           </Stack>
         </Tabs.Panel>
         {isManager && (
@@ -89,6 +94,7 @@ export default function MyTeamKpis() {
               </Text>
               <TeamKpiTable
                 view="managed"
+                tourId="team-kpis-managed-filters"
                 withReportsScope
                 backTo="/team-kpis?tab=managed"
                 emptyAction={

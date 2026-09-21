@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor } from "../test/render";
 import MyTeamKpis from "./MyTeamKpis";
 import { jsonResponse } from "../test/http";
+import { TourContext } from "../components/tourSupport";
 
 function LocationProbe() {
   const location = useLocation();
@@ -85,6 +86,18 @@ function kpiUrls(mockFetch: FetchMock): string[] {
     .filter((u) => u.startsWith("/api/v1/team-kpis?"));
 }
 
+// The page's header now always renders a TutorialButton (useTour()), so every render needs a
+// TourContext — a no-op startTutorial by default; the launcher test below supplies a spy (the
+// MyGoals.test.tsx idiom).
+function renderMyTeamKpis(route = "/team-kpis", startTutorial: (id: string) => void = () => {}) {
+  return renderWithProviders(
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+      <MyTeamKpis />
+    </TourContext.Provider>,
+    { route },
+  );
+}
+
 describe("MyTeamKpis page", () => {
   let mockFetch: FetchMock;
 
@@ -102,7 +115,7 @@ describe("MyTeamKpis page", () => {
 
   test("non-manager: single member tab listing own KPIs with the Team column", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<MyTeamKpis />);
+    renderMyTeamKpis();
 
     expect(await screen.findByRole("heading", { name: "Team KPIs" })).toBeInTheDocument();
     // The tab carries the guided tour's anchor.
@@ -128,7 +141,7 @@ describe("MyTeamKpis page", () => {
 
   test("member rows offer View (the caller is not the manager)", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<MyTeamKpis />);
+    renderMyTeamKpis();
 
     const view = await screen.findByRole("link", { name: "View team KPI Deploy weekly" });
     expect(view).toHaveAttribute("href", expect.stringContaining("/team-kpis/1/view"));
@@ -137,7 +150,7 @@ describe("MyTeamKpis page", () => {
   test("manager: the KPIs-I've-set tab lists view=managed with the New-KPI button and back links", async () => {
     mockApi(mockFetch, { managerOfTeams: 1, kpis: [MANAGED_KPI] });
     const user = userEvent.setup();
-    renderWithProviders(<MyTeamKpis />);
+    renderMyTeamKpis();
 
     const managedTab = await screen.findByRole("tab", { name: "Managed KPIs" });
     // The manager-only tab carries the guided tour's anchor.
@@ -165,11 +178,23 @@ describe("MyTeamKpis page", () => {
 
   test("?tab=managed falls back to the member tab for a non-manager", async () => {
     mockApi(mockFetch);
-    renderWithProviders(<MyTeamKpis />, { route: "/team-kpis?tab=managed" });
+    renderMyTeamKpis("/team-kpis?tab=managed");
 
     expect(await screen.findByText("Team AAA")).toBeInTheDocument();
     expect(kpiUrls(mockFetch).at(-1)).toContain("view=own");
     expect(screen.queryByRole("tab", { name: "Managed KPIs" })).not.toBeInTheDocument();
+  });
+
+  test("the tutorial launcher starts the team KPIs tutorial via useTour", async () => {
+    mockApi(mockFetch);
+    const startTutorial = vi.fn();
+    const user = userEvent.setup();
+    renderMyTeamKpis("/team-kpis", startTutorial);
+
+    const launcher = await screen.findByRole("button", { name: "How team KPIs work" });
+    await user.click(launcher);
+
+    expect(startTutorial).toHaveBeenCalledWith("teamKpis");
   });
 
   test("a disabled TEAM_KPIS feature redirects the page to / (v1.53.0)", async () => {

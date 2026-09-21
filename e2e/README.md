@@ -131,6 +131,7 @@ scenario file is the design.
 - [`one-on-ones.spec.ts`](scenarios/one-on-ones.md) — documenting 1:1s, action-item carry-over, subordinate notification.
 - [`one-on-ones-tutorial.spec.ts`](scenarios/one-on-ones-tutorial.md) — the "How 1:1 meetings work" guided tutorial (v3.18.0): the manager's 13-step and the non-manager's 6-step read-only walk, landmark order, and the return to the 1:1 meetings page with no non-GET API request issued during the walk.
 - [`impact-log-tutorial.spec.ts`](scenarios/impact-log-tutorial.md) — the "How the impact log works" guided tutorial (v3.19.0): the manager's 12-step and the non-manager's 9-step read-only walk, landmark order, and the return to the Impact log page with no non-GET API request issued during the walk.
+- [`team-kpis-tutorial.spec.ts`](scenarios/team-kpis-tutorial.md) — the "How team KPIs work" guided tutorial (v3.20.0): the manager's 14-step and the team member's 7-step read-only walk, landmark order, and the return to the Team KPIs page with no non-GET API request issued during the walk.
 - [`org-chart.spec.ts`](scenarios/org-chart.md) — the org-chart canvas and its drill-downs, plus the v2.40.0 team collapse/expand (cascading fold of a hidden member's own subtree).
 - [`password-reset.spec.ts`](scenarios/password-reset.md) — the Forgot-password flow (neutral answers, working new password; Mailpit-gated).
 - [`performance-reviews.spec.ts`](scenarios/performance-reviews.md) — review periods, the full review lifecycle, Distribution + Quadrants views.

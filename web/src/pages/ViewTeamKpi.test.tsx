@@ -151,6 +151,20 @@ describe("ViewTeamKpi", () => {
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   });
 
+  test("renders the Lifecycle tab with the state diagram highlighting the current status (v3.20.0)", async () => {
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderView();
+
+    await screen.findByText("Deploy weekly");
+    await user.click(screen.getByRole("tab", { name: "Lifecycle" }));
+    expect(
+      await screen.findByRole("img", { name: "Diagram of the team KPI lifecycle" }),
+    ).toBeInTheDocument();
+    // The KPI is ACTIVE — its node label still shows even while highlighted.
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
+  });
+
   test("a DRAFT offers the Edit link and Activate for the manager", async () => {
     mockApi(mockFetch, { ...KPI, status: "DRAFT" }, []);
     renderView();
