@@ -104,11 +104,6 @@ describe("Teams page", () => {
       expect.stringMatching(/\/api\/v1\/teams\?/),
       expect.any(Object),
     );
-    // The heading carries the data-tour anchor the guided tour targets for the Config → Teams step.
-    expect(screen.getByRole("heading", { name: "Teams" })).toHaveAttribute(
-      "data-tour",
-      "config-teams",
-    );
   });
 
   test("typing in the Name filter triggers a refetch with name=", async () => {

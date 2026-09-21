@@ -2,86 +2,49 @@ import { ADMIN, collapseAlertsBanner, expect, login, MANAGER_AAA, test } from ".
 import type { Page } from "@playwright/test";
 
 // The guided tour, actually walked twice: as a manager and as the admin, asserting the landmark
-// order the tour promises — every left-menu section (Changelog included) and every tab of the
-// views they open, before the header icons. Anchors/steps that vanish or reorder fail the walks.
-// The suite's tour-seen stub only suppresses the AUTO-start; the replay button always works.
+// order the tour promises — since v3.23.0 the tour is a menu presentation only: one stop per
+// left-nav leaf/group (navbar order), then the four header icons and the help/replay icon. No
+// step navigates anywhere — feature depth lives in the per-feature "How … works" tutorials
+// instead. The suite's tour-seen stub only suppresses the AUTO-start; the replay button always
+// works.
 //
-// Audience math over the 57 steps: MANAGER_AAA is a manager but NOT an ADMIN, so the three
-// admin-only Config leaves (Pulse cycles, Feature flags, Alerts) are absent → 54. The seed
-// admin is an ADMIN but manages no team, so the eight manager-only tab steps, the manager-only
-// Succession step, and the manager-or-HR Pulse participation step are absent → 47.
+// Audience math over the 22 steps: MANAGER_AAA is a manager, so the manager-only Succession step
+// is present → 22. The seed admin is an ADMIN but manages no team, so the Succession step is
+// absent → 21, +1 when the shared dev DB gives the admin a team (the existing `managerId` probe).
 
 const LANDMARKS = [
   "Take a quick tour",
-  "Feedback",
-  "Kudos — the public wall of appreciation",
-  "1:1 meetings",
-  "Goals — the goals you're involved in",
-  "My goals — the goals your managers set",
-  "Goals I've set — the goals you've set",
-  "Impact log — your personal journal",
-  "Team KPIs — the measurable indicators",
-  "My teams' KPIs — the active and archived KPIs",
-  "Managed KPIs — the KPIs of the teams you manage",
-  "Performance — the performance reviews your manager published",
-  "My performance — every review published about you",
-  "Team's performance — every subordinate's review",
-  "Career — your own position history",
-  "My career — every position you have held",
-  "Team pyramid — your subordinates' career paths",
-  "Days off — the team calendar",
-  "Calendar — who is away and when",
-  "My days off — add or remove your days off",
-  "My team — the days off your direct reports have on record",
-  "recurring pulse survey",
-  "Current survey — the open cycle's questions",
-  "Results — the anonymous eNPS",
-  "Trend — how a team's scores move",
-  "Participation — how many people in the teams you watch",
-  "Succession plans — a manager's private planning space",
-  "Config — users, teams",
-  "Review periods — the timeline of periods",
-  "Public holidays — the non-working days",
-  "Dictionaries — the shared lists",
-  "Your account",
-  "Email notifications",
-  "Changelog — what's new",
-  "Notifications",
+  "Dashboard —",
+  "Kudos —",
+  "Feedback —",
+  "1:1 meetings —",
+  "Goals —",
+  "Impact log —",
+  "Career —",
+  "Days off —",
+  "Team KPIs —",
+  "Performance —",
+  "Pulse —",
+  "Succession plans —",
+  "Config —",
+  "Dictionaries —",
+  "Change password —",
+  "Changelog —",
+  "Notifications —",
   "Switch the interface language",
   "Toggle light and dark",
   "Your account menu",
-  "Replay this tour",
+  "That's it!",
 ];
 
-// The admin walk's landmark subset: the manager-only tab steps drop out, the three admin-only
-// Config leaves join between the registries and Dictionaries (the TOUR_STEPS order).
-const ADMIN_LANDMARKS = [
-  "Take a quick tour",
-  "Feedback",
-  "1:1 meetings",
-  "Goals — the goals you're involved in",
-  "Impact log — your personal journal",
-  "Career — your own position history",
-  "My career — every position you have held",
-  "Days off — the team calendar",
-  "recurring pulse survey",
-  "Trend — how a team's scores move",
-  "Config — users, teams",
-  "Review periods — the timeline of periods",
-  "Public holidays — the non-working days",
-  "Pulse cycles — schedule a pulse survey",
-  "Feature flags — turn individual features on or off",
-  "Alerts — the announcement banners",
-  "Dictionaries — the shared lists",
-  "Your account",
-  "Email notifications",
-  "Replay this tour",
-];
+// The admin walk's landmark subset: the manager-only Succession step drops out, everything else
+// stays in the same order (the TOUR_STEPS navbar order).
+const ADMIN_LANDMARKS = LANDMARKS.filter((landmark) => landmark !== "Succession plans —");
 
 async function walkTour(page: Page): Promise<string[]> {
   await page.locator('[data-tour="replay"]').click();
   const seen: string[] = [];
-  for (let step = 1; step <= 60; step++) {
+  for (let step = 1; step <= 30; step++) {
     const counter = page.getByText(new RegExp(`^Step ${step} of \\d+$`));
     await expect(counter).toBeVisible();
     // The custom tooltip is the innermost element wrapping the counter + content + buttons.
@@ -107,28 +70,32 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-test("the guided tour walks all 54 manager steps in the documented order", async ({ page }) => {
+test("the guided tour walks all 22 manager menu steps in the documented order", async ({
+  page,
+}) => {
   await login(page, MANAGER_AAA);
   // A pre-existing active alert's expanded banner overlays the header (and the replay button).
   await collapseAlertsBanner(page);
+  const before = page.url();
   const seen = await walkTour(page);
 
-  expect(seen).toHaveLength(54);
+  expect(seen).toHaveLength(22);
   assertLandmarkOrder(seen, LANDMARKS);
-  // The tour's closing step returned home.
-  await expect(page).toHaveURL(/\/$|\?tab=/);
+  // No step navigates — the walk never left the Dashboard.
+  await expect(page).toHaveURL(before);
 });
 
-test("the guided tour walks the 47 admin steps including the admin-only Config leaves", async ({
+test("the guided tour walks the 21 admin menu steps without the manager-only Succession stop", async ({
   page,
   request,
 }) => {
   await login(page, ADMIN);
   await collapseAlertsBanner(page);
+  const before = page.url();
 
   // The shared dev DB may carry a manually created team managed by the admin, which would
-  // legitimately add the 8 manager-gated steps — derive the expectation from the same signal
-  // the app's own gate uses (`useIsManager`: total of teams with managerId = caller).
+  // legitimately add the Succession step — derive the expectation from the same signal the
+  // app's own gate uses (`useIsManager`: total of teams with managerId = caller).
   const token = await page.evaluate(() => localStorage.getItem("lettuce.auth.token"));
   const userId = await page.evaluate(() => localStorage.getItem("lettuce.auth.userId"));
   const managed = (await (
@@ -136,11 +103,12 @@ test("the guided tour walks the 47 admin steps including the admin-only Config l
       headers: { Authorization: `Bearer ${token}` },
     })
   ).json()) as { total: number };
-  const expected = 47 + (managed.total > 0 ? 10 : 0);
+  const expected = 21 + (managed.total > 0 ? 1 : 0);
 
   const seen = await walkTour(page);
 
   expect(seen).toHaveLength(expected);
   assertLandmarkOrder(seen, ADMIN_LANDMARKS);
-  await expect(page).toHaveURL(/\/$|\?tab=/);
+  // No step navigates — the walk never left the Dashboard.
+  await expect(page).toHaveURL(before);
 });

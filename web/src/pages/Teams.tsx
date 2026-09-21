@@ -97,7 +97,6 @@ export default function Teams() {
     <Stack gap="md">
       <PageHeader
         title={t("teams.title")}
-        tourId="config-teams"
         actions={
           admin && (
             <Button component={RouterLink} to="/teams/new" leftSection={<IconPlus size={16} />}>

@@ -74,7 +74,6 @@ export default function Templates() {
     <Stack gap="md">
       <PageHeader
         title={t("templates.title")}
-        tourId="config-templates"
         actions={
           admin && (
             <Button component={RouterLink} to="/templates/new" leftSection={<IconPlus size={16} />}>

@@ -51,11 +51,49 @@ import {
   hasSeenTour,
   waitForElement,
   TOUR_STEPS,
+  type TourStepDef,
 } from "./tourSupport";
 import { renderWithProviders } from "../test/render";
 
 const USER_ID_KEY = "lettuce.auth.userId";
 const ROLE_KEY = "lettuce.auth.roles";
+
+// A minimal def list exercising every gate/navTo `buildSteps` still supports generically (the
+// per-feature tutorials use them) even though no `TOUR_STEPS` def carries `navTo` since v3.23.0.
+const SYNTHETIC_DEFS: TourStepDef[] = [
+  { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
+  { target: '[data-tour="synthetic-admin"]', contentKey: "tour.steps.welcome", placement: "right", adminOnly: true },
+  {
+    target: '[data-tour="synthetic-manager-or-hr"]',
+    contentKey: "tour.steps.welcome",
+    placement: "right",
+    managerOrHr: true,
+  },
+  {
+    target: '[data-tour="synthetic-manager-only"]',
+    contentKey: "tour.steps.welcome",
+    placement: "right",
+    managerOnly: true,
+  },
+];
+
+// A def list exercising navTo resolution (static + `:userId`) — the whirlwind carries none of
+// these anymore, but the generic builder still resolves them for the tutorials.
+const NAVIGATING_SYNTHETIC_DEFS: TourStepDef[] = [
+  { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
+  {
+    target: '[data-tour="synthetic-static"]',
+    contentKey: "tour.steps.welcome",
+    placement: "right",
+    navTo: "/kudos",
+  },
+  {
+    target: '[data-tour="synthetic-userid"]',
+    contentKey: "tour.steps.welcome",
+    placement: "right",
+    navTo: "/users/:userId/change-password",
+  },
+];
 
 type JoyrideProps = {
   run: boolean;
@@ -117,132 +155,87 @@ describe("Tour", () => {
     vi.unstubAllGlobals();
   });
 
-  test("buildSteps resolves content through the translator and includes Config for everyone", () => {
+  test("buildSteps resolves content through the translator and includes the full menu (22 manager / 21 non-manager)", () => {
     const t = (k: string) => k;
-    const steps = buildSteps(TOUR_STEPS, t, false);
+    const manager = buildSteps(TOUR_STEPS, t, true);
+    const nonManager = buildSteps(TOUR_STEPS, t, false);
 
-    // Config is no longer admin-gated — its nav + subsection steps are present for any caller.
-    expect(steps.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
-    expect(steps.some((s) => s.target === '[data-tour="config-users"]')).toBe(true);
-    expect(steps.some((s) => s.target === '[data-tour="config-teams"]')).toBe(true);
-    expect(steps.some((s) => s.target === '[data-tour="config-templates"]')).toBe(true);
+    expect(manager).toHaveLength(22);
+    expect(nonManager).toHaveLength(21);
+    // Config is present for everyone — it is no longer admin-gated.
+    expect(nonManager.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
     // Content is resolved through the translator.
-    expect(steps[0].content).toBe(TOUR_STEPS[0].contentKey);
+    expect(manager[0].content).toBe(TOUR_STEPS[0].contentKey);
   });
 
-  test("buildSteps gates the manager-only steps on being a manager", () => {
+  test("buildSteps gates only the Succession step on being a manager", () => {
     const t = (k: string) => k;
     const nonManager = buildSteps(TOUR_STEPS, t, false);
     const manager = buildSteps(TOUR_STEPS, t, true);
 
-    // Feedback "My team", the two manager-side 1:1 tabs, the manager-side Goals, Team-KPI and
-    // Performance tabs, the Days-off team tab, and the Succession nav step are manager-only.
-    // Pulse "participation" is managerOrHr, which for this non-HR caller flips on being a
-    // manager just the same.
-    const managerGatedTargets = [
-      '[data-tour="feedback-team"]',
-      '[data-tour="one-on-one-managed"]',
-      '[data-tour="one-on-one-team"]',
-      '[data-tour="goals-managed"]',
-      '[data-tour="team-kpis-managed"]',
-      '[data-tour="performance-managed"]',
-      '[data-tour="career-pyramid"]',
-      '[data-tour="days-off-team"]',
-      '[data-tour="pulse-participation"]',
-      '[data-tour="nav-succession"]',
-    ];
-    for (const target of managerGatedTargets) {
-      expect(nonManager.some((s) => s.target === target), target).toBe(false);
-      expect(manager.some((s) => s.target === target), target).toBe(true);
-    }
-    expect(manager).toHaveLength(nonManager.length + managerGatedTargets.length);
-    // The 1:1 nav step and its "own" tab are for everyone — as is the Goals "My goals" tab.
-    expect(nonManager.some((s) => s.target === '[data-tour="nav-one-on-ones"]')).toBe(true);
-    expect(nonManager.some((s) => s.target === '[data-tour="one-on-one-own"]')).toBe(true);
-    expect(nonManager.some((s) => s.target === '[data-tour="goals-own"]')).toBe(true);
-    expect(nonManager.some((s) => s.target === '[data-tour="team-kpis-own"]')).toBe(true);
-    // The Performance nav step is for everyone — one's own published reviews.
-    expect(nonManager.some((s) => s.target === '[data-tour="nav-performance"]')).toBe(true);
-    // As are the Days-off and Pulse tabs everyone can open.
-    expect(nonManager.some((s) => s.target === '[data-tour="days-off-calendar"]')).toBe(true);
-    expect(nonManager.some((s) => s.target === '[data-tour="days-off-requests"]')).toBe(true);
-    expect(nonManager.some((s) => s.target === '[data-tour="pulse-survey"]')).toBe(true);
-    expect(nonManager.some((s) => s.target === '[data-tour="pulse-results"]')).toBe(true);
-  });
-
-  test("buildSteps gates the three admin-only Config leaves on being an ADMIN", () => {
-    const t = (k: string) => k;
-    const adminOnlyTargets = [
-      '[data-tour="config-pulse-cycles"]',
-      '[data-tour="config-feature-flags"]',
-      '[data-tour="config-alerts"]',
-    ];
-
-    // The navbar appends these three leaves for ADMIN alone, so the steps follow.
-    const plain = buildSteps(TOUR_STEPS, t, false);
-    for (const target of adminOnlyTargets) {
-      expect(plain.some((s) => s.target === target), target).toBe(false);
-    }
-
-    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
-    const admin = buildSteps(TOUR_STEPS, t, false);
-    for (const target of adminOnlyTargets) {
-      expect(admin.some((s) => s.target === target), target).toBe(true);
-    }
-    expect(admin).toHaveLength(plain.length + adminOnlyTargets.length);
-
-    // The rest of Config — including the two read-open registries — stays ungated by role.
+    expect(nonManager.some((s) => s.target === '[data-tour="nav-succession"]')).toBe(false);
+    expect(manager.some((s) => s.target === '[data-tour="nav-succession"]')).toBe(true);
+    expect(manager).toHaveLength(nonManager.length + 1);
+    // Every other stop (Config included) is for everyone regardless of role.
     for (const target of [
-      '[data-tour="config-review-periods"]',
-      '[data-tour="config-public-holidays"]',
+      '[data-tour="nav-dashboard"]',
+      '[data-tour="nav-config"]',
       '[data-tour="nav-dictionaries"]',
     ]) {
-      expect(plain.some((s) => s.target === target), target).toBe(true);
+      expect(nonManager.some((s) => s.target === target), target).toBe(true);
     }
   });
 
-  test("buildSteps shows the Pulse participation tab to an HR auditor who manages nobody", () => {
+  test("buildSteps still supports adminOnly and managerOrHr gates over a synthetic def list (the tutorials use them)", () => {
     const t = (k: string) => k;
-    const target = '[data-tour="pulse-participation"]';
 
-    expect(buildSteps(TOUR_STEPS, t, false).some((s) => s.target === target)).toBe(false);
+    const plain = buildSteps(SYNTHETIC_DEFS, t, false);
+    expect(plain.some((s) => s.target === '[data-tour="synthetic-admin"]')).toBe(false);
+    expect(plain.some((s) => s.target === '[data-tour="synthetic-manager-or-hr"]')).toBe(false);
+    expect(plain.some((s) => s.target === '[data-tour="synthetic-manager-only"]')).toBe(false);
 
-    // The page shows the tab when `isManager || isHr()` — the step's managerOrHr gate matches.
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
+    const admin = buildSteps(SYNTHETIC_DEFS, t, false);
+    expect(admin.some((s) => s.target === '[data-tour="synthetic-admin"]')).toBe(true);
+    // ADMIN alone doesn't satisfy managerOrHr/managerOnly.
+    expect(admin.some((s) => s.target === '[data-tour="synthetic-manager-or-hr"]')).toBe(false);
+    expect(admin.some((s) => s.target === '[data-tour="synthetic-manager-only"]')).toBe(false);
+
     localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
-    expect(buildSteps(TOUR_STEPS, t, false).some((s) => s.target === target)).toBe(true);
-    // HR alone unlocks nothing else — the admin-only Config leaves stay hidden.
-    expect(buildSteps(TOUR_STEPS, t, false).some((s) => s.target === '[data-tour="config-alerts"]')).toBe(false);
+    const hr = buildSteps(SYNTHETIC_DEFS, t, false);
+    // HR alone satisfies managerOrHr but not managerOnly/adminOnly.
+    expect(hr.some((s) => s.target === '[data-tour="synthetic-manager-or-hr"]')).toBe(true);
+    expect(hr.some((s) => s.target === '[data-tour="synthetic-manager-only"]')).toBe(false);
+    expect(hr.some((s) => s.target === '[data-tour="synthetic-admin"]')).toBe(false);
+
+    // A manager (no roles) also satisfies managerOrHr AND managerOnly.
+    const manager = buildSteps(SYNTHETIC_DEFS, t, true);
+    expect(manager.some((s) => s.target === '[data-tour="synthetic-manager-or-hr"]')).toBe(true);
+    expect(manager.some((s) => s.target === '[data-tour="synthetic-manager-only"]')).toBe(true);
   });
 
-  test("buildSteps drops a disabled feature's steps and renumbers against the shrunk total", () => {
+  test("buildSteps drops a disabled feature's step (21 manager / 20 non-manager) and renumbers against the shrunk total", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
-    const all = buildSteps(TOUR_STEPS, t, true);
 
     localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["GOALS"]));
     try {
-      const filtered = buildSteps(TOUR_STEPS, t, true);
+      const manager = buildSteps(TOUR_STEPS, t, true);
+      const nonManager = buildSteps(TOUR_STEPS, t, false);
 
-      const goalTargets = [
-        '[data-tour="nav-my-goals"]',
-        '[data-tour="goals-own"]',
-        '[data-tour="goals-managed"]',
-      ];
-      for (const target of goalTargets) {
-        expect(all.some((s) => s.target === target), target).toBe(true);
-        expect(filtered.some((s) => s.target === target), target).toBe(false);
-      }
-      expect(filtered).toHaveLength(all.length - goalTargets.length);
+      expect(manager.some((s) => s.target === '[data-tour="nav-my-goals"]')).toBe(false);
+      expect(manager).toHaveLength(21);
+      expect(nonManager).toHaveLength(20);
       // The "Step X of Y" numbering shrinks with the filtered total.
-      const total = filtered.length;
-      expect(filtered[0].title).toBe(`1/${total}`);
-      expect(filtered[total - 1].title).toBe(`${total}/${total}`);
+      const total = manager.length;
+      expect(manager[0].title).toBe(`1/${total}`);
+      expect(manager[total - 1].title).toBe(`${total}/${total}`);
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }
   });
 
-  test("buildSteps with all nine features disabled keeps only the non-feature steps", () => {
+  test("buildSteps with every feature disabled keeps only the 12 non-feature steps", () => {
     localStorage.setItem(
       "lettuce.auth.disabledFeatures",
       JSON.stringify([
@@ -258,30 +251,16 @@ describe("Tour", () => {
       ]),
     );
     try {
+      // A manager caller too: Succession is additionally feature-tagged, so it stays excluded.
       const steps = buildSteps(TOUR_STEPS, (k) => k, true);
 
-      // Exactly the untagged steps survive, in order: welcome, the dashboard block, the
-      // Config block, Dictionaries, account/changelog, the header chrome, and the closing
-      // replay step. This caller is not an ADMIN, so the admin-only Config leaves are absent
-      // too (Pulse cycles is additionally feature-tagged).
       expect(steps.map((s) => s.target)).toEqual([
         "body",
         '[data-tour="nav-dashboard"]',
-        '[data-tour="dashboard-managers"]',
-        '[data-tour="dashboard-peers"]',
-        '[data-tour="dashboard-subordinates"]',
-        '[data-tour="dashboard-myTeams"]',
         '[data-tour="nav-career"]',
-        '[data-tour="career-my"]',
-        '[data-tour="career-pyramid"]',
         '[data-tour="nav-config"]',
-        '[data-tour="config-users"]',
-        '[data-tour="config-teams"]',
-        '[data-tour="config-org"]',
-        '[data-tour="config-templates"]',
         '[data-tour="nav-dictionaries"]',
         '[data-tour="nav-change-password"]',
-        '[data-tour="account-email-notifications"]',
         '[data-tour="nav-changelog"]',
         '[data-tour="notifications"]',
         '[data-tour="language"]',
@@ -289,7 +268,7 @@ describe("Tour", () => {
         '[data-tour="user-menu"]',
         '[data-tour="replay"]',
       ]);
-      expect(steps).toHaveLength(TOUR_STEPS.filter((s) => !s.feature && !s.adminOnly).length);
+      expect(steps).toHaveLength(12);
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }
@@ -305,89 +284,25 @@ describe("Tour", () => {
     expect(steps[total - 1].title).toBe(`${total}/${total}`);
   });
 
-  test("steps with a navTo change the view via their before hook before showing", async () => {
+  test("no whirlwind step navigates — TOUR_STEPS carries no navTo (v3.23.0)", () => {
+    expect(TOUR_STEPS.every((s) => s.navTo === undefined)).toBe(true);
+  });
+
+  test("steps with a navTo change the view via their before hook before showing (generic builder, synthetic defs)", async () => {
     const t = (k: string) => k;
     const navigateTo = vi.fn(() => Promise.resolve());
-    // manager=true so the Feedback "My team" step is included, ADMIN so the admin-only Config
-    // leaves are too (this table covers every navigating step); userId feeds the :userId navTo.
-    localStorage.setItem(ROLE_KEY, JSON.stringify(["ADMIN"]));
-    const steps = buildSteps(TOUR_STEPS, t, true, navigateTo, 7);
+    const steps = buildSteps(NAVIGATING_SYNTHETIC_DEFS, t, true, navigateTo, 7);
 
-    const cases: { target: string; path: string }[] = [
-      // Each lazy section's nav step navigates a step early so its subsections' targets exist.
-      { target: '[data-tour="nav-dashboard"]', path: "/?tab=managers" },
-      { target: '[data-tour="dashboard-managers"]', path: "/?tab=managers" },
-      { target: '[data-tour="dashboard-peers"]', path: "/?tab=peers" },
-      { target: '[data-tour="dashboard-subordinates"]', path: "/?tab=subordinates" },
-      { target: '[data-tour="dashboard-myTeams"]', path: "/?tab=myTeams" },
-      { target: '[data-tour="nav-feedback"]', path: "/feedback?tab=received" },
-      { target: '[data-tour="feedback-received"]', path: "/feedback?tab=received" },
-      { target: '[data-tour="feedback-provided"]', path: "/feedback?tab=provided" },
-      { target: '[data-tour="feedback-team"]', path: "/feedback?tab=team" },
-      { target: '[data-tour="nav-kudos"]', path: "/kudos" },
-      { target: '[data-tour="nav-one-on-ones"]', path: "/one-on-ones?tab=managed" },
-      { target: '[data-tour="one-on-one-managed"]', path: "/one-on-ones?tab=managed" },
-      { target: '[data-tour="one-on-one-own"]', path: "/one-on-ones?tab=own" },
-      { target: '[data-tour="one-on-one-team"]', path: "/one-on-ones?tab=team" },
-      { target: '[data-tour="nav-my-goals"]', path: "/goals" },
-      { target: '[data-tour="goals-own"]', path: "/goals?tab=own" },
-      { target: '[data-tour="goals-managed"]', path: "/goals?tab=managed" },
-      { target: '[data-tour="nav-impact-log"]', path: "/impact-log" },
-      { target: '[data-tour="nav-team-kpis"]', path: "/team-kpis" },
-      { target: '[data-tour="team-kpis-own"]', path: "/team-kpis?tab=own" },
-      { target: '[data-tour="team-kpis-managed"]', path: "/team-kpis?tab=managed" },
-      { target: '[data-tour="nav-performance"]', path: "/performance?tab=own" },
-      { target: '[data-tour="performance-own"]', path: "/performance?tab=own" },
-      { target: '[data-tour="performance-managed"]', path: "/performance?tab=managed" },
-      { target: '[data-tour="nav-career"]', path: "/career?tab=my" },
-      { target: '[data-tour="career-my"]', path: "/career?tab=my" },
-      { target: '[data-tour="career-pyramid"]', path: "/career?tab=pyramid" },
-      { target: '[data-tour="nav-days-off"]', path: "/days-off" },
-      { target: '[data-tour="days-off-calendar"]', path: "/days-off?tab=calendar" },
-      { target: '[data-tour="days-off-requests"]', path: "/days-off?tab=requests" },
-      { target: '[data-tour="days-off-team"]', path: "/days-off?tab=team" },
-      { target: '[data-tour="nav-pulse"]', path: "/pulse" },
-      { target: '[data-tour="pulse-survey"]', path: "/pulse?tab=survey" },
-      { target: '[data-tour="pulse-results"]', path: "/pulse?tab=results" },
-      { target: '[data-tour="pulse-trend"]', path: "/pulse?tab=trend" },
-      { target: '[data-tour="pulse-participation"]', path: "/pulse?tab=participation" },
-      { target: '[data-tour="nav-succession"]', path: "/succession" },
-      { target: '[data-tour="nav-config"]', path: "/users" },
-      { target: '[data-tour="config-users"]', path: "/users" },
-      { target: '[data-tour="config-teams"]', path: "/teams" },
-      { target: '[data-tour="config-org"]', path: "/org" },
-      { target: '[data-tour="config-templates"]', path: "/templates" },
-      // Each Config leaf step opens its own screen and anchors on that page's title.
-      { target: '[data-tour="config-review-periods"]', path: "/review-periods" },
-      { target: '[data-tour="config-public-holidays"]', path: "/public-holidays" },
-      { target: '[data-tour="config-pulse-cycles"]', path: "/pulse-cycles" },
-      { target: '[data-tour="config-feature-flags"]', path: "/feature-flags" },
-      { target: '[data-tour="config-alerts"]', path: "/alerts" },
-      // The Dictionaries group step opens the first of its four lists.
-      { target: '[data-tour="nav-dictionaries"]', path: "/dictionaries/career-paths" },
-      // These anchor on the navbar leaf but also open the actual screen (":userId" resolved).
-      { target: '[data-tour="nav-change-password"]', path: "/users/7/change-password" },
-      // Email notifications has no navbar leaf (account-menu only) — the step opens the screen
-      // and anchors on its page title, the config-leaf idiom.
-      { target: '[data-tour="account-email-notifications"]', path: "/users/7/email-notifications" },
-      { target: '[data-tour="nav-changelog"]', path: "/changelog" },
-      // The closing step returns home.
-      { target: '[data-tour="replay"]', path: "/" },
-    ];
-    // The table is exhaustive: this caller (ADMIN + manager + every feature) sees every step,
-    // so a newly added navigating step fails here until it is covered above.
-    expect(cases.map((c) => c.target).sort()).toEqual(
-      TOUR_STEPS.filter((s) => s.navTo)
-        .map((s) => s.target)
-        .sort(),
+    const staticStep = steps.find((s) => s.target === '[data-tour="synthetic-static"]');
+    await staticStep!.before!({} as never);
+    expect(navigateTo).toHaveBeenCalledWith("/kudos", '[data-tour="synthetic-static"]');
+
+    const userIdStep = steps.find((s) => s.target === '[data-tour="synthetic-userid"]');
+    await userIdStep!.before!({} as never);
+    expect(navigateTo).toHaveBeenCalledWith(
+      "/users/7/change-password",
+      '[data-tour="synthetic-userid"]',
     );
-    for (const { target, path } of cases) {
-      const step = steps.find((s) => s.target === target);
-      expect(step, `missing step for ${path}`).toBeDefined();
-      await step!.before!({} as never);
-      expect(navigateTo).toHaveBeenCalledWith(path, target);
-    }
-    expect(navigateTo).toHaveBeenCalledTimes(cases.length);
 
     // A step without navTo (the welcome step) still has a before hook (it pins the scroll to
     // the top) but never navigates.
@@ -397,17 +312,17 @@ describe("Tour", () => {
     expect(navigateTo).not.toHaveBeenCalled();
   });
 
-  test("a :userId navTo degrades to not navigating when the caller id is unknown", async () => {
+  test("a :userId navTo degrades to not navigating when the caller id is unknown (synthetic defs)", async () => {
     const navigateTo = vi.fn(() => Promise.resolve());
-    const steps = buildSteps(TOUR_STEPS, (k) => k, false, navigateTo, null);
+    const steps = buildSteps(NAVIGATING_SYNTHETIC_DEFS, (k) => k, false, navigateTo, null);
 
-    const account = steps.find((s) => s.target === '[data-tour="nav-change-password"]');
-    await account!.before!({} as never);
+    const userIdStep = steps.find((s) => s.target === '[data-tour="synthetic-userid"]');
+    await userIdStep!.before!({} as never);
     expect(navigateTo).not.toHaveBeenCalled();
     // Static navTo steps are unaffected by the missing id.
-    const impactLog = steps.find((s) => s.target === '[data-tour="nav-impact-log"]');
-    await impactLog!.before!({} as never);
-    expect(navigateTo).toHaveBeenCalledWith("/impact-log", '[data-tour="nav-impact-log"]');
+    const staticStep = steps.find((s) => s.target === '[data-tour="synthetic-static"]');
+    await staticStep!.before!({} as never);
+    expect(navigateTo).toHaveBeenCalledWith("/kudos", '[data-tour="synthetic-static"]');
   });
 
   test("every step disables Joyride scrolling and pins the window to the top itself", async () => {

@@ -59,11 +59,6 @@ describe("PublicHolidays page", () => {
     // Each date carries its weekday (v3.1.0): 2026-01-06 is a Tuesday, 2026-05-01 a Friday.
     expect(screen.getByText("Tue")).toBeInTheDocument();
     expect(screen.getByText("Fri")).toBeInTheDocument();
-    // The heading carries the data-tour anchor for the Config → Public holidays step.
-    expect(screen.getByRole("heading", { name: "Public holidays" })).toHaveAttribute(
-      "data-tour",
-      "config-public-holidays",
-    );
     expect(
       screen.getByText(
         "On these dates everyone is off and nothing is deducted from paid-days budgets. The list is maintained by administrators.",

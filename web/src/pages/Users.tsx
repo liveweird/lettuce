@@ -260,7 +260,6 @@ export default function Users() {
     <Stack gap="md">
       <PageHeader
         title={t("users.title")}
-        tourId="config-users"
         actions={
           admin && (
             <>

@@ -186,7 +186,6 @@ export default function FeatureFlags() {
     <Stack gap="md">
       <PageHeader
         title={t("users.featureFlags.title")}
-        tourId="config-feature-flags"
         actions={
           <>
             <Button

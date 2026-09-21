@@ -47,10 +47,6 @@ describe("Dashboard", () => {
       "data-tour",
       "dashboard-managers",
     );
-    expect(screen.getByRole("tab", { name: "My peers" })).toHaveAttribute(
-      "data-tour",
-      "dashboard-peers",
-    );
     expect(screen.getByRole("tab", { name: "My subordinates" })).toHaveAttribute(
       "data-tour",
       "dashboard-subordinates",

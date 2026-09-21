@@ -98,7 +98,6 @@ export default function Alerts() {
     <Stack gap="md">
       <PageHeader
         title={t("alerts.title")}
-        tourId="config-alerts"
         actions={
           <Button component={RouterLink} to="/alerts/new" leftSection={<IconPlus size={16} />}>
             {t("alerts.create")}

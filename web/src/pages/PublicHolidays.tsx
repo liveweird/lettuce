@@ -83,7 +83,6 @@ export default function PublicHolidays() {
     <Stack gap="md">
       <PageHeader
         title={t("daysOff.holidays.title")}
-        tourId="config-public-holidays"
         description={t(admin ? "daysOff.holidays.hint" : "daysOff.holidays.hintReadOnly")}
       />
 

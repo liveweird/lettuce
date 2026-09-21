@@ -317,7 +317,7 @@ export default function OrgChart() {
     <Stack gap="md" h="100%">
       <Stack gap={4}>
         <Group justify="space-between" align="flex-end" wrap="wrap">
-          <Title order={2} data-tour="config-org">
+          <Title order={2}>
             {t("org.title")}
           </Title>
           <Group gap="md">
