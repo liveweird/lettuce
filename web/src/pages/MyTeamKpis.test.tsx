@@ -185,6 +185,31 @@ describe("MyTeamKpis page", () => {
     expect(screen.queryByRole("tab", { name: "Managed KPIs" })).not.toBeInTheDocument();
   });
 
+  test("HR: the All-teams tab appears and lists the org-wide view=all KPIs (v3.24.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderMyTeamKpis();
+
+    const allTab = await screen.findByRole("tab", { name: "All teams" });
+    await user.click(allTab);
+
+    expect(await screen.findByText("Team AAA")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(kpiUrls(mockFetch).some((u) => u.includes("view=all"))).toBe(true);
+    });
+  });
+
+  test("a non-HR caller never sees the All-teams tab, even via ?tab=all", async () => {
+    mockApi(mockFetch);
+    renderMyTeamKpis("/team-kpis?tab=all");
+
+    // Falls back to the member tab, not the auditor view.
+    expect(await screen.findByText("Team AAA")).toBeInTheDocument();
+    expect(kpiUrls(mockFetch).at(-1)).toContain("view=own");
+    expect(screen.queryByRole("tab", { name: "All teams" })).not.toBeInTheDocument();
+  });
+
   test("the tutorial launcher starts the team KPIs tutorial via useTour", async () => {
     mockApi(mockFetch);
     const startTutorial = vi.fn();

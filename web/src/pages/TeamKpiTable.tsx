@@ -69,7 +69,8 @@ export default function TeamKpiTable({
   const teamColumnVisible = teamId == null;
   // The Creator column (v2.26.0): managed surfaces only — the subtree view lists KPIs set by
   // other managers, so who set each one becomes information; the member view stays lean.
-  const creatorColumnVisible = view === "managed";
+  // The org-wide HR auditor view ("all", v3.24.0) spans every manager's KPIs too.
+  const creatorColumnVisible = view === "managed" || view === "all";
   const sortFields: readonly SortField[] = [
     ...BASE_SORT_FIELDS,
     ...(teamColumnVisible ? (["teamName"] as const) : []),

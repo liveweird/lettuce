@@ -176,7 +176,7 @@
   "removeRole": "Remove role {{role}}",
   "audit": {
     "title": "Audit",
-    "hint": "Read-only auditor access to everything {{name}} is a party to — feedbacks, 1:1 meetings, and goals. This access is recorded.",
+    "hint": "Read-only auditor access to everything {{name}} is a party to — feedback, 1:1 meetings, goals, performance reviews, days off, the impact log and succession plans. This access is recorded.",
     "feedbacksAria": "Audit feedbacks of {{name}}",
     "oneOnOnesAria": "Audit 1:1 meetings of {{name}}",
     "goalsAria": "Audit goals of {{name}}",

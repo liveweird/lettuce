@@ -90,6 +90,7 @@ describe("PulseResults", () => {
     results = RESULTS as unknown,
     member = [{ id: 11, name: "AAA" }] as { id: number; name: string }[],
     monitored = [] as { id: number; name: string }[],
+    allTeams = undefined as { id: number; name: string }[] | undefined,
     comments = { items: [], responseCount: 3, insufficientResponses: false } as unknown,
   } = {}) {
     mockFetch.mockImplementation((url: string) => {
@@ -100,6 +101,8 @@ describe("PulseResults", () => {
             resultsTeams: [...member, ...monitored],
             monitoredTeams: monitored,
             memberTeams: member,
+            // Omitted entirely for a non-auditor — the server contract (v3.24.0).
+            ...(allTeams != null ? { allTeams } : {}),
           }),
         );
       }
@@ -302,6 +305,51 @@ describe("PulseResults", () => {
     renderWithProviders(<PulseResults />);
     expect(await screen.findByText("You don't manage any teams.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "AAA" })).toBeNull();
+  });
+
+  test("HR: the scope control gains an All-teams option, fed by the allTeams bucket (v3.24.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    setupMocks({
+      member: [{ id: 11, name: "AAA" }],
+      monitored: [],
+      allTeams: [
+        { id: 11, name: "AAA" },
+        { id: 31, name: "CCC" },
+      ],
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<PulseResults />);
+
+    await screen.findByRole("heading", { name: "AAA" });
+    expect(screen.getByRole("radio", { name: "All teams" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "All teams" }));
+    expect(await screen.findByRole("heading", { name: "CCC" })).toBeInTheDocument();
+    // The calc toggle applies to "all" exactly like it does to "managed".
+    expect(screen.getByRole("radio", { name: "Direct members only" })).toBeInTheDocument();
+  });
+
+  test("a non-HR caller never sees the All-teams scope option", async () => {
+    setupMocks();
+    renderWithProviders(<PulseResults />);
+    await screen.findByRole("heading", { name: "AAA" });
+    expect(screen.queryByRole("radio", { name: "All teams" })).toBeNull();
+  });
+
+  test("HR with no own/managed teams defaults to the All-teams scope (v3.24.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    setupMocks({ member: [], monitored: [], allTeams: [{ id: 31, name: "CCC" }] });
+    renderWithProviders(<PulseResults />);
+    expect(await screen.findByRole("heading", { name: "CCC" })).toBeInTheDocument();
+  });
+
+  test("a stale stored All-teams value never applies to a non-auditor", async () => {
+    localStorage.setItem("lettuce.viewSettings.pulse.results.view", JSON.stringify("all"));
+    setupMocks();
+    renderWithProviders(<PulseResults />);
+    // Falls back to the member view instead of a hidden/broken auditor scope.
+    expect(await screen.findByRole("heading", { name: "AAA" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "All teams" })).toBeNull();
   });
 
   test("no closed cycles yet → the empty state", async () => {

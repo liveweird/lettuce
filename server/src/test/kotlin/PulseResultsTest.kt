@@ -455,7 +455,7 @@ class PulseResultsTest {
     }
 
     @Test
-    fun `visible teams - the three scopes per role`() = testApplication {
+    fun `visible teams - the three caller-relative scopes per role, plus HR's allTeams`() = testApplication {
         usePostgresTestcontainer()
         TestPulse.sweepNonTerminal()
         val fx = org()
@@ -463,25 +463,31 @@ class PulseResultsTest {
         TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
         suspend fun HttpClient.visible() = get("/api/v1/pulse-surveys/visible-teams").body<PulseVisibleTeams>()
 
-        // A member: results yes, membership yes, monitoring no.
+        // A member: results yes, membership yes, monitoring no. Non-HR: no allTeams key.
         val x = authedClient(fx.xEmail, "pw")
         val xTeams = x.visible()
         assertTrue(xTeams.resultsTeams.any { it.id == fx.teamId })
         assertTrue(xTeams.memberTeams.any { it.id == fx.teamId })
         assertTrue(xTeams.monitoredTeams.none { it.id == fx.teamId })
+        assertNull(xTeams.allTeams)
         // The manager: results + monitoring, but NOT membership (v2.12.0 — managing a team
-        // never makes you a member of it).
+        // never makes you a member of it). Non-HR: no allTeams key.
         val manager = authedClient(fx.managerEmail, "pw")
         val mTeams = manager.visible()
         assertTrue(mTeams.resultsTeams.any { it.id == fx.teamId })
         assertTrue(mTeams.monitoredTeams.any { it.id == fx.teamId })
         assertTrue(mTeams.memberTeams.none { it.id == fx.teamId })
-        // HR: everything, all three scopes (the auditor posture).
+        assertNull(mTeams.allTeams)
+        // HR (v3.24.0): the three scopes are now HONEST caller-relative buckets too — an HR
+        // caller who is neither a member nor a manager of fx's team sees it in none of them —
+        // but gets the org-wide `allTeams` on top, which DOES carry it.
         val hr = authedClient(hrEmail, "pw")
         val hrTeams = hr.visible()
-        assertTrue(hrTeams.resultsTeams.any { it.id == fx.teamId })
-        assertTrue(hrTeams.monitoredTeams.any { it.id == fx.teamId })
-        assertTrue(hrTeams.memberTeams.any { it.id == fx.teamId })
+        assertTrue(hrTeams.resultsTeams.none { it.id == fx.teamId })
+        assertTrue(hrTeams.monitoredTeams.none { it.id == fx.teamId })
+        assertTrue(hrTeams.memberTeams.none { it.id == fx.teamId })
+        assertNotNull(hrTeams.allTeams)
+        assertTrue(hrTeams.allTeams!!.any { it.id == fx.teamId })
     }
 
     @Test

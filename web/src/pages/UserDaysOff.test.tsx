@@ -271,18 +271,45 @@ describe("UserDaysOff", () => {
     expect(await screen.findByText("DAYS_OFF_HOME")).toBeInTheDocument();
   });
 
-  test("HR audit mode renders the read-only user view with the corrections section", async () => {
+  test("HR audit mode renders the read-only user view with the budget and the corrections section", async () => {
     localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
     setupMocks();
     renderPage("/users/9/days-off?name=Riley%20Report&from=details&mode=audit");
 
     expect(await screen.findByRole("heading", { name: "Days off of Riley Report" })).toBeInTheDocument();
-    expect(await screen.findByText("Paid days off")).toBeInTheDocument();
+    expect((await screen.findAllByText("Paid days off")).length).toBeGreaterThan(0);
     // Read-only: no Delete action, but the corrections list section is present.
     expect(screen.queryByLabelText(/^Delete/)).toBeNull();
     expect(await screen.findByText("No corrections yet.")).toBeInTheDocument();
-    const listCall = mockFetch.mock.calls.find(([u]) => String(u).includes("view=user"));
+    const listCall = mockFetch.mock.calls.find(
+      ([u]) => String(u).includes("view=user") && !String(u).includes("budgets"),
+    );
     expect(String(listCall?.[0])).toContain("userId=9");
+  });
+
+  test("HR audit mode shows the paid-leave budget behind the corrections, read-only (v3.24.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    setupMocks(BUDGET, [STUDY_POOL]);
+    renderPage("/users/9/days-off?name=Riley%20Report&from=details&mode=audit");
+
+    // The budget section renders with its own auditor fetch — view=user, pinned to the person.
+    expect(
+      await screen.findByText(`Paid days off of Riley Report in ${new Date().getFullYear()}`),
+    ).toBeInTheDocument();
+    const budgetCall = mockFetch.mock.calls.find(([u]) => String(u).includes("/days-off/budgets"));
+    expect(String(budgetCall?.[0])).toContain("view=user");
+    expect(String(budgetCall?.[0])).toContain("userId=9");
+
+    // …and every write affordance of the manager flavor is absent.
+    expect(screen.queryByLabelText("Add a paid pool for Riley Report")).toBeNull();
+    expect(screen.queryByLabelText(/^Edit the .* allowance of Riley Report$/)).toBeNull();
+    expect(screen.queryByLabelText(/^Archive the .* pool of Riley Report$/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Corrections" })).toBeNull();
+
+    // The corrections hint speaks about the audited person, never to the reader (v3.24.0).
+    expect(
+      await screen.findByText(/Manual ± adjustments Riley Report's managers made to their paid-days budget/),
+    ).toBeInTheDocument();
   });
 
   test("Add pool with every kind already granted offers nothing and keeps the Add button disabled (v3.2.1)", async () => {

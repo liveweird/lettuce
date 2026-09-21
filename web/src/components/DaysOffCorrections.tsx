@@ -59,11 +59,16 @@ export default function DaysOffCorrections({
   defaultYear,
   canManage,
   pools = [],
+  subjectName,
 }: {
   userId: number;
   /** The year the add form pre-selects — the budget view's currently shown year. */
   defaultYear: number;
   canManage: boolean;
+  /** Set by the HR audit view (v3.24.0): the person these corrections belong to. It picks the
+   * THIRD-person hint — the plain read-only hint speaks to the reader about their own budget,
+   * which is right on one's own days-off page and wrong when auditing someone else. */
+  subjectName?: string;
   /** The user's non-archived pools (from their budget rows) — the add form's Pool options;
    * the add form pre-selects the default (first) one. */
   pools?: { id: number; name: string }[];
@@ -141,7 +146,11 @@ export default function DaysOffCorrections({
   return (
     <Stack gap="md">
       <Text size="sm" c="dimmed">
-        {t(canManage ? "daysOff.corrections.hint" : "daysOff.corrections.hintReadOnly")}
+        {canManage
+          ? t("daysOff.corrections.hint")
+          : subjectName != null
+            ? t("daysOff.corrections.hintAudit", { name: subjectName })
+            : t("daysOff.corrections.hintReadOnly")}
       </Text>
 
       {isError && (

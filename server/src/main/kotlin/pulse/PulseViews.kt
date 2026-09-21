@@ -1,6 +1,8 @@
 package ch.nokillswit.pulse
 
 import ch.nokillswit.teams.TeamRef
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -88,10 +90,21 @@ data class PulseTrendResponse(
 
 @Serializable
 data class PulseVisibleTeams(
-    /** Teams the caller may open results for (own + managed + below; HR: all). */
+    /** Teams the caller may open results for (own + managed + below). */
     val resultsTeams: List<TeamRef>,
-    /** Teams the caller may monitor (managed + below; HR: all; empty for non-managers). */
+    /** Teams the caller may monitor (managed + below; empty for non-managers). */
     val monitoredTeams: List<TeamRef>,
-    /** Teams the caller is a MEMBER of (v2.12.0 — the Results tab's "Teams I belong to" view; HR: all). */
+    /** Teams the caller is a MEMBER of (v2.12.0 — the Results tab's "Teams I belong to" view). */
     val memberTeams: List<TeamRef>,
+    /**
+     * HR auditors only (v3.24.0 — omitted for everyone else, the users-list `teams`
+     * enrichment idiom): every team, backing the explicit "All teams" scope. Until v3.24.0 an
+     * HR caller got every team in the three buckets above instead, which made the
+     * caller-relative scopes indistinguishable and mislabeled; those three are honest for HR
+     * now. EncodeDefault(NEVER) omits the key for a non-HR caller instead of emitting
+     * `"allTeams": null`.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val allTeams: List<TeamRef>? = null,
 )

@@ -186,6 +186,7 @@
     "ownModalTitle": "Korekty Twojego budżetu",
     "hint": "Ręczne korekty ± budżetu płatnych dni wybranego roku — działają natychmiast i przechodzą na kolejne lata jak niewykorzystane dni. Komentarz wyjaśnia powód.",
     "hintReadOnly": "Ręczne korekty ±, które Twoi menedżerowie wprowadzili do Twojego budżetu płatnych dni. Działają natychmiast i przechodzą na kolejne lata jak niewykorzystane dni.",
+    "hintAudit": "Ręczne korekty ±, które menedżerowie wprowadzili do budżetu płatnych dni osoby {{name}}. Działają natychmiast i przechodzą na kolejne lata jak niewykorzystane dni.",
     "empty": "Nie ma jeszcze żadnych korekt.",
     "loadError": "Nie udało się wczytać korekt",
     "invalid": "Korekta jest nieprawidłowa — sprawdź liczbę dni i komentarz.",

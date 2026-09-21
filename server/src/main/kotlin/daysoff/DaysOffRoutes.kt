@@ -385,16 +385,36 @@ fun Application.configureDaysOffRoutes() {
                 val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
                 val year = params.optionalString("year")?.let(::parseYearParam) ?: LocalDate.now().year
-                val view = params.optionalString("view") ?: "own"
+                val view = when (val raw = params.optionalString("view") ?: "own") {
+                    "own", "managed", "user" -> raw
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, user)")
+                }
+                // The auditor view (HR-only, v3.24.0) — the days-off LIST auditor branch's
+                // shape (parse userId, then view-shape validation, then the role gate; every
+                // use is audit-logged). Budgets has no pin-filter on own/managed (unlike the
+                // list's userId, which doubles as one on view=managed) — so a userId there is
+                // unconditionally 400.
+                val userId = params.optionalUInt("userId")
+                if (view == "user" && userId == null) {
+                    throw BadRequestException("userId is required for view=user")
+                }
+                if (view != "user" && userId != null) {
+                    throw BadRequestException("userId is not supported for view=$view — budgets has no pin-filter")
+                }
+                if (view == "user") {
+                    requireAuditListAccess(caller, "daysOffBudgets", userId!!)
+                }
                 // includeIndirect (v2.32.0): widens view=managed from direct reports (the
                 // resolve scope) to the whole transitive subtree — the drill-down's chain
-                // mode; the standard strict-boolean shape rule, 400 with view=own.
+                // mode; the standard strict-boolean shape rule, 400 with any other view (own
+                // or the auditor's user).
                 val includeIndirect = params.optionalBoolean("includeIndirect")
                 if (includeIndirect != null && view != "managed") {
                     throw BadRequestException("includeIndirect is only supported for view=managed")
                 }
                 // canCorrect (chain-wide since v2.33.0): every managed-view row is in the
-                // caller's subtree by construction, so all of them are correctable; own never.
+                // caller's subtree by construction, so all of them are correctable; own and
+                // the HR auditor's view=user never (a read-only audit view).
                 val userIds: Set<UInt> = when (view) {
                     "own" -> setOf(caller.userId)
                     "managed" -> if (includeIndirect == true) {
@@ -402,7 +422,7 @@ fun Application.configureDaysOffRoutes() {
                     } else {
                         daysOffService.directReports(caller.userId)
                     }
-                    else -> throw BadRequestException("Unknown view: $view (allowed: own, managed)")
+                    else -> setOf(userId!!) // view == "user", validated above
                 }
                 // Scope teams (v3.13.0): managed rows carry `teams`. The route only names the
                 // caller + includeIndirect; DaysOffService.budgets derives the manager-id set

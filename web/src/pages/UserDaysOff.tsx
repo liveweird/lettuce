@@ -256,8 +256,10 @@ function PoolStrip({
 }: {
   name: string;
   pool: DaysOffBudget;
-  onEditAllowance: () => void;
-  onArchive: () => void;
+  /** Omitted in the read-only (HR audit) flavor — the pencil then does not render at all. */
+  onEditAllowance?: () => void;
+  /** Omitted in the read-only (HR audit) flavor — the archive icon then does not render. */
+  onArchive?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const days = (v: number) => formatDays(v, i18n.language);
@@ -282,7 +284,7 @@ function PoolStrip({
             {t("daysOff.pool.resetsShort")}
           </Text>
         )}
-        {!pool.isDefault && !pool.poolArchived && (
+        {onArchive && !pool.isDefault && !pool.poolArchived && (
           <ActionIcon
             variant="subtle"
             color="gray"
@@ -312,7 +314,7 @@ function PoolStrip({
               <Text size="lg" fw={key === "remaining" ? 700 : 500}>
                 {value}
               </Text>
-              {key === "allowance" && !pool.poolArchived && (
+              {onEditAllowance && key === "allowance" && !pool.poolArchived && (
                 <ActionIcon
                   variant="subtle"
                   size="sm"
@@ -330,12 +332,25 @@ function PoolStrip({
   );
 }
 
-// The manager-mode budget section for ONE report: the managed budgets fetch (includeIndirect —
-// the rows exist exactly when the person is in the caller's transitive subtree, v2.32.0), one
-// strip per paid pool (v3.2.0 — default first, then the extras, then archived history), the
-// chain-editable allowances, Add pool / Archive, and the Corrections modal — manage-capable
-// for the whole chain since v2.33.0 (the rows' server-computed canCorrect).
-function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
+// The budget section for ONE person: one strip per paid pool (v3.2.0 — default first, then the
+// extras, then archived history). Two flavors:
+//   - manager mode: the managed budgets fetch (includeIndirect — the rows exist exactly when the
+//     person is in the caller's transitive subtree, v2.32.0), the chain-editable allowances,
+//     Add pool / Archive, and the Corrections modal — manage-capable for the whole chain since
+//     v2.33.0 (the rows' server-computed canCorrect);
+//   - `readOnly` (v3.24.0, the HR audit view): the auditor's own `view=user` fetch — the numbers
+//     only, with every write affordance gone. The auditor's corrections render as their own
+//     read-only panel below the entries table, so this flavor drops the Corrections button too
+//     rather than opening the same modal twice.
+function UserBudgetSection({
+  userId,
+  name,
+  readOnly = false,
+}: {
+  userId: number;
+  name: string;
+  readOnly?: boolean;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
@@ -347,9 +362,16 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["daysOffBudgets", "managed", "indirect", year],
-    queryFn: () => listDaysOffBudgets("managed", year, { includeIndirect: true }),
+    queryKey: readOnly
+      ? ["daysOffBudgets", "user", userId, year]
+      : ["daysOffBudgets", "managed", "indirect", year],
+    queryFn: () =>
+      readOnly
+        ? listDaysOffBudgets("user", year, { userId })
+        : listDaysOffBudgets("managed", year, { includeIndirect: true }),
   });
+  // The managed fetch spans the whole subtree, so it still needs the per-person filter; the
+  // auditor fetch is already one person's.
   const pools = data?.filter((b) => b.userId === userId) ?? [];
   const defaultPool = pools.find((b) => b.isDefault);
   const grantedTypeIds = pools.filter((b) => b.poolId != null).map((b) => b.poolTypeId);
@@ -400,7 +422,7 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
               allowDeselect={false}
               w={90}
             />
-            {defaultPool && (
+            {!readOnly && defaultPool && (
               <Button
                 variant="subtle"
                 size="xs"
@@ -411,15 +433,17 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
                 {t("daysOff.pool.add")}
               </Button>
             )}
-            <Button
-              variant="subtle"
-              size="xs"
-              leftSection={<IconAdjustments size={14} />}
-              onClick={() => setCorrectionsOpen(true)}
-              aria-label={t("daysOff.corrections.openAria", { name })}
-            >
-              {t("daysOff.corrections.title")}
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="subtle"
+                size="xs"
+                leftSection={<IconAdjustments size={14} />}
+                onClick={() => setCorrectionsOpen(true)}
+                aria-label={t("daysOff.corrections.openAria", { name })}
+              >
+                {t("daysOff.corrections.title")}
+              </Button>
+            )}
           </Group>
         </Group>
         {isError ? (
@@ -434,16 +458,20 @@ function UserBudgetSection({ userId, name }: { userId: number; name: string }) {
               key={pool.poolTypeId}
               name={name}
               pool={pool}
-              onEditAllowance={() => setEditing(pool)}
-              onArchive={() => {
-                setArchiveError(null);
-                setArchiving(pool);
-              }}
+              onEditAllowance={readOnly ? undefined : () => setEditing(pool)}
+              onArchive={
+                readOnly
+                  ? undefined
+                  : () => {
+                      setArchiveError(null);
+                      setArchiving(pool);
+                    }
+              }
             />
           ))
         ) : (
           <Text size="sm" c="dimmed">
-            {t("daysOff.budget.notAReport")}
+            {t(readOnly ? "daysOff.budget.noPools" : "daysOff.budget.notAReport")}
           </Text>
         )}
       </Stack>
@@ -535,8 +563,15 @@ export default function UserDaysOff() {
 
       {auditMode ? (
         <>
+          {/* The paid-leave BUDGET the corrections below adjust (v3.24.0 — until then the
+              auditor read the corrections without ever seeing the balance they move). Its own
+              read-only `view=user` fetch; every write affordance is gone. */}
+          <UserBudgetSection userId={userId} name={who} readOnly />
           <DaysOffTable view="user" userId={userId} settingsKey="userDaysOff.audit" />
-          {/* The HR auditor's read-only view of the person's budget corrections (v1.43.0). */}
+          {/* The HR auditor's read-only view of the person's budget corrections (v1.43.0) —
+              `subjectName` picks the third-person hint (v3.24.0: the plain read-only hint
+              addresses the READER's own budget, which is right on one's own days-off page and
+              wrong here). */}
           <Paper withBorder p="md" radius="md">
             <Stack gap="xs">
               <Text size="sm" fw={600}>
@@ -546,6 +581,7 @@ export default function UserDaysOff() {
                 userId={userId}
                 defaultYear={new Date().getFullYear()}
                 canManage={false}
+                subjectName={who}
               />
             </Stack>
           </Paper>

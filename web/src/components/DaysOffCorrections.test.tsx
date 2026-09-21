@@ -63,6 +63,19 @@ describe("DaysOffCorrections", () => {
     expect(screen.queryByLabelText("Delete the correction for 2026")).toBeNull();
   });
 
+  test("the auditor flavor speaks about the audited person, not to the reader (v3.24.0)", async () => {
+    setupMocks();
+    renderWithProviders(
+      <DaysOffCorrections userId={9} defaultYear={2026} canManage={false} subjectName="Riley Report" />,
+    );
+
+    expect(
+      await screen.findByText(/Manual ± adjustments Riley Report's managers made to their paid-days budget/),
+    ).toBeInTheDocument();
+    // The second-person read-only hint (right on one's OWN days-off page) must not appear here.
+    expect(screen.queryByText(/your managers made to your paid-days budget/)).toBeNull();
+  });
+
   test("a SUBTRACT row renders with the minus sign", async () => {
     setupMocks([{ ...CORRECTION, operation: "SUBTRACT", days: 1.5 }]);
     renderWithProviders(<DaysOffCorrections userId={9} defaultYear={2026} canManage={false} />);

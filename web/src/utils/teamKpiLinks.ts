@@ -22,7 +22,9 @@ export function teamKpiEditLink(id: number, back?: string): string {
   return `/team-kpis/${id}/edit${detailSearch(undefined, back)}`;
 }
 
-/** The per-team KPI drill-down (`/teams/:id/kpis`), as linked from Dashboard → My teams. */
-export function teamKpisLink(teamId: number): string {
-  return `/teams/${teamId}/kpis`;
+/** The per-team KPI drill-down (`/teams/:id/kpis`), as linked from Dashboard → My teams, or —
+ * with `from: "team"` (v3.24.0) — from the team-details page, whose link the page's back anchor
+ * returns to. */
+export function teamKpisLink(teamId: number, opts?: { from?: "team" }): string {
+  return `/teams/${teamId}/kpis${opts?.from ? `?from=${opts.from}` : ""}`;
 }

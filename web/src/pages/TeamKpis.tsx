@@ -1,24 +1,31 @@
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { Alert, Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { hasFeature } from "../api/session";
+import { canAudit, hasFeature } from "../api/session";
 import { getTeam } from "../api/teams";
 import { teamKpiCreateLink, teamKpisLink } from "../utils/teamKpiLinks";
+import { teamDetailsLink } from "../utils/teamLinks";
 import TeamKpiTable from "./TeamKpiTable";
 import { loadErrorMessage } from "../utils/saveError";
 
-const BACK_TO = "/?tab=myTeams";
+const DEFAULT_BACK_TO = "/?tab=myTeams";
 
-// The per-team KPI drill-down reached from Dashboard → My teams (the team-pinned drill-down shape):
-// the managed KPI table pinned to one team, with the prefilled "New team KPI" entry point for
-// anyone who may set KPIs here — the server-computed canManageKpis capability (v2.34.0: the
-// manager AND the chain above; the old managerId === getUserId() inference wrongly hid the
-// button from chain managers). A team the caller does not manage renders an empty table.
+// The per-team KPI drill-down reached from Dashboard → My teams (the team-pinned drill-down shape),
+// or from the Team details page (`?from=team`, v3.24.0 — the back link returns there instead):
+// the KPI table pinned to one team, with the prefilled "New team KPI" entry point for anyone who
+// may set KPIs here — the server-computed canManageKpis capability (v2.34.0: the manager AND the
+// chain above; the old managerId === getUserId() inference wrongly hid the button from chain
+// managers). Since v3.24.0 an HR auditor who does NOT manage the team gets the org-wide `view=all`
+// auditor list (still pinned to this one team via `teamId`) instead of the manage-only `managed`
+// view, with an auditor-flavored hint line. A team the caller has no standing over renders an
+// empty table.
 export default function TeamKpis() {
   const { t } = useTranslation();
   const params = useParams<{ teamId: string }>();
+  const [searchParams] = useSearchParams();
+  const fromTeam = searchParams.get("from") === "team";
 
   const teamId = Number(params.teamId);
   const idIsValid = Number.isFinite(teamId) && teamId > 0;
@@ -33,22 +40,30 @@ export default function TeamKpis() {
 
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
-  if (!idIsValid) return <Navigate to={BACK_TO} replace />;
+  if (!idIsValid) return <Navigate to={DEFAULT_BACK_TO} replace />;
 
   const backTo = teamKpisLink(teamId);
   const canManageKpis = team?.canManageKpis === true;
+  const auditView = canAudit() && !canManageKpis;
+  const view = auditView ? "all" : "managed";
+
+  const teamLabel = team?.name ?? t("dashboard.teamFallback", { id: teamId });
+  const backLinkTo = fromTeam ? teamDetailsLink(teamId) : DEFAULT_BACK_TO;
+  const backLinkLabel = fromTeam
+    ? t("feedback.backToLabel", { label: teamLabel })
+    : t("feedback.backToLabel", { label: t("dashboard.tabs.myTeams") });
 
   return (
     <Stack gap="lg">
       <Stack gap={4}>
-        <Anchor component={RouterLink} to={BACK_TO} size="sm">
-          {t("feedback.backToLabel", { label: t("dashboard.tabs.myTeams") })}
+        <Anchor component={RouterLink} to={backLinkTo} size="sm">
+          {backLinkLabel}
         </Anchor>
         <Title order={2}>
-          {t("teamKpi.kpisOf", { team: team?.name ?? t("dashboard.teamFallback", { id: teamId }) })}
+          {t("teamKpi.kpisOf", { team: teamLabel })}
         </Title>
         <Text size="sm" c="dimmed">
-          {t("teamKpi.kpisOfHint")}
+          {t(auditView ? "teamKpi.kpisOfAuditHint" : "teamKpi.kpisOfHint")}
         </Text>
       </Stack>
 
@@ -58,7 +73,7 @@ export default function TeamKpis() {
         </Alert>
       )}
 
-      <TeamKpiTable view="managed" teamId={teamId} settingsKey="teamKpis.team" backTo={backTo} />
+      <TeamKpiTable view={view} teamId={teamId} settingsKey="teamKpis.team" backTo={backTo} />
 
       {canManageKpis && (
         // The prefilled create entry point, below the list — the house footer convention

@@ -184,6 +184,7 @@
     "ownModalTitle": "Your budget corrections",
     "hint": "Manual ± adjustments to the paid-days budget of a chosen year — they apply immediately and carry over like any unused days. The comment explains why.",
     "hintReadOnly": "Manual ± adjustments your managers made to your paid-days budget. They apply immediately and carry over like any unused days.",
+    "hintAudit": "Manual ± adjustments {{name}}'s managers made to their paid-days budget. They apply immediately and carry over like any unused days.",
     "empty": "No corrections yet.",
     "loadError": "Could not load the corrections",
     "invalid": "The correction is invalid — check the amount and the comment.",

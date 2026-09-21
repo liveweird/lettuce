@@ -14,7 +14,7 @@ export type TeamKpiType = TeamKpiResponse["type"];
 // two-value union as the goals TargetDirection.
 export type TargetDirection = TeamKpiResponse["targetDirection"];
 
-export type TeamKpiListView = "own" | "managed";
+export type TeamKpiListView = "own" | "managed" | "all";
 
 type TeamKpiListQuery = {
   view: TeamKpiListView;

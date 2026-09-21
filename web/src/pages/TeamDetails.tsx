@@ -15,12 +15,13 @@ import {
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  IconChartLine,
   IconPlus,
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react";
 import { ApiError } from "../api/http";
-import { getUserId, hasFeature, isAdmin } from "../api/session";
+import { canAudit, getUserId, hasFeature, isAdmin } from "../api/session";
 import { listAllUsers } from "../api/users";
 import { addTeamMember, getTeam, removeTeamMember } from "../api/teams";
 import { showSuccessToast } from "../utils/toast";
@@ -38,6 +39,7 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
+import { teamKpisLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { useAllUsers } from "../hooks/useAllUsers";
 
@@ -187,9 +189,31 @@ export default function TeamDetails() {
     );
   }
 
+  // The Team-KPIs drill-down (v3.24.0): the current manager (or chain above, via the
+  // server-computed canManageKpis) always gets it; an HR auditor gets it too, as the org-wide
+  // auditor view of that team's KPIs — the teams.kpis label, the My-teams row action's
+  // (MyTeamsTable.tsx) wording; this is a single page-level action so its own visible text
+  // is the accessible name, no per-team aria-label override needed (unlike that per-row button).
+  const showKpisLink = hasFeature("TEAM_KPIS") && team != null && (team.canManageKpis === true || canAudit());
+
   return (
     <Stack gap="md">
-      <PageHeader back={{ to: backTo, label: backLabel }} title={t("teams.detailsTitle")} />
+      <PageHeader
+        back={{ to: backTo, label: backLabel }}
+        title={t("teams.detailsTitle")}
+        actions={
+          showKpisLink ? (
+            <Button
+              component={RouterLink}
+              to={teamKpisLink(id, { from: "team" })}
+              leftSection={<IconChartLine size={16} />}
+              variant="default"
+            >
+              {t("teams.kpis")}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* The team's identity fields — the name, and the manager as the standard clickable
           persona (the v2.5.2 name-link idiom; deleted and one's own persona stay plain). */}

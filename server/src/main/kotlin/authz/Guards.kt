@@ -90,20 +90,46 @@ fun requireUserRead(caller: CallerPrincipal, targetUserId: UInt) {
 }
 
 /**
- * Gate for the auditor list view (`view=user` on the feedback/1:1/goal lists): HR only —
- * ADMIN is a management role with no special feedback/1:1/goal access. Every use is
- * recorded (`hr.list`).
+ * The single writer of the `hr.list` event shape: resource + byUserId, plus whichever
+ * per-site key names the audited slice ([requireAuditListAccess]'s `targetUserId`,
+ * [requireAuditScopeListAccess]'s optional `teamId`) — kept together so the shape cannot
+ * drift per call site. (`hr.read` is a separate event with its own shape — see
+ * [auditHrRead].)
+ */
+private fun auditHrList(resource: String, byUserId: UInt, vararg extra: Pair<String, Any?>) {
+    audit(
+        "hr.list",
+        "resource" to resource,
+        "byUserId" to byUserId.toLong(),
+        *extra,
+    )
+}
+
+/**
+ * Gate for the auditor list view (`view=user` on the feedback/1:1/goal/days-off/impact-log/
+ * succession-plan lists): HR only — ADMIN is a management role with no special access to any
+ * of them. Every use is recorded (`hr.list`).
  */
 fun requireAuditListAccess(caller: CallerPrincipal, resource: String, targetUserId: UInt) {
     if (!caller.isHr()) {
         throw ForbiddenException("HR role required for view=user")
     }
-    audit(
-        "hr.list",
-        "resource" to resource,
-        "targetUserId" to targetUserId.toLong(),
-        "byUserId" to caller.userId.toLong(),
-    )
+    auditHrList(resource, caller.userId, "targetUserId" to targetUserId.toLong())
+}
+
+/**
+ * Gate for the auditor SCOPE list view (`view=all` on the team-KPI list, v3.24.0): HR only —
+ * a team KPI is per-team, not per-user, so it doesn't fit the `view=user` shape above; this is
+ * its scope-keyed sibling. [teamId] is the caller's optional `teamId` filter, carried on the
+ * event when present so an audit reader can tell a scoped read from an org-wide one. Every use
+ * is recorded (`hr.list`).
+ */
+fun requireAuditScopeListAccess(caller: CallerPrincipal, resource: String, teamId: UInt?) {
+    if (!caller.isHr()) {
+        throw ForbiddenException("HR role required for view=all")
+    }
+    if (teamId == null) auditHrList(resource, caller.userId)
+    else auditHrList(resource, caller.userId, "teamId" to teamId.toLong())
 }
 
 fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {

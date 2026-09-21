@@ -553,4 +553,52 @@ describe("TeamDetails page", () => {
     await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
     expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();
   });
+
+  test("the Team KPIs link renders for a manager the server grants canManageKpis (v3.24.0)", async () => {
+    localStorage.setItem(ROLE_KEY, "[]"); // a plain manager, not an admin/auditor
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") {
+        return Promise.resolve(jsonResponse(200, { ...TEAM, canManageKpis: true }));
+      }
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamDetails(3);
+
+    const link = await screen.findByRole("link", { name: "Team KPIs" });
+    expect(link).toHaveAttribute("href", "/teams/3/kpis?from=team");
+  });
+
+  test("the Team KPIs link renders for an HR auditor who does not manage the team (v3.24.0)", async () => {
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") {
+        return Promise.resolve(jsonResponse(200, { ...TEAM, canManageKpis: false }));
+      }
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamDetails(3);
+
+    const link = await screen.findByRole("link", { name: "Team KPIs" });
+    expect(link).toHaveAttribute("href", "/teams/3/kpis?from=team");
+  });
+
+  test("no Team KPIs link for a plain member who neither manages the team nor audits (v3.24.0)", async () => {
+    localStorage.setItem(ROLE_KEY, "[]");
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") {
+        return Promise.resolve(jsonResponse(200, { ...TEAM, canManageKpis: false }));
+      }
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamDetails(3);
+
+    await screen.findByText("Carol");
+    expect(screen.queryByRole("link", { name: "Team KPIs" })).not.toBeInTheDocument();
+  });
 });

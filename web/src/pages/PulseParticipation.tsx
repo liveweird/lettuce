@@ -4,7 +4,7 @@ import { IconUsersGroup } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { getUserId } from "../api/session";
+import { getUserId, isHr } from "../api/session";
 import { getPulseParticipationStatus, listPulseCycles } from "../api/pulse";
 import EmptyState from "../components/EmptyState";
 import PersonCell from "../components/PersonCell";
@@ -71,7 +71,7 @@ export default function PulseParticipation() {
           w={260}
         />
         <Text size="sm" c="dimmed">
-          {t("pulse.participation.hint")}
+          {t(isHr() ? "pulse.participation.hintAudit" : "pulse.participation.hint")}
         </Text>
       </Group>
 

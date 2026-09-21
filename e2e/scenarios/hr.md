@@ -8,7 +8,8 @@
   spec's create on the same pair via the no-duplicate invariant); plus the throwaway HR user it
   mints.
 - **Since**: v1.25.0 (the HR auditor role), v1.26.0 (management-only ADMIN — no Audit section
-  for admins)
+  for admins), v3.24.0 (the four remaining drill-downs + the read-only budget in the days-off
+  audit view)
 
 **Cleanup**: the probe DRAFT is deleted via the API after the test, even on failure, so the
 pair is freed for later runs.
@@ -43,7 +44,25 @@ pair is freed for later runs.
    audit round — the positive twin of user-career.spec's refused direct URL).
    - *Expected*: the "Career progression — AAA Three" page loads — the career timeline is a
      guarded HR read since v2.25.0 (self/chain/HR only).
-9. The auditor checks for an admin surface.
+9. Via "Back to User details" each time, the auditor opens the remaining four drill-downs —
+   performance reviews, days off, the impact log and succession plans (v3.24.0: until then this
+   walk stopped at goals, and those four were pinned server-side only).
+   - *Expected*: "All performance reviews of AAA Three", "Days off of AAA Three", "Impact log —
+     AAA Three" and "Succession plans of AAA Three (audit)" each load in audit mode. Their
+     content belongs to other specs, so reaching each list is the assertion — never a row count.
+   - *Expected* on the days-off one (v3.24.0): the person's paid-leave BUDGET renders above the
+     entries ("Paid days off of AAA Three in <year>") — the auditor could already read the
+     corrections but not the budget they adjust — and it is read-only: no Add pool, no Archive,
+     no allowance edit, no Add a correction.
+10. From the nav, the auditor opens Team KPIs and switches to the "All teams" tab, then goes
+    Config -> Teams -> AAA (a team they neither manage nor belong to) and follows its
+    "Team KPIs" link (v3.24.0: HR could read any KPI record by id before, but nothing listed
+    or linked them).
+    - *Expected*: the hub offers the auditor-only "All teams" tab with its org-wide hint; the
+      team page opens with the auditor hint and no "New team KPI" entry point. Which rows
+      appear belongs to other specs — the KPI data rule (an auditor lists another team's KPIs
+      at every status, a manager/ADMIN gets 403) is pinned in the server suite.
+11. The auditor checks for an admin surface.
    - *Expected*: none — the Config group never offers Alerts to HR.
 
 ## Not covered here (and why)
