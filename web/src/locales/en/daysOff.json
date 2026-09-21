@@ -82,8 +82,12 @@
     "scope_member": "My teams",
     "scope_managed": "My direct reports",
     "scope_managedAll": "All my reports (including indirect)",
+    "scope_org": "All teams (auditor)",
+    "orgTeamLabel": "Team",
+    "orgTeamAll": "All teams",
     "loadError": "Could not load the calendar",
     "empty": "Nobody to show — you are not a member of any team.",
+    "emptyOrg": "No one is off this month.",
     "legendWeekend": "Weekend",
     "legendHoliday": "Public holiday"
   },

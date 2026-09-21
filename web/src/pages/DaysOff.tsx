@@ -17,14 +17,15 @@ import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/session";
+import { canAudit, hasFeature } from "../api/session";
 import { getDaysOffCalendar, type DaysOffCalendarScope } from "../api/daysoff";
+import { listAllTeams } from "../api/teams";
 import DaysOffBudgetCard from "../components/DaysOffBudgetCard";
 import DaysOffBudgetsTable from "../components/DaysOffBudgetsTable";
 import DaysOffMonthGrid from "../components/DaysOffMonthGrid";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { useIsManager } from "../hooks/useIsManager";
-import { isOneOf, useStoredState } from "../hooks/useStoredState";
+import { isNumberOrNull, isOneOf, useStoredState } from "../hooks/useStoredState";
 import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime";
 import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
@@ -40,8 +41,8 @@ const TABS = ["calendar", "requests", "team"] as const;
 type DaysOffTab = (typeof TABS)[number];
 // The stored calendar scope pick: "managed" and "managedAll" both hit the API's scope=managed,
 // differing only in includeIndirect — a stored pre-v3.13.0 "managed" keeps working as the
-// direct-reports pick.
-const SCOPES = ["member", "managed", "managedAll"] as const;
+// direct-reports pick. "org" (v3.25.0, HR auditor only) hits the API's scope=org.
+const SCOPES = ["member", "managed", "managedAll", "org"] as const;
 
 function isDaysOffTab(value: string | null): value is DaysOffTab {
   return TABS.includes(value as DaysOffTab);
@@ -49,20 +50,59 @@ function isDaysOffTab(value: string | null): value is DaysOffTab {
 
 function CalendarTab({ isManager }: { isManager: boolean }) {
   const { t, i18n } = useTranslation();
+  const auditor = canAudit();
   // The month is deliberately not persisted — a calendar visit starts at "now".
   const [month, setMonth] = useState(currentIsoMonth());
   const [storedScope, setScope] = useStoredState<(typeof SCOPES)[number]>(
     "daysOff.calendar.scope", "member", isOneOf(SCOPES),
   );
-  // A stored managed/managedAll scope degrades gracefully if the caller stops managing.
-  const effectiveScope = isManager ? storedScope : "member";
-  const scope: DaysOffCalendarScope = effectiveScope === "member" ? "member" : "managed";
+  // A stored "org" scope must never apply to a non-auditor (a role downgrade, or a stale
+  // cross-device value) — fall back to the member scope, without rewriting storage (the
+  // PulseResults role-downgrade idiom); a stored managed/managedAll scope likewise degrades
+  // gracefully if the caller stops managing.
+  const safeScope: (typeof SCOPES)[number] =
+    storedScope === "org" && !auditor
+      ? "member"
+      : (storedScope === "managed" || storedScope === "managedAll") && !isManager
+        ? "member"
+        : storedScope;
+  const availableScopes = SCOPES.filter((s) => {
+    if (s === "org") return auditor;
+    if (s === "managed" || s === "managedAll") return isManager;
+    return true;
+  });
+
+  const scope: DaysOffCalendarScope =
+    safeScope === "member" ? "member" : safeScope === "org" ? "org" : "managed";
   // v3.13.0: "managedAll" widens the managed scope to the caller's whole transitive chain.
-  const includeIndirect = effectiveScope === "managedAll";
+  const includeIndirect = safeScope === "managedAll";
+
+  // The org-scope team narrower (v3.25.0): every team, from the shared all-teams pool.
+  const [storedOrgTeamId, setOrgTeamId] = useStoredState<number | null>(
+    "daysOff.calendar.orgTeam", null, isNumberOrNull,
+  );
+  const teamsQuery = useQuery({
+    queryKey: ["teams", "all"],
+    queryFn: () => listAllTeams(),
+    enabled: scope === "org",
+  });
+  // A deleted team must never pin the calendar to an empty result — validate the stored pick
+  // against the fetched teams, but only ONCE they have arrived: dropping to "All teams" while
+  // the list loads would fire a second, wider calendar request and flash the wrong scope.
+  const orgTeamId =
+    storedOrgTeamId == null || teamsQuery.data == null
+      ? storedOrgTeamId
+      : teamsQuery.data.some((team) => team.id === storedOrgTeamId)
+        ? storedOrgTeamId
+        : null;
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["daysOffCalendar", scope, month, includeIndirect],
-    queryFn: () => getDaysOffCalendar(month, scope, includeIndirect)
+    queryKey: ["daysOffCalendar", scope, month, includeIndirect, scope === "org" ? orgTeamId : undefined],
+    queryFn: () =>
+      getDaysOffCalendar(month, scope, {
+        includeIndirect,
+        teamId: scope === "org" ? (orgTeamId ?? undefined) : undefined,
+      }),
   });
 
   return (
@@ -87,21 +127,39 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
             <IconChevronRight size={16} />
           </ActionIcon>
         </Group>
-        {isManager && (
-          <Select
-            label={t("daysOff.calendar.scope")}
-            data={SCOPES.map((s) => ({ value: s, label: t(`daysOff.calendar.scope_${s}`) }))}
-            value={storedScope}
-            onChange={(v) => v && setScope(v as (typeof SCOPES)[number])}
-            allowDeselect={false}
-            // Wide enough for the longest option in either language ("All my reports
-            // (including indirect)" / "Wszyscy moi podwładni (także pośredni)").
-            w={{ base: "100%", sm: 330 }}
-            // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour
-            // anchor must ride wrapperProps or it would land on the input, not the label+input
-            // pair the tutorial spotlights.
-            wrapperProps={{ "data-tour": "days-off-calendar-scope" }}
-          />
+        {(isManager || auditor) && (
+          <Group gap="sm" align="flex-end" wrap="wrap">
+            <Select
+              label={t("daysOff.calendar.scope")}
+              data={availableScopes.map((s) => ({ value: s, label: t(`daysOff.calendar.scope_${s}`) }))}
+              value={safeScope}
+              onChange={(v) => v && setScope(v as (typeof SCOPES)[number])}
+              allowDeselect={false}
+              // Wide enough for the longest option in either language ("All my reports
+              // (including indirect)" / "Wszyscy moi podwładni (także pośredni)").
+              w={{ base: "100%", sm: 330 }}
+              // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour
+              // anchor must ride wrapperProps or it would land on the input, not the label+input
+              // pair the tutorial spotlights.
+              wrapperProps={{ "data-tour": "days-off-calendar-scope" }}
+            />
+            {scope === "org" && (
+              <Select
+                label={t("daysOff.calendar.orgTeamLabel")}
+                data={[
+                  { value: "", label: t("daysOff.calendar.orgTeamAll") },
+                  ...(teamsQuery.data ?? []).map((team) => ({ value: String(team.id), label: team.name })),
+                ]}
+                value={orgTeamId == null ? "" : String(orgTeamId)}
+                onChange={(v) => setOrgTeamId(v == null || v === "" ? null : Number(v))}
+                allowDeselect={false}
+                searchable
+                // A Select in a flex Group clips its longest option unless it gets an
+                // explicit width.
+                w={{ base: "100%", sm: 260 }}
+              />
+            )}
+          </Group>
         )}
       </Group>
 
@@ -115,10 +173,10 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
         </Center>
       ) : data.users.length === 0 ? (
         <Text size="sm" c="dimmed">
-          {t("daysOff.calendar.empty")}
+          {t(scope === "org" ? "daysOff.calendar.emptyOrg" : "daysOff.calendar.empty")}
         </Text>
       ) : (
-        <DaysOffMonthGrid data={data} showTeams={scope === "managed"} />
+        <DaysOffMonthGrid data={data} showTeams={scope === "managed" || scope === "org"} />
       )}
     </Stack>
   );

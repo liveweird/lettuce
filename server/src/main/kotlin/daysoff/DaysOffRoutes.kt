@@ -7,6 +7,7 @@ import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAdmin
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireAuditScopeListAccess
 import ch.nokillswit.authz.requireDaysOffCorrectionsRead
 import ch.nokillswit.authz.requireDaysOffDelete
 import ch.nokillswit.authz.requireDaysOffRead
@@ -280,23 +281,36 @@ fun Application.configureDaysOffRoutes() {
                 val month = params.optionalString("month")
                     ?: throw BadRequestException("month is required (YYYY-MM)")
                 parseDaysOffMonth(month)
-                // Both scopes are intrinsically caller-relative (an empty managed scope is just
-                // an empty user list), so any authenticated caller may ask for either.
+                // member/managed are intrinsically caller-relative (an empty managed scope is
+                // just an empty user list), so any authenticated caller may ask for either; org
+                // (v3.25.0) is the HR auditor's, guarded below.
                 val scope = when (val raw = params.optionalString("scope") ?: "member") {
                     "member" -> DaysOffCalendarScope.MEMBER
                     "managed" -> DaysOffCalendarScope.MANAGED
-                    else -> throw BadRequestException("Unknown scope: $raw (allowed: member, managed)")
+                    "org" -> DaysOffCalendarScope.ORG
+                    else -> throw BadRequestException("Unknown scope: $raw (allowed: member, managed, org)")
                 }
-                // includeIndirect (v3.13.0): widens scope=managed from direct reports to the
-                // caller's whole transitive management chain — the budgets/list rule; 400 with
-                // any other scope (the standard strict-boolean shape rule).
+                val teamId = params.optionalUInt("teamId")
+                // The org auditor scope (v3.25.0): HR only (403 for anyone else, ADMIN
+                // included — the team-KPI view=all rule), audit-logged as hr.list with the
+                // narrowing teamId riding along when present.
+                if (scope == DaysOffCalendarScope.ORG) {
+                    requireAuditScopeListAccess(caller, "daysOffCalendar", teamId)
+                }
+                // The org-specific shape checks, after the guard: teamId only narrows scope=org
+                // (the includeIndirect shape-rule wording), and includeIndirect (v3.13.0) only
+                // widens scope=managed from direct reports to the caller's whole transitive
+                // management chain — the budgets/list rule; 400 with any other scope.
+                if (teamId != null && scope != DaysOffCalendarScope.ORG) {
+                    throw BadRequestException("teamId is only supported for scope=org")
+                }
                 val includeIndirect = params.optionalBoolean("includeIndirect")
                 if (includeIndirect != null && scope != DaysOffCalendarScope.MANAGED) {
                     throw BadRequestException("includeIndirect is only supported for scope=managed")
                 }
                 call.respond(
                     HttpStatusCode.OK,
-                    daysOffService.calendar(scope, caller.userId, month, includeIndirect == true),
+                    daysOffService.calendar(scope, caller.userId, month, includeIndirect == true, teamId),
                 )
             }
             // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────

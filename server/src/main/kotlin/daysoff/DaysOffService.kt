@@ -15,6 +15,7 @@ import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.teams.memberTeamIds
 import ch.nokillswit.teams.membersOf
+import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.teamRefsByUserIds
 import ch.nokillswit.teams.teamsManagedBy
 import ch.nokillswit.users.UserService
@@ -36,7 +37,7 @@ val DaysOffServiceKey = AttributeKey<DaysOffService>("DaysOffService")
 
 enum class DaysOffListView { OWN, MANAGED, USER }
 
-enum class DaysOffCalendarScope { MEMBER, MANAGED }
+enum class DaysOffCalendarScope { MEMBER, MANAGED, ORG }
 
 data class DaysOffListFilter(
     val userName: String? = null,
@@ -426,19 +427,30 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * The month calendar payload. MEMBER scope = everyone sharing a non-deleted team with the
      * caller, the caller included (a team-less caller sees just themselves); MANAGED = the
      * caller's direct reports, or (v3.13.0) their whole transitive management chain with
-     * [includeIndirect]. Every scoped user appears (rows must render), carrying their active
-     * days clipped to [month] — the whole period is expanded, weekends included, so the bar
-     * renders continuously (the grid dims those columns anyway) — plus the month's public
-     * holidays. Each user row also carries `teams` (v3.13.0) — the teams via which they are in
-     * the requested scope: on MANAGED the teams managed by the caller (plus, under
-     * [includeIndirect], teams managed further down the subtree); on MEMBER the teams shared
-     * with the caller.
+     * [includeIndirect]; both are caller-relative, and every scoped user appears (rows must
+     * render) whether or not they have any entry that month.
+     *
+     * ORG (v3.25.0, the HR auditor scope, route-guarded HR-only) deliberately does NOT follow
+     * that "every scoped user appears" contract: [userIds] is instead only the people with at
+     * least one ACTIVE entry overlapping [month] (optionally intersected with [teamId]'s current
+     * roster) — an auditor scans absences, not a roster, and without paging an org-wide payload
+     * must stay bounded on any org size regardless of headcount; a month nobody is off in yields
+     * an empty user list. ORG rows also keep their `poolName` (see [expandEntries] — the v3.2.1
+     * teammate redaction is a MEMBER-only rule; HR already reads the pool on the entry GET and
+     * in the auditor list, so there is nothing to hide from them here).
+     *
+     * Every user row carries `teams` (v3.13.0) — the teams via which they are in the requested
+     * scope: on MANAGED the teams managed by the caller (plus, under [includeIndirect], teams
+     * managed further down the subtree); on MEMBER the teams shared with the caller; on ORG the
+     * person's OWN teams (there is no caller-relative team set to report against an org-wide
+     * view).
      */
     suspend fun calendar(
         scope: DaysOffCalendarScope,
         callerUserId: UInt,
         month: String,
         includeIndirect: Boolean = false,
+        teamId: UInt? = null,
     ): DaysOffCalendarResponse = suspendTransaction(database) {
         // The subtree is only walked for the widened managed scope — reused for both the user
         // set and the scope-teams' managerIds below.
@@ -447,16 +459,18 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         } else {
             emptySet()
         }
+        val monthStart = "$month-01"
+        val monthEnd = YearMonth.parse(month).atEndOfMonth().toString()
         val userIds: Set<UInt> = when (scope) {
             DaysOffCalendarScope.MEMBER -> teamMemberPeers(callerUserId) + callerUserId
             DaysOffCalendarScope.MANAGED -> if (includeIndirect) subtree else directSubordinateIds(callerUserId)
+            DaysOffCalendarScope.ORG -> orgEntryOwnerIds(monthStart, monthEnd, teamId)
         }
         val teamsByUser: Map<UInt, List<TeamRef>> = when (scope) {
             DaysOffCalendarScope.MEMBER -> teamRefsByUserIds(memberTeamIds(callerUserId), userIds)
             DaysOffCalendarScope.MANAGED -> teamRefsByUserIds(teamsManagedBy(subtree + callerUserId), userIds)
+            DaysOffCalendarScope.ORG -> teamRefsByUserIds(ownTeamIds(userIds), userIds)
         }
-        val monthStart = "$month-01"
-        val monthEnd = YearMonth.parse(month).atEndOfMonth().toString()
         val users = if (userIds.isEmpty()) {
             emptyList()
         } else {
@@ -491,7 +505,10 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                 .toList()
                 .groupBy({ it[Requests.userId].value }) { row ->
                     // Calendar parity (v3.2.1): the member scope shows teammates THAT someone
-                    // is off, never which paid pool; the caller's own bars keep the name.
+                    // is off, never which paid pool; the caller's own bars keep the name. ORG
+                    // rows are deliberately never redacted (v3.25.0) — that rule protects
+                    // teammate-to-teammate visibility, and HR already reads the pool on the
+                    // entry GET and in the auditor list, so there is nothing to hide from them.
                     val redact = scope == DaysOffCalendarScope.MEMBER && row[Requests.userId].value != callerUserId
                     expandEntries(row, monthStart, monthEnd, redactPool = redact)
                 }
@@ -1039,6 +1056,56 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * they are a member anywhere; empty for a team-less user). Runs in the caller's transaction. */
     private suspend fun teamMemberPeers(userId: UInt): Set<UInt> =
         membersOf(memberTeamIds(userId))
+
+    /**
+     * The ORG calendar scope's user set (v3.25.0): the distinct owners of ACTIVE entries
+     * overlapping [monthStart]..[monthEnd] — never the whole roster (see [calendar]'s KDoc) —
+     * optionally intersected with [teamId]'s current roster. ONE narrow (id-only) query, so the
+     * cost of finding the scope stays independent of the wider per-entry fetch [calendar] runs
+     * next for the actual rows. An empty [teamId] roster short-circuits without hitting
+     * `days_off_requests` at all.
+     */
+    private suspend fun orgEntryOwnerIds(monthStart: String, monthEnd: String, teamId: UInt?): Set<UInt> {
+        val teamRoster = teamId?.let { membersOf(setOf(it)) }
+        if (teamRoster != null && teamRoster.isEmpty()) return emptySet()
+        var predicate: Op<Boolean> = active() and
+            (Requests.startDate lessEq monthEnd) and (Requests.endDate greaterEq monthStart)
+        teamRoster?.let { predicate = predicate and (Requests.userId inList it) }
+        return Requests
+            .select(Requests.userId)
+            .where { predicate }
+            .map { it[Requests.userId].value }
+            .toList()
+            .toSet()
+    }
+
+    /**
+     * The [userIds]' OWN non-deleted teams — the ORG calendar scope's `teams` source (v3.25.0):
+     * unlike MEMBER/MANAGED there is no caller-relative team set to report against, so this
+     * first resolves the full set of teams any of [userIds] belongs to, then hands it to
+     * [teamRefsByUserIds] (the users-list `teams` enrichment idiom) for the per-user grouping.
+     * Two batched queries total, never one per user.
+     */
+    private suspend fun ownTeamIds(userIds: Set<UInt>): Set<UInt> =
+        if (userIds.isEmpty()) {
+            emptySet()
+        } else {
+            TeamService.TeamMembers
+                .join(
+                    TeamService.Teams,
+                    JoinType.INNER,
+                    onColumn = TeamService.TeamMembers.teamId,
+                    otherColumn = TeamService.Teams.id,
+                )
+                .select(TeamService.TeamMembers.teamId)
+                .where {
+                    (TeamService.TeamMembers.userId inList userIds) and
+                        (TeamService.Teams.markedAsDeleted eq false)
+                }
+                .map { it[TeamService.TeamMembers.teamId].value }
+                .toList()
+                .toSet()
+        }
 
     /**
      * The create/delete notification fan-out recipients (v3.9.0): every person sharing a team

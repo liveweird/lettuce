@@ -539,6 +539,94 @@ class DaysOffRoutesTest {
     }
 
     @Test
+    fun `the org calendar scope is HR-only, entries-only, and narrows to a team`() = testApplication {
+        usePostgresTestcontainer()
+        // X (managed by M): S has a PAID entry this month, T has none. Y (managed by N): W has
+        // a PAID entry too, outside X — the teamId narrowing target.
+        val mEmail = uniqueEmail("do-cal-org-m")
+        val sEmail = uniqueEmail("do-cal-org-s")
+        val tEmail = uniqueEmail("do-cal-org-t")
+        val nEmail = uniqueEmail("do-cal-org-n")
+        val wEmail = uniqueEmail("do-cal-org-w")
+        val hrEmail = uniqueEmail("do-cal-org-hr")
+        val aEmail = uniqueEmail("do-cal-org-a")
+        val mId = TestUsers.seed(mEmail, "pw", name = "CalOrg Mgr", roles = emptySet())
+        val sId = TestUsers.seed(sEmail, "pw", name = "CalOrg Sub", roles = emptySet())
+        val tId = TestUsers.seed(tEmail, "pw", name = "CalOrg Mate", roles = emptySet())
+        val nId = TestUsers.seed(nEmail, "pw", name = "CalOrg OtherMgr", roles = emptySet())
+        val wId = TestUsers.seed(wEmail, "pw", name = "CalOrg Other", roles = emptySet())
+        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        TestUsers.seed(aEmail, "pw", roles = setOf(UserRole.ADMIN))
+        val teamX = TestServices.teams.create(Team(name = "cal-org-X-${java.util.UUID.randomUUID()}", managerId = mId))
+        TestServices.teams.addMember(teamX, sId)
+        TestServices.teams.addMember(teamX, tId)
+        val teamY = TestServices.teams.create(Team(name = "cal-org-Y-${java.util.UUID.randomUUID()}", managerId = nId))
+        TestServices.teams.addMember(teamY, wId)
+        TestDaysOff.setAllowance(sId, 30)
+        TestDaysOff.setAllowance(wId, 30)
+
+        val m = authedClient(mEmail, "pw")
+        val s = authedClient(sEmail, "pw")
+        val w = authedClient(wEmail, "pw")
+        // HR here has no team of their own and manages nobody — S/W sit in teams HR neither
+        // manages nor belongs to.
+        val hr = authedClient(hrEmail, "pw")
+        val a = authedClient(aEmail, "pw")
+
+        val mon = monday(2069, 6)
+        s.createDaysOff(mon.toString(), mon.toString())
+        w.createDaysOff(mon.toString(), mon.toString())
+        val month = "2069-06"
+
+        // HR sees the org wide: S and W (both have entries this month), never T (none) — the
+        // deliberate entries-only departure from the caller-relative scopes. The PAID pool name
+        // stays present (no teammate redaction on the auditor scope).
+        val org = hr.get("/api/v1/days-off/calendar?month=$month&scope=org").body<DaysOffCalendarResponse>()
+        assertEquals(setOf(sId, wId), org.users.map { it.userId }.toSet())
+        assertNotNull(org.users.single { it.userId == sId }.entries.single().poolName)
+        // The org rows label each person with THEIR OWN teams (the caller-relative scopes label
+        // them with the teams via which they are in the caller's scope — HR has none here, so a
+        // caller-keyed derivation would silently yield empty lists).
+        assertEquals(listOf(teamX), org.users.single { it.userId == sId }.teams.map { it.id })
+        assertEquals(listOf(teamY), org.users.single { it.userId == wId }.teams.map { it.id })
+
+        // Nobody but HR may use scope=org — a manager and an ADMIN both 403.
+        assertEquals(HttpStatusCode.Forbidden, m.get("/api/v1/days-off/calendar?month=$month&scope=org").status)
+        assertEquals(HttpStatusCode.Forbidden, a.get("/api/v1/days-off/calendar?month=$month&scope=org").status)
+
+        // teamId narrows to that team's current members — only S (in X) remains, W (in Y) drops.
+        val narrowed = hr.get("/api/v1/days-off/calendar?month=$month&scope=org&teamId=$teamX")
+            .body<DaysOffCalendarResponse>()
+        assertEquals(setOf(sId), narrowed.users.map { it.userId }.toSet())
+
+        // teamId only makes sense narrowing scope=org — the includeIndirect shape-rule wording.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/days-off/calendar?month=$month&scope=member&teamId=$teamX").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/days-off/calendar?month=$month&scope=managed&teamId=$teamX").status,
+        )
+
+        // includeIndirect stays managed-only — scope=org included.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/days-off/calendar?month=$month&scope=org&includeIndirect=true").status,
+        )
+
+        // An unknown (or archived) team narrows to nobody rather than falling back to the org —
+        // the equality-filter idiom; `membersOf` filters soft-deleted teams out.
+        val unknownTeam = hr.get("/api/v1/days-off/calendar?month=$month&scope=org&teamId=999999")
+            .body<DaysOffCalendarResponse>()
+        assertEquals(emptyList(), unknownTeam.users)
+
+        // A month nobody is off in answers with an empty user list.
+        val empty = hr.get("/api/v1/days-off/calendar?month=2069-07&scope=org").body<DaysOffCalendarResponse>()
+        assertEquals(emptyList(), empty.users)
+    }
+
+    @Test
     fun `budgets report allowance, carry-over, and used per user`() = testApplication {
         usePostgresTestcontainer()
         val mEmail = uniqueEmail("do-bud-m")

@@ -666,4 +666,40 @@ class AuditTest {
             appender.detach()
         }
     }
+
+    @Test
+    fun `hr list is audited for the org days-off calendar scope (v3_25_0)`() = testApplication {
+        usePostgresTestcontainer()
+        val hrEmail = uniqueEmail("hrlist-cal-hr")
+        val hrId = TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
+        val ownerId = TestUsers.seed(uniqueEmail("hrlist-cal-owner"), "pw", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "hrlist-cal-${UUID.randomUUID()}", managerId = ownerId))
+
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            // scope=org without a narrowing teamId — resource daysOffCalendar, no teamId field.
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/days-off/calendar?month=2059-01&scope=org").status)
+            val orgEvent = appender.events.find {
+                it.message == "hr.list" &&
+                    it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "daysOffCalendar" }
+            }
+            assertNotNull(orgEvent, "the org calendar scope should be audited")
+            assertEquals(hrId.toLong(), orgEvent.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertTrue(orgEvent.keyValuePairs.none { it.key == "teamId" })
+
+            // scope=org narrowed with teamId — the param rides along on the event.
+            assertEquals(
+                HttpStatusCode.OK,
+                hr.get("/api/v1/days-off/calendar?month=2059-01&scope=org&teamId=$teamId").status,
+            )
+            val narrowedEvent = appender.events.last {
+                it.message == "hr.list" &&
+                    it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "daysOffCalendar" }
+            }
+            assertEquals(teamId.toLong(), narrowedEvent.keyValuePairs.first { it.key == "teamId" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
 }
