@@ -139,5 +139,23 @@
       "registry": "The registry lists every cycle with its status and actions: Open now takes the participant snapshot, Close now publishes the results, Edit dates and Cancel. Admins see counts only — participants, responses, the rate — never aggregates or comments.",
       "end": "Notifications carry each cycle: scheduled tells everyone eligible, opened tells the participants, closed tells the respondents where the results are. That's the whole flow — Done takes you back to Pulse surveys."
     }
+  },
+  "succession": {
+    "launch": "How succession plans work",
+    "steps": {
+      "intro": "A succession plan is a manager's private record for a critical seat: who holds it, how critical the role is, how likely they are to leave, what their loss would cost — and who could step in. Only you edit your plans; the people involved never see them. This walkthrough only looks around — nothing is saved, and you can replay it any time from the \"How succession plans work\" button.",
+      "own": "My plans lists the seats you are planning succession for: the person, the Role criticality and Retention risk badges, the Bench — nominated successors against your target — the plan's status and when you last reviewed it. Review opens a plan; Delete removes it, nominations included.",
+      "filters": "Under Filters you narrow the list by person and status. The choice is remembered the next time you come back.",
+      "team": "My subordinates' plans shows, read-only, the plans owned by the managers who report to you — direct reports by default, or your whole chain under \"All reports (including indirect)\". The managers above you see your plans the same way.",
+      "new": "A new plan starts here. Let's open the form to look — nothing is created until you press Create.",
+      "seat": "Pick a person from your reporting line, then describe the seat: slide the Role criticality and the Retention risk, and set the Target bench depth — how many successors you want nominated. One open plan per person and owner.",
+      "lossImpact": "Loss impact is a short ordered list of what breaks if this person leaves — knowledge, relationships, deliverables. Reorder or remove items freely; the list is stored encrypted.",
+      "actions": "Create saves the plan and opens it, where you nominate successors next. We won't press it now — nothing is created in this walkthrough.",
+      "nominations": "Nominations are the successors: any active person in the organization, cross-team included, with a readiness level, a type — only one Primary per plan, a second Primary demotes the first — and an awareness label that is a note to yourself, nothing more. Each nomination lists competency gaps you tick off as they close, and development action items linked from the candidate's goals — or a new draft goal created on the spot.",
+      "review": "Opening a plan is the Review screen: Basic info is editable in place, Nominations holds the cards, History lists every change. Complete review saves your edits and stamps Last reviewed; Close plan makes the plan read-only for good; leaving without either counts as no review.",
+      "access": "Only the owner writes a plan. Managers above the owner and HR can read it; the seat's person and the nominated candidates never can, whatever the awareness label says — and no notification is ever sent about a plan.",
+      "subordinates": "Each card on My subordinates shows a Succession plan button and a Succession reviewed date while you own an open plan for that person — one click straight into the review.",
+      "end": "Back on My plans, an orange Bench badge means fewer successors than your target, teal means the target is met, and Last reviewed tells you which plans are due a look. That's the whole flow — Done takes you back to Succession plans."
+    }
   }
 }

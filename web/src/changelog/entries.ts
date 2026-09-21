@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.22.0",
+    date: "2026-09-21",
+    en: `How succession plans work — a short guided walkthrough from the Succession plans page: what a plan records (the seat, role criticality, retention risk, bench depth and loss impact), your plans and their filters, your subordinates' plans with the Reports scope, the New plan form, how nominations work (readiness, one Primary, competency gaps, development action items), the Review screen with Complete review and Close plan, who can read a plan, and the Succession plan button on the My subordinates cards. It only looks around — nothing is created or changed.`,
+    pl: `Jak działają plany sukcesji — krótki przewodnik uruchamiany ze strony Plany sukcesji: co zawiera plan (stanowisko, krytyczność roli, ryzyko odejścia, docelową głębokość ławki i skutki utraty), Twoje plany i ich filtry, plany Twoich podwładnych z zakresem Podwładni, formularz Nowy plan, jak działają nominacje (poziom gotowości, jedna Główna, luki kompetencyjne, działania rozwojowe), zakładki Podstawowe informacje | Nominacje | Historia i akcje Zakończ przegląd oraz Zamknij plan, kto może czytać plan i przycisk Plan sukcesji na kartach Moi podwładni. Przewodnik tylko pokazuje — niczego nie tworzy ani nie zmienia.`,
+  },
+  {
     version: "3.21.0",
     date: "2026-09-21",
     en: `How pulse surveys work — a short guided walkthrough from the Pulse surveys page: what the survey asks and how answering works, how anonymity is protected, and what the Results and Trend tabs show. Managers additionally see the Participation tab; administrators see the Pulse cycles page — settings, scheduling a cycle and the cycle registry with its actions. It only looks around — nothing is created or changed.`,

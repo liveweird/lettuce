@@ -139,5 +139,23 @@
       "registry": "Rejestr wymienia każdy cykl z jego statusem i akcjami: Otwórz teraz robi migawkę uczestników, Zamknij teraz publikuje wyniki, a do dyspozycji są też Edytuj daty i Anuluj. Administratorzy widzą wyłącznie liczby — uczestników, odpowiedzi, wskaźnik — nigdy zbiorczych wyników ani komentarzy.",
       "end": "Powiadomienia towarzyszą każdemu cyklowi: zaplanowanie informuje wszystkich uprawnionych, otwarcie informuje uczestników, a zamknięcie informuje osoby, które odpowiedziały, gdzie znaleźć wyniki. To cały przepływ — Gotowe wraca do Ankiet pulsu."
     }
+  },
+  "succession": {
+    "launch": "Jak działają plany sukcesji",
+    "steps": {
+      "intro": "Plan sukcesji to prywatny zapis menedżera/ki dla krytycznego stanowiska: kto je zajmuje, jak krytyczna jest ta rola, jak prawdopodobne jest odejście tej osoby, ile kosztowałaby jej utrata — i kto mógłby ją zastąpić. Tylko Ty edytujesz swoje plany; osoby, których dotyczą, nigdy ich nie widzą. Ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają plany sukcesji\".",
+      "own": "Moje plany pokazują stanowiska, dla których planujesz sukcesję: osobę, odznaki Krytyczność roli i Ryzyko odejścia, Ławkę — nominowanych następców względem Twojego celu — status planu i datę ostatniego przeglądu. Przegląd otwiera plan; Usuń go usuwa, razem z nominacjami.",
+      "filters": "W Filtrach zawężasz listę według osoby i statusu. Wybór zapamiętujemy do następnej wizyty.",
+      "team": "Plany moich podwładnych pokazują, tylko do odczytu, plany należące do menedżerów, którzy Ci podlegają — domyślnie bezpośrednich podwładnych, albo cały Twój łańcuch pod polem \"Wszyscy podwładni (także pośredni)\". Menedżerowie powyżej Ciebie widzą Twoje plany w ten sam sposób.",
+      "new": "Nowy plan zaczyna się tutaj. Otwórzmy formularz, żeby się rozejrzeć — nic nie zostanie utworzone, dopóki nie klikniesz Utwórz.",
+      "seat": "Wybierz osobę ze swojej linii raportowania, a potem opisz stanowisko: przesuń suwaki Krytyczność roli i Ryzyko odejścia oraz ustaw Docelową głębokość ławki — ilu następców chcesz nominować. Jeden otwarty plan na osobę i właściciela.",
+      "lossImpact": "Skutki utraty to krótka, uporządkowana lista tego, co się zepsuje, gdy ta osoba odejdzie — wiedza, relacje, zobowiązania. Zmieniaj kolejność albo usuwaj pozycje swobodnie; lista jest przechowywana zaszyfrowana.",
+      "actions": "Utwórz zapisuje plan i go otwiera, gdzie w następnym kroku nominujesz następców. Teraz tego nie klikniemy — nic nie zostanie utworzone w tym przewodniku.",
+      "nominations": "Nominacje to następcy: dowolna aktywna osoba w organizacji, także spoza zespołu, z poziomem gotowości, rodzajem — tylko jedna Główna nominacja na plan, druga Główna degraduje pierwszą — i etykietą świadomości, która jest tylko notatką dla Ciebie, niczym więcej. Każda nominacja zawiera luki kompetencyjne, które odhaczasz w miarę ich domykania, oraz działania rozwojowe powiązane z celami kandydata/ki — albo nowy szkic celu utworzony na miejscu.",
+      "review": "Otwarcie planu to ekran Przegląd: Podstawowe informacje edytujesz na miejscu, Nominacje zawierają karty, Historia wylicza każdą zmianę. Zakończ przegląd zapisuje Twoje zmiany i oznacza Ostatni przegląd; Zamknij plan czyni go trwale tylko do odczytu; wyjście bez żadnej z tych akcji liczy się jako brak przeglądu.",
+      "access": "Plan może modyfikować tylko właściciel. Menedżerowie powyżej właściciela oraz HR mogą go czytać; osoba na stanowisku i nominowani kandydaci nigdy — niezależnie od etykiety świadomości — a o planie nigdy nie wysyłamy żadnego powiadomienia.",
+      "subordinates": "Każda karta na liście Moi podwładni pokazuje przycisk Plan sukcesji oraz datę Przeglądu sukcesji, dopóki masz otwarty plan dla tej osoby — jedno kliknięcie prowadzi prosto do przeglądu.",
+      "end": "Z powrotem na liście Moje plany pomarańczowa odznaka Ławki oznacza mniej następców niż Twój cel, a morska — że cel jest osiągnięty; Ostatni przegląd podpowiada, które plany wymagają spojrzenia. To cały przepływ — Gotowe wraca do Planów sukcesji."
+    }
   }
 }
