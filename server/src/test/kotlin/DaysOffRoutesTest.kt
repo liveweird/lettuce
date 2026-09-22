@@ -728,6 +728,26 @@ class DaysOffRoutesTest {
             HttpStatusCode.BadRequest,
             s.get("/api/v1/days-off/budgets?view=user&userId=$sId&includeIndirect=true").status,
         )
+        // The same rule on the two sibling auditor surfaces (v4.0.1): the entries list and the
+        // org calendar parse every shape parameter before their gate…
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            s.get("/api/v1/days-off?view=user&userId=$sId&includeIndirect=true").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            s.get("/api/v1/days-off?view=user&userId=$sId&startDate[gte]=bogus").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            s.get("/api/v1/days-off/calendar?month=2059-04&scope=org&includeIndirect=true").status,
+        )
+        // …while a well-formed request from the same non-HR caller still meets the gate.
+        assertEquals(HttpStatusCode.Forbidden, s.get("/api/v1/days-off?view=user&userId=$sId").status)
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            s.get("/api/v1/days-off/calendar?month=2059-04&scope=org").status,
+        )
 
         // 400 when userId rides own/managed — budgets has no pin-filter there.
         assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off/budgets?view=own&userId=$sId").status)

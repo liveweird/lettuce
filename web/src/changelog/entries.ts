@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.0.1",
+    date: "2026-09-22",
+    en: `Housekeeping for the days-off list and calendar: a malformed audit request now gets the same "invalid request" answer for everyone, whatever their role. Nothing you see changes.`,
+    pl: `Porządki w liście i kalendarzu dni wolnych: niepoprawne zapytanie audytowe dostaje teraz tę samą odpowiedź "nieprawidłowe zapytanie" niezależnie od roli pytającego. Nic, co widzisz, się nie zmienia.`,
+  },
+  {
     version: "4.0.0",
     date: "2026-09-22",
     en: `You now decide what reaches you and how. The account menu's "Notification preferences" (replacing "Email notifications") lists every kind of notification, grouped by area, each with its own in-app and email switch — turn off the ones you don't want, on either channel, independently. Section shortcuts turn a whole group on or off at once, and the "Send me emails" master switch from before still governs the email column overall. The security receipt for a password change always stays on.`,

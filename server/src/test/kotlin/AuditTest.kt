@@ -754,4 +754,36 @@ class AuditTest {
             appender.detach()
         }
     }
+
+    @Test
+    fun `a malformed auditor list from HR is a 400 that emits no hr list event (v4_0_1)`() = testApplication {
+        usePostgresTestcontainer()
+        // Shape before role (the registered list-shape rule): every shape 400 runs BEFORE the
+        // guard that writes `hr.list`, so a malformed request never records a read that never
+        // happened. Before v4.0.1 the days-off list and calendar gated first — an HR caller's
+        // bad includeIndirect logged a phantom hr.list and only then answered 400.
+        val hrEmail = uniqueEmail("hrlist-shape-hr")
+        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
+        val subId = TestUsers.seed(uniqueEmail("hrlist-shape-sub"), "pw", roles = emptySet())
+
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val malformed = listOf(
+                "/api/v1/days-off?view=user&userId=$subId&includeIndirect=true",
+                "/api/v1/days-off?view=user&userId=$subId&startDate[gte]=bogus",
+                "/api/v1/days-off/budgets?view=user&userId=$subId&includeIndirect=true",
+                "/api/v1/days-off/calendar?month=2059-01&scope=org&includeIndirect=true",
+            )
+            for (path in malformed) {
+                assertEquals(HttpStatusCode.BadRequest, hr.get(path).status, "HR should get 400: $path")
+            }
+            assertTrue(
+                appender.events.none { it.message == "hr.list" },
+                "a malformed auditor request must not be recorded as an HR read",
+            )
+        } finally {
+            appender.detach()
+        }
+    }
 }
