@@ -17,19 +17,20 @@ import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
-import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
+import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
 import io.ktor.resources.Resource
 import io.ktor.server.application.*
 import io.ktor.server.auth.authenticate
@@ -108,6 +109,15 @@ private fun parseYearParam(raw: String): Int =
     raw.toIntOrNull()?.takeIf { it in 2000..2100 }
         ?: throw BadRequestException("year must be a four-digit year between 2000 and 2100")
 
+/** The `view` selector shared by the days-off list and budgets routes (default `own`). */
+private fun Parameters.daysOffListView(): DaysOffListView =
+    when (val raw = optionalString("view") ?: "own") {
+        "own" -> DaysOffListView.OWN
+        "managed" -> DaysOffListView.MANAGED
+        "user" -> DaysOffListView.USER
+        else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, user)")
+    }
+
 fun Application.configureDaysOffRoutes() {
     val daysOffService = attributes[DaysOffServiceKey]
     val notificationService = attributes[NotificationServiceKey]
@@ -132,12 +142,7 @@ fun Application.configureDaysOffRoutes() {
             get<DaysOff> {
                 val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
-                val view = when (val raw = params.optionalString("view") ?: "own") {
-                    "own" -> DaysOffListView.OWN
-                    "managed" -> DaysOffListView.MANAGED
-                    "user" -> DaysOffListView.USER
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, user)")
-                }
+                val view = params.daysOffListView()
                 val paging = call.parsePaging(
                     sortable = setOf("id", "userName", "startDate", "endDate", "type", "days", "createdAt"),
                     defaultSort = listOf(SortField("startDate", descending = true)),
@@ -304,13 +309,11 @@ fun Application.configureDaysOffRoutes() {
                 if (teamId != null && scope != DaysOffCalendarScope.ORG) {
                     throw BadRequestException("teamId is only supported for scope=org")
                 }
-                val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && scope != DaysOffCalendarScope.MANAGED) {
-                    throw BadRequestException("includeIndirect is only supported for scope=managed")
-                }
+                val includeIndirect =
+                    params.optionalIncludeIndirect(scope, listOf(DaysOffCalendarScope.MANAGED), viewParam = "scope")
                 call.respond(
                     HttpStatusCode.OK,
-                    daysOffService.calendar(scope, caller.userId, month, includeIndirect == true, teamId),
+                    daysOffService.calendar(scope, caller.userId, month, includeIndirect, teamId),
                 )
             }
             // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────
@@ -399,50 +402,37 @@ fun Application.configureDaysOffRoutes() {
                 val caller = call.daysOffCaller()
                 val params = call.request.queryParameters
                 val year = params.optionalString("year")?.let(::parseYearParam) ?: LocalDate.now().year
-                val view = when (val raw = params.optionalString("view") ?: "own") {
-                    "own", "managed", "user" -> raw
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, user)")
-                }
+                val view = params.daysOffListView()
                 // The auditor view (HR-only, v3.24.0) — the days-off LIST auditor branch's
-                // shape (parse userId, then view-shape validation, then the role gate; every
-                // use is audit-logged). Budgets has no pin-filter on own/managed (unlike the
-                // list's userId, which doubles as one on view=managed) — so a userId there is
-                // unconditionally 400.
-                val userId = params.optionalUInt("userId")
-                if (view == "user" && userId == null) {
-                    throw BadRequestException("userId is required for view=user")
-                }
-                if (view != "user" && userId != null) {
-                    throw BadRequestException("userId is not supported for view=$view — budgets has no pin-filter")
-                }
-                if (view == "user") {
+                // shape, but through the shared helper: budgets has no pin-filter on
+                // own/managed (unlike the list's userId, which doubles as one on view=managed),
+                // so a userId there is unconditionally 400. Every shape check (userId, then
+                // includeIndirect — v2.32.0, widening view=managed from direct reports to the
+                // whole transitive subtree) runs BEFORE the role gate, the registered
+                // list-shape rule (`.claude/docs/authorization.md`); every auditor use is
+                // audit-logged.
+                val userId = params.uintOnlyForView("userId", view, DaysOffListView.USER)
+                val includeIndirect = params.optionalIncludeIndirect(view, listOf(DaysOffListView.MANAGED))
+                if (view == DaysOffListView.USER) {
                     requireAuditListAccess(caller, "daysOffBudgets", userId!!)
-                }
-                // includeIndirect (v2.32.0): widens view=managed from direct reports (the
-                // resolve scope) to the whole transitive subtree — the drill-down's chain
-                // mode; the standard strict-boolean shape rule, 400 with any other view (own
-                // or the auditor's user).
-                val includeIndirect = params.optionalBoolean("includeIndirect")
-                if (includeIndirect != null && view != "managed") {
-                    throw BadRequestException("includeIndirect is only supported for view=managed")
                 }
                 // canCorrect (chain-wide since v2.33.0): every managed-view row is in the
                 // caller's subtree by construction, so all of them are correctable; own and
                 // the HR auditor's view=user never (a read-only audit view).
                 val userIds: Set<UInt> = when (view) {
-                    "own" -> setOf(caller.userId)
-                    "managed" -> if (includeIndirect == true) {
+                    DaysOffListView.OWN -> setOf(caller.userId)
+                    DaysOffListView.MANAGED -> if (includeIndirect) {
                         daysOffService.transitiveReports(caller.userId)
                     } else {
                         daysOffService.directReports(caller.userId)
                     }
-                    else -> setOf(userId!!) // view == "user", validated above
+                    DaysOffListView.USER -> setOf(userId!!) // validated above
                 }
                 // Scope teams (v3.13.0): managed rows carry `teams`. The route only names the
                 // caller + includeIndirect; DaysOffService.budgets derives the manager-id set
                 // from the SAME `userIds` subtree it already receives (no second chain walk).
-                val managedScope = if (view == "managed") {
-                    DaysOffBudgetsManagedScope(caller.userId, includeIndirect == true)
+                val managedScope = if (view == DaysOffListView.MANAGED) {
+                    DaysOffBudgetsManagedScope(caller.userId, includeIndirect)
                 } else {
                     null
                 }
@@ -452,7 +442,7 @@ fun Application.configureDaysOffRoutes() {
                         daysOffService.budgets(
                             userIds,
                             year,
-                            correctable = view == "managed",
+                            correctable = view == DaysOffListView.MANAGED,
                             managedScope = managedScope,
                         ),
                     ),

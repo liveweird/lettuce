@@ -180,4 +180,19 @@ class ConnectionPoolTest {
         configureApp("postgres.pool.initialSize" to "5", "postgres.pool.maxSize" to "2")
         assertStartupFails("postgres.pool.initialSize") { startApplication() }
     }
+
+    // checkup #37 C2: the bounds go through the shared infra/config helpers, so a non-numeric
+    // value is a config error naming the key (it used to escape as a raw NumberFormatException),
+    // and the Long bounds honour their upper limit too.
+    @Test
+    fun `a non-numeric postgres pool bound fails startup naming the key`() = testApplication {
+        configureApp("postgres.pool.maxSize" to "abc")
+        assertStartupFails("Config \"postgres.pool.maxSize\" must be an integer") { startApplication() }
+    }
+
+    @Test
+    fun `postgres pool maxAcquireTimeSeconds above its ceiling fails startup`() = testApplication {
+        configureApp("postgres.pool.maxAcquireTimeSeconds" to "601")
+        assertStartupFails("postgres.pool.maxAcquireTimeSeconds") { startApplication() }
+    }
 }

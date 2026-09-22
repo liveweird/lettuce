@@ -152,11 +152,9 @@ private fun ApplicationCall.hasNegativeIdSegment(): Boolean {
 // nothing left to write a body to. Seen twice per e2e run on `/assets/*.js` GETs (checkup #36,
 // C10) as [ClosedByteChannelException] ("Cannot write to channel"); its sibling
 // [ChannelWriteException] wraps the same failure on the CIO engine's other write paths. Kept to
-// these two NAMED Ktor types rather than a generic IOException-with-closed-cause heuristic,
-// which would risk swallowing a genuine server-side write fault under the same DEBUG line.
-internal fun isClientDisconnect(cause: Throwable): Boolean =
-    cause is ClosedByteChannelException || cause is ChannelWriteException
-
+// these two NAMED Ktor types (the two `exception<…>` handlers in [configureErrorHandling]) rather
+// than a generic IOException-with-closed-cause heuristic, which would risk swallowing a genuine
+// server-side write fault under the same DEBUG line.
 private fun ApplicationCall.logClientDisconnect(cause: Throwable) {
     application.log.debug(
         "Client disconnected mid-response ({}): {} {}",

@@ -432,7 +432,7 @@ export default function ReviewsDashboard() {
                     {review ? (
                       <PerformanceReviewStatusBadge status={review.status} />
                     ) : (
-                      <Badge variant="light" color="gray" style={{ minWidth: "max-content" }}>
+                      <Badge variant="light" color="gray">
                         {t("performanceReview.dashboard.noReviewYet")}
                       </Badge>
                     )}
