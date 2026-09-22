@@ -175,7 +175,9 @@ class NotificationEmailDeliveryTest {
         val mail = LogCapture("ch.nokillswit.mail")
         try {
             val id = coroutineScope {
-                TestNotifications.withEmailer(this, mailer = null, appUrl = null).create(sentNote(userId))
+                // `!!`: this recipient has no notification preferences configured, so the
+                // insert never suppresses.
+                TestNotifications.withEmailer(this, mailer = null, appUrl = null).create(sentNote(userId))!!
             }
             assertNotNull(TestNotifications.service.read(id), "the row must still be minted")
             assertNull(mail.events.firstOrNull { "To: $email" in it.formattedMessage })

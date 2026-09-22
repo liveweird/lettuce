@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.0.0",
+    date: "2026-09-22",
+    en: `You now decide what reaches you and how. The account menu's "Notification preferences" (replacing "Email notifications") lists every kind of notification, grouped by area, each with its own in-app and email switch — turn off the ones you don't want, on either channel, independently. Section shortcuts turn a whole group on or off at once, and the "Send me emails" master switch from before still governs the email column overall. The security receipt for a password change always stays on.`,
+    pl: `Teraz Ty decydujesz, co i jak do Ciebie dociera. "Preferencje powiadomień" w menu konta (dawniej "Powiadomienia e-mail") pokazują każdy rodzaj powiadomienia, pogrupowany według obszaru, z osobnym przełącznikiem dla aplikacji i dla e-maila — możesz wyłączyć to, czego nie chcesz, niezależnie na każdym kanale. Skróty przy każdej sekcji włączają lub wyłączają całą grupę naraz, a dotychczasowy główny przełącznik "Wysyłaj mi e-maile" nadal steruje całą kolumną e-mail. Potwierdzenie zmiany hasła jest zawsze włączone.`,
+  },
+  {
     version: "3.25.4",
     date: "2026-09-22",
     en: `Maintenance release. If you sign in with an email address longer than any account can have, you now see a clear message instead of a server error. Behind the scenes, we keep the server's building blocks in step more strictly, and a few internal checks now share one implementation. Nothing else changes in how the app looks or works.`,

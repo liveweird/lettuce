@@ -30,6 +30,8 @@ import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.integration.IntegrationClientService
 import ch.nokillswit.integration.IntegrationClientServiceKey
 import ch.nokillswit.notifications.NotificationEmailer
+import ch.nokillswit.notifications.NotificationPreferenceService
+import ch.nokillswit.notifications.NotificationPreferenceServiceKey
 import ch.nokillswit.notifications.NotificationService
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.oneonones.OneOnOneEventService
@@ -197,6 +199,10 @@ suspend fun Application.configureDatabase() {
     attributes.put(SuccessionPlanServiceKey, SuccessionPlanService(database, attributes[FieldCipherKey]))
     attributes.put(SuccessionEventServiceKey, SuccessionEventService(database))
     attributes.put(IntegrationClientServiceKey, IntegrationClientService(database))
+    // Per-user notification preferences (v4.0.0, V84) — constructed before the emailer, which
+    // reads it per send for the EMAIL-channel per-type check.
+    val notificationPreferenceService = NotificationPreferenceService(database)
+    attributes.put(NotificationPreferenceServiceKey, notificationPreferenceService)
     // The email mirror (v2.3.0): configureMail runs before this module, so the transport and
     // appUrl are readable; the Application is the CoroutineScope its fire-and-forget sends
     // ride on (the password-reset launch precedent).
@@ -205,6 +211,7 @@ suspend fun Application.configureDatabase() {
         mailer = mailer(),
         appUrl = mailAppUrl(),
         userService = userService,
+        notificationPreferenceService = notificationPreferenceService,
     )
     val notificationRetentionMillis =
         environment.config.property("notifications.retentionDays").getString().toLong() * 24 * 60 * 60 * 1000

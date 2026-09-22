@@ -28,7 +28,7 @@ import enTeams from "./locales/en/teams.json";
 import enTemplates from "./locales/en/templates.json";
 import enDictionaries from "./locales/en/dictionaries.json";
 import enNotifications from "./locales/en/notifications.json";
-import enEmailNotifications from "./locales/en/emailNotifications.json";
+import enNotificationPreferences from "./locales/en/notificationPreferences.json";
 import enAlerts from "./locales/en/alerts.json";
 import enChangelog from "./locales/en/changelog.json";
 import enTour from "./locales/en/tour.json";
@@ -96,7 +96,7 @@ export const en = {
   // Mounted as the singular area `dictionary` (the goals.json -> goal filename precedent).
   dictionary: enDictionaries,
   notifications: enNotifications,
-  emailNotifications: enEmailNotifications,
+  notificationPreferences: enNotificationPreferences,
   alerts: enAlerts,
   changelog: enChangelog,
   tour: enTour,

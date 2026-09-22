@@ -119,6 +119,35 @@ export async function setEmailNotifications(id: number, enabled: boolean): Promi
   });
 }
 
+export type NotificationPreferences =
+  paths["/api/v1/users/{id}/notification-preferences"]["get"]["responses"]["200"]["content"]["application/json"];
+export type NotificationPreferenceItem = NotificationPreferences["items"][number];
+type NotificationPreferencesUpdateBody =
+  paths["/api/v1/users/{id}/notification-preferences"]["put"]["requestBody"]["content"]["application/json"];
+export type DisabledNotificationPreference = NotificationPreferencesUpdateBody["disabled"][number];
+
+/**
+ * Reads a user's notification preferences (v4.0.0) — the master email switch plus one row per
+ * `NotificationType`, each with independent in-app/email on-off state. Target user or ADMIN.
+ */
+export async function getNotificationPreferences(id: number): Promise<NotificationPreferences> {
+  return jsonRequest<NotificationPreferences>(`/api/v1/users/${id}/notification-preferences`);
+}
+
+/**
+ * Wholesale-replaces the disabled `(type, channel)` set (v4.0.0) — an empty array re-enables
+ * everything. Disabling a locked type (`PASSWORD_CHANGED`) is rejected by the server with 400.
+ */
+export async function setNotificationPreferences(
+  id: number,
+  disabled: DisabledNotificationPreference[],
+): Promise<void> {
+  await voidRequest(`/api/v1/users/${id}/notification-preferences`, {
+    method: "PUT",
+    body: JSON.stringify({ disabled }),
+  });
+}
+
 /**
  * Sets the user's language (v2.21.0) — target user or ADMIN. Applied to the UI at sign-in
  * and used for every email sent to the user (read at send time, no token staleness).

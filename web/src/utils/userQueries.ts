@@ -14,6 +14,7 @@ export async function invalidateUser(queryClient: QueryClient, id?: number): Pro
   await queryClient.invalidateQueries({ queryKey: ["users"] });
   if (id != null) await queryClient.invalidateQueries({ queryKey: ["user", id] });
   if (id != null) queryClient.invalidateQueries({ queryKey: ["userDetails", id] });
+  if (id != null) queryClient.invalidateQueries({ queryKey: ["notificationPreferences", id] });
   queryClient.invalidateQueries({ queryKey: ["currentUser"] });
   queryClient.invalidateQueries({ queryKey: ["managers"] });
   queryClient.invalidateQueries({ queryKey: ["teamMembers"] });

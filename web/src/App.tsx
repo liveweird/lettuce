@@ -20,13 +20,13 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
+  IconBell,
   IconChevronDown,
   IconHelp,
   IconKey,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconLogout,
-  IconMail,
   IconMoon,
   IconSun,
 } from "@tabler/icons-react";
@@ -118,7 +118,7 @@ const CreateUser = lazy(() => import("./pages/CreateUser"));
 const ImportUsers = lazy(() => import("./pages/ImportUsers"));
 const EditUser = lazy(() => import("./pages/EditUser"));
 const ChangeUserPassword = lazy(() => import("./pages/ChangeUserPassword"));
-const EmailNotifications = lazy(() => import("./pages/EmailNotifications"));
+const NotificationPreferences = lazy(() => import("./pages/NotificationPreferences"));
 const UserFeatures = lazy(() => import("./pages/UserFeatures"));
 const FeatureFlags = lazy(() => import("./pages/FeatureFlags"));
 const IntegrationClients = lazy(() => import("./pages/IntegrationClients"));
@@ -137,6 +137,13 @@ function TeamDetailsRedirect() {
   const { teamId } = useParams<{ teamId: string }>();
   const { search } = useLocation();
   return <Navigate to={`/teams/${teamId}/details${search}`} replace />;
+}
+
+// The pre-v4.0.0 email-mirror screen's URL: notification preferences absorbed it, so this route
+// stays as a redirect (the id preserved) rather than a dead link on any bookmark/menu-item cache.
+function EmailNotificationsRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/users/${id}/notification-preferences`} replace />;
 }
 // Lazy like MarkdownEditor: @xyflow/react + dagre stay out of the main bundle.
 const OrgChart = lazy(() => import("./pages/OrgChart"));
@@ -201,10 +208,10 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
         </Menu.Item>
         <Menu.Item
           component={RouterLink}
-          to={`/users/${userId}/email-notifications`}
-          leftSection={<IconMail size={14} />}
+          to={`/users/${userId}/notification-preferences`}
+          leftSection={<IconBell size={14} />}
         >
-          {t("appShell.nav.emailNotifications")}
+          {t("appShell.nav.notificationPreferences")}
         </Menu.Item>
         <Menu.Divider />
         <Menu.Item leftSection={<IconLogout size={14} />} onClick={onLogout}>
@@ -436,7 +443,14 @@ export const appRoutes = createRoutesFromElements(
             <Route path="users/import" element={<ImportUsers />} />
             <Route path="users/:id/edit" element={<EditUser />} />
             <Route path="users/:id/change-password" element={<ChangeUserPassword />} />
-            <Route path="users/:id/email-notifications" element={<EmailNotifications />} />
+            <Route
+              path="users/:id/email-notifications"
+              element={<EmailNotificationsRedirect />}
+            />
+            <Route
+              path="users/:id/notification-preferences"
+              element={<NotificationPreferences />}
+            />
             <Route path="users/:id/features" element={<UserFeatures />} />
             <Route path="feature-flags" element={<FeatureFlags />} />
             <Route path="integration-clients" element={<IntegrationClients />} />
