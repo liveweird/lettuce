@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.0.2",
+    date: "2026-09-23",
+    en: `Behind-the-scenes housekeeping: the lifecycle diagrams on feedback, goal, team KPI and performance review pages now share one drawing component, the server's startup log no longer prints the full database address, and the API description names its "include indirect reports" option once instead of thirteen times. Nothing you see changes.`,
+    pl: `Porządki za kulisami: diagramy cyklu życia na stronach informacji zwrotnych, celów, wskaźników KPI zespołu i ocen okresowych korzystają teraz z jednego wspólnego komponentu, dziennik startowy serwera nie wypisuje już pełnego adresu bazy danych, a opis API definiuje opcję "uwzględnij podwładnych pośrednich" raz zamiast trzynaście razy. Nic, co widzisz, się nie zmienia.`,
+  },
+  {
     version: "4.0.1",
     date: "2026-09-22",
     en: `Housekeeping for the days-off list and calendar: a malformed audit request now gets the same "invalid request" answer for everyone, whatever their role. Nothing you see changes.`,

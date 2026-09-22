@@ -1,5 +1,6 @@
 package ch.nokillswit.notifications
 
+import ch.nokillswit.infra.catchingFailures
 import ch.nokillswit.infra.db.decodeParams
 import ch.nokillswit.infra.db.encodeParams
 import ch.nokillswit.infra.paging.PageRequest
@@ -8,7 +9,6 @@ import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
 import java.util.concurrent.atomic.AtomicLong
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
@@ -292,22 +292,12 @@ class NotificationService(
 }
 
 /**
- * Runs [block], swallowing every other [Exception] into a WARN log — a purge is best-effort
- * housekeeping and an ordinary failure must never fail the mint that triggered it (a JVM
- * `Error` is deliberately NOT caught: never swallow those) — but rethrowing
- * [CancellationException] untouched (checkup #36, C4): catching a plain [Exception] here would
- * also catch it, since [CancellationException] extends [Exception], silently continuing (or
- * half-finishing) a purge whose owning request was itself cancelled instead of unwinding with
- * it — the standard coroutine idiom of never swallowing cancellation. Extracted as a standalone
- * `internal` top-level function so [NotificationPurgeTest] can pin the rethrow, and the WARN
- * path, without a live database.
+ * Runs [block], logging any ordinary failure as a WARN — a purge is best-effort housekeeping and
+ * must never fail the mint that triggered it — via the shared cancellation-safe
+ * [ch.nokillswit.infra.catchingFailures] (cancellation and JVM `Error`s still propagate; see
+ * its KDoc). Extracted as a standalone `internal` top-level function so [NotificationPurgeTest]
+ * can pin the rethrow, and the WARN path, without a live database.
  */
 internal suspend fun purgeCatchingFailures(block: suspend () -> Unit) {
-    try {
-        block()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        log.warn("Stale-notification purge failed", e)
-    }
+    catchingFailures({ block() }) { e -> log.warn("Stale-notification purge failed", e) }
 }
