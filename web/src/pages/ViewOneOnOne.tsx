@@ -140,8 +140,12 @@ export default function ViewOneOnOne() {
                       title={t("oneOnOne.actionItems")}
                       empty={t("oneOnOne.noActionItems")}
                     >
+                      {/* `normal`, not `wide` (v3.25.2): the v3.5.0 detail shell caps this page
+                          at `Container size="md"`, so the table container is 926px at EVERY
+                          viewport — under the `wide` preset's 68rem threshold, which left these
+                          rows stacked as mobile cards on the widest desktop. */}
                       {data.actionItems.length > 0 && (
-                        <ResponsiveTable density="wide">
+                        <ResponsiveTable density="normal">
                           <ResponsiveTable.Thead>
                             <ResponsiveTable.Tr>
                               <ResponsiveTable.Th>{t("common.table.position")}</ResponsiveTable.Th>

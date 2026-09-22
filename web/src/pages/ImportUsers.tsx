@@ -89,7 +89,11 @@ export default function ImportUsers() {
           back={{ to: "/users", label: t("feedback.backToLabel", { label: t("users.title") }) }}
           title={t("users.importTitle")}
         />
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        {/* `p="md"`, not `xl` (v3.25.2): the results table below is a ResponsiveTable, and
+            `Container size="md"` caps this card at 960px — an `xl` padding left its table
+            container 894px, two pixels under the `normal` density's 56rem stacking
+            threshold, so the table rendered as stacked cards at every viewport width. */}
+        <Paper withBorder shadow="sm" p="md" radius="md">
           <Stack>
             {result === null ? (
               <>
@@ -141,7 +145,7 @@ export default function ImportUsers() {
                     {t("users.importPasswordsOnce")}
                   </Alert>
                 )}
-                <ResponsiveTable density="wide">
+                <ResponsiveTable density="normal">
                   <ResponsiveTable.Thead>
                     <ResponsiveTable.Tr>
                       <ResponsiveTable.Th>{t("users.importLine")}</ResponsiveTable.Th>
@@ -159,11 +163,7 @@ export default function ImportUsers() {
                         <ResponsiveTable.Td label={t("common.field.email")} primary>{row.email ?? "—"}</ResponsiveTable.Td>
                         <ResponsiveTable.Td label={t("users.importStatusHeader")}>
                           <Tooltip label={row.message} disabled={!row.message}>
-                            <Badge
-                              color={STATUS_COLOR[row.status]}
-                              variant="light"
-                              style={{ minWidth: "max-content" }}
-                            >
+                            <Badge color={STATUS_COLOR[row.status]} variant="light">
                               {t(`users.importStatus.${row.status}`)}
                             </Badge>
                           </Tooltip>

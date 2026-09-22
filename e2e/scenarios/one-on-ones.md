@@ -17,7 +17,10 @@
    the last entry slot, since carry-over from earlier runs may already occupy leading positions),
    then Save.
 3. They open the meeting's read-only view.
-   - *Expected*: the point, the decision, and the action item are all shown.
+   - *Expected*: the point, the decision, and the action item are all shown, and the action items
+     are laid out as a real table at this desktop width — not as the stacked one-card-per-item
+     layout the responsive table falls back to on a phone. (A stacked row still holds every cell,
+     so only a measurement distinguishes the two.)
 4. They open the 1:1 list's managed tab.
    - *Expected*: the meeting is listed with an edit link.
 5. They delete the meeting from its edit screen, confirming "Delete this 1:1 meeting?".

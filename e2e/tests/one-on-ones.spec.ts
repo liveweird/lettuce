@@ -72,6 +72,15 @@ test("a manager documents a 1:1 (points, decisions, action items), views it, and
   await expect(page.getByText(decision)).toBeVisible();
   await expect(page.getByText(action)).toBeVisible();
 
+  // ...and the action items render as a TABLE at this desktop width (v3.25.2). A stacked
+  // ResponsiveTable still contains every cell, so the three assertions above passed throughout
+  // the v3.4.0 regression that left this table in its mobile card layout at every viewport (the
+  // detail shell's `Container md` gives it 926px, under the `wide` preset's 68rem threshold).
+  // Only the computed display can see it.
+  await expect
+    .poll(() => page.locator("table").first().evaluate((el) => getComputedStyle(el).display))
+    .toBe("table");
+
   // The managed tab lists it.
   await page.goto("/one-on-ones?tab=managed");
   await expect(page.locator(`a[href*="/one-on-ones/${id}/edit"]`).first()).toBeVisible();
