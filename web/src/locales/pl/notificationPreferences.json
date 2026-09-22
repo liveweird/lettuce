@@ -1,0 +1,25 @@
+{
+  "title": "Preferencje powiadomień",
+  "hint": "Wybierz, które powiadomienia do Ciebie docierają — dla każdego typu osobno, jako wpis w dzwonku, e-mailem albo oboma kanałami. Domyślnie wszystko jest włączone.",
+  "masterSwitchLabel": "Wysyłaj mi e-maile",
+  "masterSwitchHint": "Główny przełącznik dla kolumny e-mail poniżej — gdy jest wyłączony, żaden e-mail nie zostanie wysłany, niezależnie od ustawień poszczególnych typów.",
+  "typeColumn": "Typ",
+  "columnInApp": "W aplikacji",
+  "columnEmail": "E-mail",
+  "otherGroup": "Inne",
+  "lockedHint": "Zawsze włączone",
+  "allOn": "Wszystko wł.",
+  "allOff": "Wszystko wył.",
+  "allOnAria": "Włącz \"{{column}}\" dla każdego powiadomienia z obszaru {{feature}}",
+  "allOffAria": "Wyłącz \"{{column}}\" dla każdego powiadomienia z obszaru {{feature}}",
+  "switchAria": "{{label}} — {{column}}",
+  "loadFailed": "Nie udało się wczytać ustawień",
+  "userNotFound": "Nie znaleziono użytkownika",
+  "noPermission": "Możesz zmieniać tylko własne preferencje powiadomień",
+  "saveFailedStatus": "Zapis nie powiódł się (status {{status}})",
+  "saveFailedNetwork": "Zapis nie powiódł się — sprawdź połączenie i spróbuj ponownie",
+  "partialSaveFailed": "Główny przełącznik e-maili został zapisany, ale zmiany w tabeli typów nie zostały zapisane — spróbuj ponownie",
+  "toast": {
+    "saved": "Preferencje powiadomień zostały zapisane"
+  }
+}

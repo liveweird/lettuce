@@ -1,0 +1,25 @@
+{
+  "title": "Notification preferences",
+  "hint": "Choose which notifications reach you, per type — as an in-app bell row, by email, or both. Everything is on by default.",
+  "masterSwitchLabel": "Send me emails",
+  "masterSwitchHint": "The master switch for the email column below — while it's off, no email goes out no matter what the per-type switches say.",
+  "typeColumn": "Type",
+  "columnInApp": "In app",
+  "columnEmail": "Email",
+  "otherGroup": "Other",
+  "lockedHint": "Always on",
+  "allOn": "All on",
+  "allOff": "All off",
+  "allOnAria": "Turn on {{column}} for every {{feature}} notification",
+  "allOffAria": "Turn off {{column}} for every {{feature}} notification",
+  "switchAria": "{{label}} — {{column}}",
+  "loadFailed": "Failed to load the settings",
+  "userNotFound": "User not found",
+  "noPermission": "You may only change your own notification preferences",
+  "saveFailedStatus": "Saving failed (status {{status}})",
+  "saveFailedNetwork": "Saving failed — check your connection and try again",
+  "partialSaveFailed": "The email switch was saved, but the per-type changes failed to save — please try again",
+  "toast": {
+    "saved": "Notification preferences saved"
+  }
+}

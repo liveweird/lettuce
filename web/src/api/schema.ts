@@ -448,6 +448,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a user's per-type notification preferences (self or ADMIN)
+         * @description Per-user, per-channel notification preferences (v4.0.0, `V84`): one row per
+         *     `NotificationType`, each with independent IN_APP/EMAIL on-off switches, **on by
+         *     default** — an empty backing table means every type is enabled on both channels, so a
+         *     user who never visits this page keeps today's behavior exactly. `emailEnabled` carries
+         *     the V51 master "send me emails" switch (the same value
+         *     `PUT /users/{id}/email-notifications` writes) alongside the matrix, so the client
+         *     renders both from one call. Types belonging to one of the target's currently-disabled
+         *     features (V46) are still listed (the client hides those groups) so a later re-enable
+         *     shows the real stored state rather than a fresh default. `locked` is true only for
+         *     `PASSWORD_CHANGED` — a security receipt that stays on for both channels regardless of
+         *     any stored preference row (`inApp`/`email` are always true when `locked` is true).
+         *     **Target user or ADMIN** (`requireSelfOrAdmin`, the `email-notifications` precedent);
+         *     deliberately ungated by feature like every other users route; a deactivated target is
+         *     allowed (the setting is inert until reactivation).
+         */
+        get: operations["getUserNotificationPreferences"];
+        /**
+         * Replace a user's disabled notification-preference set (self or ADMIN)
+         * @description Wholesale replace of the target's disabled `(type, channel)` set — the
+         *     `UserFeaturesUpdateRequest` idiom applied per-type-per-channel: an empty array
+         *     re-enables everything. In-app suppression means the row is never minted at all;
+         *     disabling only the EMAIL channel keeps the in-app row and just skips its email mirror.
+         *     Disabling `PASSWORD_CHANGED` on either channel is `400` — it cannot be silenced.
+         *     Idempotent (a same-set re-PUT is `204` again). **Target user or ADMIN**
+         *     (`requireSelfOrAdmin`); a deactivated target is allowed (inert until reactivation).
+         *     Audited as `user.notification_preferences_changed` on an actual change.
+         */
+        put: operations["setUserNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/language": {
         parameters: {
             query?: never;
@@ -4007,6 +4053,39 @@ export interface components {
         UserLanguageUpdateRequest: {
             language: components["schemas"]["Language"];
         };
+        /**
+         * @description The two channels a notification can reach a recipient through (v4.0.0): `IN_APP` (a bell row) or `EMAIL` (the mirror — see `NotificationResponse` and "Email mirror" in the notifications docs).
+         * @enum {string}
+         */
+        NotificationChannel: "IN_APP" | "EMAIL";
+        NotificationPreferenceItem: {
+            type: components["schemas"]["NotificationType"];
+            /**
+             * @description The feature area this type belongs to (mirrors the `Feature` schema — inlined here rather than `$ref`'d because a nullable enum reached only through `allOf` fails response validation under this project's swagger-request-validator setup), for client-side grouping — null for the two feature-neutral types (`PASSWORD_CHANGED`, `CAREER_POSITION_STARTED_TO_USER`, which the client groups under "Other"). Mirrors `NotificationType.feature`; present even when that feature is currently disabled for the target (the client hides the group, not the data).
+             * @enum {string|null}
+             */
+            feature?: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "IMPACT_LOG" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "SUCCESSION_PLANS" | "TEAM_KPIS" | null;
+            /** @description Whether an in-app row is minted for this type. True unless the recipient disabled it. */
+            inApp: boolean;
+            /** @description Whether the email mirror is sent for this type. True unless the recipient disabled it. */
+            email: boolean;
+            /** @description True for `PASSWORD_CHANGED` only (v4.0.0) — a security receipt that cannot be disabled on either channel; `inApp`/`email` are always true when this is true. */
+            locked: boolean;
+        };
+        NotificationPreferencesResponse: {
+            /** @description The V51 master email-mirror opt-out (`users.email_notifications_enabled`) — the same value `PUT /users/{id}/email-notifications` writes, surfaced here so a single page can render the master switch alongside the per-type matrix. */
+            emailEnabled: boolean;
+            /** @description One row per `NotificationType`, grouped client-side by `feature`. */
+            items: components["schemas"]["NotificationPreferenceItem"][];
+        };
+        DisabledNotificationPreference: {
+            type: components["schemas"]["NotificationType"];
+            channel: components["schemas"]["NotificationChannel"];
+        };
+        NotificationPreferencesUpdateRequest: {
+            /** @description The complete new disabled `(type, channel)` set (wholesale replace) — an empty array re-enables everything. Disabling a locked type (`PASSWORD_CHANGED`) is `400`. An unknown type or channel name is rejected with `400`. */
+            disabled: components["schemas"]["DisabledNotificationPreference"][];
+        };
         RefreshRequest: {
             /** @description The refresh token previously issued by /login or /refresh. */
             refreshToken: string;
@@ -6346,6 +6425,11 @@ export interface components {
             date: string;
             name: string;
         };
+        /**
+         * @description Notification kind — see `NotificationResponse.type` for what each carries and `NotificationPreferenceItem` for the per-type on/off switches (v4.0.0).
+         * @enum {string}
+         */
+        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
         NotificationResponse: {
             /** Format: int32 */
             id: number;
@@ -6356,11 +6440,8 @@ export interface components {
              * @description Epoch milliseconds when the notification was generated. Server-managed.
              */
             timestamp: number;
-            /**
-             * @description Notification kind; the client renders it in the viewer's language.
-             * @enum {string}
-             */
-            type: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+            /** @description Notification kind; the client renders it in the viewer's language. */
+            type: components["schemas"]["NotificationType"];
             /**
              * @description Interpolation values for the localized message — party names (proper nouns), e.g.
              *     `{provider,subject,requester}`; plus `self` — the SPA's i18next context carrier:
@@ -7666,6 +7747,77 @@ export interface operations {
         };
         responses: {
             /** @description Email-notification setting stored */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the target user nor ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getUserNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The target user's notification preferences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferencesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the target user nor ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    setUserNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferencesUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Notification preferences replaced */
             204: {
                 headers: {
                     [name: string]: unknown;

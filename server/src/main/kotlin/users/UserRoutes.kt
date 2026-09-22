@@ -21,8 +21,15 @@ import ch.nokillswit.authz.requireCanAssignUniqueId
 import ch.nokillswit.authz.requireSelfOrAdmin
 import ch.nokillswit.authz.requireUserRead
 import ch.nokillswit.notifications.Notification
+import ch.nokillswit.notifications.NotificationChannel
+import ch.nokillswit.notifications.NotificationPreferenceItem
+import ch.nokillswit.notifications.NotificationPreferenceServiceKey
+import ch.nokillswit.notifications.NotificationPreferencesResponse
+import ch.nokillswit.notifications.NotificationPreferencesUpdateRequest
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
+import ch.nokillswit.notifications.feature
+import ch.nokillswit.notifications.lockedOn
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
@@ -67,6 +74,10 @@ internal fun validatePassword(password: String) {
 /** Audit format for a roles/features set: comma-joined sorted names, "" = empty set. */
 private fun <T : Enum<T>> Set<T>.joinedNames(): String = map { it.name }.sorted().joinToString(",")
 
+/** Audit format for a disabled notification-preference set: sorted "TYPE:CHANNEL" pairs. */
+private fun Set<Pair<NotificationType, NotificationChannel>>.joinedPreferenceNames(): String =
+    map { "${it.first.name}:${it.second.name}" }.sorted().joinToString(",")
+
 @Serializable
 @Resource("/api/v1/users")
 class Users {
@@ -98,6 +109,10 @@ class Users {
         class EmailNotifications(val parent: Id)
 
         @Serializable
+        @Resource("notification-preferences")
+        class NotificationPreferences(val parent: Id)
+
+        @Serializable
         @Resource("language")
         class Language(val parent: Id)
     }
@@ -113,6 +128,8 @@ fun Application.configureUserRoutes() {
     val careerPositionService = attributes[CareerPositionServiceKey]
     // For the password-changed notification (published by configureDatabase, which loads earlier).
     val notificationService = attributes[NotificationServiceKey]
+    // Per-user notification preferences (v4.0.0) — same publish point as notificationService.
+    val notificationPreferenceService = attributes[NotificationPreferenceServiceKey]
     val mailer = mailer()
     val mailAppUrl = mailAppUrl()
     val importService = UserImportService(userService, mailer, mailAppUrl, log)
@@ -485,6 +502,60 @@ fun Application.configureUserRoutes() {
                         "targetUserId" to route.parent.id.toLong(),
                         "from" to existing.emailNotificationsEnabled,
                         "to" to req.enabled,
+                    )
+                }
+                call.respond(HttpStatusCode.NoContent)
+            }
+            // Per-user notification preferences (v4.0.0): the email-notifications/features idiom
+            // — requireSelfOrAdmin (like email-notifications, not requireAdmin like features:
+            // quieting one's own notifications is the whole point), deliberately ungated by
+            // feature like every other users route, deactivated target allowed (inert until
+            // reactivation).
+            get<Users.Id.NotificationPreferences> { route ->
+                val caller = call.caller()
+                requireSelfOrAdmin(caller, route.parent.id)
+                val target = userService.read(route.parent.id)
+                    ?: throw NotFoundException("User not found")
+                val disabled = notificationPreferenceService.read(route.parent.id)
+                val items = NotificationType.entries.map { type ->
+                    val locked = type.lockedOn
+                    val disabledChannels = disabled[type] ?: emptySet()
+                    NotificationPreferenceItem(
+                        type = type,
+                        feature = type.feature,
+                        inApp = locked || NotificationChannel.IN_APP !in disabledChannels,
+                        email = locked || NotificationChannel.EMAIL !in disabledChannels,
+                        locked = locked,
+                    )
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    NotificationPreferencesResponse(target.emailNotificationsEnabled, items),
+                )
+            }
+            put<Users.Id.NotificationPreferences> { route ->
+                val caller = call.caller()
+                requireSelfOrAdmin(caller, route.parent.id)
+                val req = call.receive<NotificationPreferencesUpdateRequest>()
+                // 404 before the write, the email-notifications/features precedent, and also
+                // where the pre-write set for the audit diff comes from.
+                userService.read(route.parent.id) ?: throw NotFoundException("User not found")
+                val requested = req.disabled.map { it.type to it.channel }.toSet()
+                val existingDisabled = notificationPreferenceService.read(route.parent.id)
+                    .flatMap { (type, channels) -> channels.map { channel -> type to channel } }
+                    .toSet()
+                // notificationPreferenceService.replace rejects a locked type with 400 — 403
+                // (the guard above) already won over 400 for a non-self/admin caller.
+                if (notificationPreferenceService.replace(route.parent.id, requested) == 0) {
+                    throw NotFoundException("User not found")
+                }
+                if (requested != existingDisabled) {
+                    audit(
+                        "user.notification_preferences_changed",
+                        "byUserId" to caller.userId.toLong(),
+                        "targetUserId" to route.parent.id.toLong(),
+                        "from" to existingDisabled.joinedPreferenceNames(),
+                        "to" to requested.joinedPreferenceNames(),
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)

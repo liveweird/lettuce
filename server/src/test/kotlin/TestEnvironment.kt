@@ -302,6 +302,9 @@ object TestServices {
     val successionPlans: ch.nokillswit.succession.SuccessionPlanService by lazy {
         ch.nokillswit.succession.SuccessionPlanService(sharedTestDatabase, cipher)
     }
+    val notificationPreferences: ch.nokillswit.notifications.NotificationPreferenceService by lazy {
+        ch.nokillswit.notifications.NotificationPreferenceService(sharedTestDatabase)
+    }
 }
 
 // The review-period timeline is GLOBAL, append-only, and gapless — shared mutable state in the
@@ -614,7 +617,9 @@ object TestNotifications {
     }
 
     // Notifications are now typed + structured; tests only need distinguishable rows, so a fixed
-    // type carries the caller's [label] as a param.
+    // type carries the caller's [label] as a param. `!!`: FEEDBACK_SENT_TO_SUBJECT is never
+    // locked-on and this recipient has no preferences configured (v4.0.0), so the insert never
+    // suppresses.
     suspend fun seed(recipientId: UInt, label: String = "Hello", link: String? = "/somewhere"): UInt =
         service.create(
             ch.nokillswit.notifications.Notification(
@@ -623,7 +628,7 @@ object TestNotifications {
                 params = mapOf("subject" to label),
                 link = link,
             )
-        )
+        )!!
 
     /**
      * Inserts a row carrying an ARBITRARY stored type name, bypassing [NotificationType] — the
@@ -655,6 +660,12 @@ object TestNotifications {
     ): ch.nokillswit.notifications.NotificationService =
         ch.nokillswit.notifications.NotificationService(
             sharedTestDatabase,
-            ch.nokillswit.notifications.NotificationEmailer(scope, mailer, appUrl, TestServices.users),
+            ch.nokillswit.notifications.NotificationEmailer(
+                scope,
+                mailer,
+                appUrl,
+                TestServices.users,
+                TestServices.notificationPreferences,
+            ),
         )
 }

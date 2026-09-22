@@ -208,6 +208,14 @@ describe("App shell", () => {
       }
     });
 
+    test("the old email-notifications URL redirects to notification preferences, id preserved", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      renderApp("/users/7/email-notifications");
+      expect(
+        await screen.findByRole("heading", { level: 2, name: "Notification preferences" }),
+      ).toBeInTheDocument();
+    });
+
     test("shows a Change password link pointing at the current user's route", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       renderApp("/");
@@ -426,8 +434,10 @@ describe("App shell", () => {
       await user.click(await screen.findByRole("button", { name: "User menu" }));
       const changePassword = await screen.findByRole("menuitem", { name: /change password/i });
       expect(changePassword).toHaveAttribute("href", "/users/7/change-password");
-      const emailNotifications = screen.getByRole("menuitem", { name: /email notifications/i });
-      expect(emailNotifications).toHaveAttribute("href", "/users/7/email-notifications");
+      const notificationPreferences = screen.getByRole("menuitem", {
+        name: /notification preferences/i,
+      });
+      expect(notificationPreferences).toHaveAttribute("href", "/users/7/notification-preferences");
       expect(screen.getByRole("menuitem", { name: /logout/i })).toBeInTheDocument();
     });
 

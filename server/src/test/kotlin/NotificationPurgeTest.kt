@@ -141,7 +141,8 @@ class NotificationPurgeTest {
     fun `retentionMillis = 0 disables the purge entirely`(): Unit = runBlocking {
         val recipientId = freshRecipient("purge-disabled")
         val service = NotificationService(TestServices.database, retentionMillis = 0)
-        val id = service.create(dummyNotification(recipientId, "one"))
+        // `!!`: this recipient has no preferences configured, so the insert never suppresses.
+        val id = service.create(dummyNotification(recipientId, "one"))!!
         backdate(id, THIRTY_ONE_DAYS_MILLIS)
         service.markSeen(id)
 

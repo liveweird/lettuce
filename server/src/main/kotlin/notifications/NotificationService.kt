@@ -114,37 +114,66 @@ class NotificationService(
     private val lastPurgeAtMillis = AtomicLong(0)
 
     /**
-     * Inserts a notification. The generation timestamp and the unseen flag are set here,
-     * never taken from a caller. Invoked by the activities that trigger notifications
-     * (no HTTP create endpoint exists).
+     * Inserts a notification, UNLESS the recipient disabled that type's IN_APP channel (v4.0.0 —
+     * [NotificationType.lockedOn] types, e.g. `PASSWORD_CHANGED`, are never suppressible). The
+     * disabled-set read runs INSIDE this insert transaction — the `GoalService`/`ImpactLogService`
+     * cross-feature table-read shape (`disabledForInTransaction` queries
+     * `NotificationPreferenceService.UserNotificationPreferences` directly rather than calling
+     * that service's own method, which would open a second transaction). Returns the new row's id,
+     * or `null` when the insert was suppressed — no caller in this codebase uses the id. The
+     * generation timestamp and the unseen flag are set here, never taken from a caller. Invoked
+     * by the activities that trigger notifications (no HTTP create endpoint exists). The email
+     * mirror is dispatched UNCONDITIONALLY (in-app suppression and email suppression are
+     * independent per-channel switches — [NotificationEmailer.sendOne] applies its own EMAIL-set
+     * check).
      */
-    suspend fun create(notification: Notification): UInt {
+    suspend fun create(notification: Notification): UInt? {
         val id = suspendTransaction(database) {
-            val newRecord = Notifications.insert {
-                it[recipientId] = notification.recipientId
-                it[timestamp] = System.currentTimeMillis()
-                it[notificationType] = notification.type.name
-                it[params] = encodeParams(notification.params)
-                it[link] = notification.link
-                it[wasSeen] = false
+            val suppressed = !notification.type.lockedOn &&
+                notification.type in disabledForInTransaction(
+                    listOf(notification.recipientId),
+                    NotificationChannel.IN_APP,
+                ).getOrDefault(notification.recipientId, emptySet())
+            if (suppressed) {
+                null
+            } else {
+                val newRecord = Notifications.insert {
+                    it[recipientId] = notification.recipientId
+                    it[timestamp] = System.currentTimeMillis()
+                    it[notificationType] = notification.type.name
+                    it[params] = encodeParams(notification.params)
+                    it[link] = notification.link
+                    it[wasSeen] = false
+                }
+                newRecord[Notifications.id].value
             }
-            newRecord[Notifications.id].value
         }
         // Own transaction, after the insert commits — a big DELETE must not hold the mint's locks.
         purgeStale()
-        // Email mirror AFTER the commit, fire-and-forget — see NotificationEmailer.
+        // Email mirror AFTER the commit, fire-and-forget, regardless of the IN_APP suppression
+        // above — see NotificationEmailer.
         emailer?.dispatch(listOf(notification))
         return id
     }
 
     /**
      * Batch [create] for wide fan-outs (the pulse cycle events notify the whole eligible org):
-     * one transaction instead of N. Same server-managed timestamp/unseen semantics.
+     * one transaction instead of N, one disabled-IN_APP-set read for every recipient instead of
+     * one per row. Same server-managed timestamp/unseen semantics and per-row suppression as
+     * [create]; an all-suppressed batch simply inserts nothing (an empty-insert no-op, never an
+     * error) and still dispatches every notification to the emailer.
      */
     suspend fun createAll(notifications: List<Notification>) {
         suspendTransaction(database) {
             val now = System.currentTimeMillis()
+            val disabled = disabledForInTransaction(
+                notifications.map { it.recipientId }.toSet(),
+                NotificationChannel.IN_APP,
+            )
             notifications.forEach { notification ->
+                val suppressed = !notification.type.lockedOn &&
+                    notification.type in disabled.getOrDefault(notification.recipientId, emptySet())
+                if (suppressed) return@forEach
                 Notifications.insert {
                     it[recipientId] = notification.recipientId
                     it[timestamp] = now
@@ -157,7 +186,8 @@ class NotificationService(
         }
         // Own transaction, after the insert commits — see create().
         purgeStale()
-        // Email mirror AFTER the commit — one background loop for the whole batch.
+        // Email mirror AFTER the commit — one background loop for the whole batch, every
+        // notification regardless of IN_APP suppression (see create()).
         emailer?.dispatch(notifications)
     }
 
