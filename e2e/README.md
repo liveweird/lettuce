@@ -128,7 +128,7 @@ scenario file is the design.
 - [`mfa.spec.ts`](scenarios/mfa.md) — opt-in email MFA at login incl. the five-failure attempt cap + fresh-challenge recovery (Mailpit-gated).
 - [`navigation.spec.ts`](scenarios/navigation.md) — shell navigation: the in-shell 404 catch-all, the legacy performance redirects, the dashboard Peers tab (2026-08 audit round).
 - [`notifications.spec.ts`](scenarios/notifications.md) — bell mechanics: badge, seen/unseen, mark all, delete.
-- [`one-on-ones.spec.ts`](scenarios/one-on-ones.md) — documenting 1:1s, action-item carry-over, subordinate notification.
+- [`one-on-ones.spec.ts`](scenarios/one-on-ones.md) — documenting 1:1s, action-item carry-over, subordinate notification, and the measured pin that the read-only document's action items render as a table, not stacked cards, at desktop width (v3.25.2).
 - [`one-on-ones-tutorial.spec.ts`](scenarios/one-on-ones-tutorial.md) — the "How 1:1 meetings work" guided tutorial (v3.18.0): the manager's 13-step and the non-manager's 6-step read-only walk, landmark order, and the return to the 1:1 meetings page with no non-GET API request issued during the walk.
 - [`impact-log-tutorial.spec.ts`](scenarios/impact-log-tutorial.md) — the "How the impact log works" guided tutorial (v3.19.0): the manager's 12-step and the non-manager's 9-step read-only walk, landmark order, and the return to the Impact log page with no non-GET API request issued during the walk.
 - [`team-kpis-tutorial.spec.ts`](scenarios/team-kpis-tutorial.md) — the "How team KPIs work" guided tutorial (v3.20.0): the manager's 14-step and the team member's 7-step read-only walk, landmark order, and the return to the Team KPIs page with no non-GET API request issued during the walk.

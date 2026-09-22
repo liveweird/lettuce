@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.25.2",
+    date: "2026-09-22",
+    en: `A 1:1 meeting's action items are a proper table again, on every screen — the read-only meeting document had been showing them one stacked card per item, the layout meant for a phone. The "Mass import" results table is fixed the same way.`,
+    pl: `Zadania w notatce ze spotkania 1:1 znowu tworzą normalną tabelę, na każdym ekranie — dotąd widok spotkania pokazywał każde zadanie jako osobną kartę, czyli w układzie przeznaczonym na telefon. Tak samo poprawiona jest tabela wyników "Importu masowego".`,
+  },
+  {
     version: "3.25.1",
     date: "2026-09-21",
     en: `The "Team's performance" table shows its rating values again — the coloured boxes had become too narrow for their digits, so they rendered empty.`,
