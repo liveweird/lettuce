@@ -22,6 +22,8 @@ import ch.nokillswit.impactlog.ImpactLogEventService
 import ch.nokillswit.impactlog.ImpactLogEventServiceKey
 import ch.nokillswit.impactlog.ImpactLogService
 import ch.nokillswit.impactlog.ImpactLogServiceKey
+import ch.nokillswit.infra.config.requireConfigInt
+import ch.nokillswit.infra.config.requireConfigLong
 import ch.nokillswit.infra.crypto.FieldCipherKey
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
@@ -44,6 +46,8 @@ import ch.nokillswit.reviews.PerformanceReviewService
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
 import ch.nokillswit.reviews.ReviewPeriodService
 import ch.nokillswit.reviews.ReviewPeriodServiceKey
+import ch.nokillswit.settings.AppSettingsService
+import ch.nokillswit.settings.AppSettingsServiceKey
 import ch.nokillswit.succession.SuccessionEventService
 import ch.nokillswit.succession.SuccessionEventServiceKey
 import ch.nokillswit.succession.SuccessionPlanService
@@ -56,8 +60,6 @@ import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.templates.TemplateService
 import ch.nokillswit.templates.TemplateServiceKey
-import ch.nokillswit.settings.AppSettingsService
-import ch.nokillswit.settings.AppSettingsServiceKey
 import ch.nokillswit.users.CareerPositionService
 import ch.nokillswit.users.CareerPositionServiceKey
 import ch.nokillswit.users.UserService
@@ -83,12 +85,9 @@ val R2dbcDatabaseKey = AttributeKey<R2dbcDatabase>("R2dbcDatabase")
 
 /**
  * The bounded pool sizing read from `postgres.pool.*` (`.claude/docs/persistence.md`
- * "Connection pool") — boot-validated in the same fail-closed spirit as the auth knobs (a range
- * failure throws [IllegalArgumentException] before any connection is attempted), but NOT through
- * the same helper: `requireConfigInt`/`requireConfigLong` are private to `auth/AuthRoutes.kt`, so
- * this is a second implementation with its own wording, and a non-numeric override surfaces as a
- * raw [NumberFormatException] rather than a config-error message (checkup #37 M5 — hoisting the
- * helpers into shared infrastructure is the fix, not this comment).
+ * "Connection pool") — boot-validated through the shared [requireConfigInt]/[requireConfigLong]
+ * (`infra/config/`), so a malformed or out-of-range bound refuses startup with a config-error
+ * message naming the key, before any connection is attempted.
  */
 private data class PoolBounds(
     val maxSize: Int,
@@ -99,14 +98,10 @@ private data class PoolBounds(
 )
 
 private fun readPoolBounds(config: ApplicationConfig): PoolBounds {
-    val maxSize = config.property("postgres.pool.maxSize").getString().toInt()
-        .also { require(it in 1..1000) { "postgres.pool.maxSize must be between 1 and 1000" } }
-    val initialSize = config.property("postgres.pool.initialSize").getString().toInt()
-        .also { require(it in 0..maxSize) { "postgres.pool.initialSize must be between 0 and postgres.pool.maxSize ($maxSize)" } }
-    val maxAcquireTimeSeconds = config.property("postgres.pool.maxAcquireTimeSeconds").getString().toLong()
-        .also { require(it in 1..600) { "postgres.pool.maxAcquireTimeSeconds must be between 1 and 600" } }
-    val maxIdleTimeSeconds = config.property("postgres.pool.maxIdleTimeSeconds").getString().toLong()
-        .also { require(it in 1..86400) { "postgres.pool.maxIdleTimeSeconds must be between 1 and 86400" } }
+    val maxSize = requireConfigInt(config, "postgres.pool.maxSize", min = 1, max = 1000)
+    val initialSize = requireConfigInt(config, "postgres.pool.initialSize", min = 0, max = maxSize)
+    val maxAcquireTimeSeconds = requireConfigLong(config, "postgres.pool.maxAcquireTimeSeconds", min = 1, max = 600)
+    val maxIdleTimeSeconds = requireConfigLong(config, "postgres.pool.maxIdleTimeSeconds", min = 1, max = 86400)
     // application_name = lettuce on every pooled connection by default (deliberate — ops can
     // count Lettuce's own connections in pg_stat_activity, and ConnectionPoolTest relies on
     // it); overridable per test application instance so overlapping test apps sharing the

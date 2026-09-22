@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.25.4",
+    date: "2026-09-22",
+    en: `Maintenance release. If you sign in with an email address longer than any account can have, you now see a clear message instead of a server error. Behind the scenes, we keep the server's building blocks in step more strictly, and a few internal checks now share one implementation. Nothing else changes in how the app looks or works.`,
+    pl: `Wydanie porządkowe. Gdy logujesz się adresem e-mail dłuższym, niż może mieć jakiekolwiek konto, zobaczysz teraz jasny komunikat zamiast błędu serwera. Za kulisami ściślej pilnujemy zgodności elementów składowych serwera, a kilka wewnętrznych kontroli korzysta teraz z jednej wspólnej implementacji. Poza tym nic się nie zmienia w wyglądzie ani działaniu aplikacji.`,
+  },
+  {
     version: "3.25.3",
     date: "2026-09-22",
     en: `Notifications work again on installations upgraded from an older version. The bell showed no count and opened onto an error, because days-off notifications created before the approval step was removed were stored in a form this version no longer recognized. Those older notices now read in the current wording, and an unrecognizable notice can never again take the whole list down with it.`,

@@ -49,6 +49,21 @@ class LoginLockoutTest {
     }
 
     @Test
+    fun `an email longer than any account can hold is a 400 that never reaches the lockout`() = testApplication {
+        // checkup #37 C1: `login_lockouts.email` is VARCHAR(254), so reserving an attempt for a
+        // longer email used to 500. Past the threshold (3) it must still be 400, never 429 — the
+        // oversized email never took a reservation. At exactly 254 it is an ordinary 401.
+        configureLockoutApp()
+        startApplication()
+        // Keyed on uniqueEmail (the shared-container rule in testing.md) and padded to exactly 254.
+        val seed = uniqueEmail("long")
+        val atLimit = "a".repeat(254 - seed.length) + seed
+        val overLimit = "a$atLimit"
+        repeat(4) { assertEquals(HttpStatusCode.BadRequest, attemptLogin(overLimit, "wrong")) }
+        assertEquals(HttpStatusCode.Unauthorized, attemptLogin(atLimit, "wrong"))
+    }
+
+    @Test
     fun `locking one account does not affect another`() = testApplication {
         configureLockoutApp()
         startApplication()

@@ -48,9 +48,11 @@ Current migrations are `V1`–`V83`. **The per-migration catalog lives in `.clau
   writes serialize on the atomic `reserveAttempt` upsert and `pg_advisory_xact_lock`, never on
   serialization failures, so no code path relied on the retry. **Dependency alignment:**
   r2dbc-pool 1.0.2 declares reactor-pool 1.0.8 (built on reactor-core 3.5.20), but Lettuce
-  resolves reactor-core 3.8.7 via the reactor-netty 1.3.7 pin (Reactor BOM 2025.0.7), so
-  `gradle/libs.versions.toml` declares `reactor-pool` explicitly at that BOM's 1.2.7 — move it
-  together with the reactor-netty line.
+  resolves reactor-core 3.8.7, so `server/build.gradle.kts` imports the Reactor BOM 2025.0.7 as a
+  platform (checkup #37 C4) — it pins reactor-core 3.8.7, reactor-pool 1.2.7 and reactor-netty
+  1.3.7 as one release train, and `:server:checkDependencyAlignment` fails when any reactor module
+  resolves to a version other than the BOM's. Move the `reactor-bom` catalog line together with
+  the `netty` pin.
 - **Reference:** `infra/db/Database.kt` (`connectPooled`, `readPoolBounds`), `application.yaml`
   `postgres.pool`.
 - **Enforcement:** `ConnectionPoolTest` — concurrent transactions never exceed `maxSize` in

@@ -243,7 +243,7 @@ export default function ViewGoal() {
                   <Tabs.List>
                     <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                     <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
-                    <Tabs.Tab value="lifecycle">{t("goal.action.lifecycle")}</Tabs.Tab>
+                    <Tabs.Tab value="lifecycle">{t("goal.lifecycle")}</Tabs.Tab>
                   </Tabs.List>
 
                   <Tabs.Panel value="content" pt="md">

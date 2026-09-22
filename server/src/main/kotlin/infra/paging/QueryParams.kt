@@ -49,11 +49,13 @@ inline fun <reified E : Enum<E>> Parameters.optionalEnum(name: String): E? =
 /**
  * The list endpoints' shared `includeIndirect` shape rule: the strict boolean is accepted only
  * while [view] is one of [allowed] (400 otherwise, naming the allowed views); absent = false.
+ * [viewParam] names the selector in that message — `view` everywhere except the days-off
+ * calendar, whose selector is `scope`.
  */
-fun <T : Enum<T>> Parameters.optionalIncludeIndirect(view: T, allowed: List<T>): Boolean {
+fun <T : Enum<T>> Parameters.optionalIncludeIndirect(view: T, allowed: List<T>, viewParam: String = "view"): Boolean {
     val value = optionalBoolean("includeIndirect")
     if (value != null && view !in allowed) {
-        val views = allowed.joinToString(" and ") { "view=${it.name.lowercase()}" }
+        val views = allowed.joinToString(" and ") { "$viewParam=${it.name.lowercase()}" }
         throw BadRequestException("includeIndirect is only supported for $views")
     }
     return value == true

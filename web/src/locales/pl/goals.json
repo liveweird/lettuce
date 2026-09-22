@@ -50,6 +50,7 @@
     "NUMBER": "Liczba",
     "PERCENTAGE": "Procent"
   },
+  "lifecycle": "Cykl życia",
   "lifecycleAlt": "Diagram cyklu życia celu",
   "lifecycleHint": "Wyznaczony jako szkic, śledzony jako aktywny, zarchiwizowany z podsumowaniem — każdy ruch menedżer/ka może cofnąć.",
   "viewTitle": "Cel",
@@ -80,7 +81,6 @@
     "close": "Zarchiwizuj cel",
     "reopen": "Otwórz ponownie",
     "update": "Aktualizuj",
-    "lifecycle": "Cykl życia",
     "saveDraft": "Zapisz wersję roboczą",
     "saveAndActivate": "Zapisz i aktywuj"
   },

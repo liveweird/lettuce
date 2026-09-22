@@ -49,7 +49,9 @@ export interface paths {
          *     attempts for that account — even with the correct password — are rejected with `429`
          *     for a lockout window (default 15 min, `LOGIN_LOCKOUT_DURATION_SECONDS`). A successful
          *     login resets the counter. Unknown emails still undergo password verification at the
-         *     default work factor before receiving the same `401` as an incorrect password.
+         *     default work factor before receiving the same `401` as an incorrect password. An
+         *     email longer than 254 characters (after trimming and case-folding) is rejected with
+         *     `400` before any of this — no account can hold one, so it says nothing about accounts.
          *
          *     A **deactivated** account with correct credentials is rejected with `403` — the check
          *     runs only after the password verifies, so wrong credentials always get the uniform

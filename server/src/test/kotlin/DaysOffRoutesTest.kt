@@ -722,6 +722,13 @@ class DaysOffRoutesTest {
         // 400 without userId.
         assertEquals(HttpStatusCode.BadRequest, h.get("/api/v1/days-off/budgets?view=user").status)
 
+        // Shape before role (the registered list-shape rule, checkup #37 C3): a non-HR caller's
+        // malformed auditor request is the same 400 HR gets, never a 403 that reveals the gate.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            s.get("/api/v1/days-off/budgets?view=user&userId=$sId&includeIndirect=true").status,
+        )
+
         // 400 when userId rides own/managed — budgets has no pin-filter there.
         assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off/budgets?view=own&userId=$sId").status)
         assertEquals(HttpStatusCode.BadRequest, m.get("/api/v1/days-off/budgets?view=managed&userId=$sId").status)

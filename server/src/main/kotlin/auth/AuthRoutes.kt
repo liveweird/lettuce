@@ -4,6 +4,8 @@ import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
+import ch.nokillswit.infra.config.requireConfigInt
+import ch.nokillswit.infra.config.requireConfigLong
 import ch.nokillswit.infra.db.R2dbcDatabaseKey
 import ch.nokillswit.infra.mail.Mailer
 import ch.nokillswit.infra.mail.mailAppUrl
@@ -18,6 +20,7 @@ import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.JwtConfig
 import ch.nokillswit.plugins.JwtConfigKey
 import ch.nokillswit.users.Feature
+import ch.nokillswit.users.MAX_EMAIL_LENGTH
 import ch.nokillswit.users.User
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.canonicalEmail
@@ -28,10 +31,10 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
-import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
@@ -128,35 +131,6 @@ private fun JwtConfig.authResponse(
         disabledFeatures = disabledFeatures.sortedBy { it.name },
         language = language,
     )
-}
-
-/**
- * Boot-time range validation for a numeric auth-security config value (checkup #36, C5): a
- * malformed or out-of-range lockout/MFA/password-reset setting is a config error, not a runtime
- * concern — `LOGIN_LOCKOUT_DURATION_SECONDS=0` would never lock while `login.lockout` still
- * audits, and `threshold=0` would lock on the first attempt. Refuses to start in EVERY mode (the
- * `security.encryption.key` malformed-key precedent in infra/crypto/Crypto.kt and
- * plugins/Security.kt's `error(message)` shape — this is not gated by `developmentMode`).
- * [min] is inclusive; a non-numeric override is rejected the same way as an out-of-range one.
- */
-private fun requireConfigInt(config: ApplicationConfig, key: String, min: Int, max: Int = Int.MAX_VALUE): Int {
-    val raw = config.property(key).getString()
-    val value = raw.toIntOrNull()
-    if (value == null || value < min || value > max) {
-        val bound = if (max == Int.MAX_VALUE) ">= $min" else "between $min and $max"
-        error("Config \"$key\" must be an integer $bound (was \"$raw\")")
-    }
-    return value
-}
-
-/** The [requireConfigInt] sibling for the `Long`-typed duration/interval settings. */
-private fun requireConfigLong(config: ApplicationConfig, key: String, min: Long): Long {
-    val raw = config.property(key).getString()
-    val value = raw.toLongOrNull()
-    if (value == null || value < min) {
-        error("Config \"$key\" must be an integer >= $min (was \"$raw\")")
-    }
-    return value
 }
 
 fun Application.configureAuthRoutes() {
@@ -362,6 +336,15 @@ fun Application.configureAuthRoutes() {
                 // submission matches its account (and keeps sharing one lockout bucket, which
                 // was already folding its keys).
                 val email = canonicalEmail(req.email)
+                // An email longer than any account can hold (checkup #37 C1) is a 400, BEFORE the
+                // reservation: `login_lockouts.email` is VARCHAR(254), so reserving one 500'd with
+                // an ERROR stack. Length alone says nothing about whether an account exists, so this
+                // is no enumeration signal — uniform and early like the 71-byte password rule (which answers
+                // the uniform 401 instead). Only the length:
+                // other malformed input (no '@', …) stays the uniform 401.
+                if (email.length > MAX_EMAIL_LENGTH) {
+                    throw BadRequestException("Email must be at most $MAX_EMAIL_LENGTH characters")
+                }
                 // Reserved BEFORE password verification (checkup #36 M1): a concurrent burst of
                 // wrong-password attempts for one email must not all pass a stale "not locked
                 // yet" read while every one of them is off doing its own ~100ms bcrypt — the
