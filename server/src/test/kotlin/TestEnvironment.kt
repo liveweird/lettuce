@@ -626,6 +626,24 @@ object TestNotifications {
         )
 
     /**
+     * Inserts a row carrying an ARBITRARY stored type name, bypassing [NotificationType] — the
+     * only way to reproduce what an upgrade leaves behind, since [service].create takes the
+     * typed enum and so can never write a name this build does not know. Backs the
+     * `NotificationService.knownType()` guard's test (v3.25.3).
+     */
+    suspend fun seedRawType(recipientId: UInt, storedType: String): UInt =
+        suspendTransaction(sharedTestDatabase) {
+            ch.nokillswit.notifications.NotificationService.Notifications.insert {
+                it[this.recipientId] = recipientId
+                it[timestamp] = System.currentTimeMillis()
+                it[notificationType] = storedType
+                it[params] = "{}"
+                it[link] = "/days-off?tab=team"
+                it[wasSeen] = false
+            }[ch.nokillswit.notifications.NotificationService.Notifications.id].value
+        }
+
+    /**
      * A service wired with the email mirror (v2.3.0) for deterministic send tests: launch it
      * on a runBlocking scope and the fire-and-forget sends are joined before runBlocking
      * returns — no polling needed.

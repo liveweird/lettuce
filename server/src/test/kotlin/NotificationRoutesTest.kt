@@ -254,6 +254,42 @@ class NotificationRoutesTest {
         assertEquals(listOf(keep), body.items.map { it.id })
     }
 
+    /**
+     * The upgrade guard (v3.25.3). `notification_type` stores the enum NAME and those rows
+     * outlive the release that minted them: after an upgrade past a release that removed a
+     * type — v3.9.0 dropped seven days-off lifecycle kinds, and its V77 forgot this table —
+     * `NotificationType.valueOf` threw and 500-ed the caller's ENTIRE list, badge included,
+     * because the count is the same call at pageSize 1. An unknown stored name must therefore
+     * be invisible, exactly like a soft-deleted row, never fatal. `V83` converts the seven
+     * known orphans; this pins the general case, including names no migration anticipated.
+     */
+    @Test
+    fun `a notification whose stored type this build does not know is invisible, never fatal`() = testApplication {
+        usePostgresTestcontainer()
+        val recipientEmail = uniqueEmail("notif-unknown-type")
+        val recipientId = TestUsers.seed(email = recipientEmail, password = "pw", roles = emptySet())
+        val client = authedClient(recipientEmail, "pw")
+
+        val keep = TestNotifications.seed(recipientId, label = "keep")
+        // One name a past release removed, one no release has ever shipped.
+        val retired = TestNotifications.seedRawType(recipientId, "DAYS_OFF_ACCEPTED_TO_OWNER")
+        val unknown = TestNotifications.seedRawType(recipientId, "SOME_FUTURE_TYPE")
+
+        // The list answers at all (this was the 500) and reports a total that agrees with its rows.
+        val body = client.get("/api/v1/notifications").body<NotificationPageResponse>()
+        assertEquals(HttpStatusCode.OK, client.get("/api/v1/notifications").status)
+        assertEquals(1, body.total)
+        assertEquals(listOf(keep), body.items.map { it.id })
+
+        // Every id-addressed path treats them as gone — the soft-delete rule, applied here too.
+        for (id in listOf(retired, unknown)) {
+            assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/notifications/$id").status)
+            assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/notifications/$id/seen").status)
+            assertEquals(HttpStatusCode.NotFound, client.post("/api/v1/notifications/$id/unseen").status)
+            assertEquals(HttpStatusCode.NotFound, client.delete("/api/v1/notifications/$id").status)
+        }
+    }
+
     @Test
     fun `notification endpoints require authentication`() = testApplication {
         usePostgresTestcontainer()
