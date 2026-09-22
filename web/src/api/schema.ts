@@ -7103,6 +7103,12 @@ export interface components {
          *     always appended as a deterministic tiebreaker.
          */
         Sort: string;
+        /**
+         * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+         *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+         *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
+         */
+        IncludeIndirect: boolean;
         /** @description The team the pulse scope is built from. Unknown/deleted teams answer 404. */
         PulseTeamId: number;
         /** @description Aggregation scope: `direct` = the team's current members only; `subtree` = members plus every transitive subordinate of a member (the full report tree below the team). */
@@ -8045,8 +8051,12 @@ export interface operations {
     getCareerPyramid: {
         parameters: {
             query?: {
-                /** @description Widen from direct reports to the transitive management chain (strict true/false). */
-                includeIndirect?: boolean;
+                /**
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
+                 */
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
             };
             header?: never;
             path?: never;
@@ -8086,8 +8096,12 @@ export interface operations {
                 name?: string;
                 /** @description Exact match against the team's manager id. */
                 managerId?: number;
-                /** @description Only valid together with `managerId` (else 400; strict `true`/`false`): widens the manager filter to that manager's transitive subtree (v2.26.0). */
-                includeIndirect?: boolean;
+                /**
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
+                 */
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Filter to teams the given user is a member of. */
                 memberId?: number;
             };
@@ -8188,12 +8202,11 @@ export interface operations {
                  */
                 view?: "member" | "managed" | "managers";
                 /**
-                 * @description Only valid with `view=managed` (else `400`). When `true`, widens the scope
-                 *     from direct reports to the caller's whole transitive management chain:
-                 *     members of teams managed by the caller or by any of the caller's (direct or
-                 *     indirect) subordinates. Cycle-safe; the caller themselves never appears.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the member's name. */
                 name?: string;
                 /** @description Case- and accent-insensitive substring match against the member's email. */
@@ -8423,13 +8436,11 @@ export interface operations {
                  */
                 userId?: number;
                 /**
-                 * @description Only valid with `view=team` (else `400`). When `true`, widens the subject scope
-                 *     from the caller's direct reports to their whole transitive management chain:
-                 *     members of teams managed by the caller or by any of the caller's (direct or
-                 *     indirect) subordinates. Cycle-safe; the caller themselves never appears as subject
-                 *     through this scope.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the requester's name. */
                 requesterName?: string;
                 /** @description Case- and accent-insensitive substring match against the subject's name. */
@@ -8852,10 +8863,11 @@ export interface operations {
                 /** @description Which slice of 1:1 meetings to list — caller-relative, except the HR auditor view `user`. */
                 view?: "own" | "managed" | "team" | "with" | "user";
                 /**
-                 * @description Only valid with `view=team` (else `400`). When `true`, widens which managers count
-                 *     from the caller's direct reports to their whole transitive management chain.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /**
                  * @description The other party's user id. Required with `view=with` (else `400`), rejected on any
                  *     other view (`400`).
@@ -9142,13 +9154,11 @@ export interface operations {
                  */
                 userId?: number;
                 /**
-                 * @description Only valid with `view=managed` and `view=team` (else `400`). For `view=managed`,
-                 *     `true` widens the list from the caller's own goals to also include goals set by
-                 *     managers in their transitive management chain (their DRAFTs excluded). For
-                 *     `view=team`, `true` widens which managers count from the caller's direct reports
-                 *     to their whole transitive management chain.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the manager's name. */
                 managerName?: string;
                 /** @description Case- and accent-insensitive substring match against the subordinate's name. */
@@ -9576,10 +9586,11 @@ export interface operations {
                  */
                 userId?: number;
                 /**
-                 * @description Only valid with `view=managed` (else `400`): `true` widens the list from the
-                 *     caller's direct reports to their whole transitive management chain.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the owner's name. */
                 userName?: string;
                 /** @description Case- and accent-insensitive substring match against the entry title. */
@@ -9787,11 +9798,11 @@ export interface operations {
                 /** @description The audited target for `view=user` (required there, `400` when missing; rejected with any other view). */
                 userId?: number;
                 /**
-                 * @description Only valid with `view=team` (else `400`): `true` widens the list from plans
-                 *     owned by the caller's direct reports to those owned by anyone in the caller's
-                 *     transitive management chain.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the seat person's name. */
                 userName?: string;
                 /** @description Case- and accent-insensitive substring match against the owner's name. */
@@ -10202,8 +10213,12 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of team KPIs to list. `own`/`managed` are caller-relative; `all` is the HR auditor view (403 for anyone else). */
                 view?: "own" | "managed" | "all";
-                /** @description Only valid with `view=managed` (any other view → 400; strict `true`/`false`). When true, widens the scope from teams the caller manages directly to every team managed by anyone in their transitive management subtree (v2.26.0). */
-                includeIndirect?: boolean;
+                /**
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
+                 */
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the team's name. */
                 teamName?: string;
                 /** @description Exact team-id match (the per-team drill-down). */
@@ -10798,13 +10813,11 @@ export interface operations {
                  */
                 userId?: number;
                 /**
-                 * @description Only valid with `view=managed` and `view=team` (else `400`). For `view=managed`,
-                 *     `true` widens the list from the caller's own reviews to also include reviews
-                 *     authored by managers in their transitive management chain (their DRAFTs excluded).
-                 *     For `view=team`, `true` widens which managers count from the caller's direct
-                 *     reports to their whole transitive management chain.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the manager's name. */
                 managerName?: string;
                 /** @description Case- and accent-insensitive substring match against the subordinate's name. */
@@ -11182,8 +11195,12 @@ export interface operations {
                 "startDate[gte]"?: string;
                 /** @description Upper bound (inclusive) on the start date, ISO YYYY-MM-DD. */
                 "startDate[lte]"?: string;
-                /** @description Only with view=managed (400 otherwise; strict true/false): widens the scope from direct reports to the caller's whole transitive management subtree. */
-                includeIndirect?: boolean;
+                /**
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
+                 */
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
             };
             header?: never;
             path?: never;
@@ -11271,11 +11288,11 @@ export interface operations {
                 /** @description Only valid with `scope=org` (else `400`): narrows the auditor calendar to the members of one team. */
                 teamId?: number;
                 /**
-                 * @description Only valid with `scope=managed` (else `400`; strict `true`/`false`). When `true`,
-                 *     widens the scope from direct reports to the caller's whole transitive management
-                 *     chain (v3.13.0) — the budgets/list `includeIndirect` rule.
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
                  */
-                includeIndirect?: boolean;
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
             };
             header?: never;
             path?: never;
@@ -11305,8 +11322,12 @@ export interface operations {
                 view?: "own" | "managed" | "user";
                 /** @description Required with view=user (400 without it), rejected with any other view (400): the person whose budget rows the HR auditor reads. */
                 userId?: number;
-                /** @description Only with view=managed (400 otherwise; strict true/false): widens the scope from direct reports to the caller's whole transitive management subtree. */
-                includeIndirect?: boolean;
+                /**
+                 * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
+                 *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+                 *     it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
+                 */
+                includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description The calendar year; defaults to the server's current year. */
                 year?: number;
             };

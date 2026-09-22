@@ -1011,11 +1011,7 @@ paths:
 
         **Unpaged** — bounded by the caller's subordinate count, intrinsically small.
       parameters:
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean }
-          description: Widen from direct reports to the transitive management chain (strict true/false).
+        - $ref: '#/components/parameters/IncludeIndirect'
       responses:
         '200':
           description: OK
@@ -1064,13 +1060,7 @@ paths:
           required: false
           schema: { type: integer, format: int32, minimum: 0 }
           description: Exact match against the team's manager id.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: >-
-            Only valid together with `managerId` (else 400; strict `true`/`false`): widens
-            the manager filter to that manager's transitive subtree (v2.26.0).
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: memberId
           in: query
           required: false
@@ -1204,15 +1194,7 @@ paths:
               caller's teams appears once per team. Items carry the dashboard stats
               fields with this manager as the 1:1's manager / the feedback's provider /
               the goals' manager.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `view=managed` (else `400`). When `true`, widens the scope
-            from direct reports to the caller's whole transitive management chain:
-            members of teams managed by the caller or by any of the caller's (direct or
-            indirect) subordinates. Cycle-safe; the caller themselves never appears.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: name
           in: query
           required: false
@@ -1446,16 +1428,7 @@ paths:
           description: |
             Required with `view=user` (`400` when missing there, `400` with any other view):
             the user whose records the auditor view lists.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `view=team` (else `400`). When `true`, widens the subject scope
-            from the caller's direct reports to their whole transitive management chain:
-            members of teams managed by the caller or by any of the caller's (direct or
-            indirect) subordinates. Cycle-safe; the caller themselves never appears as subject
-            through this scope.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: requesterName
           in: query
           required: false
@@ -1897,13 +1870,7 @@ paths:
           description: >-
             Which slice of 1:1 meetings to list — caller-relative, except the HR
             auditor view `user`.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `view=team` (else `400`). When `true`, widens which managers count
-            from the caller's direct reports to their whole transitive management chain.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: counterpartId
           in: query
           required: false
@@ -2240,16 +2207,7 @@ paths:
           description: |
             Required with `view=user` (`400` when missing there, `400` with any other view):
             the user whose records the auditor view lists.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `view=managed` and `view=team` (else `400`). For `view=managed`,
-            `true` widens the list from the caller's own goals to also include goals set by
-            managers in their transitive management chain (their DRAFTs excluded). For
-            `view=team`, `true` widens which managers count from the caller's direct reports
-            to their whole transitive management chain.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: managerName
           in: query
           required: false
@@ -2717,13 +2675,7 @@ paths:
           description: |
             Exact owner-id match. Required with `view=user` (`400` when missing there); an
             ordinary pin-filter with `view=managed`; rejected with `view=own` (`400`).
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `view=managed` (else `400`): `true` widens the list from the
-            caller's direct reports to their whole transitive management chain.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: userName
           in: query
           required: false
@@ -2951,14 +2903,7 @@ paths:
           description: >-
             The audited target for `view=user` (required there, `400` when missing;
             rejected with any other view).
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `view=team` (else `400`): `true` widens the list from plans
-            owned by the caller's direct reports to those owned by anyone in the caller's
-            transitive management chain.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: userName
           in: query
           required: false
@@ -3377,14 +3322,7 @@ paths:
           description: >-
             Which slice of team KPIs to list. `own`/`managed` are caller-relative; `all` is the
             HR auditor view (403 for anyone else).
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: >-
-            Only valid with `view=managed` (any other view → 400; strict `true`/`false`).
-            When true, widens the scope from teams the caller manages directly to every team
-            managed by anyone in their transitive management subtree (v2.26.0).
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: teamName
           in: query
           required: false
@@ -3992,16 +3930,7 @@ paths:
           description: |
             Required with `view=user` (`400` when missing there, `400` with any other view):
             the user whose records the auditor view lists.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `view=managed` and `view=team` (else `400`). For `view=managed`,
-            `true` widens the list from the caller's own reviews to also include reviews
-            authored by managers in their transitive management chain (their DRAFTs excluded).
-            For `view=team`, `true` widens which managers count from the caller's direct
-            reports to their whole transitive management chain.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: managerName
           in: query
           required: false
@@ -4418,13 +4347,7 @@ paths:
           required: false
           schema: { type: string, format: date }
           description: Upper bound (inclusive) on the start date, ISO YYYY-MM-DD.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean }
-          description: >
-            Only with view=managed (400 otherwise; strict true/false): widens the scope from
-            direct reports to the caller's whole transitive management subtree.
+        - $ref: '#/components/parameters/IncludeIndirect'
       responses:
         '200':
           description: A page of days-off entries
@@ -4564,14 +4487,7 @@ paths:
           description: >-
             Only valid with `scope=org` (else `400`): narrows the auditor calendar to the
             members of one team.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: |
-            Only valid with `scope=managed` (else `400`; strict `true`/`false`). When `true`,
-            widens the scope from direct reports to the caller's whole transitive management
-            chain (v3.13.0) — the budgets/list `includeIndirect` rule.
+        - $ref: '#/components/parameters/IncludeIndirect'
       responses:
         '200':
           description: The month's calendar payload
@@ -4638,13 +4554,7 @@ paths:
           description: >-
             Required with view=user (400 without it), rejected with any other view (400): the
             person whose budget rows the HR auditor reads.
-        - name: includeIndirect
-          in: query
-          required: false
-          schema: { type: boolean }
-          description: >
-            Only with view=managed (400 otherwise; strict true/false): widens the scope from
-            direct reports to the caller's whole transitive management subtree.
+        - $ref: '#/components/parameters/IncludeIndirect'
         - name: year
           in: query
           required: false
@@ -6219,6 +6129,15 @@ components:
         comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
         sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
         always appended as a deterministic tiebreaker.
+    IncludeIndirect:
+      name: includeIndirect
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+      description: |
+        Widens the caller's managed scope from direct reports to the caller's whole transitive
+        management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
+        it must accompany) is stated in the operation's own description; elsewhere it answers `400`.
     PulseTeamId:
       name: teamId
       in: query

@@ -2,6 +2,7 @@ package ch.nokillswit.plugins
 
 import ch.nokillswit.auth.TOKEN_TYPE_ACCESS
 import ch.nokillswit.auth.TokenBlocklistServiceKey
+import ch.nokillswit.infra.catchingFailures
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.HttpStatusCode
@@ -10,7 +11,6 @@ import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.csrf.*
 import io.ktor.util.AttributeKey
-import kotlinx.coroutines.CancellationException
 
 data class JwtConfig(
     val secret: String,
@@ -86,13 +86,9 @@ fun Application.configureSecurity() {
                 val revoked = if (jti == null) {
                     false
                 } else {
-                    try {
-                        application.attributes[TokenBlocklistServiceKey].isRevoked(jti)
-                    } catch (cause: CancellationException) {
-                        // The call was cancelled (client gone) mid-lookup — unwind, never swallow
-                        // (the NotificationService.purgeCatchingFailures idiom, checkup #36/C4).
-                        throw cause
-                    } catch (cause: Exception) {
+                    // A cancelled call (client gone) mid-lookup unwinds — catchingFailures never
+                    // swallows cancellation.
+                    catchingFailures({ application.attributes[TokenBlocklistServiceKey].isRevoked(jti) }) { cause ->
                         // The lookup itself failed (database unreachable, pool acquire timeout) —
                         // that is an outage, not an invalid token. Ktor's JWT provider turns ANY
                         // throw out of validate into a plain challenge, so the cause is stashed

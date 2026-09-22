@@ -1,12 +1,12 @@
-import { Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { FeedbackStatus } from "../api/feedbacks";
+import LifecycleDiagram, { type LifecycleEdge, type LifecycleNode } from "./LifecycleDiagram";
 
-// A simplified, end-user-facing diagram of how a feedback moves through its states. Hand-authored
-// inline SVG (no charting dependency); colors use Mantine CSS variables so it follows light/dark
-// mode. The delete path is intentionally omitted — a deleted feedback is gone, so it isn't a state
-// an end-user viewing a feedback would ever be in. When `currentStatus` is given, that node is
-// highlighted ("you are here").
+// A simplified, end-user-facing diagram of how a feedback moves through its states. Geometry only
+// — rendering is owned by the shared LifecycleDiagram primitive (checkup #37 Tier D1). The delete
+// path is intentionally omitted — a deleted feedback is gone, so it isn't a state an end-user
+// viewing a feedback would ever be in. When `currentStatus` is given, that node is highlighted
+// ("you are here").
 
 type NodeDef = { status: FeedbackStatus; x: number; y: number; terminal?: boolean };
 
@@ -21,7 +21,8 @@ const NODES: NodeDef[] = [
   { status: "WITHDRAWN", x: 387, y: 160, terminal: true },
 ];
 
-// Directional edges as [x1, y1, x2, y2], drawn between node anchor points.
+// Directional edges as [x1, y1, x2, y2], drawn between node anchor points — no captions (the
+// terminal-dimming shape needs none; GoalLifecycle/ReviewLifecycle's paired-action edges do).
 const ARROWS: ReadonlyArray<readonly [number, number, number, number]> = [
   [170, 53, 257, 53], // Requested → Draft
   [415, 53, 502, 53], // Draft → Sent
@@ -36,73 +37,32 @@ export default function FeedbackLifecycle({
   currentStatus?: FeedbackStatus;
 }) {
   const { t } = useTranslation();
+  const nodes: LifecycleNode[] = NODES.map((n) => ({
+    id: n.status,
+    x: n.x,
+    y: n.y,
+    terminal: n.terminal,
+    label: t(`common.status.${n.status}`),
+  }));
+  const edges: LifecycleEdge[] = ARROWS.map(([x1, y1, x2, y2], i) => ({
+    id: String(i),
+    x1,
+    y1,
+    x2,
+    y2,
+  }));
   return (
-    <Stack gap="xs" align="center">
-      <svg
-        role="img"
-        aria-label={t("feedback.lifecycleAlt")}
-        viewBox="0 0 680 220"
-        style={{ width: "100%", maxWidth: 680, height: "auto" }}
-      >
-        <defs>
-          <marker
-            id="lc-arrow"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--mantine-color-dimmed)" />
-          </marker>
-        </defs>
-        {ARROWS.map(([x1, y1, x2, y2], i) => (
-          <line
-            key={i}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="var(--mantine-color-dimmed)"
-            strokeWidth={1.5}
-            markerEnd="url(#lc-arrow)"
-          />
-        ))}
-        {NODES.map((n) => {
-          const active = n.status === currentStatus;
-          const cx = n.x + NODE_W / 2;
-          const cy = n.y + NODE_H / 2;
-          return (
-            <g key={n.status}>
-              <rect
-                x={n.x}
-                y={n.y}
-                width={NODE_W}
-                height={NODE_H}
-                rx={8}
-                fill={active ? "var(--mantine-primary-color-light)" : "var(--mantine-color-body)"}
-                stroke={active ? "var(--mantine-primary-color-filled)" : "var(--mantine-color-default-border)"}
-                strokeWidth={active ? 2 : 1}
-              />
-              <text
-                x={cx}
-                y={cy}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={14}
-                fontWeight={active ? 600 : 400}
-                fill={n.terminal && !active ? "var(--mantine-color-dimmed)" : "var(--mantine-color-text)"}
-              >
-                {t(`common.status.${n.status}`)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-      <Text size="sm" c="dimmed" ta="center">
-        {t("feedback.lifecycleHint")}
-      </Text>
-    </Stack>
+    <LifecycleDiagram
+      viewBox="0 0 680 220"
+      width={680}
+      nodeWidth={NODE_W}
+      nodeHeight={NODE_H}
+      nodes={nodes}
+      edges={edges}
+      currentId={currentStatus}
+      markerId="lc-arrow"
+      altText={t("feedback.lifecycleAlt")}
+      hint={t("feedback.lifecycleHint")}
+    />
   );
 }
