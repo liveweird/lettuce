@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "3.25.3",
+    date: "2026-09-22",
+    en: `Notifications work again on installations upgraded from an older version. The bell showed no count and opened onto an error, because days-off notifications created before the approval step was removed were stored in a form this version no longer recognized. Those older notices now read in the current wording, and an unrecognizable notice can never again take the whole list down with it.`,
+    pl: `Powiadomienia znowu działają w instalacjach zaktualizowanych ze starszej wersji. Dzwonek nie pokazywał licznika i otwierał się z błędem, ponieważ powiadomienia o dniach wolnych zapisane przed usunięciem kroku akceptacji miały postać, której ta wersja już nie rozpoznaje. Starsze powiadomienia są teraz opisane w obecnym brzmieniu, a nierozpoznane powiadomienie nie jest już w stanie zepsuć całej listy.`,
+  },
+  {
     version: "3.25.2",
     date: "2026-09-22",
     en: `A 1:1 meeting's action items are a proper table again, on every screen — the read-only meeting document had been showing them one stacked card per item, the layout meant for a phone. The "Mass import" results table is fixed the same way.`,

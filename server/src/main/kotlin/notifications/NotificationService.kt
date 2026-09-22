@@ -94,6 +94,20 @@ class NotificationService(
 
     private fun active(): Op<Boolean> = Notifications.markedAsDeleted eq false
 
+    /**
+     * A row whose stored type this build no longer knows is INVISIBLE, never fatal. The column
+     * holds the enum's NAME, and rows outlive the release that minted them: after an upgrade
+     * past a release that removed a type (v3.9.0 dropped seven days-off lifecycle kinds — see
+     * `V83`), `NotificationType.valueOf` in [toResponse] would throw and 500 the caller's whole
+     * list, badge included. Filtering in SQL rather than after the read is what keeps `total`
+     * and the page rows in agreement, and it gives [read] the same 404 the soft-delete flag
+     * gives. Deliberately no CHECK constraint on the column (the `V27` idiom — the application
+     * enum is the whitelist). See "Removing a notification type" in
+     * `.claude/docs/features/notifications.md`.
+     */
+    private fun knownType(): Op<Boolean> =
+        Notifications.notificationType inList NotificationType.entries.map { it.name }
+
     // The per-instance purge gate: a compareAndSet winner is the one purger among concurrent
     // mints within the interval; a skipped purge just leaves the garbage for the next mint that
     // actually runs one — never a correctness issue, only a bound on DB round-trips.
@@ -175,7 +189,7 @@ class NotificationService(
 
     suspend fun read(id: UInt): NotificationResponse? = suspendTransaction(database) {
         Notifications.selectAll()
-            .where { (Notifications.id eq id) and active() }
+            .where { (Notifications.id eq id) and active() and knownType() }
             .map { it.toResponse() }
             .singleOrNull()
     }
@@ -225,7 +239,7 @@ class NotificationService(
     }
 
     private fun buildPredicate(recipientId: UInt, filter: NotificationListFilter): Op<Boolean> {
-        var op: Op<Boolean> = (Notifications.recipientId eq recipientId) and active()
+        var op: Op<Boolean> = (Notifications.recipientId eq recipientId) and active() and knownType()
         filter.wasSeen?.let { op = op and (Notifications.wasSeen eq it) }
         if (filter.disabledFeatures.isNotEmpty()) {
             val hiddenTypes = NotificationType.entries
