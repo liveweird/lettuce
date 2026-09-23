@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
@@ -99,13 +100,27 @@ class NotificationPreferenceService(val database: R2dbcDatabase) {
         suspendTransaction(database) { readDisabledInTransaction(userId) }
 
     /**
-     * Wholesale-replaces [userId]'s disabled set (the `setDisabledFeatures` shape). Returns 1, or
-     * 0 when the id is unknown or soft-deleted (the route 404s). Rejects a [disabled] set that
-     * disables any [NotificationType.lockedOn] type with a 400 — `PASSWORD_CHANGED` cannot be
-     * silenced regardless of what the caller submits. Idempotent — a same-set re-PUT is a no-op
-     * replace, not a transition.
+     * Wholesale-replaces [userId]'s disabled set (the `setDisabledFeatures` shape), returning the
+     * set that was in place immediately before the write — `null` when the id is unknown or
+     * soft-deleted (the route 404s). Rejects a [disabled] set that disables any
+     * [NotificationType.lockedOn] type with a 400 — `PASSWORD_CHANGED` cannot be silenced
+     * regardless of what the caller submits — before the transaction even opens. Idempotent — a
+     * same-set re-PUT is a no-op replace, not a transition.
+     *
+     * **Concurrency (v4.0.3):** the existence check locks the user row
+     * (`SELECT … FOR NO KEY UPDATE` via [ForUpdateOption.PostgreSQL.ForNoKeyUpdate] — never
+     * `pg_advisory_xact_lock`, which MFA already keys on the bare user id; a row lock scopes to
+     * exactly this contention) and the previous set is read inside that same lock, before the
+     * delete/insert. Two concurrent replaces for one user therefore serialize rather than
+     * interleave: under plain READ COMMITTED, the second's `DELETE` could not see the first's
+     * still-uncommitted `INSERT`s, so disjoint concurrent sets used to persist as their union, and
+     * overlapping ones raced a 23505 into a spurious 409 — now the second waits for the first to
+     * commit, reads the now-current previous set, and cleanly last-writer-wins.
      */
-    suspend fun replace(userId: UInt, disabled: Set<Pair<NotificationType, NotificationChannel>>): Int {
+    suspend fun replace(
+        userId: UInt,
+        disabled: Set<Pair<NotificationType, NotificationChannel>>,
+    ): Set<Pair<NotificationType, NotificationChannel>>? {
         val locked = disabled.firstOrNull { it.first.lockedOn }
         if (locked != null) {
             throw BadRequestException("${locked.first} is always on and cannot be disabled")
@@ -113,9 +128,13 @@ class NotificationPreferenceService(val database: R2dbcDatabase) {
         return suspendTransaction(database) {
             val exists = UserService.Users.select(UserService.Users.id)
                 .where { (UserService.Users.id eq userId) and (UserService.Users.markedAsDeleted eq false) }
+                .forUpdate(ForUpdateOption.PostgreSQL.ForNoKeyUpdate)
                 .toList()
                 .isNotEmpty()
-            if (!exists) return@suspendTransaction 0
+            if (!exists) return@suspendTransaction null
+            val previous = readDisabledInTransaction(userId)
+                .flatMap { (type, channels) -> channels.map { channel -> type to channel } }
+                .toSet()
             UserNotificationPreferences.deleteWhere { UserNotificationPreferences.userId eq userId }
             disabled.forEach { (type, channel) ->
                 UserNotificationPreferences.insert {
@@ -124,7 +143,7 @@ class NotificationPreferenceService(val database: R2dbcDatabase) {
                     it[UserNotificationPreferences.channel] = channel.name
                 }
             }
-            1
+            previous
         }
     }
 

@@ -537,18 +537,23 @@ fun Application.configureUserRoutes() {
                 val caller = call.caller()
                 requireSelfOrAdmin(caller, route.parent.id)
                 val req = call.receive<NotificationPreferencesUpdateRequest>()
-                // 404 before the write, the email-notifications/features precedent, and also
-                // where the pre-write set for the audit diff comes from.
-                userService.read(route.parent.id) ?: throw NotFoundException("User not found")
-                val requested = req.disabled.map { it.type to it.channel }.toSet()
-                val existingDisabled = notificationPreferenceService.read(route.parent.id)
-                    .flatMap { (type, channels) -> channels.map { channel -> type to channel } }
-                    .toSet()
-                // notificationPreferenceService.replace rejects a locked type with 400 — 403
-                // (the guard above) already won over 400 for a non-self/admin caller.
-                if (notificationPreferenceService.replace(route.parent.id, requested) == 0) {
-                    throw NotFoundException("User not found")
+                // A duplicate (type, channel) pair used to be silently folded by toSet() — reject
+                // it instead (the succession duplicate-goal-id 400 precedent), before any write.
+                val requested = mutableSetOf<Pair<NotificationType, NotificationChannel>>()
+                req.disabled.forEach { item ->
+                    val pair = item.type to item.channel
+                    if (!requested.add(pair)) {
+                        throw BadRequestException("Duplicate notification preference: ${pair.first}/${pair.second}")
+                    }
                 }
+                // notificationPreferenceService.replace rejects a locked type with 400 (403 above
+                // already won over 400 for a non-self/admin caller), locks the user row for the
+                // duration of the read-then-write, and returns the pre-write disabled set it read
+                // under that same lock — null means an unknown/soft-deleted user — so the audit
+                // `from` below reflects exactly the state the write actually replaced, never a
+                // stale pre-read racing a concurrent PUT.
+                val existingDisabled = notificationPreferenceService.replace(route.parent.id, requested)
+                    ?: throw NotFoundException("User not found")
                 if (requested != existingDisabled) {
                     audit(
                         "user.notification_preferences_changed",

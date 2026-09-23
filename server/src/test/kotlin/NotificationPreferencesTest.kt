@@ -19,6 +19,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
@@ -256,11 +260,12 @@ class NotificationPreferencesTest {
         val email = uniqueEmail("prefs-inapp-off")
         val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet(), name = "Ivy InApp")
         assertEquals(
-            1,
+            emptySet(),
             TestServices.notificationPreferences.replace(
                 userId,
                 setOf(NotificationType.FEEDBACK_SENT_TO_SUBJECT to NotificationChannel.IN_APP),
             ),
+            "a fresh user has no preferences disabled beforehand",
         )
         val mail = LogCapture("ch.nokillswit.mail")
         try {
@@ -286,11 +291,12 @@ class NotificationPreferencesTest {
         val email = uniqueEmail("prefs-email-off")
         val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
         assertEquals(
-            1,
+            emptySet(),
             TestServices.notificationPreferences.replace(
                 userId,
                 setOf(NotificationType.FEEDBACK_SENT_TO_SUBJECT to NotificationChannel.EMAIL),
             ),
+            "a fresh user has no preferences disabled beforehand",
         )
         val mail = LogCapture("ch.nokillswit.mail")
         try {
@@ -312,11 +318,12 @@ class NotificationPreferencesTest {
         val silencedId = TestUsers.seed(email = silencedEmail, password = "pw", roles = emptySet())
         val normalId = TestUsers.seed(email = normalEmail, password = "pw", roles = emptySet())
         assertEquals(
-            1,
+            emptySet(),
             TestServices.notificationPreferences.replace(
                 silencedId,
                 setOf(NotificationType.FEEDBACK_SENT_TO_SUBJECT to NotificationChannel.IN_APP),
             ),
+            "a fresh user has no preferences disabled beforehand",
         )
         val mail = LogCapture("ch.nokillswit.mail")
         try {
@@ -458,16 +465,140 @@ class NotificationPreferencesTest {
     }
 
     @Test
+    fun `a duplicate pair in the PUT body is 400 and nothing is written`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("prefs-duplicate")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        val client = authedClient(email, "pw")
+        // A known baseline first, so the duplicate-pair 400 below can be proven to write nothing.
+        val baseline = listOf(DisabledNotificationPreference(NotificationType.PULSE_CYCLE_SCHEDULED, NotificationChannel.IN_APP))
+        assertEquals(
+            HttpStatusCode.NoContent,
+            client.put("/api/v1/users/$userId/notification-preferences") {
+                contentType(ContentType.Application.Json)
+                setBody(NotificationPreferencesUpdateRequest(baseline))
+            }.status,
+        )
+
+        val response = client.put("/api/v1/users/$userId/notification-preferences") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                NotificationPreferencesUpdateRequest(
+                    listOf(
+                        DisabledNotificationPreference(NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE, NotificationChannel.EMAIL),
+                        DisabledNotificationPreference(NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE, NotificationChannel.EMAIL),
+                    ),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+
+        val stored = TestServices.notificationPreferences.read(userId)
+            .flatMap { (type, channels) -> channels.map { channel -> type to channel } }
+            .toSet()
+        assertEquals(
+            setOf(NotificationType.PULSE_CYCLE_SCHEDULED to NotificationChannel.IN_APP),
+            stored,
+            "the rejected duplicate-pair request must leave the baseline untouched",
+        )
+    }
+
+    @Test
+    fun `the audit from is the previously committed set`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("prefs-audit-lock")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        val client = authedClient(email, "pw")
+        val auditEvents = LogCapture("ch.nokillswit.audit")
+        try {
+            val first = listOf(DisabledNotificationPreference(NotificationType.PULSE_CYCLE_SCHEDULED, NotificationChannel.IN_APP))
+            assertEquals(
+                HttpStatusCode.NoContent,
+                client.put("/api/v1/users/$userId/notification-preferences") {
+                    contentType(ContentType.Application.Json)
+                    setBody(NotificationPreferencesUpdateRequest(first))
+                }.status,
+            )
+            val second = listOf(DisabledNotificationPreference(NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE, NotificationChannel.EMAIL))
+            assertEquals(
+                HttpStatusCode.NoContent,
+                client.put("/api/v1/users/$userId/notification-preferences") {
+                    contentType(ContentType.Application.Json)
+                    setBody(NotificationPreferencesUpdateRequest(second))
+                }.status,
+            )
+            val event = auditEvents.events.last { it.message == "user.notification_preferences_changed" }
+            assertTrue(
+                event.hasKeyValue("from", "PULSE_CYCLE_SCHEDULED:IN_APP"),
+                "from must reflect the state the first PUT actually committed",
+            )
+            assertTrue(event.hasKeyValue("to", "GOAL_ACTIVATED_TO_SUBORDINATE:EMAIL"))
+        } finally {
+            auditEvents.detach()
+        }
+    }
+
+    @Test
+    fun `concurrent PUTs for one user serialize - the stored set is never their union`() = testApplication {
+        usePostgresTestcontainer()
+        // Real-concurrency pin for the row lock in NotificationPreferenceService.replace (the
+        // MfaChallengesTest "N concurrent…" precedent): without it, under READ COMMITTED, two
+        // disjoint concurrent replaces each DELETE-then-INSERT without seeing the other's
+        // still-uncommitted INSERTs, so the stored set becomes their union — which neither caller
+        // asked for. Every round gates both PUTs on one CompletableDeferred so they fire together
+        // rather than trickling in one at a time.
+        val email = uniqueEmail("prefs-race")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        val client = authedClient(email, "pw")
+        val setA = listOf(DisabledNotificationPreference(NotificationType.PULSE_CYCLE_SCHEDULED, NotificationChannel.IN_APP))
+        val setB = listOf(DisabledNotificationPreference(NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE, NotificationChannel.EMAIL))
+        val expectedA = setOf(NotificationType.PULSE_CYCLE_SCHEDULED to NotificationChannel.IN_APP)
+        val expectedB = setOf(NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE to NotificationChannel.EMAIL)
+
+        repeat(20) { round ->
+            val gate = CompletableDeferred<Unit>()
+            val statuses = coroutineScope {
+                val jobA = async(Dispatchers.IO) {
+                    gate.await()
+                    client.put("/api/v1/users/$userId/notification-preferences") {
+                        contentType(ContentType.Application.Json)
+                        setBody(NotificationPreferencesUpdateRequest(setA))
+                    }.status
+                }
+                val jobB = async(Dispatchers.IO) {
+                    gate.await()
+                    client.put("/api/v1/users/$userId/notification-preferences") {
+                        contentType(ContentType.Application.Json)
+                        setBody(NotificationPreferencesUpdateRequest(setB))
+                    }.status
+                }
+                gate.complete(Unit)
+                listOf(jobA, jobB).awaitAll()
+            }
+            assertTrue(statuses.all { it == HttpStatusCode.NoContent }, "round $round: every PUT must succeed, got $statuses")
+
+            val stored = TestServices.notificationPreferences.read(userId)
+                .flatMap { (type, channels) -> channels.map { channel -> type to channel } }
+                .toSet()
+            assertTrue(
+                stored == expectedA || stored == expectedB,
+                "round $round: stored set must be exactly one writer's set, never their union — got $stored",
+            )
+        }
+    }
+
+    @Test
     fun `a hard-deleted user cascades their preference rows`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("prefs-cascade")
         val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
         assertEquals(
-            1,
+            emptySet(),
             TestServices.notificationPreferences.replace(
                 userId,
                 setOf(NotificationType.PULSE_CYCLE_SCHEDULED to NotificationChannel.IN_APP),
             ),
+            "a fresh user has no preferences disabled beforehand",
         )
         // Users never hard-delete through the app (soft-delete only, see persistence.md) — this
         // exercises the FK's ON DELETE CASCADE directly, the schema-integrity half of "hard-
