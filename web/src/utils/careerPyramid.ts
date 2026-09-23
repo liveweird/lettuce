@@ -207,39 +207,73 @@ export type CareerDistributionBar = {
 
 /**
  * Distribution of one metric over the FILTERED rows (the chart shares the table's filters).
- * Categorical metrics: one bar per distinct value, count-descending (ties alphabetical);
- * tenure metrics: the fixed bucket order. "Not set" is always the last bar (only when
- * someone actually lacks the value); empty buckets are dropped for categorical metrics but
- * kept for tenure so the shape of the pyramid stays comparable across teams.
+ * Categorical metrics (careerPath/careerSpecialization/seniorityLevel): when `dictionaryOrder`
+ * is given — the admin-curated array order of the backing dictionary's entry ids, from
+ * `useDictionaryOptions(slug)` — bars follow that order; an entry no longer IN the dictionary
+ * (archived/stale, so it has no id to place) sorts after the ordered ones, alphabetically.
+ * Without an order (e.g. the dictionary hasn't loaded yet), bars fall back to count-descending
+ * (ties alphabetical) — the pre-v4.x default. Tenure metrics always use the fixed bucket order
+ * and ignore `dictionaryOrder`. "Not set" is always the last bar (only when someone actually
+ * lacks the value); empty buckets are dropped for categorical metrics but kept for tenure so
+ * the shape of the pyramid stays comparable across teams.
  */
 export function buildCareerDistribution(
   rows: CareerPyramidRow[],
   metric: CareerChartMetric,
+  dictionaryOrder?: number[],
 ): CareerDistributionBar[] {
   const counts = new Map<string, number>();
+  // Text -> the backing dictionary entry's id, used only to place a bar in `dictionaryOrder`.
+  // Bars are keyed by display text (as before this order existed), so two entries sharing one
+  // text in the current language collapse into one bar; the first row that carries it then
+  // decides the bar's place. Values are unique per dictionary, so only an archived entry
+  // reusing a live one's text can hit that.
+  const idByText = new Map<string, number>();
   const bump = (key: string) => counts.set(key, (counts.get(key) ?? 0) + 1);
   for (const row of rows) {
     if (metric === "tenureAtLevel" || metric === "tenureInOrganization") {
       const months = metric === "tenureAtLevel" ? row.levelMonths : row.organizationMonths;
       bump(months == null ? NOT_SET : tenureBucket(months));
-    } else {
-      const text =
-        metric === "careerPath"
-          ? row.pathText
-          : metric === "careerSpecialization"
-            ? row.specializationText
-            : row.seniorityText;
-      bump(text ?? NOT_SET);
+      continue;
     }
+    const entry =
+      metric === "careerPath"
+        ? row.careerPath
+        : metric === "careerSpecialization"
+          ? row.careerSpecialization
+          : row.seniorityLevel;
+    const text =
+      metric === "careerPath"
+        ? row.pathText
+        : metric === "careerSpecialization"
+          ? row.specializationText
+          : row.seniorityText;
+    if (text != null && entry != null && !idByText.has(text)) idByText.set(text, entry.id);
+    bump(text ?? NOT_SET);
   }
   const notSet = counts.get(NOT_SET) ?? 0;
   counts.delete(NOT_SET);
-  const bars: CareerDistributionBar[] =
-    metric === "tenureAtLevel" || metric === "tenureInOrganization"
-      ? TENURE_BUCKETS.map((b) => ({ key: b, count: counts.get(b) ?? 0 }))
-      : [...counts.entries()]
-          .map(([key, count]) => ({ key, count }))
-          .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+  const categorical = [...counts.entries()].map(([key, count]) => ({ key, count }));
+  let bars: CareerDistributionBar[];
+  if (metric === "tenureAtLevel" || metric === "tenureInOrganization") {
+    bars = TENURE_BUCKETS.map((b) => ({ key: b, count: counts.get(b) ?? 0 }));
+  } else if (dictionaryOrder != null) {
+    const orderIndex = new Map(dictionaryOrder.map((id, i) => [id, i]));
+    const indexOf = (key: string) => {
+      const id = idByText.get(key);
+      return id != null ? orderIndex.get(id) : undefined;
+    };
+    bars = categorical.sort((a, b) => {
+      const ia = indexOf(a.key);
+      const ib = indexOf(b.key);
+      if (ia != null && ib != null) return ia - ib;
+      if (ia != null) return -1;
+      if (ib != null) return 1;
+      return a.key.localeCompare(b.key);
+    });
+  } else {
+    bars = categorical.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+  }
   if (notSet > 0) bars.push({ key: NOT_SET, count: notSet });
   return bars;
 }

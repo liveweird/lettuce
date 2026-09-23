@@ -610,3 +610,111 @@ test("Team's performance table fits a 1280px laptop and still shows its rating n
     await request.delete(`/api/v1/teams/${ratedTeamId}`, { headers: authHeader(adminToken) });
   }
 });
+
+test("dashboard subordinate card keeps the last-review dot and period on one line at 1440px", async ({
+  page,
+  request,
+}) => {
+  // A card-review layout fix (v4.x): the "Last review" row used to pair the period text with a
+  // full status pill, which together outgrow the card's ~189px value column at 1440px (more in
+  // Polish) and wrap the period onto its own line. The status now rides a colour dot instead,
+  // and the row is forced onto one line — this file owns a throwaway subordinate + team + DRAFT
+  // review for Manager AAA (the "Team's performance…" test's precedent above), removed at the end.
+  const adminToken = await apiToken(request, ADMIN);
+  const stamp = Date.now();
+  const password = "Layout-Rev-1234";
+  const reviewee = await createUser(request, adminToken, {
+    name: `E2E Dot ${stamp}`,
+    email: `e2e-dot-${stamp}@lettuce.local`,
+    password,
+  });
+  const managerId = await request
+    .get(`/api/v1/users?email=${encodeURIComponent(MANAGER_AAA)}`, { headers: authHeader(adminToken) })
+    .then(async (r) => {
+      await expectApiOk(r, "find Manager AAA");
+      return ((await r.json()) as { items: { id: number }[] }).items[0].id;
+    });
+  const teamResponse = await request.post("/api/v1/teams", {
+    headers: authHeader(adminToken),
+    data: { name: `E2E-Dot-${stamp}`, managerId, memberIds: [reviewee.id] },
+  });
+  await expectApiOk(teamResponse, "create the dot-layout team");
+  const dotTeamId = ((await teamResponse.json()) as { id: number }).id;
+
+  const managerToken = await apiToken(request, MANAGER_AAA);
+  const periodsResponse = await request.get("/api/v1/review-periods", { headers: authHeader(managerToken) });
+  await expectApiOk(periodsResponse, "list review periods");
+  const periods = ((await periodsResponse.json()) as {
+    items: { id: number; startMonth: string; endMonth: string }[];
+  }).items;
+  const nowMonth = new Date().toISOString().slice(0, 7);
+  let periodId = periods.find((p) => p.startMonth <= nowMonth && nowMonth <= p.endMonth)?.id;
+  if (periodId == null) {
+    const created = await request.post("/api/v1/review-periods", {
+      headers: authHeader(adminToken),
+      data: { startMonth: nowMonth, endMonth: nowMonth },
+    });
+    await expectApiOk(created, "create a review period");
+    periodId = ((await created.json()) as { id: number }).id;
+  }
+  // A CALIBRATION review: its pill ("Calibration") is one of the two long ones that used to push
+  // the row onto a second line at this width — a "Draft" pill fitted beside the period even in
+  // the old layout, so a DRAFT fixture would pass on the very bug this guards.
+  const reviewResponse = await request.post("/api/v1/performance-reviews", {
+    headers: authHeader(managerToken),
+    data: { subordinateId: reviewee.id, periodId },
+  });
+  await expectApiOk(reviewResponse, "create the review");
+  const reviewId = ((await reviewResponse.json()) as { id: number }).id;
+  const complete = (rating: number) => ({ rating, summary: "Layout check." });
+  const filled = await request.put(`/api/v1/performance-reviews/${reviewId}`, {
+    headers: authHeader(managerToken),
+    data: {
+      attitude: complete(5),
+      delivery: complete(4),
+      skills: complete(6),
+      aptitude: complete(3),
+      overall: complete(5),
+    },
+  });
+  await expectApiOk(filled, "complete the review");
+  const submitted = await request.post(`/api/v1/performance-reviews/${reviewId}/submit`, {
+    headers: authHeader(managerToken),
+  });
+  await expectApiOk(submitted, "submit the review for calibration");
+
+  await login(page, MANAGER_AAA);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  try {
+    await page.goto("/?tab=subordinates");
+    // Scope to THIS spec's card — Manager AAA's other reports carry a "Last review" row too.
+    const card = page
+      .locator("div")
+      .filter({ has: page.getByText(reviewee.name, { exact: true }) })
+      .filter({ has: page.getByText("Last review", { exact: true }) })
+      .last();
+    const label = card.getByText("Last review", { exact: true });
+    await expect(label).toBeVisible();
+
+    // The row's value cell: the colour dot (aria-hidden) beside the period text. The period is
+    // located by its TEXT, never by position: under the old layout it was the first child and a
+    // status pill (itself holding an aria-hidden dot) the second, so a positional pick would
+    // measure the pill's own dot against the pill and pass on the very bug this guards.
+    const valueGroup = label.locator("xpath=following-sibling::*[1]");
+    const dot = valueGroup.locator('[aria-hidden="true"]').first();
+    const period = valueGroup.getByText(/\d{4}/).first();
+    await expect(dot).toBeVisible();
+    await expect(period).toBeVisible();
+    const dotBox = await dot.boundingBox();
+    const periodBox = await period.boundingBox();
+    if (dotBox == null || periodBox == null) throw new Error("last-review dot/period not measurable");
+    const dotCenter = dotBox.y + dotBox.height / 2;
+    const periodCenter = periodBox.y + periodBox.height / 2;
+    expect(Math.abs(dotCenter - periodCenter)).toBeLessThanOrEqual(2);
+  } finally {
+    // Only a DRAFT is deletable: revert the calibration first.
+    await request.post(`/api/v1/performance-reviews/${reviewId}/revert`, { headers: authHeader(managerToken) });
+    await request.delete(`/api/v1/performance-reviews/${reviewId}`, { headers: authHeader(managerToken) });
+    await request.delete(`/api/v1/teams/${dotTeamId}`, { headers: authHeader(adminToken) });
+  }
+});

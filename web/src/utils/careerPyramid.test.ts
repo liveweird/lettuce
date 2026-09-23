@@ -11,6 +11,7 @@ import {
   monthsBetween,
   sortCareerPyramidRows,
   tenureBucket,
+  type CareerPyramidRow,
 } from "./careerPyramid";
 
 const ENTRY = (id: number, en: string, pl = en) => ({ id, values: { en: en, pl: pl } });
@@ -249,5 +250,41 @@ describe("buildCareerDistribution", () => {
   test("no Not-set bar when everyone has the value", () => {
     const complete = buildCareerDistribution(rows().slice(0, 2), "seniorityLevel");
     expect(complete).toEqual([{ key: "Senior", count: 2 }]);
+  });
+
+  test("a dictionary order beats count-descending", () => {
+    // Count-descending would tie-break alphabetically (Engineer before Manager, 1 each);
+    // the admin-curated order [12, 11] puts Manager first instead.
+    expect(buildCareerDistribution(rows(), "careerPath", [12, 11])).toEqual([
+      { key: "Manager", count: 1 },
+      { key: "Engineer", count: 1 },
+      { key: NOT_SET, count: 1 },
+    ]);
+  });
+
+  test("an entry no longer in the dictionary sorts after the ordered ones, alphabetically; Not set stays last", () => {
+    const archived: CareerPyramidRow = {
+      ...rows()[0],
+      userId: 99,
+      careerPath: { id: 999, values: { en: "Retired Title" } },
+      pathText: "Retired Title",
+    };
+    expect(buildCareerDistribution([...rows(), archived], "careerPath", [12, 11])).toEqual([
+      { key: "Manager", count: 1 },
+      { key: "Engineer", count: 1 },
+      { key: "Retired Title", count: 1 },
+      { key: NOT_SET, count: 1 },
+    ]);
+  });
+
+  test("tenure ignores a supplied dictionary order (fixed bucket order always)", () => {
+    expect(buildCareerDistribution(rows(), "tenureAtLevel", [99, 1])).toEqual([
+      { key: "lt1", count: 0 },
+      { key: "y1to2", count: 1 },
+      { key: "y2to5", count: 1 },
+      { key: "y5to10", count: 0 },
+      { key: "y10plus", count: 0 },
+      { key: NOT_SET, count: 1 },
+    ]);
   });
 });

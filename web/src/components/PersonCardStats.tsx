@@ -1,12 +1,14 @@
-import { Badge, Divider, Group, Text } from "@mantine/core";
+import { Badge, Divider, Group, Text, Tooltip } from "@mantine/core";
 import { useTranslation } from "react-i18next";
+import type { PerformanceReviewStatus } from "../api/reviews";
 import { canAudit, hasFeature } from "../api/session";
 import { formatIsoDate, formatMonthRangeShort, formatRelativeTime, formatDateTime } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import { pickLocalized, type LocalizedEntry } from "../utils/localized";
 import type { PersonCard as PersonCardData } from "../utils/teamRows";
-import PerformanceReviewStatusBadge from "./PerformanceReviewStatusBadge";
+import { STATUS_COLORS as REVIEW_STATUS_COLORS } from "./performanceReviewStatusColors";
 import PersonCardActions, { type PersonCardActionsProps } from "./PersonCardActions";
+import { StatusDot } from "./StatusPill";
 import {
   DAYS_OFF_ACTIONS,
   OPERATIONAL_ACTIONS,
@@ -20,17 +22,48 @@ import classes from "./PersonCardStats.module.css";
 // A stat line: dimmed label + value (relative phrase with the exact date in the title), or a
 // dimmed "never" when there is nothing yet. The two are separate cells of the body grid
 // (v1.50.0), so every value in the card lines up in one column. Inside the value cell wrapping
-// is still allowed on purpose (v1.34.0): a long value (1:1 date + open-items badge, a review
-// period + status badge) folds to the next line instead of blowing past the card edge.
-function StatRow({ label, children }: { label: string; children: React.ReactNode }) {
+// is allowed by default (v1.34.0): a long value (e.g. 1:1 date + open-items badge) folds to the
+// next line instead of blowing past the card edge. A row can opt into `wrap="nowrap"` instead
+// (the last-review dot + period, v4.x) when it must stay on one line and shrink/ellipsize its
+// text last.
+function StatRow({
+  label,
+  children,
+  wrap = "wrap",
+  ariaLabel,
+  tooltip,
+}: {
+  label: string;
+  children: React.ReactNode;
+  /** `nowrap` for a row whose value must stay on one line (e.g. the last-review dot + period,
+   *  where a wrapped pill used to push the period onto its own line — v4.x). */
+  wrap?: "wrap" | "nowrap";
+  /** Exposes the row's value to assistive tech as one phrase (e.g. "Sep 2026 – Feb 2027,
+   *  Published") when the visible content alone doesn't carry the full meaning (a colour dot). */
+  ariaLabel?: string;
+  /** A hover/focus tooltip on the value — the status name behind a dot that has no label. */
+  tooltip?: string;
+}) {
+  const value = (
+    <Group
+      gap="xs"
+      wrap={wrap}
+      className={classes.value}
+      role={ariaLabel ? "group" : undefined}
+      aria-label={ariaLabel}
+      // Focusable only when it carries a tooltip, so keyboard users can reach the status name
+      // behind the dot too (screen readers already get it from the aria-label).
+      tabIndex={tooltip ? 0 : undefined}
+    >
+      {children}
+    </Group>
+  );
   return (
     <>
       <Text size="xs" c="dimmed" className={classes.label}>
         {label}
       </Text>
-      <Group gap="xs" wrap="wrap" className={classes.value}>
-        {children}
-      </Group>
+      {tooltip ? <Tooltip label={tooltip}>{value}</Tooltip> : value}
     </>
   );
 }
@@ -131,6 +164,40 @@ function NextVacationRow({ person }: { person: PersonCardData }) {
           {t("users.noVacationPlanned")}
         </Text>
       )}
+    </StatRow>
+  );
+}
+
+// The last authored review's period + status (v1.34.0). The period alone can outgrow the two
+// column card body (e.g. "Sep 2026 – Feb 2027" plus a "Published" pill needs ~209px at 1440px,
+// more in Polish), so the status rides a colour dot — same hue map as
+// PerformanceReviewStatusBadge, never duplicated — instead of a second pill, with the status
+// name in a Tooltip and an aria-label on the group so assistive tech still gets both parts
+// ("Sep 2026 – Feb 2027, Published"). The row never wraps: the dot never shrinks, the period
+// text ellipsizes as a last resort (v4.x, checkup card-review-dot-pyramid-order).
+function LastReviewValue({
+  status,
+  startMonth,
+  endMonth,
+}: {
+  status: PerformanceReviewStatus;
+  startMonth: string;
+  endMonth: string;
+}) {
+  const { t, i18n } = useTranslation();
+  const period = formatMonthRangeShort(startMonth, endMonth, i18n.language);
+  const statusLabel = t(`performanceReview.status.${status}`);
+  return (
+    <StatRow
+      label={t("users.lastReview")}
+      wrap="nowrap"
+      ariaLabel={`${period}, ${statusLabel}`}
+      tooltip={statusLabel}
+    >
+      <StatusDot color={REVIEW_STATUS_COLORS[status]} style={{ flexShrink: 0 }} />
+      <Text size="xs" truncate style={{ minWidth: 0 }}>
+        {period}
+      </Text>
     </StatRow>
   );
 }
@@ -325,27 +392,21 @@ export default function PersonCardBody({
 
       {showPerformance && (
         <Section label={t("users.section.performance")}>
-          {showLastReview && (
-            <StatRow label={t("users.lastReview")}>
-              {person.lastReviewId != null &&
-              person.lastReviewStatus != null &&
-              person.lastReviewPeriodStartMonth != null &&
-              person.lastReviewPeriodEndMonth != null ? (
-                <>
-                  <Text size="xs">
-                    {formatMonthRangeShort(
-                      person.lastReviewPeriodStartMonth,
-                      person.lastReviewPeriodEndMonth,
-                      i18n.language,
-                    )}
-                  </Text>
-                  <PerformanceReviewStatusBadge status={person.lastReviewStatus} size="sm" />
-                </>
-              ) : (
+          {showLastReview &&
+            (person.lastReviewId != null &&
+            person.lastReviewStatus != null &&
+            person.lastReviewPeriodStartMonth != null &&
+            person.lastReviewPeriodEndMonth != null ? (
+              <LastReviewValue
+                status={person.lastReviewStatus}
+                startMonth={person.lastReviewPeriodStartMonth}
+                endMonth={person.lastReviewPeriodEndMonth}
+              />
+            ) : (
+              <StatRow label={t("users.lastReview")}>
                 <NeverText />
-              )}
-            </StatRow>
-          )}
+              </StatRow>
+            ))}
           {actionsRow(PERFORMANCE_ACTIONS)}
         </Section>
       )}

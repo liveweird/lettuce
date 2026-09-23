@@ -725,11 +725,12 @@ describe("TeamMembersTable", () => {
       expect(screen.getByText("2 days ago")).toHaveAttribute("title", stamp(new Date(2026, 6, 10, 12, 0).getTime()));
       expect(screen.getByText("Active goals")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
-      // The last authored review (v1.34.0): period range + status badge. The card uses the
-      // short-month form (v3.8.2) so the range fits on one line beside the status badge.
+      // The last authored review (v1.34.0): period + status, since v4.x a colour dot (shared
+      // STATUS_COLORS) instead of a second pill — reachable as one accessible-name phrase.
       expect(screen.getByText("Last review")).toBeInTheDocument();
       expect(screen.getByText("Jan 2026 – Jun 2026")).toBeInTheDocument();
-      expect(screen.getByText("Calibration")).toBeInTheDocument();
+      const lastReviewGroup = screen.getByRole("group", { name: "Jan 2026 – Jun 2026, Calibration" });
+      expect((lastReviewGroup.querySelector('[aria-hidden="true"]') as HTMLElement).style.getPropertyValue("--pill-dot")).toContain("--mantine-color-orange-6");
       // The days-off pair (v1.44.0).
       expect(screen.getByText("Next vacation")).toBeInTheDocument();
       expect(screen.getByText("Aug 10, 2026")).toBeInTheDocument();

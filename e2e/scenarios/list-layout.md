@@ -2,13 +2,17 @@
 
 - **Spec**: [tests/list-layout.spec.ts](../tests/list-layout.spec.ts)
 - **Actors**: one throwaway ordinary employee; a throwaway requester, provider, and three
-  recipients; the seed administrator only creates and removes the fixture
+  recipients; the seed administrator only creates and removes the fixture; the seeded Manager AAA
+  drives the second and third scenarios over their own throwaway subordinate/team/review fixtures
 - **Owns** (exclusive server-side state): six throwaway users, one 99-character E2E-named team,
   and four feedbacks whose parties are all throwaways; feedbacks are closed or deleted, then the
   team and users are deleted in cleanup. The second scenario below is read-only (it only signs in
-  as the seeded Manager AAA and sorts a list client-side) and creates or mutates nothing.
+  as the seeded Manager AAA and sorts a list client-side) and creates or mutates nothing. The
+  third scenario owns one throwaway subordinate, one throwaway team under Manager AAA, and one
+  performance review in calibration (reverted to a draft and deleted), all removed in cleanup.
 - **Since**: responsive list-table pass following the 14 September 2026 overflow audit; the
-  Team's-performance matrix scenario since the v3.11.1 rotated-header round
+  Team's-performance matrix scenario since the v3.11.1 rotated-header round; the dashboard
+  last-review dot scenario since the v4.x card-review layout fix
 
 ## Scenario: list rows stay contained and usable across desktop and mobile widths
 
@@ -68,6 +72,18 @@
    - *Expected*: the table and its region still fit with no scroll needed, the Polish hint is
      not shown, and the header remains clickable — the longer Polish labels were the original
      failure case (1302px demanded) this table now clears.
+
+## Scenario: dashboard subordinate card keeps the last-review dot and period on one line at 1440px
+
+1. The fixture creates a throwaway subordinate under Manager AAA (a throwaway team with the
+   subordinate as its only member) and a complete performance review authored by Manager AAA for
+   the current review period, submitted to calibration — "Calibration" is one of the long status
+   names whose pill used to push the row onto a second line (a short "Draft" pill fitted anyway).
+2. Manager AAA signs in at a 1440×1000 viewport and opens the Dashboard's "My subordinates" tab.
+   - *Expected*: the subordinate's card shows a "Last review" row with a coloured status dot and
+     the review period text, and the two sit on the same visual line — vertically centred within
+     2 pixels of each other — rather than the period wrapping onto a line of its own beneath the
+     dot.
 
 ## Not covered here (and why)
 

@@ -2,6 +2,22 @@ import type { CSSProperties, ReactNode } from "react";
 import { Badge, type MantineColor } from "@mantine/core";
 import classes from "./StatusPill.module.css";
 
+// The hue formula shared by the pill's own leftSection dot and the standalone StatusDot below —
+// the mid shade in light mode, a lighter one on the dark tint (never a shade-suffixed colour).
+function hueDotVar(color: MantineColor): CSSProperties {
+  const hue = color.split(".")[0];
+  return { "--pill-dot": `light-dark(var(--mantine-color-${hue}-6), var(--mantine-color-${hue}-4))` } as CSSProperties;
+}
+
+/**
+ * A bare hue dot with no pill/label around it — for a status row that has no room for a full
+ * badge (PersonCardStats' last-review row). Same colour source as StatusPill's `dot`
+ * leftSection: reuse this rather than duplicating the hue formula.
+ */
+export function StatusDot({ color, style }: { color: MantineColor; style?: CSSProperties }) {
+  return <span className={classes.dot} aria-hidden="true" style={{ ...hueDotVar(color), ...style }} />;
+}
+
 export type StatusPillProps = {
   /** A bare hue name ("teal", "gray", "lettuce") — never a shade-suffixed colour: the tint
    *  comes from the hue and the AA ink from themeVariables.ts. */
@@ -31,11 +47,7 @@ export default function StatusPill({
   title,
   icon,
 }: StatusPillProps) {
-  const hue = color.split(".")[0];
-  const style = {
-    minWidth: "max-content",
-    "--pill-dot": `light-dark(var(--mantine-color-${hue}-6), var(--mantine-color-${hue}-4))`,
-  } as CSSProperties;
+  const style = { minWidth: "max-content", ...hueDotVar(color) } as CSSProperties;
   return (
     <Badge
       color={color}
