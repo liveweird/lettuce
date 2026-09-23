@@ -19,13 +19,17 @@
      seed-email row is marked "Duplicate — skipped"; the comma-less line is marked "Parse
      error"; the comma-in-name row kept "Kowalski, Jan" intact (the name splits on the LAST
      comma).
-3. The admin looks at a created row's one-time password.
+3. The admin looks at the results table's layout before revealing anything.
+   - *Expected*: the password cell's masked code, its **Show password** button and its **Copy**
+     button sit on one line (the narrow Line column and the wide
+     Password column give the row the space it needs).
+4. The admin looks at a created row's one-time password.
    - *Expected*: masked by default.
-4. The admin clicks the row's **Show password**.
+5. The admin clicks the row's **Show password**.
    - *Expected*: a 16-character generated password is revealed.
-5. The admin follows the header's **Back to Users** link and signs out.
+6. The admin follows the header's **Back to Users** link and signs out.
    - *Expected*: back on the users list.
-6. The imported user signs in with the revealed one-time password.
+7. The imported user signs in with the revealed one-time password.
    - *Expected*: the imported credentials work.
 
 ## Scenario: re-importing the same rows yields duplicates, not new accounts

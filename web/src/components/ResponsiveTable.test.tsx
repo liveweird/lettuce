@@ -75,6 +75,24 @@ describe("ResponsiveTable", () => {
     expect(screen.getByRole("columnheader")).toHaveAttribute("data-vertical");
   });
 
+  test("Th width emits data-width for each value and is absent by default", () => {
+    renderWithProviders(
+      <ResponsiveTable>
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th width="narrow">Line</ResponsiveTable.Th>
+            <ResponsiveTable.Th width="wide">Password</ResponsiveTable.Th>
+            <ResponsiveTable.Th>Name</ResponsiveTable.Th>
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+      </ResponsiveTable>,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[0]).toHaveAttribute("data-width", "narrow");
+    expect(headers[1]).toHaveAttribute("data-width", "wide");
+    expect(headers[2]).not.toHaveAttribute("data-width");
+  });
+
   test("the matrix scroll hint stays hidden when the viewport does not actually overflow", () => {
     // happy-dom reports scrollWidth/clientWidth as 0/0 by default — never overflowing — so the
     // hint (and data-overflowing) must not render even though mode is "matrix".

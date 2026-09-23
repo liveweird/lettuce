@@ -148,11 +148,11 @@ export default function ImportUsers() {
                 <ResponsiveTable density="normal">
                   <ResponsiveTable.Thead>
                     <ResponsiveTable.Tr>
-                      <ResponsiveTable.Th>{t("users.importLine")}</ResponsiveTable.Th>
+                      <ResponsiveTable.Th width="narrow">{t("users.importLine")}</ResponsiveTable.Th>
                       <ResponsiveTable.Th>{t("common.field.name")}</ResponsiveTable.Th>
                       <ResponsiveTable.Th>{t("common.field.email")}</ResponsiveTable.Th>
                       <ResponsiveTable.Th>{t("users.importStatusHeader")}</ResponsiveTable.Th>
-                      <ResponsiveTable.Th>{t("users.importPassword")}</ResponsiveTable.Th>
+                      <ResponsiveTable.Th width="wide">{t("users.importPassword")}</ResponsiveTable.Th>
                     </ResponsiveTable.Tr>
                   </ResponsiveTable.Thead>
                   <ResponsiveTable.Tbody>

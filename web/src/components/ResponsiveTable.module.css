@@ -18,6 +18,13 @@
 .table th { white-space: normal; overflow-wrap: normal; }
 .table td { vertical-align: top; white-space: normal; overflow-wrap: break-word; }
 .table th[data-actions] { width: 96px; }
+/* A list-mode width affordance (v4.0.4) for a `layout="fixed"` table whose columns would
+   otherwise share equal width regardless of content — e.g. ImportUsers' 1–2 digit line number
+   vs. its masked-code+eye+Copy password cell. Scoped to `th` like `[data-actions]` above, so
+   the stacked container-query rules (`thead th { width: auto }`, higher specificity) still win
+   once the table stacks. */
+.table th[data-width="narrow"] { width: 5rem; }
+.table th[data-width="wide"] { width: 18rem; }
 /* A matrix-mode affordance for narrow numeric columns (e.g. a rotated SortHeader) — the
    HEADER, not the cell, sets a numeric column's width, so shrinking it here is what actually
    collapses the column (v3.11.1). */

@@ -37,6 +37,36 @@ test("a mixed CSV imports row-by-row and an imported password signs in", async (
   const rowB = page.locator("tr", { hasText: emailB });
   await expect(rowB).toContainText("Kowalski, Jan"); // last-comma split kept the name intact
 
+  // The narrow Line column and the wide Password column (ResponsiveTable.Th width, v4.0.4) give
+  // the password cell room to lay its masked code, "Show password" button and Copy button on one
+  // line — checked before revealing anything. Two independent measurements, so a regression in either affordance fails this: the Line header stays at
+  // most 5rem/80px (data-width="narrow"), and the Password column stays comfortably above the
+  // ~185-211px an equal/narrow-only share would leave it (data-width="wide" is what reaches
+  // 18rem/288px) — width alone can leave the row single-line without proving `wide` is applied,
+  // so this pins the column's actual size, not just that nothing wrapped.
+  const lineHeaderBox = await page.locator("thead th", { hasText: "Line" }).boundingBox();
+  expect(lineHeaderBox).not.toBeNull();
+  expect(lineHeaderBox!.width).toBeLessThanOrEqual(81);
+  const passwordHeaderBox = await page.locator("thead th", { hasText: "Password" }).boundingBox();
+  expect(passwordHeaderBox).not.toBeNull();
+  expect(passwordHeaderBox!.width).toBeGreaterThanOrEqual(260);
+
+  const showPasswordB = rowB.getByRole("button", { name: "Show password" });
+  const copyB = rowB.getByRole("button", { name: "Copy" });
+  const [codeBox, showBox, copyBox] = await Promise.all([
+    rowB.locator("code").boundingBox(),
+    showPasswordB.boundingBox(),
+    copyB.boundingBox(),
+  ]);
+  expect(codeBox).not.toBeNull();
+  expect(showBox).not.toBeNull();
+  expect(copyBox).not.toBeNull();
+  // One line = the three share a vertical centre (the Group centre-aligns items of differing
+  // heights); a wrapped row puts the buttons ~25px below the code.
+  const centre = (box: { y: number; height: number }) => box.y + box.height / 2;
+  expect(Math.abs(centre(codeBox!) - centre(showBox!))).toBeLessThanOrEqual(2);
+  expect(Math.abs(centre(codeBox!) - centre(copyBox!))).toBeLessThanOrEqual(2);
+
   // Passwords are masked until revealed; the revealed one really works.
   const codeB = rowB.locator("code");
   await expect(codeB).toHaveText(/^\*+$/);

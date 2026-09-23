@@ -73,14 +73,25 @@ function Tbody(props: Table.Tbody.Props) {
 function Tr(props: Table.Tr.Props) {
   return <Table.Tr {...props} role="row" />;
 }
-function Th({ sortable, actions, primary, vertical, ...props }: Table.Th.Props & {
+function Th({ sortable, actions, primary, vertical, width, ...props }: Table.Th.Props & {
   sortable?: boolean; actions?: boolean; primary?: boolean;
   /** A matrix-mode affordance for narrow numeric columns (e.g. rotated rating headers) —
       shrinks the column to its rotated label's width. List/stacked modes never use it. */
   vertical?: boolean;
+  /**
+   * A list-mode width affordance for a `layout="fixed"` table whose columns would otherwise
+   * share equal width regardless of content (e.g. a 1–2 digit line number next to a password
+   * cell) — `"narrow"` (5rem) or `"wide"` (18rem). Set on the header only, since a fixed layout
+   * sizes columns from `<th>`, not `<td>`; the stacked container-query rules override it back to
+   * `width: auto` once the table stacks, so it never affects the compact card view. Matrix
+   * mode (`layout="auto"`) sizes from content and has never been reasoned about with it — keep
+   * it to list tables.
+   */
+  width?: "narrow" | "wide";
 }) {
   return <Table.Th {...props} role="columnheader" scope="col" data-sortable={sortable || undefined}
-    data-actions={actions || undefined} data-primary={primary || undefined} data-vertical={vertical || undefined} />;
+    data-actions={actions || undefined} data-primary={primary || undefined} data-vertical={vertical || undefined}
+    data-width={width} />;
 }
 function Td({ label, actions, primary, numeric, children, className, ...props }: Table.Td.Props & {
   /** Translated column label; also shown when the row stacks. Omit for spanning states. */
