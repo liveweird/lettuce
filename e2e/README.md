@@ -116,7 +116,7 @@ scenario file is the design.
 - [`feedback-tutorial.spec.ts`](scenarios/feedback-tutorial.md) — the "How feedback works" guided tutorial (v3.14.0): the manager's 12-step and the non-manager's 9-step read-only walk, landmark order, and the return to the Feedback page with no non-GET API request issued during the walk (totals are not a safe oracle — parallel specs write feedback as Manager AAA).
 - [`goals.spec.ts`](scenarios/goals.md) — the goal lifecycle, PLAN milestones, chain-manager visibility, the skip-level chain create (v2.33.0), notifications, the dirty-form navigation guard — a sidebar click held by the discard confirm (v3.6.0).
 - [`goals-tutorial.spec.ts`](scenarios/goals-tutorial.md) — the "How goals work" guided tutorial (v3.15.0): the manager's 12-step and the non-manager's 6-step read-only walk, landmark order, and the return to the Goals page with the walker's own goal total unchanged.
-- [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08) + all four remaining drill-downs (reviews, days off incl. the read-only paid-leave budget, impact log, succession — v3.24.0) + the team-KPI auditor entry points (the All-teams tab and the team-details link, v3.24.0) + the org-wide calendar scope (v3.25.0); admin gets no audit surface.
+- [`hr.spec.ts`](scenarios/hr.md) — the HR auditor reads a private draft via the Audit section + the guarded career timeline (2026-08) + all four remaining drill-downs (reviews, days off incl. the read-only paid-leave budget, impact log, succession — v3.24.0) + the team-KPI auditor entry points (the All-teams tab and the team-details link, v3.24.0) + the org-wide calendar scope (v3.25.0); admin gets no audit surface; plus a read-only smoke on the seeded `hr@lettuce.local` demo account (v4.1.0) reaching the Audit section with no admin surface.
 - [`i18n.spec.ts`](scenarios/i18n.md) — language menu switch (native names) on a throwaway user, persisted across reload AND re-login (the v2.21.0 server-side sync).
 - [`impact-log.spec.ts`](scenarios/impact-log.md) — the accomplishment journal (v2.36.0): owner creates/edits/deletes with History, the manager reads via My subordinates' journals and the person-card Impact-log drill-down (v2.38.0).
 - [`integration-clients.spec.ts`](scenarios/integration-clients.md) — the v3.0.0 integration API: admin mints a show-once key, a machine client reads via GraphQL, revoke kills it, non-admins see nothing.
@@ -152,7 +152,7 @@ scenario file is the design.
 - [`welcome-email.spec.ts`](scenarios/welcome-email.md) — create-with-email: the welcome mail's password signs in (Mailpit-gated).
 
 Specs log in with the seeded accounts (`admin@lettuce.local`, `manager-aaa@…`, `aaa-one/two/three@…`,
-all password `changeme`), capture created ids from API responses so they act on their own rows, and
+the development-mode `hr@lettuce.local` HR demo account, all password `changeme`), capture created ids from API responses so they act on their own rows, and
 use unique content — so they don't depend on a clean database or absolute counts. Mutating specs
 (rename/role/password/delete) only ever touch throwaway users they create through the UI; seeded
 accounts are never mutated. The onboarding tour is suppressed via an init script (see

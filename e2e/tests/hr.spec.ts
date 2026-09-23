@@ -7,7 +7,9 @@ import {
   provideFeedback,
   gotoUserRow,
   ADMIN,
+  AAA_ONE,
   AAA_THREE,
+  HR,
   MANAGER_AAA,
 } from "./helpers";
 import { apiToken, authHeader } from "./api";
@@ -186,5 +188,22 @@ test("an HR auditor browses another pair's private draft read-only", async ({ pa
   await expect(page.getByRole("combobox", { name: "Team", exact: true })).toBeVisible();
 
   // 7. No admin surface: the Config group never offers Alerts to HR.
+  await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);
+});
+
+// The seeded HR demo account (v4.1.0): a relationship-less auditor, read-only, confirming the
+// same reach the minted auditor above exercises exists on a real login too — no writes here.
+test("the seeded HR demo account reaches the Audit section with no admin surface", async ({ page }) => {
+  await login(page, HR);
+
+  await gotoUserRow(page, "AAA One");
+  // No admin surface on the users list: the seed account is HR only, never ADMIN.
+  await expect(page.getByRole("button", { name: "Modify actions for AAA One" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "User details for AAA One" }).click();
+  await expect(page.getByText(AAA_ONE)).toBeVisible();
+  await expect(page.getByText("Audit", { exact: true })).toBeVisible();
+
+  // No admin surface in the nav either: the Config group never offers Alerts to HR.
   await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);
 });

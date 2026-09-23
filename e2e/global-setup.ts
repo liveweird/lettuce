@@ -42,6 +42,9 @@ const SEED_ACCOUNTS = [
   "aaa-one@lettuce.local",
   "aaa-two@lettuce.local",
   "aaa-three@lettuce.local",
+  // The development-mode HR demo account (v4.1.0) — never a feedback party, but harmless to
+  // include and keeps this list matching the full seed roster.
+  "hr@lettuce.local",
 ];
 
 // A seed account left MFA-ENABLED (v2.4.0 drift — e.g. flipped in the feature-flags UI, or a
