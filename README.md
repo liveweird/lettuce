@@ -60,7 +60,10 @@ boot, and wires everything together. When it's up, open:
 - Swagger UI: http://localhost:8080/openapi
 
 A bootstrap admin is seeded on first boot: `admin@lettuce.local` / `changeme`
-(replace before any non-development use).
+(replace before any non-development use). The compose stack also runs in development mode, so a
+demo HR auditor is seeded alongside it: `hr@lettuce.local` / `changeme` — a relationship-less
+account with the HR role only, no admin rights, no team and no reports. Unlike the admin account,
+this one never exists outside development — production never seeds or keeps it.
 
 Tear down with `docker compose down`, or `docker compose down -v` to also drop the
 database volume.

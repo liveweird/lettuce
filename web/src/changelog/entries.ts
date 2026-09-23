@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.1.0",
+    date: "2026-09-24",
+    en: `Added a seeded HR demo account (hr@lettuce.local, password changeme) — a relationship-less auditor with the HR role only, no admin rights, no team and no reports, so the audit features are reachable in the demo without minting a throwaway user. The local and demo stacks create this account automatically; a production deployment never creates it, and removes it if a development database carried it over.`,
+    pl: `Dodaliśmy przykładowe konto HR (hr@lettuce.local, hasło changeme) — audytora bez żadnych relacji, wyłącznie z rolą HR, bez uprawnień administratora, bez zespołu i bez podwładnych, dzięki czemu funkcje audytu są dostępne w wersji demonstracyjnej bez tworzenia tymczasowego użytkownika. Środowisko lokalne i demonstracyjne tworzy to konto automatycznie; w środowisku produkcyjnym aplikacja go nie tworzy i usuwa je, jeśli trafiło tam z bazy deweloperskiej.`,
+  },
+  {
     version: "4.0.4",
     date: "2026-09-23",
     en: `The mass import results table gives the one-time passwords enough room: each password, its show button and "Copy" now sit on one line, and the narrow line-number column no longer takes an equal share.`,

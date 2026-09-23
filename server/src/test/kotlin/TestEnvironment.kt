@@ -5,6 +5,7 @@ import ch.nokillswit.auth.LoginResponse
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.infra.db.DEMO_SEED_EMAILS
+import ch.nokillswit.infra.db.HR_DEMO_EMAIL
 import ch.nokillswit.infra.db.SEED_ADMIN_EMAIL
 import ch.nokillswit.infra.db.SEED_PASSWORD_HASH
 import ch.nokillswit.users.User
@@ -195,10 +196,85 @@ object TestBlocklist {
 // demo users in the SHARED container. Call this afterwards to put the V6/V9 seed state back so
 // later tests (and re-runs) see the pristine seeds.
 object TestSeedState {
-    suspend fun restoreSeedAccounts() {
+    /**
+     * The HR demo account (v4.1.0) is seeded only by a development-mode `configureBootstrap`
+     * boot — never a migration — so unlike the V6/V9 accounts above, its existence in the
+     * shared container is NOT guaranteed before the first `testApplication` boots in this JVM
+     * (test class/method order is not otherwise controlled). Ensures the row exists — creating
+     * it with the pristine dev-seed shape (the [SEED_PASSWORD_HASH], the `HR` role, the MFA
+     * disabled-feature row) if this is the very first call in the run — and returns its id, so
+     * [restoreSeedAccounts] never has to silently skip the row when it "should" be there.
+     */
+    private suspend fun ensureHrDemoAccountExists(): UInt = suspendTransaction(sharedTestDatabase) {
+        UserService.Users.selectAll()
+            .where { UserService.Users.email eq HR_DEMO_EMAIL }
+            .map { it[UserService.Users.id].value }
+            .toList()
+            .also { ids ->
+                // Two rows at one email (e.g. one soft-deleted, one active) would make the
+                // email-keyed undelete below violate uq_users_email_active — fail loudly here.
+                check(ids.size <= 1) { "expected at most one $HR_DEMO_EMAIL row, found ${ids.size}" }
+            }
+            .singleOrNull()
+            ?: run {
+                val newId = UserService.Users.insert {
+                    it[name] = "HR Auditor"
+                    it[email] = HR_DEMO_EMAIL
+                    it[passwordHash] = SEED_PASSWORD_HASH
+                }[UserService.Users.id].value
+                UserService.UserRoles.insert {
+                    it[UserService.UserRoles.userId] = newId
+                    it[UserService.UserRoles.role] = UserRole.HR.name
+                }
+                UserService.UserDisabledFeatures.insert {
+                    it[UserService.UserDisabledFeatures.userId] = newId
+                    it[UserService.UserDisabledFeatures.feature] = ch.nokillswit.users.Feature.MFA.name
+                }
+                newId
+            }
+    }
+
+    /**
+     * Moves every row at [HR_DEMO_EMAIL] to a throwaway address, so a following dev-mode boot's
+     * seed (or its absence) is observable; returns the moved ids for [restoreHrDemoAccount].
+     */
+    suspend fun moveHrDemoAccountAside(): Set<UInt> = suspendTransaction(sharedTestDatabase) {
+        val ids = UserService.Users.selectAll()
+            .where { UserService.Users.email eq HR_DEMO_EMAIL }
+            .map { it[UserService.Users.id].value }
+            .toList()
+        ids.forEach { id ->
+            UserService.Users.update({ UserService.Users.id eq id }) { it[email] = "hr-aside-$id@test" }
+        }
+        ids.toSet()
+    }
+
+    /**
+     * Undoes [moveHrDemoAccountAside]: a row a boot seeded meanwhile is parked (renamed and
+     * soft-deleted — user rows are never hard-deleted), the moved rows get their address back,
+     * then the full seed reset runs.
+     */
+    suspend fun restoreHrDemoAccount(moved: Set<UInt>) {
         suspendTransaction(sharedTestDatabase) {
+            UserService.Users.update({ UserService.Users.email eq HR_DEMO_EMAIL }) {
+                it[email] = "hr-seeded-${java.util.UUID.randomUUID()}@test"
+                it[markedAsDeleted] = true
+            }
+            moved.forEach { id ->
+                UserService.Users.update({ UserService.Users.id eq id }) { it[email] = HR_DEMO_EMAIL }
+            }
+        }
+        restoreSeedAccounts()
+    }
+
+    suspend fun restoreSeedAccounts() {
+        // Guarantees the row exists (see KDoc above) BEFORE the shared reset below, so the HR
+        // demo email can ride the exact same email-keyed queries as every other seed account.
+        val hrId = ensureHrDemoAccountExists()
+        suspendTransaction(sharedTestDatabase) {
+            val seedEmails = DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL + HR_DEMO_EMAIL
             UserService.Users.update({
-                UserService.Users.email inList (DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL)
+                UserService.Users.email inList seedEmails
             }) {
                 it[UserService.Users.passwordHash] = SEED_PASSWORD_HASH
                 it[UserService.Users.markedAsDeleted] = false
@@ -210,7 +286,7 @@ object TestSeedState {
             }
             // Also drop any feature flags a test left on the seed accounts (V46)…
             val seedIds = UserService.Users.selectAll()
-                .where { UserService.Users.email inList (DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL) }
+                .where { UserService.Users.email inList seedEmails }
                 .map { it[UserService.Users.id].value }
                 .toList()
             UserService.UserDisabledFeatures.deleteWhere {
@@ -229,7 +305,6 @@ object TestSeedState {
             // lingering lockout/throttle/challenge row would otherwise leak into later tests
             // reusing the same seed email (e.g. BootstrapTest's deliberate 401 on
             // admin@lettuce.local).
-            val seedEmails = DEMO_SEED_EMAILS + SEED_ADMIN_EMAIL
             ch.nokillswit.auth.LoginThrottle.LoginLockouts.deleteWhere {
                 ch.nokillswit.auth.LoginThrottle.LoginLockouts.email inList seedEmails
             }
@@ -241,6 +316,15 @@ object TestSeedState {
             // reuse the seedIds gathered for the feature-flag reset just above.
             ch.nokillswit.auth.MfaChallenges.Challenges.deleteWhere {
                 ch.nokillswit.auth.MfaChallenges.Challenges.userId inList seedIds.map { it.toLong() }
+            }
+            // The HR demo account's roles: unlike the generic seed accounts above (never
+            // role-reset — their role set is not something tests mutate), a test may add/remove
+            // roles on the HR account (it's an ordinary user account otherwise) — restore to
+            // exactly {HR} so the pristine seed state never leaks into a later test.
+            UserService.UserRoles.deleteWhere { UserService.UserRoles.userId eq hrId }
+            UserService.UserRoles.insert {
+                it[UserService.UserRoles.userId] = hrId
+                it[UserService.UserRoles.role] = UserRole.HR.name
             }
         }
     }

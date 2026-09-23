@@ -217,9 +217,43 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
+    /**
+     * Bootstrap: soft-delete every active user whose email is in [emails] AND whose password
+     * hash still matches [hash] exactly — unlike [softDeleteByEmails], a real account reusing
+     * one of these emails but carrying its OWN password is left completely untouched. Backs the
+     * production-mode neutralization of the dev-only HR demo seed (`HR_DEMO_EMAIL` in
+     * `infra/db/Bootstrap.kt`), which — unlike the V9 demo accounts — is never inserted by a
+     * migration, so an email-only purge would risk soft-deleting a real pre-existing account of
+     * the same address.
+     */
+    suspend fun softDeleteByEmailsWithPasswordHash(emails: List<String>, hash: String): Int =
+        suspendTransaction(database) {
+            Users.update({ (Users.email inList emails) and (Users.passwordHash eq hash) and active() }) {
+                it[markedAsDeleted] = true
+            }
+        }
+
+    /**
+     * Bootstrap: is ANY of [emails] still an active account? The dev-only HR demo seed asks it
+     * of the V9 demo accounts — a production boot soft-deletes those, so "none active" marks a
+     * database that must not receive the seed.
+     */
+    suspend fun anyActiveWithEmails(emails: List<String>): Boolean = suspendTransaction(database) {
+        Users.selectAll().where { (Users.email inList emails) and active() }.count() > 0
+    }
+
     /** Bootstrap: how many active accounts still carry [hash] (the well-known seed password). */
     suspend fun countActiveWithPasswordHash(hash: String): Long = suspendTransaction(database) {
         Users.selectAll().where { (Users.passwordHash eq hash) and active() }.count()
+    }
+
+    /**
+     * Bootstrap (dev-only HR demo seed): does ANY row — active OR soft-deleted — already exist
+     * for [email]? Lets the dev-mode seed be idempotent without resurrecting an account a
+     * developer deliberately deleted, which [findWithIdByEmail] (active-only) cannot answer.
+     */
+    suspend fun existsWithEmailAnyState(email: String): Boolean = suspendTransaction(database) {
+        Users.selectAll().where { Users.email eq canonicalEmail(email) }.count() > 0
     }
 
     suspend fun delete(id: UInt): Int = suspendTransaction(database) {

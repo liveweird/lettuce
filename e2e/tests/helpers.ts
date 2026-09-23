@@ -25,9 +25,13 @@ export const MANAGER_CCC = "manager-ccc@lettuce.local";
 export const AAA_ONE = "aaa-one@lettuce.local";
 export const AAA_TWO = "aaa-two@lettuce.local";
 export const AAA_THREE = "aaa-three@lettuce.local";
+// The HR demo account (v4.1.0): a relationship-less auditor — HR role only, no team, no
+// reports. Seeded by the server's development-mode bootstrap (infra/db/Bootstrap.kt), never by
+// a migration — production never has this account.
+export const HR = "hr@lettuce.local";
 export const PASSWORD = "changeme";
 
-const SEEDED = new Set([ADMIN, MANAGER_AAA, MANAGER_CCC, AAA_ONE, AAA_TWO, AAA_THREE]);
+const SEEDED = new Set([ADMIN, MANAGER_AAA, MANAGER_CCC, AAA_ONE, AAA_TWO, AAA_THREE, HR]);
 
 // POST /login is rate-limited per IP (auth/AuthRoutes.kt). Development stacks lift that bucket
 // (security.rateLimit.loginPerMinute) so the suite is not throttled, but the per-ACCOUNT lockout

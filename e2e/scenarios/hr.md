@@ -1,15 +1,16 @@
 # HR auditor — read-only cross-pair audit
 
 - **Spec**: [tests/hr.spec.ts](../tests/hr.spec.ts)
-- **Actors**: the seed admin, Manager AAA (the draft's author), AAA Three (the audited subject —
-  never signs in), and a throwaway auditor ("E2E-HR") created through the UI
+- **Actors**: the seed admin, Manager AAA (the draft's author), AAA One and AAA Three (audited
+  subjects — never sign in), a throwaway auditor ("E2E-HR") created through the UI, and the
+  seeded `hr@lettuce.local` HR demo account (v4.1.0, development-mode bootstrap seed)
 - **Owns** (exclusive server-side state): the (AAA Three ← Manager AAA) feedback triple — this
   file's exclusively owned pair under parallel workers (an open DRAFT would block any other
   spec's create on the same pair via the no-duplicate invariant); plus the throwaway HR user it
-  mints.
+  mints. The second scenario is read-only — nothing else.
 - **Since**: v1.25.0 (the HR auditor role), v1.26.0 (management-only ADMIN — no Audit section
   for admins), v3.24.0 (the four remaining drill-downs + the read-only budget in the days-off
-  audit view)
+  audit view), v4.1.0 (the seeded `hr@lettuce.local` HR demo account)
 
 **Cleanup**: the probe DRAFT is deleted via the API after the test, even on failure, so the
 pair is freed for later runs.
@@ -70,6 +71,17 @@ pair is freed for later runs.
       demo-volume state other specs own, so it is not asserted here — the data rule is pinned
       in `DaysOffRoutesTest`.
 12. The auditor checks for an admin surface.
+   - *Expected*: none — the Config group never offers Alerts to HR.
+
+## Scenario: the seeded HR demo account reaches the Audit section with no admin surface
+
+1. The seeded HR demo account (`hr@lettuce.local`) signs in and opens the users list filtered to
+   AAA One.
+   - *Expected*: no "Modify actions for AAA One" button is offered — the account is HR only,
+     never ADMIN.
+2. The auditor opens AAA One's user-details page.
+   - *Expected*: AAA One's details render, and the Audit section is offered.
+3. The auditor checks for an admin surface.
    - *Expected*: none — the Config group never offers Alerts to HR.
 
 ## Not covered here (and why)
