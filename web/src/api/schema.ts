@@ -4083,7 +4083,7 @@ export interface components {
             channel: components["schemas"]["NotificationChannel"];
         };
         NotificationPreferencesUpdateRequest: {
-            /** @description The complete new disabled `(type, channel)` set (wholesale replace) — an empty array re-enables everything. Disabling a locked type (`PASSWORD_CHANGED`) is `400`. An unknown type or channel name is rejected with `400`. */
+            /** @description The complete new disabled `(type, channel)` set (wholesale replace) — an empty array re-enables everything. Disabling a locked type (`PASSWORD_CHANGED`) is `400`. An unknown type or channel name is rejected with `400`. A duplicate `(type, channel)` pair is rejected with `400` rather than silently de-duplicated. */
             disabled: components["schemas"]["DisabledNotificationPreference"][];
         };
         RefreshRequest: {

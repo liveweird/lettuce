@@ -27,6 +27,10 @@ export default defineConfig({
     __APP_COMMIT_TIME__: JSON.stringify(commitTime),
   },
   server: {
+    // Vitest only: notificationPreferenceLabels.test.ts reads the OpenAPI spec (outside web/) as
+    // `?raw` to pin the label map against the NotificationType enum. The dev server stays
+    // confined to web/.
+    ...(process.env.VITEST ? { fs: { allow: ['.', '../server/src/main/resources/openapi'] } } : {}),
     proxy: {
       '/api': 'http://localhost:8080',
       // The integration GraphQL endpoint lives outside /api (see the integration-api doc); the

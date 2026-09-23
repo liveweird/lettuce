@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.0.3",
+    date: "2026-09-23",
+    en: `Fixed a rare mix-up: saving notification preferences from two open tabs at the same moment no longer mixes the two saves together — the last one now always wins. Behind the scenes, the API also rejects a save that lists the same notification type and channel twice, instead of quietly ignoring the duplicate.`,
+    pl: `Naprawiliśmy rzadki błąd: zapisywanie preferencji powiadomień z dwóch otwartych kart w tej samej chwili nie miesza już obu zapisów — teraz zawsze obowiązuje ostatni z nich. W tle API odrzuca też zapis, który zawiera dwukrotnie tę samą parę typu powiadomienia i kanału, zamiast po cichu ignorować duplikat.`,
+  },
+  {
     version: "4.0.2",
     date: "2026-09-23",
     en: `Behind-the-scenes housekeeping: the lifecycle diagrams on feedback, goal, team KPI and performance review pages now share one drawing component, the server's startup log no longer prints the full database address, and the API description names its "include indirect reports" option once instead of thirteen times. Nothing you see changes.`,
