@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.0.4",
+    date: "2026-09-23",
+    en: `The mass import results table gives the one-time passwords enough room: each password, its show button and "Copy" now sit on one line, and the narrow line-number column no longer takes an equal share.`,
+    pl: `Tabela wyników masowego importu daje jednorazowym hasłom wystarczająco dużo miejsca: hasło, przycisk pokazania i "Skopiuj" mieszczą się teraz w jednej linii, a wąska kolumna numeru wiersza nie zajmuje już takiej samej szerokości jak pozostałe.`,
+  },
+  {
     version: "4.0.3",
     date: "2026-09-23",
     en: `Fixed a rare mix-up: saving notification preferences from two open tabs at the same moment no longer mixes the two saves together — the last one now always wins. Behind the scenes, the API also rejects a save that lists the same notification type and channel twice, instead of quietly ignoring the duplicate.`,
