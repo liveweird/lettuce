@@ -41,6 +41,16 @@ export function useDiscardGuard({ isDirty, to, title, message }: DiscardGuardOpt
         void navigate(to);
       }
     },
+    /**
+     * Lets a caller-driven navigation OTHER than `requestCancel`'s skip the route blocker's own
+     * confirm — for a page that offers its own competing "leave this form" prompt (e.g. EditOneOnOne's
+     * "New 1:1" button) and has already gotten the user's explicit choice, so the generic guard must
+     * not ask a second time on the way out. Call immediately before the caller's own `navigate()`; a
+     * `replace` navigation (the post-save idiom) never needs it — the blocker already lets those pass.
+     */
+    bypassNextNavigation: () => {
+      bypassRef.current = true;
+    },
     guardProps: {
       opened,
       onClose: close,

@@ -36,6 +36,7 @@ data class OneOnOneListFilter(
     val subordinateName: String? = null,
     val meetingDateGte: String? = null,
     val meetingDateLte: String? = null,
+    val latestOnly: Boolean = false,
 )
 
 data class OneOnOneListResult(
@@ -767,6 +768,32 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
         filter.meetingDateGte?.let { op = op and (Meetings.meetingDate greaterEq it) }
         filter.meetingDateLte?.let { op = op and (Meetings.meetingDate lessEq it) }
+        if (filter.latestOnly) op = op and latestOnlyPredicate()
         return op
+    }
+
+    /**
+     * `latestOnly=true`: keeps only each (manager, subordinate) pair's absolute latest
+     * non-deleted meeting — a correlated `NOT EXISTS` over a self-alias, so it composes with
+     * `total` and the page in the SAME query (never computed against the other filters/view,
+     * the same canonical `meeting_date DESC, id DESC` ordering as [latestMeetingOfPair] and
+     * the write rules).
+     */
+    private fun latestOnlyPredicate(): Op<Boolean> {
+        val later = Meetings.alias("later_one_on_one_meeting")
+        return notExists(
+            later.selectAll().where {
+                (later[Meetings.managerId] eq Meetings.managerId) and
+                    (later[Meetings.subordinateId] eq Meetings.subordinateId) and
+                    (later[Meetings.markedAsDeleted] eq false) and
+                    (
+                        (later[Meetings.meetingDate] greater Meetings.meetingDate) or
+                            (
+                                (later[Meetings.meetingDate] eq Meetings.meetingDate) and
+                                    (later[Meetings.id] greater Meetings.id)
+                            )
+                        )
+            },
+        )
     }
 }

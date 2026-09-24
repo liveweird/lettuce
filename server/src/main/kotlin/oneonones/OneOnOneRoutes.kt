@@ -10,6 +10,7 @@ import ch.nokillswit.authz.requireOneOnOneWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
+import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.parsePaging
@@ -172,6 +173,7 @@ fun Application.configureOneOnOneRoutes() {
                 )
                 val meetingDateGte = params.optionalString("meetingDate[gte]")?.also { requireIsoDate(it, "meetingDate[gte]") }
                 val meetingDateLte = params.optionalString("meetingDate[lte]")?.also { requireIsoDate(it, "meetingDate[lte]") }
+                val latestOnly = params.optionalBoolean("latestOnly") == true
                 val includeIndirect = params.optionalIncludeIndirect(view, listOf(OneOnOneListView.TEAM))
                 val counterpartId = params.uintOnlyForView("counterpartId", view, OneOnOneListView.WITH)
                 // The auditor view (HR-only): view-shape validation like counterpartId above,
@@ -185,6 +187,7 @@ fun Application.configureOneOnOneRoutes() {
                     subordinateName = params.optionalString("subordinateName"),
                     meetingDateGte = meetingDateGte,
                     meetingDateLte = meetingDateLte,
+                    latestOnly = latestOnly,
                 )
                 val result = oneOnOneService.list(
                     view,

@@ -1,6 +1,6 @@
 import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
-import { Alert, Badge, Stack, Text } from "@mantine/core";
+import { Alert, Badge, Stack, Switch, Text } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconCalendarEvent, IconEye, IconPencil } from "@tabler/icons-react";
@@ -19,7 +19,7 @@ import PersonCell from "../components/PersonCell";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
+import { isBoolean, isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
 import { oneOnOneEditLink, oneOnOneViewLink } from "../utils/oneOnOneLinks";
@@ -196,10 +196,14 @@ export default function OneOnOneTable({
     `${storeKey}.filter.reportsScope`, "direct", isOneOf(["direct", "all"]),
   );
   const includeIndirect = view === "team" && reportsScope === "all";
+  const [latestOnly, setLatestOnly] = useStoredState(
+    `${storeKey}.filter.latestOnly`, false, isBoolean,
+  );
   const activeFilterCount =
     (managerFilter.trim() ? 1 : 0) +
     (subordinateFilter.trim() ? 1 : 0) +
-    (includeIndirect ? 1 : 0);
+    (includeIndirect ? 1 : 0) +
+    (latestOnly ? 1 : 0);
 
   const [debouncedManager] = useDebouncedValue(managerFilter, 300);
   const [debouncedSubordinate] = useDebouncedValue(subordinateFilter, 300);
@@ -215,7 +219,7 @@ export default function OneOnOneTable({
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "meetingDate",
-      [debouncedManager, debouncedSubordinate, includeIndirect],
+      [debouncedManager, debouncedSubordinate, includeIndirect, latestOnly],
       { key: storeKey, sortFields: SORT_FIELDS },
       "desc", // newest meetings first
     );
@@ -232,6 +236,7 @@ export default function OneOnOneTable({
       debouncedManager,
       debouncedSubordinate,
       includeIndirect,
+      latestOnly,
     ],
     queryFn: () =>
       listOneOnOnes({
@@ -244,6 +249,7 @@ export default function OneOnOneTable({
         includeIndirect: includeIndirect || undefined,
         counterpartId,
         userId,
+        latestOnly: (showFilters && latestOnly) || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -269,6 +275,11 @@ export default function OneOnOneTable({
           {view === "team" && (
             <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
           )}
+          <Switch
+            label={t("oneOnOne.latestOnly")}
+            checked={latestOnly}
+            onChange={(e) => setLatestOnly(e.currentTarget.checked)}
+          />
         </FilterPanel>
       )}
 

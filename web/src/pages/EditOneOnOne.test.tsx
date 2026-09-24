@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  createMemoryRouter,
+  MemoryRouter,
+  Route,
+  RouterProvider,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EditOneOnOne from "./EditOneOnOne";
 import { jsonResponse } from "../test/http";
@@ -59,6 +66,30 @@ function renderEdit(route = "/one-on-ones/5/edit") {
       </QueryClientProvider>
     </MantineProvider>,
   );
+}
+
+// The route blocker (`useBlocker`) only exists on a DATA router (the DiscardGuard.test.tsx
+// precedent) — the plain-MemoryRouter `renderEdit` above never exercises it, so this harness
+// is reserved for the one test that must prove the New-1:1 flow doesn't double-prompt.
+function renderEditDataRouter(route = "/one-on-ones/5/edit") {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(
+    [
+      { path: "/one-on-ones/:id/edit", element: <EditOneOnOne /> },
+      { path: "/one-on-ones/:id/view", element: <PathProbe /> },
+      { path: "/one-on-ones", element: <PathProbe /> },
+      { path: "*", element: <PathProbe /> },
+    ],
+    { initialEntries: [route] },
+  );
+  render(
+    <MantineProvider env="test">
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  return router;
 }
 
 describe("EditOneOnOne page", () => {
@@ -271,5 +302,166 @@ describe("EditOneOnOne page", () => {
 
     await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
     expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones?tab=managed");
+  });
+
+  describe("New 1:1 button", () => {
+    // view=managed rows arrive per (user, team) — the CreateOneOnOne.test.tsx REPORTS shape,
+    // pinned to the fixed meeting's subordinate (userId 8).
+    const MANAGED_WITH_SUBORDINATE = {
+      items: [{ userId: 8, name: "Sam Subordinate", email: "sam@x", teamId: 1, teamName: "AAA" }],
+      page: 1,
+      pageSize: 100,
+      total: 1,
+    };
+    const NO_MANAGED_REPORTS = { items: [], page: 1, pageSize: 100, total: 0 };
+
+    function stubLoadWithReports(
+      options: {
+        meeting?: typeof MEETING;
+        reports?: typeof MANAGED_WITH_SUBORDINATE;
+        putStatus?: number;
+      } = {},
+    ) {
+      const { meeting = MEETING, reports = MANAGED_WITH_SUBORDINATE, putStatus = 204 } = options;
+      mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (init?.method === "PUT" && url.includes("/api/v1/one-on-ones/")) {
+          return putStatus === 204
+            ? Promise.resolve(new Response(null, { status: 204 }))
+            : Promise.resolve(
+                jsonResponse(putStatus, {
+                  type: "about:blank",
+                  title: "Error",
+                  status: putStatus,
+                  detail: "boom",
+                }),
+              );
+        }
+        if (init?.method === "DELETE") return Promise.resolve(new Response(null, { status: 204 }));
+        if (url.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+        if (url.includes("/api/v1/teams/members")) return Promise.resolve(jsonResponse(200, reports));
+        if (url.includes("/api/v1/one-on-ones/5")) return Promise.resolve(jsonResponse(200, meeting));
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+      });
+    }
+
+    const CREATE_URL = "/one-on-ones/new?subordinateId=8&back=%2Fone-on-ones%2F5%2Fedit";
+
+    test("is hidden when the meeting's subordinate is not in the caller's managed pool", async () => {
+      stubLoadWithReports({ reports: NO_MANAGED_REPORTS });
+      renderEdit();
+
+      await screen.findByDisplayValue("First point");
+      expect(screen.queryByRole("button", { name: "New 1:1" })).toBeNull();
+    });
+
+    test("a clean form navigates straight to the create URL with subordinateId and back", async () => {
+      stubLoadWithReports();
+      renderEdit();
+
+      await screen.findByDisplayValue("First point");
+      await userEvent.click(await screen.findByRole("button", { name: "New 1:1" }));
+
+      await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
+      expect(screen.getByTestId("probe")).toHaveTextContent(CREATE_URL);
+      expect(
+        mockFetch.mock.calls.some(([, i]) => (i as RequestInit | undefined)?.method === "PUT"),
+      ).toBe(false);
+    });
+
+    test("a dirty form's Save and continue saves the edited body and lands on the create page", async () => {
+      stubLoadWithReports();
+      renderEdit();
+
+      const firstPoint = await screen.findByDisplayValue("First point");
+      await userEvent.type(firstPoint, " (revised)");
+      await userEvent.click(screen.getByRole("button", { name: "New 1:1" }));
+
+      const modal = await screen.findByRole("dialog");
+      expect(
+        within(modal).getByText("Save changes before starting a new 1:1?"),
+      ).toBeInTheDocument();
+      await userEvent.click(within(modal).getByRole("button", { name: "Save and continue" }));
+
+      await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
+      expect(screen.getByTestId("probe")).toHaveTextContent(CREATE_URL);
+
+      const [, init] = mockFetch.mock.calls.find(
+        ([u, i]) =>
+          String(u).includes("/api/v1/one-on-ones/5") && (i as RequestInit)?.method === "PUT",
+      )!;
+      const body = JSON.parse((init as RequestInit).body as string);
+      expect(body.points[0]).toEqual({ id: 21, content: "First point (revised)" });
+    });
+
+    test("a dirty form's Discard and continue navigates without saving", async () => {
+      stubLoadWithReports();
+      renderEdit();
+
+      const firstPoint = await screen.findByDisplayValue("First point");
+      await userEvent.type(firstPoint, " (revised)");
+      await userEvent.click(screen.getByRole("button", { name: "New 1:1" }));
+
+      const modal = await screen.findByRole("dialog");
+      await userEvent.click(within(modal).getByRole("button", { name: "Discard and continue" }));
+
+      await waitFor(() => expect(screen.getByTestId("probe")).toBeInTheDocument());
+      expect(screen.getByTestId("probe")).toHaveTextContent(CREATE_URL);
+      expect(
+        mockFetch.mock.calls.some(([, i]) => (i as RequestInit | undefined)?.method === "PUT"),
+      ).toBe(false);
+    });
+
+    test("a dirty form's Cancel closes the prompt and stays on the page without saving", async () => {
+      stubLoadWithReports();
+      renderEdit();
+
+      const firstPoint = await screen.findByDisplayValue("First point");
+      await userEvent.type(firstPoint, " (revised)");
+      await userEvent.click(screen.getByRole("button", { name: "New 1:1" }));
+
+      const modal = await screen.findByRole("dialog");
+      await userEvent.click(within(modal).getByRole("button", { name: "Cancel" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(screen.getByDisplayValue("First point (revised)")).toBeInTheDocument();
+      expect(
+        mockFetch.mock.calls.some(([, i]) => (i as RequestInit | undefined)?.method === "PUT"),
+      ).toBe(false);
+    });
+
+    test("a save failure closes the prompt and leaves the page's own inline error", async () => {
+      stubLoadWithReports({ putStatus: 500 });
+      renderEdit();
+
+      const firstPoint = await screen.findByDisplayValue("First point");
+      await userEvent.type(firstPoint, " (revised)");
+      await userEvent.click(screen.getByRole("button", { name: "New 1:1" }));
+
+      const modal = await screen.findByRole("dialog");
+      await userEvent.click(within(modal).getByRole("button", { name: "Save and continue" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(await screen.findByText("Saving failed (HTTP 500).")).toBeInTheDocument();
+      // Still on the edit page, edits intact — no navigation happened.
+      expect(screen.getByDisplayValue("First point (revised)")).toBeInTheDocument();
+    });
+
+    test("choosing Discard and continue never triggers a second discard-guard prompt", async () => {
+      stubLoadWithReports();
+      const router = renderEditDataRouter();
+
+      const firstPoint = await screen.findByDisplayValue("First point");
+      await userEvent.type(firstPoint, " (revised)");
+      await userEvent.click(screen.getByRole("button", { name: "New 1:1" }));
+
+      const modal = await screen.findByRole("dialog");
+      await userEvent.click(within(modal).getByRole("button", { name: "Discard and continue" }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe("/one-on-ones/new"));
+      // The route blocker (which would otherwise re-open ITS OWN discard confirm on this very
+      // same dirty-form departure) never fired a second dialog.
+      expect(screen.queryAllByRole("dialog")).toHaveLength(0);
+    });
   });
 });
