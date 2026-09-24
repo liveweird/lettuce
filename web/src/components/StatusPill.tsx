@@ -56,6 +56,9 @@ export default function StatusPill({
       style={style}
       aria-label={ariaLabel}
       title={title}
+      // The table module's never-split-a-word floor (v4.3.1) keys on this — status labels are
+      // short enumerated words, so growing the column to the longest one is always safe.
+      data-status-pill
     >
       {children}
     </Badge>

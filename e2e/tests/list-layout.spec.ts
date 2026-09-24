@@ -499,8 +499,12 @@ test("Team's performance table fits a 1280px laptop and still shows its rating n
   const adminToken = await apiToken(request, ADMIN);
   const stamp = Date.now();
   const password = "Layout-Rev-1234";
+  // Display names carry only a short suffix (v4.3.1): a 13-digit stamp is an unbreakable token
+  // that inflated the Team/member columns past anything a real org name does, so the fit
+  // assertion measured the fixture rather than the table. The email keeps the full stamp.
+  const shortStamp = String(stamp).slice(-5);
   const reviewee = await createUser(request, adminToken, {
-    name: `E2E Rated ${stamp}`,
+    name: `E2E Rated ${shortStamp}`,
     email: `e2e-rated-${stamp}@lettuce.local`,
     password,
   });
@@ -512,7 +516,7 @@ test("Team's performance table fits a 1280px laptop and still shows its rating n
     });
   const teamResponse = await request.post("/api/v1/teams", {
     headers: authHeader(adminToken),
-    data: { name: `E2E-Rated-${stamp}`, managerId, memberIds: [reviewee.id] },
+    data: { name: `E2E-Rated-${shortStamp}`, managerId, memberIds: [reviewee.id] },
   });
   await expectApiOk(teamResponse, "create the rated-review team");
   const ratedTeamId = ((await teamResponse.json()) as { id: number }).id;
@@ -543,69 +547,111 @@ test("Team's performance table fits a 1280px laptop and still shows its rating n
   });
   await expectApiOk(reviewResponse, "create the rated review");
   const reviewId = ((await reviewResponse.json()) as { id: number }).id;
-  const rated = await request.put(`/api/v1/performance-reviews/${reviewId}`, {
-    headers: authHeader(managerToken),
-    data: {
-      attitude: { rating: 5 },
-      delivery: { rating: 4 },
-      skills: { rating: 6 },
-      aptitude: { rating: 3 },
-      overall: { rating: 5 },
-    },
-  });
-  await expectApiOk(rated, "rate the review");
-
-  await login(page, MANAGER_AAA);
-  await page.setViewportSize({ width: 1280, height: 900 });
-
-  async function expectTableFitsAndSorts(overallLabel: string, scrollHintText: RegExp): Promise<void> {
-    await page.goto("/performance?tab=managed");
-    const overallHeader = page.getByRole("button", { name: overallLabel, exact: true });
-    await expect(overallHeader).toBeVisible();
-
-    const region = page.getByRole("region");
-    await expect(region).toBeVisible();
-    await expect
-      .poll(() => region.evaluate((el) => el.scrollWidth <= el.clientWidth + 1))
-      .toBe(true);
-    await expect(page.getByText(scrollHintText)).not.toBeVisible();
-
-    // …and fitting must never be paid for with the CONTENT (v3.25.1): the rating pills used to
-    // shrink inside those squeezed columns until Mantine's `overflow: hidden` badge label ate
-    // the digit, leaving an empty coloured box. A clipped label is invisible to a DOM
-    // assertion, so measure: every rating pill renders its whole number.
-    const measured = await page.evaluate(() =>
-      [...document.querySelectorAll("main table tbody [data-atomic] .mantine-Badge-label")].map((el) => ({
-        text: (el.textContent || "").trim(),
-        clientWidth: (el as HTMLElement).clientWidth,
-        scrollWidth: (el as HTMLElement).scrollWidth,
-      })),
-    );
-    // The seeded review guarantees a rated row, so an empty measurement means the selector (or
-    // the page) broke — never that "nothing was clipped".
-    expect(measured.length, "rating pills measured").toBeGreaterThanOrEqual(5);
-    expect(
-      measured.filter((m) => m.scrollWidth > m.clientWidth + 1),
-      "rating pills whose digit is clipped",
-    ).toEqual([]);
-
-    // Sorting still works with the rotated header — the click toggles the field with no error.
-    await overallHeader.click();
-    await expect(overallHeader).toBeVisible();
-  }
-
-  await expectTableFitsAndSorts("Overall", /^Scroll horizontally to see all columns\.$/);
-
-  // The language is server-synced (PUT /users/{id}/language) on a SHARED seed account, so
-  // the revert must survive a failed Polish assertion — otherwise the residue strands
-  // Manager AAA in Polish for every later form login on the long-lived e2e volume.
-  await switchLanguage(page, "Polski");
   try {
-    await expectTableFitsAndSorts("Ogólna", /^Przewiń w poziomie, aby zobaczyć wszystkie kolumny\.$/);
+    // Complete and submitted (v4.3.1): "Calibration" / "Kalibracja" is the longest single-word
+    // status, the one the squeezed Status column used to split mid-word.
+    const complete = (rating: number) => ({ rating, summary: "Layout check." });
+    const rated = await request.put(`/api/v1/performance-reviews/${reviewId}`, {
+      headers: authHeader(managerToken),
+      data: {
+        attitude: complete(5),
+        delivery: complete(4),
+        skills: complete(6),
+        aptitude: complete(3),
+        overall: complete(5),
+      },
+    });
+    await expectApiOk(rated, "rate the review");
+    const submitted = await request.post(`/api/v1/performance-reviews/${reviewId}/submit`, {
+      headers: authHeader(managerToken),
+    });
+    await expectApiOk(submitted, "submit the review for calibration");
+
+    await login(page, MANAGER_AAA);
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    async function expectTableFitsAndSorts(
+      overallLabel: string,
+      scrollHintText: RegExp,
+      calibrationLabel: string,
+    ): Promise<void> {
+      await page.goto("/performance?tab=managed");
+      const overallHeader = page.getByRole("button", { name: overallLabel, exact: true });
+      await expect(overallHeader).toBeVisible();
+
+      const region = page.getByRole("region");
+      await expect(region).toBeVisible();
+      await expect
+        .poll(() => region.evaluate((el) => el.scrollWidth <= el.clientWidth + 1))
+        .toBe(true);
+      await expect(page.getByText(scrollHintText)).not.toBeVisible();
+
+      // …and fitting must never be paid for with the CONTENT (v3.25.1): the rating pills used to
+      // shrink inside those squeezed columns until Mantine's `overflow: hidden` badge label ate
+      // the digit, leaving an empty coloured box. A clipped label is invisible to a DOM
+      // assertion, so measure: every rating pill renders its whole number.
+      const measured = await page.evaluate(() =>
+        [...document.querySelectorAll("main table tbody [data-atomic] .mantine-Badge-label")].map((el) => ({
+          text: (el.textContent || "").trim(),
+          clientWidth: (el as HTMLElement).clientWidth,
+          scrollWidth: (el as HTMLElement).scrollWidth,
+        })),
+      );
+      // The seeded review guarantees a rated row, so an empty measurement means the selector (or
+      // the page) broke — never that "nothing was clipped".
+      expect(measured.length, "rating pills measured").toBeGreaterThanOrEqual(5);
+      expect(
+        measured.filter((m) => m.scrollWidth > m.clientWidth + 1),
+        "rating pills whose digit is clipped",
+      ).toEqual([]);
+
+      // …nor with a WORD (v4.3.1): the Status column collapsed below its pill's longest word —
+      // Mantine's `overflow: hidden` label contributed no min-content — and `break-word` split
+      // "Publish|ed" / "Calibrat|ion" over two lines. Measure each word of every status pill
+      // (StatusPill's `data-status-pill` — team badges are free text and may still break): a word
+      // whose text range yields more than one line box was split.
+      const statusWords = await page.evaluate(() =>
+        [...document.querySelectorAll("main table tbody [data-status-pill] .mantine-Badge-label")].flatMap((label) => {
+          const node = [...label.childNodes].find((n) => n.nodeType === Node.TEXT_NODE);
+          if (!node) return [];
+          const text = node.textContent || "";
+          const words: { word: string; lines: number }[] = [];
+          for (const match of text.matchAll(/\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            words.push({ word: match[0], lines: range.getClientRects().length });
+          }
+          return words;
+        }),
+      );
+      expect(statusWords.map((w) => w.word), "the seeded review's status pill is measured").toContain(calibrationLabel);
+      expect(
+        statusWords.filter((w) => w.lines > 1),
+        "status-pill words split over two lines",
+      ).toEqual([]);
+
+      // Sorting still works with the rotated header — the click toggles the field with no error.
+      await overallHeader.click();
+      await expect(overallHeader).toBeVisible();
+    }
+
+    await expectTableFitsAndSorts("Overall", /^Scroll horizontally to see all columns\.$/, "Calibration");
+
+    // The language is server-synced (PUT /users/{id}/language) on a SHARED seed account, so
+    // the revert must survive a failed Polish assertion — otherwise the residue strands
+    // Manager AAA in Polish for every later form login on the long-lived e2e volume.
+    await switchLanguage(page, "Polski");
+    try {
+      await expectTableFitsAndSorts("Ogólna", /^Przewiń w poziomie, aby zobaczyć wszystkie kolumny\.$/, "Kalibracja");
+    } finally {
+      await switchLanguage(page, "English");
+    }
   } finally {
-    await switchLanguage(page, "English");
-    // This file's own state goes back out: the review first (DRAFT-only delete), then the team;
-    // the throwaway user rides the suite's residue sweep like every other spec's.
+    // This file's own state goes back out whichever pass failed — the review first (revert the
+    // calibration: only a DRAFT is deletable; a no-op 409 if the submit never happened), then the
+    // team; the throwaway user rides the suite's residue sweep like every other spec's.
+    await request.post(`/api/v1/performance-reviews/${reviewId}/revert`, { headers: authHeader(managerToken) });
     await request.delete(`/api/v1/performance-reviews/${reviewId}`, { headers: authHeader(managerToken) });
     await request.delete(`/api/v1/teams/${ratedTeamId}`, { headers: authHeader(adminToken) });
   }
