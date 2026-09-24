@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.3.0",
+    date: "2026-09-24",
+    en: `HR can now see team performance for everyone: the "Team's performance" tab on the Performance page is available to HR, with a new "Everyone (auditor)" reports scope that lists every active user and their review for the chosen period, read-only. HR who also manage a team keep their own direct and all-reports scopes. On Pulse surveys, the "Participation" tab has a team picker, so HR and managers can look at one team at a time instead of one long list.`,
+    pl: `HR widzi teraz wyniki zespołów dla wszystkich: zakładka "Oceny zespołu" na stronie "Oceny okresowe" jest dostępna dla HR, z nowym zakresem "Wszyscy (audytor)", który pokazuje każdego aktywnego użytkownika i jego ocenę w wybranym okresie, tylko do odczytu. Osoby z HR, które same zarządzają zespołem, zachowują swoje zakresy bezpośrednich i wszystkich podwładnych. W ankietach pulsu zakładka "Udział" ma wybór zespołu, więc HR i przełożeni mogą przeglądać jeden zespół naraz zamiast jednej długiej listy.`,
+  },
+  {
     version: "4.2.0",
     date: "2026-09-24",
     en: `The 1:1 meetings list has a new "Latest 1:1 only" filter on every tab: it shows just the most recent meeting of each manager and report pair. The 1:1 edit page has a "New 1:1" button that starts the next meeting with the same person, already selected; if you have unsaved changes, it asks first whether to save or discard them.`,

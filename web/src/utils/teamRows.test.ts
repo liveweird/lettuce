@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { groupTeamRows, type TeamRow } from "./teamRows";
+import { groupTeamRows, usersToPersonCards, type AuditableUser, type TeamRow } from "./teamRows";
 
 // Fixture teams get stable ids per name — the grouping dedupes by teamId (v2.5.4).
 const TEAM_IDS: Record<string, number> = { Platform: 100, Support: 200, Second: 300 };
@@ -103,5 +103,54 @@ describe("groupTeamRows", () => {
 
   test("returns an empty list for no rows", () => {
     expect(groupTeamRows([])).toEqual([]);
+  });
+});
+
+describe("usersToPersonCards", () => {
+  const user = (overrides: Partial<AuditableUser> = {}): AuditableUser => ({
+    id: 1,
+    name: "Alice Adams",
+    email: "alice@x.test",
+    deactivated: false,
+    ...overrides,
+  });
+
+  test("maps the open users list to PersonCards with every dashboard stat null (v4.3.0)", () => {
+    const [card] = usersToPersonCards([
+      user({
+        teams: [{ id: 10, name: "Platform" }],
+        careerPath: { id: 11, values: { en: "Software Engineer" } },
+        seniorityLevel: { id: 31, values: { en: "Senior" } },
+      }),
+    ]);
+
+    expect(card).toMatchObject({
+      userId: 1,
+      name: "Alice Adams",
+      email: "alice@x.test",
+      teams: [{ id: 10, name: "Platform" }],
+      teamNames: ["Platform"],
+      careerPath: { id: 11, values: { en: "Software Engineer" } },
+      careerSpecialization: null,
+      seniorityLevel: { id: 31, values: { en: "Senior" } },
+    });
+    expect(card.lastOneOnOneDate).toBeNull();
+    expect(card.lastFeedbackAt).toBeNull();
+    expect(card.activeGoalCount).toBeNull();
+    expect(card.lastReviewId).toBeNull();
+    expect(card.nextVacationStart).toBeNull();
+    expect(card.daysOffRemaining).toBeNull();
+    expect(card.lastLoginAt).toBeNull();
+  });
+
+  test("excludes deactivated users — the roster is ACTIVE users only", () => {
+    const cards = usersToPersonCards([user({ id: 1 }), user({ id: 2, deactivated: true })]);
+    expect(cards.map((c) => c.userId)).toEqual([1]);
+  });
+
+  test("defaults an absent teams array to no teams", () => {
+    const [card] = usersToPersonCards([user()]);
+    expect(card.teams).toEqual([]);
+    expect(card.teamNames).toEqual([]);
   });
 });

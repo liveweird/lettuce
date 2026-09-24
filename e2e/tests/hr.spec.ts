@@ -6,6 +6,7 @@ import {
   createUserViaUi,
   provideFeedback,
   gotoUserRow,
+  recordApiWrites,
   ADMIN,
   AAA_ONE,
   AAA_THREE,
@@ -206,4 +207,71 @@ test("the seeded HR demo account reaches the Audit section with no admin surface
 
   // No admin surface in the nav either: the Config group never offers Alerts to HR.
   await expect(page.locator('a[href="/alerts"]')).toHaveCount(0);
+});
+
+// v4.3.0: HR reach into team performance (the review-period "Everyone (auditor)" reports
+// scope) and the pulse hub's Results/Trend/Participation tabs — the HR demo account manages
+// nobody and belongs to no team, so it is the exact "org-wide or nothing" case those two
+// features exist for. Read-only throughout: recordApiWrites is the walker's own oracle
+// (the feature-tutorials idiom) — list totals move under parallel writers, this file's own
+// traffic does not.
+test("the HR auditor reaches team performance and every pulse tab, read-only", async ({ page }) => {
+  await login(page, HR);
+  const writes = recordApiWrites(page);
+
+  // Team's-performance tab: visible to HR even though it manages nobody, and its Reports
+  // scope defaults straight to "Everyone (auditor)" — the only scope that isn't permanently
+  // empty for a relationship-less auditor.
+  await page.goto("/performance?tab=managed");
+  await expect(page.getByRole("tab", { name: "Team's performance" })).toBeVisible();
+  // Review periods are performance-reviews.spec's registry (e2e/README.md) — this file never
+  // appends one. On a fresh database with an empty timeline the dashboard shows its
+  // no-periods state instead of the table; only the tab's reach is asserted then.
+  const noPeriods = page.getByText(/There are no review periods yet/);
+  const filters = page.getByRole("button", { name: /filters/i });
+  await expect(noPeriods.or(filters)).toBeVisible();
+  if (await filters.isVisible()) {
+    await filters.click();
+    const reportsScope = page.getByRole("combobox", { name: "Reports" });
+    await expect(reportsScope).toHaveValue("Everyone (auditor)");
+    // A relationship-less auditor has no meaningful direct/all choice — the control is locked.
+    await expect(reportsScope).toBeDisabled();
+    // Wait for a REAL data row — a person-details link inside the table body — before asserting
+    // the create action is absent; a loading/empty row would make that assertion vacuous.
+    await expect(
+      page.getByRole("table").locator("tbody").getByRole("link", { name: /^User details for / }).first(),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /New performance review/ })).toHaveCount(0);
+  }
+
+  // Pulse: Results, Trend and Participation each render real content, not an empty/forbidden
+  // state — the hub gates Participation on isManager || isHr(), and Results/Trend fall back
+  // to the org-wide "all" view for an auditor with no own/monitored teams. Each wait below
+  // accepts either real content or the corresponding LEGITIMATE empty state (no closed cycle
+  // yet, no cycle to monitor) — never leaves the tab on its loading Skeleton before the
+  // negative "no error alert" check that follows, which would make that check vacuous too.
+  await page.goto("/pulse?tab=results");
+  await expect(page.getByRole("tab", { name: "Results" })).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByText("No closed pulse cycles yet.").or(page.getByRole("heading", { name: "AAA", exact: true })),
+  ).toBeVisible();
+  await expect(page.getByText("Loading failed", { exact: false })).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Trend" }).click();
+  await expect(
+    page
+      .getByRole("group", { name: "Teams on the chart" })
+      .or(page.getByText("There are no teams in the organization yet.")),
+  ).toBeVisible();
+  await expect(page.getByText("Loading failed", { exact: false })).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Participation" }).click();
+  await expect(
+    page
+      .getByText("No open or closed cycle to monitor.")
+      .or(page.getByRole("heading", { name: "AAA", exact: true })),
+  ).toBeVisible();
+  await expect(page.getByText("Could not load the participation.")).toHaveCount(0);
+
+  expect(writes).toEqual([]);
 });

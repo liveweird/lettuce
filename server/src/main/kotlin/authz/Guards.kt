@@ -92,7 +92,7 @@ fun requireUserRead(caller: CallerPrincipal, targetUserId: UInt) {
 /**
  * The single writer of the `hr.list` event shape: resource + byUserId, plus whichever
  * per-site key names the audited slice ([requireAuditListAccess]'s `targetUserId`,
- * [requireAuditScopeListAccess]'s optional `teamId`) — kept together so the shape cannot
+ * [requireAuditScopeListAccess]'s optional `teamId`/`periodId`) — kept together so the shape cannot
  * drift per call site. (`hr.read` is a separate event with its own shape — see
  * [auditHrRead].)
  */
@@ -118,18 +118,19 @@ fun requireAuditListAccess(caller: CallerPrincipal, resource: String, targetUser
 }
 
 /**
- * Gate for the auditor SCOPE list view (`view=all` on the team-KPI list, v3.24.0): HR only —
- * a team KPI is per-team, not per-user, so it doesn't fit the `view=user` shape above; this is
- * its scope-keyed sibling. [teamId] is the caller's optional `teamId` filter, carried on the
- * event when present so an audit reader can tell a scoped read from an org-wide one. Every use
- * is recorded (`hr.list`).
+ * Gate for the auditor SCOPE list view (`view=all` on the team-KPI and performance-review lists,
+ * v3.24.0/v4.3.0): HR only — a team KPI or org-wide review sweep is scoped by something other
+ * than a person, so it doesn't fit the `view=user` shape above; this is its scope-keyed sibling.
+ * [scopeId] is the caller's optional scope-narrowing filter (`teamId` for team KPIs, `periodId`
+ * for performance reviews), carried on the event under [scopeKey] when present so an audit
+ * reader can tell a scoped read from an org-wide one. Every use is recorded (`hr.list`).
  */
-fun requireAuditScopeListAccess(caller: CallerPrincipal, resource: String, teamId: UInt?) {
+fun requireAuditScopeListAccess(caller: CallerPrincipal, resource: String, scopeId: UInt?, scopeKey: String = "teamId") {
     if (!caller.isHr()) {
         throw ForbiddenException("HR role required for view=all")
     }
-    if (teamId == null) auditHrList(resource, caller.userId)
-    else auditHrList(resource, caller.userId, "teamId" to teamId.toLong())
+    if (scopeId == null) auditHrList(resource, caller.userId)
+    else auditHrList(resource, caller.userId, scopeKey to scopeId.toLong())
 }
 
 fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {

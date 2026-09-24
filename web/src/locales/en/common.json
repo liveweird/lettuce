@@ -72,7 +72,8 @@
   "reportsScope": {
     "label": "Reports",
     "direct": "Direct reports only",
-    "all": "All reports (including indirect)"
+    "all": "All reports (including indirect)",
+    "auditor": "Everyone (auditor)"
   },
   "status": {
     "REQUESTED": "Requested",

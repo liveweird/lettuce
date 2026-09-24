@@ -1,7 +1,7 @@
 import { Stack, Tabs, Text } from "@mantine/core";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasFeature } from "../api/session";
+import { canAudit, hasFeature } from "../api/session";
 import PageHeader from "../components/PageHeader";
 import TutorialButton from "../components/TutorialButton";
 import { useIsManager } from "../hooks/useIsManager";
@@ -30,9 +30,14 @@ export default function Performance() {
   // Per-user feature flag (v1.53.0): the whole page area is hidden when disabled.
   if (!hasFeature("PERFORMANCE_REVIEWS")) return <Navigate to="/" replace />;
 
+  // The Team's-performance tab is also visible to the HR auditor (v4.3.0) — ReviewsDashboard's
+  // "Everyone (auditor)" reports scope is what makes it useful for someone who manages no team.
+  const auditor = canAudit();
+  const showManagedTab = isManager || auditor;
+
   const requestedTab = searchParams.get("tab");
   const activeTab: PerformanceTab =
-    isPerformanceTab(requestedTab) && (requestedTab === "own" || isManager) ? requestedTab : "own";
+    isPerformanceTab(requestedTab) && (requestedTab === "own" || showManagedTab) ? requestedTab : "own";
 
   function selectTab(value: string | null) {
     if (!isPerformanceTab(value)) return;
@@ -53,7 +58,7 @@ export default function Performance() {
           <Tabs.Tab value="own" data-tour="performance-own">
             {t("performanceReview.tab.own")}
           </Tabs.Tab>
-          {isManager && (
+          {showManagedTab && (
             <Tabs.Tab value="managed" data-tour="performance-managed">
               {t("performanceReview.tab.managed")}
             </Tabs.Tab>
@@ -69,7 +74,7 @@ export default function Performance() {
             <PerformanceReviewTable view="own" tourId="performance-filters" />
           </Stack>
         </Tabs.Panel>
-        {isManager && (
+        {showManagedTab && (
           <Tabs.Panel value="managed" pt="md">
             {/* Self-contained (period picker, filters, its own New-review actions) — it owns
                 its hint line and settings, so no wrapper Stack here. */}

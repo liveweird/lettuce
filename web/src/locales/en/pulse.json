@@ -149,7 +149,9 @@
     "person": "Person",
     "noCycle": "No open or closed cycle to monitor.",
     "noTeams": "You don't monitor any teams.",
-    "loadError": "Could not load the participation."
+    "loadError": "Could not load the participation.",
+    "team": "Team",
+    "allTeams": "All teams"
   },
   "admin": {
     "title": "Pulse cycles",

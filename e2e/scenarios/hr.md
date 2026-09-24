@@ -84,6 +84,26 @@ pair is freed for later runs.
 3. The auditor checks for an admin surface.
    - *Expected*: none — the Config group never offers Alerts to HR.
 
+## Scenario: the HR auditor reaches team performance and every pulse tab, read-only
+
+1. The seeded HR demo account signs in and opens `/performance?tab=managed`.
+   - *Expected*: the "Team's performance" tab is visible even though HR manages nobody
+     (v4.3.0); opening its Filters panel shows the Reports scope Select already on "Everyone
+     (auditor)" — the only scope that isn't permanently empty for a relationship-less
+     auditor, locked because HR manages nobody; the table renders at least one row (the roster
+     is every active user); no "New performance review" action is offered anywhere
+     (read-only). On a fresh database with no review period yet, the tab shows its
+     no-periods state instead and only the tab's reach is checked — review periods belong to
+     `performance-reviews.spec.ts`, so this file never appends one.
+2. The auditor opens `/pulse?tab=results`, then switches to Trend, then Participation.
+   - *Expected*: each tab loads without a "Loading failed"/"Could not load the
+     participation." Alert — the hub gates Participation on `isManager || isHr()`, and
+     Results/Trend fall back to the org-wide "all" scope for an auditor with no own or
+     monitored teams (an empty state such as "no closed cycle yet" is legitimate and not
+     asserted against — only a leaked 403/500 would be).
+3. Throughout, the walker records every non-GET `/api/` request.
+   - *Expected*: none — the whole scenario is read-only.
+
 ## Not covered here (and why)
 
 - The full cross-pair read matrix and the `hr.read`/`hr.list` audit-trail events — exhaustively

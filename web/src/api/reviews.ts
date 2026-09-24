@@ -35,7 +35,7 @@ export type PerformanceReviewResponse =
 export type PerformanceReviewStatus = PerformanceReviewResponse["status"];
 export type CategoryAssessment = PerformanceReviewResponse["attitude"];
 
-export type PerformanceReviewListView = "own" | "managed" | "team" | "user";
+export type PerformanceReviewListView = "own" | "managed" | "team" | "user" | "all";
 
 type PerformanceReviewListQuery = {
   view: PerformanceReviewListView;

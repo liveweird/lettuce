@@ -18,8 +18,20 @@ export function buildReviewsDashboardRows(
   members: TeamRow[],
   reviews: PerformanceReviewListItem[],
 ): ReviewsDashboardRow[] {
+  return joinReviewsDashboardRows(groupTeamRows(members), reviews);
+}
+
+/**
+ * The same person/review join, over already-built [PersonCard]s — the HR auditor scope's
+ * source is the org-wide users list (mapped via `usersToPersonCards` in teamRows.ts), not a
+ * `/teams/members` scope, so it skips the membership-row grouping step.
+ */
+export function joinReviewsDashboardRows(
+  persons: PersonCard[],
+  reviews: PerformanceReviewListItem[],
+): ReviewsDashboardRow[] {
   const bySubordinate = new Map(reviews.map((r) => [r.subordinateId, r]));
-  return groupTeamRows(members)
+  return persons
     .map((person) => ({ person, review: bySubordinate.get(person.userId) ?? null }))
     .sort((a, b) => a.person.name.localeCompare(b.person.name));
 }

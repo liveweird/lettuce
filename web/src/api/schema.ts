@@ -2483,6 +2483,11 @@ export interface paths {
          *       review the given user is a party to (manager or subordinate), at every status,
          *       DRAFTs included. HR usage is recorded in the security audit trail. The ordinary
          *       sort/filter/paging parameters apply on top.
+         *     - `view=all` (v4.3.0): the HR auditor's org-wide view — every review, every status,
+         *       regardless of the caller's own relationships. HR only (`403` for anyone else, ADMIN
+         *       included — the `view=user` rule of the per-user lists; a review sweep is scope-keyed
+         *       rather than user-keyed), audit-logged as `hr.list`. Combine it with the `periodId`
+         *       filter to audit one period. `includeIndirect` is not valid with it.
          *
          *     Rows carry the party names, the period (id + month bounds), status, and the four
          *     **numeric ratings** — never the summaries.
@@ -10813,8 +10818,8 @@ export interface operations {
                  *     always appended as a deterministic tiebreaker.
                  */
                 sort?: components["parameters"]["Sort"];
-                /** @description Which slice of reviews to list — caller-relative, except the HR auditor view `user`. */
-                view?: "own" | "managed" | "team" | "user";
+                /** @description Which slice of reviews to list — caller-relative, except the HR auditor views `user` and `all`. */
+                view?: "own" | "managed" | "team" | "user" | "all";
                 /**
                  * @description Required with `view=user` (`400` when missing there, `400` with any other view):
                  *     the user whose records the auditor view lists.
@@ -10860,7 +10865,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description view=user requested without the HR role */
+            /** @description view=user or view=all requested without the HR role */
             403: {
                 headers: {
                     [name: string]: unknown;

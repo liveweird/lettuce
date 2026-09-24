@@ -457,6 +457,141 @@ describe("ReviewsDashboard tab", () => {
     localStorage.removeItem("lettuce.viewSettings.dashboardReviews.quadrantY");
   });
 
+  test("HR who manages nobody defaults to the auditor scope, uses the org roster, and has no create action (v4.3.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    localStorage.setItem(USER_ID_KEY, "99"); // a relationship-less HR account
+    const users = [
+      {
+        id: 8, name: "Ann Alpha", email: "a@x", roles: [], deactivated: false,
+        careerPath: null, careerSpecialization: null, seniorityLevel: null,
+        teams: [{ id: 1, name: "AAA" }],
+      },
+      {
+        id: 9, name: "Zoe Zeta", email: "z@x", roles: [], deactivated: false,
+        careerPath: null, careerSpecialization: null, seniorityLevel: null, teams: [],
+      },
+      {
+        id: 10, name: "Gone Deactivated", email: "g@x", roles: [], deactivated: true,
+        careerPath: null, careerSpecialization: null, seniorityLevel: null, teams: [],
+      },
+    ];
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/v1/review-periods")) return Promise.resolve(jsonResponse(200, { items: PERIODS }));
+      // useIsManager: the HR auditor manages no team.
+      if (u.startsWith("/api/v1/teams?")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: 0 }));
+      }
+      if (u.startsWith("/api/v1/users?")) {
+        return Promise.resolve(jsonResponse(200, { items: users, page: 1, pageSize: 100, total: users.length }));
+      }
+      if (u.includes("/api/v1/performance-reviews")) {
+        return Promise.resolve(jsonResponse(200, { items: [REVIEW], page: 1, pageSize: 100, total: 1 }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderTab();
+
+    await screen.findByText("Ann Alpha");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Reports", { selector: "input" })).toHaveValue("Everyone (auditor)"),
+    );
+    // A relationship-less HR auditor has no meaningful direct/all choice — the control is
+    // LOCKED to the single auditor option, not just defaulted to it.
+    expect(screen.getByLabelText("Reports", { selector: "input" })).toBeDisabled();
+    expect(screen.getByText("Ann Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Zoe Zeta")).toBeInTheDocument();
+    // The deactivated user never joins the roster (ACTIVE users only).
+    expect(screen.queryByText("Gone Deactivated")).toBeNull();
+    // Read-only: no create action, even for the report-less row.
+    expect(screen.queryByRole("link", { name: /New performance review/ })).toBeNull();
+    const reviewsCall = mockFetch.mock.calls
+      .map((c) => String(c[0]))
+      .find((u) => u.includes("/api/v1/performance-reviews?"));
+    expect(reviewsCall).toContain("view=all");
+    const usersCall = mockFetch.mock.calls.map((c) => String(c[0])).find((u) => u.startsWith("/api/v1/users?"));
+    expect(usersCall).toBeDefined();
+  });
+
+  test("an HR caller who ALSO manages a team keeps the ordinary direct/all/auditor choice, defaulting to direct (v4.3.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    let releaseProbe: () => void = () => {};
+    const probe = new Promise<void>((resolve) => {
+      releaseProbe = resolve;
+    });
+    const reviewCalls = () =>
+      mockFetch.mock.calls.map((c) => String(c[0])).filter((u) => u.includes("/api/v1/performance-reviews?"));
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/v1/review-periods")) return Promise.resolve(jsonResponse(200, { items: PERIODS }));
+      // useIsManager: this HR caller manages a team, unlike the relationship-less seed. The
+      // probe is HELD until released below, so the pre-resolution window is observable.
+      if (u.startsWith("/api/v1/teams?")) {
+        return probe.then(() => jsonResponse(200, { items: [{ id: 1 }], page: 1, pageSize: 1, total: 1 }));
+      }
+      if (u.includes("/api/v1/teams/members")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: MEMBERS, page: 1, pageSize: 100, total: MEMBERS.length }),
+        );
+      }
+      if (u.includes("/api/v1/performance-reviews")) {
+        return Promise.resolve(jsonResponse(200, { items: [REVIEW], page: 1, pageSize: 100, total: 1 }));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderTab();
+
+    // While the manager probe is pending the page must NOT assume "HR who manages nobody":
+    // no org-wide view=all request (it would write a false hr.list server-side) — the reviews
+    // query runs on the ordinary managed view.
+    await waitFor(() => expect(reviewCalls().length).toBeGreaterThan(0));
+    expect(reviewCalls().some((u) => u.includes("view=all"))).toBe(false);
+    releaseProbe();
+
+    await screen.findByText("Zoe Zeta");
+    expect(reviewCalls().some((u) => u.includes("view=all"))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    const reportsSelect = screen.getByLabelText("Reports", { selector: "input" });
+    // Default is direct, exactly like a non-HR manager — never auto-switched to auditor.
+    await waitFor(() => expect(reportsSelect).toHaveValue("Direct reports only"));
+    expect(reportsSelect).not.toBeDisabled();
+
+    // All three options are offered, and picking "Everyone (auditor)" is honoured like any
+    // other choice.
+    fireEvent.click(reportsSelect);
+    expect(await screen.findByRole("option", { name: "Direct reports only" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "All reports (including indirect)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Everyone (auditor)" }));
+    await waitFor(() => expect(reportsSelect).toHaveValue("Everyone (auditor)"));
+    await waitFor(() => expect(reviewCalls().at(-1)).toContain("view=all"));
+  });
+
+  test("the auditor scope option is offered only to HR", async () => {
+    setupMocks();
+    renderTab();
+
+    await screen.findByText("Zoe Zeta");
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
+    expect(screen.queryByRole("option", { name: "Everyone (auditor)" })).toBeNull();
+  });
+
+  test("a non-auditor with a stored auditor scope value falls back to direct reports", async () => {
+    localStorage.setItem(
+      "lettuce.viewSettings.dashboardReviews.filter.reportsScope",
+      JSON.stringify("auditor"),
+    );
+    setupMocks();
+    renderTab();
+
+    expect(await screen.findByText("Zoe Zeta")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Reports", { selector: "input" })).toHaveValue("Direct reports only"),
+    );
+  });
+
   test("the quadrants view keeps the viewer's own avatar unlinked (self stays plain)", async () => {
     // The viewer (userId 7) rated themselves impossible — instead make the subordinate BE the
     // viewer id to exercise the self branch: Ann's userId 8 with the session user set to 8.
