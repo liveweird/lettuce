@@ -148,6 +148,11 @@ export function TourProvider({
     // Mirrors the page guards' `hasFeature` check — a caller without the feature gets no
     // tutorial (its own anchors wouldn't exist to spotlight either).
     if (def.feature && !hasFeature(def.feature)) return;
+    // A tutorial started over the RUNNING whirlwind (typically its first-login auto-start) replaces
+    // it, and the whirlwind's own Finish/Abandon — its only markSeen paths — never fire: without
+    // this it auto-started again on the next sign-in (v4.4.1). Taking over counts as seen; Replay
+    // still re-runs it on demand.
+    if (run && tutorial == null) markSeen(userId);
     onStart?.();
     setTutorial(id);
     setTourKey((k) => k + 1);
