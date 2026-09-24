@@ -112,6 +112,7 @@ const STEPS: readonly TourStepDef[] = [
 
 export const SUCCESSION_TUTORIAL: TutorialDef = {
   id: "succession",
+  managerOnly: true,
   feature: "SUCCESSION_PLANS",
   home: "/succession?tab=own",
   steps: STEPS,

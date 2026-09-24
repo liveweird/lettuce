@@ -189,6 +189,11 @@ type TourContextValue = {
   startTour: () => void;
   /** Starts a per-feature tutorial (feature-gated by the caller — `Tour.tsx`). */
   startTutorial: (id: TutorialId) => void;
+  /** Starts a tutorial from ANY page (v4.4.0, the account menu's Tutorials list): opens the
+   *  tutorial's `home` first and starts it once that page is showing. A navigation the discard
+   *  guard holds starts nothing — the pending launch is dropped on the next route change that
+   *  isn't the home. */
+  launchTutorial: (id: TutorialId) => void;
 };
 export const TourContext = createContext<TourContextValue | null>(null);
 

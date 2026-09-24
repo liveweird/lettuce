@@ -33,7 +33,7 @@ function renderOneOnOnes(
   startTutorial: (id: string) => void = () => {},
 ) {
   return renderWithProviders(
-    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
       <OneOnOnes />
     </TourContext.Provider>,
     { route },

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { createMemoryRouter, MemoryRouter, RouterProvider, useBlocker, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MantineProvider } from "@mantine/core";
 import type { ReactNode } from "react";
@@ -113,6 +113,29 @@ function Replayer() {
 function TutorialStarter() {
   const { startTutorial } = useTour();
   return <button onClick={() => startTutorial("feedbacks")}>start-tutorial</button>;
+}
+
+// The account menu's launcher (v4.4.0) — starts a tutorial from wherever the caller is.
+function TutorialLauncher() {
+  const { launchTutorial } = useTour();
+  return <button onClick={() => launchTutorial("feedbacks")}>launch-tutorial</button>;
+}
+
+// A launch whose navigation is overtaken by another one before the home ever shows — the shape a
+// discard-guarded launch takes when the user then leaves for some other page.
+function OvertakenLauncher() {
+  const { launchTutorial } = useTour();
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => {
+        launchTutorial("feedbacks");
+        navigate("/kudos");
+      }}
+    >
+      launch-then-leave
+    </button>
+  );
 }
 
 function LocationProbe() {
@@ -486,6 +509,104 @@ describe("Tour", () => {
       expect(screen.getByTestId("location")).toHaveTextContent("/feedback?tab=received"),
     );
     expect(hasSeenTour(7)).toBe(false);
+  });
+
+  test("launchTutorial from another page opens the tutorial's home first, then starts it", async () => {
+    const user = userEvent.setup();
+    renderTour(
+      <TourProvider>
+        <TutorialLauncher />
+        <LocationProbe />
+      </TourProvider>,
+    );
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
+
+    await user.click(screen.getByText("launch-tutorial"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/feedback?tab=received"),
+    );
+    await waitFor(() => expect(lastProps().run).toBe(true));
+    expect(lastProps().steps).toHaveLength(9);
+  });
+
+  test("launchTutorial on the tutorial's own hub starts it without navigating", async () => {
+    const user = userEvent.setup();
+    render(
+      <MantineProvider env="test" theme={theme}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <MemoryRouter initialEntries={["/feedback?tab=provided"]}>
+            <TourProvider>
+              <TutorialLauncher />
+              <LocationProbe />
+            </TourProvider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    await user.click(screen.getByText("launch-tutorial"));
+
+    await waitFor(() => expect(lastProps().run).toBe(true));
+    // Any tab of the hub counts as home — the tutorial's own steps switch tabs.
+    expect(screen.getByTestId("location")).toHaveTextContent("/feedback?tab=provided");
+  });
+
+  test("a launch overtaken by a navigation elsewhere is dropped, never started later", async () => {
+    const user = userEvent.setup();
+    // Seen already, so the whirlwind's own auto-start stays out of the "nothing ran" check.
+    localStorage.setItem("lettuce.tour.seen.7", "1");
+    renderTour(
+      <TourProvider>
+        <OvertakenLauncher />
+        <TutorialLauncher />
+        <LocationProbe />
+      </TourProvider>,
+    );
+
+    await user.click(screen.getByText("launch-then-leave"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/kudos"));
+    expect(joyrideSpy.mock.calls.some(([props]) => (props as JoyrideProps).run)).toBe(false);
+  });
+
+  test("a launch the route blocker holds starts nothing, even after the user then leaves elsewhere", async () => {
+    // The real discard-guard shape (DiscardGuard's useBlocker on a data router): the launch's
+    // navigation is held, the user dismisses the prompt, then goes somewhere else.
+    localStorage.setItem("lettuce.tour.seen.7", "1");
+    function DirtyForm() {
+      const navigate = useNavigate();
+      const blocker = useBlocker(({ historyAction }) => historyAction !== "REPLACE");
+      return (
+        <>
+          <div data-testid="blocker">{blocker.state}</div>
+          <button onClick={() => blocker.reset?.()}>dismiss-prompt</button>
+          <TutorialLauncher />
+          <button onClick={() => navigate("/kudos", { replace: true })}>leave-elsewhere</button>
+          <LocationProbe />
+        </>
+      );
+    }
+    const router = createMemoryRouter(
+      [{ path: "*", element: <TourProvider><DirtyForm /></TourProvider> }],
+      { initialEntries: ["/goals/new"] },
+    );
+    const user = userEvent.setup();
+    render(
+      <MantineProvider env="test" theme={theme}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    await user.click(screen.getByText("launch-tutorial"));
+    await waitFor(() => expect(screen.getByTestId("blocker")).toHaveTextContent("blocked"));
+    expect(screen.getByTestId("location")).toHaveTextContent("/goals/new");
+    await user.click(screen.getByText("dismiss-prompt"));
+    await waitFor(() => expect(screen.getByTestId("blocker")).toHaveTextContent("unblocked"));
+    await user.click(screen.getByText("leave-elsewhere"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/kudos"));
+    expect(joyrideSpy.mock.calls.some(([props]) => (props as JoyrideProps).run)).toBe(false);
   });
 
   test("abandoning a tutorial navigates to its home and never marks the whirlwind seen", async () => {

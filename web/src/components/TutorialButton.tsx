@@ -7,8 +7,8 @@ import { useTour } from "./tourSupport";
 /**
  * The header launcher for a per-feature tutorial (v3.14.0) — a plain icon button next to a
  * hub page's primary "New …" action. Generic over `id` so the next tutorial reuses it as-is;
- * see "Feature tutorials" in web/CLAUDE.md for the recipe. The account-menu listing is a later
- * option on the same `useTour().startTutorial` hook.
+ * see "Feature tutorials" in web/CLAUDE.md for the recipe. The account menu lists the same
+ * tutorials (`TutorialsSubmenu`, v4.4.0), launched from any page via `useTour().launchTutorial`.
  */
 export default function TutorialButton({ id, tourId }: { id: TutorialId; tourId: string }) {
   const { t } = useTranslation();

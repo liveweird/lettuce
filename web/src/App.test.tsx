@@ -438,6 +438,8 @@ describe("App shell", () => {
         name: /notification preferences/i,
       });
       expect(notificationPreferences).toHaveAttribute("href", "/users/7/notification-preferences");
+      // The Tutorials submenu (v4.4.0) — its contents are TutorialsSubmenu.test.tsx's.
+      expect(screen.getByRole("menuitem", { name: "Tutorials" })).toBeInTheDocument();
       expect(screen.getByRole("menuitem", { name: /logout/i })).toBeInTheDocument();
     });
 

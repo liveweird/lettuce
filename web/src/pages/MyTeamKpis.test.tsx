@@ -91,7 +91,7 @@ function kpiUrls(mockFetch: FetchMock): string[] {
 // MyGoals.test.tsx idiom).
 function renderMyTeamKpis(route = "/team-kpis", startTutorial: (id: string) => void = () => {}) {
   return renderWithProviders(
-    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
       <MyTeamKpis />
     </TourContext.Provider>,
     { route },

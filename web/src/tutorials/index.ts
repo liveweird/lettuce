@@ -24,3 +24,17 @@ export const TUTORIALS: Record<TutorialId, TutorialDef> = {
   pulse: PULSE_TUTORIAL,
   succession: SUCCESSION_TUTORIAL,
 };
+
+/** The account menu's Tutorials submenu order (v4.4.0) — the left navbar's order, so the list
+ *  reads like the menu it explains. A new tutorial joins here as well as in `TUTORIALS`. */
+export const TUTORIAL_MENU_ORDER: readonly TutorialId[] = [
+  "feedbacks",
+  "oneOnOnes",
+  "goals",
+  "impactLog",
+  "daysOff",
+  "teamKpis",
+  "performanceReviews",
+  "pulse",
+  "succession",
+];

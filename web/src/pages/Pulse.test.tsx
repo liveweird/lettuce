@@ -17,7 +17,7 @@ describe("Pulse hub", () => {
   // MyTeamKpis.test.tsx idiom).
   function renderHub(route = "/pulse", startTutorial: (id: string) => void = () => {}) {
     return renderWithProviders(
-      <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+      <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
         <Routes>
           <Route path="/pulse" element={<Pulse />} />
           <Route path="/" element={<div>HOME</div>} />
