@@ -37,9 +37,10 @@
   grid-template-columns: max-content minmax(0, 1fr);
   column-gap: var(--mantine-spacing-xs);
   row-gap: 2px;
-  /* Top-align: a value that wraps to two lines (e.g. Last review = period + a status badge in the
-     narrow two-column body) keeps its label beside the FIRST line, not vertically centred against
-     both. Single-line rows are unchanged (equal-height label/value). */
+  /* Top-align: a value that wraps to two lines (e.g. Last 1:1 = a relative date + an open-items
+     badge in the narrow two-column body) keeps its label beside the FIRST line, not vertically
+     centred against both. Single-line rows are unchanged (equal-height label/value) — Last
+     review is one of these since v4.x: its dot+period value is forced `nowrap`. */
   align-items: start;
 }
 

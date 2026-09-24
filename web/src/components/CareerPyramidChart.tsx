@@ -14,14 +14,31 @@ import {
   type CareerPyramidRow,
 } from "../utils/careerPyramid";
 
+/** The dictionary-curated entry-id order behind each categorical metric's bars (v4.x) —
+ *  `CareerPyramid.tsx` derives these from the SAME `useDictionaryOptions` calls that already
+ *  back its filter Selects, so the chart never re-fetches. Tenure metrics need none. */
+export type CareerDistributionOrder = {
+  careerPath: number[];
+  careerSpecialization: number[];
+  seniorityLevel: number[];
+};
+
 /**
  * The Team pyramid's distribution view (v2.16.0): a vertical bar chart of how many people
  * in the CURRENT filter selection hold each value of ONE chosen variable — career path,
  * specialization, seniority, or a tenure bucket — the manager's composition-balance check.
  * Lazy-loaded by CareerPyramid (the ReviewRatingDistribution precedent) so recharts stays
- * out of the main bundle.
+ * out of the main bundle. Categorical bars follow their dictionary's admin-curated order
+ * (v4.x) rather than count-descending — a stale/archived entry (absent from the current
+ * dictionary) still sorts after the ordered ones, alphabetically.
  */
-export default function CareerPyramidChart({ rows }: { rows: CareerPyramidRow[] }) {
+export default function CareerPyramidChart({
+  rows,
+  dictionaryOrder,
+}: {
+  rows: CareerPyramidRow[];
+  dictionaryOrder: CareerDistributionOrder;
+}) {
   const { t } = useTranslation();
   const [metric, setMetric] = useStoredState<CareerChartMetric>(
     "career.pyramid.chartMetric",
@@ -31,7 +48,11 @@ export default function CareerPyramidChart({ rows }: { rows: CareerPyramidRow[] 
 
   const series = [{ name: "count", label: t("career.pyramid.chartCount"), color: "lettuce.6" }];
   const isTenure = metric === "tenureAtLevel" || metric === "tenureInOrganization";
-  const bars = buildCareerDistribution(rows, metric).map(({ key, count }) => ({
+  const order =
+    metric === "careerPath" || metric === "careerSpecialization" || metric === "seniorityLevel"
+      ? dictionaryOrder[metric]
+      : undefined;
+  const bars = buildCareerDistribution(rows, metric, order).map(({ key, count }) => ({
     value:
       key === NOT_SET
         ? t("career.pyramid.notSet")

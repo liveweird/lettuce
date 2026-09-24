@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.1.1",
+    date: "2026-09-24",
+    en: `Person cards show the last review's status as a coloured dot before the review period, so the "Last review" line no longer breaks onto two lines in the two-column card layout; hover or focus the dot to see the status name. The team pyramid's distribution chart now lists career paths, specializations and seniority levels in their dictionary order instead of by headcount.`,
+    pl: `Karty osób pokazują status ostatniej oceny jako kolorową kropkę przed okresem oceny, więc wiersz "Ostatnia ocena" nie łamie się już na dwie linie w dwukolumnowym układzie karty; najedź na kropkę lub ustaw na niej fokus, żeby zobaczyć nazwę statusu. Wykres rozkładu w piramidzie zespołu pokazuje teraz ścieżki kariery, specjalizacje i poziomy seniority w kolejności ze słownika, a nie według liczby osób.`,
+  },
+  {
     version: "4.1.0",
     date: "2026-09-24",
     en: `Added a seeded HR demo account (hr@lettuce.local, password changeme) — a relationship-less auditor with the HR role only, no admin rights, no team and no reports, so the audit features are reachable in the demo without minting a throwaway user. The local and demo stacks create this account automatically; a production deployment never creates it, and removes it if a development database carried it over.`,

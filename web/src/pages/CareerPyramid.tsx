@@ -286,7 +286,14 @@ export default function CareerPyramid() {
         // The chart replaces the table + pager; every filter above keeps applying —
         // filteredRows is the filtered-but-unpaginated selection.
         <Suspense fallback={<Skeleton height={300} radius="md" />}>
-          <CareerPyramidChart rows={filteredRows} />
+          <CareerPyramidChart
+            rows={filteredRows}
+            dictionaryOrder={{
+              careerPath: pathOptions.map((o) => Number(o.value)),
+              careerSpecialization: specOptions.map((o) => Number(o.value)),
+              seniorityLevel: seniorityOptions.map((o) => Number(o.value)),
+            }}
+          />
         </Suspense>
       ) : (
         <>
