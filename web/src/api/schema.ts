@@ -1172,6 +1172,12 @@ export interface paths {
          *       - `subordinateName` — case- and accent-insensitive substring match against the subordinate's name.
          *       - `meetingDate[gte]` / `meetingDate[lte]` — inclusive ISO-date (`YYYY-MM-DD`) bounds on
          *         the meeting date. Malformed dates → `400`.
+         *       - `latestOnly` — strict boolean; when `true`, keeps only each (manager, subordinate)
+         *         pair's absolute latest non-deleted meeting (the same `meetingDate DESC, id DESC`
+         *         ordering as the write rules) before any other filter or view narrows the page —
+         *         the "latest" is the pair's overall latest, not merely the latest among the other
+         *         matched rows. Composes with every `view` and with the other filters. Defaults to
+         *         `false` (every matching meeting is listed).
          *
          *     Malformed query parameters (unknown view, unknown sort field, out-of-range page/pageSize)
          *     respond with `400` and a `ProblemDetail` body.
@@ -8886,6 +8892,8 @@ export interface operations {
                 "meetingDate[gte]"?: string;
                 /** @description Upper bound (inclusive) on the meeting date, ISO `YYYY-MM-DD`. */
                 "meetingDate[lte]"?: string;
+                /** @description Strict boolean — when true, keeps only each (manager, subordinate) pair's absolute latest non-deleted meeting before any other filter or view narrows the page. Composes with every `view` and with the other filters. */
+                latestOnly?: boolean;
             };
             header?: never;
             path?: never;

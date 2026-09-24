@@ -1,8 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
-import { Button, TextInput } from "@mantine/core";
-import { screen } from "@testing-library/react";
+import { Button, MantineProvider, TextInput } from "@mantine/core";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Route, Routes } from "react-router-dom";
+import { createMemoryRouter, RouterProvider, Route, Routes, useNavigate } from "react-router-dom";
 import DiscardGuard from "../components/DiscardGuard";
 import { renderWithProviders } from "../test/render";
 import { useDiscardGuard } from "./useDiscardGuard";
@@ -25,6 +25,47 @@ function Harness({ dirty }: { dirty: boolean }) {
       <Route path="/list" element={<p>the list</p>} />
     </Routes>
   );
+}
+
+// A page-driven navigation (e.g. a competing "leave this form" prompt of its own) that has
+// already gotten the user's explicit choice — `bypassNextNavigation` lets it through the route
+// blocker without a second, generic discard confirm.
+function BypassingForm({ dirty }: { dirty: boolean }) {
+  const navigate = useNavigate();
+  const { bypassNextNavigation, guardProps } = useDiscardGuard({ isDirty: () => dirty, to: "/list" });
+  return (
+    <>
+      <p>the form</p>
+      <Button
+        onClick={() => {
+          bypassNextNavigation();
+          void navigate("/elsewhere");
+        }}
+      >
+        Leave via my own prompt
+      </Button>
+      <DiscardGuard {...guardProps} />
+    </>
+  );
+}
+
+// The route blocker (`useBlocker`) only exists on a DATA router (the DiscardGuard.test.tsx
+// precedent) — `renderWithProviders`' plain MemoryRouter never sees it, so this one test builds
+// its own data router directly rather than nesting one router inside the other.
+function renderBypassHarness(dirty: boolean) {
+  const router = createMemoryRouter(
+    [
+      { path: "/form", element: <BypassingForm dirty={dirty} /> },
+      { path: "/elsewhere", element: <p>elsewhere</p> },
+    ],
+    { initialEntries: ["/form"] },
+  );
+  render(
+    <MantineProvider env="test">
+      <RouterProvider router={router} />
+    </MantineProvider>,
+  );
+  return router;
 }
 
 describe("useDiscardGuard", () => {
@@ -75,5 +116,16 @@ describe("useDiscardGuard", () => {
     const input = screen.getByRole("textbox", { name: "Name" });
     const hint = screen.getByText("Hint");
     expect(input.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test("bypassNextNavigation lets a page-driven departure from a dirty form through the route blocker without a second prompt", async () => {
+    const user = userEvent.setup();
+    const router = renderBypassHarness(true);
+    await user.click(screen.getByRole("button", { name: "Leave via my own prompt" }));
+
+    await screen.findByText("elsewhere");
+    expect(router.state.location.pathname).toBe("/elsewhere");
+    // The route blocker's OWN discard confirm never opened — the bypass covered it.
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

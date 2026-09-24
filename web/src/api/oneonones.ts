@@ -26,6 +26,8 @@ type OneOnOneListQuery = {
   counterpartId?: number;
   /** Required with view=user (the HR auditor view): whose records to list. */
   userId?: number;
+  /** Keep only each (manager, subordinate) pair's absolute latest non-deleted meeting. */
+  latestOnly?: boolean;
 };
 
 export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage> {
@@ -41,6 +43,7 @@ export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage>
     includeIndirect: q.includeIndirect || undefined,
     counterpartId: q.counterpartId,
     userId: q.userId,
+    latestOnly: q.latestOnly || undefined,
   });
   return jsonRequest<OneOnOnePage>(`/api/v1/one-on-ones?${params}`);
 }

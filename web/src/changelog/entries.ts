@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.2.0",
+    date: "2026-09-24",
+    en: `The 1:1 meetings list has a new "Latest 1:1 only" filter on every tab: it shows just the most recent meeting of each manager and report pair. The 1:1 edit page has a "New 1:1" button that starts the next meeting with the same person, already selected; if you have unsaved changes, it asks first whether to save or discard them.`,
+    pl: `Lista spotkań 1:1 ma nowy filtr "Tylko ostatnie spotkania 1:1" na każdej zakładce: pokazuje wyłącznie najnowsze spotkanie każdej pary przełożony i podwładny. Na stronie edycji spotkania 1:1 pojawił się przycisk "Nowe 1:1", który zaczyna kolejne spotkanie z tą samą, już wybraną osobą; jeśli masz niezapisane zmiany, najpierw pyta, czy je zapisać, czy odrzucić.`,
+  },
+  {
     version: "4.1.1",
     date: "2026-09-24",
     en: `Person cards show the last review's status as a coloured dot before the review period, so the "Last review" line no longer breaks onto two lines in the two-column card layout; hover or focus the dot to see the status name. The team pyramid's distribution chart now lists career paths, specializations and seniority levels in their dictionary order instead of by headcount.`,

@@ -33,10 +33,34 @@
 2. They create a second meeting with the same person.
    - *Expected*: the open item is carried over automatically at creation — the edit screen shows a
      "Carried over" badge, and the second meeting's read-only view contains the item's text.
-3. The manager signs out; AAA Three signs in and opens the notification bell.
+3. With both meetings still live, the manager opens the 1:1 list's managed tab and turns on the
+   "Latest 1:1 only" filter.
+   - *Expected*: before the filter, both meetings are listed; after it, only the second (newest)
+     one is.
+4. The manager signs out; AAA Three signs in and opens the notification bell.
    - *Expected*: a notification that Manager AAA documented a 1:1 meeting with them.
-4. AAA Three opens their own 1:1 list.
+5. AAA Three opens their own 1:1 list.
    - *Expected*: the meeting is there with a **view** link only — no edit affordance for the
      subordinate — and its read-only view shows the carried-over action item.
-5. Cleanup: the subordinate signs out; Manager AAA signs back in and deletes both meetings.
+6. Cleanup: the subordinate signs out; Manager AAA signs back in and deletes both meetings.
+   - *Expected*: neither meeting remains on the managed tab.
+
+## Scenario: the edit screen's New 1:1 button saves in-progress notes and starts a fresh meeting with the same person
+
+1. Manager AAA signs in and documents a first meeting with AAA Three, then adds one more
+   unique-worded discussed point WITHOUT saving.
+2. They click the edit screen's "New 1:1" button.
+   - *Expected*: because the form is dirty, a "Save changes before starting a new 1:1?" prompt
+     opens instead of navigating immediately.
+3. They choose "Save and continue".
+   - *Expected*: the unsaved point is saved (a PUT to the first meeting), and the browser lands on
+     the create screen for a new meeting — with AAA Three already locked in as a chip (no team
+     member picker, since the person came from the button, not a fresh pick).
+4. They pick today's date and create the new meeting.
+   - *Expected*: creating lands on the new meeting's own edit screen.
+5. They check the managed tab and the first meeting's view (it is no longer the pair's latest
+   meeting, so it is read-only now).
+   - *Expected*: the new meeting is listed, and the first meeting's view shows the point that
+     "Save and continue" saved.
+6. Cleanup: the manager deletes both meetings.
    - *Expected*: neither meeting remains on the managed tab.

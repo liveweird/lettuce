@@ -797,6 +797,135 @@ class OneOnOneRoutesTest {
         assertEquals(2, unfiltered.total)
     }
 
+    // ---- latestOnly filter ----
+
+    @Test
+    fun `latestOnly keeps only each pair's absolute latest meeting`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        manager.createMeeting(pair.subordinateId, "2026-06-01")
+        manager.createMeeting(pair.subordinateId, "2026-06-15")
+        val newest = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        val page = manager.get("/api/v1/one-on-ones?view=managed&latestOnly=true").body<OneOnOnePageResponse>()
+        assertEquals(listOf(newest.id), page.items.map { it.id })
+        assertEquals(1L, page.total)
+    }
+
+    @Test
+    fun `latestOnly breaks a same-date tie by the higher id`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        manager.createMeeting(pair.subordinateId, "2026-07-01")
+        val second = manager.createMeeting(pair.subordinateId, "2026-07-01") // same-day follow-up
+
+        val page = manager.get("/api/v1/one-on-ones?view=managed&latestOnly=true").body<OneOnOnePageResponse>()
+        // The higher-id (later-created) same-date meeting wins, matching the write rules'
+        // (meeting_date DESC, id DESC) ordering.
+        assertEquals(listOf(second.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `latestOnly total matches the returned rows across pages`() = testApplication {
+        usePostgresTestcontainer()
+        // One manager, three different reports — each pair gets two meetings, so latestOnly
+        // narrows six rows down to exactly three (one per pair).
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val newestByPair = mutableListOf<UInt>()
+        manager.createMeeting(pair.subordinateId, "2026-06-01")
+        newestByPair += manager.createMeeting(pair.subordinateId, "2026-07-01").id
+        repeat(2) {
+            val otherSubordinateId = TestUsers.seed(uniqueEmail("latest-sub"), "pw", roles = emptySet())
+            TestServices.teams.addMember(pair.teamId, otherSubordinateId)
+            manager.createMeeting(otherSubordinateId, "2026-06-02")
+            newestByPair += manager.createMeeting(otherSubordinateId, "2026-07-02").id
+        }
+
+        val firstPage = manager.get(
+            "/api/v1/one-on-ones?view=managed&latestOnly=true&pageSize=2&page=1&sort=id",
+        ).body<OneOnOnePageResponse>()
+        val secondPage = manager.get(
+            "/api/v1/one-on-ones?view=managed&latestOnly=true&pageSize=2&page=2&sort=id",
+        ).body<OneOnOnePageResponse>()
+        assertEquals(3L, firstPage.total)
+        assertEquals(3L, secondPage.total)
+        assertEquals(2, firstPage.items.size)
+        assertEquals(1, secondPage.items.size)
+        assertEquals(newestByPair.toSet(), (firstPage.items + secondPage.items).map { it.id }.toSet())
+    }
+
+    @Test
+    fun `latestOnly composes with view=team includeIndirect and the HR auditor view=user`() = testApplication {
+        usePostgresTestcontainer()
+        // Chain: grand -> pair.manager -> pair.subordinate -> subSub. Meetings run BY
+        // pair.subordinate (an INDIRECT report of grand) need includeIndirect to surface.
+        val pair = seedPair()
+        val grandEmail = uniqueEmail("grand-latest")
+        val grandId = TestUsers.seed(grandEmail, "pw", roles = emptySet())
+        val upperTeam = TestServices.teams.create(Team(name = "oo-upper-latest-${UUID.randomUUID()}", managerId = grandId))
+        TestServices.teams.addMember(upperTeam, pair.managerId)
+        val subSubId = TestUsers.seed(uniqueEmail("subsub-latest"), "pw", roles = emptySet())
+        val lowerTeam = TestServices.teams.create(Team(name = "oo-lower-latest-${UUID.randomUUID()}", managerId = pair.subordinateId))
+        TestServices.teams.addMember(lowerTeam, subSubId)
+        val deepManager = authedClient(pair.subordinateEmail, "pw")
+        deepManager.createMeeting(subSubId, "2026-06-01")
+        val newest = deepManager.createMeeting(subSubId, "2026-07-01")
+
+        val grand = authedClient(grandEmail, "pw")
+        // Direct-only view=team never sees it (pair.subordinate is not grand's direct report).
+        val direct = grand.get("/api/v1/one-on-ones?view=team&latestOnly=true").body<OneOnOnePageResponse>()
+        assertTrue(direct.items.none { it.id == newest.id })
+        // includeIndirect widens the scope, and latestOnly still keeps only the pair's newest.
+        val indirect = grand.get("/api/v1/one-on-ones?view=team&includeIndirect=true&latestOnly=true")
+            .body<OneOnOnePageResponse>()
+        assertEquals(listOf(newest.id), indirect.items.filter { it.subordinateId == subSubId }.map { it.id })
+
+        // The HR auditor view=user composes the same way.
+        val hrEmail = uniqueEmail("hr-team-latest")
+        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val auditor = authedClient(hrEmail, "pw")
+            .get("/api/v1/one-on-ones?view=user&userId=$subSubId&latestOnly=true")
+            .body<OneOnOnePageResponse>()
+        assertEquals(listOf(newest.id), auditor.items.map { it.id })
+    }
+
+    @Test
+    fun `a soft-deleted newest meeting makes the previous one latest under the filter`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val first = manager.createMeeting(pair.subordinateId, "2026-06-01")
+        val second = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        val before = manager.get("/api/v1/one-on-ones?view=managed&latestOnly=true").body<OneOnOnePageResponse>()
+        assertEquals(listOf(second.id), before.items.map { it.id })
+
+        TestOneOnOneMaintenance.softDeleteMeeting(second.id)
+
+        val after = manager.get("/api/v1/one-on-ones?view=managed&latestOnly=true").body<OneOnOnePageResponse>()
+        assertEquals(listOf(first.id), after.items.map { it.id })
+    }
+
+    @Test
+    fun `latestOnly=false lists everything and an invalid value is a 400`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val first = manager.createMeeting(pair.subordinateId, "2026-06-01")
+        val second = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        val unfiltered = manager.get("/api/v1/one-on-ones?view=managed&latestOnly=false").body<OneOnOnePageResponse>()
+        assertEquals(setOf(first.id, second.id), unfiltered.items.map { it.id }.toSet())
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.get("/api/v1/one-on-ones?view=managed&latestOnly=yes").status,
+        )
+    }
+
     // ---- action-item history ----
 
     @Test

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { renderWithProviders, screen, within } from "../test/render";
+import userEvent from "@testing-library/user-event";
+import { renderWithProviders, screen, waitFor, within } from "../test/render";
 import OneOnOneTable from "./OneOnOneTable";
 import { jsonResponse } from "../test/http";
 
@@ -105,6 +106,82 @@ describe("OneOnOneTable", () => {
     ).toBe(true);
     // The scope select lives in the (collapsed-by-default) filter panel — assert it exists.
     expect(screen.getByRole("button", { name: /Filters/ })).toBeInTheDocument();
+  });
+
+  test("the latestOnly switch defaults off, and toggling it adds/removes the query param", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [{ ...ROW, managerId: 7, subordinateId: 8 }],
+        page: 1,
+        pageSize: 20,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<OneOnOneTable view="managed" />);
+    await screen.findByText("Sam Subordinate");
+
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    const toggle = screen.getByRole("switch", { name: "Latest 1:1 only" });
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.some(([u]) => String(u).includes("latestOnly=true"))).toBe(true);
+    });
+
+    await user.click(toggle);
+    await waitFor(() => {
+      const lastUrl = String(mockFetch.mock.calls.at(-1)![0]);
+      expect(lastUrl).not.toContain("latestOnly");
+    });
+  });
+
+  test("the latestOnly filter persists via localStorage under the view's own key", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(jsonResponse(200, { items: [ROW], page: 1, pageSize: 20, total: 1 }));
+    renderWithProviders(<OneOnOneTable view="own" />);
+    await screen.findByText("Mia Manager");
+
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.click(screen.getByRole("switch", { name: "Latest 1:1 only" }));
+
+    expect(localStorage.getItem("lettuce.viewSettings.oneOnOnes.own.filter.latestOnly")).toBe(
+      "true",
+    );
+  });
+
+  test("the latestOnly filter counts toward the active-filter-count badge", async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [{ ...ROW, managerId: 7, subordinateId: 8 }],
+        page: 1,
+        pageSize: 20,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<OneOnOneTable view="managed" />);
+    await screen.findByText("Sam Subordinate");
+
+    const filtersToggle = screen.getByRole("button", { name: /filters/i });
+    expect(within(filtersToggle).queryByText("1")).not.toBeInTheDocument();
+
+    await user.click(filtersToggle);
+    await user.click(screen.getByRole("switch", { name: "Latest 1:1 only" }));
+
+    expect(within(filtersToggle).getByText("1")).toBeInTheDocument();
+  });
+
+  test("the with view has no filter panel, so the latestOnly switch never renders", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { items: [ROW], page: 1, pageSize: 20, total: 1 }),
+    );
+    renderWithProviders(<OneOnOneTable view="with" counterpartId={3} />);
+    await screen.findByText("Mia Manager");
+
+    expect(screen.queryByRole("button", { name: /filters/ })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Latest 1:1 only" })).toBeNull();
   });
 
   test("the with view mixes both directions: no filter panel, Edit on own rows, View on theirs", async () => {

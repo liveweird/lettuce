@@ -1,4 +1,15 @@
-import { expect, login, logout, MANAGER_AAA, AAA_THREE, notificationCard, openBell, test, uniqueText } from "./helpers";
+import {
+  expect,
+  login,
+  logout,
+  MANAGER_AAA,
+  AAA_THREE,
+  notificationCard,
+  openBell,
+  openFilters,
+  test,
+  uniqueText,
+} from "./helpers";
 import type { Page } from "@playwright/test";
 
 // 1:1 meetings: a manager documents outcomes of a recurring meeting with a report.
@@ -109,6 +120,19 @@ test("open action items carry over to the next 1:1 and the subordinate is notifi
   await page.goto(`/one-on-ones/${second}/view`);
   await expect(page.getByText(action)).toBeVisible();
 
+  // With both of the pair's meetings still live, "Latest 1:1 only" narrows the managed list
+  // down to just the newest.
+  // Row links, not Edit links: only the pair's latest meeting is editable, so the older row
+  // carries a view link only.
+  const rowLink = (id: number) => page.locator(`a[href*="/one-on-ones/${id}/"]`);
+  await page.goto("/one-on-ones?tab=managed");
+  await expect(rowLink(second).first()).toBeVisible();
+  await expect(rowLink(first).first()).toBeVisible();
+  await openFilters(page);
+  await page.getByRole("switch", { name: "Latest 1:1 only" }).click();
+  await expect(rowLink(second).first()).toBeVisible();
+  await expect(rowLink(first)).toHaveCount(0);
+
   // The subordinate is notified and sees the meeting read-only in their own tab.
   await logout(page);
   await login(page, AAA_THREE);
@@ -132,4 +156,57 @@ test("open action items carry over to the next 1:1 and the subordinate is notifi
   await page.goto("/one-on-ones?tab=managed");
   await expect(page.getByRole("heading", { name: "1:1 meetings" })).toBeVisible();
   await expect(page.locator(`a[href*="/one-on-ones/${first}/"]`)).toHaveCount(0);
+});
+
+test("the edit screen's New 1:1 button saves in-progress notes and starts a fresh meeting with the same person", async ({ page }) => {
+  const note = uniqueText("E2E-1on1-new-button-note");
+
+  await login(page, MANAGER_AAA);
+  const firstId = await createMeeting(page, "AAA Three");
+
+  // Add a note but don't Save — the New 1:1 button's own prompt handles the unsaved work.
+  await page.getByRole("button", { name: "Add point" }).click();
+  await page.getByRole("textbox", { name: "Points discussed — entry 1" }).fill(note);
+
+  await page.getByRole("button", { name: "New 1:1" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Save changes before starting a new 1:1?")).toBeVisible();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith(`/api/v1/one-on-ones/${firstId}`) && r.request().method() === "PUT" && r.ok(),
+    ),
+    dialog.getByRole("button", { name: "Save and continue" }).click(),
+  ]);
+
+  // Lands on the create screen with the subordinate locked in (a chip, not the picker).
+  await expect(page).toHaveURL(/\/one-on-ones\/new\?subordinateId=/);
+  await expect(page.getByRole("combobox", { name: "Team member" })).toHaveCount(0);
+  await expect(page.locator("#main-content").getByText("AAA Three")).toBeVisible();
+
+  await page.getByLabel("Meeting date").fill(today());
+  const [created] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/one-on-ones") && r.request().method() === "POST" && r.ok(),
+    ),
+    page.getByRole("button", { name: "Create" }).click(),
+  ]);
+  const secondId = (await created.json()).id as number;
+  await expect(page).toHaveURL(new RegExp(`/one-on-ones/${secondId}/edit`));
+
+  // The new meeting exists on the managed tab...
+  await page.goto("/one-on-ones?tab=managed");
+  await expect(page.locator(`a[href*="/one-on-ones/${secondId}/edit"]`).first()).toBeVisible();
+
+  // ...and the OLD meeting — no longer the pair's latest, hence read-only — shows the saved
+  // note on its view.
+  await page.goto(`/one-on-ones/${firstId}/view`);
+  await expect(page.getByText(note)).toBeVisible();
+
+  // Cleanup: delete both meetings.
+  await deleteMeeting(page, secondId);
+  await deleteMeeting(page, firstId);
+  await page.goto("/one-on-ones?tab=managed");
+  await expect(page.getByRole("heading", { name: "1:1 meetings" })).toBeVisible();
+  await expect(page.locator(`a[href*="/one-on-ones/${firstId}/"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href*="/one-on-ones/${secondId}/"]`)).toHaveCount(0);
 });

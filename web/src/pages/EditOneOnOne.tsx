@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -7,7 +7,9 @@ import {
   Container,
   Divider,
   Fieldset,
+  Group,
   Loader,
+  Modal,
   Paper,
   Stack,
   Tabs,
@@ -17,6 +19,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { IconPlus } from "@tabler/icons-react";
 import DateField from "../components/DateField";
 import { ApiError } from "../api/http";
 import { getUserId, hasFeature } from "../api/session";
@@ -31,6 +34,7 @@ import PageHeader from "../components/PageHeader";
 import ParagraphListEditor from "../components/ParagraphListEditor";
 import PersonaChip from "../components/PersonaChip";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
+import { useManagedReports } from "../hooks/useManagedReports";
 import {
   oneOnOneFormValidation,
   oneOnOneSaveErrorMessage,
@@ -38,7 +42,7 @@ import {
   toUpdateBody,
   type OneOnOneFormValues,
 } from "../utils/oneOnOneForm";
-import { oneOnOneViewLink } from "../utils/oneOnOneLinks";
+import { oneOnOneCreateLink, oneOnOneViewLink } from "../utils/oneOnOneLinks";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
 import { showSuccessToast } from "../utils/toast";
 import { safeBackParam } from "../utils/url";
@@ -46,6 +50,7 @@ import { safeBackParam } from "../utils/url";
 export default function EditOneOnOne() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -57,6 +62,12 @@ export default function EditOneOnOne() {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteOpen, { open: openDelete, close: closeDelete }] = useDisclosure(false);
+  const [newMeetingOpen, { open: openNewMeeting, close: closeNewMeeting }] = useDisclosure(false);
+
+  // The "New 1:1" button (with the same subordinate) only makes sense when the caller can
+  // still create one for them — chain-wide since v2.33.0, the same pool CreateOneOnOne
+  // resolves its prefilled subordinate against; hidden otherwise rather than 403ing on click.
+  const { reports: managedReports, reportsReady: managedReportsReady } = useManagedReports(true);
 
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
@@ -79,12 +90,16 @@ export default function EditOneOnOne() {
     validate: oneOnOneFormValidation(t, data?.minMeetingDate),
   });
 
-  // The one cancel guard (v3.5.0). Dirtiness is a PAYLOAD compare, not `form.isDirty()` —
-  // the three lists' insert/remove/reorder operations don't flip Mantine's dirty flags.
-  const { requestCancel, guardProps } = useDiscardGuard({
-    isDirty: () =>
-      data != null &&
-      JSON.stringify(toUpdateBody(form.values)) !== JSON.stringify(toUpdateBody(toFormValues(data))),
+  // Dirtiness is a PAYLOAD compare, not `form.isDirty()` — the three lists' insert/remove/
+  // reorder operations don't flip Mantine's dirty flags. Shared by the cancel guard below and
+  // the New-1:1 flow's own dirty check.
+  const isDirty = () =>
+    data != null &&
+    JSON.stringify(toUpdateBody(form.values)) !== JSON.stringify(toUpdateBody(toFormValues(data)));
+
+  // The one cancel guard (v3.5.0).
+  const { requestCancel, bypassNextNavigation, guardProps } = useDiscardGuard({
+    isDirty,
     to: backTo,
     title: t("oneOnOne.discardTitle"),
     message: t("oneOnOne.discardMessage"),
@@ -111,7 +126,16 @@ export default function EditOneOnOne() {
     return <Navigate to={viewUrl} replace />;
   }
 
-  async function save(values: OneOnOneFormValues) {
+  // The "New 1:1" header button targets a fresh meeting with THIS meeting's subordinate,
+  // `back` carrying this edit page's own URL (query string included) so the create screen's
+  // Cancel returns here — same builder CreateOneOnOne's other entry points use.
+  const canStartNewOneOnOne =
+    data != null && managedReportsReady && managedReports.some((r) => r.userId === data.subordinateId);
+  const newOneOnOneLink = data
+    ? oneOnOneCreateLink(data.subordinateId, `${location.pathname}${location.search}`)
+    : "";
+
+  async function performSave(values: OneOnOneFormValues, target: string): Promise<boolean> {
     // Belt-and-braces for the chronological rule (the validate rules and the input's `min`
     // usually catch it first; the server 409 is the final backstop).
     if (data?.minMeetingDate != null && values.meetingDate < data.minMeetingDate) {
@@ -119,7 +143,7 @@ export default function EditOneOnOne() {
         "meetingDate",
         t("oneOnOne.dateBeforePrevious", { date: data.minMeetingDate }),
       );
-      return;
+      return false;
     }
     setError(null);
     setSubmitting(true);
@@ -127,11 +151,45 @@ export default function EditOneOnOne() {
       await updateOneOnOne(id, toUpdateBody(values));
       await invalidateOneOnOne(queryClient, id);
       showSuccessToast(t("oneOnOne.toast.saved"));
-      navigate(backTo, { replace: true });
+      // A `replace` navigation passes the route blocker unblocked (DiscardGuard's contract),
+      // so the just-saved (still "dirty" against its pre-save initial values) form doesn't
+      // re-trigger the cancel guard's own confirm on its way out.
+      navigate(target, { replace: true });
+      return true;
     } catch (err) {
       setError(oneOnOneSaveErrorMessage(err, t));
       setSubmitting(false);
+      return false;
     }
+  }
+
+  async function save(values: OneOnOneFormValues) {
+    await performSave(values, backTo);
+  }
+
+  // The New-1:1 modal's three choices. Immediate when the form is clean; a dirty form asks
+  // first via the modal below rather than silently discarding an in-progress edit.
+  function handleNewOneOnOne() {
+    if (isDirty()) {
+      openNewMeeting();
+      return;
+    }
+    // Mirror `requestCancel`'s bypass so the route blocker never intercepts this programmatic
+    // navigation even though it's a plain push, not a `replace`.
+    bypassNextNavigation();
+    navigate(newOneOnOneLink);
+  }
+
+  async function saveAndContinueThenNewOneOnOne() {
+    if (form.validate().hasErrors) return;
+    await performSave(form.values, newOneOnOneLink);
+    closeNewMeeting();
+  }
+
+  function discardAndContinueToNewOneOnOne() {
+    closeNewMeeting();
+    bypassNextNavigation();
+    navigate(newOneOnOneLink);
   }
 
   async function remove() {
@@ -160,7 +218,17 @@ export default function EditOneOnOne() {
 
   return (
     <>
-      <PageHeader title={t("oneOnOne.editTitle")} mb="lg" />
+      <PageHeader
+        title={t("oneOnOne.editTitle")}
+        mb="lg"
+        actions={
+          canStartNewOneOnOne && (
+            <Button leftSection={<IconPlus size={16} />} onClick={handleNewOneOnOne}>
+              {t("oneOnOne.newMeeting")}
+            </Button>
+          )
+        }
+      />
       <Container size="md" px={0}>
         <Paper withBorder shadow="sm" p="xl" radius="md">
           <Stack>
@@ -304,6 +372,37 @@ export default function EditOneOnOne() {
         loading={deleting}
         onConfirm={remove}
       />
+      {/* The New-1:1 button's own three-way prompt — a dirty form isn't silently discarded,
+          but it also isn't the generic Cancel confirm (which only knows one destination):
+          Save/Discard/Cancel, all "…and continue" to the create screen. */}
+      <Modal
+        opened={newMeetingOpen}
+        onClose={() => {
+          if (!submitting) closeNewMeeting();
+        }}
+        title={t("oneOnOne.newMeetingConfirmTitle")}
+        centered
+      >
+        <Stack gap="md">
+          <Text>{t("oneOnOne.newMeetingConfirmMessage")}</Text>
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={closeNewMeeting} disabled={submitting}>
+              {t("common.action.cancel")}
+            </Button>
+            <Button
+              variant="light"
+              color="red"
+              onClick={discardAndContinueToNewOneOnOne}
+              disabled={submitting}
+            >
+              {t("oneOnOne.discardAndContinue")}
+            </Button>
+            <Button onClick={saveAndContinueThenNewOneOnOne} loading={submitting}>
+              {t("oneOnOne.saveAndContinue")}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </>
   );
 }
