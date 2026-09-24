@@ -42,7 +42,7 @@ function LocationProbe() {
 // TourContext — a no-op startTutorial by default; the launcher test below supplies a spy.
 function renderFeedback(route = "/feedback", startTutorial: (id: string) => void = () => {}) {
   return renderWithProviders(
-    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
       <Feedback />
       <LocationProbe />
     </TourContext.Provider>,

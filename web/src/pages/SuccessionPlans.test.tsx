@@ -41,7 +41,7 @@ function renderScreen(
   render(
     <MantineProvider env="test">
       <QueryClientProvider client={queryClient}>
-        <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+        <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
           <MemoryRouter initialEntries={[route]}>
             <Routes>
               <Route path="/succession" element={<SuccessionPlans />} />

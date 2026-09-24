@@ -6,7 +6,7 @@ import type { TooltipRenderProps } from "react-joyride";
 const TourJoyride = lazy(() => import("./TourJoyride"));
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { hasFeature, getUserId } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
 // Steps, seen-state, contexts and useTour live in tourSupport.ts so this file only exports
@@ -87,6 +87,10 @@ export function TourTooltip({
   );
 }
 
+/** A tutorial home's route path — the `?tab=` part is the tutorial's own business (its steps
+ *  navigate between tabs), so arriving on any tab of the hub counts as being home. */
+const homePathname = (home: string) => home.split("?")[0];
+
 export function TourProvider({
   children,
   onStart,
@@ -98,6 +102,7 @@ export function TourProvider({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const userId = getUserId();
   // Whether the caller manages a team — gates the manager-only steps. The shared hook's cache
   // key dedupes this with the tab-gate queries on the feature pages.
@@ -149,6 +154,33 @@ export function TourProvider({
     setRun(true);
   }
 
+  // A menu launch (launchTutorial) waiting for its home page: the tutorial, and the location key it
+  // left from — so "the route has changed" is told apart from "still on the page it was launched
+  // on" (a navigation the discard guard is holding keeps the old key).
+  const [pendingLaunch, setPendingLaunch] = useState<{ id: TutorialId; fromKey: string } | null>(null);
+
+  function launchTutorial(id: TutorialId) {
+    const def = TUTORIALS[id];
+    if (def.feature && !hasFeature(def.feature)) return;
+    if (location.pathname === homePathname(def.home)) {
+      startTutorial(id);
+      return;
+    }
+    setPendingLaunch({ id, fromKey: location.key });
+    navigate(def.home);
+  }
+
+  // Starts a pending launch once its home is showing. The first route change after the launch
+  // settles it either way: the home starts the tutorial, anywhere else drops it — so a launch the
+  // discard guard held and the user then left elsewhere never springs up later by surprise.
+  useEffect(() => {
+    if (!pendingLaunch || location.key === pendingLaunch.fromKey) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- settles a launch on the route change it waited for; the start also notifies the shell (onStart), which cannot run during render
+    setPendingLaunch(null);
+    if (location.pathname === homePathname(TUTORIALS[pendingLaunch.id].home)) startTutorial(pendingLaunch.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the route change only: startTutorial is re-created every render and reads nothing the effect needs to track
+  }, [location.key, location.pathname, pendingLaunch]);
+
   // The auto-start sets run=true in the initializer, bypassing startTour — notify the shell
   // once on mount too. Mount-only by design: `run` and `onStart` are the mount-time values.
   useEffect(() => {
@@ -185,7 +217,7 @@ export function TourProvider({
   }
 
   return (
-    <TourContext.Provider value={{ startTour, startTutorial }}>
+    <TourContext.Provider value={{ startTour, startTutorial, launchTutorial }}>
       {children}
       {/* Pause is hidden while a tutorial runs (pausable: false) — a paused tutorial would
           strand a resumable beacon inside the form it navigated into. */}

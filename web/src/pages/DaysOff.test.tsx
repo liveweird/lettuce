@@ -45,7 +45,7 @@ const BUDGET = {
 // MyGoals.test.tsx idiom).
 function renderDaysOff(route = "/days-off", startTutorial: (id: string) => void = () => {}) {
   return renderWithProviders(
-    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
       <DaysOff />
     </TourContext.Provider>,
     { route },
@@ -341,7 +341,7 @@ describe("DaysOff page", () => {
     try {
       setupMocks();
       renderWithProviders(
-        <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {} }}>
+        <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {}, launchTutorial: () => {} }}>
           <DaysOff />
           <LocationProbe />
         </TourContext.Provider>,

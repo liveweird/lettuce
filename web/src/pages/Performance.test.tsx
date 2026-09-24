@@ -46,7 +46,7 @@ function reviewUrls(mockFetch: FetchMock): string[] {
 // MyGoals.test.tsx/DaysOff.test.tsx idiom).
 function renderPerformance(route = "/performance", startTutorial: (id: string) => void = () => {}) {
   return renderWithProviders(
-    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
       <Performance />
     </TourContext.Provider>,
     { route },

@@ -52,6 +52,7 @@ import AlertsBanner from "./components/AlertsBanner";
 import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "./hooks/useVisibleAlerts";
 import BrandLogo from "./components/BrandLogo";
 import NotificationsButton from "./components/NotificationsButton";
+import TutorialsSubmenu from "./components/TutorialsSubmenu";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useChangelogUnseen } from "./hooks/useChangelogSeen";
 import { isBoolean, useStoredState } from "./hooks/useStoredState";
@@ -213,6 +214,7 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
         >
           {t("appShell.nav.notificationPreferences")}
         </Menu.Item>
+        <TutorialsSubmenu />
         <Menu.Divider />
         <Menu.Item leftSection={<IconLogout size={14} />} onClick={onLogout}>
           {t("common.action.logout")}

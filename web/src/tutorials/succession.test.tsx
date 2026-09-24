@@ -125,7 +125,7 @@ function renderSuccessionHub(route: string) {
   return render(
     <MantineProvider env="test">
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {} }}>
+        <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {}, launchTutorial: () => {} }}>
           <MemoryRouter initialEntries={[route]}>
             <SuccessionPlans />
           </MemoryRouter>

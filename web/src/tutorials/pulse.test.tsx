@@ -184,7 +184,7 @@ function renderPulseHub(route: string) {
     <MantineProvider env="test" theme={theme} cssVariablesResolver={cssVariablesResolver}>
       <AppDatesProvider>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {} }}>
+          <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {}, launchTutorial: () => {} }}>
             <MemoryRouter initialEntries={[route]}>
               <Routes>
                 <Route path="/pulse" element={<Pulse />} />

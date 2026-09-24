@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.4.0",
+    date: "2026-09-24",
+    en: `Every guided walkthrough is now one click away from anywhere: your account menu has a new "Tutorials" list with the "Quick app tour" and each feature's "How … works" tutorial. Picking one from any page opens that feature and starts the walkthrough. The list shows only the tutorials for areas you can use.`,
+    pl: `Każdy przewodnik jest teraz o jedno kliknięcie od Ciebie, z dowolnego miejsca: menu konta ma nową listę "Samouczki" z pozycją "Szybki przegląd aplikacji" i samouczkiem każdej funkcji. Gdy wybierzesz jeden z nich na dowolnej stronie, aplikacja otworzy tę funkcję i uruchomi samouczek. Lista pokazuje tylko samouczki obszarów, z których możesz korzystać.`,
+  },
+  {
     version: "4.3.1",
     date: "2026-09-24",
     en: `Status pills in tables no longer break in the middle of a word. In the "Team's performance" table on narrower screens, "Published" and "Calibration" used to split over two lines; the Status column now grows to fit the whole word, and a longer label such as "No review yet" wraps only between words.`,

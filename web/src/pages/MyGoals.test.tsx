@@ -84,7 +84,7 @@ function goalUrls(mockFetch: FetchMock): string[] {
 // TourContext — a no-op startTutorial by default; the launcher test below supplies a spy.
 function renderMyGoals(route = "/goals", startTutorial: (id: string) => void = () => {}) {
   return renderWithProviders(
-    <TourContext.Provider value={{ startTour: () => {}, startTutorial }}>
+    <TourContext.Provider value={{ startTour: () => {}, startTutorial, launchTutorial: () => {} }}>
       <MyGoals />
       <LocationProbe />
     </TourContext.Provider>,
