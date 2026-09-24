@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.3.1",
+    date: "2026-09-24",
+    en: `Status pills in tables no longer break in the middle of a word. In the "Team's performance" table on narrower screens, "Published" and "Calibration" used to split over two lines; the Status column now grows to fit the whole word, and a longer label such as "No review yet" wraps only between words.`,
+    pl: `Etykiety statusu w tabelach nie dzielą już słów w połowie. W tabeli "Oceny zespołu" na węższych ekranach "Opublikowana" i "Kalibracja" rozpadały się na dwie linie; kolumna statusu poszerza się teraz, by zmieścić całe słowo, a dłuższa etykieta, taka jak "Brak oceny", zawija się tylko między słowami.`,
+  },
+  {
     version: "4.3.0",
     date: "2026-09-24",
     en: `HR can now see team performance for everyone: the "Team's performance" tab on the Performance page is available to HR, with a new "Everyone (auditor)" reports scope that lists every active user and their review for the chosen period, read-only. HR who also manage a team keep their own direct and all-reports scopes. On Pulse surveys, the "Participation" tab has a team picker, so HR and managers can look at one team at a time instead of one long list.`,

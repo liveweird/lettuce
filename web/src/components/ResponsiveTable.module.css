@@ -60,6 +60,14 @@
   padding-block: 3px;
 }
 .content :where(:global(.mantine-Badge-label)) { white-space: normal; overflow-wrap: break-word; }
+/* The status-pill floor (v4.3.1): Mantine's badge label is `overflow: hidden`, which as a flex
+   item drops its automatic minimum to 0 — a pill then contributed ~nothing to its column's
+   min-content, the column collapsed below the pill's longest word, and `break-word` split it
+   ("Publish|ed", "Calibrat|ion"). `min-width: min-content` lets a status pill wrap between words
+   only; the column grows instead. Scoped to StatusPill (`data-status-pill`) on purpose: its
+   labels are short enumerated words, while a free-text badge (a team name typed as one long
+   word) inside a `layout="fixed"` list column must keep breaking rather than overflow its cell. */
+.content :where([data-status-pill]) :where(:global(.mantine-Badge-label)) { min-width: min-content; }
 .content :where(:global(.mantine-Input-wrapper), :global(.mantine-Input-input)) { min-width: 0; max-width: 100%; }
 .table [data-actions] .content > :global(.mantine-Group-root) { justify-content: flex-end; }
 

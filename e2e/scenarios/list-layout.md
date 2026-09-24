@@ -64,6 +64,11 @@
      squeezed on purpose, and a badge label that overflows is HIDDEN rather than spilling, so
      this is measured (a pill's label scrolls no wider than it renders) — the regression it
      guards rendered five empty coloured boxes per row while every digit sat in the DOM.
+   - *Expected* (v4.3.1): every word of every status pill sits on one line — "Calibration", the
+     fixture review's status (the fixture completes the review and submits it for calibration),
+     is among the measured pills. The Status column used to collapse below the pill's longest
+     word and split "Publish|ed" / "Calibrat|ion" over two lines; this too is measured (each
+     word's text range yields a single line box), since the split is invisible in the DOM.
 2. They click the "Overall" header.
    - *Expected*: the list re-sorts with no error and the header stays visible — sorting still
      works with the rating column's rotated label.
@@ -71,7 +76,7 @@
    "Ogólna" header and its scroll-hint wording.
    - *Expected*: the table and its region still fit with no scroll needed, the Polish hint is
      not shown, and the header remains clickable — the longer Polish labels were the original
-     failure case (1302px demanded) this table now clears.
+     failure case (1302px demanded) this table now clears — and "Kalibracja" stays whole.
 
 ## Scenario: dashboard subordinate card keeps the last-review dot and period on one line at 1440px
 
