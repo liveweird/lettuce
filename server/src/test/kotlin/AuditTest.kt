@@ -678,6 +678,34 @@ class AuditTest {
     }
 
     @Test
+    fun `hr list is audited for the performance-review auditor view (v4_3_0)`() = testApplication {
+        usePostgresTestcontainer()
+        val hrEmail = uniqueEmail("hrlist-pr-hr")
+        val hrId = TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
+        val period = TestReviewPeriods.append()
+
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            // view=all on the performance-review list — resource performanceReview (the same
+            // name view=user already uses), carrying periodId when filtered.
+            assertEquals(
+                HttpStatusCode.OK,
+                hr.get("/api/v1/performance-reviews?view=all&periodId=${period.id}").status,
+            )
+            val event = appender.events.find {
+                it.message == "hr.list" &&
+                    it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "performanceReview" }
+            }
+            assertNotNull(event, "the performance-review auditor view should be audited")
+            assertEquals(hrId.toLong(), event.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals(period.id.toLong(), event.keyValuePairs.first { it.key == "periodId" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
     fun `hr list is audited for the org days-off calendar scope (v3_25_0)`() = testApplication {
         usePostgresTestcontainer()
         val hrEmail = uniqueEmail("hrlist-cal-hr")
@@ -735,6 +763,7 @@ class AuditTest {
                 "/api/v1/team-kpis?view=all&teamId=$teamId",
                 "/api/v1/days-off/budgets?view=user&userId=$subId",
                 "/api/v1/days-off/calendar?month=2059-01&scope=org&teamId=$teamId",
+                "/api/v1/performance-reviews?view=all",
             )
             for (path in refused) {
                 assertEquals(HttpStatusCode.Forbidden, manager.get(path).status, "manager should be refused: $path")

@@ -149,7 +149,9 @@
     "person": "Osoba",
     "noCycle": "Brak otwartego lub zamkniętego cyklu do monitorowania.",
     "noTeams": "Nie monitorujesz żadnych zespołów.",
-    "loadError": "Nie udało się wczytać danych o udziale."
+    "loadError": "Nie udało się wczytać danych o udziale.",
+    "team": "Zespół",
+    "allTeams": "Wszystkie zespoły"
   },
   "admin": {
     "title": "Cykle pulsu",

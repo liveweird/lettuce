@@ -3,6 +3,7 @@ package ch.nokillswit.reviews
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireAuditListAccess
+import ch.nokillswit.authz.requireAuditScopeListAccess
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requirePerformanceReviewReadAllowingManager
@@ -144,24 +145,8 @@ fun Application.configurePerformanceReviewRoutes() {
                     "managed" -> PerformanceReviewListView.MANAGED
                     "team" -> PerformanceReviewListView.TEAM
                     "user" -> PerformanceReviewListView.USER
-                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team, user)")
-                }
-                val paging = call.parsePaging(
-                    sortable = setOf(
-                        "id", "managerName", "subordinateName", "periodStart", "status",
-                        "createdAt", "lastModified",
-                    ),
-                    defaultSort = listOf(SortField("createdAt", descending = true)),
-                )
-                val includeIndirect = params.optionalIncludeIndirect(
-                    view,
-                    listOf(PerformanceReviewListView.MANAGED, PerformanceReviewListView.TEAM),
-                )
-                // The auditor view (HR-only): view-shape validation first, then the role gate
-                // (every use is audit-logged) — the goals-list idiom.
-                val userId = params.uintOnlyForView("userId", view, PerformanceReviewListView.USER)
-                if (view == PerformanceReviewListView.USER) {
-                    requireAuditListAccess(caller, "performanceReview", userId!!)
+                    "all" -> PerformanceReviewListView.ALL
+                    else -> throw BadRequestException("Unknown view: $raw (allowed: own, managed, team, user, all)")
                 }
                 val filter = PerformanceReviewListFilter(
                     managerName = params.optionalString("managerName"),
@@ -173,6 +158,32 @@ fun Application.configurePerformanceReviewRoutes() {
                     createdAtGte = params.optionalLong("createdAt[gte]"),
                     lastModifiedGte = params.optionalLong("lastModified[gte]"),
                 )
+                val paging = call.parsePaging(
+                    sortable = setOf(
+                        "id", "managerName", "subordinateName", "periodStart", "status",
+                        "createdAt", "lastModified",
+                    ),
+                    defaultSort = listOf(SortField("createdAt", descending = true)),
+                )
+                val includeIndirect = params.optionalIncludeIndirect(
+                    view,
+                    listOf(PerformanceReviewListView.MANAGED, PerformanceReviewListView.TEAM),
+                )
+                // The auditor views (HR-only): every shape 400 (view/includeIndirect/paging/
+                // userId) runs BEFORE either role gate, so a malformed auditor request is a 400
+                // for HR and non-HR alike and the parameter vocabulary is never a role oracle
+                // (the registered list-ordering rule) — every use is audit-logged (hr.list).
+                val userId = params.uintOnlyForView("userId", view, PerformanceReviewListView.USER)
+                if (view == PerformanceReviewListView.USER) {
+                    requireAuditListAccess(caller, "performanceReview", userId!!)
+                }
+                // The HR auditor sweep (v4.3.0): every review, org-wide, every status — HR only
+                // (403 for anyone else, ADMIN included — the team-KPI view=all rule); the
+                // periodId filter rides along so an audit reader can tell a scoped read from an
+                // org-wide one.
+                if (view == PerformanceReviewListView.ALL) {
+                    requireAuditScopeListAccess(caller, "performanceReview", filter.periodId, "periodId")
+                }
                 val result = reviewService.list(
                     view,
                     caller.userId,

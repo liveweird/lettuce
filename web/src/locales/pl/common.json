@@ -72,7 +72,8 @@
   "reportsScope": {
     "label": "Podwładni",
     "direct": "Tylko bezpośredni podwładni",
-    "all": "Wszyscy podwładni (także pośredni)"
+    "all": "Wszyscy podwładni (także pośredni)",
+    "auditor": "Wszyscy (audytor)"
   },
   "status": {
     "REQUESTED": "Poproszono",

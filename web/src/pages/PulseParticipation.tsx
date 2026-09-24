@@ -19,6 +19,7 @@ export default function PulseParticipation() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const [picked, setPicked] = useState<string | null>(null);
+  const [pickedTeam, setPickedTeam] = useState<string | null>(null);
   const currentUserId = getUserId();
 
   const cycles = useQuery({ queryKey: ["pulseCycles"], queryFn: listPulseCycles });
@@ -55,7 +56,19 @@ export default function PulseParticipation() {
   }
 
   const teams = status.data?.teams ?? [];
-  const all = teams.flatMap((team) => team.members);
+  // The team picker (client-side over the already-returned teams — a monitored/org-wide list
+  // is already bounded, so no new request): "All teams" plus each team by name, offered only
+  // once there is more than one to pick from. A stale pick (a team that dropped out of a
+  // narrower cycle's response) falls back to "All teams" rather than showing an empty table.
+  const selectedTeamId =
+    pickedTeam != null && teams.some((tm) => String(tm.teamId) === pickedTeam) ? pickedTeam : null;
+  const visibleTeams =
+    selectedTeamId == null ? teams : teams.filter((tm) => String(tm.teamId) === selectedTeamId);
+  const teamOptions = [
+    { value: "", label: t("pulse.participation.allTeams") },
+    ...teams.map((tm) => ({ value: String(tm.teamId), label: tm.teamName })),
+  ];
+  const all = visibleTeams.flatMap((team) => team.members);
   const submitted = all.filter((m) => m.responded).length;
   const rate = all.length === 0 ? 0 : Math.round((submitted / all.length) * 1000) / 10;
 
@@ -66,10 +79,25 @@ export default function PulseParticipation() {
           label={t("pulse.results.cycle")}
           data={options}
           value={String(selectedId)}
-          onChange={setPicked}
+          onChange={(v) => {
+            setPicked(v);
+            // A team picked under the previous cycle may not exist (or mean the same roster)
+            // in the new one — reset to "All teams" rather than silently carrying a stale pick.
+            setPickedTeam(null);
+          }}
           allowDeselect={false}
           w={260}
         />
+        {status.isSuccess && teams.length > 1 && (
+          <Select
+            label={t("pulse.participation.team")}
+            data={teamOptions}
+            value={selectedTeamId ?? ""}
+            onChange={(v) => setPickedTeam(v || null)}
+            allowDeselect={false}
+            w={260}
+          />
+        )}
         <Text size="sm" c="dimmed">
           {t(isHr() ? "pulse.participation.hintAudit" : "pulse.participation.hint")}
         </Text>
@@ -93,7 +121,7 @@ export default function PulseParticipation() {
             </Text>
             <Progress value={all.length === 0 ? 0 : (submitted / all.length) * 100} size="sm" mt={4} />
           </div>
-          {teams.map((team) => (
+          {visibleTeams.map((team) => (
             <Stack key={team.teamId} gap="xs">
               <Title order={5} style={{ minWidth: 0, overflowWrap: "break-word" }}>{team.teamName}</Title>
               <ResponsiveTable density="normal">

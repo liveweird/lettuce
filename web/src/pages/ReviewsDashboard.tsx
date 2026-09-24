@@ -22,8 +22,9 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getUserId } from "../api/session";
+import { canAudit, getUserId } from "../api/session";
 import { listAllTeamMembers } from "../api/teams";
+import { listAllUsers } from "../api/users";
 import { listAllPerformanceReviews } from "../api/reviews";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
@@ -33,7 +34,8 @@ import PersonCell from "../components/PersonCell";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import { RatingCells } from "../components/RatingBadge";
 import ReviewQuadrants from "../components/ReviewQuadrants";
-import ReportsScopeSelect from "../components/ReportsScopeSelect";
+import ReportsScopeSelect, { type AuditorReportsScope } from "../components/ReportsScopeSelect";
+import { useIsManagerStatus } from "../hooks/useIsManager";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
@@ -43,10 +45,12 @@ import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
 import { pickLocalized } from "../utils/localized";
+import { usersToPersonCards } from "../utils/teamRows";
 import {
   buildReviewsDashboardRows,
   EMPTY_REVIEWS_DASHBOARD_FILTERS,
   filterReviewsDashboardRows,
+  joinReviewsDashboardRows,
   REVIEWS_DASHBOARD_SORT_FIELDS,
   sortReviewsDashboardRows,
   teamNameOptions,
@@ -55,7 +59,10 @@ import {
 } from "../utils/reviewsDashboard";
 
 const SETTINGS_KEY = "dashboardReviews";
-const REPORTS_SCOPES = ["direct", "all"] as const;
+// "auditor" (v4.3.0) = the HR-only org-wide scope over GET ?view=all — offered only to
+// canAudit() callers (the PulseResults safeView idiom below handles a role downgrade / a
+// stale cross-device value).
+const REPORTS_SCOPES = ["direct", "all", "auditor"] as const;
 const VIEW_MODES = ["table", "chart", "quadrants"] as const;
 const BACK_TO = "/performance?tab=managed";
 
@@ -83,13 +90,30 @@ export default function ReviewsDashboard() {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
 
-  const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
+  const auditor = canAudit();
+  const { isManager, isResolved: isManagerResolved } = useIsManagerStatus();
+  const [storedScope, setReportsScope] = useStoredState<AuditorReportsScope>(
     `${SETTINGS_KEY}.filter.reportsScope`, "direct", isOneOf(REPORTS_SCOPES),
   );
+  // A stored "auditor" value must never apply to a non-auditor (a role downgrade, or a stale
+  // cross-device value) — fall back to direct, never rewriting storage here (the PulseResults
+  // safeView idiom).
+  const safeScope: AuditorReportsScope = storedScope === "auditor" && !auditor ? "direct" : storedScope;
+  // An HR caller who manages no team has no meaningful direct/all choice — direct reports would
+  // always be empty — so the auditor scope is their ONLY option and their default (v4.3.0); an
+  // HR caller who DOES manage a team keeps the ordinary direct/all/auditor choice, defaulting
+  // to direct like everyone else. Wait for the managed-teams probe to RESOLVE before committing
+  // to the auditor-only default: while it's loading, `isManager` reads `false` like a genuine
+  // non-manager, and picking "auditor" off that transient value would fire a stray `view=all`
+  // request — and a false `hr.list` audit event — for an HR caller who turns out to manage a
+  // team once the probe settles.
+  const auditorOnly = auditor && isManagerResolved && !isManager;
+  const reportsScope: AuditorReportsScope = auditorOnly ? "auditor" : safeScope;
+  const isAuditorScope = reportsScope === "auditor";
+  const includeIndirect = reportsScope === "all";
   const [view, setView] = useStoredState<(typeof VIEW_MODES)[number]>(
     `${SETTINGS_KEY}.view`, "table", isOneOf(VIEW_MODES),
   );
-  const includeIndirect = reportsScope === "all";
   const [storedPeriod, setStoredPeriod] = useStoredState(`${SETTINGS_KEY}.period`, "", isString);
   const [teamFilter, setTeamFilter] = useStoredState(
     `${SETTINGS_KEY}.filter.team`, EMPTY_REVIEWS_DASHBOARD_FILTERS.teamName, isString,
@@ -137,16 +161,33 @@ export default function ReviewsDashboard() {
   const { data: members, isLoading: membersLoading, isError: membersError } = useQuery({
     queryKey: ["teamMembers", "reviewsDashboard", includeIndirect],
     queryFn: () => listAllTeamMembers("managed", includeIndirect || undefined),
+    enabled: !isAuditorScope,
+  });
+  // The auditor scope's roster is the org-wide users list (no /teams/members scope applies to
+  // "everyone") — mapped to PersonCards via usersToPersonCards, every stat null.
+  const { data: auditUsers, isLoading: auditUsersLoading, isError: auditUsersError } = useQuery({
+    queryKey: ["users", "all", "reviewsDashboardAuditor"],
+    queryFn: () => listAllUsers(),
+    enabled: isAuditorScope,
   });
   const { data: reviews, isLoading: reviewsLoading, isError: reviewsError } = useQuery({
-    queryKey: ["performanceReviews", "reviewsDashboard", periodId],
+    // Keyed on isAuditorScope, not the full reportsScope: the "direct" vs "all" distinction
+    // only widens the MEMBERS roster (includeIndirect) — the reviews request itself is always
+    // `view=managed&includeIndirect=true` for either, so keying on reportsScope would refetch
+    // reviews on a direct<->all toggle that changes nothing about this request.
+    queryKey: ["performanceReviews", "reviewsDashboard", periodId, isAuditorScope],
     queryFn: () =>
-      listAllPerformanceReviews({
-        view: "managed",
-        includeIndirect: true,
-        periodId: Number(periodId),
-      }),
+      listAllPerformanceReviews(
+        isAuditorScope
+          ? { view: "all", periodId: Number(periodId) }
+          : { view: "managed", includeIndirect: true, periodId: Number(periodId) },
+      ),
     enabled: periodId != null,
+    // The auditor branch is a `view=all` HR read, audited server-side (hr.list) on every
+    // request — a 60s staleTime + no window-refocus refetch keeps casual tab-switching from
+    // filling the audit trail with reads that show nothing new (v4.3.0).
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const filters: ReviewsDashboardFilters = {
@@ -161,7 +202,9 @@ export default function ReviewsDashboard() {
     (specFilter ? 1 : 0) +
     (seniorityFilter ? 1 : 0) +
     (includeIndirect ? 1 : 0);
-  const allRows = buildReviewsDashboardRows(members ?? [], reviews ?? []);
+  const allRows = isAuditorScope
+    ? joinReviewsDashboardRows(usersToPersonCards(auditUsers ?? []), reviews ?? [])
+    : buildReviewsDashboardRows(members ?? [], reviews ?? []);
   const filteredRows = sortReviewsDashboardRows(
     filterReviewsDashboardRows(allRows, filters),
     sortField,
@@ -172,8 +215,11 @@ export default function ReviewsDashboard() {
   const rows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
   const teamOptions = teamNameOptions(allRows);
 
-  const isLoading = periodsLoading || membersLoading || (periodId != null && reviewsLoading);
-  const isError = periodsError || membersError || reviewsError;
+  const isLoading =
+    periodsLoading ||
+    (isAuditorScope ? auditUsersLoading : membersLoading) ||
+    (periodId != null && reviewsLoading);
+  const isError = periodsError || (isAuditorScope ? auditUsersError : membersError) || reviewsError;
   const columnCount = REVIEWS_DASHBOARD_SORT_FIELDS.length + 1;
 
   if (periods != null && periods.length === 0) {
@@ -242,7 +288,19 @@ export default function ReviewsDashboard() {
       </Group>
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY} tourId="performance-dashboard-filters">
-        <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+        {auditor ? (
+          <ReportsScopeSelect
+            value={reportsScope}
+            onChange={setReportsScope}
+            auditorOption
+            auditorOnly={auditorOnly}
+          />
+        ) : (
+          <ReportsScopeSelect
+            value={reportsScope === "auditor" ? "direct" : reportsScope}
+            onChange={setReportsScope}
+          />
+        )}
         <Select
           label={t("performanceReview.dashboard.team")}
           data={[{ value: "", label: t("common.state.all") }, ...teamOptions.map((n) => ({ value: n, label: n }))]}
@@ -369,7 +427,7 @@ export default function ReviewsDashboard() {
           </ResponsiveTable.Tr>
         </ResponsiveTable.Thead>
         <ResponsiveTable.Tbody>
-          {isLoading && !members ? (
+          {isLoading && !(isAuditorScope ? auditUsers : members) ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : rows.length > 0 ? (
             rows.map(({ person, review }) => {

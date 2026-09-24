@@ -113,6 +113,18 @@ describe("Performance page", () => {
     expect(await screen.findByText(NO_PERIODS_MESSAGE)).toBeInTheDocument();
   });
 
+  test("HR-only (non-manager): the Team's-performance tab is visible too (v4.3.0)", async () => {
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    mockApi(mockFetch);
+    const user = userEvent.setup();
+    renderPerformance();
+
+    const managedTab = await screen.findByRole("tab", { name: "Team's performance" });
+    await user.click(managedTab);
+
+    expect(await screen.findByText(NO_PERIODS_MESSAGE)).toBeInTheDocument();
+  });
+
   test("?tab=managed falls back to My performance for a non-manager", async () => {
     mockApi(mockFetch);
     renderPerformance("/performance?tab=managed");

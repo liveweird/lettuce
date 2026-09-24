@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import PulseParticipation from "./PulseParticipation";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
@@ -36,6 +36,17 @@ const STATUS = {
         { userId: 2, name: "AAA Two", responded: false },
         { userId: 3, name: "AAA Three", responded: true },
       ],
+    },
+  ],
+};
+
+const MULTI_TEAM_STATUS = {
+  teams: [
+    STATUS.teams[0],
+    {
+      teamId: 22,
+      teamName: "BBB",
+      members: [{ userId: 4, name: "BBB One", responded: false }],
     },
   ],
 };
@@ -93,6 +104,65 @@ describe("PulseParticipation", () => {
     setupMocks({ status: { teams: [] } });
     renderWithProviders(<PulseParticipation />);
     expect(await screen.findByText("You don't monitor any teams.")).toBeInTheDocument();
+  });
+
+  test("the team picker is hidden with only one team", async () => {
+    setupMocks();
+    renderWithProviders(<PulseParticipation />);
+    await screen.findByText("AAA One");
+    expect(screen.queryByLabelText("Team", { selector: "input" })).toBeNull();
+  });
+
+  test("the team picker filters the list and recomputes the summary + progress (v4.3.0)", async () => {
+    setupMocks({ status: MULTI_TEAM_STATUS });
+    renderWithProviders(<PulseParticipation />);
+    await screen.findByText("AAA One");
+    expect(screen.getByText("BBB One")).toBeInTheDocument();
+    expect(screen.getByText("2 of 4 submitted (50%)")).toBeInTheDocument();
+
+    const picker = screen.getByLabelText("Team", { selector: "input" });
+    fireEvent.click(picker);
+    fireEvent.click(await screen.findByRole("option", { name: "BBB" }));
+
+    expect(screen.queryByText("AAA One")).toBeNull();
+    expect(screen.getByText("BBB One")).toBeInTheDocument();
+    expect(screen.getByText("0 of 1 submitted (0%)")).toBeInTheDocument();
+
+    // "All teams" restores the full roster.
+    fireEvent.click(picker);
+    fireEvent.click(await screen.findByRole("option", { name: "All teams" }));
+    expect(await screen.findByText("AAA One")).toBeInTheDocument();
+    expect(screen.getByText("BBB One")).toBeInTheDocument();
+  });
+
+  test("switching cycles resets a picked team back to All teams (v4.3.0)", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/cycles/6/participation-status")) {
+        return Promise.resolve(jsonResponse(200, MULTI_TEAM_STATUS));
+      }
+      if (u.includes("/cycles/5/participation-status")) {
+        return Promise.resolve(jsonResponse(200, MULTI_TEAM_STATUS));
+      }
+      if (u.includes("/pulse-surveys/cycles")) return Promise.resolve(jsonResponse(200, { items: CYCLES }));
+      return Promise.resolve(jsonResponse(200, { items: [] }));
+    });
+    renderWithProviders(<PulseParticipation />);
+    await screen.findByText("AAA One");
+
+    const teamPicker = screen.getByLabelText("Team", { selector: "input" });
+    fireEvent.click(teamPicker);
+    fireEvent.click(await screen.findByRole("option", { name: "BBB" }));
+    expect(screen.queryByText("AAA One")).toBeNull();
+    expect(screen.getByText("BBB One")).toBeInTheDocument();
+
+    // Switch to the other cycle — the team pick must not silently carry over.
+    const cyclePicker = screen.getByLabelText("Cycle", { selector: "input" });
+    fireEvent.click(cyclePicker);
+    fireEvent.click(await screen.findByRole("option", { name: /Closed/ }));
+    await screen.findByText("AAA One");
+    expect(screen.getByLabelText("Team", { selector: "input" })).toHaveValue("All teams");
+    expect(screen.getByText("BBB One")).toBeInTheDocument();
   });
 
   test("no monitorable cycle → the empty state", async () => {

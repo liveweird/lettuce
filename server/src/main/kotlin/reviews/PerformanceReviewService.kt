@@ -26,7 +26,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val PerformanceReviewServiceKey = AttributeKey<PerformanceReviewService>("PerformanceReviewService")
 
-enum class PerformanceReviewListView { OWN, MANAGED, TEAM, USER }
+enum class PerformanceReviewListView { OWN, MANAGED, TEAM, USER, ALL }
 
 data class PerformanceReviewListFilter(
     val managerName: String? = null,
@@ -300,6 +300,10 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
                 val target = requireNotNull(targetUserId) { "view=user requires userId" }
                 (Reviews.managerId eq target) or (Reviews.subordinateId eq target)
             }
+            // The org-wide auditor sweep (HR-only, gated route-side via
+            // requireAuditScopeListAccess, v4.3.0 — the team-KPI view=all sibling): every review,
+            // every status, org-wide. periodId still narrows via buildPredicate below.
+            PerformanceReviewListView.ALL -> Op.TRUE
             PerformanceReviewListView.MANAGED ->
                 if (!includeIndirect) {
                     Reviews.managerId eq callerUserId

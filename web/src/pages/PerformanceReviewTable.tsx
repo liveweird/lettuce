@@ -63,9 +63,11 @@ const SUBORDINATE_COLUMN: PersonColumn = {
 // Per-view differences, declaratively (the GoalTable shape). The row action is NOT per-view:
 // at any view the review's manager edits their DRAFT rows and everyone else views (the view
 // screen owns the CALIBRATION-phase actions). view=team exists server-side but has no UI surface (the
-// reviews dashboard covers team browsing) — the goals precedent.
+// reviews dashboard covers team browsing) — the goals precedent. view=all (v4.3.0, the HR
+// auditor sweep) likewise has no surface here — ReviewsDashboard's "Everyone (auditor)" scope
+// covers it, the same reasoning as team.
 const VIEW_CONFIG: Record<
-  Exclude<PerformanceReviewListView, "team">,
+  Exclude<PerformanceReviewListView, "team" | "all">,
   { personColumns: PersonColumn[] }
 > = {
   own: { personColumns: [MANAGER_COLUMN] },
@@ -90,7 +92,7 @@ export default function PerformanceReviewTable({
   includeIndirect,
   tourId,
 }: {
-  view: Exclude<PerformanceReviewListView, "team">;
+  view: Exclude<PerformanceReviewListView, "team" | "all">;
   /** Scope to one manager's reviews (the "reviews from this manager" drill-down). */
   managerId?: number;
   /** Scope to one subordinate's reviews (the per-subordinate drill-down). */

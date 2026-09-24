@@ -64,6 +64,53 @@ export type PersonCard = {
   lastLoginAt: number | null;
 };
 
+/** The minimal shape of an open-users-list row needed to build an HR auditor roster —
+ * structurally compatible with the generated `UserResponse`. */
+export type AuditableUser = {
+  id: number;
+  name: string;
+  email: string;
+  deactivated: boolean;
+  teams?: TeamRef[];
+  careerPath?: LocalizedEntry | null;
+  careerSpecialization?: LocalizedEntry | null;
+  seniorityLevel?: LocalizedEntry | null;
+};
+
+/**
+ * Maps the open users list (ACTIVE users only) to [PersonCard]s — the HR auditor scope's
+ * roster source (v4.3.0, the reviews dashboard's "Everyone (auditor)" scope): the caller-scoped
+ * `/teams/members` enrichment stats (1:1s, feedback, goals, reviews, days off) don't apply
+ * org-wide, so every stat but the career triple and team membership is null.
+ */
+export function usersToPersonCards(users: AuditableUser[]): PersonCard[] {
+  return users
+    .filter((u) => !u.deactivated)
+    .map((u) => ({
+      userId: u.id,
+      name: u.name,
+      email: u.email,
+      teams: u.teams ?? [],
+      teamNames: (u.teams ?? []).map((team) => team.name),
+      lastOneOnOneDate: null,
+      lastOneOnOneOpenItems: null,
+      lastFeedbackAt: null,
+      lastFeedbackGivenAt: null,
+      lastFeedbackReceivedAt: null,
+      activeGoalCount: null,
+      lastReviewId: null,
+      lastReviewPeriodStartMonth: null,
+      lastReviewPeriodEndMonth: null,
+      lastReviewStatus: null,
+      careerPath: u.careerPath ?? null,
+      careerSpecialization: u.careerSpecialization ?? null,
+      seniorityLevel: u.seniorityLevel ?? null,
+      nextVacationStart: null,
+      daysOffRemaining: null,
+      lastLoginAt: null,
+    }));
+}
+
 export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
   const byId = new Map<number, PersonCard>();
   for (const r of rows) {

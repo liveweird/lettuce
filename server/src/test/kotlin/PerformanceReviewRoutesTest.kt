@@ -808,6 +808,87 @@ class PerformanceReviewRoutesTest {
     }
 
     @Test
+    fun `view=all is the HR auditor's org-wide view, every status, 403 for anyone else`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val period = TestReviewPeriods.append()
+        val manager = authedClient(pair.managerEmail, "pw")
+        val draft = manager.createReview(pair.subordinateId, period.id)
+
+        val hrEmail = uniqueEmail("review-all-hr")
+        TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
+
+        // HR sees the DRAFT the caller has no relationship to.
+        val all = hr.get("/api/v1/performance-reviews?view=all&subordinateId=${pair.subordinateId}")
+            .body<PerformanceReviewPageResponse>()
+        assertEquals(listOf(draft.id), all.items.map { it.id })
+
+        // periodId still narrows an org-wide read.
+        val pinned = hr.get("/api/v1/performance-reviews?view=all&periodId=${period.id}&subordinateId=${pair.subordinateId}")
+            .body<PerformanceReviewPageResponse>()
+        assertEquals(listOf(draft.id), pinned.items.map { it.id })
+
+        // A manager and an ADMIN each get 403 — the view=user rule of the per-user lists.
+        assertEquals(HttpStatusCode.Forbidden, manager.get("/api/v1/performance-reviews?view=all").status)
+        val admin = authedClient("admin@lettuce.local", "changeme")
+        assertEquals(HttpStatusCode.Forbidden, admin.get("/api/v1/performance-reviews?view=all").status)
+
+        // includeIndirect is managed/team-only — 400 with view=all too, for EVERY caller: shape
+        // 400s run before the role gate (the registered list-ordering rule), so a manager or an
+        // ADMIN probing the malformed combination gets the same 400 HR gets — never a 403 that
+        // would make the parameter vocabulary a role oracle.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/performance-reviews?view=all&includeIndirect=true").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.get("/api/v1/performance-reviews?view=all&includeIndirect=true").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            admin.get("/api/v1/performance-reviews?view=all&includeIndirect=true").status,
+        )
+
+        // An unknown view is still a plain 400 (the parameter vocabulary is not a role oracle).
+        assertEquals(HttpStatusCode.BadRequest, hr.get("/api/v1/performance-reviews?view=bogus").status)
+
+        // A malformed auditor request (the includeIndirect 400 above) must never be recorded as
+        // an HR read — the guard that writes hr.list never runs for a request that 400s on shape
+        // first (its own capture, so an earlier hr.list event in this test can't mask a fresh one).
+        val shapeAppender = LogCapture("ch.nokillswit.audit")
+        try {
+            assertEquals(
+                HttpStatusCode.BadRequest,
+                hr.get("/api/v1/performance-reviews?view=all&includeIndirect=true").status,
+            )
+            assertTrue(
+                shapeAppender.events.none { it.message == "hr.list" },
+                "a malformed auditor request must not be recorded as an HR read",
+            )
+        } finally {
+            shapeAppender.detach()
+        }
+
+        // An empty result is still audited — the HR read left a trail even when nothing matched.
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val nothing = hr.get("/api/v1/performance-reviews?view=all&periodId=999999")
+                .body<PerformanceReviewPageResponse>()
+            assertEquals(emptyList(), nothing.items)
+            val event = appender.events.find {
+                it.message == "hr.list" &&
+                    it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "performanceReview" }
+            }
+            assertNotNull(event, "an empty view=all read should still be audited")
+            assertEquals(999999L, event.keyValuePairs.first { it.key == "periodId" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
     fun `events are readable exactly by those who may read the review`() = testApplication {
         usePostgresTestcontainer()
         val pair = seedPair()
