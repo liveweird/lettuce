@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.4.1",
+    date: "2026-09-24",
+    en: `The quick app tour no longer comes back after you skip it for a tutorial. If you started a feature tutorial while the tour was still running at your first sign-in, the tour used to start again the next time you signed in; now it counts as seen. You can still replay it at any time.`,
+    pl: `Szybki przegląd aplikacji nie wraca już, gdy przerwiesz go samouczkiem. Jeśli przy pierwszym logowaniu uruchomiłeś/aś samouczek funkcji, zanim przegląd się skończył, przegląd startował ponownie przy następnym logowaniu; teraz liczy się jako obejrzany. Nadal możesz go odtworzyć w dowolnej chwili.`,
+  },
+  {
     version: "4.4.0",
     date: "2026-09-24",
     en: `Every guided walkthrough is now one click away from anywhere: your account menu has a new "Tutorials" list with the "Quick app tour" and each feature's "How … works" tutorial. Picking one from any page opens that feature and starts the walkthrough. The list shows only the tutorials for areas you can use.`,

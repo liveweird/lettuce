@@ -489,7 +489,33 @@ describe("Tour", () => {
     expect(screen.getByText("Abandon")).toBeInTheDocument();
   });
 
-  test("finishing a tutorial navigates to its home and never marks the whirlwind seen", async () => {
+  test("a tutorial started over the running whirlwind marks the whirlwind seen, so it doesn't auto-start again", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderTour(
+      <TourProvider>
+        <TutorialStarter />
+      </TourProvider>,
+    );
+    // Fresh profile → the whirlwind auto-starts on mount.
+    await waitFor(() => expect(lastProps().run).toBe(true));
+    expect(hasSeenTour(7)).toBe(false);
+
+    await user.click(screen.getByText("start-tutorial"));
+    await waitFor(() => expect(lastProps().steps).toHaveLength(9));
+    expect(hasSeenTour(7)).toBe(true);
+
+    // The next sign-in (a fresh mount for the same user) no longer auto-starts it.
+    unmount();
+    joyrideSpy.mockClear();
+    renderTour(
+      <TourProvider>
+        <TutorialStarter />
+      </TourProvider>,
+    );
+    expect(joyrideSpy.mock.calls.some(([props]) => (props as JoyrideProps).run)).toBe(false);
+  });
+
+  test("finishing a tutorial navigates to its home", async () => {
     const user = userEvent.setup();
     renderTour(
       <TourProvider>
@@ -508,7 +534,6 @@ describe("Tour", () => {
     await waitFor(() =>
       expect(screen.getByTestId("location")).toHaveTextContent("/feedback?tab=received"),
     );
-    expect(hasSeenTour(7)).toBe(false);
   });
 
   test("launchTutorial from another page opens the tutorial's home first, then starts it", async () => {
@@ -528,6 +553,9 @@ describe("Tour", () => {
     );
     await waitFor(() => expect(lastProps().run).toBe(true));
     expect(lastProps().steps).toHaveLength(9);
+    // The deferred (post-navigation) start took over the auto-started whirlwind too — so the
+    // account-menu path marks it seen like the hub button does (v4.4.1).
+    expect(hasSeenTour(7)).toBe(true);
   });
 
   test("launchTutorial on the tutorial's own hub starts it without navigating", async () => {
@@ -609,7 +637,7 @@ describe("Tour", () => {
     expect(joyrideSpy.mock.calls.some(([props]) => (props as JoyrideProps).run)).toBe(false);
   });
 
-  test("abandoning a tutorial navigates to its home and never marks the whirlwind seen", async () => {
+  test("abandoning a tutorial navigates to its home and stops it", async () => {
     const user = userEvent.setup();
     renderTour(
       <TourProvider>
@@ -626,7 +654,6 @@ describe("Tour", () => {
     await waitFor(() =>
       expect(screen.getByTestId("location")).toHaveTextContent("/feedback?tab=received"),
     );
-    expect(hasSeenTour(7)).toBe(false);
     expect(lastProps().run).toBe(false);
   });
 
