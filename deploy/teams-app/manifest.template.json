@@ -1,0 +1,35 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "1.0.0",
+  "id": "REPLACE-WITH-A-NEW-GUID-FOR-THE-TEAMS-APP",
+  "developer": {
+    "name": "REPLACE-WITH-YOUR-ORGANIZATION",
+    "websiteUrl": "https://REPLACE-WITH-THE-LETTUCE-HOST",
+    "privacyUrl": "https://REPLACE-WITH-THE-LETTUCE-HOST",
+    "termsOfUseUrl": "https://REPLACE-WITH-THE-LETTUCE-HOST"
+  },
+  "name": {
+    "short": "Lettuce",
+    "full": "Lettuce notifications"
+  },
+  "description": {
+    "short": "Your Lettuce notifications as Teams messages.",
+    "full": "Sends you a direct message whenever Lettuce has a notification for you. You can choose which notifications arrive here in Lettuce's notification preferences. This bot only sends messages; it does not read or answer chats."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#2F7D32",
+  "bots": [
+    {
+      "botId": "REPLACE-WITH-TEAMS_APP_ID",
+      "scopes": ["personal"],
+      "isNotificationOnly": true,
+      "supportsFiles": false
+    }
+  ],
+  "permissions": ["identity"],
+  "validDomains": []
+}

@@ -14,6 +14,7 @@ import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserFeaturesUpdateRequest
 import ch.nokillswit.users.UserPageResponse
 import ch.nokillswit.users.UserResponse
+import ch.nokillswit.users.UserService
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -26,6 +27,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import org.jetbrains.exposed.v1.r2dbc.insert
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -232,8 +235,8 @@ class FeatureFlagsTest {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, "pw-123456789"))
         }.body<LoginResponse>()
-        // A fresh user's only disabled flag is the inverted-default MFA (opt-in).
-        assertEquals(listOf(Feature.MFA), firstLogin.disabledFeatures)
+        // A fresh user's only disabled flags are the two inverted-default (opt-in) ones.
+        assertEquals(listOf(Feature.MFA, Feature.TEAMS_NOTIFICATIONS), firstLogin.disabledFeatures)
 
         val preChange = authedClient(email, "pw-123456789")
         assertEquals(HttpStatusCode.OK, preChange.get("/api/v1/goals").status)
@@ -347,5 +350,41 @@ class FeatureFlagsTest {
             }
             assertEquals(expected, type.feature, "mapping for $type")
         }
+    }
+
+    @Test
+    fun `an unknown stored feature name is ignored rather than failing the read`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("feature-orphan")
+        val userId = TestUsers.seed(email = email, password = "pw-123456789", roles = emptySet())
+        // Leave the seeded inverted-default rows (MFA/TEAMS_NOTIFICATIONS) in place — clearing
+        // them via setDisabledFeatures(emptySet()) would ENABLE MFA (the wholesale-replace
+        // "empty array re-enables everything" idiom, including the login second factor) and
+        // break this test's own plain-password login. The orphan below rides alongside them.
+        val expectedDisabled = listOf(Feature.MFA, Feature.TEAMS_NOTIFICATIONS)
+        // The open-set rule (v3.25.3): a feature name a rolled-back build (or a removed feature
+        // never migrated away) no longer recognizes must drop silently — never throw
+        // Feature.valueOf's IllegalArgumentException and 500 every read of this user.
+        suspendTransaction(TestServices.database) {
+            UserService.UserDisabledFeatures.insert {
+                it[UserService.UserDisabledFeatures.userId] = userId
+                it[UserService.UserDisabledFeatures.feature] = "RETIRED_FEATURE"
+            }
+        }
+        val response = authedClient(email, "pw-123456789").get("/api/v1/users/$userId")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(expectedDisabled, response.body<UserResponse>().disabledFeatures)
+
+        // The list read (disabledFeaturesByUserIds) must not choke on the same orphan row either.
+        val adminEmail = uniqueEmail("feature-orphan-admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val listResponse = authedClient(adminEmail, "pw-123456789").get("/api/v1/users") {
+            parameter("email", email)
+        }
+        assertEquals(HttpStatusCode.OK, listResponse.status)
+        assertEquals(
+            expectedDisabled,
+            listResponse.body<UserPageResponse>().items.single { it.id == userId }.disabledFeatures,
+        )
     }
 }

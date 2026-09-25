@@ -1,0 +1,9 @@
+{
+  "request": { "method": "GET", "urlPathPattern": "/graph/v1.0/users/[^/]+" },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": "{\"id\": \"aad-{{request.pathSegments.[3]}}\"}",
+    "transformers": ["response-template"]
+  }
+}

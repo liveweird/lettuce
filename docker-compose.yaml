@@ -31,6 +31,23 @@ services:
     ports:
       - "127.0.0.1:8025:8025"
 
+  teams-stub:
+    # Local stand-in for Microsoft Teams (v4.5.0) — the "Mailpit for Teams": a WireMock
+    # server answering the three Microsoft endpoints the Teams notification channel calls
+    # (Entra token, Graph user lookup, Bot Connector conversation + activity) from the
+    # mappings in dev/teams-stub/. Every direct message the app sends lands in its request
+    # journal: http://localhost:8089/__admin/requests. A member id containing
+    # "teams-not-installed" answers the real 403 ForbiddenOperationException.
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    container_name: lettuce-teams-stub
+    restart: unless-stopped
+    command: ["--global-response-templating", "--disable-banner", "--max-request-journal-entries=5000"]
+    volumes:
+      - ./dev/teams-stub:/home/wiremock:ro
+    # Loopback-bound (see postgres) — the journal is for the local operator only.
+    ports:
+      - "127.0.0.1:8089:8080"
+
   app:
     build:
       context: .
@@ -69,6 +86,16 @@ services:
       # The read-only integration GraphQL API (v3.0.0) — on in the local demo so it can be
       # tried (and e2e-exercised) out of the box; the shipped image default is OFF.
       INTEGRATION_ENABLED: "true"
+      # Teams notification channel (v4.5.0) against the local teams-stub above. Non-Microsoft
+      # base URLs and this obviously fake secret are accepted in development mode ONLY —
+      # production pins the three URLs to Microsoft's public cloud (infra/teams/Teams.kt).
+      TEAMS_TRANSPORT: botframework
+      TEAMS_TENANT_ID: 00000000-0000-0000-0000-000000000000
+      TEAMS_APP_ID: 11111111-1111-1111-1111-111111111111
+      TEAMS_APP_SECRET: dev-only-fake-teams-secret
+      TEAMS_LOGIN_BASE_URL: http://teams-stub:8080/login
+      TEAMS_GRAPH_BASE_URL: http://teams-stub:8080/graph
+      TEAMS_SERVICE_URL: http://teams-stub:8080/connector/
     # Loopback-bound: browse the demo at http://localhost:8080 on this machine only.
     ports:
       - "127.0.0.1:8080:8080"

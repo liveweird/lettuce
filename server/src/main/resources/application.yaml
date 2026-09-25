@@ -22,6 +22,7 @@ ktor:
       - ch.nokillswit.plugins.ResourcesKt.configureResources
       # — infrastructure
       - ch.nokillswit.infra.mail.MailKt.configureMail
+      - ch.nokillswit.infra.teams.TeamsKt.configureTeams
       - ch.nokillswit.infra.crypto.CryptoKt.configureCrypto
       - ch.nokillswit.infra.db.FlywayKt.configureFlyway
       - ch.nokillswit.infra.db.DatabaseKt.configureDatabase
@@ -170,6 +171,33 @@ mail:
   # Optional absolute URL of this deployment (e.g. https://lettuce.example.com);
   # when set, outbound emails include a sign-in link.
   appUrl: "$MAIL_APP_URL:"
+
+teams:
+  # Outbound Microsoft Teams direct-message transport (infra/teams/Teams.kt), the third
+  # notification channel (v4.5.0): `disabled` (the deployment default — off, like
+  # integration.enabled), `log` (dev-only — messages go to the ch.nokillswit.teams logger instead
+  # of being sent; production startup REFUSES it), or `botframework` (the real Bot Framework
+  # connector + Microsoft Graph transport; blank tenantId/appId/appSecret refuses startup in any
+  # mode).
+  transport: "$TEAMS_TRANSPORT:disabled"
+  # Azure AD (Entra) tenant id, app (client) id and client secret of the single-tenant bot
+  # registration — from lettuce-secrets in Kubernetes. The secret is posted to loginBaseUrl on
+  # every token request, which is why production pins the three base URLs below.
+  tenantId: "$TEAMS_TENANT_ID:"
+  appId: "$TEAMS_APP_ID:"
+  appSecret: "$TEAMS_APP_SECRET:"
+  # The Microsoft-documented defaults (see the Learn pages cited in TeamsMessenger.kt). Overrides
+  # exist ONLY for the local WireMock stub, in development — production must match these exactly
+  # or refuse to start (the client secret is posted to loginBaseUrl).
+  serviceUrl: "$TEAMS_SERVICE_URL:https://smba.trafficmanager.net/teams/"
+  loginBaseUrl: "$TEAMS_LOGIN_BASE_URL:https://login.microsoftonline.com"
+  graphBaseUrl: "$TEAMS_GRAPH_BASE_URL:https://graph.microsoft.com"
+  # Per-request HTTP timeout for the connector/Graph/token calls (connect timeout is a fixed 5s).
+  requestTimeoutSeconds: "$TEAMS_REQUEST_TIMEOUT_SECONDS:10"
+  # How long an Unreachable resolve/send outcome (an uninstalled bot, an unknown Graph user, a
+  # blocked conversation) is cached before Lettuce tries that recipient again — bounds how often a
+  # persistently unreachable user is hammered on every notification.
+  unreachableRetryHours: "$TEAMS_UNREACHABLE_RETRY_HOURS:24"
 
 integration:
   # The read-only integration GraphQL API at POST /integration/graphql (contract:

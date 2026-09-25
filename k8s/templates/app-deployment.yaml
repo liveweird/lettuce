@@ -131,6 +131,33 @@ spec:
                   name: lettuce-secrets
                   key: SMTP_PASSWORD
                   optional: true
+            # Microsoft Teams direct messages (v4.5.0, the third notification channel). Ships
+            # disabled — set "botframework" to enable once the tenant's bot exists (runbook:
+            # .claude/docs/features/teams-notifications.md). The tenant and app ids come from the
+            # out-of-band `lettuce-config` ConfigMap, the client secret from `lettuce-secrets`;
+            # all optional, so an unconfigured deployment keeps booting. Production refuses a
+            # blank id/secret with "botframework", the `log` transport, and any non-Microsoft
+            # base URL — leave TEAMS_SERVICE_URL/TEAMS_LOGIN_BASE_URL/TEAMS_GRAPH_BASE_URL unset.
+            - name: TEAMS_TRANSPORT
+              value: "disabled"
+            - name: TEAMS_TENANT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: lettuce-config
+                  key: TEAMS_TENANT_ID
+                  optional: true
+            - name: TEAMS_APP_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: lettuce-config
+                  key: TEAMS_APP_ID
+                  optional: true
+            - name: TEAMS_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lettuce-secrets
+                  key: TEAMS_APP_SECRET
+                  optional: true
           # Release deployments must render this template with scripts/render-app-deployment.sh.
           # The renderer accepts only an explicit registry/repository@sha256 digest and replaces
           # this fail-closed sentinel. Never apply this template directly.

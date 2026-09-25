@@ -31,7 +31,10 @@ import { saveErrorMessage } from "../utils/saveError";
 import { invalidateUser } from "../utils/userQueries";
 import { PREFERENCE_LABEL_KEY } from "../utils/notificationPreferenceLabels";
 
-type Channel = "IN_APP" | "EMAIL";
+type Channel = DisabledNotificationPreference["channel"];
+
+/** The item field that carries each channel's enabled state. */
+type ChannelField = "inApp" | "email" | "teams";
 
 /** A stable per-(type,channel) map key for the override state below. */
 function overrideKey(type: string, channel: Channel): string {
@@ -42,7 +45,7 @@ type Section = { feature: Feature | null; label: string; items: NotificationPref
 
 /**
  * The v4.0.0 per-type notification preferences editor: the V51 master email switch plus a
- * matrix of independent in-app/email switches, one row per `NotificationType`, grouped by
+ * matrix of independent in-app/email (and, when available, Microsoft Teams — v4.5.0) switches, one row per `NotificationType`, grouped by
  * feature — the shape of `EmailNotifications.tsx`/`UserFeatures.tsx` (self-or-admin, an
  * explicit Save that calls only the endpoint(s) whose state actually changed).
  */
@@ -88,6 +91,7 @@ export default function NotificationPreferences() {
       ...item,
       inApp: overrides[overrideKey(item.type, "IN_APP")] ?? item.inApp,
       email: overrides[overrideKey(item.type, "EMAIL")] ?? item.email,
+      teams: overrides[overrideKey(item.type, "TEAMS")] ?? item.teams,
     }));
   }, [prefs, overrides]);
 
@@ -143,6 +147,9 @@ export default function NotificationPreferences() {
             const out: string[] = [];
             if (!item.locked && !item.inApp) out.push(overrideKey(item.type, "IN_APP"));
             if (!item.locked && !item.email) out.push(overrideKey(item.type, "EMAIL"));
+            // TEAMS pairs are kept even while the column is hidden (teamsAvailable false): a
+            // preference saved earlier must survive a save made while Teams is unavailable.
+            if (!item.locked && !item.teams) out.push(overrideKey(item.type, "TEAMS"));
             return out;
           }),
         );
@@ -199,6 +206,16 @@ export default function NotificationPreferences() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
   const ready = !isLoading && !isError && data != null && prefs != null;
 
+  // The matrix columns. Teams (v4.5.0) renders only when the server says this deployment has a
+  // live Teams transport AND the target has the TEAMS_NOTIFICATIONS feature enabled.
+  const columns: { channel: Channel; field: ChannelField; label: string; muted: boolean }[] = [
+    { channel: "IN_APP", field: "inApp", label: t("notificationPreferences.columnInApp"), muted: false },
+    { channel: "EMAIL", field: "email", label: t("notificationPreferences.columnEmail"), muted: !masterEnabled },
+    ...(prefs?.teamsAvailable
+      ? [{ channel: "TEAMS" as const, field: "teams" as const, label: t("notificationPreferences.columnTeams"), muted: false }]
+      : []),
+  ];
+
   return (
     <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="md" radius="md">
@@ -247,58 +264,37 @@ export default function NotificationPreferences() {
                     <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
                       <Text fw={600}>{section.label}</Text>
                       <Group gap={4} wrap="wrap">
-                        <Text size="xs" c="dimmed">
-                          {t("notificationPreferences.columnInApp")}:
-                        </Text>
-                        <Button
-                          variant="subtle"
-                          size="compact-xs"
-                          aria-label={t("notificationPreferences.allOnAria", {
-                            feature: section.label,
-                            column: t("notificationPreferences.columnInApp"),
-                          })}
-                          onClick={() => bulkSet(section.items, "IN_APP", true)}
-                        >
-                          {t("notificationPreferences.allOn")}
-                        </Button>
-                        <Button
-                          variant="subtle"
-                          size="compact-xs"
-                          aria-label={t("notificationPreferences.allOffAria", {
-                            feature: section.label,
-                            column: t("notificationPreferences.columnInApp"),
-                          })}
-                          onClick={() => bulkSet(section.items, "IN_APP", false)}
-                        >
-                          {t("notificationPreferences.allOff")}
-                        </Button>
-                        <Text size="xs" c="dimmed" ml="sm">
-                          {t("notificationPreferences.columnEmail")}:
-                        </Text>
-                        <Button
-                          variant="subtle"
-                          size="compact-xs"
-                          disabled={!masterEnabled}
-                          aria-label={t("notificationPreferences.allOnAria", {
-                            feature: section.label,
-                            column: t("notificationPreferences.columnEmail"),
-                          })}
-                          onClick={() => bulkSet(section.items, "EMAIL", true)}
-                        >
-                          {t("notificationPreferences.allOn")}
-                        </Button>
-                        <Button
-                          variant="subtle"
-                          size="compact-xs"
-                          disabled={!masterEnabled}
-                          aria-label={t("notificationPreferences.allOffAria", {
-                            feature: section.label,
-                            column: t("notificationPreferences.columnEmail"),
-                          })}
-                          onClick={() => bulkSet(section.items, "EMAIL", false)}
-                        >
-                          {t("notificationPreferences.allOff")}
-                        </Button>
+                        {columns.map((column, index) => (
+                          <Group key={column.channel} gap={4} wrap="nowrap">
+                            <Text size="xs" c="dimmed" ml={index > 0 ? "sm" : undefined}>
+                              {column.label}:
+                            </Text>
+                            <Button
+                              variant="subtle"
+                              size="compact-xs"
+                              disabled={column.muted}
+                              aria-label={t("notificationPreferences.allOnAria", {
+                                feature: section.label,
+                                column: column.label,
+                              })}
+                              onClick={() => bulkSet(section.items, column.channel, true)}
+                            >
+                              {t("notificationPreferences.allOn")}
+                            </Button>
+                            <Button
+                              variant="subtle"
+                              size="compact-xs"
+                              disabled={column.muted}
+                              aria-label={t("notificationPreferences.allOffAria", {
+                                feature: section.label,
+                                column: column.label,
+                              })}
+                              onClick={() => bulkSet(section.items, column.channel, false)}
+                            >
+                              {t("notificationPreferences.allOff")}
+                            </Button>
+                          </Group>
+                        ))}
                       </Group>
                     </Group>
                     <ResponsiveTable density="normal">
@@ -307,8 +303,9 @@ export default function NotificationPreferences() {
                           <ResponsiveTable.Th primary>
                             {t("notificationPreferences.typeColumn")}
                           </ResponsiveTable.Th>
-                          <ResponsiveTable.Th>{t("notificationPreferences.columnInApp")}</ResponsiveTable.Th>
-                          <ResponsiveTable.Th>{t("notificationPreferences.columnEmail")}</ResponsiveTable.Th>
+                          {columns.map((column) => (
+                            <ResponsiveTable.Th key={column.channel}>{column.label}</ResponsiveTable.Th>
+                          ))}
                         </ResponsiveTable.Tr>
                       </ResponsiveTable.Thead>
                       <ResponsiveTable.Tbody>
@@ -324,28 +321,19 @@ export default function NotificationPreferences() {
                                   </Text>
                                 )}
                               </ResponsiveTable.Td>
-                              <ResponsiveTable.Td label={t("notificationPreferences.columnInApp")}>
-                                <Switch
-                                  checked={item.locked || item.inApp}
-                                  disabled={item.locked}
-                                  aria-label={t("notificationPreferences.switchAria", {
-                                    label: typeLabel,
-                                    column: t("notificationPreferences.columnInApp"),
-                                  })}
-                                  onChange={(event) => toggle(item.type, "IN_APP", event.currentTarget.checked)}
-                                />
-                              </ResponsiveTable.Td>
-                              <ResponsiveTable.Td label={t("notificationPreferences.columnEmail")}>
-                                <Switch
-                                  checked={item.locked || item.email}
-                                  disabled={item.locked || !masterEnabled}
-                                  aria-label={t("notificationPreferences.switchAria", {
-                                    label: typeLabel,
-                                    column: t("notificationPreferences.columnEmail"),
-                                  })}
-                                  onChange={(event) => toggle(item.type, "EMAIL", event.currentTarget.checked)}
-                                />
-                              </ResponsiveTable.Td>
+                              {columns.map((column) => (
+                                <ResponsiveTable.Td key={column.channel} label={column.label}>
+                                  <Switch
+                                    checked={item.locked || item[column.field]}
+                                    disabled={item.locked || column.muted}
+                                    aria-label={t("notificationPreferences.switchAria", {
+                                      label: typeLabel,
+                                      column: column.label,
+                                    })}
+                                    onChange={(event) => toggle(item.type, column.channel, event.currentTarget.checked)}
+                                  />
+                                </ResponsiveTable.Td>
+                              ))}
                             </ResponsiveTable.Tr>
                           );
                         })}

@@ -239,6 +239,7 @@ const FEATURE_LISTED: Record<components["schemas"]["Feature"], true> = {
   PULSE_SURVEYS: true,
   SUCCESSION_PLANS: true,
   MFA: true,
+  TEAMS_NOTIFICATIONS: true,
 };
 export const FEATURES = Object.keys(FEATURE_LISTED) as readonly Feature[];
 export type Feature = components["schemas"]["Feature"];

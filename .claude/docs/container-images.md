@@ -14,6 +14,7 @@ The current indexes include both `linux/amd64` and `linux/arm64` images.
 | Temurin 21 JDK and JRE | `Dockerfile` server and runtime stages |
 | PostgreSQL 18.4 Alpine 3.24 | `docker-compose.yaml`, `k8s/postgres-deployment.yaml`, `server/src/test/kotlin/PostgresTestSupport.kt` |
 | Mailpit 1.31.2 | `docker-compose.yaml` |
+| WireMock 3.13.2 (the local Teams stub, v4.5.0) | `docker-compose.yaml` |
 
 Initial registry verification: 2026-09-06. PostgreSQL and Mailpit preserve the images
 already running in the development stack. Their exact version tags were checked
@@ -31,6 +32,12 @@ frontend digest was unchanged. PostgreSQL was deliberately left on 18.4: its
 `18.4-alpine3.24` digest is unchanged, the `18-alpine` tag has reached 18.6, and a
 database release change is the separate reviewed operation described below (the
 running development volume is 18.4).
+
+Addition record: 2026-09-25. WireMock 3.13.2 (`wiremock/wiremock`, the official upstream
+image; 3.13.2 is the newest stable — the 4.x line is still beta) joined as the
+`teams-stub` service, the local stand-in for Microsoft Teams. Its index
+`sha256:0d4ecb3e…61b3` carries linux/amd64, linux/arm64 and linux/arm/v7 images. It runs in
+the local stack only; no deployed environment uses it.
 
 ## Updating a pin
 

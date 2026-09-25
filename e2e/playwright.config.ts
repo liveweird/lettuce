@@ -5,6 +5,8 @@ import { defineConfig, devices } from "@playwright/test";
 // global-setup / global-teardown (unless one is already running locally, which is reused).
 export const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:8080";
 export const MAILPIT_URL = process.env.E2E_MAILPIT_URL ?? "http://localhost:8025";
+// The compose stack's WireMock stand-in for Microsoft Teams (v4.5.0 — dev/teams-stub/).
+export const TEAMS_STUB_URL = process.env.E2E_TEAMS_STUB_URL ?? "http://localhost:8089";
 
 // Self-signed TLS on a local proof target (an OrbStack ingress with an openssl cert): opt in
 // with E2E_INSECURE_TLS=1. This module is evaluated in the runner AND every worker, so setting

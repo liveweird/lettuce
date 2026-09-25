@@ -15,9 +15,13 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val NotificationPreferenceServiceKey = AttributeKey<NotificationPreferenceService>("NotificationPreferenceService")
 
-/** The two channels a notification can reach a recipient through (v4.0.0). */
+/**
+ * The channels a notification can reach a recipient through: `IN_APP` and `EMAIL` since v4.0.0,
+ * joined by `TEAMS` in v4.5.0 (a Microsoft Teams direct message — see
+ * `notifications/NotificationTeamsSender.kt`).
+ */
 @Serializable
-enum class NotificationChannel { IN_APP, EMAIL }
+enum class NotificationChannel { IN_APP, EMAIL, TEAMS }
 
 /**
  * `true` only for [NotificationType.PASSWORD_CHANGED] — a security receipt that stays on for
@@ -185,11 +189,18 @@ internal suspend fun disabledForInTransaction(
 
 private suspend fun readDisabledInTransaction(userId: UInt): Map<NotificationType, Set<NotificationChannel>> {
     val table = NotificationPreferenceService.UserNotificationPreferences
-    val known = NotificationType.entries.map { it.name }
+    val knownTypes = NotificationType.entries.map { it.name }
     return table.selectAll()
-        .where { (table.userId eq userId) and (table.notificationType inList known) }
-        .map { NotificationType.valueOf(it[table.notificationType]) to NotificationChannel.valueOf(it[table.channel]) }
+        .where { (table.userId eq userId) and (table.notificationType inList knownTypes) }
         .toList()
+        // The open-set rule (v3.25.3) applies to BOTH stored enum names here: a row minted under
+        // a NotificationChannel a later build removed (or, pre-filtered above, a removed
+        // NotificationType) is dropped silently rather than throwing IllegalArgumentException —
+        // see the class doc.
+        .mapNotNull { row ->
+            val channel = NotificationChannel.entries.firstOrNull { it.name == row[table.channel] } ?: return@mapNotNull null
+            NotificationType.valueOf(row[table.notificationType]) to channel
+        }
         .groupBy({ it.first }, { it.second })
         .mapValues { it.value.toSet() }
 }
@@ -203,6 +214,12 @@ data class NotificationPreferenceItem(
     val feature: Feature?,
     val inApp: Boolean,
     val email: Boolean,
+    // v4.5.0: whether a Teams DM is sent for this type. True unless the recipient disabled it —
+    // stored and returned even when TEAMS isn't currently AVAILABLE (see
+    // NotificationPreferencesResponse.teamsAvailable) so a later-enabled deployment/flag picks up
+    // exactly what was saved, the same "data stays real, client hides the group" rule the
+    // per-feature `feature` field already follows.
+    val teams: Boolean,
     val locked: Boolean,
 )
 
@@ -212,6 +229,14 @@ data class NotificationPreferencesResponse(
     // The V51 master email-mirror opt-out (users.email_notifications_enabled) — rides here too
     // so the SPA's single page can render both the master switch and the per-type matrix.
     val emailEnabled: Boolean,
+    // v4.5.0 — the house capability-flag idiom (TeamResponse.canManageKpis, the career timeline's
+    // canEdit): true only when THIS deployment has a live Teams transport (TeamsMessengerKey
+    // non-null — never disabled/unconfigured) AND the target hasn't disabled
+    // Feature.TEAMS_NOTIFICATIONS. The SPA renders the Teams column only when this is true; PUT
+    // always accepts TEAMS pairs regardless (see NotificationPreferencesUpdateRequest), so a
+    // preference set before the deployment enabled Teams (or while the user had the flag off)
+    // takes effect the moment it becomes available.
+    val teamsAvailable: Boolean,
     val items: List<NotificationPreferenceItem>,
 )
 

@@ -69,8 +69,9 @@ private val log = LoggerFactory.getLogger(NotificationService::class.java)
  */
 class NotificationService(
     val database: R2dbcDatabase,
-    // Mirrors every mint by email (v2.3.0) — null in service-level tests that don't care.
-    private val emailer: NotificationEmailer? = null,
+    // Mirrors every mint to side channels (email since v2.3.0, Teams DMs since v4.5.0) — empty in
+    // service-level tests that don't care. See NotificationMirror.
+    private val mirrors: List<NotificationMirror> = emptyList(),
     // config `notifications.retentionDays`; 0 disables the purge entirely.
     private val retentionMillis: Long = DEFAULT_RETENTION_MILLIS,
     // config `notifications.purgeIntervalSeconds`; 0 = every mint (the test suite pins this).
@@ -150,9 +151,9 @@ class NotificationService(
         }
         // Own transaction, after the insert commits — a big DELETE must not hold the mint's locks.
         purgeStale()
-        // Email mirror AFTER the commit, fire-and-forget, regardless of the IN_APP suppression
-        // above — see NotificationEmailer.
-        emailer?.dispatch(listOf(notification))
+        // Mirrors AFTER the commit, fire-and-forget, regardless of the IN_APP suppression above —
+        // see NotificationMirror.
+        mirrors.forEach { it.dispatch(listOf(notification)) }
         return id
     }
 
@@ -186,9 +187,9 @@ class NotificationService(
         }
         // Own transaction, after the insert commits — see create().
         purgeStale()
-        // Email mirror AFTER the commit — one background loop for the whole batch, every
+        // Mirrors AFTER the commit — one background loop per mirror for the whole batch, every
         // notification regardless of IN_APP suppression (see create()).
-        emailer?.dispatch(notifications)
+        mirrors.forEach { it.dispatch(notifications) }
     }
 
     /**

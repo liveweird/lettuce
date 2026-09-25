@@ -54,6 +54,7 @@ const ITEMS = [
     feature: "FEEDBACKS",
     inApp: true,
     email: true,
+    teams: true,
     locked: false,
   },
   {
@@ -61,14 +62,15 @@ const ITEMS = [
     feature: "FEEDBACKS",
     inApp: true,
     email: true,
+    teams: true,
     locked: false,
   },
-  { type: "GOAL_ACTIVATED_TO_SUBORDINATE", feature: "GOALS", inApp: true, email: true, locked: false },
-  { type: "PULSE_CYCLE_OPENED", feature: "PULSE_SURVEYS", inApp: true, email: true, locked: false },
-  { type: "PASSWORD_CHANGED", feature: null, inApp: true, email: true, locked: true },
+  { type: "GOAL_ACTIVATED_TO_SUBORDINATE", feature: "GOALS", inApp: true, email: true, teams: true, locked: false },
+  { type: "PULSE_CYCLE_OPENED", feature: "PULSE_SURVEYS", inApp: true, email: true, teams: true, locked: false },
+  { type: "PASSWORD_CHANGED", feature: null, inApp: true, email: true, teams: true, locked: true },
 ];
 
-const PREFS = { emailEnabled: true, items: ITEMS };
+const PREFS = { emailEnabled: true, teamsAvailable: false, items: ITEMS };
 
 describe("NotificationPreferences page", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -251,6 +253,67 @@ describe("NotificationPreferences page", () => {
     expect(showSpy).toHaveBeenCalledWith(
       expect.objectContaining({ message: "Notification preferences saved" }),
     );
+  });
+
+  test("the Microsoft Teams column is absent while Teams is unavailable for the target", async () => {
+    mockApi();
+    renderPage(7);
+
+    await screen.findByText("Feedbacks");
+    expect(screen.queryByRole("switch", { name: "Someone requests feedback from me — Microsoft Teams" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Turn off Microsoft Teams for every Feedbacks notification" }),
+    ).toBeNull();
+  });
+
+  test("with Teams available, a Teams switch turned off is saved as a TEAMS pair", async () => {
+    mockApi({ prefs: { ...PREFS, teamsAvailable: true } });
+    const user = userEvent.setup();
+    renderPage(7);
+
+    await screen.findByText("Feedbacks");
+    const lockedTeams = screen.getByRole("switch", {
+      name: "My password was changed — Microsoft Teams",
+    }) as HTMLInputElement;
+    expect(lockedTeams.checked).toBe(true);
+    expect(lockedTeams.disabled).toBe(true);
+    await user.click(
+      screen.getByRole("switch", { name: "Someone requests feedback from me — Microsoft Teams" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
+    const putCalls = mockFetch.mock.calls.filter(([, init]) => (init as RequestInit)?.method === "PUT");
+    expect(putCalls).toHaveLength(1);
+    expect(JSON.parse((putCalls[0][1] as { body: string }).body).disabled).toEqual([
+      { type: "FEEDBACK_REQUESTED_TO_PROVIDER", channel: "TEAMS" },
+    ]);
+  });
+
+  test("a stored TEAMS preference survives a save made while the Teams column is hidden", async () => {
+    const items = ITEMS.map((item) =>
+      item.type === "GOAL_ACTIVATED_TO_SUBORDINATE" ? { ...item, teams: false } : item,
+    );
+    mockApi({ prefs: { ...PREFS, items } });
+    const user = userEvent.setup();
+    renderPage(7);
+
+    await screen.findByText("Feedbacks");
+    await user.click(
+      screen.getByRole("switch", { name: "Someone requests feedback from me — In app" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/"));
+    const putCalls = mockFetch.mock.calls.filter(([, init]) => (init as RequestInit)?.method === "PUT");
+    const disabled = JSON.parse((putCalls[0][1] as { body: string }).body).disabled;
+    expect(disabled).toEqual(
+      expect.arrayContaining([
+        { type: "FEEDBACK_REQUESTED_TO_PROVIDER", channel: "IN_APP" },
+        { type: "GOAL_ACTIVATED_TO_SUBORDINATE", channel: "TEAMS" },
+      ]),
+    );
+    expect(disabled).toHaveLength(2);
   });
 
   test("Save issues no PUT at all when nothing changed", async () => {

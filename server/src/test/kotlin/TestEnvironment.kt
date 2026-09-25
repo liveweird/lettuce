@@ -230,6 +230,10 @@ object TestSeedState {
                     it[UserService.UserDisabledFeatures.userId] = newId
                     it[UserService.UserDisabledFeatures.feature] = ch.nokillswit.users.Feature.MFA.name
                 }
+                UserService.UserDisabledFeatures.insert {
+                    it[UserService.UserDisabledFeatures.userId] = newId
+                    it[UserService.UserDisabledFeatures.feature] = ch.nokillswit.users.Feature.TEAMS_NOTIFICATIONS.name
+                }
                 newId
             }
     }
@@ -292,13 +296,17 @@ object TestSeedState {
             UserService.UserDisabledFeatures.deleteWhere {
                 UserService.UserDisabledFeatures.userId inList seedIds
             }
-            // …but the pristine V52 state INCLUDES the inverted-default MFA row on every seed
-            // account — without it, seed-account logins answer an MFA challenge and every
-            // later test decoding LoginResponse breaks.
+            // …but the pristine V52/V85 state INCLUDES the inverted-default MFA and
+            // TEAMS_NOTIFICATIONS rows on every seed account — without the MFA one, seed-account
+            // logins answer an MFA challenge and every later test decoding LoginResponse breaks.
             seedIds.forEach { id ->
                 UserService.UserDisabledFeatures.insert {
                     it[UserService.UserDisabledFeatures.userId] = id
                     it[UserService.UserDisabledFeatures.feature] = ch.nokillswit.users.Feature.MFA.name
+                }
+                UserService.UserDisabledFeatures.insert {
+                    it[UserService.UserDisabledFeatures.userId] = id
+                    it[UserService.UserDisabledFeatures.feature] = ch.nokillswit.users.Feature.TEAMS_NOTIFICATIONS.name
                 }
             }
             // Also drop any DB-backed auth state (V81) a test left on the seed accounts — a
@@ -744,12 +752,24 @@ object TestNotifications {
     ): ch.nokillswit.notifications.NotificationService =
         ch.nokillswit.notifications.NotificationService(
             sharedTestDatabase,
-            ch.nokillswit.notifications.NotificationEmailer(
-                scope,
-                mailer,
-                appUrl,
-                TestServices.users,
-                TestServices.notificationPreferences,
+            listOf(
+                ch.nokillswit.notifications.NotificationEmailer(
+                    scope,
+                    mailer,
+                    appUrl,
+                    TestServices.users,
+                    TestServices.notificationPreferences,
+                ),
             ),
         )
+
+    /**
+     * The [withEmailer] sibling for the Teams mirror (v4.5.0) — a service wired with ONLY the
+     * given [teamsSender] (no email mirror), for deterministic delivery tests the same
+     * launch-then-join way (see [NotificationTeamsDeliveryTest]).
+     */
+    fun withTeamsSender(
+        teamsSender: ch.nokillswit.notifications.NotificationMirror,
+    ): ch.nokillswit.notifications.NotificationService =
+        ch.nokillswit.notifications.NotificationService(sharedTestDatabase, listOf(teamsSender))
 }
