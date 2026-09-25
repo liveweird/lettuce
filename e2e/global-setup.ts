@@ -138,12 +138,14 @@ async function clearOpenProvidedFeedbacks(email: string): Promise<number> {
 // a disabled flag (left by exploring the v1.53.0 feature-flags UI on the shared dev stack)
 // hides nav links/card rows/tour steps and 403s the APIs, failing most of the suite at
 // timeout speed. Reset the seed accounts to the pristine state up-front, as admin. Since
-// v2.4.0 pristine is ["MFA"], NOT [] — MFA is the inverted-default opt-in flag, and an empty
+// v2.4.0 pristine is ["MFA"] (plus TEAMS_NOTIFICATIONS since v4.5.0), NOT [] — MFA is the inverted-default opt-in flag, and an empty
 // set would ENABLE email MFA so every seed login answers a code challenge instead of tokens
 // (which fails the whole suite exactly the same way). Must run BEFORE the feedback cleanup
 // below: that cleanup lists feedbacks AS each seed account, which itself 403s while
-// FEEDBACKS is disabled.
-const PRISTINE_DISABLED_FEATURES = ["MFA"];
+// FEEDBACKS is disabled. Since v4.5.0 TEAMS_NOTIFICATIONS is the second inverted-default flag
+// (V85): leaving it out would ENABLE Teams DMs for every seed account. Kept sorted — the
+// comparison below joins the sorted stored set.
+const PRISTINE_DISABLED_FEATURES = ["MFA", "TEAMS_NOTIFICATIONS"];
 
 async function resetSeedFeatureFlags(): Promise<void> {
   const admin = await apiLogin("admin@lettuce.local");

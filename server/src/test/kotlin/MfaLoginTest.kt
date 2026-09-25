@@ -347,6 +347,7 @@ class MfaLoginTest {
         assertEquals(HttpStatusCode.OK, res.status)
         val tokens = res.body<LoginResponse>()
         assertTrue(tokens.token.isNotBlank())
-        assertEquals(listOf(Feature.MFA), tokens.disabledFeatures)
+        // A fresh user's only disabled flags are the two inverted-default (opt-in) ones.
+        assertEquals(listOf(Feature.MFA, Feature.TEAMS_NOTIFICATIONS), tokens.disabledFeatures)
     }
 }

@@ -108,7 +108,8 @@
     "DAYS_OFF": "Days Off",
     "PULSE_SURVEYS": "Pulse Surveys",
     "SUCCESSION_PLANS": "Succession plans",
-    "MFA": "MFA (email sign-in code)"
+    "MFA": "MFA (email sign-in code)",
+    "TEAMS_NOTIFICATIONS": "Microsoft Teams notifications"
   },
   "error": {
     "timeout": "The server is not responding. Check your connection and try again.",

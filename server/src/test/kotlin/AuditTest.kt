@@ -341,8 +341,8 @@ class AuditTest {
                 assertNotNull(change, "expected a user.features_changed audit event")
                 assertEquals(adminId.toLong(), change.keyValuePairs.first { it.key == "byUserId" }.value)
                 assertEquals(targetId.toLong(), change.keyValuePairs.first { it.key == "targetUserId" }.value)
-                // A fresh user's from-set is the inverted-default MFA row, not empty.
-                assertEquals("MFA", change.keyValuePairs.first { it.key == "from" }.value)
+                // A fresh user's from-set is the two inverted-default rows, not empty.
+                assertEquals("MFA,TEAMS_NOTIFICATIONS", change.keyValuePairs.first { it.key == "from" }.value)
                 assertEquals("DAYS_OFF,GOALS", change.keyValuePairs.first { it.key == "to" }.value)
 
                 // A same-set re-PUT is a no-op replace — no second event.

@@ -63,10 +63,12 @@ private fun subjectFor(type: NotificationType): LocalizedText = if (
     Feature.PULSE_SURVEYS -> LocalizedText(en = "Lettuce: pulse survey", pl = "Lettuce: ankieta pulsu")
     Feature.IMPACT_LOG -> LocalizedText(en = "Lettuce: impact log", pl = "Lettuce: dziennik wpływu")
     // MFA mints no notifications (its emails are the sign-in codes themselves, sent directly
-    // from the login flow), and SUCCESSION_PLANS mints none BY DESIGN (confidential — the
-    // subjects must never learn of it, and the owner is always the actor) — same fallback as
+    // from the login flow), SUCCESSION_PLANS mints none BY DESIGN (confidential — the subjects
+    // must never learn of it, and the owner is always the actor), and TEAMS_NOTIFICATIONS
+    // (v4.5.0) is a CHANNEL, never a NotificationType.feature value (no type maps to it — this
+    // branch exists only because the `when` is over the whole Feature? enum) — same fallback as
     // the feature-neutral security types.
-    Feature.MFA, Feature.SUCCESSION_PLANS, null ->
+    Feature.MFA, Feature.SUCCESSION_PLANS, Feature.TEAMS_NOTIFICATIONS, null ->
         LocalizedText(en = "Lettuce: security notice", pl = "Lettuce: powiadomienie o bezpieczeństwie")
 }
 

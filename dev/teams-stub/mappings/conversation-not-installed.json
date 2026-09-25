@@ -1,0 +1,13 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/connector/v3/conversations",
+    "bodyPatterns": [{ "matchesJsonPath": "$.members[?(@.id =~ /.*teams-not-installed.*/)]" }]
+  },
+  "response": {
+    "status": 403,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "error": { "code": "ForbiddenOperationException", "message": "Bot is not installed in user's personal scope" } }
+  }
+}

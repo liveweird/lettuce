@@ -108,7 +108,8 @@
     "DAYS_OFF": "Dni wolne",
     "PULSE_SURVEYS": "Ankiety pulsu",
     "SUCCESSION_PLANS": "Plany sukcesji",
-    "MFA": "MFA (kod logowania e-mailem)"
+    "MFA": "MFA (kod logowania e-mailem)",
+    "TEAMS_NOTIFICATIONS": "Powiadomienia w Microsoft Teams"
   },
   "error": {
     "timeout": "Serwer nie odpowiada. Sprawdź połączenie i spróbuj ponownie.",

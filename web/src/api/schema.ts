@@ -459,17 +459,20 @@ export interface paths {
         };
         /**
          * Get a user's per-type notification preferences (self or ADMIN)
-         * @description Per-user, per-channel notification preferences (v4.0.0, `V84`): one row per
-         *     `NotificationType`, each with independent IN_APP/EMAIL on-off switches, **on by
-         *     default** — an empty backing table means every type is enabled on both channels, so a
-         *     user who never visits this page keeps today's behavior exactly. `emailEnabled` carries
-         *     the V51 master "send me emails" switch (the same value
+         * @description Per-user, per-channel notification preferences (v4.0.0, `V84`; the Microsoft Teams
+         *     channel joined in v4.5.0): one row per `NotificationType`, each with independent
+         *     IN_APP/EMAIL/TEAMS on-off switches, **on by default** — an empty backing table means
+         *     every type is enabled on every channel, so a user who never visits this page keeps
+         *     today's behavior exactly. `teamsAvailable` reports whether this deployment/user actually
+         *     has a live Teams channel right now (the stored `teams` switch is returned regardless, so
+         *     a preference saved before Teams was available still takes effect once it is).
+         *     `emailEnabled` carries the V51 master "send me emails" switch (the same value
          *     `PUT /users/{id}/email-notifications` writes) alongside the matrix, so the client
          *     renders both from one call. Types belonging to one of the target's currently-disabled
          *     features (V46) are still listed (the client hides those groups) so a later re-enable
          *     shows the real stored state rather than a fresh default. `locked` is true only for
-         *     `PASSWORD_CHANGED` — a security receipt that stays on for both channels regardless of
-         *     any stored preference row (`inApp`/`email` are always true when `locked` is true).
+         *     `PASSWORD_CHANGED` — a security receipt that stays on for every channel regardless of
+         *     any stored preference row (`inApp`/`email`/`teams` are always true when `locked` is true).
          *     **Target user or ADMIN** (`requireSelfOrAdmin`, the `email-notifications` precedent);
          *     deliberately ungated by feature like every other users route; a deactivated target is
          *     allowed (the setting is inert until reactivation).
@@ -479,9 +482,13 @@ export interface paths {
          * Replace a user's disabled notification-preference set (self or ADMIN)
          * @description Wholesale replace of the target's disabled `(type, channel)` set — the
          *     `UserFeaturesUpdateRequest` idiom applied per-type-per-channel: an empty array
-         *     re-enables everything. In-app suppression means the row is never minted at all;
-         *     disabling only the EMAIL channel keeps the in-app row and just skips its email mirror.
-         *     Disabling `PASSWORD_CHANGED` on either channel is `400` — it cannot be silenced.
+         *     re-enables everything on every channel (IN_APP/EMAIL/TEAMS). In-app suppression means
+         *     the row is never minted at all; disabling only the EMAIL and/or TEAMS channel keeps the
+         *     in-app row and just skips that channel's mirror. TEAMS pairs are always accepted
+         *     regardless of whether this deployment currently has a live Teams channel (see
+         *     `teamsAvailable` on the GET), so a preference set in advance takes effect the moment
+         *     Teams becomes available. Disabling `PASSWORD_CHANGED` on any channel is `400` — it
+         *     cannot be silenced.
          *     Idempotent (a same-set re-PUT is `204` again). **Target user or ADMIN**
          *     (`requireSelfOrAdmin`); a deactivated target is allowed (inert until reactivation).
          *     Audited as `user.notification_preferences_changed` on an actual change.
@@ -4049,10 +4056,10 @@ export interface components {
             code: string;
         };
         /**
-         * @description A per-user-toggleable feature area (feature flags). Storage models the DISABLED set — absent = enabled, so every user defaults to full access. MFA is the one inverted-default value: every user starts with it DISABLED (opt-in email MFA at login; it gates the login flow, not any feature routes).
+         * @description A per-user-toggleable feature area (feature flags). Storage models the DISABLED set — absent = enabled, so every user defaults to full access. MFA and TEAMS_NOTIFICATIONS are the two inverted-default values: every user starts with them DISABLED. MFA gates the login flow (opt-in email MFA), not any feature routes; TEAMS_NOTIFICATIONS (v4.5.0) gates only the Teams notification channel — no route names it, an admin must switch it on per user.
          * @enum {string}
          */
-        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "IMPACT_LOG" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "SUCCESSION_PLANS" | "TEAM_KPIS";
+        Feature: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "IMPACT_LOG" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "SUCCESSION_PLANS" | "TEAM_KPIS" | "TEAMS_NOTIFICATIONS";
         UserFeaturesUpdateRequest: {
             /** @description The complete new DISABLED set (wholesale replace) — an empty array re-enables everything. An unknown feature name is rejected with 400. */
             disabledFeatures: components["schemas"]["Feature"][];
@@ -4065,27 +4072,31 @@ export interface components {
             language: components["schemas"]["Language"];
         };
         /**
-         * @description The two channels a notification can reach a recipient through (v4.0.0): `IN_APP` (a bell row) or `EMAIL` (the mirror — see `NotificationResponse` and "Email mirror" in the notifications docs).
+         * @description The channels a notification can reach a recipient through: `IN_APP` (a bell row) and `EMAIL` (the mirror — see `NotificationResponse` and "Email mirror" in the notifications docs), both since v4.0.0, joined by `TEAMS` in v4.5.0 (a Microsoft Teams direct message; only available when the deployment has a live Teams transport AND the recipient hasn't disabled the `TEAMS_NOTIFICATIONS` feature — see `NotificationPreferencesResponse.teamsAvailable`).
          * @enum {string}
          */
-        NotificationChannel: "IN_APP" | "EMAIL";
+        NotificationChannel: "IN_APP" | "EMAIL" | "TEAMS";
         NotificationPreferenceItem: {
             type: components["schemas"]["NotificationType"];
             /**
              * @description The feature area this type belongs to (mirrors the `Feature` schema — inlined here rather than `$ref`'d because a nullable enum reached only through `allOf` fails response validation under this project's swagger-request-validator setup), for client-side grouping — null for the two feature-neutral types (`PASSWORD_CHANGED`, `CAREER_POSITION_STARTED_TO_USER`, which the client groups under "Other"). Mirrors `NotificationType.feature`; present even when that feature is currently disabled for the target (the client hides the group, not the data).
              * @enum {string|null}
              */
-            feature?: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "IMPACT_LOG" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "SUCCESSION_PLANS" | "TEAM_KPIS" | null;
+            feature?: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "IMPACT_LOG" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "SUCCESSION_PLANS" | "TEAM_KPIS" | "TEAMS_NOTIFICATIONS" | null;
             /** @description Whether an in-app row is minted for this type. True unless the recipient disabled it. */
             inApp: boolean;
             /** @description Whether the email mirror is sent for this type. True unless the recipient disabled it. */
             email: boolean;
-            /** @description True for `PASSWORD_CHANGED` only (v4.0.0) — a security receipt that cannot be disabled on either channel; `inApp`/`email` are always true when this is true. */
+            /** @description Whether a Microsoft Teams direct message is sent for this type (v4.5.0). True unless the recipient disabled it — stored and returned even when `NotificationPreferencesResponse.teamsAvailable` is false, so a preference saved before Teams becomes available still takes effect the moment it does. */
+            teams: boolean;
+            /** @description True for `PASSWORD_CHANGED` only (v4.0.0) — a security receipt that cannot be disabled on any channel; `inApp`/`email`/`teams` are always true when this is true. */
             locked: boolean;
         };
         NotificationPreferencesResponse: {
             /** @description The V51 master email-mirror opt-out (`users.email_notifications_enabled`) — the same value `PUT /users/{id}/email-notifications` writes, surfaced here so a single page can render the master switch alongside the per-type matrix. */
             emailEnabled: boolean;
+            /** @description v4.5.0 — true only when THIS deployment has a live Teams transport configured (`teams.transport` isn't `disabled`) AND the target hasn't disabled the `TEAMS_NOTIFICATIONS` feature. The client renders the Teams column only when this is true; the `PUT` still accepts `TEAMS` pairs regardless (see `NotificationPreferencesUpdateRequest`). */
+            teamsAvailable: boolean;
             /** @description One row per `NotificationType`, grouped client-side by `feature`. */
             items: components["schemas"]["NotificationPreferenceItem"][];
         };
@@ -4183,7 +4194,7 @@ export interface components {
             seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
             /** @description Always false at creation — kept so both user-response shapes stay aligned. */
             deactivated: boolean;
-            /** @description Always exactly ["MFA"] at creation — every new user starts with the inverted-default MFA flag disabled (email MFA is opt-in); all other features start enabled. */
+            /** @description Always exactly the inverted-default (opt-in) flags at creation — currently ["MFA", "TEAMS_NOTIFICATIONS"] — every new user starts with email MFA and the Microsoft Teams notification channel disabled by default; all other features start enabled. */
             disabledFeatures: components["schemas"]["Feature"][];
             /** @description Always true at creation (the V51 default) — aligned with UserResponse. */
             emailNotificationsEnabled: boolean;

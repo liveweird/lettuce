@@ -14,6 +14,7 @@ import ch.nokillswit.teams.transitiveSubordinateIds
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import org.jetbrains.exposed.v1.core.*
@@ -125,12 +126,14 @@ class UserService(val database: R2dbcDatabase) {
         }
         val id = newRecord[Users.id].value
         insertRoles(id, user.roles)
-        // MFA is the one inverted-default flag (opt-in): every new user starts with the
-        // disabled row present, mirroring the V52 seed for pre-existing users. All creation
-        // paths (admin create, CSV import, test seeds) funnel through here.
-        UserDisabledFeatures.insert {
-            it[UserDisabledFeatures.userId] = id
-            it[UserDisabledFeatures.feature] = Feature.MFA.name
+        // MFA and TEAMS_NOTIFICATIONS are the two inverted-default flags (opt-in): every new user
+        // starts with both disabled rows present, mirroring the V52/V85 seeds for pre-existing
+        // users. All creation paths (admin create, CSV import, test seeds) funnel through here.
+        OPT_IN_FEATURES.forEach { feature ->
+            UserDisabledFeatures.insert {
+                it[UserDisabledFeatures.userId] = id
+                it[UserDisabledFeatures.feature] = feature.name
+            }
         }
         id
     }
@@ -449,20 +452,32 @@ class UserService(val database: R2dbcDatabase) {
             .toList()
             .groupBy({ it[UserRoles.userId].value }, { UserRole.valueOf(it[UserRoles.role]) })
 
-    /** Must run inside a transaction. */
+    /** `Feature.valueOf` would throw on an unrecognized stored name (a rolled-back deployment
+     *  reading a row a newer build wrote, or a removed feature never migrated away) — see
+     *  "the RULE" in `.claude/docs/features/migrations.md` (v3.25.3). */
+    private fun knownFeatureOrNull(name: String): Feature? = Feature.entries.firstOrNull { it.name == name }
+
+    /** Must run inside a transaction. The open-set rule (v3.25.3): [UserDisabledFeatures.feature]
+     *  holds the enum's NAME, so a row seeded/PUT under a name a later build removed drops
+     *  silently here (never a fatal `IllegalArgumentException` on the next boot/rollback) rather
+     *  than failing every read of that user. */
     private suspend fun featuresOf(id: UInt): Set<Feature> =
         UserDisabledFeatures.selectAll()
             .where { UserDisabledFeatures.userId eq id }
-            .map { Feature.valueOf(it[UserDisabledFeatures.feature]) }
+            .mapNotNull { knownFeatureOrNull(it[UserDisabledFeatures.feature]) }
             .toSet()
 
-    /** Must run inside a transaction. */
+    /** Must run inside a transaction. See [featuresOf]'s open-set doc. */
     private suspend fun disabledFeaturesByUserIds(ids: List<UInt>): Map<UInt, List<Feature>> =
         if (ids.isEmpty()) emptyMap()
         else UserDisabledFeatures.selectAll()
             .where { UserDisabledFeatures.userId inList ids }
             .toList()
-            .groupBy({ it[UserDisabledFeatures.userId].value }, { Feature.valueOf(it[UserDisabledFeatures.feature]) })
+            .mapNotNull { row ->
+                val feature = knownFeatureOrNull(row[UserDisabledFeatures.feature]) ?: return@mapNotNull null
+                row[UserDisabledFeatures.userId].value to feature
+            }
+            .groupBy({ it.first }, { it.second })
 
     /**
      * (userId → member-of team refs) for a page of ids: non-deleted teams only, name-ascending

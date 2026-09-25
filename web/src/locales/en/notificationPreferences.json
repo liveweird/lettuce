@@ -6,6 +6,7 @@
   "typeColumn": "Type",
   "columnInApp": "In app",
   "columnEmail": "Email",
+  "columnTeams": "Microsoft Teams",
   "otherGroup": "Other",
   "lockedHint": "Always on",
   "allOn": "All on",

@@ -10,6 +10,7 @@ import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
+import ch.nokillswit.infra.teams.teamsMessenger
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
@@ -130,6 +131,9 @@ fun Application.configureUserRoutes() {
     val notificationService = attributes[NotificationServiceKey]
     // Per-user notification preferences (v4.0.0) — same publish point as notificationService.
     val notificationPreferenceService = attributes[NotificationPreferenceServiceKey]
+    // teamsAvailable (v4.5.0): the deployment-level half of the capability flag — the target's
+    // own flag is read per-request below.
+    val teamsDeploymentAvailable = teamsMessenger() != null
     val mailer = mailer()
     val mailAppUrl = mailAppUrl()
     val importService = UserImportService(userService, mailer, mailAppUrl, log)
@@ -282,7 +286,7 @@ fun Application.configureUserRoutes() {
                             careerSpecialization = null,
                             seniorityLevel = null,
                             deactivated = false,
-                            disabledFeatures = listOf(Feature.MFA),
+                            disabledFeatures = OPT_IN_FEATURES.toList(),
                             emailNotificationsEnabled = true,
                             uniqueId = user.uniqueId,
                             language = user.language,
@@ -290,10 +294,10 @@ fun Application.configureUserRoutes() {
                         ),
                     )
                 } else {
-                    // create() stored the inverted-default MFA row — report the actual state.
+                    // create() stored the two inverted-default rows — report the actual state.
                     call.respond(
                         HttpStatusCode.Created,
-                        user.copy(disabledFeatures = setOf(Feature.MFA)).toResponse(id, profile = null),
+                        user.copy(disabledFeatures = OPT_IN_FEATURES).toResponse(id, profile = null),
                     )
                 }
             }
@@ -525,12 +529,16 @@ fun Application.configureUserRoutes() {
                         feature = type.feature,
                         inApp = locked || NotificationChannel.IN_APP !in disabledChannels,
                         email = locked || NotificationChannel.EMAIL !in disabledChannels,
+                        teams = locked || NotificationChannel.TEAMS !in disabledChannels,
                         locked = locked,
                     )
                 }
+                // teamsAvailable (v4.5.0): this deployment has a live Teams transport AND the
+                // target hasn't disabled TEAMS_NOTIFICATIONS — the house capability-flag idiom.
+                val teamsAvailable = teamsDeploymentAvailable && Feature.TEAMS_NOTIFICATIONS !in target.disabledFeatures
                 call.respond(
                     HttpStatusCode.OK,
-                    NotificationPreferencesResponse(target.emailNotificationsEnabled, items),
+                    NotificationPreferencesResponse(target.emailNotificationsEnabled, teamsAvailable, items),
                 )
             }
             put<Users.Id.NotificationPreferences> { route ->

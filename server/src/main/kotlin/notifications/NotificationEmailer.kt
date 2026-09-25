@@ -1,5 +1,6 @@
 package ch.nokillswit.notifications
 
+import ch.nokillswit.infra.catchingFailures
 import ch.nokillswit.infra.mail.Mailer
 import ch.nokillswit.users.UserService
 import kotlinx.coroutines.CoroutineScope
@@ -36,10 +37,10 @@ class NotificationEmailer(
     private val appUrl: String?,
     private val userService: UserService,
     private val notificationPreferenceService: NotificationPreferenceService,
-) {
+) : NotificationMirror {
     private val log = LoggerFactory.getLogger("ch.nokillswit.mail")
 
-    fun dispatch(notifications: List<Notification>) {
+    override fun dispatch(notifications: List<Notification>) {
         val mailer = mailer ?: return
         if (notifications.isEmpty()) return
         scope.launch {
@@ -50,9 +51,10 @@ class NotificationEmailer(
                 NotificationChannel.EMAIL,
             )
             notifications.forEach { notification ->
-                try {
-                    sendOne(mailer, notification, disabledEmail)
-                } catch (e: Exception) {
+                // Rethrows CancellationException untouched (the `infra.catchingFailures` idiom,
+                // the Teams sender's sibling) — a plain `catch (e: Exception)` would also
+                // swallow the dispatch coroutine's own cancellation.
+                catchingFailures({ sendOne(mailer, notification, disabledEmail) }) { e ->
                     log.error(
                         "Notification email to user ${notification.recipientId} (${notification.type}) failed",
                         e,

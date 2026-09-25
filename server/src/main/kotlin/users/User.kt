@@ -36,12 +36,27 @@ enum class UserRole { ADMIN, HR }
  * via requireFeatureEnabled; the login handler reads it straight off the DB record (never a JWT —
  * there is none yet) and, when enabled, demands the emailed second factor (see
  * "Email MFA" in `.claude/docs/security.md`).
+ *
+ * [TEAMS_NOTIFICATIONS] (v4.5.0) is the MFA idiom applied to the third notification channel:
+ * INVERTED DEFAULT (seeded by V85, inserted by [ch.nokillswit.users.UserService.create] for new
+ * users) — an admin must switch it on per user — but it gates only THE CHANNEL, never a route:
+ * no `requireFeatureEnabled` call names it, and [ch.nokillswit.notifications.NotificationType.feature]
+ * never maps to it (Teams delivery is a mirror of an already-gated notification, exactly like the
+ * EMAIL channel is not itself feature-gated).
  */
 @Serializable
 enum class Feature {
     FEEDBACKS, ONE_ON_ONES, GOALS, TEAM_KPIS, PERFORMANCE_REVIEWS, DAYS_OFF, PULSE_SURVEYS,
-    IMPACT_LOG, SUCCESSION_PLANS, MFA,
+    IMPACT_LOG, SUCCESSION_PLANS, MFA, TEAMS_NOTIFICATIONS,
 }
+
+/**
+ * The inverted-default (opt-in) flags: every user starts with these DISABLED — seeded for existing
+ * users by V52 (MFA) and V85 (TEAMS_NOTIFICATIONS), inserted for new users by
+ * [ch.nokillswit.users.UserService.create]. The one list both the insert and the create response
+ * read, so a future opt-in flag is added here once.
+ */
+val OPT_IN_FEATURES: Set<Feature> = setOf(Feature.MFA, Feature.TEAMS_NOTIFICATIONS)
 
 @Serializable
 data class User(
@@ -121,8 +136,8 @@ data class UserCreateResponse(
     val seniorityLevel: DictionaryEntry?,
     // Always false at creation; kept in the shape so both user-response schemas stay aligned.
     val deactivated: Boolean,
-    // Always exactly [MFA] at creation (the inverted-default opt-in flag; every other
-    // feature defaults enabled); aligned with UserResponse.
+    // Always exactly OPT_IN_FEATURES at creation (MFA + TEAMS_NOTIFICATIONS, the inverted-default
+    // flags; every other feature defaults enabled); aligned with UserResponse.
     val disabledFeatures: List<Feature>,
     // Always true at creation (the V51 default); aligned with UserResponse.
     val emailNotificationsEnabled: Boolean,

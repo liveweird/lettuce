@@ -27,6 +27,8 @@ import ch.nokillswit.infra.config.requireConfigLong
 import ch.nokillswit.infra.crypto.FieldCipherKey
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
+import ch.nokillswit.infra.teams.TeamsUnreachableRetryHoursKey
+import ch.nokillswit.infra.teams.teamsMessenger
 import ch.nokillswit.integration.IntegrationClientService
 import ch.nokillswit.integration.IntegrationClientServiceKey
 import ch.nokillswit.notifications.NotificationEmailer
@@ -34,6 +36,7 @@ import ch.nokillswit.notifications.NotificationPreferenceService
 import ch.nokillswit.notifications.NotificationPreferenceServiceKey
 import ch.nokillswit.notifications.NotificationService
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.notifications.NotificationTeamsSender
 import ch.nokillswit.oneonones.OneOnOneEventService
 import ch.nokillswit.oneonones.OneOnOneEventServiceKey
 import ch.nokillswit.oneonones.OneOnOneService
@@ -213,13 +216,31 @@ suspend fun Application.configureDatabase() {
         userService = userService,
         notificationPreferenceService = notificationPreferenceService,
     )
+    // The Teams DM mirror (v4.5.0) — configureTeams runs before this module (application.yaml
+    // order), so the messenger and the unreachable-retry bound are readable. Same fire-and-forget
+    // Application-scope shape as the email mirror above; dispatch() itself no-ops when the
+    // messenger is null (teams.transport=disabled).
+    val notificationTeamsSender = NotificationTeamsSender(
+        scope = this,
+        database = database,
+        messenger = teamsMessenger(),
+        appUrl = mailAppUrl(),
+        userService = userService,
+        notificationPreferenceService = notificationPreferenceService,
+        unreachableRetryMillis = attributes[TeamsUnreachableRetryHoursKey].toLong() * 60 * 60 * 1000,
+    )
     val notificationRetentionMillis =
         environment.config.property("notifications.retentionDays").getString().toLong() * 24 * 60 * 60 * 1000
     val notificationPurgeIntervalMillis =
         environment.config.property("notifications.purgeIntervalSeconds").getString().toLong() * 1000
     attributes.put(
         NotificationServiceKey,
-        NotificationService(database, notificationEmailer, notificationRetentionMillis, notificationPurgeIntervalMillis),
+        NotificationService(
+            database,
+            listOf(notificationEmailer, notificationTeamsSender),
+            notificationRetentionMillis,
+            notificationPurgeIntervalMillis,
+        ),
     )
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))

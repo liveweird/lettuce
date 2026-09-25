@@ -1,0 +1,8 @@
+{
+  "request": { "method": "POST", "urlPathPattern": "/connector/v3/conversations/[^/]+/activities" },
+  "response": {
+    "status": 201,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "id": "stub-activity" }
+  }
+}

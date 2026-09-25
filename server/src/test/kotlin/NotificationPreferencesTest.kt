@@ -65,11 +65,93 @@ class NotificationPreferencesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.body<NotificationPreferencesResponse>()
         assertTrue(body.emailEnabled)
+        // teamsAvailable is false here on two independent counts: the test environment's
+        // teams.transport defaults to "disabled", AND a freshly seeded user starts with
+        // TEAMS_NOTIFICATIONS disabled (the MFA-style inverted default) — see the dedicated
+        // teamsAvailable tests below for each half in isolation.
+        assertFalse(body.teamsAvailable)
         assertEquals(NotificationType.entries.size, body.items.size)
-        assertTrue(body.items.all { it.inApp && it.email })
+        assertTrue(body.items.all { it.inApp && it.email && it.teams })
         assertTrue(body.items.first { it.type == NotificationType.PASSWORD_CHANGED }.locked)
         assertTrue(body.items.none { it.type != NotificationType.PASSWORD_CHANGED && it.locked })
         assertTrue(body.items.any { it.feature == null }, "PASSWORD_CHANGED/CAREER_POSITION_STARTED_TO_USER are feature-neutral")
+    }
+
+    @Test
+    fun `teamsAvailable is true only with a live transport AND the target's flag enabled`() = testApplication {
+        // teams.transport=log is permitted in development (the mail.transport precedent) — it's
+        // enough to make TeamsMessengerKey non-null without a real bot registration.
+        configureApp("teams.transport" to "log")
+        startApplication()
+        val email = uniqueEmail("prefs-teams-available")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        val client = authedClient(email, "pw")
+
+        // Deployment has a transport, but the target's own flag is still the inverted default
+        // (disabled) — not available yet.
+        val stillDisabled = client.get("/api/v1/users/$userId/notification-preferences")
+            .body<NotificationPreferencesResponse>()
+        assertFalse(stillDisabled.teamsAvailable)
+
+        // An admin enables the flag (clearing the disabled set) — now available.
+        assertEquals(1, TestServices.users.setDisabledFeatures(userId, emptySet()))
+        val nowAvailable = client.get("/api/v1/users/$userId/notification-preferences")
+            .body<NotificationPreferencesResponse>()
+        assertTrue(nowAvailable.teamsAvailable)
+    }
+
+    @Test
+    fun `teamsAvailable is false when the deployment has no live Teams transport, flag aside`() = testApplication {
+        usePostgresTestcontainer() // teams.transport defaults to disabled
+        val email = uniqueEmail("prefs-teams-no-transport")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        // Log in BEFORE touching disabled features: clearing the whole set would also re-enable
+        // the inverted-default MFA row, turning the next /login into an MFA challenge response
+        // that authedClient's LoginResponse decode can't handle.
+        val client = authedClient(email, "pw")
+        assertEquals(1, TestServices.users.setDisabledFeatures(userId, emptySet()))
+        val response = client.get("/api/v1/users/$userId/notification-preferences")
+            .body<NotificationPreferencesResponse>()
+        assertFalse(response.teamsAvailable, "no transport configured means unavailable regardless of the flag")
+    }
+
+    @Test
+    fun `PUT accepts TEAMS pairs even while teamsAvailable is false, and they round-trip`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("prefs-teams-put")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        val client = authedClient(email, "pw")
+        val disabled = listOf(
+            DisabledNotificationPreference(NotificationType.PULSE_CYCLE_SCHEDULED, NotificationChannel.TEAMS),
+        )
+        val response = client.put("/api/v1/users/$userId/notification-preferences") {
+            contentType(ContentType.Application.Json)
+            setBody(NotificationPreferencesUpdateRequest(disabled))
+        }
+        assertEquals(HttpStatusCode.NoContent, response.status)
+
+        val fetched = client.get("/api/v1/users/$userId/notification-preferences").body<NotificationPreferencesResponse>()
+        assertFalse(fetched.teamsAvailable, "the deployment still has no transport")
+        val scheduled = fetched.items.first { it.type == NotificationType.PULSE_CYCLE_SCHEDULED }
+        assertFalse(scheduled.teams, "the saved preference is honoured even while unavailable")
+        assertTrue(scheduled.inApp)
+        assertTrue(scheduled.email)
+    }
+
+    @Test
+    fun `disabling TEAMS for the locked type is 400`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("prefs-locked-teams")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        val response = authedClient(email, "pw").put("/api/v1/users/$userId/notification-preferences") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                NotificationPreferencesUpdateRequest(
+                    listOf(DisabledNotificationPreference(NotificationType.PASSWORD_CHANGED, NotificationChannel.TEAMS)),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
     @Test
@@ -252,6 +334,50 @@ class NotificationPreferencesTest {
             Notification(recipientId = userId, type = NotificationType.PULSE_CYCLE_SCHEDULED),
         )
         assertNotNull(id)
+    }
+
+    @Test
+    fun `an unknown stored channel name is ignored by readDisabledInTransaction rather than failing`() = testApplication {
+        usePostgresTestcontainer()
+        val email = uniqueEmail("prefs-channel-orphan")
+        val userId = TestUsers.seed(email = email, password = "pw", roles = emptySet())
+        // `channel` carries a DB-level CHECK (V84/V85, widened to admit TEAMS) — unlike
+        // `notification_type`, which the migration deliberately leaves open — so an ordinary
+        // write can never persist an unrecognized channel name today. The open-set defense in
+        // readDisabledInTransaction (v3.25.3 idiom) still guards the scenario a future migration
+        // narrowing that CHECK (or a downgrade past one that widens it again) would produce;
+        // reproducing it here means going around the constraint the same way that migration
+        // would, inside one transaction so no other test ever observes the gap.
+        suspendTransaction(TestServices.database) {
+            exec("ALTER TABLE user_notification_preferences DROP CONSTRAINT ck_user_notification_preferences_channel")
+            NotificationPreferenceService.UserNotificationPreferences.insert {
+                it[NotificationPreferenceService.UserNotificationPreferences.userId] = userId
+                it[notificationType] = NotificationType.PULSE_CYCLE_SCHEDULED.name
+                it[NotificationPreferenceService.UserNotificationPreferences.channel] = "SLACK"
+            }
+        }
+        try {
+            val response = authedClient(email, "pw").get("/api/v1/users/$userId/notification-preferences")
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = response.body<NotificationPreferencesResponse>()
+            val item = body.items.single { it.type == NotificationType.PULSE_CYCLE_SCHEDULED }
+            // The orphaned "SLACK" row must not be misread as disabling a real channel.
+            assertTrue(item.inApp)
+            assertTrue(item.email)
+            assertTrue(item.teams)
+        } finally {
+            // Restore the shared schema for every other test still to run in this JVM: delete
+            // the orphan row (it would itself violate the constraint) THEN re-add the CHECK.
+            suspendTransaction(TestServices.database) {
+                NotificationPreferenceService.UserNotificationPreferences.deleteWhere {
+                    NotificationPreferenceService.UserNotificationPreferences.channel eq "SLACK"
+                }
+                exec(
+                    "ALTER TABLE user_notification_preferences " +
+                        "ADD CONSTRAINT ck_user_notification_preferences_channel CHECK (channel IN ('IN_APP', 'EMAIL', 'TEAMS'))",
+                )
+            }
+        }
     }
 
     @Test

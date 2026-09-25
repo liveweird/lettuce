@@ -166,9 +166,10 @@ class BootstrapTest {
             assertTrue(seededId !in moved, "the boot must create a NEW row")
             assertEquals(setOf(UserRole.HR), hr.roles)
             assertFalse(hr.deactivated)
-            // The V52 pristine state: MFA starts disabled like every other user, so the demo login
-            // below answers tokens directly instead of an MFA challenge.
-            assertEquals(setOf(Feature.MFA), hr.disabledFeatures)
+            // The V52/v4.5.0 pristine state: MFA and TEAMS_NOTIFICATIONS both start disabled like
+            // every other user (the two inverted-default flags), so the demo login below answers
+            // tokens directly instead of an MFA challenge.
+            assertEquals(setOf(Feature.MFA, Feature.TEAMS_NOTIFICATIONS), hr.disabledFeatures)
 
             val login = jsonClient().post("/api/v1/login") {
                 contentType(ContentType.Application.Json)
