@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.5.1",
+    date: "2026-09-30",
+    en: `Behind the scenes: Microsoft Teams notifications are now sent without tying up the server while Microsoft is slow or unreachable, so the rest of Lettuce, emails included, stays responsive during a Teams outage. The database driver and the build tooling were updated as well.`,
+    pl: `Zmiany techniczne: Lettuce wysyła teraz powiadomienia w Microsoft Teams bez blokowania serwera, gdy Microsoft odpowiada wolno lub jest niedostępny, więc reszta aplikacji, w tym e-maile, działa sprawnie także podczas awarii Teams. Zaktualizowaliśmy też sterownik bazy danych i narzędzia do budowania aplikacji.`,
+  },
+  {
     version: "4.5.0",
     date: "2026-09-25",
     en: `Notifications can now reach you in Microsoft Teams too. Once your organization connects Lettuce to Teams and an administrator turns on "Microsoft Teams notifications" for you, a new "Microsoft Teams" column appears in your notification preferences, and each notification you leave on there arrives as a direct message from the Lettuce app in Teams. As with in-app and email, you choose per type what comes through; security notices such as a password change always do. Administrators: the setup needs a Teams app registered by your Microsoft 365 administrator, and nothing changes until it is configured.`,
