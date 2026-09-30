@@ -77,6 +77,7 @@ import io.r2dbc.pool.ConnectionPoolConfiguration
 import io.r2dbc.postgresql.PostgresqlConnectionFactoryProvider
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactoryOptions
+import io.r2dbc.spi.ValidationDepth
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabaseConfig
 import java.time.Duration
@@ -103,6 +104,10 @@ private data class PoolBounds(
     val initialSize: Int,
     val maxAcquireTimeSeconds: Long,
     val maxIdleTimeSeconds: Long,
+    val maxValidationTimeSeconds: Long,
+    val maxCreateConnectionTimeSeconds: Long,
+    val connectTimeoutSeconds: Long,
+    val statementTimeoutSeconds: Long,
     val applicationName: String,
 )
 
@@ -111,12 +116,22 @@ private fun readPoolBounds(config: ApplicationConfig): PoolBounds {
     val initialSize = requireConfigInt(config, "postgres.pool.initialSize", min = 0, max = maxSize)
     val maxAcquireTimeSeconds = requireConfigLong(config, "postgres.pool.maxAcquireTimeSeconds", min = 1, max = 600)
     val maxIdleTimeSeconds = requireConfigLong(config, "postgres.pool.maxIdleTimeSeconds", min = 1, max = 86400)
+    // v4.7.1 — the hung-database bounds (application.yaml explains each).
+    val maxValidationTimeSeconds = requireConfigLong(config, "postgres.pool.maxValidationTimeSeconds", min = 1, max = 60)
+    val maxCreateConnectionTimeSeconds =
+        requireConfigLong(config, "postgres.pool.maxCreateConnectionTimeSeconds", min = 1, max = 600)
+    val connectTimeoutSeconds = requireConfigLong(config, "postgres.connectTimeoutSeconds", min = 1, max = 600)
+    val statementTimeoutSeconds = requireConfigLong(config, "postgres.statementTimeoutSeconds", min = 0, max = 3600)
     // application_name = lettuce on every pooled connection by default (deliberate — ops can
     // count Lettuce's own connections in pg_stat_activity, and ConnectionPoolTest relies on
     // it); overridable per test application instance so overlapping test apps sharing the
     // Testcontainer never share one count.
     val applicationName = config.propertyOrNull("postgres.pool.applicationName")?.getString() ?: "lettuce"
-    return PoolBounds(maxSize, initialSize, maxAcquireTimeSeconds, maxIdleTimeSeconds, applicationName)
+    return PoolBounds(
+        maxSize, initialSize, maxAcquireTimeSeconds, maxIdleTimeSeconds,
+        maxValidationTimeSeconds, maxCreateConnectionTimeSeconds, connectTimeoutSeconds, statementTimeoutSeconds,
+        applicationName,
+    )
 }
 
 /**
@@ -147,6 +162,12 @@ private fun Application.connectPooled(): R2dbcDatabase {
         .option(ConnectionFactoryOptions.USER, config.property("postgres.user").getString())
         .option(ConnectionFactoryOptions.PASSWORD, config.property("postgres.password").getString())
         .option(PostgresqlConnectionFactoryProvider.APPLICATION_NAME, bounds.applicationName)
+        // v4.7.1 — the driver bounds it CAN offer: the TCP connect and TCP keepalive (a dead
+        // peer on an idle connection is eventually detected). It has no socket READ timeout, so
+        // a hung database is bounded at acquire time by the pool below. The statement timeout is
+        // NOT a driver option here — see defaultQueryTimeout in the Exposed config below.
+        .option(ConnectionFactoryOptions.CONNECT_TIMEOUT, Duration.ofSeconds(bounds.connectTimeoutSeconds))
+        .option(PostgresqlConnectionFactoryProvider.TCP_KEEPALIVE, true)
         .build()
     val rawFactory = ConnectionFactories.get(options)
     val pool = ConnectionPool(
@@ -155,6 +176,15 @@ private fun Application.connectPooled(): R2dbcDatabase {
             .initialSize(bounds.initialSize)
             .maxAcquireTime(Duration.ofSeconds(bounds.maxAcquireTimeSeconds))
             .maxIdleTime(Duration.ofSeconds(bounds.maxIdleTimeSeconds))
+            // v4.7.1: every acquire validates with a round trip, bounded — a frozen or
+            // server-killed connection fails validation and is discarded (the pool then creates
+            // a new one, itself bounded by maxCreateConnectionTime), so a request waits at most
+            // about maxAcquireTime for a hung database instead of forever. Costs one round trip
+            // per acquire; a query ALREADY in flight when the network black-holes still waits
+            // until TCP gives up — the driver exposes no read timeout.
+            .validationDepth(ValidationDepth.REMOTE)
+            .maxValidationTime(Duration.ofSeconds(bounds.maxValidationTimeSeconds))
+            .maxCreateConnectionTime(Duration.ofSeconds(bounds.maxCreateConnectionTimeSeconds))
             .build(),
     )
     monitor.subscribe(ApplicationStopped) { pool.dispose() }
@@ -169,6 +199,13 @@ private fun Application.connectPooled(): R2dbcDatabase {
         // on serialization failures — and the MfaChallenges `attemptCap` note already documents
         // the `R2dbcTransaction.maxAttempts` shadowing trap this same property name invites.
         defaultMaxAttempts = 1
+        // PostgreSQL's server-side statement_timeout (v4.7.1): a statement a LIVE but stuck
+        // server runs longer — a lock wait, a runaway query — is cancelled. It MUST be set here:
+        // Exposed's statement executor calls `connection.setStatementTimeout(queryTimeout)` on
+        // every statement, from this default (0 = no limit), so a driver option or a
+        // post-allocate SET is silently overwritten with 0 (ConnectionPoolTest pins the value
+        // the server actually sees). Seconds, as Exposed takes them.
+        defaultQueryTimeout = bounds.statementTimeoutSeconds.toInt()
     }
     return R2dbcDatabase.connect(connectionFactory = pool, databaseConfig = databaseConfig)
 }

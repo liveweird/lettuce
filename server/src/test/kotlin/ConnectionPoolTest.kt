@@ -2,6 +2,8 @@ package ch.nokillswit
 
 import ch.nokillswit.infra.db.R2dbcDatabaseKey
 import ch.nokillswit.users.UserService
+import io.ktor.client.request.get
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +13,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
@@ -18,6 +21,7 @@ import java.sql.DriverManager
 import java.util.UUID
 import java.util.concurrent.TimeoutException
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -195,4 +199,104 @@ class ConnectionPoolTest {
         configureApp("postgres.pool.maxAcquireTimeSeconds" to "601")
         assertStartupFails("postgres.pool.maxAcquireTimeSeconds") { startApplication() }
     }
+
+    // ---- v4.7.1: bounding a hung database -------------------------------------------------
+
+    @Test
+    fun `a hung database answers readyz 503 within the pool's bounds instead of hanging`() {
+        // The relay goes silent mid-life: established pooled connections stop answering and a
+        // new connection's handshake never completes. Before v4.7.1 the probe waited forever
+        // (ValidationDepth.LOCAL handed out the frozen connection; the driver has no read
+        // timeout). Now the acquire-time validation fails after maxValidationTime and a new
+        // connection after maxCreateConnectionTime, so the acquire fails within its budget.
+        FreezableRelay.forTestDatabase().use { relay ->
+            testApplication {
+                configureApp(
+                    "postgres.r2dbcUrl" to relay.relayed(PostgresTestSupport.r2dbcUrl),
+                    "postgres.pool.applicationName" to "pool-hung-${UUID.randomUUID()}",
+                    "postgres.pool.maxValidationTimeSeconds" to "1",
+                    "postgres.pool.maxCreateConnectionTimeSeconds" to "2",
+                    "postgres.pool.maxAcquireTimeSeconds" to "3",
+                )
+                startApplication()
+                val client = jsonClient()
+                assertEquals(HttpStatusCode.OK, client.get("/readyz").status, "the relay must work while thawed")
+
+                relay.frozen = true
+                val startedAt = System.nanoTime()
+                val status = withTimeout(20_000) { client.get("/readyz").status }
+                val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
+                assertEquals(HttpStatusCode.ServiceUnavailable, status)
+                assertTrue(elapsedMillis < 10_000, "a hung database must fail the probe within the pool bounds (took $elapsedMillis ms)")
+                // Thaw before the app stops, so disposing the pool does not wait on silent sockets.
+                relay.frozen = false
+            }
+        }
+    }
+
+    @Test
+    fun `a connection the server killed is replaced at acquire, not handed to a request`() = testApplication {
+        // The pre-v4.7.1 accepted gap (persistence.md "Exception"): with ValidationDepth.LOCAL a
+        // backend terminated server-side was handed out once and failed that request with a 500.
+        val appName = "pool-killed-${UUID.randomUUID()}"
+        configureApp("postgres.pool.applicationName" to appName, "postgres.pool.initialSize" to "1", "postgres.pool.maxSize" to "1")
+        startApplication()
+        val db = application.attributes[R2dbcDatabaseKey]
+        suspendTransaction(db) { touchDatabase() }
+        assertEquals(1, terminateBackends(appName), "exactly the one pooled backend is killed")
+
+        // The next transaction acquires the dead connection's slot: validation replaces it.
+        suspendTransaction(db) { touchDatabase() }
+    }
+
+    @Test
+    fun `statementTimeoutSeconds cancels a statement the server runs too long`() = testApplication {
+        configureApp(
+            "postgres.pool.applicationName" to "pool-stmt-${UUID.randomUUID()}",
+            "postgres.statementTimeoutSeconds" to "1",
+        )
+        startApplication()
+        val db = application.attributes[R2dbcDatabaseKey]
+        // The value the server actually sees — Exposed SETs statement_timeout per statement from
+        // its defaultQueryTimeout, which silently overwrote any other way of setting it.
+        val setting = suspendTransaction(db) { exec("SHOW statement_timeout") { row -> row.get(0, String::class.java) }?.toList() }
+        assertEquals(listOf("1s"), setting)
+        val failure = runCatching {
+            suspendTransaction(db) { exec("SELECT pg_sleep(3)") { row -> row.get(0) }?.toList() }
+        }.exceptionOrNull()
+        assertNotNull(failure, "a 3 s statement must not survive a 1 s statement_timeout")
+        val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+        assertTrue("statement timeout" in messages, "unexpected failure: $messages")
+    }
+
+    @Test
+    fun `the hung-database bounds are range-checked at boot`() {
+        for ((key, value) in listOf(
+            "postgres.pool.maxValidationTimeSeconds" to "0",
+            "postgres.pool.maxValidationTimeSeconds" to "61",
+            "postgres.pool.maxCreateConnectionTimeSeconds" to "601",
+            "postgres.connectTimeoutSeconds" to "0",
+            "postgres.statementTimeoutSeconds" to "-1",
+            "postgres.statementTimeoutSeconds" to "3601",
+        )) {
+            testApplication {
+                configureApp(key to value)
+                assertStartupFails(key) { startApplication() }
+            }
+        }
+    }
+
+    /** Terminates every backend of [applicationName] from outside the pool; returns how many. */
+    private fun terminateBackends(applicationName: String): Int =
+        DriverManager.getConnection(PostgresTestSupport.jdbcUrl, PostgresTestSupport.user, PostgresTestSupport.password).use { conn ->
+            conn.prepareStatement(
+                "SELECT count(*) FROM (SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = ?) t",
+            ).use { stmt ->
+                stmt.setString(1, applicationName)
+                stmt.executeQuery().use { rs ->
+                    rs.next()
+                    rs.getInt(1)
+                }
+            }
+        }
 }
