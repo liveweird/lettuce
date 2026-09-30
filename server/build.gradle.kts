@@ -16,10 +16,10 @@ buildscript {
             // (CVE-2025-67030, directory traversal in extractFile). Literals, not the catalog: the
             // buildscript block is evaluated before `libs` exists. Keep jackson in step with the
             // `jackson-bom` catalog line.
-            classpath("com.fasterxml.jackson.core:jackson-databind:2.22.2")
-            classpath("com.fasterxml.jackson.core:jackson-core:2.22.2")
+            classpath("com.fasterxml.jackson.core:jackson-databind:2.22.3")
+            classpath("com.fasterxml.jackson.core:jackson-core:2.22.3")
             classpath("com.fasterxml.jackson.core:jackson-annotations:2.22")
-            classpath("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.2")
+            classpath("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.3")
             classpath("org.codehaus.plexus:plexus-utils:4.0.3")
             // MEDIUM only (below the scan's gate), cleared anyway so the report starts at zero:
             // log4j 2.25.1 (CVE-2025-68161, CVE-2026-34477/-34478/-34480, CVE-2026-49844).
