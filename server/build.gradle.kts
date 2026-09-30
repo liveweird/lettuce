@@ -1,3 +1,20 @@
+// Plugin classpath locking — see the root build.gradle.kts buildscript block.
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
+    dependencies {
+        constraints {
+            // The Ktor Gradle plugin 3.6.0 constrains commons-lang3 to the open range [3.18.0,).
+            // Hold it at 3.20.0, the version whose checksum is already verified, so a new upstream
+            // release cannot enter the build unreviewed; move it deliberately.
+            classpath("org.apache.commons:commons-lang3") {
+                version { strictly("3.20.0") }
+            }
+        }
+    }
+}
+
 
 plugins {
     alias(libs.plugins.kotlin.jvm)

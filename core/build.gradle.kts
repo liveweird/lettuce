@@ -1,3 +1,10 @@
+// Plugin classpath locking — see the root build.gradle.kts buildscript block.
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
+}
+
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)

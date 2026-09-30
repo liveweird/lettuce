@@ -1,24 +1,32 @@
 package ch.nokillswit.infra.teams
 
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.http.HttpTimeoutException
+import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.time.Duration
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.Flow
 
 /**
  * Sends a Microsoft Teams direct message to one Lettuce user, in three steps that mirror the two
@@ -99,11 +107,13 @@ class LogTeamsMessenger : TeamsMessenger {
 
 /**
  * The real transport: JDK [HttpClient] only (no new Gradle dependency) plus kotlinx.serialization
- * for the small JSON bodies. A failed request is logged at most as step/status/subCode on the
- * `ch.nokillswit.teams` logger — never the client secret, a bearer token, or a response body,
- * which could carry tenant/user details Lettuce has no business persisting in logs. Response
- * bodies are additionally bounded at [MAX_RESPONSE_BODY_BYTES] so a malicious/misbehaving peer
- * cannot make this transport buffer an unbounded reply.
+ * for the small JSON bodies. Non-blocking since v4.5.1: every request suspends on `sendAsync`,
+ * never parking a thread, and a cancelled or timed-out request aborts its exchange. A
+ * failed request is logged at most as step/status/subCode on the `ch.nokillswit.teams` logger —
+ * never the client secret, a bearer token, or a response body, which could carry tenant/user
+ * details Lettuce has no business persisting in logs. Response bodies are additionally bounded at
+ * [MAX_RESPONSE_BODY_BYTES] so a malicious/misbehaving peer cannot make this transport buffer an
+ * unbounded reply.
  *
  * References (cited per the fields/flows they justify below):
  *  - https://learn.microsoft.com/en-us/microsoftteams/platform/bots/how-to/conversations/send-proactive-messages
@@ -323,19 +333,85 @@ class BotFrameworkTeamsMessenger(
     }
 
     /**
-     * Reads the response body through [BodyHandlers.ofInputStream] rather than `ofString` and
-     * caps it at [MAX_RESPONSE_BODY_BYTES] + 1 bytes ([InputStream.readNBytes] never reads more
-     * than asked) — an oversized body throws [TeamsResponseTooLargeException] instead of letting
-     * this transport buffer an attacker- or outage-sized response in full. Still blocking (the
-     * JDK [HttpClient] has no coroutine-native async surface without a new dependency — see the
-     * class doc), so it stays on [Dispatchers.IO].
+     * Sends [request] without holding a thread: `sendAsync` suspends the caller while the JDK
+     * [HttpClient]'s own selector/executor threads run the exchange, so a slow or unreachable
+     * Microsoft endpoint never occupies a [kotlinx.coroutines.Dispatchers.IO] thread — the pool the
+     * SMTP mailer also blocks on. The body goes through [BoundedBodySubscriber], which caps it at
+     * [MAX_RESPONSE_BODY_BYTES] and fails with [TeamsResponseTooLargeException] instead of
+     * buffering an attacker- or outage-sized response in full.
+     *
+     * [requestTimeout] bounds the WHOLE exchange: `HttpRequest.timeout` alone stops at the response
+     * headers, so a peer that answers the headers and then drips the body would otherwise hold the
+     * connection open for as long as it liked. Past the bound the exchange is aborted and the call
+     * fails with [HttpTimeoutException], the same outcome as a header timeout.
      */
-    private suspend fun send(request: HttpRequest): TeamsResponse = withContext(Dispatchers.IO) {
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-        val bytes = response.body().use { it.readNBytes(MAX_RESPONSE_BODY_BYTES + 1) }
-        if (bytes.size > MAX_RESPONSE_BODY_BYTES) throw TeamsResponseTooLargeException()
+    private suspend fun send(request: HttpRequest): TeamsResponse {
+        val exchange = httpClient.sendAsync(request) { BoundedBodySubscriber(MAX_RESPONSE_BODY_BYTES) }
+        val response = withTimeoutOrNull(requestTimeout.toMillis()) { exchange.awaitAbortingOnCancel() }
+            ?: throw HttpTimeoutException("Teams exchange did not complete within $requestTimeout")
         val retryAfterSeconds = response.headers().firstValue("Retry-After").map { it.toLongOrNull() }.orElse(null)
-        TeamsResponse(response.statusCode(), String(bytes, StandardCharsets.UTF_8), retryAfterSeconds)
+        return TeamsResponse(response.statusCode(), String(response.body(), StandardCharsets.UTF_8), retryAfterSeconds)
+    }
+
+    /**
+     * Awaits the `sendAsync` future; a cancelled caller (a timeout above, or the notification batch
+     * cancelled) calls `cancel(true)` — the form the `HttpClient.sendAsync` Javadoc documents as
+     * attempting to cancel the HTTP exchange and release its connection. kotlinx's
+     * `CompletableFuture.await()` would cancel with `cancel(false)`, which the JDK does not promise
+     * to act on, leaving the socket open until the peer answered. A `CompletionException` is
+     * unwrapped so [runCatchingIo] sees the original [HttpTimeoutException]/IO failure.
+     */
+    private suspend fun <T> CompletableFuture<T>.awaitAbortingOnCancel(): T =
+        suspendCancellableCoroutine { continuation ->
+            whenComplete { value, error ->
+                if (error == null) {
+                    continuation.resume(value)
+                } else {
+                    continuation.resumeWithException((error as? CompletionException)?.cause ?: error)
+                }
+            }
+            continuation.invokeOnCancellation { cancel(true) }
+        }
+
+    /**
+     * Collects a response body of at most [limit] bytes. Past the limit it cancels the upstream
+     * subscription and completes exceptionally with
+     * [TeamsResponseTooLargeException]; buffers already in flight are dropped. The HTTP client
+     * serializes the Flow callbacks, so the mutable state needs no locking.
+     */
+    private class BoundedBodySubscriber(private val limit: Int) : HttpResponse.BodySubscriber<ByteArray> {
+        private val result = CompletableFuture<ByteArray>()
+        private val collected = ByteArrayOutputStream()
+        private var subscription: Flow.Subscription? = null
+
+        override fun getBody(): CompletionStage<ByteArray> = result
+
+        override fun onSubscribe(subscription: Flow.Subscription) {
+            this.subscription = subscription
+            subscription.request(Long.MAX_VALUE)
+        }
+
+        override fun onNext(item: List<ByteBuffer>) {
+            if (result.isDone) return
+            for (buffer in item) {
+                if (collected.size() + buffer.remaining() > limit) {
+                    subscription?.cancel()
+                    result.completeExceptionally(TeamsResponseTooLargeException())
+                    return
+                }
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                collected.write(bytes)
+            }
+        }
+
+        override fun onError(throwable: Throwable) {
+            result.completeExceptionally(throwable)
+        }
+
+        override fun onComplete() {
+            result.complete(collected.toByteArray())
+        }
     }
 
     private suspend fun tokenFor(scope: String): String = tokenMutex.withLock {

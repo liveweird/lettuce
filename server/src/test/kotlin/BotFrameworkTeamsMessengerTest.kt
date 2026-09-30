@@ -6,11 +6,13 @@ import ch.nokillswit.infra.teams.ResolveResult
 import ch.nokillswit.infra.teams.SendResult
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.Collections
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
@@ -62,6 +64,13 @@ class BotFrameworkTeamsMessengerTest {
         /** Only consulted for a 3xx response — lets a test attach a `Location` header (the
          *  redirect-not-followed test) without widening [respond]'s signature everywhere else. */
         var locationHeader: (RecordedRequest) -> String? = { null }
+
+        /** When true for a request, the response headers go out at once and the body drips. */
+        var dripBody: (RecordedRequest) -> Boolean = { false }
+        var dripDelayMillis = 1000L
+
+        /** Responses whose write failed because the client had already closed the connection. */
+        val writeFailures = AtomicInteger()
         private val server = HttpServer.create(InetSocketAddress(0), 0)
         val port: Int get() = server.address.port
 
@@ -89,8 +98,22 @@ class BotFrameworkTeamsMessengerTest {
                 }
                 val bytes = responseBody.toByteArray(StandardCharsets.UTF_8)
                 exchange.responseHeaders.add("Content-Type", "application/json")
-                exchange.sendResponseHeaders(status, bytes.size.toLong())
-                exchange.responseBody.use { it.write(bytes) }
+                try {
+                    if (dripBody(recorded)) {
+                        // Headers at once, then the body one byte per dripDelayMillis (chunked).
+                        exchange.sendResponseHeaders(status, 0)
+                        exchange.responseBody.use { out ->
+                            bytes.forEach { byte -> out.write(byte.toInt()); out.flush(); Thread.sleep(dripDelayMillis) }
+                        }
+                    } else {
+                        exchange.sendResponseHeaders(status, bytes.size.toLong())
+                        exchange.responseBody.use { it.write(bytes) }
+                    }
+                } catch (e: IOException) {
+                    // The client closed the connection before (or while) the response was written.
+                    writeFailures.incrementAndGet()
+                    throw e
+                }
             }
             server.executor = Executors.newCachedThreadPool()
         }
@@ -567,7 +590,11 @@ class BotFrameworkTeamsMessengerTest {
 
     @Test
     fun `a cancelled coroutine propagates CancellationException rather than a Failed result`() = withServer { server ->
-        server.respond = { r -> if (isTokenRequest(r)) tokenResponse() else { Thread.sleep(2000); 200 to "{}" } }
+        server.respond = { r -> if (isTokenRequest(r)) tokenResponse() else { Thread.sleep(2000); 200 to """{"id":"aad-too-late"}""" } }
+        // Stream the late body in chunks: the first write into a closed TCP connection is usually
+        // absorbed by the kernel buffer, a later one surfaces the reset.
+        server.dripBody = { r -> !isTokenRequest(r) }
+        server.dripDelayMillis = 100
         var cancellationSeen = false
         coroutineScope {
             val job = launch {
@@ -579,8 +606,50 @@ class BotFrameworkTeamsMessengerTest {
                 }
             }
             delay(200)
+            val cancelledAt = System.nanoTime()
             job.cancelAndJoin()
+            // The fake server sleeps 2 s: a transport that parks a thread on a blocking send could
+            // only unwind once the response arrived. The async send aborts the exchange at once.
+            val unwindMillis = (System.nanoTime() - cancelledAt) / 1_000_000
+            assertTrue(unwindMillis < 1000, "cancellation must not wait for the response (took $unwindMillis ms)")
         }
         assertTrue(cancellationSeen, "cancellation must propagate out of the transport, never become Failed")
+        // The exchange itself is aborted (cancel(true)), not merely abandoned: once the fake
+        // server wakes from its sleep, writing the response hits a closed connection.
+        repeat(60) { if (server.writeFailures.get() == 0) delay(100) }
+        assertEquals(1, server.writeFailures.get(), "the cancelled exchange's connection must be closed")
+    }
+
+    @Test
+    fun `a body that drips after the headers is cut off at the request timeout`() = withServer { server ->
+        server.respond = { r ->
+            if (isTokenRequest(r)) tokenResponse() else 200 to """{"id":"aad-drip-fed"}"""
+        }
+        server.dripBody = { r -> !isTokenRequest(r) }
+        val startedAt = System.nanoTime()
+        val result = messenger(server, requestTimeoutSeconds = 1).resolveUser("drip@example.com")
+        val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
+        assertEquals(ResolveResult.Failed, result)
+        // The 21-byte body would take ~21 s at a byte a second; the bound is the 1 s timeout.
+        assertTrue(elapsedMillis < 5000, "the whole exchange must be bounded by the request timeout (took $elapsedMillis ms)")
+    }
+
+    @Test
+    fun `a response body exactly at the 64 KiB cap is accepted, one byte more is Failed`() = withServer { server ->
+        val cap = 64 * 1024
+        // {"id":"<padding>"} sized to the exact byte count requested for each lookup.
+        fun bodyOf(size: Int) = """{"id":"${"a".repeat(size - """{"id":""}""".length)}"}"""
+        server.respond = { r ->
+            when {
+                isTokenRequest(r) -> tokenResponse()
+                r.path.endsWith("at-cap%40example.com") -> 200 to bodyOf(cap)
+                r.path.endsWith("over-cap%40example.com") -> 200 to bodyOf(cap + 1)
+                else -> 500 to "{}"
+            }
+        }
+        val messenger = messenger(server)
+        val atCap = messenger.resolveUser("at-cap@example.com")
+        assertTrue(atCap is ResolveResult.Resolved && atCap.aadObjectId.length == cap - """{"id":""}""".length)
+        assertEquals(ResolveResult.Failed, messenger.resolveUser("over-cap@example.com"))
     }
 }

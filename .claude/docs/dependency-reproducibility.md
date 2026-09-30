@@ -3,8 +3,9 @@
 The Gradle build uses two complementary, fail-closed controls:
 
 - dependency locking pins the selected module versions in `gradle.lockfile`,
-  `core/gradle.lockfile`, and `server/gradle.lockfile`; the imported Ktor version catalog is pinned
-  in `settings-gradle.lockfile`; and
+  `core/gradle.lockfile`, and `server/gradle.lockfile`; the plugin classpaths are pinned in the
+  three `buildscript-gradle.lockfile`s (root, `core`, `server` — since v4.5.1); the imported Ktor
+  version catalog is pinned in `settings-gradle.lockfile`; and
 - dependency verification checks the SHA-256 digest of every resolved external artifact and its
   metadata against `gradle/verification-metadata.xml`.
 
@@ -29,12 +30,18 @@ Gradle consumes `settings-gradle.lockfile` for the published Ktor version catalo
 strict-lock API is project-scoped. `settings.gradle.kts` therefore adds a fail-closed presence and
 non-empty check for this settings lock, bypassed only while `--write-locks` is regenerating it.
 
-Project dependency locking does not apply to the plugins DSL or buildscript classpaths. This build
-has no declared `buildscript` dependencies, and direct project and settings plugin versions are
-fixed in the version catalogs or `settings.gradle.kts`. Global dependency verification does cover
-project plugins, settings plugins, their transitive artifacts, and any future buildscript artifacts.
-If a buildscript dependency is introduced, explicitly activate locking for its `classpath`
-configuration and commit its separate `buildscript-gradle.lockfile`.
+Project dependency locking does not reach the plugin classpath, so each project's `buildscript`
+block activates locking for its `classpath` configuration explicitly (v4.5.1) — the plugins-DSL
+resolution runs through that configuration, so the lock pins every plugin and its transitive
+artifacts. Direct plugin versions are fixed in the version catalogs, but a plugin's own
+dependencies may carry open ranges: the Ktor Gradle plugin 3.6.0 constrains `commons-lang3` to
+`[3.18.0,)`, and on 2026-09-30 an unlocked classpath floated onto the day-old 3.21.0 and failed
+verification on every clean build. Two `buildscript` constraints hold the plugin classpath where
+it was reviewed: `commons-lang3` strictly 3.20.0 (`server/build.gradle.kts`) and FreeMarker 2.3.35
+(root — Kover's reporter, CVE-2026-84939). `resolveAndLockAll --write-locks` rewrites the three
+buildscript lockfiles along with the project ones, since the classpath resolves during
+configuration. Settings plugins (`settings.gradle.kts`) stay outside locking; global dependency
+verification covers them and every plugin artifact.
 
 Verification also covers POM and Gradle module metadata because `verify-metadata` is enabled. It
 does not cover locally produced project artifacts, changing modules such as snapshots, the Gradle

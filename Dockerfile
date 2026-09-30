@@ -23,12 +23,12 @@ RUN GIT_SHA=$(git rev-parse --short HEAD) \
 FROM eclipse-temurin:21-jdk@sha256:92a2a4d7a928d057e7bd999c418d66c26a34eb9a0442f3ab67721c3f88110b2d AS server
 WORKDIR /src
 # Copy build scripts + wrapper first so the Gradle distribution download caches.
-COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties gradle.lockfile settings-gradle.lockfile ./
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties gradle.lockfile settings-gradle.lockfile buildscript-gradle.lockfile ./
 COPY gradle/ gradle/
 RUN ./gradlew --version --no-daemon
 # Module build files, then sources.
-COPY core/build.gradle.kts core/gradle.lockfile core/
-COPY server/build.gradle.kts server/gradle.lockfile server/
+COPY core/build.gradle.kts core/gradle.lockfile core/buildscript-gradle.lockfile core/
+COPY server/build.gradle.kts server/gradle.lockfile server/buildscript-gradle.lockfile server/
 COPY core/src/ core/src/
 COPY server/src/ server/src/
 # installDist keeps every dependency as its own JAR, so Flyway's ServiceLoader

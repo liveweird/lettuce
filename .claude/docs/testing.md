@@ -54,7 +54,7 @@ read as real failures) — and never `docker compose down -v` against a long-liv
    for `build/*` branches and excludes generated output). Then
    `./gradlew --dependency-verification strict check :server:installDist` (`--rerun` on
    `:server:test` if you need a clean, non-cached run), then
-   `git diff --exit-code -- gradle.lockfile core/gradle.lockfile server/gradle.lockfile settings-gradle.lockfile gradle/verification-metadata.xml`
+   `git diff --exit-code -- gradle.lockfile core/gradle.lockfile server/gradle.lockfile settings-gradle.lockfile buildscript-gradle.lockfile core/buildscript-gradle.lockfile server/buildscript-gradle.lockfile gradle/verification-metadata.xml`
    (the local twin of the **Backend** CI job's lock/checksum clean-diff check — see
    `.claude/docs/dependency-reproducibility.md` for an intentional dependency update instead of
    fighting this check).
