@@ -1,0 +1,24 @@
+.root {
+  min-width: 0;
+}
+
+.toggle[aria-expanded="true"] {
+  color: var(--mantine-primary-color-filled);
+  border-color: light-dark(#9eb5a8, #648372);
+  background-color: light-dark(var(--mantine-color-lettuce-0), var(--lettuce-surface-tint));
+}
+
+.panel {
+  border-color: var(--mantine-color-default-border);
+}
+
+.fields {
+  flex-wrap: wrap;
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .fields {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

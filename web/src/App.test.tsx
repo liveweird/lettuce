@@ -54,27 +54,27 @@ describe("App shell", () => {
     test("navigating via the navbar swaps the main content", async () => {
       const user = userEvent.setup();
       renderApp("/");
-      // Users now lives under the collapsible "Config" group — expand it first.
-      await user.click(await screen.findByText("Config"));
+      // Users now lives under the collapsible "Directory" group — expand it first.
+      await user.click(await screen.findByText("Directory"));
       await user.click(await screen.findByRole("link", { name: /^users$/i }));
       expect(
         await screen.findByRole("heading", { level: 2, name: "Users" }),
       ).toBeInTheDocument();
     });
 
-    test("auto-expands the Config group when on one of its routes", async () => {
+    test("auto-expands the Directory group when on one of its routes", async () => {
       // Landing on a Config child route (e.g. the tour navigating in) expands the group without a
       // manual click, so its sibling links are visible.
       renderApp("/users");
       expect(await screen.findByRole("link", { name: /^teams$/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /^feedback templates$/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /^org chart$/i })).toBeInTheDocument();
     });
 
     test("Review periods is a Config leaf for everyone; Alerts stays admin-only", async () => {
       // No roles in localStorage = a regular user (the Dictionaries-group precedent).
       const user = userEvent.setup();
       renderApp("/");
-      await user.click(await screen.findByText("Config"));
+      await user.click(await screen.findByText("Resources"));
       expect(screen.getByRole("link", { name: /^review periods$/i })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /^alerts$/i })).toBeNull();
     });
@@ -86,7 +86,7 @@ describe("App shell", () => {
         "href",
         "/days-off",
       );
-      await user.click(await screen.findByText("Config"));
+      await user.click(await screen.findByText("Resources"));
       expect(screen.getByRole("link", { name: /^public holidays$/i })).toHaveAttribute(
         "href",
         "/public-holidays",
@@ -103,8 +103,9 @@ describe("App shell", () => {
       try {
         const user = userEvent.setup();
         renderApp("/");
-        await user.click(await screen.findByText("Config"));
+        await user.click(await screen.findByText("Resources"));
         expect(screen.getByRole("link", { name: /^review periods$/i })).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Settings" }));
         expect(screen.getByRole("link", { name: /^alerts$/i })).toBeInTheDocument();
       } finally {
         localStorage.removeItem("lettuce.auth.roles");
@@ -199,8 +200,8 @@ describe("App shell", () => {
         expect(screen.queryByRole("link", { name: /^performance$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^days off$/i })).toBeNull();
         // …and so are their Config leaves (expand the group so its siblings prove it rendered).
-        await user.click(screen.getByText("Config"));
-        expect(await screen.findByRole("link", { name: /^users$/i })).toBeInTheDocument();
+        await user.click(screen.getByText("Resources"));
+        expect(await screen.findByRole("link", { name: /^feedback templates$/i })).toBeInTheDocument();
         expect(screen.queryByRole("link", { name: /^review periods$/i })).toBeNull();
         expect(screen.queryByRole("link", { name: /^public holidays$/i })).toBeNull();
       } finally {
@@ -229,8 +230,8 @@ describe("App shell", () => {
       renderApp("/users/7/change-password");
 
       const changeLink = await screen.findByRole("link", { name: /change password/i });
-      // Reveal the Users link nested under the collapsed "Config" group.
-      await user.click(await screen.findByText("Config"));
+      // Reveal the Users link nested under the collapsed "Directory" group.
+      await user.click(await screen.findByText("Directory"));
       const usersLink = screen.getByRole("link", { name: /^users$/i });
       expect(changeLink).toHaveAttribute("aria-current", "page");
       expect(usersLink).not.toHaveAttribute("aria-current");
@@ -263,7 +264,7 @@ describe("App shell", () => {
     test("the Config group toggle is a keyboard-focusable button", async () => {
       const user = userEvent.setup();
       renderApp("/");
-      const toggle = await screen.findByRole("button", { name: /config/i });
+      const toggle = await screen.findByRole("button", { name: /directory/i });
       toggle.focus();
       expect(toggle).toHaveFocus();
       await user.keyboard("{Enter}");
@@ -321,8 +322,11 @@ describe("App shell", () => {
       expect(within(team).getByRole("link", { name: /^team kpis$/i })).toHaveAttribute("href", "/team-kpis");
       // Succession plans is manager-only — the probe answers nothing here, so it stays hidden.
       expect(within(team).queryByRole("link", { name: /succession/i })).not.toBeInTheDocument();
-      const admin = screen.getByRole("group", { name: "Administration" });
-      expect(within(admin).getByRole("button", { name: /^config$/i })).toBeInTheDocument();
+      const people = screen.getByRole("group", { name: "People" });
+      expect(within(people).getByRole("button", { name: /^directory$/i })).toBeInTheDocument();
+      const reference = screen.getByRole("group", { name: "Reference" });
+      expect(within(reference).getByRole("button", { name: /^resources$/i })).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Administration" })).not.toBeInTheDocument();
       // The account items are no section's business: they live in the footer with the stamp.
       expect(within(myWork).queryByRole("link", { name: /^changelog$/i })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: /^changelog$/i })).toHaveAttribute("href", "/changelog");
@@ -340,7 +344,7 @@ describe("App shell", () => {
         expect(screen.queryByText("My work")).not.toBeInTheDocument();
         expect(screen.getByRole("group", { name: "My work" })).toBeInTheDocument();
         // A group is a menu trigger; its leaves are menu items that still carry their targets.
-        await user.click(screen.getByRole("button", { name: /^config$/i }));
+        await user.click(screen.getByRole("button", { name: /^directory$/i }));
         expect(await screen.findByRole("menuitem", { name: /^users$/i })).toHaveAttribute("href", "/users");
         // The footer keeps the account links and the (compact) version stamp.
         expect(screen.getByRole("link", { name: /^changelog$/i })).toHaveAttribute("href", "/changelog");
@@ -474,7 +478,7 @@ describe("App shell", () => {
       );
       // The header renders the app-wide initials avatar (PersonaChip convention),
       // not a static glyph — Mantine derives "AL" from the single-word name.
-      const header = screen.getByRole("banner");
+      const header = screen.getByRole("banner", { name: "Lettuce" });
       expect(header.querySelector(".mantine-Avatar-root")).not.toBeNull();
       expect(within(header).getByText("AL")).toBeInTheDocument();
     });

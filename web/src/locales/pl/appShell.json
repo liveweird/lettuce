@@ -16,7 +16,7 @@
     "performance": "Oceny okresowe",
     "career": "Kariera",
     "daysOff": "Dni wolne",
-    "config": "Konfiguracja",
+    "config": "Ustawienia",
     "users": "Użytkownicy",
     "teams": "Zespoły",
     "orgChart": "Struktura organizacji",
@@ -39,12 +39,16 @@
     "pulse": "Puls",
     "succession": "Plany sukcesji",
     "pulseCycles": "Cykle pulsu",
-    "pulseRotatingQuestions": "Pytania pulsu"
+    "pulseRotatingQuestions": "Pytania pulsu",
+    "people": "Katalog osób",
+    "reference": "Zasoby"
   },
   "navSection": {
     "overview": "Przegląd",
     "myWork": "Moja praca",
     "team": "Zespół",
-    "administration": "Administracja"
+    "administration": "Administracja",
+    "people": "Osoby",
+    "reference": "Materiały"
   }
 }

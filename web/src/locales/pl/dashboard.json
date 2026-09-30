@@ -22,5 +22,8 @@
     "myTeams": "Brak zarządzanych zespołów"
   },
   "teamFallback": "Zespół #{{id}}",
-  "teamSubordinatesHint": "Członkowie tego zespołu — z tymi samymi kartami i akcjami co Moi podwładni."
+  "teamSubordinatesHint": "Członkowie tego zespołu — z tymi samymi kartami i akcjami co Moi podwładni.",
+  "description": "Twoja praca i osoby, z którymi współpracujesz.",
+  "relationships": "Twoje relacje w pracy",
+  "relationshipsHint": "Bądź na bieżąco z ważnymi rozmowami."
 }

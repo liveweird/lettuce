@@ -19,9 +19,9 @@
 1. The fixture creates an ordinary employee and long-named colleagues, including long unbroken
    email and employee identifiers, then creates a 99-character unbroken team name.
 2. It gives the employee a received feedback with a long requester, visible content, and
-   Provider + requester + subject visibility. At 1440, 1280, 1024, and 390 pixels:
+   Provider + requester + subject visibility. At 1440, 1280, 1024, and 390 pixels, row actions also stay inside their own cells without overlapping adjacent content:
    - *Expected*: the page has no horizontal overflow; the requester, provider, preview, the
-     compact "P+R+S" visibility pill (its full wording on hover), and row action remain
+     full "Provider + requester + subject" visibility label, and row action remain
      discoverable; the action stays inside the viewport.
 3. At 390 pixels the employee opens the received feedback through its visible View action.
    - *Expected*: the correct feedback detail opens and retains the full content.
@@ -38,7 +38,7 @@
      reachable, switching direction updates the active tab, and the page remains contained.
 7. The employee switches to Polish and repeats Received and Provided at representative desktop
    and mobile widths (1280 and 390 pixels).
-   - *Expected*: the compact Polish visibility pill (full wording on hover), the longer Polish
+   - *Expected*: the full Polish visibility label, the longer Polish
      status labels, the deadline, content, and actions remain available without widening the
      page.
 8. Back in English, the employee filters Users to a colleague with maximum-length identity
@@ -102,3 +102,5 @@ Synthetic long-name feedback fixtures, captured during the responsive layout aud
 assertions above rather than screenshot comparison.
 
 [Desktop feedback](assets/list-layout/feedback-desktop.png) · [Mobile feedback](assets/list-layout/feedback-mobile.png)
+
+The matrix geometry check waits for its own seeded rated row and all five rating pills before measuring; visible headers alone also occur during loading.

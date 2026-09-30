@@ -17,7 +17,7 @@
 
 1. As ADMIN, over the API, the spec checks whether any review period exists
    (`GET /api/v1/review-periods`). On the shared dev DB it always does, and this is a no-op; on a
-   fresh database the spec signs in as ADMIN, opens Config → Review periods, and appends the
+   fresh database the spec signs in as ADMIN, opens Resources → Review periods, and appends the
    previewed "Will add:" period exactly as `performance-reviews.spec.ts` does, then signs out.
 2. Manager AAA signs in; the alert banner is collapsed first (a pre-existing active alert's
    expanded banner would overlay the header). They open the Performance page; from here on every

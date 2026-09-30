@@ -1,6 +1,11 @@
-import { Stack, Tabs, Title } from "@mantine/core";
+import { Button, Stack, Tabs, Text, Title } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
+import { IconPlus } from "@tabler/icons-react";
+import { hasFeature } from "../api/session";
+import { useCurrentPath } from "../hooks/useCurrentPath";
+import { feedbackCreateLink } from "../utils/feedbackLinks";
+import PageHeader from "../components/PageHeader";
 import DashboardHero from "../components/DashboardHero";
 import { isOneOf, useStoredState } from "../hooks/useStoredState";
 import ManagersTable from "./ManagersTable";
@@ -16,6 +21,7 @@ function isDashboardTab(value: string | null): value is DashboardTab {
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   // The last-picked tab is remembered per device (v3.4.0); an explicit ?tab= always wins,
@@ -38,8 +44,18 @@ export default function Dashboard() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("dashboard.title")}</Title>
+      <PageHeader title={t("dashboard.title")} description={t("dashboard.description")}
+        actions={hasFeature("FEEDBACKS") ? (
+          <Button component={RouterLink} to={feedbackCreateLink("/feedback?tab=provided", here)} leftSection={<IconPlus size={16} />}>
+            {t("feedback.newFeedback")}
+          </Button>
+        ) : undefined}
+      />
       <DashboardHero />
+      <Stack gap={4}>
+        <Title order={3}>{t("dashboard.relationships")}</Title>
+        <Text size="sm" c="dimmed">{t("dashboard.relationshipsHint")}</Text>
+      </Stack>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="managers" data-tour="dashboard-managers">

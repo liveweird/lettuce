@@ -73,6 +73,8 @@ describe("ViewFeedback page", () => {
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.getByText("Provider")).toBeInTheDocument();
     expect(screen.getByText("Recipients")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Feedback details" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary")).toContainElement(screen.getByText("Provider"));
     // No requester on this feedback → no Requester cell.
     expect(screen.queryByText("Requester")).toBeNull();
     const visibilityPill = screen.getByLabelText("Visibility: Public");

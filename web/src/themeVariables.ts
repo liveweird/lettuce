@@ -1,7 +1,7 @@
 import type { CSSVariablesResolver } from "@mantine/core";
 
 /**
- * The colour tokens the v3.3.0 design pass owns outside Mantine's defaults — every value here
+ * The colour tokens the shared design system owns outside Mantine's defaults — every value here
  * is chosen for WCAG AA (≥ 4.5:1) on the surface it sits on, in BOTH schemes, and
  * `theme.test.ts` guards the ratios. Mantine 9.5's stock light-variant ink in the LIGHT scheme
  * is the hue's 9-shade over the solid 1-shade tint (orange 3.6:1, green 3.8, teal 4.3, yellow
@@ -14,26 +14,29 @@ import type { CSSVariablesResolver } from "@mantine/core";
  * Alert — the tint comes from the hue, the ink comes from this map.
  */
 export const LIGHT_TOKENS = {
-  text: "#1f2328",
-  dimmed: "#5f6b76",
-  canvas: "#f8f9fb",
-  // The quiet tint under filter panels (FilterPanelBody) — gray-0; dimmed ink stays ≥ 4.5:1.
-  surfaceTint: "#f8f9fa",
-  border: "#dee2e6",
-  borderStrong: "#ced4da",
+  text: "#202b27",
+  dimmed: "#63706a",
+  canvas: "#ffffff",
+  chrome: "#f3f5f4",
+  surface: "#ffffff",
+  // A restrained inset surface for filter rows and secondary card sections.
+  surfaceTint: "#f8faf9",
+  border: "#dce3df",
+  borderStrong: "#b8c5be",
   error: "#c92a2a",
   inkWarning: "#b23a0a",
   inkError: "#c92a2a",
 } as const;
 
 export const DARK_TOKENS = {
-  text: "#e6e6e6",
-  dimmed: "#a3a3a3",
-  canvas: "#1f1f1f",
-  // dark-6 — NOT Mantine's default-hover (dark-5), where dimmed (#a3a3a3) is only 4.44:1.
-  surfaceTint: "#2e2e2e",
-  border: "#424242",
-  borderStrong: "#696969",
+  text: "#edf3ef",
+  dimmed: "#aebbb4",
+  canvas: "#171c19",
+  chrome: "#1d2521",
+  surface: "#202824",
+  surfaceTint: "#27312c",
+  border: "#3b4942",
+  borderStrong: "#64736b",
   error: "#ff8787",
   inkWarning: "#ffc078",
   inkError: "#ff8787",
@@ -64,6 +67,8 @@ function schemeVariables(tokens: typeof LIGHT_TOKENS | typeof DARK_TOKENS): Reco
     "--mantine-color-text": tokens.text,
     "--mantine-color-dimmed": tokens.dimmed,
     "--lettuce-canvas": tokens.canvas,
+    "--lettuce-chrome": tokens.chrome,
+    "--lettuce-surface": tokens.surface,
     "--lettuce-surface-tint": tokens.surfaceTint,
     "--mantine-color-default-border": tokens.border,
     "--lettuce-border-strong": tokens.borderStrong,

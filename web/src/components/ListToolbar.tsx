@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useFilterPanel } from "../hooks/useFilterPanel";
 import ClearableTextInput from "./ClearableTextInput";
 import { FilterPanelBody, FilterToggle } from "./FilterPanel";
+import classes from "./ListToolbar.module.css";
 
 export type ListToolbarProps = {
   /** The collapsible filter panel: its controls, the active count on the toggle, and the
@@ -38,9 +39,9 @@ export default function ListToolbar({ filters, search, right }: ListToolbarProps
   const [open, setOpen] = useFilterPanel(filters?.storageKey);
   const showClear = filters?.onClear != null && filters.activeCount > 0;
   return (
-    <Stack gap="sm">
+    <Stack gap="sm" className={classes.toolbar}>
       <Group justify="space-between" align="center" wrap="wrap" gap="sm">
-        <Group gap="xs" align="center" wrap="wrap">
+        <Group gap="xs" align="center" wrap="wrap" className={classes.controls}>
           {search && (
             <ClearableTextInput
               hideLabel
@@ -66,7 +67,7 @@ export default function ListToolbar({ filters, search, right }: ListToolbarProps
             </Button>
           )}
         </Group>
-        {right && <Group gap="sm">{right}</Group>}
+        {right && <Group gap="sm" className={classes.right}>{right}</Group>}
       </Group>
       {filters && open && <FilterPanelBody>{filters.children}</FilterPanelBody>}
     </Stack>

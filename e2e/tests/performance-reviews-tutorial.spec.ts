@@ -52,7 +52,7 @@ async function ensureReviewPeriodExists(page: Page, request: APIRequestContext):
   if (items.length > 0) return;
 
   await login(page, ADMIN);
-  await page.getByRole("button", { name: "Config" }).click();
+  await page.getByRole("button", { name: "Resources" }).click();
   await page.getByRole("link", { name: "Review periods" }).click();
   await expect(page.getByRole("heading", { name: "Review periods" })).toBeVisible();
   await expect(page.getByText(/^Will add: /)).toBeVisible();

@@ -35,8 +35,8 @@ where a run died.
 
 ## Scenario: days off end to end: holiday, allowance, entries, delete, calendar
 
-1. The admin opens Public holidays and adds "E2E Holiday \<Monday\>" on the booked Monday, then
-   opens Config → Paid-leave pools and adds the pool kind "E2E Pool \<Monday\>" with "Unused
+1. The admin opens Resources → Public holidays and adds "E2E Holiday \<Monday\>" on the booked Monday, then
+   opens Resources → Paid-leave pools and adds the pool kind "E2E Pool \<Monday\>" with "Unused
    days carry over to the next year" unchecked (a yearly-reset pool, v3.2.0).
    - *Expected*: "Public holiday added" (a residual holiday from a failed run answers "A holiday
      already exists on this date." instead — either way the date is now covered), and the
@@ -63,7 +63,8 @@ where a run died.
    "E2E Pool" entry in the Type picker (v3.2.0).
    - *Expected*: the own budget card already lists the granted pool; the cost preview reads
      "1 working day"; "Days off added"; the Friday row names the pool.
-5. Manager AAA opens the Dashboard's subordinates tab and looks at AAA Two's card.
+5. Manager AAA opens the Dashboard's subordinates tab, looks at AAA Two's card, and expands
+   **Profile & days off**.
    - *Expected*: "Next vacation" with the Monday's date, and "Days-off budget left" — the card
      counts the entry the moment it is created; there is nothing left to accept.
 6. AAA One — AAA Two's teammate on team AAA, not their manager — signs in and opens the bell.
@@ -117,7 +118,7 @@ where a run died.
 **Cleanup** (in-test, through the UI): AAA Two deletes their own remaining Monday–Tuesday entry
 from My days off ("Days-off entry deleted"); Manager AAA deletes the correction ("Correction
 deleted") and archives AAA Two's "E2E Pool" grant on the drill-down ("Pool archived" — the
-default pool has no archive control); the admin archives the pool kind on Config → Paid-leave
+default pool has no archive control); the admin archives the pool kind on Resources → Paid-leave
 pools via the row's ⋯ "More actions" menu ("Pool kind archived") and deletes the holiday from
 its table row ("Public holiday deleted") — nothing this run created persists on the seed
 accounts or the registries.

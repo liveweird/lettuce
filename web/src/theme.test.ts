@@ -26,7 +26,7 @@ function darken(hex: string, alpha: number): string {
 const WHITE = "#ffffff";
 // Mantine 9 paints a light-variant surface with the hue's SOLID 1-shade in the light scheme
 // (`--mantine-color-<hue>-light: var(--mantine-color-<hue>-1)`) — the ink must clear AA on it.
-const LETTUCE_1 = "#dcfce7";
+const LETTUCE_1 = "#e5eee8";
 // The dark-scheme body colour (`--mantine-color-body` = dark-7).
 const DARK_BODY = DEFAULT_THEME.colors.dark[7];
 const AA = 4.5;
@@ -34,7 +34,13 @@ const AA = 4.5;
 describe("theme colour tokens (WCAG AA)", () => {
   it("light text tokens clear 4.5:1 on white, the canvas, and the surface tint", () => {
     // The surface tint is the FilterPanelBody ground (v3.5.2) — dimmed labels sit on it.
-    const surfaces = [WHITE, LIGHT_TOKENS.canvas, LIGHT_TOKENS.surfaceTint];
+    const surfaces = [
+      WHITE,
+      LIGHT_TOKENS.canvas,
+      LIGHT_TOKENS.chrome,
+      LIGHT_TOKENS.surface,
+      LIGHT_TOKENS.surfaceTint,
+    ];
     for (const ink of [LIGHT_TOKENS.text, LIGHT_TOKENS.dimmed, LIGHT_TOKENS.error, LIGHT_TOKENS.inkWarning, LIGHT_TOKENS.inkError]) {
       for (const surface of surfaces) {
         expect(contrast(ink, surface), `${ink} on ${surface}`).toBeGreaterThanOrEqual(AA);
@@ -74,7 +80,14 @@ describe("theme colour tokens (WCAG AA)", () => {
 
   it("dark text tokens clear 4.5:1 on the dark surfaces", () => {
     // dark-7 = body, dark-6 = table heads, the canvas, and the surface tint (FilterPanelBody).
-    const surfaces = [DEFAULT_THEME.colors.dark[7], DEFAULT_THEME.colors.dark[6], DARK_TOKENS.canvas, DARK_TOKENS.surfaceTint];
+    const surfaces = [
+      DEFAULT_THEME.colors.dark[7],
+      DEFAULT_THEME.colors.dark[6],
+      DARK_TOKENS.canvas,
+      DARK_TOKENS.chrome,
+      DARK_TOKENS.surface,
+      DARK_TOKENS.surfaceTint,
+    ];
     for (const ink of [DARK_TOKENS.text, DARK_TOKENS.dimmed, DARK_TOKENS.error, DARK_TOKENS.inkWarning, DARK_TOKENS.inkError]) {
       for (const surface of surfaces) {
         expect(contrast(ink, surface), `${ink} on ${surface}`).toBeGreaterThanOrEqual(AA);
@@ -84,8 +97,8 @@ describe("theme colour tokens (WCAG AA)", () => {
 
   it("the brand accent (primary shade 7) stays usable as a focus ring and filled button", () => {
     // 3:1 is the non-text (UI component) floor; white text on the filled button needs 4.5:1.
-    expect(contrast("#15803d", WHITE)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast("#15803d", LIGHT_TOKENS.canvas)).toBeGreaterThanOrEqual(3);
+    expect(contrast("#146347", WHITE)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#146347", LIGHT_TOKENS.canvas)).toBeGreaterThanOrEqual(3);
   });
 
   it("index.css paints the first-paint canvas with the same hexes as the canvas tokens", () => {

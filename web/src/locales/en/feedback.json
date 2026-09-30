@@ -1,5 +1,6 @@
 {
   "sectionTitle": "Feedback",
+  "sectionHint": "Share useful feedback, follow requests, and keep track of conversations with your team.",
   "newFeedback": "New feedback",
   "viewTitle": "Feedback",
   "history": "History",
@@ -31,7 +32,11 @@
     "saveDraft": "Save draft",
     "saveAndSend": "Save & send"
   },
-  "noFeedback": "No feedback",
+  "noFeedback": "No feedback yet",
+  "noFeedbackFiltered": "No feedback matches these filters",
+  "emptyHint": "Feedback will appear here when a conversation starts.",
+  "emptyFilteredHint": "Try another person or clear the active filters.",
+  "detailsTitle": "Feedback details",
   "emptyCta": "Write your first feedback",
   "unknown": "Unknown",
   "rowsPerPage": "Rows per page",

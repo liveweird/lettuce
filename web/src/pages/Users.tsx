@@ -383,7 +383,7 @@ export default function Users() {
             </ResponsiveTable.Th>
             {/* A roles set has no order — plain header, deliberately not a SortHeader. */}
             <ResponsiveTable.Th>{t("common.field.roles")}</ResponsiveTable.Th>
-            <ResponsiveTable.Th actions w={128} aria-label={t("common.table.actions")} />
+            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
           </ResponsiveTable.Tr>
         </ResponsiveTable.Thead>
         <ResponsiveTable.Tbody>

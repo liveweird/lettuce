@@ -6,6 +6,10 @@
   column-gap: var(--mantine-spacing-xl);
   row-gap: var(--mantine-spacing-sm);
   margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--lettuce-surface-tint);
 }
 
 .item {
@@ -16,6 +20,7 @@
   font-size: var(--mantine-font-size-xs);
   color: var(--mantine-color-dimmed);
   margin-bottom: 2px;
+  font-weight: 500;
 }
 
 .item dd {
@@ -24,4 +29,11 @@
   min-height: 1.5rem;
   display: flex;
   align-items: center;
+  color: var(--mantine-color-text);
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .strip {
+    grid-template-columns: 1fr;
+  }
 }

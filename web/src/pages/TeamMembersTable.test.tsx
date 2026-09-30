@@ -227,7 +227,7 @@ describe("TeamMembersTable", () => {
 
     // One 1:1 dropdown per person (Alice's two memberships collapse into one card).
     expect(await screen.findAllByRole("button", { name: /1:1 actions for/i })).toHaveLength(2);
-    await openCardMenu("1:1 actions for Bob Brown");
+    await openCardMenu("1:1 meetings: 1:1 actions for Bob Brown");
     const item = await screen.findByRole("menuitem", { name: "1:1 meetings with Bob Brown" });
     expect(item).toHaveAttribute(
       "href",
@@ -485,7 +485,7 @@ describe("TeamMembersTable", () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    await screen.findByRole("button", { name: "1:1 actions for Bob Brown" });
+    await screen.findByRole("button", { name: "1:1 meetings: 1:1 actions for Bob Brown" });
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
     fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
@@ -940,7 +940,7 @@ describe("TeamMembersTable", () => {
 
       // The 1:1 dropdown and Goals link survive…
       expect(
-        await screen.findByRole("button", { name: "1:1 actions for Bob Brown" }),
+        await screen.findByRole("button", { name: "1:1 meetings: 1:1 actions for Bob Brown" }),
       ).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Goals for Bob Brown" })).toBeInTheDocument();
       // …while every feedback affordance is gone: no trigger, no provide/ask items anywhere.

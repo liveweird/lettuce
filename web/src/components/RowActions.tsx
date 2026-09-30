@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
-import { ActionIcon, Group, Loader, Menu, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Group, Loader, Menu, Tooltip } from "@mantine/core";
 import { IconDotsVertical } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
+import { actionAccessibleName } from "../utils/accessibleActionName";
+import classes from "./RowActions.module.css";
 
 type RowActionBase = {
   /** The visible tooltip / menu text. */
@@ -36,7 +38,7 @@ export type RowActionsProps = {
   /** The row subject — names the default ⋯ trigger ("More actions for {{name}}"); a
    *  primary-only cell may omit it. */
   name?: string;
-  /** The one action worth a visible icon button. */
+  /** The one action worth a visible labelled button. */
   primary?: RowActionItem & { icon: ReactNode };
   /** Named icon-menus rendered before the ⋯ (a topic with its own asserted trigger name,
    *  such as the Users "Feedback actions for X"). */
@@ -74,42 +76,44 @@ function MenuEntry({ item }: { item: RowActionItem }) {
   );
 }
 
-function IconButton({ item, size }: { item: RowActionItem & { icon: ReactNode }; size: "sm" | "md" }) {
+function PrimaryButton({ item, size }: { item: RowActionItem & { icon: ReactNode }; size: "sm" | "md" }) {
   const common = {
     variant: "subtle" as const,
-    color: item.color ?? "gray",
-    size,
-    "aria-label": item.ariaLabel ?? item.label,
+    color: item.color ?? "lettuce",
+    size: size === "sm" ? ("xs" as const) : ("sm" as const),
+    "aria-label": actionAccessibleName(item.label, item.ariaLabel),
     disabled: item.disabled,
     loading: item.loading,
+    leftSection: item.icon,
+    className: classes.primary,
+    "data-row-primary": true,
   };
   const control = item.to ? (
-    <ActionIcon component={RouterLink} to={item.to} {...common}>
-      {item.icon}
-    </ActionIcon>
+    <Button component={RouterLink} to={item.to} {...common}>
+      {item.label}
+    </Button>
   ) : (
-    <ActionIcon onClick={item.onClick} {...common}>
-      {item.icon}
-    </ActionIcon>
+    <Button onClick={item.onClick} {...common}>
+      {item.label}
+    </Button>
   );
-  // A disabled control can't anchor a tooltip (no pointer events) — render it bare.
-  return item.disabled ? control : <Tooltip label={item.label}>{control}</Tooltip>;
+  return control;
 }
 
 /**
- * The one row-action cell (v3.3.0): the row's primary action as an icon button with a
- * tooltip, optional named icon-menus, and the ⋯ overflow menu for everything else — the
- * destructive actions included, so no list paints a red button on every row. Accessible
- * names are the callers' existing per-row strings, so the e2e/unit locators survive; menu
- * items keep the link/button role split (`to` → a real anchor).
+ * The one row-action cell (v3.3.0): the row's primary action as a compact labelled button,
+ * optional named icon-menus, and the ⋯ overflow menu for everything else — the
+ * destructive actions included, so no list paints a red button on every row. Contextual
+ * accessible names retain the visible label for speech-input matching; menu items keep the
+ * link/button role split (`to` → a real anchor).
  */
 export default function RowActions({ name, primary, menus = [], items = [], menuLabel, size = "sm" }: RowActionsProps) {
   const { t } = useTranslation();
   const moreLabel =
     menuLabel ?? (name == null ? t("common.table.moreActions") : t("common.table.moreActionsFor", { name }));
   return (
-    <Group gap={4} wrap="nowrap" justify="flex-end">
-      {primary && <IconButton item={primary} size={size} />}
+    <Group gap={4} wrap="wrap" justify="flex-end">
+      {primary && <PrimaryButton item={primary} size={size} />}
       {menus.map((menu) => (
         <Menu key={menu.label} position="bottom-end" withinPortal shadow="md">
           <Menu.Target>

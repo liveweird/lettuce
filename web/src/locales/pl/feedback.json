@@ -1,5 +1,6 @@
 {
   "sectionTitle": "Feedback",
+  "sectionHint": "Przekazuj przydatny feedback, śledź prośby i rozmowy ze swoim zespołem.",
   "newFeedback": "Nowy feedback",
   "viewTitle": "Feedback",
   "history": "Historia",
@@ -31,7 +32,11 @@
     "saveDraft": "Zapisz wersję roboczą",
     "saveAndSend": "Zapisz i wyślij"
   },
-  "noFeedback": "Brak feedbacków",
+  "noFeedback": "Nie ma jeszcze feedbacku",
+  "noFeedbackFiltered": "Żaden feedback nie pasuje do tych filtrów",
+  "emptyHint": "Feedback pojawi się tutaj, gdy rozpocznie się rozmowa.",
+  "emptyFilteredHint": "Wybierz inną osobę lub wyczyść aktywne filtry.",
+  "detailsTitle": "Szczegóły feedbacku",
   "emptyCta": "Napisz swój pierwszy feedback",
   "unknown": "Nieznany",
   "rowsPerPage": "Wierszy na stronę",

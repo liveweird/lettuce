@@ -1,0 +1,11 @@
+.root {
+  min-width: 0;
+}
+
+.icon {
+  border: 1px solid light-dark(#cbdcd2, #466052);
+}
+
+.description {
+  line-height: 1.55;
+}

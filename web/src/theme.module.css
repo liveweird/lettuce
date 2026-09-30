@@ -7,7 +7,7 @@
    rounded on the first/last cells (no overflow: hidden, so a sticky header can escape), and the
    frame owns the outer edge, so the last row drops its own border. */
 .table {
-  background-color: var(--mantine-color-body);
+  background-color: var(--lettuce-surface);
   border: 1px solid var(--mantine-color-default-border);
   border-radius: var(--mantine-radius-md);
   border-collapse: separate;
@@ -41,16 +41,16 @@
 /* Neutral, compact table headers: dimmed 600-weight sentence-case labels on a faint surface
    tint, with a crisper rule under the header row. */
 .tableHead {
-  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  background-color: var(--lettuce-surface-tint);
 }
 
 .tableHead th {
   font-size: var(--mantine-font-size-xs);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--mantine-color-dimmed);
-  white-space: nowrap;
-  padding-block: 8px;
+  white-space: normal;
+  padding-block: 9px;
   border-bottom: 1px solid var(--lettuce-border-strong);
 }
 
@@ -61,12 +61,12 @@
 }
 
 .appHeader {
-  background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+  background-color: var(--lettuce-surface);
   border-bottom: 1px solid var(--mantine-color-default-border);
 }
 
 .appNavbar {
-  background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+  background-color: var(--lettuce-chrome);
   border-right: 1px solid var(--mantine-color-default-border);
 }
 
@@ -75,13 +75,23 @@
 .navLink {
   min-height: 36px;
   padding: 6px 10px;
-  border-radius: var(--mantine-radius-md);
+  border-radius: var(--mantine-radius-sm);
   font-size: var(--mantine-font-size-sm);
   margin-bottom: 1px;
 }
 
 .navLink[data-active] {
   font-weight: 600;
+}
+
+.input {
+  background-color: var(--lettuce-surface);
+  border-color: var(--lettuce-border-strong);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.input:hover:not(:disabled, [data-disabled]) {
+  border-color: light-dark(#91a39a, #7d9086);
 }
 
 /* Sentence-case pills: Mantine's default uppercase + 700 weight reads as shouting in a dense
@@ -94,6 +104,11 @@
 
 .button {
   font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+.button[data-variant="filled"] {
+  box-shadow: 0 1px 2px rgba(24, 63, 35, 0.12);
 }
 
 /* Tabs: quiet inactive labels, the active one in text colour under the brand underline. */
@@ -115,6 +130,17 @@
 .dialogTitle {
   font-weight: 600;
   font-size: var(--mantine-font-size-lg);
+}
+
+.menuDropdown {
+  border-color: var(--mantine-color-default-border);
+  box-shadow: var(--mantine-shadow-md);
+  padding: 6px;
+}
+
+.menuItem {
+  border-radius: var(--mantine-radius-xs);
+  font-size: var(--mantine-font-size-sm);
 }
 
 /* SegmentedControl: one line at every normal width, word-wrap only on phones (v3.10.1).

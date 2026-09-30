@@ -56,7 +56,7 @@ pair is freed for later runs.
      corrections but not the budget they adjust — and it is read-only: no Add pool, no Archive,
      no allowance edit, no Add a correction.
 10. From the nav, the auditor opens Team KPIs and switches to the "All teams" tab, then goes
-    Config -> Teams -> AAA (a team they neither manage nor belong to) and follows its
+    Directory → Teams → AAA (a team they neither manage nor belong to) and follows its
     "Team KPIs" link (v3.24.0: HR could read any KPI record by id before, but nothing listed
     or linked them).
     - *Expected*: the hub offers the auditor-only "All teams" tab with its org-wide hint; the
@@ -71,7 +71,7 @@ pair is freed for later runs.
       demo-volume state other specs own, so it is not asserted here — the data rule is pinned
       in `DaysOffRoutesTest`.
 12. The auditor checks for an admin surface.
-   - *Expected*: none — the Config group never offers Alerts to HR.
+   - *Expected*: none — the Administration section and its Settings group are absent for HR.
 
 ## Scenario: the seeded HR demo account reaches the Audit section with no admin surface
 
@@ -82,7 +82,7 @@ pair is freed for later runs.
 2. The auditor opens AAA One's user-details page.
    - *Expected*: AAA One's details render, and the Audit section is offered.
 3. The auditor checks for an admin surface.
-   - *Expected*: none — the Config group never offers Alerts to HR.
+   - *Expected*: none — the Administration section and its Settings group are absent for HR.
 
 ## Scenario: the HR auditor reaches team performance and every pulse tab, read-only
 

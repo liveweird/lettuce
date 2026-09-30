@@ -97,3 +97,13 @@ Content **previews** are blanked when the feedback is unfinished (`DRAFT`/`REQUE
 
 **Feature tutorial (v3.14.0).** The "How feedback works" button in the `/feedback` header starts a read-only, on-demand Joyride walkthrough (`web/src/tutorials/feedbacks.tsx`) — 9 steps for a non-manager (intro, lifecycle with the `FeedbackLifecycle` diagram, Received, Provided, New feedback, the form's recipients/visibility row, Save draft vs Save & send, asking for feedback from a person card, Kudos) and 12 for a manager (plus My team, the Reports scope under Filters, and requesting feedback about a report from a Dashboard card); it never opens a real feedback or submits anything and ends on `/feedback?tab=received`; the convention lives in web/CLAUDE.md "Feature tutorials"; tests: `tutorials/feedbacks.test.tsx`, `e2e/tests/feedback-tutorial.spec.ts`.
 
+
+### V5 presentation
+
+Feedback keeps the existing route, scope, filter and lifecycle contracts. The list uses
+`ListToolbar` with always-visible person search (provider for Received/audit, recipient for
+Provided/team) backed by the same stored filters. Secondary filters remain in its expandable
+panel. Full localized visibility labels replace abbreviations. Read-only details present the
+content/history/lifecycle document alongside a responsive metadata panel; requester redaction,
+recipient membership, messages and expiry rules remain unchanged. Shared forms retain their
+route-based editing, discard guard and Save/Cancel destinations. See `../frontend-design.md`.

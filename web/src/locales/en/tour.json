@@ -24,7 +24,7 @@
     "performance": "Performance — your performance reviews; managers also run their team's.",
     "pulse": "Pulse — the recurring anonymous survey and your team's results.",
     "succession": "Succession plans — your private planning space for critical seats and their successors.",
-    "config": "Config — users, teams, the org chart, feedback templates and the registries; administrators also manage pulse cycles, feature flags, integration clients and alerts here.",
+    "config": "Resources — browse feedback templates, review periods, public holidays and paid-leave pools. Administrators manage these shared references.",
     "dictionaries": "Dictionaries — the shared lists the app picks from: career paths, specializations, seniority levels and pulse questions.",
     "account": "Change password — update your password here.",
     "changelog": "Changelog — what's new in each release; a red dot on the version stamp marks changes you haven't seen yet.",
@@ -32,6 +32,8 @@
     "language": "Switch the interface language at any time.",
     "theme": "Toggle light and dark mode.",
     "logout": "Your account menu — notification settings, every tutorial under Tutorials, and sign out when you're done.",
-    "replay": "That's it! Replay this tour anytime from here — and look for the \"How … works\" button on each feature page, or open Tutorials in your account menu, for a guided walkthrough."
+    "replay": "That's it! Replay this tour anytime from here — and look for the \"How … works\" button on each feature page, or open Tutorials in your account menu, for a guided walkthrough.",
+    "people": "Directory — find people, explore teams and see how the organization is connected.",
+    "administration": "Settings — manage pulse cycles, feature access, integration clients and announcements. These controls are available to administrators."
   }
 }

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "5.0.0",
+    date: "2026-10-01",
+    en: `Lettuce has a refreshed design across the application: quieter surfaces, clearer headings, consistent forms and filters, and labelled primary actions in lists. "Directory" brings people, teams and the org chart together; "Resources" holds shared reference pages, while administrative controls live under "Settings". The Dashboard puts relationship information first, with expandable profile and days-off details. The same visual language works in light and dark mode, on desktop and phones. Your existing links, permissions and workflows stay available.`,
+    pl: `Lettuce ma odświeżony wygląd w całej aplikacji: spokojniejsze tła, czytelniejsze nagłówki, spójne formularze i filtry oraz główne akcje na listach z widocznymi nazwami. "Katalog osób" łączy osoby, zespoły i strukturę organizacji; "Zasoby" zawierają wspólne materiały, a opcje administracyjne znajdują się w "Ustawieniach". Pulpit pokazuje najpierw informacje o współpracy, a szczegóły profilu i dni wolnych możesz rozwinąć. Ten sam styl działa w jasnym i ciemnym motywie, na komputerach i telefonach. Dotychczasowe linki, uprawnienia i procesy pozostają dostępne.`,
+  },
+  {
     version: "4.7.1",
     date: "2026-09-30",
     en: `Behind the scenes: when the database stops answering, Lettuce now reports an error within about 20 seconds instead of leaving pages loading indefinitely, and a single dropped database connection is replaced before it is used instead of failing a request. Long-running database statements are stopped after 30 seconds. On Kubernetes, only the front door can reach the application and only the application can reach its database.`,

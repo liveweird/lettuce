@@ -28,6 +28,7 @@
    content so it never floats over the text. */
 .editor :global([class*="_toolbarRoot_"]) {
   position: static;
+  flex-wrap: wrap;
 }
 
 /* MDXEditor copies our editor `className` onto a popup-host div it appends to <body> (used for
@@ -48,6 +49,9 @@
 
 .editor :global([class*="_selectTrigger_"]) {
   color: var(--mantine-color-text);
+  /* MDXEditor leaves this trigger white in its dark theme; use the toolbar surface so its
+     scheme-aware text tokens retain contrast instead of becoming light text on white. */
+  background-color: transparent !important;
 }
 
 /* The block-type select's own placeholder span ("Block type") ships a 2.3:1 gray from a

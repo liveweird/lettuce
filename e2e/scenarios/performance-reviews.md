@@ -15,7 +15,7 @@
 
 ## Scenario: a performance review travels period → draft → calibration → published → subordinate
 
-1. The admin signs in and opens Config → **Review periods**; the append form's preview line
+1. The admin signs in and opens Resources → **Review periods**; the append form's preview line
    ("Will add: …") names the exact adjacent range **Add period** will create — the spec reads the
    label from it rather than computing months. They append the period.
    - *Expected*: the new period lands in the timeline list. Because the dev timeline extends past

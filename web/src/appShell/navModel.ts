@@ -52,12 +52,12 @@ export type NavGroup = { label: ParseKeys; icon: Icon; children: NavLeaf[]; tour
 export type NavEntry = NavLeaf | NavGroup;
 export const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 
-type NavSectionId = "overview" | "myWork" | "team" | "administration";
+type NavSectionId = "overview" | "myWork" | "team" | "people" | "reference" | "administration";
 export type NavSection = { id: NavSectionId; label: ParseKeys; entries: NavEntry[] };
 
-// The grouped navigation (v3.3.0). Leaf names, icons, tour anchors, and gates are the
-// pre-v3.3.0 ones — only the grouping is new. A section renders only while it has a visible
-// entry; no section label may equal a group button's text ("Config", "Dictionaries").
+// v5 navigation groups destinations by purpose. Routes and leaf gates are unchanged.
+// Shared directories and reference resources remain visible to non-admins; an empty
+// administration section disappears. Section and group labels are deliberately distinct.
 const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   {
     id: "overview",
@@ -104,17 +104,29 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
     ],
   },
   {
-    id: "administration",
-    label: "appShell.navSection.administration",
+    id: "people",
+    label: "appShell.navSection.people",
+    entries: [{
+      label: "appShell.nav.people",
+      icon: IconUsersGroup,
+      tourId: "nav-people",
+      children: [
+        { to: "/users", label: "appShell.nav.users", icon: IconUsers },
+        { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
+        { to: "/org", label: "appShell.nav.orgChart", icon: IconHierarchy },
+      ],
+    }],
+  },
+  {
+    id: "reference",
+    label: "appShell.navSection.reference",
     entries: [
       {
-        label: "appShell.nav.config",
-        icon: IconSettings,
+        label: "appShell.nav.reference",
+        icon: IconFileText,
+        // Keep the historic tour anchor while the group becomes shared reference resources.
         tourId: "nav-config",
         children: [
-          { to: "/users", label: "appShell.nav.users", icon: IconUsers },
-          { to: "/teams", label: "appShell.nav.teams", icon: IconUsersGroup },
-          { to: "/org", label: "appShell.nav.orgChart", icon: IconHierarchy },
           { to: "/templates", label: "appShell.nav.templates", icon: IconFileText },
           // Readable by everyone since v1.34.1 (the Templates precedent) — the page itself
           // renders read-only for non-admins; append/delete stay ADMIN-gated.
@@ -123,17 +135,6 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
           { to: "/public-holidays", label: "appShell.nav.publicHolidays", icon: IconCalendarOff, feature: "DAYS_OFF" },
           // The paid pool kinds registry (v3.2.0) — the same everyone-reads/admin-writes posture.
           { to: "/days-off-pools", label: "appShell.nav.daysOffPools", icon: IconStack2, feature: "DAYS_OFF" },
-          // Admin-only end to end (reads included), so non-admins don't get the entries.
-          {
-            to: "/pulse-cycles",
-            label: "appShell.nav.pulseCycles",
-            icon: IconHeartRateMonitor,
-            feature: "PULSE_SURVEYS",
-            adminOnly: true,
-          },
-          { to: "/feature-flags", label: "appShell.nav.featureFlags", icon: IconToggleLeft, adminOnly: true },
-          { to: "/integration-clients", label: "appShell.nav.integrationClients", icon: IconPlugConnected, adminOnly: true },
-          { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone, adminOnly: true },
         ],
       },
       // Visible to everyone: the pages are readable by all, only editing is ADMIN-gated.
@@ -158,6 +159,28 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
         ],
       },
     ],
+  },
+  {
+    id: "administration",
+    label: "appShell.navSection.administration",
+    entries: [{
+      label: "appShell.nav.config",
+      icon: IconSettings,
+      tourId: "nav-administration",
+      children: [
+        // Admin-only end to end (reads included), so non-admins don't get the entries.
+        {
+          to: "/pulse-cycles",
+          label: "appShell.nav.pulseCycles",
+          icon: IconHeartRateMonitor,
+          feature: "PULSE_SURVEYS",
+          adminOnly: true,
+        },
+        { to: "/feature-flags", label: "appShell.nav.featureFlags", icon: IconToggleLeft, adminOnly: true },
+        { to: "/integration-clients", label: "appShell.nav.integrationClients", icon: IconPlugConnected, adminOnly: true },
+        { to: "/alerts", label: "appShell.nav.alerts", icon: IconSpeakerphone, adminOnly: true },
+      ],
+    }],
   },
 ];
 

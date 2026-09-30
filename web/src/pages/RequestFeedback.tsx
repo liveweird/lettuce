@@ -204,7 +204,7 @@ export default function RequestFeedback() {
     <>
       <PageHeader title={t("feedback.requestFeedbackTitle")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <Paper withBorder p="lg" radius="md">
           <Stack>
             {/* The context line (v3.5.0): about whom, asked by whom. */}
             <MetaStrip

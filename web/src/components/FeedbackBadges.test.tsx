@@ -3,10 +3,10 @@ import { renderWithProviders, screen } from "../test/render";
 import { VisibilityBadge } from "./FeedbackBadges";
 
 describe("VisibilityBadge", () => {
-  test("renders the abbreviated pill with the full label on hover and in the accessible name", () => {
+  test("renders the full visibility label on the pill, hover title, and accessible name", () => {
     renderWithProviders(<VisibilityBadge visibility="PROVIDER_REQUESTER_SUBJECT" />);
 
-    const pill = screen.getByText("P+R+S");
+    const pill = screen.getByText("Provider + requester + subject");
     expect(pill).toBeInTheDocument();
     expect(pill.closest("[aria-label]")).toHaveAttribute(
       "aria-label",

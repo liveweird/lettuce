@@ -26,11 +26,18 @@ body,
   outline: none;
 }
 
+/* Links embedded in prose need a non-colour cue when their ink is close to surrounding text.
+   This covers every MarkdownView surface, including feedback, templates, and the changelog. */
+.mantine-Typography-root a {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
 /* The canvas colour before Mantine's variables mount (public/color-scheme.js stamps the
    scheme attribute first, so a dark-scheme user never sees a white flash). The two hexes
    duplicate LIGHT_TOKENS.canvas / DARK_TOKENS.canvas (src/themeVariables.ts) — the bundle's
    CSS variables don't exist yet at first paint; theme.test.ts pins them equal. */
 html {
   color-scheme: light dark;
-  background-color: light-dark(#f8f9fb, #1f1f1f);
+  background-color: light-dark(#ffffff, #171c19);
 }

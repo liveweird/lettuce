@@ -108,7 +108,7 @@ export default function AskFeedback() {
     <>
       <PageHeader title={t("feedback.askTitle")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <Paper withBorder p="lg" radius="md">
           <Stack>
             {/* The context line (v3.5.0): who is asked, about whom. */}
             <MetaStrip

@@ -60,7 +60,7 @@
 7. They open the Dashboard's subordinates tab.
    - *Expected*: AAA One's person card carries a **"Succession plan"** button beside Career
      progression (the viewer owns an OPEN plan for them) linking straight to the plan's
-     Review screen, plus a "Succession reviewed" row in the Profile section showing how long
+     Review screen, plus a "Succession reviewed" row after expanding **Profile & days off**, showing how long
      ago the plan was last reviewed; AAA Two's card — a candidate, not a seat — has neither.
 8. They click **Complete review**.
    - *Expected*: a "Review completed" toast (the plan's last-reviewed date is stamped — the

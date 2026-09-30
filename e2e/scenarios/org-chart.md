@@ -14,7 +14,7 @@ they always exist, whatever else e2e runs have added to the shared database.
 
 ## Scenario: the org chart renders the seed org and drills into details and rosters
 
-1. AAA One signs in and opens **Config → Org chart**.
+1. AAA One signs in and opens **Directory → Org chart**.
    - *Expected*: the org-chart page opens.
 2. AAA One surveys the canvas.
    - *Expected*: the seed org renders — the CCC and AAA team nodes and Manager CCC's person node

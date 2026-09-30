@@ -21,16 +21,14 @@ export function StatusBadge({ status }: { status: FeedbackStatus }) {
   );
 }
 
-// The abbreviated-pill idiom (v3.10.2): the pill itself shows the SHORT form (keeps the list
-// column compact), the full label rides `title` for a mouse-hover tooltip, and the accessible
-// name is "<Field>: <full>" so assistive tech gets the value, not just the field name — the
-// reference for any future column whose full label is too wide for a pill.
+// Visibility is a small but consequential access rule, so the label is written out rather than
+// encoded as initials. The title and accessible name repeat the exact localized value.
 export function VisibilityBadge({ visibility }: { visibility: FeedbackVisibility }) {
   const { t } = useTranslation();
   const full = t(`common.visibility.${visibility}`);
   return (
     <StatusPill color="gray" title={full} ariaLabel={`${t("common.field.visibility")}: ${full}`}>
-      {t(`common.visibilityShort.${visibility}`)}
+      {full}
     </StatusPill>
   );
 }

@@ -31,6 +31,7 @@ import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
 import { successionPlanViewLink, userSuccessionLink } from "../utils/successionLinks";
 import { hasFeature } from "../api/session";
+import { actionAccessibleName } from "../utils/accessibleActionName";
 import {
   ACTION_GROUPS,
   FEATURE_OF,
@@ -209,23 +210,15 @@ export default function PersonCardActions({
         return (
           <Menu key={group.id} position="bottom-start" withinPortal>
             <Menu.Target>
-              {variant === "icons" ? (
-                <Tooltip label={t(groupLabel.text)}>
-                  <ActionIcon variant="light" size="md" aria-label={t(groupLabel.aria, { name })}>
-                    {GROUP_ICONS[group.id]}
-                  </ActionIcon>
-                </Tooltip>
-              ) : (
-                <Button
-                  variant="light"
-                  size="xs"
-                  leftSection={GROUP_ICONS[group.id]}
-                  rightSection={<IconChevronDown size={14} />}
-                  aria-label={t(groupLabel.aria, { name })}
-                >
-                  {t(groupLabel.text)}
-                </Button>
-              )}
+              <Button
+                variant="default"
+                size="xs"
+                leftSection={GROUP_ICONS[group.id]}
+                rightSection={<IconChevronDown size={14} />}
+                aria-label={actionAccessibleName(t(groupLabel.text), t(groupLabel.aria, { name }))}
+              >
+                {t(groupLabel.text)}
+              </Button>
             </Menu.Target>
             <Menu.Dropdown>
               {members.map((key) => {

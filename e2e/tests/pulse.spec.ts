@@ -105,7 +105,7 @@ test("admin schedules a cycle (prefilled dates) and opens it", async ({ page, re
 
   // Open it via the confirmed lifecycle action.
   await page.getByRole("button", { name: /Open cycle \d+/ }).click();
-  await page.getByRole("button", { name: "Open now" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Open now", exact: true }).click();
   await expect(page.getByText("Cycle opened")).toBeVisible();
   await expect(page.getByText("Open", { exact: true })).toBeVisible();
 });
@@ -181,7 +181,7 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   await login(page, ADMIN);
   await page.goto("/pulse-cycles");
   await page.getByRole("button", { name: /Close cycle \d+/ }).click();
-  await page.getByRole("button", { name: "Close now" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Close now", exact: true }).click();
   await expect(page.getByText("Cycle closed")).toBeVisible();
   await logout(page);
 

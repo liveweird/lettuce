@@ -89,4 +89,5 @@ be visible before scanning):
    visible, icon-only).
 2. Run the axe scan.
    - *Expected*: zero violations — every rail link keeps its name via `aria-label`, and the
-     Config/Dictionaries groups are named menu triggers.
+     Directory/Resources/Dictionaries/Settings groups are named menu triggers when their
+     audience gates make them available.

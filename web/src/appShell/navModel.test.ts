@@ -4,12 +4,12 @@ import { activeLeaf, resolveNav } from "./navModel";
 const allOpen = { isAdmin: true, isManager: true, hasFeature: () => true };
 
 describe("resolveNav", () => {
-  test("with every gate open: four sections, the admin Config leaves, and the footer pair", () => {
+  test("with every gate open: six sections, the admin-only Settings leaves, and the footer pair", () => {
     const nav = resolveNav(allOpen, 7);
-    expect(nav.sections.map((s) => s.id)).toEqual(["overview", "myWork", "team", "administration"]);
-    const config = nav.sections[3].entries[0];
+    expect(nav.sections.map((s) => s.id)).toEqual(["overview", "myWork", "team", "people", "reference", "administration"]);
+    const config = nav.sections.find((s) => s.id === "administration")!.entries[0];
     expect("children" in config ? config.children.map((c) => c.to) : []).toEqual(
-      expect.arrayContaining(["/users", "/pulse-cycles", "/feature-flags", "/integration-clients", "/alerts"]),
+      expect.arrayContaining(["/pulse-cycles", "/feature-flags", "/integration-clients", "/alerts"]),
     );
     expect(nav.footer.map((l) => l.to)).toEqual(["/users/7/change-password", "/changelog"]);
     expect(nav.leafTos).toEqual(expect.arrayContaining(["/", "/succession", "/changelog", "/users/7/change-password"]));
@@ -18,6 +18,8 @@ describe("resolveNav", () => {
   test("a non-manager loses Succession, a non-admin the admin Config leaves, a disabled feature its leaves", () => {
     const nav = resolveNav({ isAdmin: false, isManager: false, hasFeature: (f) => f !== "FEEDBACKS" }, null);
     expect(nav.leafTos).not.toContain("/succession");
+    expect(nav.sections.some((s) => s.id === "administration")).toBe(false);
+    expect(nav.leafTos).toEqual(expect.arrayContaining(["/users", "/teams", "/templates", "/dictionaries/career-paths"]));
     expect(nav.leafTos).not.toContain("/alerts");
     expect(nav.leafTos).not.toContain("/feedback");
     expect(nav.leafTos).not.toContain("/kudos");
@@ -30,7 +32,7 @@ describe("resolveNav", () => {
   test("a section left without a visible entry disappears", () => {
     const teamFeatures = new Set(["TEAM_KPIS", "PERFORMANCE_REVIEWS", "PULSE_SURVEYS", "SUCCESSION_PLANS"]);
     const nav = resolveNav({ isAdmin: false, isManager: false, hasFeature: (f) => !teamFeatures.has(f) }, 1);
-    expect(nav.sections.map((s) => s.id)).toEqual(["overview", "myWork", "administration"]);
+    expect(nav.sections.map((s) => s.id)).toEqual(["overview", "myWork", "people", "reference"]);
   });
 });
 

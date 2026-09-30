@@ -1,0 +1,19 @@
+.toolbar {
+  padding-block: 2px;
+}
+
+.controls,
+.right {
+  min-width: 0;
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .controls,
+  .right {
+    width: 100%;
+  }
+
+  .right {
+    justify-content: flex-start;
+  }
+}

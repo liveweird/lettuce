@@ -5,7 +5,7 @@ import { renderWithProviders, screen } from "../test/render";
 import RowActions from "./RowActions";
 
 describe("RowActions", () => {
-  test("the primary action renders as a named link when it has a target", () => {
+  test("the primary action renders as a visibly labelled, contextually named link when it has a target", () => {
     renderWithProviders(
       <RowActions
         name="Alice"
@@ -14,7 +14,17 @@ describe("RowActions", () => {
     );
     const link = screen.getByRole("link", { name: "Edit Alice" });
     expect(link).toHaveAttribute("href", "/users/1/edit");
+    expect(link).toHaveTextContent("Edit");
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  test("the primary action includes its visible label when the contextual name uses different words", () => {
+    renderWithProviders(
+      <RowActions
+        primary={{ icon: <IconPencil />, label: "View", ariaLabel: "Open review for Alice", to: "/reviews/1" }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "View: Open review for Alice" })).toHaveTextContent("View");
   });
 
   test("the ⋯ menu is named after the row subject and holds the overflow items (links keep hrefs)", async () => {

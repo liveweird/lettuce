@@ -2,6 +2,7 @@ import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
 import {
   Alert,
+  Box,
   Group,
   Select,
   Stack,
@@ -20,7 +21,7 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import PersonCell from "../components/PersonCell";
 import RowActions from "../components/RowActions";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
@@ -32,6 +33,7 @@ import { ALL_VISIBILITIES } from "../utils/feedbackVisibility";
 import { feedbackEditLink, feedbackViewLink } from "../utils/feedbackLinks";
 import { feedbackSubjectNames, feedbackSubjects, type FeedbackSubjectRef } from "../utils/feedbackSubjects";
 import { loadErrorMessage } from "../utils/saveError";
+import classes from "./FeedbackTable.module.css";
 
 const SORT_FIELDS = [
   "requesterName",
@@ -95,12 +97,14 @@ const VIEW_CONFIG: Record<
   TableView,
   {
     personColumns: PersonColumn[];
+    searchColumn: PersonColumn;
     defaultSortField: SortField;
     renderAction: (f: FeedbackRow, ctx: ActionContext) => ReactNode;
   }
 > = {
   received: {
     personColumns: [PROVIDER_COLUMN],
+    searchColumn: PROVIDER_COLUMN,
     defaultSortField: "providerName",
     renderAction: (f, { t, backTo }) => (
       <RowActions
@@ -116,6 +120,7 @@ const VIEW_CONFIG: Record<
   },
   provided: {
     personColumns: [SUBJECT_COLUMN],
+    searchColumn: SUBJECT_COLUMN,
     defaultSortField: "subjectName",
     renderAction: (f, { t, backTo }) =>
       f.status === "REQUESTED" || f.status === "DRAFT" ? (
@@ -144,6 +149,7 @@ const VIEW_CONFIG: Record<
   // the auditor is never a party, so the action is always View.
   user: {
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
+    searchColumn: PROVIDER_COLUMN,
     defaultSortField: "lastModified",
     renderAction: (f, { t, backTo }) => (
       <RowActions
@@ -159,6 +165,7 @@ const VIEW_CONFIG: Record<
   },
   team: {
     personColumns: [PROVIDER_COLUMN, SUBJECT_COLUMN],
+    searchColumn: SUBJECT_COLUMN,
     defaultSortField: "subjectName",
     renderAction: (f, { t, currentUserId, backTo }) =>
       currentUserId === f.providerId && f.status === "DRAFT" ? (
@@ -270,6 +277,17 @@ export default function FeedbackTable({
     providerName: { value: providerFilter, set: setProviderFilter },
     subjectName: { value: subjectFilter, set: setSubjectFilter },
   };
+  const searchFilter = personFilters[config.searchColumn.field];
+
+  function clearFilters() {
+    setRequesterFilter("");
+    setProviderFilter("");
+    setSubjectFilter("");
+    setVisibilityFilter(null);
+    setStatusFilter(null);
+    setLastModifiedFilter("all");
+    setReportsScope("direct");
+  }
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
@@ -327,62 +345,82 @@ export default function FeedbackTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId="feedback-filters">
-        <ClearableTextInput
-          label={t("common.field.requester")}
-          value={requesterFilter}
-          onChange={setRequesterFilter}
-          clearLabel={t("feedback.clearRequesterFilter")}
-        />
-        {config.personColumns.map((col) => {
-          const filter = personFilters[col.field];
-          return (
-            <ClearableTextInput
-              key={col.field}
-              label={t(col.labelKey)}
-              value={filter.value}
-              onChange={filter.set}
-              clearLabel={t(col.clearFilterLabelKey)}
-            />
-          );
-        })}
-        <Select
-          label={t("common.field.visibility")}
-          placeholder={t("common.state.any")}
-          data={visibilityOptions}
-          value={visibilityFilter}
-          onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
-          clearable
-        />
-        <Select
-          label={t("common.field.status")}
-          placeholder={t("common.state.any")}
-          data={statusOptions}
-          value={statusFilter}
-          onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
-          clearable
-        />
-        <Select
-          label={t("common.field.lastModified")}
-          data={lastModifiedOptions(t)}
-          value={lastModifiedFilter}
-          onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
-          allowDeselect={false}
-        />
-        {view === "team" && (
-          <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-        )}
-      </FilterPanel>
-
       {isError && (
         <Alert color="red" variant="light" title={t("feedback.loadListError")}>
           {loadErrorMessage(error, t)}
         </Alert>
       )}
 
-      <ResponsiveTable density="wide">
-        <ResponsiveTable.Thead>
-          <ResponsiveTable.Tr>
+      <Box className={classes.listSurface}>
+        <Box className={classes.toolbarFrame} data-tour="feedback-filters">
+          <ListToolbar
+            search={{
+              label: t(config.searchColumn.labelKey),
+              value: searchFilter.value,
+              onChange: searchFilter.set,
+              clearLabel: t(config.searchColumn.clearFilterLabelKey),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              onClear: clearFilters,
+              children: (
+                <>
+                  <ClearableTextInput
+                    label={t("common.field.requester")}
+                    value={requesterFilter}
+                    onChange={setRequesterFilter}
+                    clearLabel={t("feedback.clearRequesterFilter")}
+                  />
+                  {config.personColumns
+                    .filter((col) => col.field !== config.searchColumn.field)
+                    .map((col) => {
+                      const filter = personFilters[col.field];
+                      return (
+                        <ClearableTextInput
+                          key={col.field}
+                          label={t(col.labelKey)}
+                          value={filter.value}
+                          onChange={filter.set}
+                          clearLabel={t(col.clearFilterLabelKey)}
+                        />
+                      );
+                    })}
+                  <Select
+                    label={t("common.field.visibility")}
+                    placeholder={t("common.state.any")}
+                    data={visibilityOptions}
+                    value={visibilityFilter}
+                    onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
+                    clearable
+                  />
+                  <Select
+                    label={t("common.field.status")}
+                    placeholder={t("common.state.any")}
+                    data={statusOptions}
+                    value={statusFilter}
+                    onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
+                    clearable
+                  />
+                  <Select
+                    label={t("common.field.lastModified")}
+                    data={lastModifiedOptions(t)}
+                    value={lastModifiedFilter}
+                    onChange={(v) => setLastModifiedFilter((v as LastModifiedWindow) ?? "all")}
+                    allowDeselect={false}
+                  />
+                  {view === "team" && (
+                    <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+                  )}
+                </>
+              ),
+            }}
+          />
+        </Box>
+
+        <ResponsiveTable density="wide" className={classes.table}>
+          <ResponsiveTable.Thead>
+            <ResponsiveTable.Tr>
             <ResponsiveTable.Th sortable>
               <SortHeader
                 field="requesterName"
@@ -403,7 +441,9 @@ export default function FeedbackTable({
                 />
               </ResponsiveTable.Th>
             ))}
-            <ResponsiveTable.Th>{t("common.field.preview")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th width="wide" primary>
+                {t("common.field.preview")}
+              </ResponsiveTable.Th>
             <ResponsiveTable.Th sortable>
               <SortHeader
                 field="visibility"
@@ -413,7 +453,7 @@ export default function FeedbackTable({
                 onToggle={toggleSort}
               />
             </ResponsiveTable.Th>
-            <ResponsiveTable.Th sortable>
+            <ResponsiveTable.Th sortable width="narrow">
               <SortHeader
                 field="status"
                 label={t("common.field.status")}
@@ -432,9 +472,9 @@ export default function FeedbackTable({
               />
             </ResponsiveTable.Th>
             <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
-          </ResponsiveTable.Tr>
-        </ResponsiveTable.Thead>
-        <ResponsiveTable.Tbody>
+            </ResponsiveTable.Tr>
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
           {isLoading && !data ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : data && data.items.length > 0 ? (
@@ -465,7 +505,7 @@ export default function FeedbackTable({
                 ))}
                 {/* Redacted rows (a requester's unfinished feedback) arrive with an empty preview. */}
                 <ResponsiveTable.Td label={t("common.field.preview")} primary>
-                  <Text size="sm" c="dimmed" lineClamp={3}>
+                  <Text size="sm" lineClamp={3} className={classes.preview}>
                     {f.contentPreview}
                   </Text>
                 </ResponsiveTable.Td>
@@ -491,15 +531,25 @@ export default function FeedbackTable({
             <ResponsiveTable.Tr>
               <ResponsiveTable.Td colSpan={columnCount}>
                 <EmptyState
-                    icon={<IconMessages size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                    label={t("feedback.noFeedback")}
-                    action={emptyAction}
-                  />
+                  icon={<IconMessages size={30} stroke={1.4} />}
+                  label={t(
+                    activeFilterCount > 0
+                      ? "feedback.noFeedbackFiltered"
+                      : "feedback.noFeedback",
+                  )}
+                  description={t(
+                    activeFilterCount > 0
+                      ? "feedback.emptyFilteredHint"
+                      : "feedback.emptyHint",
+                  )}
+                  action={activeFilterCount > 0 ? undefined : emptyAction}
+                />
               </ResponsiveTable.Td>
             </ResponsiveTable.Tr>
           ) : null}
-        </ResponsiveTable.Tbody>
-      </ResponsiveTable>
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
+      </Box>
 
       <PaginationBar
         total={total}

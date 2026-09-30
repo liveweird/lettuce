@@ -292,6 +292,8 @@ test("days off end to end: holiday, allowance, entries, delete, calendar", async
   await collapseAlertsBanner(page);
   await page.goto("/?tab=subordinates");
   const aaaTwoCard = page.locator("li", { hasText: "AAA Two" }).first();
+  await aaaTwoCard.locator("summary").click();
+  await expect(aaaTwoCard.locator("details")).toHaveAttribute("open");
   await expect(aaaTwoCard.getByText("Next vacation")).toBeVisible();
   await expect(aaaTwoCard.getByText(mondayFormatted)).toBeVisible();
   await expect(aaaTwoCard.getByText("Days-off budget left")).toBeVisible();

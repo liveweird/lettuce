@@ -4,7 +4,26 @@
   min-width: 0;
   max-width: 100%;
   overflow-wrap: break-word;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+}
+
+.header {
+  padding-block: 2px;
+}
+
+.back {
+  color: var(--mantine-color-dimmed);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--mantine-primary-color-filled);
+}
+
+.description {
+  line-height: 1.55;
 }
 
 /* Sticky variant (the Kudos wall): the document is the scroll container (AppShell.Main has
@@ -21,6 +40,11 @@
 
 /* Below the sm breakpoint the actions drop under the title as a full-width row. */
 @media (max-width: $mantine-breakpoint-sm) {
+  .title {
+    font-size: 1.5rem;
+    letter-spacing: -0.025em;
+  }
+
   .actions {
     width: 100%;
   }

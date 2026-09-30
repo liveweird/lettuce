@@ -28,10 +28,10 @@ export type PageHeaderProps = {
  */
 export default function PageHeader({ title, tourId, description, back, badge, actions, sticky = false, mb }: PageHeaderProps) {
   return (
-    <Box component="header" className={sticky ? classes.sticky : undefined} mb={mb}>
-      <Stack gap={4}>
+    <Box component="header" className={`${classes.header} ${sticky ? classes.sticky : ""}`} mb={mb}>
+      <Stack gap={6}>
         {back && (
-          <Anchor component={RouterLink} to={back.to} size="sm">
+          <Anchor component={RouterLink} to={back.to} size="sm" className={classes.back}>
             {back.label}
           </Anchor>
         )}
@@ -49,7 +49,7 @@ export default function PageHeader({ title, tourId, description, back, badge, ac
           )}
         </Group>
         {description && (
-          <Text size="sm" c="dimmed" maw={720} style={{ overflowWrap: "break-word" }}>
+          <Text size="sm" c="dimmed" maw={720} className={classes.description} style={{ overflowWrap: "break-word" }}>
             {description}
           </Text>
         )}

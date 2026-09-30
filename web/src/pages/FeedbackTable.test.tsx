@@ -183,6 +183,7 @@ describe("FeedbackTable (received view)", () => {
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByLabelText("Provider", { selector: "input" })).toBeInTheDocument();
     expect(screen.queryByLabelText(/requester/i, { selector: "input" })).not.toBeInTheDocument();
 
     await user.click(toggle);
@@ -192,6 +193,21 @@ describe("FeedbackTable (received view)", () => {
     // Toggling again collapses it.
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("the always-visible Provider search uses the existing provider filter", async () => {
+    setupMocks(mockFetch);
+    const user = userEvent.setup();
+    renderWithProviders(<FeedbackTable view="received" />);
+
+    await user.type(screen.getByLabelText("Provider", { selector: "input" }), "alice");
+
+    await waitFor(
+      () => {
+        expect(feedbackUrls(mockFetch).some((url) => url.includes("providerName=alice"))).toBe(true);
+      },
+      { timeout: 1500 },
+    );
   });
 
   test("the received view has no Reports scope filter", async () => {
@@ -435,7 +451,7 @@ describe("FeedbackTable (provided view)", () => {
     renderWithProviders(<FeedbackTable view="provided" />);
 
     await screen.findByText("Sam Subject");
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    expect(screen.getByRole("button", { name: /filters/i })).toHaveAttribute("aria-expanded", "false");
     await user.type(screen.getByLabelText("Subject"), "tina");
 
     await waitFor(

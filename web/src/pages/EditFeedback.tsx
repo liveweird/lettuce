@@ -152,7 +152,7 @@ export default function EditFeedback() {
       <>
         <PageHeader title={t("feedback.editTitle")} mb="lg" />
         <Container size="md" px={0}>
-          <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Paper withBorder p="lg" radius="md">
             {isLoading ? (
               <Center py="xl">
                 <Loader />
@@ -206,7 +206,7 @@ export default function EditFeedback() {
           mb="lg"
         />
         <Container size="md" px={0}>
-          <Paper withBorder shadow="sm" p="xl" radius="md">
+          <Paper withBorder p="lg" radius="md">
             <Stack>
               <MetaStrip
                 items={[

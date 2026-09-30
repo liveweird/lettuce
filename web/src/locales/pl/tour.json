@@ -24,7 +24,7 @@
     "performance": "Oceny okresowe — Twoje oceny okresowe; menedżerowie prowadzą tu też oceny zespołu.",
     "pulse": "Puls — cykliczna anonimowa ankieta i wyniki Twojego zespołu.",
     "succession": "Plany sukcesji — Twoja prywatna przestrzeń planowania kluczowych stanowisk i ich następców.",
-    "config": "Konfiguracja — użytkownicy, zespoły, struktura organizacji, szablony feedbacku i rejestry; administratorzy zarządzają tu też cyklami pulsu, flagami funkcji, klientami integracji i alertami.",
+    "config": "Zasoby — przeglądaj szablony feedbacku, okresy ocen, dni świąteczne i pule płatnego wolnego. Administratorzy zarządzają tymi wspólnymi zasobami.",
     "dictionaries": "Słowniki — wspólne listy, z których korzysta aplikacja: ścieżki kariery, specjalizacje, poziomy zaszeregowania i pytania ankiety pulsu.",
     "account": "Zmień hasło — tutaj zaktualizujesz swoje hasło.",
     "changelog": "Historia zmian — co nowego w każdym wydaniu; czerwona kropka przy numerze wersji oznacza zmiany, których jeszcze nie widziałeś/aś.",
@@ -32,6 +32,8 @@
     "language": "W każdej chwili zmień język interfejsu.",
     "theme": "Przełączaj tryb jasny i ciemny.",
     "logout": "Menu Twojego konta — ustawienia powiadomień, wszystkie samouczki w sekcji Samouczki oraz wylogowanie, gdy skończysz.",
-    "replay": "To wszystko! W każdej chwili możesz odtworzyć ten przewodnik stąd — a na każdej stronie funkcji znajdziesz przycisk pokazujący, jak ona działa; wszystkie samouczki są też w menu konta, w sekcji Samouczki."
+    "replay": "To wszystko! W każdej chwili możesz odtworzyć ten przewodnik stąd — a na każdej stronie funkcji znajdziesz przycisk pokazujący, jak ona działa; wszystkie samouczki są też w menu konta, w sekcji Samouczki.",
+    "people": "Katalog osób — znajdź osoby, przeglądaj zespoły i poznaj strukturę organizacji.",
+    "administration": "Ustawienia — zarządzaj cyklami pulse, dostępem do funkcji, klientami integracji i komunikatami. Te opcje są dostępne dla administratorów."
   }
 }

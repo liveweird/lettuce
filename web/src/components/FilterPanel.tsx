@@ -3,6 +3,7 @@ import { Badge, Button, Group, Paper } from "@mantine/core";
 import { IconChevronDown, IconFilter } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useFilterPanel } from "../hooks/useFilterPanel";
+import classes from "./FilterPanel.module.css";
 
 /** The "Filters" toggle with its active-count badge and `aria-expanded` state. */
 export function FilterToggle({
@@ -43,6 +44,7 @@ export function FilterToggle({
           />
         </Group>
       }
+      className={classes.toggle}
     >
       {t("common.filter.title")}
     </Button>
@@ -54,8 +56,8 @@ export function FilterToggle({
  *  value (dark-5) leaves the dimmed labels under 4.5:1 (theme.test.ts guards the pair). */
 export function FilterPanelBody({ children }: { children: ReactNode }) {
   return (
-    <Paper withBorder radius="md" p="sm" bg="var(--lettuce-surface-tint)">
-      <Group align="flex-end" gap="sm">
+    <Paper withBorder radius="sm" p="md" bg="var(--lettuce-surface-tint)" className={classes.panel}>
+      <Group align="flex-end" gap="md" className={classes.fields}>
         {children}
       </Group>
     </Paper>
@@ -83,7 +85,7 @@ export default function FilterPanel({
 }) {
   const [open, setOpen] = useFilterPanel(storageKey);
   return (
-    <div>
+    <div className={classes.root}>
       <Group gap="xs" mb={open ? "sm" : 0}>
         <FilterToggle
           open={open}

@@ -160,7 +160,7 @@ describe("PulseCycles (admin)", () => {
       "Good work is recognized here.",
     );
 
-    await user.click(screen.getByRole("button", { name: "Open cycle 6" }));
+    await user.click(screen.getByRole("button", { name: "Open now: Open cycle 6" }));
     expect(
       await screen.findByText(/Open the cycle now\? Every eligible user will be notified/),
     ).toBeInTheDocument();

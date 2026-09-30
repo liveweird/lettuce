@@ -7,7 +7,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { Alert, Button, Container, Group, Paper, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Box, Button, Container, Group, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
@@ -31,6 +31,7 @@ import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { invalidateFeedback } from "../utils/feedbackQueries";
 import { safeBackParam } from "../utils/url";
+import classes from "./ViewFeedback.module.css";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -47,11 +48,10 @@ const NEXT_ACTION: Partial<
 
 /**
  * The feedback document (the v3.5.0 detail layout): the page header carries the status and
- * visibility pills plus Close and the provider's single lifecycle action; the identity strip
- * names the parties — provider, every recipient in position order, the requester when there
- * is one (the app-wide PersonCell rule: a chip for others, plain "You" for the caller) — and
- * the Content / History / Lifecycle tabs follow, the content in a border-first prose box
- * sized to the text.
+ * visibility pills plus Close and the provider's single lifecycle action. The reading document
+ * gives Content / History / Lifecycle the wide column; a quiet metadata rail names every party
+ * in position order (the app-wide PersonCell rule: a chip for others, plain "You" for the
+ * caller), the optional expiry, and the last update.
  */
 export default function ViewFeedback() {
   const { t } = useTranslation();
@@ -233,47 +233,58 @@ export default function ViewFeedback() {
         )}
 
         <Container size="md" px={0} w="100%">
-          <Paper withBorder radius="md" p="md">
-            {isLoading ? (
+          {isLoading ? (
+            <Paper withBorder radius="md" p="md">
               <CenteredLoader />
-            ) : isError ? (
+            </Paper>
+          ) : isError ? (
+            <Paper withBorder radius="md" p="md">
               <Alert color="red" variant="light">
                 {errorMessage}
               </Alert>
-            ) : data ? (
-              <Stack gap="md">
+            </Paper>
+          ) : data ? (
+            <Box className={classes.layout}>
+              <Paper withBorder radius="md" p="lg" className={classes.document}>
+                <Stack gap="md">
+                  <RequesterMessage value={data.requesterMessage} collapsible />
+                  <Tabs defaultValue="content" keepMounted={false}>
+                    <Tabs.List>
+                      <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
+                      <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
+                      <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
+                    </Tabs.List>
+
+                    <Tabs.Panel value="content" pt="md">
+                      {hideContent ? (
+                        <Text c="dimmed" size="sm">
+                          {t("feedback.contentUnavailable")}
+                        </Text>
+                      ) : (
+                        <ProseBox>
+                          <MarkdownView>{data.content}</MarkdownView>
+                        </ProseBox>
+                      )}
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="history" pt="md">
+                      <FeedbackHistory feedbackId={id} />
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="lifecycle" pt="md">
+                      <FeedbackLifecycle currentStatus={data.status} />
+                    </Tabs.Panel>
+                  </Tabs>
+                </Stack>
+              </Paper>
+              <Box component="aside" className={classes.metadata}>
+                <Title order={3} size="h4" mb="sm">
+                  {t("feedback.detailsTitle")}
+                </Title>
                 <MetaStrip items={metaItems} />
-                <RequesterMessage value={data.requesterMessage} collapsible />
-                <Tabs defaultValue="content" keepMounted={false}>
-                  <Tabs.List>
-                    <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
-                    <Tabs.Tab value="history">{t("feedback.history")}</Tabs.Tab>
-                    <Tabs.Tab value="lifecycle">{t("feedback.lifecycle")}</Tabs.Tab>
-                  </Tabs.List>
-
-                  <Tabs.Panel value="content" pt="md">
-                    {hideContent ? (
-                      <Text c="dimmed" size="sm">
-                        {t("feedback.contentUnavailable")}
-                      </Text>
-                    ) : (
-                      <ProseBox>
-                        <MarkdownView>{data.content}</MarkdownView>
-                      </ProseBox>
-                    )}
-                  </Tabs.Panel>
-
-                  <Tabs.Panel value="history" pt="md">
-                    <FeedbackHistory feedbackId={id} />
-                  </Tabs.Panel>
-
-                  <Tabs.Panel value="lifecycle" pt="md">
-                    <FeedbackLifecycle currentStatus={data.status} />
-                  </Tabs.Panel>
-                </Tabs>
-              </Stack>
-            ) : null}
-          </Paper>
+              </Box>
+            </Box>
+          ) : null}
         </Container>
       </Stack>
 

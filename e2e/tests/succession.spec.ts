@@ -192,6 +192,8 @@ test("a manager plans a succession, nominates a successor with a linked developm
   await page.goto("/?tab=subordinates");
   const aaaOneCard = page.locator("li", { hasText: "AAA One" }).first();
   // The Profile section reports the plan's reviewed stamp beside the button (v2.47.2).
+  await aaaOneCard.locator("summary").click();
+  await expect(aaaOneCard.locator("details")).toHaveAttribute("open");
   await expect(aaaOneCard.getByText("Succession reviewed")).toBeVisible();
   await aaaOneCard.getByRole("link", { name: "Succession plan for AAA One" }).click();
   await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();

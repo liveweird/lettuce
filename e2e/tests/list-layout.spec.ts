@@ -116,7 +116,13 @@ async function expectAllRowActionsInViewport(page: Page, table: Locator): Promis
   const actionCount = await actions.count();
   expect(actionCount).toBeGreaterThan(0);
   for (let index = 0; index < actionCount; index += 1) {
-    await expectHorizontallyInViewport(page, actions.nth(index));
+    const action = actions.nth(index);
+    await expectHorizontallyInViewport(page, action);
+    await expect.poll(() => action.evaluate((element) => {
+      const cell = element.closest("td")!.getBoundingClientRect();
+      const bounds = element.getBoundingClientRect();
+      return bounds.left >= cell.left - 1 && bounds.right <= cell.right + 1;
+    })).toBe(true);
   }
 }
 
@@ -241,7 +247,7 @@ test("list rows stay contained and usable across desktop and mobile widths", asy
         '[title="Provider + requester + subject"]',
       );
       await expect(receivedVisibilityPill).toBeVisible();
-      await expect(receivedVisibilityPill).toHaveText("P+R+S");
+      await expect(receivedVisibilityPill).toHaveText("Provider + requester + subject");
       await expectAllRowActionsInViewport(page, table);
     }
 
@@ -341,7 +347,7 @@ test("list rows stay contained and usable across desktop and mobile widths", asy
       if (tab === "received") {
         const plVisibilityPill = row.locator('[title="Wystawiający + proszący + podmiot"]');
         await expect(plVisibilityPill).toBeVisible();
-        await expect(plVisibilityPill).toHaveText("W+Pr+Po");
+        await expect(plVisibilityPill).toHaveText("Wystawiający + proszący + podmiot");
       } else {
         await expect(row.getByText("Publiczna", { exact: true })).toBeVisible();
         const deadlineRow = table.getByRole("row").filter({ hasText: requester.name });
@@ -578,6 +584,11 @@ test("Team's performance table fits a 1280px laptop and still shows its rating n
       await page.goto("/performance?tab=managed");
       const overallHeader = page.getByRole("button", { name: overallLabel, exact: true });
       await expect(overallHeader).toBeVisible();
+      // Headers render during loading. Wait for this test's rated row before measuring the
+      // matrix, or a fast layout check can incorrectly measure the empty loading table.
+      const ratedRow = page.getByRole("row").filter({ has: page.getByText(reviewee.name, { exact: true }) });
+      await expect(ratedRow).toBeVisible();
+      await expect(ratedRow.locator("[data-atomic] .mantine-Badge-label")).toHaveCount(5);
 
       const region = page.getByRole("region");
       await expect(region).toBeVisible();

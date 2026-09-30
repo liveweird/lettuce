@@ -46,6 +46,7 @@ export default function Feedback() {
     <Stack gap="md">
       <PageHeader
         title={t("feedback.sectionTitle")}
+        description={t("feedback.sectionHint")}
         actions={
           <>
             <Button

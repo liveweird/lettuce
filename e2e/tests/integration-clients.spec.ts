@@ -12,9 +12,9 @@ test("admin creates an integration client, syncs through the GraphQL API with it
 }) => {
   const name = uniqueText("E2E-Client");
 
-  // 1. Admin opens the Config → Integration clients screen and registers a client.
+  // 1. Admin opens the Settings → Integration clients screen and registers a client.
   await login(page, ADMIN);
-  await page.getByRole("button", { name: "Config" }).click();
+  await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("link", { name: "Integration clients" }).click();
   await expect(page.getByRole("heading", { name: "Integration clients" })).toBeVisible();
   await page.getByLabel("Client name").fill(name);
@@ -52,11 +52,11 @@ test("admin creates an integration client, syncs through the GraphQL API with it
   });
   expect(rejected.status()).toBe(401);
 
-  // 5. A regular user has no nav entry (Config expanded to prove absence) and the page
+  // 5. A regular user has no nav entry (Settings is absent) and the page
   // bounces them home.
   await logout(page);
   await login(page, AAA_ONE);
-  await page.getByRole("button", { name: "Config" }).click();
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Integration clients" })).toHaveCount(0);
   await page.goto("/integration-clients");
   await page.waitForURL("**/");

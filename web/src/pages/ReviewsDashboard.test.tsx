@@ -131,7 +131,9 @@ describe("ReviewsDashboard tab", () => {
     // Zoe has no review yet — badge + the New-review action (direct scope).
     expect(screen.getByText("Zoe Zeta")).toBeInTheDocument();
     expect(screen.getByText("No review yet")).toBeInTheDocument();
-    const newReview = screen.getByRole("link", { name: "New performance review for Zoe Zeta" });
+    const newReview = screen.getByRole("link", {
+      name: "New review: New performance review for Zoe Zeta",
+    });
     expect(newReview.getAttribute("href")).toContain("/performance-reviews/new?subordinateId=9");
     const reviewsCall = mockFetch.mock.calls
       .map((c) => String(c[0]))

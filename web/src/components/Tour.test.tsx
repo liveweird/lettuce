@@ -178,13 +178,13 @@ describe("Tour", () => {
     vi.unstubAllGlobals();
   });
 
-  test("buildSteps resolves content through the translator and includes the full menu (22 manager / 21 non-manager)", () => {
+  test("buildSteps resolves content through the translator and includes the full menu (23 manager / 22 non-manager)", () => {
     const t = (k: string) => k;
     const manager = buildSteps(TOUR_STEPS, t, true);
     const nonManager = buildSteps(TOUR_STEPS, t, false);
 
-    expect(manager).toHaveLength(22);
-    expect(nonManager).toHaveLength(21);
+    expect(manager).toHaveLength(23);
+    expect(nonManager).toHaveLength(22);
     // Config is present for everyone — it is no longer admin-gated.
     expect(nonManager.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
     // Content is resolved through the translator.
@@ -237,7 +237,7 @@ describe("Tour", () => {
     expect(manager.some((s) => s.target === '[data-tour="synthetic-manager-only"]')).toBe(true);
   });
 
-  test("buildSteps drops a disabled feature's step (21 manager / 20 non-manager) and renumbers against the shrunk total", () => {
+  test("buildSteps drops a disabled feature's step (22 manager / 21 non-manager) and renumbers against the shrunk total", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
 
@@ -247,8 +247,8 @@ describe("Tour", () => {
       const nonManager = buildSteps(TOUR_STEPS, t, false);
 
       expect(manager.some((s) => s.target === '[data-tour="nav-my-goals"]')).toBe(false);
-      expect(manager).toHaveLength(21);
-      expect(nonManager).toHaveLength(20);
+      expect(manager).toHaveLength(22);
+      expect(nonManager).toHaveLength(21);
       // The "Step X of Y" numbering shrinks with the filtered total.
       const total = manager.length;
       expect(manager[0].title).toBe(`1/${total}`);
@@ -281,6 +281,7 @@ describe("Tour", () => {
         "body",
         '[data-tour="nav-dashboard"]',
         '[data-tour="nav-career"]',
+        '[data-tour="nav-people"]',
         '[data-tour="nav-config"]',
         '[data-tour="nav-dictionaries"]',
         '[data-tour="nav-change-password"]',
@@ -291,7 +292,7 @@ describe("Tour", () => {
         '[data-tour="user-menu"]',
         '[data-tour="replay"]',
       ]);
-      expect(steps).toHaveLength(12);
+      expect(steps).toHaveLength(13);
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }

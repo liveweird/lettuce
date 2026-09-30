@@ -127,3 +127,5 @@ fill gate for the "Teams I manage" leg below.
   chart-or-pending either-or.
 - **The subtree participant total** ("3 of N") — the performance-reviews spec accretes one
   team into CCC's subtree per run, so only the response count (3) is pinned.
+
+Lifecycle confirmations use the **Open now** and **Close now** buttons inside their confirmation dialogs; the labelled row actions remain contextual to each cycle.

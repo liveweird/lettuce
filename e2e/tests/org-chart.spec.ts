@@ -7,7 +7,7 @@ import { AAA_ONE, expect, login, test } from "./helpers";
 
 test("the org chart renders the seed org and drills into details and rosters", async ({ page }) => {
   await login(page, AAA_ONE);
-  await page.getByRole("button", { name: "Config" }).click();
+  await page.getByRole("button", { name: "Directory" }).click();
   await page.getByRole("link", { name: "Org chart" }).click();
   await expect(page).toHaveURL(/\/org$/);
 

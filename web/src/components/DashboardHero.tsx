@@ -1,4 +1,4 @@
-import { Group, Paper, SimpleGrid, Skeleton, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Group, Paper, SimpleGrid, Skeleton, Text, Tooltip } from "@mantine/core";
 import {
   IconClipboardText,
   IconHeartRateMonitor,
@@ -30,7 +30,7 @@ function heroGridCols(tileCount: number) {
 
 const signedDelta = (delta: number) => (delta > 0 ? `+${delta}` : String(delta));
 
-// One stat tile: sentence-case label, semibold proportional-figure value, a light brand icon.
+// One summary link: a sentence-case label, tabular value and quiet icon.
 // The whole tile is a link to the screen the number comes from — text stays in text tokens.
 function StatTile({
   label,
@@ -52,43 +52,28 @@ function StatTile({
     <Paper
       component={RouterLink}
       to={to}
-      withBorder
       radius="md"
       p="md"
-      shadow="xs"
       className={classes.tile}
     >
-      <Group gap="sm" wrap="nowrap" align="flex-start">
-        <ThemeIcon variant="light" size={36} radius="md">
-          {icon}
-        </ThemeIcon>
-        <div style={{ minWidth: 0 }}>
-          <Text size="xs" c="dimmed" lineClamp={2} className={classes.label}>
-            {label}
-          </Text>
-          <Group gap={6} wrap="nowrap" align="center">
-            <Text fz={26} fw={600} lh={1.2}>
-              {value}
-            </Text>
-            {hint != null && (
-              <Tooltip label={hint}>
-                <IconInfoCircle
-                  size={16}
-                  color="var(--mantine-color-dimmed)"
-                  role="img"
-                  aria-label={hint}
-                />
-              </Tooltip>
-            )}
-          </Group>
-        </div>
+      <Group gap="xs" justify="space-between" align="flex-start" wrap="nowrap">
+        <Text size="xs" c="dimmed" className={classes.label}>{label}</Text>
+        <span className={classes.icon} aria-hidden="true">{icon}</span>
+      </Group>
+      <Group gap={8} mt="sm" wrap="nowrap" align="center">
+        <Text fz={28} fw={600} lh={1.2} className={classes.value}>{value}</Text>
+        {hint != null && (
+          <Tooltip label={hint}>
+            <IconInfoCircle size={16} color="var(--mantine-color-dimmed)" role="img" aria-label={hint} />
+          </Tooltip>
+        )}
       </Group>
     </Paper>
   );
 }
 
 /**
- * The Dashboard's at-a-glance row: personal, actionable counts for everyone plus two manager
+ * The Dashboard's v5 quiet summary strip: personal, actionable counts for everyone plus two manager
  * tiles (gated on having direct reports; the reviews tile additionally needs a review period
  * covering today). One caller-scoped query; renders skeletons while loading and NOTHING on
  * error or malformed data — the hero must never break the dashboard (the AlertsBanner rule).
@@ -191,7 +176,7 @@ export default function DashboardHero() {
   ].filter((tile) => tile != null);
   if (tiles.length === 0) return null;
   return (
-    <SimpleGrid cols={heroGridCols(tiles.length)} spacing="md">
+    <SimpleGrid cols={heroGridCols(tiles.length)} spacing={0} className={classes.strip}>
       {tiles}
     </SimpleGrid>
   );

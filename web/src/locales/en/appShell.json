@@ -16,7 +16,7 @@
     "performance": "Performance",
     "career": "Career",
     "daysOff": "Days off",
-    "config": "Config",
+    "config": "Settings",
     "users": "Users",
     "teams": "Teams",
     "orgChart": "Org chart",
@@ -39,12 +39,16 @@
     "pulse": "Pulse",
     "succession": "Succession plans",
     "pulseCycles": "Pulse cycles",
-    "pulseRotatingQuestions": "Pulse questions"
+    "pulseRotatingQuestions": "Pulse questions",
+    "people": "Directory",
+    "reference": "Resources"
   },
   "navSection": {
     "overview": "Overview",
     "myWork": "My work",
     "team": "Team",
-    "administration": "Administration"
+    "administration": "Administration",
+    "people": "People",
+    "reference": "Reference"
   }
 }

@@ -1,75 +1,24 @@
-/* The card body (v3.4.0): sections are real blocks again, each with its OWN label/value
-   grid (this deliberately reverts the v1.50.0 one-grid-card-wide rule — the price of the
-   two-column body, where the columns can't share tracks anyway). From 30rem of card width
-   the sections split into two columns (Profile + Performance | Collaboration + Days off);
-   below that they stack. The actions live in one footer row pinned to the card bottom. */
-.body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  column-gap: var(--mantine-spacing-md);
-  row-gap: 0;
-}
-
-@container (min-width: 30rem) {
-  .columns.twoCol {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-/* One section: a captioned divider over its label/value rows. The label track is
-   `max-content`, so it self-sizes to the widest label of the current language (the Polish
-   labels are noticeably longer than the English ones) instead of a hardcoded width. */
-.rows {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  column-gap: var(--mantine-spacing-xs);
-  row-gap: 2px;
-  /* Top-align: a value that wraps to two lines (e.g. Last 1:1 = a relative date + an open-items
-     badge in the narrow two-column body) keeps its label beside the FIRST line, not vertically
-     centred against both. Single-line rows are unchanged (equal-height label/value) — Last
-     review is one of these since v4.x: its dot+period value is forced `nowrap`. */
-  align-items: start;
-}
-
-/* Cap the label track so an extreme translation wraps instead of starving the value column. */
-.label {
-  max-width: 170px;
-}
-
-.value {
-  min-width: 0;
-}
-
-.divider {
-  margin-top: calc(var(--mantine-spacing-sm) - 2px);
-  margin-bottom: 2px;
-}
-
-.column > .section:first-child > .divider {
-  margin-top: 0;
-}
-
-/* A section's action-button row (the `buttons` variant): full width of its rows grid. */
-.actions {
-  grid-column: 1 / -1;
-}
-
-/* The icon footer (the `icons` variant): pinned to the card bottom under a hairline. */
-.footer {
-  margin-top: auto;
-  padding-top: var(--mantine-spacing-sm);
-  border-top: 1px solid var(--mantine-color-default-border);
+.body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.rows { display: grid; gap: 8px; }
+.statRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 10px; align-items: start; }
+.label { line-height: 1.5; }
+.value { min-width: 0; }
+.divider { margin-top: 14px; margin-bottom: 10px; }
+.section:first-child > .divider { margin-top: 0; }
+.summary { padding-block: 12px; border-top: 1px solid var(--mantine-color-default-border); }
+.summary > .divider { display: none; }
+.summary .rows { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.summary .statRow { display: flex; flex-direction: column; gap: 8px; }
+.summary .value { align-items: flex-start; }
+.actions { grid-column: 1 / -1; }
+.secondary { display: grid; gap: 16px; padding-bottom: 16px; }
+.disclosure { border-top: 1px solid var(--mantine-color-default-border); margin-top: 12px; }
+.disclosure > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; color: var(--mantine-color-dimmed); font-size: var(--mantine-font-size-xs); cursor: pointer; list-style: none; }
+.disclosure > summary::-webkit-details-marker { display: none; }
+.disclosure > summary::after { content: "+"; font-size: 18px; }
+.disclosure[open] > summary::after { content: "−"; }
+.disclosure > summary:focus-visible { outline: 2px solid var(--mantine-primary-color-filled); outline-offset: 3px; border-radius: 3px; }
+.footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--mantine-color-default-border); }
+@container (max-width: 22rem) {
+  .summary .rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

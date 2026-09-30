@@ -22,5 +22,8 @@
     "myTeams": "No managed teams"
   },
   "teamFallback": "Team #{{id}}",
-  "teamSubordinatesHint": "The members of this team, with the same cards and actions as My subordinates."
+  "teamSubordinatesHint": "The members of this team, with the same cards and actions as My subordinates.",
+  "description": "Your work and the people you work with.",
+  "relationships": "Your working relationships",
+  "relationshipsHint": "Keep a clear picture of the conversations that matter."
 }

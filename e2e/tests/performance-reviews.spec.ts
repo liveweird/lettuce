@@ -38,12 +38,12 @@ async function pickRating(page: Page, label: string) {
 }
 
 test("a performance review travels period → draft → calibration → published → subordinate", async ({ page }) => {
-  // 1. The admin appends a fresh period (Config → Review periods). The pickers default to a
+  // 1. The admin appends a fresh period (Resources → Review periods). The pickers default to a
   //    valid period (fixed/current start + 6 months) and the append form only renders once
   //    the timeline data is loaded, so the preview line names the EXACT range Add will create
   //    — read the label from it instead of computing months (v1.33.2, dropdown entry).
   await login(page, ADMIN);
-  await page.getByRole("button", { name: "Config" }).click();
+  await page.getByRole("button", { name: "Resources" }).click();
   await page.getByRole("link", { name: "Review periods" }).click();
   await expect(page.getByRole("heading", { name: "Review periods" })).toBeVisible();
   const preview = page.getByText(/^Will add: /);

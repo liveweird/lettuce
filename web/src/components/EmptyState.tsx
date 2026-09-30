@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Center, Group, Stack, Text, ThemeIcon } from "@mantine/core";
+import classes from "./EmptyState.module.css";
 
 /**
  * The shared empty-list treatment: the (page-supplied) dimmed icon in a soft neutral disc over
@@ -20,16 +21,16 @@ export default function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <Center py={48}>
+    <Center py={48} className={classes.root}>
       <Stack align="center" gap="sm">
-        <ThemeIcon variant="light" color="gray" size={64} radius="xl">
+        <ThemeIcon variant="light" color="lettuce" size={56} radius="md" className={classes.icon}>
           {icon}
         </ThemeIcon>
-        <Text c="dimmed" size="sm">
+        <Text size="sm" fw={600} ta="center">
           {label}
         </Text>
         {description && (
-          <Text c="dimmed" size="xs" ta="center" maw={360}>
+          <Text c="dimmed" size="sm" ta="center" maw={420} className={classes.description}>
             {description}
           </Text>
         )}

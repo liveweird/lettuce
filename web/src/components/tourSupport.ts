@@ -38,8 +38,7 @@ export type TourStepDef = {
   /** Shown to managers OR the HR auditor — the Pulse "participation" tab's own gate
    *  (`canMonitor` in pages/Pulse.tsx), which is wider than `managerOnly`. */
   managerOrHr?: boolean;
-  /** Shown only to an ADMIN — the three Config leaves the navbar itself appends admin-only
-   *  (Pulse cycles, Feature flags, Alerts). */
+  /** Shown only to an ADMIN, matching the Settings group and its administrative leaves. */
   adminOnly?: boolean;
   /** Shown only while the caller has this feature enabled (v1.53.0) — the step's anchor
    *  (nav link / tab) is gone when the flag is off, so the step must go with it. */
@@ -61,9 +60,9 @@ export type TourStepDef = {
 // header) — a below-the-fold target would therefore end up off-screen.
 export const TOUR_STEPS: TourStepDef[] = [
   { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
-  // The navbar, top to bottom: Overview, My work, Team, Administration, then the footer leaves —
+  // The navbar, top to bottom: Overview, My work, Team, People, Reference, Administration, then the footer —
   // one stop per leaf/group, each carrying exactly the gate the nav leaf itself carries
-  // (`navModel.ts`). Config and Dictionaries get one group-level stop each (their leaves are
+  // (`navModel.ts`). Directory, Resources, Dictionaries and Settings get one group-level stop each (their leaves are
   // named in the stop's own copy, not toured individually).
   { target: '[data-tour="nav-dashboard"]', contentKey: "tour.steps.dashboard", placement: "right" },
   { target: '[data-tour="nav-kudos"]', contentKey: "tour.steps.kudos", placement: "right", feature: "FEEDBACKS" },
@@ -80,8 +79,10 @@ export const TOUR_STEPS: TourStepDef[] = [
   // Succession plans — a manager's tool (v2.42.0): the nav leaf itself is manager-gated, so
   // the step carries the same gate.
   { target: '[data-tour="nav-succession"]', contentKey: "tour.steps.succession", placement: "right", managerOnly: true, feature: "SUCCESSION_PLANS" },
+  { target: '[data-tour="nav-people"]', contentKey: "tour.steps.people", placement: "right" },
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right" },
   { target: '[data-tour="nav-dictionaries"]', contentKey: "tour.steps.dictionaries", placement: "right" },
+  { target: '[data-tour="nav-administration"]', contentKey: "tour.steps.administration", placement: "right", adminOnly: true },
   { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right" },
   // Opening /changelog would mark the "what's new" dot as seen — the whirlwind never navigates,
   // so this stop just names the leaf, coherently (nothing is marked seen by looking at it).

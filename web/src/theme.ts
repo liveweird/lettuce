@@ -3,6 +3,8 @@ import {
   Badge,
   Button,
   Drawer,
+  Input,
+  Menu,
   Modal,
   MultiSelect,
   NavLink,
@@ -13,23 +15,26 @@ import {
   Tooltip,
   createTheme,
   rem,
-  type MantineColorsTuple, InputWrapper } from "@mantine/core";
+  type MantineColorsTuple,
+  InputWrapper,
+} from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import classes from "./theme.module.css";
 import { foldedOptionsFilter } from "./utils/text";
 
-// "Lettuce" brand palette — a fresh leaf-green scale (light → dark, indices 0–9).
+// Mineral greens derived from the product's leaf mark. Shade 7 is the approved interactive
+// accent; the pale shades support selected navigation and restrained secondary surfaces.
 const lettuce: MantineColorsTuple = [
-  "#f0fdf4",
-  "#dcfce7",
-  "#bbf7d0",
-  "#86efac",
-  "#4ade80",
-  "#22c55e",
-  "#16a34a",
-  "#15803d", // primary (light scheme)
-  "#166534", // primary (dark scheme)
-  "#14532d",
+  "#f3f8f5",
+  "#e5eee8",
+  "#cadfd1",
+  "#a6cbb5",
+  "#75ad8e",
+  "#4a8d6b",
+  "#277654",
+  "#146347", // approved leaf accent
+  "#104f39",
+  "#0c3d2c",
 ];
 
 // Inter is bundled (via @fontsource-variable/inter, imported in main.tsx) so it loads same-origin
@@ -53,12 +58,11 @@ const BADGE_DIMENSIONS: Record<string, { height: string; fz: string; px: string 
 // stock-green success states.
 export const theme = createTheme({
   primaryColor: "lettuce",
-  // Shade 7 in light mode — deeper, calmer CTAs than the mid-green 6.
-  primaryShade: { light: 7, dark: 8 },
+  primaryShade: { light: 7, dark: 6 },
   // Pick readable text color on filled brand surfaces automatically.
   autoContrast: true,
-  defaultRadius: "md",
-  radius: { xs: rem(4), sm: rem(6), md: rem(8), lg: rem(12), xl: rem(16) },
+  defaultRadius: "sm",
+  radius: { xs: rem(4), sm: rem(6), md: rem(9), lg: rem(10), xl: rem(14) },
   colors: { lettuce },
   fontFamily: sans,
   // Visible only on keyboard focus; the ring is the brand shade (≥ 3:1 on both grounds).
@@ -68,23 +72,23 @@ export const theme = createTheme({
     fontFamily: sans,
     fontWeight: "600",
     textWrap: "balance",
-    // Pages title themselves with order={2}: 1.5rem gives the page title clear rank over
-    // section (h3) and card (h4) titles without the stock 1.625rem's poster feel.
+    // Page titles are the one strong typographic gesture. Section and card headings stay
+    // compact so dense people-management screens retain a calm hierarchy.
     sizes: {
-      h1: { fontSize: "1.75rem", lineHeight: "1.25" },
-      h2: { fontSize: "1.5rem", lineHeight: "1.3" },
-      h3: { fontSize: "1.125rem", lineHeight: "1.4" },
+      h1: { fontSize: "2rem", lineHeight: "1.2" },
+      h2: { fontSize: "1.75rem", lineHeight: "1.25" },
+      h3: { fontSize: "1.125rem", lineHeight: "1.35" },
       h4: { fontSize: "1rem", lineHeight: "1.45" },
     },
   },
   // Near-flat resting elevation (surfaces are border-first); md+ stay for hover lifts,
   // popovers, and drawers.
   shadows: {
-    xs: "0 1px 1px rgba(16, 24, 40, 0.03)",
-    sm: "0 1px 2px rgba(16, 24, 40, 0.04)",
-    md: "0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.06)",
-    lg: "0 12px 16px -4px rgba(16, 24, 40, 0.1), 0 4px 6px -2px rgba(16, 24, 40, 0.05)",
-    xl: "0 20px 24px -4px rgba(16, 24, 40, 0.1), 0 8px 8px -4px rgba(16, 24, 40, 0.04)",
+    xs: "0 1px 2px rgba(25, 48, 37, 0.025)",
+    sm: "0 1px 2px rgba(25, 48, 37, 0.035)",
+    md: "0 8px 24px rgba(25, 48, 37, 0.1)",
+    lg: "0 18px 48px rgba(25, 48, 37, 0.14)",
+    xl: "0 28px 80px rgba(25, 48, 37, 0.18)",
   },
   components: {
     // Every data table in the app: a card-like frame on the quiet canvas, hoverable compact
@@ -103,6 +107,7 @@ export const theme = createTheme({
       },
     }),
     NavLink: NavLink.extend({ classNames: { root: classes.navLink } }),
+    Input: Input.extend({ classNames: { input: classes.input } }),
     // Every searchable Select/MultiSelect matches accent-insensitively ("zolw" finds "Żółw"),
     // mirroring the server-side unaccent list filters. A per-site `filter` prop still wins —
     // don't pass one unless it preserves the diacritics folding (see utils/text.ts).
@@ -121,6 +126,7 @@ export const theme = createTheme({
       },
     }),
     Button: Button.extend({ classNames: { root: classes.button } }),
+    Menu: Menu.extend({ classNames: { dropdown: classes.menuDropdown, item: classes.menuItem } }),
     SegmentedControl: SegmentedControl.extend({
       classNames: { root: classes.segmentedRoot, control: classes.segmentedControl, label: classes.segmentedLabel },
     }),

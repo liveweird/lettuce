@@ -171,7 +171,7 @@
   "lastOneOnOne": "Ostatnie 1:1",
   "lastLogin": "Ostatnie logowanie",
   "lastReview": "Ostatnia ocena",
-  "successionReviewed": "Przegl\u0105d sukcesji",
+  "successionReviewed": "Przegląd sukcesji",
   "lastFeedback": "Ostatni feedback",
   "feedbackFromMe": "Feedback ode mnie",
   "feedbackFromThem": "Feedback od tej osoby",
@@ -277,5 +277,9 @@
     "featuresSaved": "Funkcje zapisane"
   },
   "impactLog": "Dziennik wpływu",
-  "successionPlans": "Plany sukcesji"
+  "successionPlans": "Plany sukcesji",
+  "profileDetails": "Szczegóły profilu",
+  "profileAndLeaveDetails": "Profil i dni wolne",
+  "profileDetailsFor": "Szczegóły profilu: {{name}}",
+  "profileAndLeaveDetailsFor": "Profil i dni wolne: {{name}}"
 }

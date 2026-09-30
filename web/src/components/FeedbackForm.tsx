@@ -251,9 +251,9 @@ export default function FeedbackForm({
         />
       )}
       {showTemplateInsert && (
-        // One nowrap unit, so a crowded controls row (picker mode adds a third Select) wraps
-        // the template picker and its Insert button together, never the button alone.
-        <Group gap="sm" align="flex-end" wrap="nowrap">
+        // Keep the picker and Insert together while they fit. On a phone they may wrap inside
+        // this unit instead of imposing their combined desktop width on the document.
+        <Group gap="sm" align="flex-end" wrap="wrap" style={{ minWidth: 0, maxWidth: "100%" }}>
           <Select
             label={t("feedback.template")}
             placeholder={
@@ -266,6 +266,7 @@ export default function FeedbackForm({
             value={selectedTemplateId}
             onChange={setSelectedTemplateId}
             w={280}
+            maw="100%"
           />
           <Button
             type="button"
@@ -297,7 +298,7 @@ export default function FeedbackForm({
     <>
       <PageHeader title={title} badge={currentStatus && <StatusBadge status={currentStatus} />} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <Paper withBorder p="xl" radius="md">
           <form onSubmit={form.onSubmit(() => onSubmit("DRAFT", form.values))} noValidate>
             <Stack>
               <MetaStrip items={meta} />

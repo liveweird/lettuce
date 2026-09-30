@@ -309,9 +309,9 @@ function Shell() {
         breakpoint: "sm",
         collapsed: { mobile: !opened, desktop: false },
       }}
-      padding="md"
+      padding={{ base: "md", sm: "lg", lg: "xl" }}
     >
-      <AppShell.Header>
+      <AppShell.Header aria-label={t("appShell.brand")}>
         <a href="#main-content" className="skip-link">
           {t("appShell.skipToContent")}
         </a>

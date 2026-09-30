@@ -97,7 +97,7 @@ goals, impact log, pulse, notifications, alerts, templates.
 - **Audit**: every executed request → `integration.request` (clientId, clientName,
   operationName, root field names — never query text/variables); `integration.auth_failed`
   (reason) on every rejected key.
-- **SPA management** (`pages/IntegrationClients.tsx`, `/integration-clients`, Config nav —
+- **SPA management** (`pages/IntegrationClients.tsx`, `/integration-clients`, Settings nav —
   admin-only like the alerts pages, i18n area `integration`): registry list (Active/Revoked `StatusPill`, creator, last-used relative time), inline "Add client" whose response shows the key
   once in a warning panel via `RevealablePassword` (no toast — the panel IS the confirmation,
   the CreateUser precedent), Revoke behind the ConfirmDeleteModal flow with a "Revoke" confirm

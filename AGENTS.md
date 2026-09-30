@@ -169,7 +169,8 @@ and camelCase for functions and variables. Name backend test classes `*Test`.
 Use two-space indentation, PascalCase for React components, and the existing shared
 components/hooks instead of cloning list, pagination, filtering, confirmation,
 query-invalidation, link-building, or error-mapping logic.
-The design system is owned by `web/src/theme.ts`, `web/src/theme.module.css`, and
+The v5 composition and navigation contract is `.claude/docs/frontend-design.md`; read it before
+changing shared layouts. The design system is owned by `web/src/theme.ts`, `web/src/theme.module.css`, and
 `web/src/themeVariables.ts`: brand green is the interactive accent, semantic success is teal,
 and compact, border-first table framing is theme-wide. Contrast is token-owned and tested in
 both schemes; do not waive axe color-contrast findings. Keep accessibility roles, labels,

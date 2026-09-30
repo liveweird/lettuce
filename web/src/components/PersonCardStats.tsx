@@ -59,12 +59,12 @@ function StatRow({
     </Group>
   );
   return (
-    <>
+    <div className={classes.statRow}>
       <Text size="xs" c="dimmed" className={classes.label}>
         {label}
       </Text>
       {tooltip ? <Tooltip label={tooltip}>{value}</Tooltip> : value}
-    </>
+    </div>
   );
 }
 
@@ -96,7 +96,7 @@ function TimeStat({ at }: { at: number | null }) {
 function CareerValue({ entry }: { entry: LocalizedEntry | null }) {
   const { t, i18n } = useTranslation();
   return entry ? (
-    <Text size="xs" truncate>
+    <Text size="xs" style={{ overflowWrap: "break-word" }}>
       {pickLocalized(entry.values, i18n.resolvedLanguage)}
     </Text>
   ) : (
@@ -206,9 +206,9 @@ function LastReviewValue({
 // group, then the group's stat rows (and, in the `buttons` variant, its action row) in the
 // section's own label/value grid (v3.4.0 — the v1.50.0 card-wide grid gave way to the
 // two-column body; see PersonCardStats.module.css).
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({ label, children, summary = false }: { label: string; children: React.ReactNode; summary?: boolean }) {
   return (
-    <div className={classes.section}>
+    <div className={`${classes.section}${summary ? ` ${classes.summary}` : ""}`}>
       <Divider label={label} labelPosition="left" className={classes.divider} />
       <div className={classes.rows}>{children}</div>
     </div>
@@ -298,17 +298,9 @@ function CollaborationRows({
 // where the directional stats aren't computed).
 export type PersonCardStatsVariant = "manager" | "subordinate" | "peer" | "none";
 
-// The card body (v1.46.0): the information regrouped into labeled sections, each pairing
-// its read-only stats with its related buttons — Profile (career), Collaboration (1:1 +
-// feedback + goals, with the create/drill-down buttons), Performance (last review + the
-// reviews drill-down), Days off (next vacation + budget + the days-off drill-down). This
-// replaced the two-column stats/career split and the flat footer button row. Everything is
-// laid out by ONE label/value grid (v1.50.0, PersonCardStats.module.css) — sections are
-// fragments inside it, so all values line up in a single column card-wide, and the dividers
-// and button rows span both tracks. A section renders only when it has content for this
-// flavor; stat gates stay data-driven:
-// `showLastReview`/`showDaysOff` are set only where the rows actually carry the stats
-// (view=managed — the subordinate flavors), never where "never" would just be noise.
+// Shared relationship facts and actions. v5 dashboard cards lead with collaboration and
+// review facts, then disclose profile/leave details; detail pages keep those sections open.
+// Every row remains gated by the existing relationship, returned data and feature flags.
 export default function PersonCardBody({
   person,
   stats,
@@ -336,7 +328,7 @@ export default function PersonCardBody({
   /** The card's buttons, rendered inside their sections; undefined = none (the self card). */
   actions?: PersonCardActionsProps;
   /** `icons` (v3.4.0, the dashboard grids): the sections hold stats only and every action
-   *  sits in one icon footer; `buttons` (default) keeps the captioned per-section rows. */
+   *  sits in one footer with labelled topic menus; `buttons` keeps per-section rows. */
   actionsVariant?: "buttons" | "icons";
 }) {
   const { t, i18n } = useTranslation();
@@ -368,14 +360,10 @@ export default function PersonCardBody({
     (showLastReview && canReviews) || (sectionActions && hasVisibleActions(actions, PERFORMANCE_ACTIONS));
   const showVacation = (stats === "peer" || showDaysOff) && canDaysOff;
   const showDaysOffSection = showVacation || (sectionActions && hasVisibleActions(actions, DAYS_OFF_ACTIONS));
-  // Two columns once the right-hand one has content (Profile + Performance | Collaboration
-  // + Days off); the CSS only splits from 30rem of card width.
-  const twoCol = showCollaboration || showDaysOffSection;
-
-  return (
-    <div className={classes.body}>
-      <div className={`${classes.columns}${twoCol ? ` ${classes.twoCol}` : ""}`}>
-      <div className={classes.column}>
+  // Dashboard cards lead with collaboration. Secondary facts stay reachable through a
+  // native keyboard-operable disclosure; detail cards keep every section expanded.
+  const secondary = (
+    <div className={classes.secondary}>
       <Section label={t("users.section.profile")}>
         <CareerRows person={person} showSeniorityWhenUnset={showSeniorityWhenUnset} />
         {(person.lastLoginAt != null || showLastLogin || canAudit()) && (
@@ -389,7 +377,38 @@ export default function PersonCardBody({
         {/* The career-progression drill-down (v2.15.0) — the profile's own button row. */}
         {actionsRow(PROFILE_ACTIONS)}
       </Section>
-
+      {showDaysOffSection && (
+        <Section label={t("users.section.daysOff")}>
+          {showVacation && <NextVacationRow person={person} />}
+          {showDaysOff && (
+            <StatRow label={t("users.daysOffBudgetLeft")}>
+              {person.daysOffRemaining != null ? (
+                <Text size="xs">{formatDays(person.daysOffRemaining, i18n.language)}</Text>
+              ) : (
+                <NeverText />
+              )}
+            </StatRow>
+          )}
+          {actionsRow(DAYS_OFF_ACTIONS)}
+        </Section>
+      )}
+    </div>
+  );
+  return (
+    <div className={classes.body}>
+      {showCollaboration && (
+        <Section label={t("users.section.collaboration")} summary>
+          <CollaborationRows
+            person={person}
+            directional={directional}
+            peer={stats === "peer"}
+            canOneOnOne={canOneOnOne}
+            canFeedback={canFeedback}
+            canGoals={canGoals}
+          />
+          {actionsRow(OPERATIONAL_ACTIONS)}
+        </Section>
+      )}
       {showPerformance && (
         <Section label={t("users.section.performance")}>
           {showLastReview &&
@@ -410,42 +429,14 @@ export default function PersonCardBody({
           {actionsRow(PERFORMANCE_ACTIONS)}
         </Section>
       )}
-
-      </div>
-      {twoCol && (
-        <div className={classes.column}>
-      {showCollaboration && (
-        <Section label={t("users.section.collaboration")}>
-          <CollaborationRows
-            person={person}
-            directional={directional}
-            peer={stats === "peer"}
-            canOneOnOne={canOneOnOne}
-            canFeedback={canFeedback}
-            canGoals={canGoals}
-          />
-          {actionsRow(OPERATIONAL_ACTIONS)}
-        </Section>
-      )}
-
-      {showDaysOffSection && (
-        <Section label={t("users.section.daysOff")}>
-          {showVacation && <NextVacationRow person={person} />}
-          {showDaysOff && (
-            <StatRow label={t("users.daysOffBudgetLeft")}>
-              {person.daysOffRemaining != null ? (
-                <Text size="xs">{formatDays(person.daysOffRemaining, i18n.language)}</Text>
-              ) : (
-                <NeverText />
-              )}
-            </StatRow>
-          )}
-          {actionsRow(DAYS_OFF_ACTIONS)}
-        </Section>
-      )}
-        </div>
-      )}
-      </div>
+      {actionsVariant === "icons" && showCollaboration ? (
+        <details className={classes.disclosure}>
+          <summary aria-label={t(showDaysOffSection ? "users.profileAndLeaveDetailsFor" : "users.profileDetailsFor", { name: person.name })}>
+            {t(showDaysOffSection ? "users.profileAndLeaveDetails" : "users.profileDetails")}
+          </summary>
+          {secondary}
+        </details>
+      ) : secondary}
       {actionsVariant === "icons" && actions != null && (
         <div className={classes.footer}>
           <PersonCardActions {...actions} variant="icons" />

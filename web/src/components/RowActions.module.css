@@ -1,0 +1,12 @@
+.primary {
+  max-width: 100%;
+  height: auto;
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
+.primary :global(.mantine-Button-label) {
+  white-space: normal;
+  text-align: start;
+  overflow: visible;
+}
