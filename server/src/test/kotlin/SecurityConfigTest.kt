@@ -2,6 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.auth.MAX_DURATION_SECONDS
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -247,6 +248,39 @@ class SecurityConfigTest {
         assertNotNull(failure, "startup must fail closed on an MFA max-pending-challenges cap above 100")
         val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
         assertTrue("security.mfa.maxPendingChallenges" in messages, "unexpected startup failure: $messages")
+    }
+
+    @Test
+    fun `a seconds window above 30 days - or one that would overflow into milliseconds - refuses to start`() {
+        // An unbounded value near Long.MAX_VALUE multiplied by 1000 wraps negative and silently
+        // disables the window (v4.5.2). One day past the cap, and the overflow value itself.
+        val keys = listOf(
+            "security.lockout.durationSeconds",
+            "security.passwordReset.minIntervalSeconds",
+            "security.mfa.codeTtlSeconds",
+        )
+        for (key in keys) {
+            for (value in listOf((MAX_DURATION_SECONDS + 1).toString(), "9223372036854775")) {
+                testApplication {
+                    configureApp(key to value)
+                    val failure = runCatching { startApplication() }.exceptionOrNull()
+                    assertNotNull(failure, "startup must fail closed on $key=$value")
+                    val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+                    assertTrue(key in messages, "unexpected startup failure for $key=$value: $messages")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `the 30-day ceiling itself boots for every seconds window`() = testApplication {
+        configureApp(
+            "security.lockout.durationSeconds" to MAX_DURATION_SECONDS.toString(),
+            "security.passwordReset.minIntervalSeconds" to MAX_DURATION_SECONDS.toString(),
+            "security.mfa.codeTtlSeconds" to MAX_DURATION_SECONDS.toString(),
+        )
+        startApplication()
+        assertEquals(HttpStatusCode.Unauthorized, jsonClient().get("/api/v1/notifications").status)
     }
 
     @Test

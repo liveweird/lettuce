@@ -103,6 +103,14 @@ data class LoginResponse(
 
 // The refresh rejection detail per audited reason — data beside the handler, not control flow
 // in it. Unlisted reasons fall through to the password-change wording (see the handler).
+/**
+ * The ceiling on every seconds-valued auth-security window (lockout duration, password-reset
+ * interval, MFA code TTL): 30 days. Each is multiplied into milliseconds, so an unbounded value
+ * near Long.MAX_VALUE overflowed negative and silently disabled the window (v4.5.2, from the Flow
+ * handoff). Nothing legitimate is anywhere near it.
+ */
+internal const val MAX_DURATION_SECONDS = 30L * 24 * 3600
+
 private val REFRESH_REJECT_MESSAGES = mapOf(
     "invalid_or_expired" to "Invalid or expired refresh token",
     "wrong_token_type" to "Not a refresh token",
@@ -150,7 +158,9 @@ fun Application.configureAuthRoutes() {
     val loginThrottle = LoginThrottle(
         database = database,
         threshold = requireConfigInt(environment.config, "security.lockout.threshold", min = 1),
-        lockoutMillis = requireConfigLong(environment.config, "security.lockout.durationSeconds", min = 1) * 1000,
+        lockoutMillis = requireConfigLong(
+            environment.config, "security.lockout.durationSeconds", min = 1, max = MAX_DURATION_SECONDS,
+        ) * 1000,
     )
 
     // Self-service password reset: one request per submitted email per interval, uniformly
@@ -159,14 +169,16 @@ fun Application.configureAuthRoutes() {
     val resetThrottle = PasswordResetThrottle(
         database = database,
         minIntervalMillis = requireConfigLong(
-            environment.config, "security.passwordReset.minIntervalSeconds", min = 1,
+            environment.config, "security.passwordReset.minIntervalSeconds", min = 1, max = MAX_DURATION_SECONDS,
         ) * 1000,
     )
     val mailAppUrl = mailAppUrl()
 
     // Email MFA (v2.4.0): pending challenges for MFA-enabled accounts mid-login. DB-backed
     // since V81, like the lockout above (a restart no longer invalidates a pending challenge).
-    val mfaTtlSeconds = requireConfigLong(environment.config, "security.mfa.codeTtlSeconds", min = 1)
+    val mfaTtlSeconds = requireConfigLong(
+        environment.config, "security.mfa.codeTtlSeconds", min = 1, max = MAX_DURATION_SECONDS,
+    )
     val mfaChallenges = MfaChallenges(
         database = database,
         ttlMillis = mfaTtlSeconds * 1000,
