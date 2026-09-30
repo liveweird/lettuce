@@ -2,6 +2,7 @@ import { Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import PersonaChip from "./PersonaChip";
 import { partyDisplayName } from "../utils/userDisplay";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { userDetailsLink } from "../utils/userLinks";
 
 /**
@@ -9,8 +10,10 @@ import { userDetailsLink } from "../utils/userLinks";
  * absent (—) and deleted users render as plain text — the avatar is for identifiable other
  * people, and since v2.30.0 the name itself links to their user-details view (the v2.5.2
  * name-as-details-link rule, extended from the directory surfaces to every resource table).
- * No `from` origin — the details page's back link uses its default. Shared by the feedback /
- * 1:1 / goal / KPI / review / days-off tables; keep the rule here, not per-table.
+ * The link carries the page it was clicked on as `back=` (v4.6.0, the current URL incl. tab and
+ * filters) and NO `from` key: the details page returns exactly there, labelled after that
+ * destination (`utils/backLink.ts`). Shared by the feedback / 1:1 / goal / KPI / review /
+ * days-off tables; keep the rule here, not per-table.
  */
 export default function PersonCell({
   userId,
@@ -24,6 +27,7 @@ export default function PersonCell({
   currentUserId: number | null;
 }) {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const display = partyDisplayName(userId, name, deleted, currentUserId, t);
   const isSelf = currentUserId != null && userId === currentUserId;
   if (isSelf || name == null || deleted) {
@@ -36,7 +40,7 @@ export default function PersonCell({
   return (
     <PersonaChip
       name={display}
-      to={userId != null ? userDetailsLink(userId, name) : undefined}
+      to={userId != null ? userDetailsLink(userId, name, undefined, undefined, { back: here }) : undefined}
       ariaLabel={userId != null ? t("users.detailsFor", { name: display }) : undefined}
     />
   );

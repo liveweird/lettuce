@@ -96,7 +96,8 @@ describe("AskFeedback page", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
       "href",
-      "/feedback/33/view",
+      // The duplicate link returns HERE (v4.6.0) — the ask screen's own URL.
+      `/feedback/33/view?back=${encodeURIComponent("/feedback/ask?providerId=10&providerName=Manny%20Manager")}`,
     );
     expect(screen.getByRole("button", { name: /send request/i })).toBeDisabled();
 

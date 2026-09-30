@@ -3,6 +3,8 @@ import { IconPlus } from "@tabler/icons-react";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
+import { useCurrentPath } from "../hooks/useCurrentPath";
+import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import { useIsManager } from "../hooks/useIsManager";
 import OneOnOneTable from "./OneOnOneTable";
 import PageHeader from "../components/PageHeader";
@@ -17,6 +19,7 @@ function isOneOnOneTab(value: string | null): value is OneOnOneTab {
 
 export default function OneOnOnes() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
@@ -45,7 +48,7 @@ export default function OneOnOnes() {
             {isManager && (
               <Button
                 component={RouterLink}
-                to="/one-on-ones/new"
+                to={oneOnOneCreateLink(undefined, undefined, here)}
                 leftSection={<IconPlus size={16} />}
                 data-tour="one-on-one-new"
               >

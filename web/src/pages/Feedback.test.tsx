@@ -100,7 +100,18 @@ describe("Feedback page", () => {
     // the created (or drafted) feedback lands on the Provided tab.
     expect(screen.getByRole("link", { name: /new feedback/i })).toHaveAttribute(
       "href",
-      `/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}`,
+      `/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}&cancel=${encodeURIComponent("/feedback?tab=provided")}`,
+    );
+  });
+
+  test("Cancel of the New feedback screen returns to the tab it was opened from (cancel=, v4.6.0)", () => {
+    mockApi(mockFetch, 0);
+    renderFeedback("/feedback?tab=received");
+
+    // Save still lands on Provided (back=); Cancel goes back to Received (cancel=).
+    expect(screen.getByRole("link", { name: /new feedback/i })).toHaveAttribute(
+      "href",
+      `/feedback/new?back=${encodeURIComponent("/feedback?tab=provided")}&cancel=${encodeURIComponent("/feedback?tab=received")}`,
     );
   });
 

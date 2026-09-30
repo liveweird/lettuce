@@ -146,7 +146,8 @@ describe("RequestFeedback page", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
       "href",
-      "/feedback/77/view",
+      // The per-row duplicate link returns HERE (v4.6.0) — the request screen's own URL.
+      `/feedback/77/view?back=${encodeURIComponent("/feedback/request?subjectId=7&subjectName=Mona")}`,
     );
     expect(screen.getByRole("button", { name: /^request$/i })).toBeDisabled();
 

@@ -181,18 +181,18 @@ describe("ManagersTable", () => {
         total: 2,
       }),
     );
-    renderWithProviders(<ManagersTable />);
+    renderWithProviders(<ManagersTable />, { route: "/?tab=managers" });
 
     // One card (one name, one set of actions), both teams as badges — each badge linking
-    // to that team's details view (v2.5.4).
+    // to that team's details view (v2.5.4), returning to the tab it sits on (v4.6.0 `back=`).
     expect(await screen.findAllByText("Manager One")).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Team details for alpha" })).toHaveAttribute(
       "href",
-      "/teams/5/details",
+      "/teams/5/details?back=%2F%3Ftab%3Dmanagers",
     );
     expect(screen.getByRole("link", { name: "Team details for beta" })).toHaveAttribute(
       "href",
-      "/teams/9/details",
+      "/teams/9/details?back=%2F%3Ftab%3Dmanagers",
     );
     expect(
       screen.getAllByRole("button", { name: /feedback actions for manager one/i }),

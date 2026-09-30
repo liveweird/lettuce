@@ -29,6 +29,7 @@ import PageHeader from "../components/PageHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import PersonaChip from "../components/PersonaChip";
 import RowActions from "../components/RowActions";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { useUserDisplayName } from "../hooks/useDashboardDrillDown";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
@@ -38,6 +39,7 @@ type TeamRow = { id: number; name: string };
 export default function UserTeams() {
   const { t } = useTranslation();
   const params = useParams<{ id: string }>();
+  const here = useCurrentPath();
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
   const queryClient = useQueryClient();
@@ -220,7 +222,7 @@ export default function UserTeams() {
                   {/* The team name links to the team-details view (the v2.5.4 convention). */}
                   <Anchor
                     component={RouterLink}
-                    to={teamDetailsLink(team.id)}
+                    to={teamDetailsLink(team.id, { back: here })}
                     size="sm"
                     aria-label={t("teams.detailsForAria", { name: team.name })}
                   >
@@ -234,13 +236,13 @@ export default function UserTeams() {
                     </Text>
                   ) : (
                     // The manager's name links to their details (the /users and /teams rule:
-                    // one's own persona stays a plain chip). `from=users` on purpose — this
-                    // page's own declared parent is the Users list.
+                    // one's own persona stays a plain chip). Returns HERE (v4.6.0 `back=`, no
+                    // `from` — the label follows the destination).
                     <PersonaChip
                       name={team.managerName}
                       to={
                         team.managerId !== getUserId()
-                          ? userDetailsLink(team.managerId, team.managerName, "users")
+                          ? userDetailsLink(team.managerId, team.managerName, undefined, undefined, { back: here })
                           : undefined
                       }
                       ariaLabel={t("users.detailsFor", { name: team.managerName })}

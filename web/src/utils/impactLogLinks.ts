@@ -5,8 +5,8 @@ import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSea
 // URL (the v2.35.0 rule): entries resolve their owner from the record.
 
 /** The entry create screen, optionally with a return target. */
-export function impactEntryCreateLink(back?: string): string {
-  return `/impact-log/new${detailSearch(undefined, back)}`;
+export function impactEntryCreateLink(back?: string, cancel?: string): string {
+  return `/impact-log/new${detailSearch(undefined, back, cancel)}`;
 }
 
 /** The read-only entry document (Content/History tabs). */

@@ -64,7 +64,7 @@ const CREATED = {
   lastReviewedAt: 1,
 };
 
-function renderScreen({ createStatus = 201 } = {}) {
+function renderScreen({ createStatus = 201, route = "/succession/new" } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -91,7 +91,7 @@ function renderScreen({ createStatus = 201 } = {}) {
   render(
     <MantineProvider env="test" theme={theme}>
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/succession/new"]}>
+        <MemoryRouter initialEntries={[route]}>
           <Routes>
             <Route path="/succession/new" element={<CreateSuccessionPlan />} />
             <Route path="*" element={<PathProbe />} />
@@ -206,5 +206,19 @@ describe("CreateSuccessionPlan page", () => {
         /an open plan for this person may already exist/i,
       ),
     ).toBeInTheDocument();
+  });
+
+  test("Cancel returns to cancel=, not to back= (v4.6.0)", async () => {
+    renderScreen({ route: "/succession/new?back=%2Fsuccession&cancel=%2Fsuccession%3Ftab%3Dteam" });
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/succession?tab=team"),
+    );
+  });
+
+  test("a hostile cancel= is ignored — Cancel falls back to back=", async () => {
+    renderScreen({ route: "/succession/new?back=%2Fsuccession&cancel=%2F%2Fevil.example" });
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent(/^\/succession$/));
   });
 });

@@ -9,6 +9,8 @@ import { teamKpiCreateLink, teamKpisLink } from "../utils/teamKpiLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
 import TeamKpiTable from "./TeamKpiTable";
 import { loadErrorMessage } from "../utils/saveError";
+import { backLabelKey } from "../utils/backLink";
+import { safeBackParam } from "../utils/url";
 
 const DEFAULT_BACK_TO = "/?tab=myTeams";
 
@@ -26,6 +28,9 @@ export default function TeamKpis() {
   const params = useParams<{ teamId: string }>();
   const [searchParams] = useSearchParams();
   const fromTeam = searchParams.get("from") === "team";
+  // The exact in-app URL this page should return to (v4.6.0) — wins the destination; the
+  // `from=team` label keeps naming the team, else the label follows the destination.
+  const backOverride = safeBackParam(searchParams);
 
   const teamId = Number(params.teamId);
   const idIsValid = Number.isFinite(teamId) && teamId > 0;
@@ -42,16 +47,23 @@ export default function TeamKpis() {
   if (!hasFeature("TEAM_KPIS")) return <Navigate to="/" replace />;
   if (!idIsValid) return <Navigate to={DEFAULT_BACK_TO} replace />;
 
-  const backTo = teamKpisLink(teamId);
+  // This page, with its own origin (`from` + `back`) intact — handed to the KPI view/create
+  // round-trip so Close/Cancel/Save return here still knowing where "here" came from.
+  const backTo = teamKpisLink(teamId, {
+    from: fromTeam ? "team" : undefined,
+    back: backOverride ?? undefined,
+  });
   const canManageKpis = team?.canManageKpis === true;
   const auditView = canAudit() && !canManageKpis;
   const view = auditView ? "all" : "managed";
 
   const teamLabel = team?.name ?? t("dashboard.teamFallback", { id: teamId });
-  const backLinkTo = fromTeam ? teamDetailsLink(teamId) : DEFAULT_BACK_TO;
+  const backLinkTo = backOverride ?? (fromTeam ? teamDetailsLink(teamId) : DEFAULT_BACK_TO);
   const backLinkLabel = fromTeam
     ? t("feedback.backToLabel", { label: teamLabel })
-    : t("feedback.backToLabel", { label: t("dashboard.tabs.myTeams") });
+    : t("feedback.backToLabel", {
+        label: t(backOverride ? backLabelKey(backOverride) : "dashboard.tabs.myTeams"),
+      });
 
   return (
     <Stack gap="lg">

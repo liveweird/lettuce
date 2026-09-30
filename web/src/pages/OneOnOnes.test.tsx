@@ -77,7 +77,7 @@ describe("OneOnOnes page", () => {
     expect(screen.getByRole("tab", { name: "My subordinate's a manager" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New 1:1" })).toHaveAttribute(
       "href",
-      "/one-on-ones/new",
+      "/one-on-ones/new?cancel=%2Fone-on-ones",
     );
 
     // The default view queries view=own; switching tabs queries view=managed.

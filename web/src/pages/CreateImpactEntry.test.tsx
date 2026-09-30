@@ -245,4 +245,19 @@ describe("CreateImpactEntry page", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).toBeNull();
   });
+
+  test("Cancel returns to cancel=, not to back= (v4.6.0)", async () => {
+    renderScreen("/impact-log/new?back=%2Fimpact-log&cancel=%2Fimpact-log%3Ftab%3Dmanaged");
+    await userEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/impact-log?tab=managed"),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("a hostile cancel= is ignored — Cancel falls back to back=", async () => {
+    renderScreen("/impact-log/new?back=%2Fimpact-log&cancel=%2F%2Fevil.example");
+    await userEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent(/^\/impact-log$/));
+  });
 });

@@ -2,17 +2,21 @@
 // query-string shape (and encodeURIComponent) lives in one place — the feedbackLinks pattern.
 // `name` feeds the heading there without a getUser call (which is self-or-admin only); `from`
 // names the originating screen for the "Back to …" link, with `members` parameterized by the
-// team whose roster the link came from.
+// team whose roster the link came from. `opts.back` (v4.6.0) is the exact in-app URL the link
+// was clicked on — the page's back link returns there (sanitized by `safeBackParam` on read;
+// the label then follows the destination, see `utils/backLink.ts`).
 export function userDetailsLink(
   userId: number,
   name?: string | null,
   from?: "users" | "members" | "teams" | "org" | "career",
   teamId?: number,
+  opts?: { back?: string },
 ): string {
   const query = new URLSearchParams();
   if (name) query.set("name", name);
   if (from) query.set("from", from);
   if (teamId != null) query.set("teamId", String(teamId));
+  if (opts?.back) query.set("back", opts.back);
   const queryString = query.toString();
   return `/users/${userId}/details${queryString ? `?${queryString}` : ""}`;
 }

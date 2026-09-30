@@ -16,6 +16,7 @@ import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
 import TeamBadges from "../components/TeamBadges";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { useBulkFeatureUpdate } from "../hooks/useBulkFeatureUpdate";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
@@ -45,6 +46,7 @@ const SETTINGS_KEY = "featureFlags";
 export default function FeatureFlags() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const here = useCurrentPath();
   const currentUserId = getUserId();
   const [feature, setFeature] = useStoredState<Feature>(
     `${SETTINGS_KEY}.feature`,
@@ -345,7 +347,7 @@ export default function FeatureFlags() {
                       own row (the Users-list rule). */}
                   <PersonaChip
                     name={u.name}
-                    to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, "users") : undefined}
+                    to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, undefined, undefined, { back: here }) : undefined}
                     ariaLabel={t("users.detailsFor", { name: u.name })}
                   />
                 </ResponsiveTable.Td>

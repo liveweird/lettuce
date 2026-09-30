@@ -3,6 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { Avatar, Box, Group, Select, Stack, Text, Tooltip } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { isOneOf, useStoredState } from "../hooks/useStoredState";
 import { mantineColorVar } from "../utils/pulseSurveyForm";
 import { ratingColor, RATING_VALUES, REVIEW_CATEGORIES, type ReviewCategory } from "../utils/reviewRatings";
@@ -30,6 +31,7 @@ function cellBackground(x: number, y: number): string {
  */
 export default function ReviewQuadrants({ rows }: { rows: ReviewsDashboardRow[] }) {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const currentUserId = getUserId();
   const [xAxis, setXAxis] = useStoredState<ReviewCategory>(
     "dashboardReviews.quadrantX",
@@ -134,7 +136,7 @@ export default function ReviewQuadrants({ rows }: { rows: ReviewsDashboardRow[] 
                             >
                               {person.userId !== currentUserId ? (
                                 <RouterLink
-                                  to={userDetailsLink(person.userId, person.name, "users")}
+                                  to={userDetailsLink(person.userId, person.name, undefined, undefined, { back: here })}
                                   aria-label={t("users.detailsFor", { name: person.name })}
                                   style={{ display: "inline-flex" }}
                                 >

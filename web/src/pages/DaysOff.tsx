@@ -26,6 +26,7 @@ import DaysOffMonthGrid from "../components/DaysOffMonthGrid";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { useIsManager } from "../hooks/useIsManager";
 import { isNumberOrNull, isOneOf, useStoredState } from "../hooks/useStoredState";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime";
 import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
@@ -191,6 +192,7 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
  */
 export default function DaysOff() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
   const [teamView, setTeamView] = useStoredState<TeamView>("daysOff.team.view", "requests", isOneOf(TEAM_VIEWS));
   // The team tab's Reports scope (v3.13.0) — direct reports by default, widened to the whole
@@ -227,7 +229,7 @@ export default function DaysOff() {
             {isManager && (
               <Button
                 component={RouterLink}
-                to={daysOffCreateLink(daysOffListLink("team"), true)}
+                to={daysOffCreateLink(daysOffListLink("team"), true, here)}
                 variant="default"
                 leftSection={<IconPlus size={16} />}
                 data-tour="days-off-record"
@@ -237,7 +239,7 @@ export default function DaysOff() {
             )}
             <Button
               component={RouterLink}
-              to={daysOffCreateLink(daysOffListLink("requests"))}
+              to={daysOffCreateLink(daysOffListLink("requests"), undefined, here)}
               leftSection={<IconPlus size={16} />}
               data-tour="days-off-new"
             >

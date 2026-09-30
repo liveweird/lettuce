@@ -21,7 +21,7 @@ import {
   type TeamKpiDefinitionFormValues,
 } from "../utils/teamKpiForm";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, safeCancelParam } from "../utils/url";
 
 // Default cancel target when no `back` param is present: the managed tab, the main entry point.
 const BACK_TO = "/team-kpis?tab=managed";
@@ -40,6 +40,9 @@ export default function CreateTeamKpi() {
   const preselectedId = Number(searchParams.get("teamId"));
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
   const backTo = safeBackParam(searchParams) ?? BACK_TO;
+  // Cancel/discard returns to `cancel=` when the entry point sent one (the hub header's "New …"
+  // button — v4.6.0), else wherever Save lands; the post-save and invalid-id paths keep `backTo`.
+  const cancelTo = safeCancelParam(searchParams) ?? backTo;
 
   const [picked, setPicked] = useState<string | null>(null);
   const flow = useCreateThenActivate({
@@ -56,7 +59,7 @@ export default function CreateTeamKpi() {
   // The one cancel guard (v3.5.0): a picked team or any typed definition is work worth a confirm.
   const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => picked != null || form.isDirty(),
-    to: backTo,
+    to: cancelTo,
     title: t("teamKpi.discardTitle"),
     message: t("teamKpi.discardMessage"),
   });

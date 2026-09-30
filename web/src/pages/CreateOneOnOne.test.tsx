@@ -239,4 +239,20 @@ describe("CreateOneOnOne page", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  test("Cancel returns to cancel=, not to back= (v4.6.0)", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, REPORTS));
+    renderCreate("/one-on-ones/new?back=%2Fone-on-ones%3Ftab%3Dmanaged&cancel=%2Fone-on-ones%3Ftab%3Down");
+    await screen.findByRole("combobox", { name: "Team member" });
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones?tab=own"));
+  });
+
+  test("a hostile cancel= is ignored — Cancel falls back to back=", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, REPORTS));
+    renderCreate("/one-on-ones/new?back=%2Fone-on-ones%3Ftab%3Dmanaged&cancel=%2F%5Cevil.example");
+    await screen.findByRole("combobox", { name: "Team member" });
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/one-on-ones?tab=managed"));
+  });
 });

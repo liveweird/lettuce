@@ -82,7 +82,7 @@ describe("SuccessionPlans page", () => {
     const mockFetch = renderScreen("/succession", { manages: true });
 
     const newPlan = await screen.findByRole("link", { name: "New plan" });
-    expect(newPlan).toHaveAttribute("href", "/succession/new?back=%2Fsuccession");
+    expect(newPlan).toHaveAttribute("href", "/succession/new?back=%2Fsuccession&cancel=%2Fsuccession");
 
     const teamTab = await screen.findByRole("tab", { name: "My subordinates' plans" });
     await user.click(teamTab);

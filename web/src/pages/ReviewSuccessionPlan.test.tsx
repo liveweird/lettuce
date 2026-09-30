@@ -183,7 +183,7 @@ describe("ReviewSuccessionPlan page", () => {
     // The seat's name links to user details (v2.47.2).
     expect(
       screen.getByRole("link", { name: "User details for Sam Seat" }),
-    ).toHaveAttribute("href", "/users/8/details?name=Sam+Seat");
+    ).toHaveAttribute("href", "/users/8/details?name=Sam+Seat&back=%2Fsuccession%2F5%2Fview");
     // The footer trio; Edit and Delete are gone from this screen.
     expect(screen.getByRole("button", { name: /^Close$/ })).toBeInTheDocument();
     expect(

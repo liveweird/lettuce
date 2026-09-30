@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { safeBackParam, toRelativePath } from "./url";
+import { inAppPath, safeBackParam, safeCancelParam, toRelativePath } from "./url";
 
 describe("safeBackParam", () => {
   const of = (search: string) => new URLSearchParams(search);
@@ -26,6 +26,32 @@ describe("safeBackParam", () => {
   test("rejects a scheme without slashes and relative junk", () => {
     expect(safeBackParam(of("back=javascript:alert(1)"))).toBeNull();
     expect(safeBackParam(of("back=feedback"))).toBeNull();
+  });
+});
+
+describe("back-slash and cancel sanitizing", () => {
+  const of = (search: string) => new URLSearchParams(search);
+
+  test("rejects a slash-backslash host (the /\\evil.example bypass)", () => {
+    expect(safeBackParam(of("back=%2F%5Cevil.example"))).toBeNull();
+    expect(safeCancelParam(of("cancel=%2F%5Cevil.example"))).toBeNull();
+    expect(inAppPath("/\\evil.example")).toBeNull();
+  });
+
+  test("inAppPath accepts in-app paths and null-passes null", () => {
+    expect(inAppPath("/users?x=1")).toBe("/users?x=1");
+    expect(inAppPath("/a\\b")).toBe("/a\\b");
+    expect(inAppPath(null)).toBeNull();
+  });
+
+  test("cancel is accepted and rejected like back", () => {
+    expect(safeCancelParam(of("cancel=%2Fgoals%3Ftab%3Down"))).toBe("/goals?tab=own");
+    expect(safeCancelParam(of(""))).toBeNull();
+    expect(safeCancelParam(of("cancel=%2F%2Fevil.example"))).toBeNull();
+    expect(safeCancelParam(of("cancel=https%3A%2F%2Fevil.example"))).toBeNull();
+    expect(safeCancelParam(of("cancel=goals"))).toBeNull();
+    // back is not cancel
+    expect(safeCancelParam(of("back=/goals"))).toBeNull();
   });
 });
 

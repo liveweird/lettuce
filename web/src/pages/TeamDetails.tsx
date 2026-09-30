@@ -42,6 +42,8 @@ import { teamDetailsLink } from "../utils/teamLinks";
 import { teamKpisLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { useAllUsers } from "../hooks/useAllUsers";
+import { resolveBackLink } from "../utils/backLink";
+import { safeBackParam } from "../utils/url";
 
 type MemberRow = { id: number; name: string };
 
@@ -49,19 +51,28 @@ export default function TeamDetails() {
   const { t } = useTranslation();
   const params = useParams<{ id: string }>();
   // The org chart opens this page with ?from=org, My teams with ?from=myTeams — back links
-  // return there instead of the teams list (the UserDetails origin idiom).
+  // return there instead of the teams list (the UserDetails origin idiom). Since v4.6.0 an
+  // explicit `?back=` (PersonCell/TeamBadges and the other shared emitters send the page they
+  // were clicked on) wins the destination; a recognised `from` keeps naming the label, else a
+  // back-only visit is labelled after where it returns to (`resolveBackLink`).
   const [searchParams] = useSearchParams();
   const fromParam = searchParams.get("from");
-  const backTo = fromParam === "org" ? "/org" : fromParam === "myTeams" ? "/?tab=myTeams" : "/teams";
-  const backLabel = t("feedback.backToLabel", {
-    label: t(
-      fromParam === "org"
-        ? "feedback.origin.org"
-        : fromParam === "myTeams"
-          ? "dashboard.tabs.myTeams"
-          : "teams.title",
-    ),
+  const recognisedFrom: "org" | "myTeams" | null =
+    fromParam === "org" || fromParam === "myTeams" ? fromParam : null;
+  const backOverride = safeBackParam(searchParams);
+  const originDefault =
+    recognisedFrom === "org"
+      ? ({ labelKey: "feedback.origin.org", to: "/org" } as const)
+      : recognisedFrom === "myTeams"
+        ? ({ labelKey: "dashboard.tabs.myTeams", to: "/?tab=myTeams" } as const)
+        : ({ labelKey: "teams.title", to: "/teams" } as const);
+  const resolvedBack = resolveBackLink({
+    fromLabelKey: recognisedFrom != null || backOverride == null ? originDefault.labelKey : undefined,
+    backOverride,
+    defaultTo: originDefault.to,
   });
+  const backTo = resolvedBack.to;
+  const backLabel = t("feedback.backToLabel", { label: t(resolvedBack.labelKey) });
   const id = Number(params.id);
   const idIsValid = Number.isFinite(id) && id > 0;
   const queryClient = useQueryClient();
@@ -151,12 +162,13 @@ export default function TeamDetails() {
   // the roster is the app's only membership add/remove UI.
   const isManager = team != null && team.managerId === currentUserId;
   const showRoster = !isManager || canManage;
-  // The grid's drill-down return target: this page with its own origin preserved, so the
-  // Back-to round-trip (My teams / org chart) survives the detour.
-  const backHere =
-    fromParam === "org" || fromParam === "myTeams"
-      ? `${teamDetailsLink(id)}?from=${fromParam}`
-      : teamDetailsLink(id);
+  // Every outgoing link's return target: this page with its own origin preserved (the `from`
+  // key and the `back` override), so the Back-to round-trip (My teams / org chart / whatever sent
+  // us here) survives any detour — the grid's drill-downs, the roster, the KPI list.
+  const backHere = teamDetailsLink(id, {
+    from: recognisedFrom ?? undefined,
+    back: backOverride ?? undefined,
+  });
 
   if (teamLoading) {
     return (
@@ -205,7 +217,7 @@ export default function TeamDetails() {
           showKpisLink ? (
             <Button
               component={RouterLink}
-              to={teamKpisLink(id, { from: "team" })}
+              to={teamKpisLink(id, { from: "team", back: backHere })}
               leftSection={<IconChartLine size={16} />}
               variant="default"
             >
@@ -234,7 +246,7 @@ export default function TeamDetails() {
                   name={team.managerName ?? ""}
                   to={
                     team.managerId !== currentUserId
-                      ? userDetailsLink(team.managerId, team.managerName, "members", id)
+                      ? userDetailsLink(team.managerId, team.managerName, "members", id, { back: backHere })
                       : undefined
                   }
                   ariaLabel={t("users.detailsFor", { name: team.managerName })}
@@ -327,7 +339,7 @@ export default function TeamDetails() {
                       to someone else); the members origin threads the teamId back here. */}
                   <PersonaChip
                     name={m.name}
-                    to={m.id !== currentUserId ? userDetailsLink(m.id, m.name, "members", id) : undefined}
+                    to={m.id !== currentUserId ? userDetailsLink(m.id, m.name, "members", id, { back: backHere }) : undefined}
                     ariaLabel={t("users.detailsFor", { name: m.name })}
                   />
                 </ResponsiveTable.Td>
@@ -343,9 +355,9 @@ export default function TeamDetails() {
                       m.id !== currentUserId && hasFeature("FEEDBACKS")
                         ? [
                             feedbackRowMenu(t, {
-                              provideTo: feedbackProvideLink(m.id),
-                              askTo: feedbackAskLink(m.id, `/teams/${id}/details`),
-                              listTo: userFeedbacksLink(m.id, m.name, "members", id),
+                              provideTo: feedbackProvideLink(m.id, backHere),
+                              askTo: feedbackAskLink(m.id, backHere),
+                              listTo: userFeedbacksLink(m.id, m.name, "members", id, undefined, undefined, { back: backHere }),
                               name: m.name,
                             }),
                           ]

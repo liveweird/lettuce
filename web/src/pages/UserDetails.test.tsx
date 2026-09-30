@@ -310,7 +310,8 @@ describe("UserDetails page", () => {
     // The fallback path's team badge links to team details too (v2.5.4).
     expect(screen.getByRole("link", { name: "Team details for Elsewhere" })).toHaveAttribute(
       "href",
-      "/teams/9/details",
+      // The badge returns to this details page, with its own origin intact (v4.6.0 `back=`).
+      `/teams/9/details?back=${encodeURIComponent("/users/5/details?name=Bob&from=users")}`,
     );
     // No relationship hint and no stats the server didn't compute.
     expect(screen.queryByText(/one of your/i)).not.toBeInTheDocument();
@@ -568,5 +569,61 @@ describe("UserDetails page", () => {
     expect(screen.getByRole("heading", { name: "Bob" })).toBeInTheDocument();
     expect(await screen.findByText("One of your managers")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Bob" })).toBeInTheDocument();
+  });
+  // v4.6.0 — the page returns to the exact URL that opened it (`back=`), labelled after that
+  // destination unless a recognised `from` key names the label.
+  test("a back-only visit returns to the exact URL, labelled after its destination", async () => {
+    mockApi(mockFetch, { managers: [BOB_ROW] });
+    const back = "/feedback?tab=received";
+    renderDetails(`/users/5/details?name=Bob&back=${encodeURIComponent(back)}`);
+
+    expect(await screen.findByRole("link", { name: "← Back to Feedback" })).toHaveAttribute("href", back);
+    // The round-trip target keeps the override and never invents from=users.
+    const here = encodeURIComponent(`/users/5/details?name=Bob&back=${encodeURIComponent(back)}`);
+    expect(await screen.findByRole("link", { name: "Goals from Bob" })).toHaveAttribute(
+      "href",
+      `/users/5/goals?name=Bob&from=details&back=${here}`,
+    );
+  });
+
+  test("a recognised from key keeps naming the label while back wins the destination", async () => {
+    mockApi(mockFetch, { managers: [BOB_ROW] });
+    const back = "/teams/3/details?from=org";
+    const route = `/users/5/details?name=Bob&from=members&teamId=3&back=${encodeURIComponent(back)}`;
+    renderDetails(route);
+
+    expect(await screen.findByRole("link", { name: "← Back to Team members" })).toHaveAttribute("href", back);
+    // The nested chain survives: the drill-downs return to THIS url, origin + override intact.
+    expect(await screen.findByRole("link", { name: "Goals from Bob" })).toHaveAttribute(
+      "href",
+      `/users/5/goals?name=Bob&from=details&back=${encodeURIComponent(route)}`,
+    );
+  });
+
+  test("a team or tab destination gets its own label", async () => {
+    mockApi(mockFetch, { managers: [BOB_ROW] });
+    renderDetails(`/users/5/details?name=Bob&back=${encodeURIComponent("/?tab=managers")}`);
+    expect(await screen.findByRole("link", { name: "← Back to My managers" })).toHaveAttribute(
+      "href",
+      "/?tab=managers",
+    );
+  });
+
+  test("an unknown destination falls back to the neutral label", async () => {
+    mockApi(mockFetch, { managers: [BOB_ROW] });
+    renderDetails(`/users/5/details?name=Bob&back=${encodeURIComponent("/feedback/9/view")}`);
+    expect(await screen.findByRole("link", { name: "← Back to the previous page" })).toHaveAttribute(
+      "href",
+      "/feedback/9/view",
+    );
+  });
+
+  test("a hostile back (protocol-relative or slash-backslash) is ignored — default label and destination", async () => {
+    mockApi(mockFetch, { managers: [BOB_ROW] });
+    renderDetails(`/users/5/details?name=Bob&from=users&back=${encodeURIComponent("//evil.example")}`);
+    expect(await screen.findByRole("link", { name: "← Back to Users" })).toHaveAttribute("href", "/users");
+    cleanup();
+    renderDetails(`/users/5/details?name=Bob&back=${encodeURIComponent("/\\evil.example")}`);
+    expect(await screen.findByRole("link", { name: "← Back to Users" })).toHaveAttribute("href", "/users");
   });
 });

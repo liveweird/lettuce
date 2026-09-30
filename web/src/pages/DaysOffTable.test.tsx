@@ -120,13 +120,14 @@ describe("DaysOffTable", () => {
 
   test("managed view: a Team column carries the report's team badges (v3.13.0)", async () => {
     setupList([row({ id: 21, canDelete: true, teams: [{ id: 1, name: "AAA" }] })]);
-    renderWithProviders(<DaysOffTable view="managed" />);
+    renderWithProviders(<DaysOffTable view="managed" />, { route: "/days-off?tab=team" });
 
     expect(await screen.findByRole("columnheader", { name: "Team" })).toBeInTheDocument();
-    // The badge links to the team's details view — the shared TeamBadges idiom (Checkup #36 M4).
+    // The badge links to the team's details view — the shared TeamBadges idiom (Checkup #36 M4)
+    // — returning to the tab it sits on (v4.6.0 `back=`).
     expect(await screen.findByRole("link", { name: "Team details for AAA" })).toHaveAttribute(
       "href",
-      "/teams/1/details",
+      `/teams/1/details?back=${encodeURIComponent("/days-off?tab=team")}`,
     );
   });
 

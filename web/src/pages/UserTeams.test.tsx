@@ -114,7 +114,8 @@ describe("UserTeams page", () => {
     // The team name links to the team-details view (v2.5.4).
     expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
       "href",
-      "/teams/1/details",
+      // Returns to this page (v4.6.0 `back=`).
+      "/teams/1/details?back=%2Fusers%2F7%2Fteams",
     );
     // Query by text, not cell role — the PersonaChip avatar initials join the cell's accessible name.
     expect(screen.getByText("Mona Manager")).toBeInTheDocument();
@@ -360,7 +361,7 @@ describe("UserTeams page", () => {
     expect(screen.queryByRole("link", { name: /^user details for /i })).toBeNull();
   });
 
-  test("the manager's name links to their user details with the users origin", async () => {
+  test("the manager's name links to their user details and returns to this page (back=, no from)", async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
@@ -370,7 +371,7 @@ describe("UserTeams page", () => {
     renderUserTeams(7);
 
     const link = await screen.findByRole("link", { name: "User details for Mona Manager" });
-    expect(link).toHaveAttribute("href", "/users/10/details?name=Mona+Manager&from=users");
+    expect(link).toHaveAttribute("href", "/users/10/details?name=Mona+Manager&back=%2Fusers%2F7%2Fteams");
   });
 
   test("a manager who is the current user stays a plain chip — no details link", async () => {

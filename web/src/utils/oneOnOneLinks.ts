@@ -3,10 +3,12 @@ import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSea
 // Builders for every 1:1-flow URL, so the query-string shape (and encodeURIComponent) lives in
 // one place instead of being hand-assembled at every call site — the goalLinks pattern.
 // Optional parts are appended only when given.
-export function oneOnOneCreateLink(subordinateId: number, back?: string): string {
-  let url = `/one-on-ones/new?subordinateId=${subordinateId}`;
-  if (back) url += `&back=${encodeURIComponent(back)}`;
-  return url;
+export function oneOnOneCreateLink(subordinateId?: number, back?: string, cancel?: string): string {
+  const parts: string[] = [];
+  if (subordinateId != null) parts.push(`subordinateId=${subordinateId}`);
+  if (back) parts.push(`back=${encodeURIComponent(back)}`);
+  if (cancel) parts.push(`cancel=${encodeURIComponent(cancel)}`);
+  return `/one-on-ones/new${parts.length ? `?${parts.join("&")}` : ""}`;
 }
 
 /** The read-only 1:1 document. `from` names the originating tab (`own`/`managed`/`with`/`team`). */

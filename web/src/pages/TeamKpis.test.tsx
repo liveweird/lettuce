@@ -166,4 +166,35 @@ describe("TeamKpis drill-down", () => {
       "/?tab=myTeams",
     );
   });
+  // v4.6.0 — the team page's own origin survives the KPI detour via `back=`.
+  test("?from=team&back= returns to the override, and the create link carries the whole origin", async () => {
+    mockApi(mockFetch);
+    const back = "/teams/10/details?from=myTeams";
+    renderPage(`/teams/10/kpis?from=team&back=${encodeURIComponent(back)}`);
+
+    expect(await screen.findByRole("link", { name: "← Back to Team AAA" })).toHaveAttribute("href", back);
+    const here = `/teams/10/kpis?from=team&back=${encodeURIComponent(back)}`;
+    const create = await screen.findByRole("link", { name: "New team KPI" });
+    expect(create).toHaveAttribute("href", `/team-kpis/new?teamId=10&back=${encodeURIComponent(here)}`);
+  });
+
+  test("a back-only visit is labelled after its destination", async () => {
+    mockApi(mockFetch);
+    renderPage(`/teams/10/kpis?back=${encodeURIComponent("/?tab=subordinates")}`);
+
+    expect(await screen.findByRole("link", { name: "← Back to My subordinates" })).toHaveAttribute(
+      "href",
+      "/?tab=subordinates",
+    );
+  });
+
+  test("a hostile back is ignored — the default label and destination", async () => {
+    mockApi(mockFetch);
+    renderPage(`/teams/10/kpis?back=${encodeURIComponent("//evil.example")}`);
+
+    expect(await screen.findByRole("link", { name: /Back to My teams/ })).toHaveAttribute(
+      "href",
+      "/?tab=myTeams",
+    );
+  });
 });

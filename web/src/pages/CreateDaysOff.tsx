@@ -36,7 +36,7 @@ import { toReportOptions, useManagedReports } from "../hooks/useManagedReports";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, safeCancelParam } from "../utils/url";
 
 // The picker's UNPAID sentinel; every other option value is a paid pool kind's id (v3.2.0).
 const UNPAID_PICK = "UNPAID";
@@ -105,6 +105,9 @@ export default function CreateDaysOff() {
   // The shared sanitizer (v2.35.0) — the local startsWith("/") check it replaces still
   // admitted protocol-relative "//evil.example" values.
   const backTo = safeBackParam(searchParams) ?? daysOffListLink(onBehalf ? "team" : "requests");
+  // Cancel/discard returns to `cancel=` when the entry point sent one (the hub header's "New …"
+  // button — v4.6.0), else wherever Save lands; the post-save and invalid-id paths keep `backTo`.
+  const cancelTo = safeCancelParam(searchParams) ?? backTo;
 
   // null = the default pool (resolved from the budget rows once they arrive).
   const [pick, setPick] = useState<string | null>(null);
@@ -118,7 +121,7 @@ export default function CreateDaysOff() {
   const subjectId = onBehalf && subjectPick != null ? Number(subjectPick) : null;
   const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: isDraftDirty({ pick, subjectPick, startHalf, endHalf, startDate, endDate }),
-    to: backTo,
+    to: cancelTo,
   });
 
   // On-behalf mode's picker pool: the caller's whole subtree (chain-wide since v2.33.0),

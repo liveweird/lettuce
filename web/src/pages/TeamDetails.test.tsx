@@ -127,7 +127,7 @@ describe("TeamDetails page", () => {
     expect(await screen.findByText("Platform")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "User details for Mona Manager" })).toHaveAttribute(
       "href",
-      "/users/10/details?name=Mona+Manager&from=members&teamId=3",
+      "/users/10/details?name=Mona+Manager&from=members&teamId=3&back=%2Fteams%2F3%2Fdetails",
     );
     expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
     expect(await screen.findByText("Carol")).toBeInTheDocument();
@@ -242,6 +242,47 @@ describe("TeamDetails page", () => {
     expect(screen.queryByRole("link", { name: "← Back to Teams" })).not.toBeInTheDocument();
   });
 
+  // v4.6.0 — an explicit `?back=` (the badge/person-cell emitters send the page they sit on) wins
+  // the destination; a recognised `from` keeps the label, else the label follows the destination.
+  function mockHappyPath() {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+  }
+
+  test("?back= returns to the exact URL and is labelled after it", async () => {
+    mockHappyPath();
+    renderTeamDetails(3, `?back=${encodeURIComponent("/?tab=managers")}`);
+
+    expect(await screen.findByRole("link", { name: "← Back to My managers" })).toHaveAttribute(
+      "href",
+      "/?tab=managers",
+    );
+  });
+
+  test("from keeps naming the label while back wins the destination, and every outgoing link returns here with both", async () => {
+    mockHappyPath();
+    const back = "/feedback?tab=team";
+    renderTeamDetails(3, `?from=myTeams&back=${encodeURIComponent(back)}`);
+
+    expect(await screen.findByRole("link", { name: "← Back to My teams" })).toHaveAttribute("href", back);
+    const here = encodeURIComponent(`/teams/3/details?from=myTeams&back=${encodeURIComponent(back)}`);
+    // The manager chip, the roster names and the KPI button all carry this page's own URL.
+    expect(screen.getByRole("link", { name: "User details for Mona Manager" })).toHaveAttribute(
+      "href",
+      `/users/10/details?name=Mona+Manager&from=members&teamId=3&back=${here}`,
+    );
+  });
+
+  test("a hostile back is ignored — the default label and destination", async () => {
+    mockHappyPath();
+    renderTeamDetails(3, `?back=${encodeURIComponent("//evil.example")}`);
+    expect(await screen.findByRole("link", { name: "← Back to Teams" })).toHaveAttribute("href", "/teams");
+  });
+
   test("non-admin gets a read-only roster: no add picker, no remove buttons", async () => {
     localStorage.setItem(ROLE_KEY, "[]");
     mockFetch.mockImplementation((url: string) => {
@@ -272,15 +313,15 @@ describe("TeamDetails page", () => {
     expect(detailLinks).toHaveLength(3);
     expect(detailLinks[0]).toHaveAttribute(
       "href",
-      "/users/10/details?name=Mona+Manager&from=members&teamId=3",
+      "/users/10/details?name=Mona+Manager&from=members&teamId=3&back=%2Fteams%2F3%2Fdetails",
     );
     expect(detailLinks[1]).toHaveAttribute(
       "href",
-      "/users/1/details?name=Carol&from=members&teamId=3",
+      "/users/1/details?name=Carol&from=members&teamId=3&back=%2Fteams%2F3%2Fdetails",
     );
     expect(detailLinks[2]).toHaveAttribute(
       "href",
-      "/users/2/details?name=Dave&from=members&teamId=3",
+      "/users/2/details?name=Dave&from=members&teamId=3&back=%2Fteams%2F3%2Fdetails",
     );
 
     // The add-picker user pool was never fetched.
@@ -300,7 +341,7 @@ describe("TeamDetails page", () => {
     await user.click(await screen.findByRole("button", { name: "Feedback actions for Carol" }));
     expect(
       await screen.findByRole("menuitem", { name: "Provide feedback for Carol" }),
-    ).toHaveAttribute("href", "/feedback/new?subjectId=1");
+    ).toHaveAttribute("href", `/feedback/new?subjectId=1&back=${encodeURIComponent("/teams/3/details")}`);
     expect(screen.getByRole("menuitem", { name: "Ask Carol for feedback" })).toHaveAttribute(
       "href",
       `/feedback/ask?providerId=1&back=${encodeURIComponent("/teams/3/details")}`,
@@ -308,7 +349,7 @@ describe("TeamDetails page", () => {
     // The drill-down item carries from=members + the team id so "Back to …" returns to this roster.
     expect(screen.getByRole("menuitem", { name: "Feedbacks with Carol" })).toHaveAttribute(
       "href",
-      "/users/1/feedbacks?name=Carol&from=members&teamId=3",
+      "/users/1/feedbacks?name=Carol&from=members&teamId=3&back=%2Fteams%2F3%2Fdetails",
     );
   });
 
@@ -567,7 +608,7 @@ describe("TeamDetails page", () => {
     renderTeamDetails(3);
 
     const link = await screen.findByRole("link", { name: "Team KPIs" });
-    expect(link).toHaveAttribute("href", "/teams/3/kpis?from=team");
+    expect(link).toHaveAttribute("href", `/teams/3/kpis?from=team&back=${encodeURIComponent("/teams/3/details")}`);
   });
 
   test("the Team KPIs link renders for an HR auditor who does not manage the team (v3.24.0)", async () => {
@@ -583,7 +624,7 @@ describe("TeamDetails page", () => {
     renderTeamDetails(3);
 
     const link = await screen.findByRole("link", { name: "Team KPIs" });
-    expect(link).toHaveAttribute("href", "/teams/3/kpis?from=team");
+    expect(link).toHaveAttribute("href", `/teams/3/kpis?from=team&back=${encodeURIComponent("/teams/3/details")}`);
   });
 
   test("no Team KPIs link for a plain member who neither manages the team nor audits (v3.24.0)", async () => {

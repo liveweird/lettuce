@@ -204,7 +204,7 @@ describe("Users page", () => {
     await user.click(screen.getByRole("button", { name: /feedback actions for bob/i }));
     expect(
       await screen.findByRole("menuitem", { name: /provide feedback for bob/i }),
-    ).toHaveAttribute("href", `/feedback/new?subjectId=2`);
+    ).toHaveAttribute("href", `/feedback/new?subjectId=2&back=${encodeURIComponent("/users")}`);
     expect(screen.getByRole("menuitem", { name: /ask bob for feedback/i })).toHaveAttribute(
       "href",
       `/feedback/ask?providerId=2&back=${encodeURIComponent("/users")}`,

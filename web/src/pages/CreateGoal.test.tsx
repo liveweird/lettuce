@@ -337,4 +337,18 @@ describe("CreateGoal page", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).toBeNull();
   });
+
+  // v4.6.0 — `cancel=` is the Cancel destination where it differs from the Save landing (`back=`).
+  test("Cancel returns to cancel=, not to back= (a clean form needs no confirm)", async () => {
+    renderScreen("/goals/new?back=%2Fgoals%3Ftab%3Dmanaged&cancel=%2Fgoals%3Ftab%3Down");
+    await userEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/goals?tab=own"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("a hostile cancel= is ignored — Cancel falls back to back=", async () => {
+    renderScreen("/goals/new?back=%2Fgoals%3Ftab%3Dmanaged&cancel=%2F%2Fevil.example");
+    await userEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/goals?tab=managed"));
+  });
 });
