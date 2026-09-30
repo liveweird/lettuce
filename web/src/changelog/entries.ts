@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.7.1",
+    date: "2026-09-30",
+    en: `Behind the scenes: when the database stops answering, Lettuce now reports an error within about 20 seconds instead of leaving pages loading indefinitely, and a single dropped database connection is replaced before it is used instead of failing a request. Long-running database statements are stopped after 30 seconds. On Kubernetes, only the front door can reach the application and only the application can reach its database.`,
+    pl: `Zmiany techniczne: gdy baza danych przestaje odpowiadać, Lettuce zgłasza teraz błąd w ciągu około 20 sekund, zamiast pozostawiać strony w nieskończonym ładowaniu, a pojedyncze zerwane połączenie z bazą zastępuje nowym, zanim go użyje, więc przez nie żadne żądanie nie kończy się już błędem. Lettuce przerywa też polecenia bazy danych trwające dłużej niż 30 sekund. W Kubernetesie do aplikacji dociera tylko ruch z bramy wejściowej, a do bazy danych tylko sama aplikacja.`,
+  },
+  {
     version: "4.7.0",
     date: "2026-09-30",
     en: `The days-off calendar now shows which day is today: today's column header is highlighted and thin lines run down the column, while every day off in it stays exactly as visible as on any other day. The legend explains the mark, and hovering the header says "Today". The date pickers' calendars highlight today too.`,

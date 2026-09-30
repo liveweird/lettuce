@@ -1,0 +1,28 @@
+# Only the app talks to PostgreSQL (v4.7.1): ingress to the postgres pods is admitted on 5432 from
+# the app pods (io.kompose.service: app) in the SAME namespace, and from nothing else — no other
+# workload in the cluster can open a database session, even with the credentials. Host-agnostic
+# (it names only this repo's own labels), so it lives in k8s/ and `kubectl apply -f k8s/` applies it.
+#
+# A NetworkPolicy is enforced only by a CNI that implements it (Calico, Cilium, k3s/OrbStack's
+# built-in controller, …); on a CNI without it the object is silently ignored. Kubelet probes are
+# not affected (the pod has none that reach 5432 from outside). Egress stays unrestricted.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  labels:
+    io.kompose.service: postgres
+spec:
+  podSelector:
+    matchLabels:
+      io.kompose.service: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              io.kompose.service: app
+      ports:
+        - protocol: TCP
+          port: 5432

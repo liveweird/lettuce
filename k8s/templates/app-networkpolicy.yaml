@@ -1,0 +1,43 @@
+# Only the front door reaches the app (v4.7.1). The deployment runs with HTTP_BEHIND_PROXY=true, so
+# the app trusts X-Forwarded-For/-Proto/-Host — any pod that can reach port 8080 directly could pick
+# its own rate-limit key and scheme (security audit, v4.5.2 L6). This admits ingress on 8080 ONLY
+# from the ingress controller's pods; everything else in the cluster is dropped.
+#
+# THIS FILE LIVES IN k8s/templates/ ON PURPOSE: the selector below names the FRONT DOOR, which is a
+# per-deployment choice (the reference is ingress-nginx in the `ingress-nginx` namespace — retired,
+# local-proof only, see app-ingress.yaml). Adjust both selectors to the controller you actually
+# run, then apply it next to the Ingress:
+#   kubectl apply -f k8s/templates/app-networkpolicy.yaml
+# Applying it without a matching controller makes the app unreachable through anything but
+# `kubectl port-forward` (which enters the pod's network namespace directly, not via the policy).
+# Kubelet probes keep working on the reference clusters (k3s/OrbStack: node-originated traffic is
+# admitted); verify that on yours — a probe blocked by a policy shows up as the pod never Ready.
+# Needs a CNI that enforces NetworkPolicy; egress (Teams, SMTP, PostgreSQL) stays unrestricted.
+# NOT covered by a podSelector: a controller running with `hostNetwork: true` (a common bare-metal
+# ingress-nginx DaemonSet) — its traffic arrives from NODE addresses, admitted only from the node
+# the app pod runs on, so requests via other nodes fail intermittently. Such a front door needs an
+# `ipBlock` for the node CIDRs instead. And in-cluster callers of the integration API
+# (/integration/graphql) must go through the front door too — svc/app:8080 is closed to them.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app
+  labels:
+    io.kompose.service: app
+spec:
+  podSelector:
+    matchLabels:
+      io.kompose.service: app
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
