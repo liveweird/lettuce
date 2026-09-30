@@ -89,7 +89,8 @@
     "empty": "Nobody to show — you are not a member of any team.",
     "emptyOrg": "No one is off this month.",
     "legendWeekend": "Weekend",
-    "legendHoliday": "Public holiday"
+    "legendHoliday": "Public holiday",
+    "today": "Today"
   },
   "budget": {
     "title": "Your paid days off in {{year}}",

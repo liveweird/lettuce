@@ -91,7 +91,8 @@
     "empty": "Nie ma kogo pokazać — nie należysz do żadnego zespołu.",
     "emptyOrg": "Nikt nie ma wolnego w tym miesiącu.",
     "legendWeekend": "Weekend",
-    "legendHoliday": "Święto"
+    "legendHoliday": "Święto",
+    "today": "Dzisiaj"
   },
   "budget": {
     "title": "Twoje płatne dni wolne w {{year}}",
