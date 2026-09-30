@@ -1,6 +1,7 @@
 import { Badge, Group } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { teamDetailsLink } from "../utils/teamLinks";
 import type { TeamRef } from "../utils/teamRows";
 
@@ -10,10 +11,13 @@ import type { TeamRef } from "../utils/teamRows";
  * each badge links to that team's details view (the v2.5.4 convention) with the
  * `teams.detailsForAria` accessible name. Used by PersonCard, the feature-flags Teams column,
  * and the days-off Team columns (which previously hand-rolled a non-linking gray-badge variant).
+ * Every link carries the page it was clicked on as `back=` (v4.6.0) so the team page's back link
+ * returns there, labelled after that destination.
  * Renders nothing for an empty list, so callers can embed it unconditionally.
  */
 export default function TeamBadges({ teams }: { teams: TeamRef[] }) {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   if (teams.length === 0) return null;
   return (
     <Group gap="xs" wrap="wrap">
@@ -21,7 +25,7 @@ export default function TeamBadges({ teams }: { teams: TeamRef[] }) {
         <Badge
           key={team.id}
           component={RouterLink}
-          to={teamDetailsLink(team.id)}
+          to={teamDetailsLink(team.id, { back: here })}
           aria-label={t("teams.detailsForAria", { name: team.name })}
           variant="light"
           size="sm"

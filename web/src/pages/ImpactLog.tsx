@@ -4,6 +4,7 @@ import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { impactEntryCreateLink } from "../utils/impactLogLinks";
 import ImpactLogTable from "./ImpactLogTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
@@ -22,6 +23,7 @@ function isImpactLogTab(value: string | null): value is ImpactLogTab {
 // managed view, with the Reports scope widening it from direct reports to the whole chain.
 export default function ImpactLog() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
@@ -49,7 +51,7 @@ export default function ImpactLog() {
           <>
             <Button
               component={RouterLink}
-              to={impactEntryCreateLink("/impact-log")}
+              to={impactEntryCreateLink("/impact-log", here)}
               leftSection={<IconPlus size={16} />}
               data-tour="impact-log-new"
             >

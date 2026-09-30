@@ -20,7 +20,7 @@ import {
 } from "../utils/impactLogForm";
 import { invalidateImpactLog } from "../utils/impactLogQueries";
 import { showSuccessToast } from "../utils/toast";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, safeCancelParam } from "../utils/url";
 
 /**
  * The journal-entry create screen: always the caller's own journal (the server takes the owner
@@ -33,6 +33,9 @@ export default function CreateImpactEntry() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const backTo = safeBackParam(searchParams) ?? "/impact-log";
+  // Cancel/discard returns to `cancel=` when the entry point sent one (the hub header's "New …"
+  // button — v4.6.0), else wherever Save lands; the post-save and invalid-id paths keep `backTo`.
+  const cancelTo = safeCancelParam(searchParams) ?? backTo;
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -43,7 +46,7 @@ export default function CreateImpactEntry() {
   });
   const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: () => form.isDirty(),
-    to: backTo,
+    to: cancelTo,
     title: t("impactLog.discardCreateTitle"),
     message: t("impactLog.discardCreateMessage"),
   });

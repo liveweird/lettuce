@@ -17,6 +17,8 @@ import PersonCardBody from "../components/PersonCardStats";
 import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamRows";
 import { userDetailsLink } from "../utils/userLinks";
 import { loadErrorMessage } from "../utils/saveError";
+import { resolveBackLink } from "../utils/backLink";
+import { safeBackParam, boundedReturnPath } from "../utils/url";
 
 // Matches the dashboard card grids' v1.34.0 cap (2 per row) so the single details card
 // renders at the same width as its dashboard counterparts.
@@ -115,16 +117,24 @@ export default function UserDetails() {
       : fromParam === "teams" || fromParam === "org" || fromParam === "career"
         ? fromParam
         : "users";
-  const origin: { labelKey: ParseKeys; to: string } =
-    originKey === "members"
-      ? { labelKey: "feedback.origin.members", to: `/teams/${teamId}/details` }
-      : originKey === "teams"
-        ? { labelKey: "feedback.origin.teams", to: "/teams" }
-        : originKey === "org"
-          ? { labelKey: "feedback.origin.org", to: "/org" }
-          : originKey === "career"
-            ? { labelKey: "feedback.origin.career", to: "/career?tab=pyramid" }
-            : { labelKey: "feedback.origin.users", to: "/users" };
+  const originTargets: Record<typeof originKey, { labelKey: ParseKeys; to: string }> = {
+    members: { labelKey: "feedback.origin.members", to: `/teams/${teamId}/details` },
+    teams: { labelKey: "feedback.origin.teams", to: "/teams" },
+    org: { labelKey: "feedback.origin.org", to: "/org" },
+    career: { labelKey: "feedback.origin.career", to: "/career?tab=pyramid" },
+    users: { labelKey: "feedback.origin.users", to: "/users" },
+  };
+  // An explicit return override (v4.6.0 — PersonCell and the other shared emitters send the page
+  // they were clicked on) wins the destination; a RECOGNISED `from` key keeps naming the label,
+  // else a back-only visit is labelled after where it returns to (`resolveBackLink`).
+  const backOverride = safeBackParam(search);
+  const recognisedFrom = fromParam === "users" || originKey !== "users" ? originKey : null;
+  const origin = resolveBackLink({
+    fromLabelKey:
+      recognisedFrom != null || backOverride == null ? originTargets[originKey].labelKey : undefined,
+    backOverride,
+    defaultTo: originTargets[originKey].to,
+  });
   const selfView = userId === getUserId();
 
   const { data, isLoading, isError, error } = useQuery({
@@ -147,11 +157,18 @@ export default function UserDetails() {
   // the page with a URL-carried name; a failed lookup keeps the hint like the pool hook does.
   const name = person?.name ?? (data === null ? null : nameParam);
   // Where the create flows' Cancel returns: this page, with its own params preserved.
-  const backHere = userDetailsLink(
-    userId,
-    name,
-    originKey,
-    originKey === "members" ? teamId : undefined,
+  // The origin survives the round-trip: the recognised `from` key (or the default users key
+  // when the URL carried neither), plus the override — a back-only visit is never re-labelled
+  // from=users on the way back.
+  // Bounded so a user ↔ team round-trip cannot grow the URL without limit (boundedReturnPath).
+  const backHere = boundedReturnPath(
+    userDetailsLink(
+      userId,
+      name,
+      recognisedFrom ?? (backOverride == null ? originKey : undefined),
+      originKey === "members" ? teamId : undefined,
+      { back: backOverride ?? undefined },
+    ),
   );
 
   // Undefined when the viewer gets no actions — PersonCardBody then renders no buttons at

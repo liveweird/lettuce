@@ -22,7 +22,7 @@ import {
   type GoalDefinitionFormValues,
 } from "../utils/goalForm";
 import { invalidateGoal } from "../utils/goalQueries";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, safeCancelParam } from "../utils/url";
 
 // Default cancel target when no `back` param is present: the subordinates grid, the only
 // entry point that links here today.
@@ -48,6 +48,9 @@ export default function CreateGoal() {
   const preselectedId = Number(searchParams.get("subordinateId"));
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
   const backTo = safeBackParam(searchParams) ?? BACK_TO;
+  // Cancel/discard returns to `cancel=` when the entry point sent one (the hub header's "New …"
+  // button — v4.6.0), else wherever Save lands; the post-save and invalid-id paths keep `backTo`.
+  const cancelTo = safeCancelParam(searchParams) ?? backTo;
 
   const [picked, setPicked] = useState<string | null>(null);
   const flow = useCreateThenActivate({
@@ -67,7 +70,7 @@ export default function CreateGoal() {
     isDirty: () =>
       picked != null ||
       JSON.stringify(toDefinitionBody(form.values)) !== JSON.stringify(toDefinitionBody(INITIAL_VALUES)),
-    to: backTo,
+    to: cancelTo,
     title: t("goal.discardTitle"),
     message: t("goal.discardMessage"),
   });

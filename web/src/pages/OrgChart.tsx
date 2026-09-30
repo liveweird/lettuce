@@ -44,6 +44,7 @@ import {
   TEAM_NODE_SIZE,
   type OrgMembership,
 } from "../utils/orgGraph";
+import { teamDetailsLink } from "../utils/teamLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { loadErrorMessage } from "../utils/saveError";
 
@@ -166,7 +167,7 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
         </ActionIcon>
       )}
       <UnstyledButton
-        onClick={() => navigate(`/teams/${data.teamId}/details?from=org`)}
+        onClick={() => navigate(teamDetailsLink(data.teamId, { from: "org" }))}
         aria-label={t("teams.membersOfAria", { name: data.name })}
         style={{ minWidth: 0 }}
       >

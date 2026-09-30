@@ -5,8 +5,8 @@ import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSea
 // the URL (the v2.35.0 rule): plans resolve their parties from the record.
 
 /** The plan create screen, optionally with a return target. */
-export function successionPlanCreateLink(back?: string): string {
-  return `/succession/new${detailSearch(undefined, back)}`;
+export function successionPlanCreateLink(back?: string, cancel?: string): string {
+  return `/succession/new${detailSearch(undefined, back, cancel)}`;
 }
 
 /**

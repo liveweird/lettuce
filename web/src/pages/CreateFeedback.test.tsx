@@ -22,6 +22,12 @@ function PathProbe() {
   return <div data-testid="probe">{location.pathname}</div>;
 }
 
+// Probes the full landing URL (path + tab) — the `cancel=` destination.
+function SearchProbe() {
+  const location = useLocation();
+  return <div data-testid="search-probe">{`${location.pathname}${location.search}`}</div>;
+}
+
 const USERS = [
   { id: 7, name: "Meredith Me", email: "me@x.test" },
   { id: 5, name: "Mona Manager", email: "mona@x.test" },
@@ -51,6 +57,7 @@ function renderCreateFeedback(query = "?subjectId=5&subjectName=Mona") {
           <Routes>
             <Route path="/feedback/new" element={<CreateFeedback />} />
             <Route path="/" element={<PathProbe />} />
+            <Route path="/feedback" element={<SearchProbe />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -116,7 +123,9 @@ describe("CreateFeedback page", () => {
     expect(await screen.findByText("A draft of this feedback already exists.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
       "href",
-      "/feedback/42/edit",
+      // The duplicate link carries the create screen's OWN return target (v4.6.0) — Save/Cancel
+      // on the draft must not reopen a blank create form. No back= here, so the Dashboard.
+      `/feedback/42/edit?back=${encodeURIComponent("/")}`,
     );
     expect(screen.getByRole("button", { name: /^save draft$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();
@@ -433,5 +442,34 @@ describe("CreateFeedback page", () => {
     await waitFor(() =>
       expect(screen.getByTestId("probe")).toHaveTextContent("/users/9/feedbacks"),
     );
+  });
+
+  // v4.6.0 — `cancel=` is the Cancel destination; `back=` stays where Save lands.
+  test("Cancel returns to cancel=, not to back=", async () => {
+    const user = userEvent.setup();
+    renderCreateFeedback(
+      `?subjectId=5&back=${encodeURIComponent("/feedback?tab=provided")}&cancel=${encodeURIComponent("/feedback?tab=received")}`,
+    );
+
+    await user.type(screen.getByLabelText("Content"), "x");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));
+
+    expect(await screen.findByTestId("search-probe")).toHaveTextContent("/feedback?tab=received");
+  });
+
+  test("a hostile cancel= is ignored — Cancel falls back to back=", async () => {
+    const user = userEvent.setup();
+    renderCreateFeedback(
+      `?subjectId=5&back=${encodeURIComponent("/feedback?tab=provided")}&cancel=${encodeURIComponent("//evil.example")}`,
+    );
+
+    await user.type(screen.getByLabelText("Content"), "x");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("link", { name: /^discard$/i }));
+
+    expect(await screen.findByTestId("search-probe")).toHaveTextContent("/feedback?tab=provided");
   });
 });

@@ -5,12 +5,11 @@
 // editing are body (concept) steps instead of anchored ones. See "Feature tutorials" in
 // web/CLAUDE.md for the recipe this follows.
 import type { TourStepDef } from "../components/tourSupport";
+import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import type { TutorialDef } from "./types";
 
-// oneOnOneCreateLink(subordinateId, back?) requires a subordinateId — there is no
-// subordinate-less variant to reuse here (unlike goalCreateLink/reviewCreateLink), so the form
-// steps spotlight the hub header's own "New 1:1" target instead of a hand-assembled URL.
-const FORM_URL = "/one-on-ones/new";
+// The subordinate-less create screen (its picker mode — the hub header's "New 1:1" target).
+const FORM_URL = oneOnOneCreateLink();
 
 const STEPS: readonly TourStepDef[] = [
   {

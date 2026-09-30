@@ -4,6 +4,7 @@ import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { successionPlanCreateLink } from "../utils/successionLinks";
 import SuccessionPlanTable from "./SuccessionPlanTable";
 import PageHeader from "../components/PageHeader";
@@ -25,6 +26,7 @@ function isSuccessionTab(value: string | null): value is SuccessionTab {
  */
 export default function SuccessionPlans() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
@@ -53,7 +55,7 @@ export default function SuccessionPlans() {
             {isManager && (
               <Button
                 component={RouterLink}
-                to={successionPlanCreateLink("/succession")}
+                to={successionPlanCreateLink("/succession", here)}
                 leftSection={<IconPlus size={16} />}
                 data-tour="succession-new"
               >

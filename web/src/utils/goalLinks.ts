@@ -9,10 +9,11 @@ import { detailSearch, drillDownOptsSearch, type DrillDownOpts } from "./linkSea
  * Without a subordinate the create screen shows its direct-report picker (the
  * teamKpiCreateLink shape).
  */
-export function goalCreateLink(subordinateId?: number, back?: string): string {
+export function goalCreateLink(subordinateId?: number, back?: string, cancel?: string): string {
   const parts: string[] = [];
   if (subordinateId != null) parts.push(`subordinateId=${subordinateId}`);
   if (back) parts.push(`back=${encodeURIComponent(back)}`);
+  if (cancel) parts.push(`cancel=${encodeURIComponent(cancel)}`);
   return `/goals/new${parts.length ? `?${parts.join("&")}` : ""}`;
 }
 

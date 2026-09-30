@@ -474,7 +474,7 @@ export default function Users() {
                       u.id !== currentUserId && hasFeature("FEEDBACKS")
                         ? [
                             feedbackRowMenu(t, {
-                              provideTo: feedbackProvideLink(u.id),
+                              provideTo: feedbackProvideLink(u.id, "/users"),
                               askTo: feedbackAskLink(u.id, "/users"),
                               listTo: userFeedbacksLink(u.id, u.name, "users"),
                               name: u.name,

@@ -104,7 +104,7 @@ export default function MyTeamsTable() {
                       their subordinates grid (v2.5.5); ?from=myTeams keeps the back link here. */}
                   <Anchor
                     component={RouterLink}
-                    to={`${teamDetailsLink(team.id)}?from=myTeams`}
+                    to={teamDetailsLink(team.id, { from: "myTeams" })}
                     size="sm"
                     fw={500}
                     aria-label={t("teams.detailsForAria", { name: team.name })}

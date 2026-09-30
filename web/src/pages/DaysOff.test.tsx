@@ -295,10 +295,11 @@ describe("DaysOff page", () => {
     renderDaysOff("/days-off?tab=team");
 
     // The on-behalf entry (v2.29.0) sits below the managed list, right-aligned — the house
-    // footer convention — and opens the create screen in onBehalf mode, returning here.
+    // footer convention — and opens the create screen in onBehalf mode, returning here (Save
+    // lands on back, Cancel on cancel — v4.6.0, both the tab the button was clicked on).
     expect(await screen.findByRole("link", { name: "Record days off" })).toHaveAttribute(
       "href",
-      `/days-off/new?onBehalf=1&back=${encodeURIComponent("/days-off?tab=team")}`,
+      `/days-off/new?onBehalf=1&back=${encodeURIComponent("/days-off?tab=team")}&cancel=${encodeURIComponent("/days-off?tab=team")}`,
     );
   });
 
@@ -308,9 +309,10 @@ describe("DaysOff page", () => {
 
     expect(await screen.findByText(`Your paid days off in ${BUDGET.year}`)).toBeInTheDocument();
     expect(await screen.findByText("17.5")).toBeInTheDocument();
+    // Save lands on Requests (back=); Cancel returns to the tab it was clicked on (cancel=, v4.6.0).
     expect(screen.getByRole("link", { name: "New days off" })).toHaveAttribute(
       "href",
-      expect.stringContaining("/days-off/new"),
+      `/days-off/new?back=${encodeURIComponent("/days-off?tab=requests")}&cancel=${encodeURIComponent("/days-off?tab=requests")}`,
     );
   });
 

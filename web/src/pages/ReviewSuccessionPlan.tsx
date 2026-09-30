@@ -57,6 +57,7 @@ import {
   RetentionRiskBadge,
 } from "../components/SuccessionBadges";
 import GoalStatusBadge from "../components/GoalStatusBadge";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { useBeforeUnloadGuard } from "../hooks/useBeforeUnloadGuard";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { formatRelativeTime, formatDateTime } from "../utils/datetime";
@@ -95,6 +96,7 @@ function PlanParties({
   currentUserId: number | null;
 }) {
   const { t, i18n } = useTranslation();
+  const here = useCurrentPath();
   const you = <Text size="sm">{t("common.state.you")}</Text>;
   return (
     <MetaStrip
@@ -108,7 +110,7 @@ function PlanParties({
             ) : (
               <PersonaChip
                 name={plan.userName}
-                to={userDetailsLink(plan.userId, plan.userName)}
+                to={userDetailsLink(plan.userId, plan.userName, undefined, undefined, { back: here })}
                 ariaLabel={t("users.detailsFor", { name: plan.userName })}
               />
             ),

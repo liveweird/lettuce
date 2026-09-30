@@ -4,10 +4,10 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import PersonCell from "./PersonCell";
 
-function renderCell(props: Parameters<typeof PersonCell>[0]) {
+function renderCell(props: Parameters<typeof PersonCell>[0], route = "/") {
   return render(
     <MantineProvider env="test">
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[route]}>
         <PersonCell {...props} />
       </MemoryRouter>
     </MantineProvider>,
@@ -18,8 +18,18 @@ describe("PersonCell", () => {
   test("links an identifiable other person's name to their user-details view (v2.30.0)", () => {
     renderCell({ userId: 10, name: "Alice", currentUserId: 7 });
     const link = screen.getByRole("link", { name: "User details for Alice" });
-    expect(link).toHaveAttribute("href", "/users/10/details?name=Alice");
+    expect(link).toHaveAttribute("href", "/users/10/details?name=Alice&back=%2F");
     expect(link).toHaveTextContent("Alice");
+  });
+
+  test("the link carries the page it sits on — path, tab and filters — as back, never a from key (v4.6.0)", () => {
+    renderCell({ userId: 10, name: "Alice", currentUserId: 7 }, "/feedback?tab=received&status=SENT");
+    const link = screen.getByRole("link", { name: "User details for Alice" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/users/10/details?name=Alice&back=%2Ffeedback%3Ftab%3Dreceived%26status%3DSENT",
+    );
+    expect(link.getAttribute("href")).not.toContain("from=");
   });
 
   test("renders the current user as plain 'You' with no link", () => {

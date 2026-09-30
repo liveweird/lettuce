@@ -113,7 +113,8 @@
     "org": "Struktura organizacji",
     "team": "Podwładni zespołu",
     "details": "Szczegóły użytkownika",
-    "career": "Piramida zespołu"
+    "career": "Piramida zespołu",
+    "previous": "poprzedniej strony"
   },
   "duplicate": {
     "draft": "Szkic tego feedbacku już istnieje.",

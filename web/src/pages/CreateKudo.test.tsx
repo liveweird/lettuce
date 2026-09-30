@@ -203,7 +203,7 @@ describe("CreateFeedback in kudo mode (/kudos/new)", () => {
     expect(await screen.findByText("A draft of this feedback already exists.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
       "href",
-      "/feedback/42/edit",
+      `/feedback/42/edit?back=${encodeURIComponent("/kudos")}`,
     );
     expect(screen.getByRole("button", { name: /^save draft$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();

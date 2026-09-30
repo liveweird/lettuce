@@ -18,7 +18,7 @@ import { todayIsoDate } from "../utils/datetime";
 import { oneOnOneEditLink } from "../utils/oneOnOneLinks";
 import { oneOnOneSaveErrorMessage } from "../utils/oneOnOneForm";
 import { invalidateOneOnOne } from "../utils/oneOnOneQueries";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, safeCancelParam } from "../utils/url";
 import { showSuccessToast } from "../utils/toast";
 
 const BACK_TO = "/one-on-ones?tab=managed";
@@ -44,6 +44,9 @@ export default function CreateOneOnOne() {
   const preselected = Number.isFinite(preselectedId) && preselectedId > 0;
   const backParam = safeBackParam(searchParams);
   const backTo = backParam ?? BACK_TO;
+  // Cancel/discard returns to `cancel=` when the entry point sent one (the hub header's "New …"
+  // button — v4.6.0), else wherever Save lands; the post-save and invalid-id paths keep `backTo`.
+  const cancelTo = safeCancelParam(searchParams) ?? backTo;
 
   const [picked, setPicked] = useState<string | null>(null);
   const [meetingDate, setMeetingDate] = useState(todayIsoDate());
@@ -52,7 +55,7 @@ export default function CreateOneOnOne() {
   // The one cancel guard (v3.5.0): a pick or a moved date is the only work this screen holds.
   const { requestCancel, guardProps } = useDiscardGuard({
     isDirty: picked != null || meetingDate !== todayIsoDate(),
-    to: backTo,
+    to: cancelTo,
     title: t("oneOnOne.discardTitle"),
     message: t("oneOnOne.discardMessage"),
   });

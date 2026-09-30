@@ -130,7 +130,7 @@ export default function AskFeedback() {
               // The caller is the requester of the existing row, so the view route is theirs.
               <DuplicateFeedbackAlert
                 status={duplicate.existingStatus ?? "REQUESTED"}
-                to={feedbackViewLink(duplicate.existingId)}
+                to={feedbackViewLink(duplicate.existingId, { back: backTo })}
               />
             )}
 

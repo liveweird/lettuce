@@ -295,7 +295,7 @@ export default function RequestFeedback() {
                                 : t("feedback.duplicate.requested")}{" "}
                               <Anchor
                                 component={RouterLink}
-                                to={feedbackViewLink(dup.existingId)}
+                                to={feedbackViewLink(dup.existingId, { back: backTo })}
                                 size="xs"
                                 fw={600}
                                 c="var(--lettuce-ink-warning)"

@@ -245,7 +245,7 @@ describe("FeatureFlags page", () => {
 
     expect(screen.getByRole("link", { name: "User details for Bob" })).toHaveAttribute(
       "href",
-      "/users/2/details?name=Bob&from=users",
+      "/users/2/details?name=Bob&back=%2Ffeature-flags",
     );
     // Self stays a plain chip (the Users-list rule).
     expect(screen.queryByRole("link", { name: "User details for Alice" })).not.toBeInTheDocument();

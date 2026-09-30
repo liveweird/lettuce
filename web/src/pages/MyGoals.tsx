@@ -4,6 +4,7 @@ import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { goalCreateLink } from "../utils/goalLinks";
 import GoalTable from "./GoalTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
@@ -23,6 +24,7 @@ function isGoalsTab(value: string | null): value is GoalsTab {
 // scope widening it from the caller's own goals to goals set anywhere down their chain.
 export default function MyGoals() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
@@ -51,7 +53,7 @@ export default function MyGoals() {
             {isManager && (
               <Button
                 component={RouterLink}
-                to={goalCreateLink(undefined, "/goals?tab=managed")}
+                to={goalCreateLink(undefined, "/goals?tab=managed", here)}
                 leftSection={<IconPlus size={16} />}
                 data-tour="goals-new"
               >

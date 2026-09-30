@@ -20,10 +20,14 @@ export function drillDownOptsSearch(opts?: DrillDownOpts): string {
   return suffix;
 }
 
-/** The view/edit detail screens' `?from=…&back=…` suffix ("" when both are absent). */
-export function detailSearch(from?: string, back?: string): string {
+/**
+ * The detail/create screens' `?from=…&back=…[&cancel=…]` suffix ("" when all are absent).
+ * `cancel` (v4.6.0) is only ever passed by the create-screen builders.
+ */
+export function detailSearch(from?: string, back?: string, cancel?: string): string {
   const parts: string[] = [];
   if (from) parts.push(`from=${from}`);
   if (back) parts.push(`back=${encodeURIComponent(back)}`);
+  if (cancel) parts.push(`cancel=${encodeURIComponent(cancel)}`);
   return parts.length ? `?${parts.join("&")}` : "";
 }

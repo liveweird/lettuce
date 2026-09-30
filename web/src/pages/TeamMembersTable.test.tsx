@@ -118,7 +118,7 @@ describe("TeamMembersTable", () => {
     // Badges link to the team-details view (v2.5.4).
     expect(screen.getByRole("link", { name: "Team details for Platform" })).toHaveAttribute(
       "href",
-      "/teams/3/details",
+      "/teams/3/details?back=%2F",
     );
 
     const urls = memberUrls(mockFetch);

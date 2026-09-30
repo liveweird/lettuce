@@ -4,6 +4,7 @@ import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { feedbackCreateLink } from "../utils/feedbackLinks";
 import FeedbackTable from "./FeedbackTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
@@ -19,6 +20,7 @@ function isFeedbackTab(value: string | null): value is FeedbackTab {
 
 export default function Feedback() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
@@ -48,7 +50,7 @@ export default function Feedback() {
           <>
             <Button
               component={RouterLink}
-              to={feedbackCreateLink("/feedback?tab=provided")}
+              to={feedbackCreateLink("/feedback?tab=provided", here)}
               leftSection={<IconPlus size={16} />}
               data-tour="feedback-new"
             >

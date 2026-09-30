@@ -193,4 +193,18 @@ describe("CreateTeamKpi", () => {
       ),
     ).toBe(false);
   });
+
+  test("Cancel returns to cancel=, not to back= (v4.6.0)", async () => {
+    mockApi(mockFetch);
+    renderCreate("/team-kpis/new?back=%2Fteam-kpis%3Ftab%3Dmanaged&cancel=%2Fteam-kpis%3Ftab%3Down");
+    await userEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/team-kpis?tab=own"));
+  });
+
+  test("a hostile cancel= is ignored — Cancel falls back to back=", async () => {
+    mockApi(mockFetch);
+    renderCreate("/team-kpis/new?back=%2Fteam-kpis%3Ftab%3Dmanaged&cancel=https%3A%2F%2Fevil.example");
+    await userEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/team-kpis?tab=managed"));
+  });
 });

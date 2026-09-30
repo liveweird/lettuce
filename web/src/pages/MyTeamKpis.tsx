@@ -4,6 +4,7 @@ import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next";
 import { canAudit, hasFeature } from "../api/session";
 import { useIsManager } from "../hooks/useIsManager";
+import { useCurrentPath } from "../hooks/useCurrentPath";
 import { teamKpiCreateLink } from "../utils/teamKpiLinks";
 import TeamKpiTable from "./TeamKpiTable";
 import EmptyCtaLink from "../components/EmptyCtaLink";
@@ -27,6 +28,7 @@ function isTeamKpisTab(value: string | null): value is TeamKpisTab {
 // (v3.24.0, HR-only — canAudit()) is the org-wide auditor view backed by GET ?view=all.
 export default function MyTeamKpis() {
   const { t } = useTranslation();
+  const here = useCurrentPath();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isManager = useIsManager();
@@ -61,7 +63,7 @@ export default function MyTeamKpis() {
             {isManager && (
               <Button
                 component={RouterLink}
-                to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed")}
+                to={teamKpiCreateLink(undefined, "/team-kpis?tab=managed", here)}
                 leftSection={<IconPlus size={16} />}
                 data-tour="team-kpis-new"
               >

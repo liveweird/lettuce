@@ -16,7 +16,7 @@ import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
 import { PROVIDE_ERROR_KEYS } from "../utils/feedbackForm";
 import { showSuccessToast } from "../utils/toast";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, safeCancelParam } from "../utils/url";
 
 /**
  * The feedback create screen, also serving the Kudos wall's create flow (`/kudos/new` renders
@@ -43,6 +43,10 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   // to "/" — sanitized (in-app path only); kudo mode always returns to the wall (its entry
   // point carries no back param).
   const backTo = kudo ? "/kudos" : (safeBackParam(searchParams) ?? "/");
+  // Cancel returns to `cancel=` when the entry point sent one (the hub header's "New feedback" —
+  // v4.6.0, whose Save still lands on Provided via `back=`); the wall's create flow always
+  // returns to the wall.
+  const cancelTo = kudo ? backTo : (safeCancelParam(searchParams) ?? backTo);
   const providerId = getUserId();
 
   // Two modes (v2.28.0): a valid subjectId in the URL fixes the subject (the deep-link path —
@@ -140,7 +144,7 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
       submitting={submitting}
       error={error}
       onSubmit={submit}
-      cancelTo={backTo}
+      cancelTo={cancelTo}
       // Picks live outside the editor form — Cancel guards them like typed content.
       parentDirty={pickerMode && subjectPicks.length > 0}
       showTemplateInsert
@@ -167,7 +171,7 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
               <DuplicateFeedbackAlert
                 key={subjectId}
                 status={result.existingStatus ?? "DRAFT"}
-                to={feedbackEditLink(result.existingId!)}
+                to={feedbackEditLink(result.existingId!, { back: backTo })}
                 recipientName={pickerMode ? (nameOf(subjectId) ?? `#${subjectId}`) : undefined}
               />
             ))}

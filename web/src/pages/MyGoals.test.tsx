@@ -173,6 +173,8 @@ describe("MyGoals page", () => {
     expect(create.getAttribute("href")).toContain("/goals/new");
     expect(create.getAttribute("href")).not.toContain("subordinateId");
     expect(create.getAttribute("href")).toContain(`back=${encodeURIComponent("/goals?tab=managed")}`);
+    // Cancel returns to the tab the button was clicked on (cancel=, v4.6.0) — Save still lands on Managed.
+    expect(create.getAttribute("href")).toContain(`cancel=${encodeURIComponent("/goals?tab=managed")}`);
   });
 
   test("manager: switching Reports to all adds includeIndirect=true to the managed query", async () => {

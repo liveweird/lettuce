@@ -3,20 +3,30 @@ import { drillDownOptsSearch, type DrillDownOpts } from "./linkSearch";
 // Builders for the feedback flow URLs, so the query-string shape (and encodeURIComponent) lives in
 // one place instead of being hand-assembled at every call site. `back` is appended only when given,
 // preserving the existing links that omit it.
-function withBack(base: string, back?: string): string {
-  return back ? `${base}&back=${encodeURIComponent(back)}` : base;
+function withBack(base: string, back?: string, cancel?: string): string {
+  let url = back ? `${base}&back=${encodeURIComponent(back)}` : base;
+  if (cancel) url += `&cancel=${encodeURIComponent(cancel)}`;
+  return url;
 }
+
+// `cancel` (v4.6.0, every create-screen builder below and in the sibling link modules) is the
+// Cancel/discard destination where it legitimately differs from `back`, the Save landing — the
+// hub header's "New …" button sends its own URL there so Cancel returns to the tab it left,
+// while Save still lands where the new record shows up. Read via `safeCancelParam`.
 
 /** "Provide feedback" about a subject → the create editor (`/feedback/new`). The screen
  *  resolves the subject's display name from the org pool (v2.35.0, never a URL param). */
-export function feedbackProvideLink(subjectId: number, back?: string): string {
-  return withBack(`/feedback/new?subjectId=${subjectId}`, back);
+export function feedbackProvideLink(subjectId: number, back?: string, cancel?: string): string {
+  return withBack(`/feedback/new?subjectId=${subjectId}`, back, cancel);
 }
 
 /** "New feedback" with NO subject → the create editor in picker mode (v2.28.0). Not
  *  `withBack` — this is the one builder whose base carries no query string of its own. */
-export function feedbackCreateLink(back?: string): string {
-  return back ? `/feedback/new?back=${encodeURIComponent(back)}` : "/feedback/new";
+export function feedbackCreateLink(back?: string, cancel?: string): string {
+  const parts: string[] = [];
+  if (back) parts.push(`back=${encodeURIComponent(back)}`);
+  if (cancel) parts.push(`cancel=${encodeURIComponent(cancel)}`);
+  return `/feedback/new${parts.length ? `?${parts.join("&")}` : ""}`;
 }
 
 /** "Ask for feedback" from a provider → the ask flow (`/feedback/ask`). */

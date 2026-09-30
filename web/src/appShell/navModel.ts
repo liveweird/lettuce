@@ -210,3 +210,17 @@ export function activeLeaf(leafTos: string[], pathname: string): string | null {
     to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
   return leafTos.filter(matches).sort((a, b) => b.length - a.length)[0] ?? null;
 }
+
+/**
+ * The nav label of the hub a pathname IS (v4.6.0) — an EXACT match over every leaf (group
+ * children included, feature/role gates ignored: a back label names a destination, it does not
+ * offer one). Deliberately NOT [activeLeaf]'s prefix rule: "/feedback/5/view" is a detail
+ * screen, not the Feedback hub. Null for anything that is not a nav leaf path.
+ */
+export function navLeafLabel(pathname: string): ParseKeys | null {
+  const leaves: NavLeaf[] = [
+    ...NAV_SECTIONS.flatMap((s) => s.entries.flatMap((e) => (isGroup(e) ? e.children : [e]))),
+    CHANGELOG_NAV,
+  ];
+  return leaves.find((leaf) => leaf.to === pathname)?.label ?? null;
+}

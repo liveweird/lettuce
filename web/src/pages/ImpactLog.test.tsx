@@ -78,7 +78,7 @@ describe("ImpactLog page", () => {
     expect(screen.queryByRole("tab", { name: "My subordinates' journals" })).toBeNull();
     expect(await screen.findByText("No journal entries.")).toBeInTheDocument();
     const newEntry = screen.getByRole("link", { name: "New entry" });
-    expect(newEntry).toHaveAttribute("href", "/impact-log/new?back=%2Fimpact-log");
+    expect(newEntry).toHaveAttribute("href", "/impact-log/new?back=%2Fimpact-log&cancel=%2Fimpact-log");
   });
 
   test("a manager gets the managed tab; selecting it lists view=managed", async () => {
@@ -97,7 +97,8 @@ describe("ImpactLog page", () => {
     // (v3.3.0) — it always creates in the caller's OWN journal, whichever tab is open.
     expect(screen.getByRole("link", { name: "New entry" })).toHaveAttribute(
       "href",
-      "/impact-log/new?back=%2Fimpact-log",
+      // Save lands on the own journal (back=); Cancel returns to the tab the click was on.
+      "/impact-log/new?back=%2Fimpact-log&cancel=%2Fimpact-log%3Ftab%3Dmanaged",
     );
   });
 

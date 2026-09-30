@@ -174,6 +174,8 @@ describe("MyTeamKpis page", () => {
     expect(create.getAttribute("href")).toContain(
       `back=${encodeURIComponent("/team-kpis?tab=managed")}`,
     );
+    // Cancel returns to the tab the button was clicked on (cancel=, v4.6.0).
+    expect(create.getAttribute("href")).toContain(`cancel=${encodeURIComponent("/team-kpis?tab=managed")}`);
   });
 
   test("?tab=managed falls back to the member tab for a non-manager", async () => {

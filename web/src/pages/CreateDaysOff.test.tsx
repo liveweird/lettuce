@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 import { jsonResponse } from "../test/http";
@@ -29,6 +29,15 @@ const STUDY_POOL = {
   poolId: 42, poolTypeId: 7, poolName: "Study leave", carriesOver: false, isDefault: false,
 };
 
+function ListStub() {
+  const location = useLocation();
+  return (
+    <div>
+      LIST<span data-testid="probe">{`${location.pathname}${location.search}`}</span>
+    </div>
+  );
+}
+
 function renderPage(entry = "/days-off/new") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -37,7 +46,7 @@ function renderPage(entry = "/days-off/new") {
         <MemoryRouter initialEntries={[entry]}>
           <Routes>
             <Route path="/days-off/new" element={<CreateDaysOff />} />
-            <Route path="/days-off" element={<div>LIST</div>} />
+            <Route path="/days-off" element={<ListStub />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -377,5 +386,27 @@ describe("CreateDaysOff", () => {
     await userEvent.click(picker);
     await userEvent.click(await screen.findByRole("option", { name: "Unpaid" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled());
+  });
+
+  test("Cancel returns to cancel=, not to back= (v4.6.0)", async () => {
+    setupMocks();
+    renderPage("/days-off/new?back=%2Fdays-off%3Ftab%3Drequests&cancel=%2Fdays-off%3Ftab%3Dcalendar");
+
+    await screen.findByText("New days off");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/days-off?tab=calendar"),
+    );
+  });
+
+  test("a hostile cancel= is ignored — Cancel falls back to back=", async () => {
+    setupMocks();
+    renderPage("/days-off/new?back=%2Fdays-off%3Ftab%3Drequests&cancel=%2F%2Fevil.example");
+
+    await screen.findByText("New days off");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe")).toHaveTextContent("/days-off?tab=requests"),
+    );
   });
 });

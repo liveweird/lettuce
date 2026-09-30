@@ -12,15 +12,17 @@ describe("TeamBadges", () => {
           { id: 9, name: "beta" },
         ]}
       />,
+      { route: "/?tab=managers" },
     );
 
+    // Each badge returns to the page it sits on (v4.6.0 `back=`).
     expect(screen.getByRole("link", { name: "Team details for alpha" })).toHaveAttribute(
       "href",
-      "/teams/5/details",
+      "/teams/5/details?back=%2F%3Ftab%3Dmanagers",
     );
     expect(screen.getByRole("link", { name: "Team details for beta" })).toHaveAttribute(
       "href",
-      "/teams/9/details",
+      "/teams/9/details?back=%2F%3Ftab%3Dmanagers",
     );
   });
 
