@@ -46,11 +46,16 @@ class RefreshTest {
         }
 
     // A refresh token minted directly (valid signature/audience/issuer) so expiry can be controlled.
-    private fun mintRefresh(userId: Long, expiresAt: Date, typ: String = "refresh"): String =
+    private fun mintRefresh(
+        userId: Long,
+        expiresAt: Date,
+        typ: String = "refresh",
+        jti: String? = UUID.randomUUID().toString(),
+    ): String =
         JWT.create()
             .withAudience("lettuce-api")
             .withIssuer("http://0.0.0.0:8080/")
-            .withJWTId(UUID.randomUUID().toString())
+            .apply { if (jti != null) withJWTId(jti) }
             .withClaim("email", "x@test")
             .withClaim("userId", userId)
             .withArrayClaim("roles", arrayOf<String>())
@@ -150,6 +155,21 @@ class RefreshTest {
         val expired = mintRefresh(userId.toLong(), Date(System.currentTimeMillis() - 60_000))
 
         assertEquals(HttpStatusCode.Unauthorized, postRefresh(jsonClient(), expired).status)
+    }
+
+    @Test
+    fun `refresh rejects a correctly signed refresh token without a jti as malformed`() = testApplication {
+        usePostgresTestcontainer()
+        val userId = TestUsers.seed(email = uniqueEmail("refresh-nojti"), password = "pw")
+        val noJti = mintRefresh(userId.toLong(), Date(System.currentTimeMillis() + 60_000), jti = null)
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            assertEquals(HttpStatusCode.Unauthorized, postRefresh(jsonClient(), noJti).status)
+            val rejected = appender.events.single { it.message == "refresh.rejected" }
+            assertEquals("malformed", rejected.keyValuePairs.first { it.key == "reason" }.value)
+        } finally {
+            appender.detach()
+        }
     }
 
     @Test

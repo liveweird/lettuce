@@ -465,8 +465,10 @@ fun Application.configureAuthRoutes() {
                     reject("wrong_token_type")
                 }
                 val rawUserId = decoded.getClaim("userId").asLong()
-                val jti = decoded.id
-                if (jti != null && blocklist.isRevoked(jti)) {
+                // A refresh token without a jti could never be revoked by logout (v4.5.2, the
+                // bearer-side rule in plugins/Security.kt) — Lettuce never mints one.
+                val jti = decoded.id ?: reject("malformed", rawUserId)
+                if (blocklist.isRevoked(jti)) {
                     reject("revoked", rawUserId)
                 }
                 val userId = rawUserId?.toUInt() ?: reject("malformed")

@@ -180,6 +180,7 @@ class LoginTest {
     ): String = JWT.create()
         .withAudience(audience)
         .withIssuer(issuer)
+        .withJWTId(java.util.UUID.randomUUID().toString())
         .withExpiresAt(expiresAt)
         .sign(Algorithm.HMAC256(secret))
 
