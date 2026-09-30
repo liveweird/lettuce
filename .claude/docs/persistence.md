@@ -57,8 +57,10 @@ Current migrations are `V1`–`V85`. **The per-migration catalog lives in `.clau
   `postgres.pool`.
 - **Enforcement:** `ConnectionPoolTest` — concurrent transactions never exceed `maxSize` in
   `pg_stat_activity`, a saturated pool times out an acquire instead of hanging, the pool releases
-  every connection when the application stops (also when a later module refuses startup), and
-  out-of-range bounds fail startup.
+  every connection when the application stops (also when a later module refuses startup),
+  out-of-range bounds fail startup, and (v4.7.1) a frozen database answers `/readyz` 503 within
+  the bounds, a server-killed backend is replaced at acquire, and `statement_timeout` reaches the
+  server and cancels a longer statement.
 - **A hung database is bounded (v4.7.1).** The driver has NO socket read timeout, so a database that
   accepts or holds connections but never answers used to hang requests and `/readyz` forever (an
   in-process `withTimeout` cannot cancel the R2DBC handshake — tried and dropped in v4.5.2). The
@@ -67,7 +69,12 @@ Current migrations are `V1`–`V85`. **The per-migration catalog lives in `.clau
     `maxValidationTimeSeconds` (`POSTGRES_POOL_MAX_VALIDATION_SECONDS`, default 5, 1..60) — a frozen
     or server-killed connection is discarded instead of handed out (this closed the pre-v4.7.1
     exception where a backend killed server-side was handed out once and failed its request
-    with a 500). Cost: one round trip per `suspendTransaction`;
+    with a 500 — for a SINGLE dropped connection: each acquire gets two validation attempts
+    (r2dbc-pool's `acquireRetry` default 1, MRU idle order), so after a PostgreSQL restart, when
+    every idle connection dies at once, a request whose two picks are both dead still fails fast
+    until the pool has refreshed). Cost: one `SELECT 1` round trip per `suspendTransaction`
+    (measured 2026-09-30 on the compose stack: +0.3 ms mean / +0.7 ms p95 per request); Exposed's
+    per-statement `SET STATEMENT_TIMEOUT` round trip existed before (with 0) and is unchanged;
   - **creating a connection** (TCP + startup/auth) is bounded by `maxCreateConnectionTimeSeconds`
     (`POSTGRES_POOL_MAX_CREATE_SECONDS`, default 10, 1..600); the TCP connect alone by
     `postgres.connectTimeoutSeconds` (`POSTGRES_CONNECT_TIMEOUT_SECONDS`, default 10); TCP keepalive on;
@@ -78,8 +85,10 @@ Current migrations are `V1`–`V85`. **The per-migration catalog lives in `.clau
     every statement from that default (0), silently overwriting any driver startup option or
     post-allocate `SET` — `ConnectionPoolTest` asserts the value the server reports.
 
-  Together a request waits at most about `maxAcquireTime` for a hung database, then fails with the
-  catch-all 500 (`/readyz` answers 503). **Still unbounded:** a query ALREADY in flight when the
+  Together a request waits at most about **2 × `maxAcquireTime`** for a hung database (~20 s by
+  default — r2dbc-pool retries a timed-out acquire once), then fails with the catch-all 500
+  (`/readyz` answers 503); a cancelled statement (SQLSTATE 57014) is a generic R2dbcException →
+  the same logged 500, with the transaction rolled back. **Still unbounded:** a query ALREADY in flight when the
   network black-holes waits until TCP gives up. Pinned by `ConnectionPoolTest` through
   `FreezableRelay` (a TCP relay in front of the Testcontainer that goes silent on demand).
 - **Exception:** the pool sets no `maxLifeTime` (connections live until idle-recycled). The

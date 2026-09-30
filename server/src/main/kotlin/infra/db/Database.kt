@@ -178,10 +178,14 @@ private fun Application.connectPooled(): R2dbcDatabase {
             .maxIdleTime(Duration.ofSeconds(bounds.maxIdleTimeSeconds))
             // v4.7.1: every acquire validates with a round trip, bounded — a frozen or
             // server-killed connection fails validation and is discarded (the pool then creates
-            // a new one, itself bounded by maxCreateConnectionTime), so a request waits at most
-            // about maxAcquireTime for a hung database instead of forever. Costs one round trip
-            // per acquire; a query ALREADY in flight when the network black-holes still waits
-            // until TCP gives up — the driver exposes no read timeout.
+            // a new one, itself bounded by maxCreateConnectionTime). r2dbc-pool retries a failed
+            // timed acquire once (acquireRetry = 1, its default), so a request waits at most about
+            // 2 × maxAcquireTime for a hung database instead of forever. Each acquire gets two
+            // validation attempts: ONE dropped connection is replaced transparently, but after a
+            // PostgreSQL restart (every idle connection dead at once) a request whose two picks
+            // are both dead still fails fast until the pool has refreshed. Costs one round trip
+            // (SELECT 1) per acquire; a query ALREADY in flight when the network black-holes
+            // still waits until TCP gives up — the driver exposes no read timeout.
             .validationDepth(ValidationDepth.REMOTE)
             .maxValidationTime(Duration.ofSeconds(bounds.maxValidationTimeSeconds))
             .maxCreateConnectionTime(Duration.ofSeconds(bounds.maxCreateConnectionTimeSeconds))
@@ -192,7 +196,8 @@ private fun Application.connectPooled(): R2dbcDatabase {
         connectionFactoryOptions = options
         // ONE attempt per suspendTransaction: Exposed's default of three retries any
         // R2dbcException, and the pool's acquire timeout is one — retrying a saturated pool
-        // three times would turn the 10-second acquire budget into 30 s of queueing per request
+        // three times would multiply the acquire budget (already 2 × maxAcquireTime per attempt,
+        // r2dbc-pool's own acquireRetry) into minutes of queueing per request
         // exactly when the pool is already full. Lettuce has no path relying on Exposed's
         // retry: its writes serialize on the atomic `reserveAttempt` upsert
         // (`auth/LoginThrottle.kt`) and `pg_advisory_xact_lock` (`auth/MfaChallenges.kt`), never

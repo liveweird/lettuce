@@ -7,7 +7,9 @@ The v3.0.0 machine-to-machine read surface: **`POST /integration/graphql`** (+ `
 contract cannot drift), governed by **`api-guidelines/GRAPHQL-GUIDELINES.md`** (stable
 `GQL-*-NNN` rule IDs — cite them like the REST ones). Gated by `integration.enabled`
 (`$INTEGRATION_ENABLED`, **default false — fail-closed**: a disabled deployment registers no
-`/integration` routes at all; compose ships it `true` as the local demo). Callers are
+`/integration` routes at all; compose ships it `true` as the local demo). **In Kubernetes (v4.7.1)**
+`k8s/templates/app-networkpolicy.yaml` closes `svc/app:8080` to every pod but the ingress
+controller, so an IN-CLUSTER consumer must call the public front-door host, not the Service. Callers are
 **integration clients** — dedicated technical identities in `integration_clients` (V71, NOT
 `users` rows: a user row would leak into people lists/pickers/the pyramid), each holding one
 admin-issued API key. **The deliberate product rule: integration reads bypass ALL per-caller

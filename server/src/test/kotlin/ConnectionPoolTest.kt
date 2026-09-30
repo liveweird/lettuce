@@ -223,13 +223,20 @@ class ConnectionPoolTest {
                 assertEquals(HttpStatusCode.OK, client.get("/readyz").status, "the relay must work while thawed")
 
                 relay.frozen = true
-                val startedAt = System.nanoTime()
-                val status = withTimeout(20_000) { client.get("/readyz").status }
-                val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
-                assertEquals(HttpStatusCode.ServiceUnavailable, status)
-                assertTrue(elapsedMillis < 10_000, "a hung database must fail the probe within the pool bounds (took $elapsedMillis ms)")
-                // Thaw before the app stops, so disposing the pool does not wait on silent sockets.
-                relay.frozen = false
+                try {
+                    val startedAt = System.nanoTime()
+                    val status = withTimeout(20_000) { client.get("/readyz").status }
+                    val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
+                    assertEquals(HttpStatusCode.ServiceUnavailable, status)
+                    // ~2 × maxAcquireTime worst case (r2dbc-pool retries a timed-out acquire once).
+                    assertTrue(
+                        elapsedMillis < 10_000,
+                        "a hung database must fail the probe within the pool bounds (took $elapsedMillis ms)",
+                    )
+                } finally {
+                    // Thaw before the app stops, so disposing the pool does not wait on silent sockets.
+                    relay.frozen = false
+                }
             }
         }
     }
@@ -274,6 +281,7 @@ class ConnectionPoolTest {
         for ((key, value) in listOf(
             "postgres.pool.maxValidationTimeSeconds" to "0",
             "postgres.pool.maxValidationTimeSeconds" to "61",
+            "postgres.pool.maxCreateConnectionTimeSeconds" to "0",
             "postgres.pool.maxCreateConnectionTimeSeconds" to "601",
             "postgres.connectTimeoutSeconds" to "0",
             "postgres.statementTimeoutSeconds" to "-1",

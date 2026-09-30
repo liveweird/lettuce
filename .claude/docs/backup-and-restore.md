@@ -48,6 +48,11 @@ test -n "$BACKUP_DIR" && test -d "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
 # Host-client form: set PGHOST/PGUSER/PGDATABASE and credentials securely first.
+# Kubernetes (v4.7.1): k8s/postgres-networkpolicy.yaml admits 5432 ONLY from the app pods, so a
+# client pod (`kubectl run … pg_dump -h postgres`, a backup CronJob) times out. Use
+# `kubectl exec deploy/postgres -- pg_dump …` (local socket, not subject to the policy) or
+# `kubectl port-forward svc/postgres 5432` and run the host client against localhost; a
+# dedicated backup pod needs its own `from.podSelector` entry in that policy.
 pg_dumpall --globals-only > "$BACKUP_DIR/globals.sql"
 pg_dump --format=custom --create --clean --if-exists > "$BACKUP_DIR/database.dump"
 chmod 600 "$BACKUP_DIR/globals.sql" "$BACKUP_DIR/database.dump"

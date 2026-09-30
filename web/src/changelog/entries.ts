@@ -19,8 +19,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     version: "4.7.1",
     date: "2026-09-30",
-    en: `Behind the scenes: when the database stops answering, Lettuce now reports an error within seconds instead of leaving pages loading indefinitely, and a database connection that was dropped is replaced before it is used, so it no longer fails one request. Long-running database statements are stopped after 30 seconds. On Kubernetes, only the front door can reach the application and only the application can reach its database.`,
-    pl: `Zmiany techniczne: gdy baza danych przestaje odpowiadać, Lettuce zgłasza teraz błąd w ciągu kilku sekund, zamiast pozostawiać strony w nieskończonym ładowaniu, a zerwane połączenie z bazą zastępuje nowym, zanim go użyje, więc nie kończy się już błędem jednego żądania. Lettuce przerywa też polecenia bazy danych trwające dłużej niż 30 sekund. W Kubernetes do aplikacji dociera tylko ruch z bramy wejściowej, a do bazy danych tylko sama aplikacja.`,
+    en: `Behind the scenes: when the database stops answering, Lettuce now reports an error within about 20 seconds instead of leaving pages loading indefinitely, and a single dropped database connection is replaced before it is used instead of failing a request. Long-running database statements are stopped after 30 seconds. On Kubernetes, only the front door can reach the application and only the application can reach its database.`,
+    pl: `Zmiany techniczne: gdy baza danych przestaje odpowiadać, Lettuce zgłasza teraz błąd w ciągu około 20 sekund, zamiast pozostawiać strony w nieskończonym ładowaniu, a pojedyncze zerwane połączenie z bazą zastępuje nowym, zanim go użyje, więc przez nie żadne żądanie nie kończy się już błędem. Lettuce przerywa też polecenia bazy danych trwające dłużej niż 30 sekund. W Kubernetesie do aplikacji dociera tylko ruch z bramy wejściowej, a do bazy danych tylko sama aplikacja.`,
   },
   {
     version: "4.7.0",
