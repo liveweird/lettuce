@@ -18,7 +18,7 @@ import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamR
 import { userDetailsLink } from "../utils/userLinks";
 import { loadErrorMessage } from "../utils/saveError";
 import { resolveBackLink } from "../utils/backLink";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, boundedReturnPath } from "../utils/url";
 
 // Matches the dashboard card grids' v1.34.0 cap (2 per row) so the single details card
 // renders at the same width as its dashboard counterparts.
@@ -160,12 +160,15 @@ export default function UserDetails() {
   // The origin survives the round-trip: the recognised `from` key (or the default users key
   // when the URL carried neither), plus the override — a back-only visit is never re-labelled
   // from=users on the way back.
-  const backHere = userDetailsLink(
-    userId,
-    name,
-    recognisedFrom ?? (backOverride == null ? originKey : undefined),
-    originKey === "members" ? teamId : undefined,
-    { back: backOverride ?? undefined },
+  // Bounded so a user ↔ team round-trip cannot grow the URL without limit (boundedReturnPath).
+  const backHere = boundedReturnPath(
+    userDetailsLink(
+      userId,
+      name,
+      recognisedFrom ?? (backOverride == null ? originKey : undefined),
+      originKey === "members" ? teamId : undefined,
+      { back: backOverride ?? undefined },
+    ),
   );
 
   // Undefined when the viewer gets no actions — PersonCardBody then renders no buttons at

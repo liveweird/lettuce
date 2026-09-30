@@ -146,8 +146,9 @@ describe("RequestFeedback page", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
       "href",
-      // The per-row duplicate link returns HERE (v4.6.0) — the request screen's own URL.
-      `/feedback/77/view?back=${encodeURIComponent("/feedback/request?subjectId=7&subjectName=Mona")}`,
+      // The per-row duplicate link carries the request screen's OWN return target (v4.6.0) —
+      // never the form itself. No back= here, so the Subordinates default.
+      `/feedback/77/view?back=${encodeURIComponent("/?tab=subordinates")}`,
     );
     expect(screen.getByRole("button", { name: /^request$/i })).toBeDisabled();
 

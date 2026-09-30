@@ -43,7 +43,7 @@ import { teamKpisLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { useAllUsers } from "../hooks/useAllUsers";
 import { resolveBackLink } from "../utils/backLink";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, boundedReturnPath } from "../utils/url";
 
 type MemberRow = { id: number; name: string };
 
@@ -165,10 +165,13 @@ export default function TeamDetails() {
   // Every outgoing link's return target: this page with its own origin preserved (the `from`
   // key and the `back` override), so the Back-to round-trip (My teams / org chart / whatever sent
   // us here) survives any detour — the grid's drill-downs, the roster, the KPI list.
-  const backHere = teamDetailsLink(id, {
-    from: recognisedFrom ?? undefined,
-    back: backOverride ?? undefined,
-  });
+  // Bounded so a team ↔ user round-trip cannot grow the URL without limit (boundedReturnPath).
+  const backHere = boundedReturnPath(
+    teamDetailsLink(id, {
+      from: recognisedFrom ?? undefined,
+      back: backOverride ?? undefined,
+    }),
+  );
 
   if (teamLoading) {
     return (

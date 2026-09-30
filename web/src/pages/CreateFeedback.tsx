@@ -11,7 +11,6 @@ import FeedbackForm from "../components/FeedbackForm";
 import RecipientsMultiSelect from "../components/RecipientsMultiSelect";
 import { userOption } from "../components/userOptions";
 import { useAllUsers } from "../hooks/useAllUsers";
-import { useCurrentPath } from "../hooks/useCurrentPath";
 import { useFeedbackDuplicates } from "../hooks/useFeedbackDuplicate";
 import { feedbackEditLink } from "../utils/feedbackLinks";
 import { saveErrorMessage } from "../utils/saveError";
@@ -29,7 +28,6 @@ import { safeBackParam, safeCancelParam } from "../utils/url";
 export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const here = useCurrentPath();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +171,7 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
               <DuplicateFeedbackAlert
                 key={subjectId}
                 status={result.existingStatus ?? "DRAFT"}
-                to={feedbackEditLink(result.existingId!, { back: here })}
+                to={feedbackEditLink(result.existingId!, { back: backTo })}
                 recipientName={pickerMode ? (nameOf(subjectId) ?? `#${subjectId}`) : undefined}
               />
             ))}

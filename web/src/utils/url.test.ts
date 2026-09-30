@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { inAppPath, safeBackParam, safeCancelParam, toRelativePath } from "./url";
+import { boundedReturnPath, inAppPath, MAX_RETURN_PATH_LENGTH, safeBackParam, safeCancelParam, toRelativePath } from "./url";
 
 describe("safeBackParam", () => {
   const of = (search: string) => new URLSearchParams(search);
@@ -40,8 +40,27 @@ describe("back-slash and cancel sanitizing", () => {
 
   test("inAppPath accepts in-app paths and null-passes null", () => {
     expect(inAppPath("/users?x=1")).toBe("/users?x=1");
-    expect(inAppPath("/a\\b")).toBe("/a\\b");
     expect(inAppPath(null)).toBeNull();
+  });
+
+  test("rejects a backslash anywhere, not only after the leading slash", () => {
+    expect(inAppPath("/a\\b")).toBeNull();
+  });
+
+  test("rejects ASCII control characters the URL parser would strip (/TAB/host bypass)", () => {
+    // WHATWG URL parsing removes tab/CR/LF anywhere, so "/\t/evil.example" resolves to
+    // "//evil.example" — a cross-origin target React Router would hand to location.assign.
+    for (const encoded of ["%2F%09%2Fevil.example", "%2F%0A%2Fevil.example", "%2F%0D%2Fevil.example"]) {
+      expect(safeBackParam(of(`back=${encoded}`))).toBeNull();
+      expect(safeCancelParam(of(`cancel=${encoded}`))).toBeNull();
+    }
+    expect(inAppPath("/users\u0000")).toBeNull();
+    expect(inAppPath("/users\u007f")).toBeNull();
+  });
+
+  test("rejects an over-long value but keeps a long legitimate one", () => {
+    expect(inAppPath(`/users?q=${"a".repeat(2048)}`)).toBeNull();
+    expect(inAppPath(`/users?q=${"a".repeat(1000)}`)).toBe(`/users?q=${"a".repeat(1000)}`);
   });
 
   test("cancel is accepted and rejected like back", () => {
@@ -105,5 +124,35 @@ describe("toRelativePath", () => {
       );
       expect(toRelativePath("relative")).toBe("/relative");
     });
+  });
+});
+
+describe("boundedReturnPath", () => {
+  test("returns a short path unchanged", () => {
+    expect(boundedReturnPath("/teams/3/details?from=org")).toBe("/teams/3/details?from=org");
+  });
+
+  test("past the limit drops only the nested back/cancel, keeping the rest of the query", () => {
+    const long = `/users/9/details?name=Jane&from=members&teamId=3&back=${encodeURIComponent(`/x?q=${"a".repeat(MAX_RETURN_PATH_LENGTH)}`)}`;
+    expect(boundedReturnPath(long)).toBe("/users/9/details?name=Jane&from=members&teamId=3");
+    expect(boundedReturnPath(`/goals/new?cancel=${"b".repeat(MAX_RETURN_PATH_LENGTH)}`)).toBe("/goals/new");
+  });
+
+  test("a user <-> team round trip repeated many times never outgrows the bound", async () => {
+    // The loop the review simulated: every hop wraps the previous URL in back= and re-encodes
+    // it, so unbounded it grows quadratically (~4 KB after ten cycles). Mirrors the app: a
+    // PersonCell/TeamBadge sends the bounded current path, a details page its bounded backHere.
+    const { userDetailsLink } = await import("./userLinks");
+    const { teamDetailsLink } = await import("./teamLinks");
+    let current = "/feedback?tab=received";
+    let longest = 0;
+    for (let cycle = 0; cycle < 50; cycle++) {
+      current = boundedReturnPath(teamDetailsLink(3, { back: current }));
+      longest = Math.max(longest, current.length);
+      current = boundedReturnPath(userDetailsLink(9, "Jane Doe", undefined, undefined, { back: current }));
+      longest = Math.max(longest, current.length);
+      expect(inAppPath(current)).toBe(current);
+    }
+    expect(longest).toBeLessThanOrEqual(MAX_RETURN_PATH_LENGTH);
   });
 });

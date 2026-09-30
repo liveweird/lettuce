@@ -123,8 +123,9 @@ describe("CreateFeedback page", () => {
     expect(await screen.findByText("A draft of this feedback already exists.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the existing feedback" })).toHaveAttribute(
       "href",
-      // The duplicate link returns HERE (v4.6.0) — the create screen's own URL.
-      `/feedback/42/edit?back=${encodeURIComponent("/feedback/new?subjectId=5&subjectName=Mona")}`,
+      // The duplicate link carries the create screen's OWN return target (v4.6.0) — Save/Cancel
+      // on the draft must not reopen a blank create form. No back= here, so the Dashboard.
+      `/feedback/42/edit?back=${encodeURIComponent("/")}`,
     );
     expect(screen.getByRole("button", { name: /^save draft$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /save & send/i })).toBeDisabled();

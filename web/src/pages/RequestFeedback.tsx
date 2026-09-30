@@ -29,7 +29,6 @@ import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
 import RowActions from "../components/RowActions";
 import { renderUserOption, userOption } from "../components/userOptions";
-import { useCurrentPath } from "../hooks/useCurrentPath";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { resolveFeedbackExpiresOn, type ExpirationPreset } from "../utils/feedbackForm";
@@ -50,7 +49,6 @@ const NO_DUPLICATES: ReadonlyMap<number, { existingId?: number | null; existingS
 export default function RequestFeedback() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const here = useCurrentPath();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const visibilityOptions = REQUESTER_VISIBILITIES.map((value) => ({
@@ -297,7 +295,7 @@ export default function RequestFeedback() {
                                 : t("feedback.duplicate.requested")}{" "}
                               <Anchor
                                 component={RouterLink}
-                                to={feedbackViewLink(dup.existingId, { back: here })}
+                                to={feedbackViewLink(dup.existingId, { back: backTo })}
                                 size="xs"
                                 fw={600}
                                 c="var(--lettuce-ink-warning)"

@@ -15,7 +15,6 @@ import FormFooter from "../components/FormFooter";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
-import { useCurrentPath } from "../hooks/useCurrentPath";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { useFeedbackDuplicate } from "../hooks/useFeedbackDuplicate";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
@@ -33,7 +32,6 @@ const DEFAULT_VISIBILITY: FeedbackVisibility = "PROVIDER_REQUESTER_SUBJECT";
 export default function AskFeedback() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const here = useCurrentPath();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const visibilityOptions = REQUESTER_VISIBILITIES.map((value) => ({
@@ -132,7 +130,7 @@ export default function AskFeedback() {
               // The caller is the requester of the existing row, so the view route is theirs.
               <DuplicateFeedbackAlert
                 status={duplicate.existingStatus ?? "REQUESTED"}
-                to={feedbackViewLink(duplicate.existingId, { back: here })}
+                to={feedbackViewLink(duplicate.existingId, { back: backTo })}
               />
             )}
 

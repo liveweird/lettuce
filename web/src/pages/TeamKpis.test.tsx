@@ -178,6 +178,18 @@ describe("TeamKpis drill-down", () => {
     expect(create).toHaveAttribute("href", `/team-kpis/new?teamId=10&back=${encodeURIComponent(here)}`);
   });
 
+  test("from=team with a back= that is NOT this team's page is labelled after that destination", async () => {
+    // The label never lies: the team's name labels the link only while it goes to that team —
+    // and /teams/100/details is not team 10's page.
+    mockApi(mockFetch);
+    renderPage(`/teams/10/kpis?from=team&back=${encodeURIComponent("/teams/100/details")}`);
+
+    expect(await screen.findByRole("link", { name: "← Back to Team details" })).toHaveAttribute(
+      "href",
+      "/teams/100/details",
+    );
+  });
+
   test("a back-only visit is labelled after its destination", async () => {
     mockApi(mockFetch);
     renderPage(`/teams/10/kpis?back=${encodeURIComponent("/?tab=subordinates")}`);

@@ -59,7 +59,11 @@ export default function TeamKpis() {
 
   const teamLabel = team?.name ?? t("dashboard.teamFallback", { id: teamId });
   const backLinkTo = backOverride ?? (fromTeam ? teamDetailsLink(teamId) : DEFAULT_BACK_TO);
-  const backLinkLabel = fromTeam
+  // The team's own name labels the link only while it actually goes to that team's page — a
+  // back= override elsewhere is labelled from its destination (the label never lies).
+  const teamPage = teamDetailsLink(teamId);
+  const backGoesToTeam = backOverride == null || backOverride === teamPage || backOverride.startsWith(`${teamPage}?`);
+  const backLinkLabel = fromTeam && backGoesToTeam
     ? t("feedback.backToLabel", { label: teamLabel })
     : t("feedback.backToLabel", {
         label: t(backOverride ? backLabelKey(backOverride) : "dashboard.tabs.myTeams"),
