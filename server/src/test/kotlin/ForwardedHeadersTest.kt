@@ -72,4 +72,31 @@ class ForwardedHeadersTest {
         }
         assertEquals(HttpStatusCode.TooManyRequests, client.login("10.9.99.1"))
     }
+
+    @Test
+    fun `fewer X-Forwarded-For values than proxyHops falls back to the last value`() = testApplication {
+        configureApp(
+            "http.behindProxy" to "true",
+            "http.proxyHops" to "3",
+            "security.rateLimit.loginPerMinute" to "10",
+        )
+        startApplication()
+        val client = jsonClient()
+        // Two values under proxyHops=3: the last (closest to us) is the key, never the first.
+        repeat(10) { i ->
+            assertEquals(HttpStatusCode.Unauthorized, client.login("10.9.$i.1, 203.0.113.7"))
+        }
+        assertEquals(HttpStatusCode.TooManyRequests, client.login("10.9.99.1, 203.0.113.7"))
+    }
+
+    @Test
+    fun `behind a proxy a request without X-Forwarded-For keys on the connection peer`() = testApplication {
+        configureApp("http.behindProxy" to "true", "security.rateLimit.loginPerMinute" to "10")
+        startApplication()
+        val client = jsonClient()
+        repeat(10) { assertEquals(HttpStatusCode.Unauthorized, client.login(null)) }
+        assertEquals(HttpStatusCode.TooManyRequests, client.login(null))
+        // A forwarded address is a different bucket from the peer's.
+        assertEquals(HttpStatusCode.Unauthorized, client.login("203.0.113.50"))
+    }
 }

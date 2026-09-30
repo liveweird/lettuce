@@ -58,6 +58,13 @@ build only reaches transitively gets a **version floor**, never a gate exception
 `buildscript` constraint for the plugin classpath (the Ktor plugin's Jackson, plexus-utils and
 log4j). Then regenerate as below.
 
+**Known gap — shaded copies.** The scan reads lockfile coordinates, so a library a jar SHADES is
+invisible to it and to every version floor. Today: the PostgreSQL JDBC driver 42.7.13 (Flyway's
+boot connection) bundles scram-client 3.2 under `org/postgresql/shaded/` (CVE-2026-53712 is
+fixed only on the R2DBC path) — no pgjdbc release bundles 3.3 yet; the exposure needs TLS to
+PostgreSQL. On every driver bump, look in the jar's `META-INF/licenses/` folder and update the
+note in `gradle/libs.versions.toml`.
+
 Two traps the first round (2026-09-30) hit:
 
 - **Write verification metadata from an EMPTY `GRADLE_USER_HOME`, not the warm cache.** The warm

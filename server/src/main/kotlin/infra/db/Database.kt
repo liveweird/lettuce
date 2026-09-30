@@ -81,6 +81,10 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabaseConfig
 import java.time.Duration
 
+/** Upper bounds for the maintenance knobs below (v4.5.2): a day between sweeps, ten years kept. */
+private const val MAX_SWEEP_INTERVAL_SECONDS = 86_400L
+private const val MAX_RETENTION_DAYS = 3_650L
+
 /** Published so a later module (e.g. `configureAuthRoutes`, whose DB-backed auth-state stores
  *  — login lockout/password-reset throttle/MFA challenges, V81 — need a handle) can reuse the
  *  same connected [R2dbcDatabase] without opening a second connection, and `ConnectionPoolTest`,
@@ -177,7 +181,10 @@ suspend fun Application.configureDatabase() {
     attributes.put(CareerPositionServiceKey, CareerPositionService(database))
     attributes.put(TeamServiceKey, TeamService(database))
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
-    val sweepIntervalMillis = environment.config.property("feedbacks.expirySweepIntervalSeconds").getString().toLong() * 1000
+    // Range-checked like every duration (v4.5.2); 0 = every call, the test suite's setting.
+    val sweepIntervalMillis = requireConfigLong(
+        environment.config, "feedbacks.expirySweepIntervalSeconds", min = 0, max = MAX_SWEEP_INTERVAL_SECONDS,
+    ) * 1000
     attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey], sweepIntervalMillis))
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
     attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
@@ -229,10 +236,15 @@ suspend fun Application.configureDatabase() {
         notificationPreferenceService = notificationPreferenceService,
         unreachableRetryMillis = attributes[TeamsUnreachableRetryHoursKey].toLong() * 60 * 60 * 1000,
     )
+    // Range-checked (v4.5.2): a NEGATIVE retention (or one overflowing into milliseconds) put the
+    // purge cutoff in the future, so purgeStale hard-deleted every seen/user-deleted notification
+    // whatever its age. 0 still disables the purge.
     val notificationRetentionMillis =
-        environment.config.property("notifications.retentionDays").getString().toLong() * 24 * 60 * 60 * 1000
-    val notificationPurgeIntervalMillis =
-        environment.config.property("notifications.purgeIntervalSeconds").getString().toLong() * 1000
+        requireConfigLong(environment.config, "notifications.retentionDays", min = 0, max = MAX_RETENTION_DAYS) *
+            24 * 60 * 60 * 1000
+    val notificationPurgeIntervalMillis = requireConfigLong(
+        environment.config, "notifications.purgeIntervalSeconds", min = 0, max = MAX_SWEEP_INTERVAL_SECONDS,
+    ) * 1000
     attributes.put(
         NotificationServiceKey,
         NotificationService(

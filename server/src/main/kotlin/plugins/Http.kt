@@ -52,10 +52,12 @@ fun Application.configureHttp() {
         // A proxy may APPEND its own X-Forwarded-For LINE rather than merge into the one the
         // client sent (HAProxy's `option forwardedfor`), and XForwardedHeaders reads only the
         // FIRST line (`Headers.get`) — the client's, so the rate-limit key would be spoofable.
-        // Fold every line ourselves and pick the trusted hop BEFORE XForwardedHeaders runs: the
-        // Setup phase always precedes its Plugins-phase handler (v4.5.2, from the Flow handoff;
+        // Fold every line ourselves and pick the trusted hop (v4.5.2, from the Flow handoff;
         // RawForwardedForLinesTest pins it against real Netty — ktor-client folds repeated
         // header() calls into one line, so testApplication cannot reproduce the wire shape).
+        // What keeps XForwardedHeaders from overwriting the result is its EMPTY forHeaders list
+        // below (it then never sets remoteHost) — not phase order: its CallSetup hook runs in
+        // the same Setup phase as this interceptor. Never restore the default forHeaders.
         intercept(ApplicationCallPipeline.Setup) {
             resolveForwardedForOrigin(call, proxyHops)
         }

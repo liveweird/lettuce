@@ -48,7 +48,7 @@ class RefreshTest {
     // A refresh token minted directly (valid signature/audience/issuer) so expiry can be controlled.
     private fun mintRefresh(
         userId: Long,
-        expiresAt: Date,
+        expiresAt: Date?,
         typ: String = "refresh",
         jti: String? = UUID.randomUUID().toString(),
     ): String =
@@ -60,7 +60,7 @@ class RefreshTest {
             .withClaim("userId", userId)
             .withArrayClaim("roles", arrayOf<String>())
             .withClaim("typ", typ)
-            .withExpiresAt(expiresAt)
+            .apply { if (expiresAt != null) withExpiresAt(expiresAt) }
             .sign(Algorithm.HMAC256("secret"))
 
     @Test
@@ -165,6 +165,21 @@ class RefreshTest {
         val appender = LogCapture("ch.nokillswit.audit")
         try {
             assertEquals(HttpStatusCode.Unauthorized, postRefresh(jsonClient(), noJti).status)
+            val rejected = appender.events.single { it.message == "refresh.rejected" }
+            assertEquals("malformed", rejected.keyValuePairs.first { it.key == "reason" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `refresh rejects a correctly signed refresh token without an exp as malformed`() = testApplication {
+        usePostgresTestcontainer()
+        val userId = TestUsers.seed(email = uniqueEmail("refresh-noexp"), password = "pw")
+        val noExp = mintRefresh(userId.toLong(), expiresAt = null)
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            assertEquals(HttpStatusCode.Unauthorized, postRefresh(jsonClient(), noExp).status)
             val rejected = appender.events.single { it.message == "refresh.rejected" }
             assertEquals("malformed", rejected.keyValuePairs.first { it.key == "reason" }.value)
         } finally {

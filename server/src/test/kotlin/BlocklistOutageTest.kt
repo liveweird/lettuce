@@ -99,4 +99,28 @@ class BlocklistOutageTest {
         assertEquals(HttpStatusCode.Unauthorized, response.status)
         assertEquals("Missing or invalid bearer token", response.body<ProblemDetail>().detail)
     }
+
+    @Test
+    fun `a correctly signed token without a jti stays 401 during an outage`() = testApplication {
+        // The jti rule (v4.5.2) is structural like the typ check: it rejects before the lookup,
+        // so an outage cannot turn it into the lookup's 500.
+        configureApp()
+        application { attributes.put(TokenBlocklistServiceKey, brokenBlocklist()) }
+        startApplication()
+
+        val noJti = com.auth0.jwt.JWT.create()
+            .withAudience("lettuce-api")
+            .withIssuer("http://0.0.0.0:8080/")
+            .withClaim("typ", "access")
+            .withClaim("email", "x@test")
+            .withClaim("userId", 1L)
+            .withArrayClaim("roles", arrayOf<String>())
+            .withExpiresAt(java.util.Date(System.currentTimeMillis() + 60_000))
+            .sign(com.auth0.jwt.algorithms.Algorithm.HMAC256("secret"))
+        val response = jsonClient().get("/api/v1/notifications") {
+            header(HttpHeaders.Authorization, "Bearer $noJti")
+        }
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+        assertEquals("Missing or invalid bearer token", response.body<ProblemDetail>().detail)
+    }
 }

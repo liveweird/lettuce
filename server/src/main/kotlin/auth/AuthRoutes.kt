@@ -5,6 +5,8 @@ import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.infra.config.requireConfigInt
+import ch.nokillswit.infra.config.MAX_DURATION_SECONDS
+import ch.nokillswit.infra.config.optionalConfigInt
 import ch.nokillswit.infra.config.requireConfigLong
 import ch.nokillswit.infra.db.R2dbcDatabaseKey
 import ch.nokillswit.infra.mail.Mailer
@@ -101,16 +103,11 @@ data class LoginResponse(
     val language: String,
 )
 
+/** Ceiling for the configurable per-minute rate-limit buckets — far above any real need. */
+private const val MAX_RATE_LIMIT_PER_MINUTE = 100_000
+
 // The refresh rejection detail per audited reason — data beside the handler, not control flow
 // in it. Unlisted reasons fall through to the password-change wording (see the handler).
-/**
- * The ceiling on every seconds-valued auth-security window (lockout duration, password-reset
- * interval, MFA code TTL): 30 days. Each is multiplied into milliseconds, so an unbounded value
- * near Long.MAX_VALUE overflowed negative and silently disabled the window (v4.5.2, from the Flow
- * handoff). Nothing legitimate is anywhere near it.
- */
-internal const val MAX_DURATION_SECONDS = 30L * 24 * 3600
-
 private val REFRESH_REJECT_MESSAGES = mapOf(
     "invalid_or_expired" to "Invalid or expired refresh token",
     "wrong_token_type" to "Not a refresh token",
@@ -296,11 +293,10 @@ fun Application.configureAuthRoutes() {
     // Blank follows the mode (see application.yaml): production keeps the 10/min login bucket,
     // development lifts it so a single host driving many logins — the e2e suite — is not
     // throttled. The per-account lockout above is the brute-force defence in both modes.
-    val loginLimit = environment.config.propertyOrNull("security.rateLimit.loginPerMinute")
-        ?.getString()?.takeIf { it.isNotBlank() }?.toInt()
+    // Range-checked (v4.5.2): 0 or a negative value would answer every request 429.
+    val loginLimit = optionalConfigInt(environment.config, "security.rateLimit.loginPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE)
         ?: if (developmentMode) 1000 else 10
-    val integrationLimit = environment.config.propertyOrNull("integration.rateLimitPerMinute")
-        ?.getString()?.takeIf { it.isNotBlank() }?.toInt()
+    val integrationLimit = optionalConfigInt(environment.config, "integration.rateLimitPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE)
         ?: DEFAULT_INTEGRATION_RATE_LIMIT
 
     // Throttle login to blunt password brute-forcing, and refresh to blunt token abuse: a token
@@ -477,8 +473,10 @@ fun Application.configureAuthRoutes() {
                     reject("wrong_token_type")
                 }
                 val rawUserId = decoded.getClaim("userId").asLong()
-                // A refresh token without a jti could never be revoked by logout (v4.5.2, the
-                // bearer-side rule in plugins/Security.kt) — Lettuce never mints one.
+                // A refresh token without a jti could never be revoked by logout, and one without an
+                // exp would never expire (v4.5.2, the bearer-side rule in plugins/Security.kt) —
+                // Lettuce never mints either.
+                if (decoded.expiresAt == null) reject("malformed", rawUserId)
                 val jti = decoded.id ?: reject("malformed", rawUserId)
                 if (blocklist.isRevoked(jti)) {
                     reject("revoked", rawUserId)

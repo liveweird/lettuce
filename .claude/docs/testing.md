@@ -25,7 +25,11 @@ commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/de
   `npm run check:scenarios`.
 - **Dependency scan** (v4.5.2): Trivy 0.74.0 (digest-pinned) over every Gradle lockfile —
   runtime, test, build-tool and the three plugin-classpath `buildscript-gradle.lockfile`s —
-  failing on any HIGH or CRITICAL advisory, with the JSON report uploaded as an artifact. The
+  failing on any HIGH or CRITICAL advisory (and when any of the seven lockfiles is missing from
+  the report, so a scanner that stops recognising one cannot pass silently), with the JSON report
+  uploaded as an artifact. Scope: the JVM dependency graph only — not the SPA's npm packages,
+  not the container's OS/JDK layers, not libraries a jar shades (see "Known gap" in
+  `.claude/docs/dependency-reproducibility.md`). The
   advisory database is fetched at run time, so a newly published advisory can turn the job red
   with no code change: fix it the v4.5.2 way (a version floor — see "Advisory floors" in
   `.claude/docs/dependency-reproducibility.md`), never by weakening the gate. Local twin: the same

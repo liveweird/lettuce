@@ -3,6 +3,8 @@ package ch.nokillswit.plugins
 import ch.nokillswit.auth.TOKEN_TYPE_ACCESS
 import ch.nokillswit.auth.TokenBlocklistServiceKey
 import ch.nokillswit.infra.catchingFailures
+import ch.nokillswit.infra.config.MAX_DURATION_SECONDS
+import ch.nokillswit.infra.config.requireConfigLong
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.HttpStatusCode
@@ -48,8 +50,12 @@ fun Application.configureSecurity() {
         issuer = environment.config.property("jwt.issuer").getString(),
         audience = environment.config.property("jwt.audience").getString(),
         realm = environment.config.property("jwt.realm").getString(),
-        accessExpiresInSeconds = environment.config.property("jwt.accessExpiresInSeconds").getString().toLong(),
-        refreshExpiresInSeconds = environment.config.property("jwt.refreshExpiresInSeconds").getString().toLong(),
+        // Range-checked (v4.5.2): each is multiplied into milliseconds, so an overflow made tokens
+        // effectively never expire (or dead on arrival); the access token stays short-lived.
+        accessExpiresInSeconds = requireConfigLong(environment.config, "jwt.accessExpiresInSeconds", min = 1, max = 86_400),
+        refreshExpiresInSeconds = requireConfigLong(
+            environment.config, "jwt.refreshExpiresInSeconds", min = 1, max = MAX_DURATION_SECONDS,
+        ),
     )
     // Fail closed: a blank secret, the placeholder "secret", or the repo-committed demo key lets
     // anyone forge tokens for any user/role. Allowed (with a loud warning) only in development;
@@ -82,10 +88,13 @@ fun Application.configureSecurity() {
                 val typOk = credential.payload.getClaim("typ").asString() == TOKEN_TYPE_ACCESS
                 // A structurally invalid token never reaches the database (no outage 500 for junk).
                 if (!audOk || !typOk) return@validate null
-                // Every token Lettuce mints carries a jti (auth/Tokens.kt). One without it could
-                // never be blocklisted — logout and admin revocation could not end it — so it is
-                // rejected like any invalid token (v4.5.2, defence in depth: forging one needs the
-                // signing key). Structural, so it also never reaches the database.
+                // Every token Lettuce mints carries a jti and an exp (auth/Tokens.kt). Without a jti
+                // a token could never be blocklisted, so logout could not end it; without an exp
+                // (java-jwt checks expiry only when the claim is present) it would never expire,
+                // and its blocklist row would be pruned as already expired. Both are rejected like
+                // any invalid token (v4.5.2, defence in depth: forging one needs the signing key).
+                // Structural, so neither ever reaches the database.
+                if (credential.payload.expiresAt == null) return@validate null
                 val jti = credential.payload.id ?: return@validate null
                 // A cancelled call (client gone) mid-lookup unwinds — catchingFailures never
                 // swallows cancellation.

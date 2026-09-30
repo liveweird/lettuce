@@ -2,7 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.auth.LoginResponse
-import ch.nokillswit.auth.MAX_DURATION_SECONDS
+import ch.nokillswit.infra.config.MAX_DURATION_SECONDS
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -270,6 +270,51 @@ class SecurityConfigTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `every other numeric knob refuses to boot out of range`() {
+        // The v4.5.2 sweep of the remaining bare parses. A negative retention put the purge cutoff
+        // in the future (every seen notification hard-deleted); a 0 rate limit answered 429 to
+        // everyone; an overflowing TTL made tokens effectively never expire.
+        val cases = listOf(
+            "jwt.accessExpiresInSeconds" to "0",
+            "jwt.accessExpiresInSeconds" to "86401",
+            "jwt.refreshExpiresInSeconds" to (MAX_DURATION_SECONDS + 1).toString(),
+            "jwt.refreshExpiresInSeconds" to "9223372036854775807",
+            "notifications.retentionDays" to "-1",
+            "notifications.retentionDays" to "3651",
+            "notifications.retentionDays" to "thirty",
+            "notifications.purgeIntervalSeconds" to "-1",
+            "feedbacks.expirySweepIntervalSeconds" to "86401",
+            "security.rateLimit.loginPerMinute" to "0",
+            "integration.rateLimitPerMinute" to "-5",
+        )
+        for ((key, value) in cases) {
+            testApplication {
+                configureApp(key to value)
+                val failure = runCatching { startApplication() }.exceptionOrNull()
+                assertNotNull(failure, "startup must fail closed on $key=$value")
+                val messages = generateSequence(failure) { it.cause }.mapNotNull { it.message }.joinToString(" | ")
+                assertTrue(key in messages, "unexpected startup failure for $key=$value: $messages")
+            }
+        }
+    }
+
+    @Test
+    fun `the edges of the swept knobs boot`() = testApplication {
+        configureApp(
+            "jwt.accessExpiresInSeconds" to "86400",
+            "jwt.refreshExpiresInSeconds" to MAX_DURATION_SECONDS.toString(),
+            // 0 disables the purge; 0 intervals run on every call (the suite's own setting).
+            "notifications.retentionDays" to "0",
+            "notifications.purgeIntervalSeconds" to "0",
+            "feedbacks.expirySweepIntervalSeconds" to "0",
+            "security.rateLimit.loginPerMinute" to "100000",
+            "integration.rateLimitPerMinute" to "1",
+        )
+        startApplication()
+        assertEquals(HttpStatusCode.Unauthorized, jsonClient().get("/api/v1/notifications").status)
     }
 
     @Test
