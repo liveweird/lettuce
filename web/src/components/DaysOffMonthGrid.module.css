@@ -105,15 +105,16 @@
   border-radius: 4px 4px 0 0;
 }
 
-.todayColumn {
+/* The dark scheme's filled accent (shade 8) is ~2.2:1 on the dark canvas — under the 3:1
+   non-text guideline — so the lines use a lighter shade there. */
+.todayColumn,
+.todaySwatch {
+  --today-line: light-dark(var(--mantine-primary-color-filled), var(--mantine-color-lettuce-4));
   box-shadow:
-    inset 2px 0 0 var(--mantine-primary-color-filled),
-    inset -2px 0 0 var(--mantine-primary-color-filled);
+    inset 2px 0 0 var(--today-line),
+    inset -2px 0 0 var(--today-line);
 }
 
 .todaySwatch {
-  box-shadow:
-    inset 2px 0 0 var(--mantine-primary-color-filled),
-    inset -2px 0 0 var(--mantine-primary-color-filled);
-  border-top: 3px solid var(--mantine-primary-color-filled);
+  border-top: 3px solid var(--today-line);
 }

@@ -121,12 +121,18 @@ describe("DaysOffMonthGrid", () => {
       expect(screen.getByText("Today")).toBeInTheDocument(); // the legend swatch
     });
 
-    test("today on a public holiday names both in the header tooltip and keeps the holiday tint", () => {
+    test("today on a public holiday names both in the header tooltip; its body cells keep the holiday tint", () => {
       setToday("2026-01-06");
       renderWithProviders(<DaysOffMonthGrid data={DATA} />);
       const todayHeader = screen.getAllByRole("columnheader")[6];
+      // The header shows the today accent (it wins over the holiday tint), so the tooltip is
+      // where the holiday stays named.
       expect(todayHeader).toHaveAttribute("title", "Today · Epiphany");
-      expect(todayHeader).toHaveClass(classes.holidayDay);
+      expect(todayHeader).toHaveClass(classes.todayHeader);
+      // The column's body cells carry BOTH: the holiday tint and today's edge lines.
+      const bobToday = screen.getAllByRole("row")[2].querySelectorAll("td")[5];
+      expect(bobToday).toHaveClass(classes.holidayDay);
+      expect(bobToday).toHaveClass(classes.todayColumn);
     });
 
     test("a month that does not contain today marks nothing and shows no Today legend", () => {

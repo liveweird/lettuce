@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     version: "4.7.0",
     date: "2026-09-30",
     en: `The days-off calendar now shows which day is today: today's column header is highlighted and thin lines run down the column, while every day off in it stays exactly as visible as on any other day. The legend explains the mark, and hovering the header says "Today". The date pickers' calendars highlight today too.`,
-    pl: `Kalendarz dni wolnych pokazuje teraz, który dzień jest dzisiaj: nagłówek dzisiejszej kolumny jest wyróżniony, a wzdłuż kolumny biegną cienkie linie, przy czym każdy dzień wolny w tej kolumnie jest tak samo dobrze widoczny jak w każdy inny dzień. Legenda objaśnia to oznaczenie, a po najechaniu na nagłówek pojawia się podpowiedź "Dzisiaj". Kalendarze w polach wyboru daty także wyróżniają dzisiejszy dzień.`,
+    pl: `Kalendarz dni wolnych pokazuje teraz, który dzień jest dzisiaj: wyróżnia nagłówek dzisiejszej kolumny i prowadzi wzdłuż niej cienkie linie, a każdy dzień wolny w tej kolumnie widać tak samo dobrze jak w każdy inny dzień. Legenda objaśnia to oznaczenie, a po najechaniu na nagłówek pojawia się podpowiedź "Dzisiaj". Kalendarze w polach wyboru daty także wyróżniają dzisiejszy dzień.`,
   },
   {
     version: "4.6.0",
