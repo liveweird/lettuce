@@ -180,6 +180,13 @@ class LoginTest {
     ): String = JWT.create()
         .withAudience(audience)
         .withIssuer(issuer)
+        .withJWTId(java.util.UUID.randomUUID().toString())
+        // A well-formed access token in every other respect, so each test's single defect
+        // (signature, audience, issuer, expiry) is the only reason it is rejected.
+        .withClaim("typ", "access")
+        .withClaim("email", "x@test")
+        .withClaim("userId", 1L)
+        .withArrayClaim("roles", arrayOf<String>())
         .withExpiresAt(expiresAt)
         .sign(Algorithm.HMAC256(secret))
 

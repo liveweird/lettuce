@@ -124,11 +124,12 @@ bootstrap:
 
 http:
   # Set true when the app runs behind a reverse proxy / ingress that terminates TLS.
-  # Installs XForwardedHeaders so the client IP (rate limiting) and scheme (HTTPS
-  # redirect) come from X-Forwarded-* headers. The proxy MUST set X-Forwarded-For,
-  # X-Forwarded-Proto and X-Forwarded-Host (the app reads only those plus
-  # X-Forwarded-Port) and overwrite client-supplied values — k8s/templates/app-ingress.yaml is
-  # the reference (ingress-nginx does so by default).
+  # The client IP (rate limiting) then comes from X-Forwarded-For (folded across every header
+  # line and read from the end, plugins/Http.kt resolveForwardedForOrigin) and the scheme/host
+  # (HTTPS redirect) from X-Forwarded-Proto/-Host via XForwardedHeaders. The proxy MUST set
+  # those three and overwrite or strip client-supplied values — its own X-Forwarded-For value
+  # must be the physically LAST one (X-Forwarded-Port is not read) —
+  # k8s/templates/app-ingress.yaml is the reference (ingress-nginx does so by default).
   behindProxy: "$HTTP_BEHIND_PROXY:false"
   # Trusted proxies in front of the app when behindProxy is true (default 1 = the
   # ingress alone). X-Forwarded-For is read from the END of the list: 1 trusts the

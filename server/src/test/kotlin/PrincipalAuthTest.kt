@@ -9,6 +9,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.util.Date
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -29,17 +30,22 @@ class PrincipalAuthTest {
         // Omitted by default, so EVERY test here doubles as the missing-claim case: a
         // pre-feature-flags token must keep authenticating (the permissive V46 choice).
         disabledFeatures: Array<String>? = null,
+        // Present by default — every token Lettuce mints carries one, and the verifier rejects a
+        // token without it (v4.5.2), so the claim-shape cases below must not fail for that reason.
+        jti: String? = UUID.randomUUID().toString(),
+        expiresAt: Date? = Date(System.currentTimeMillis() + 60_000),
     ): String {
         var builder = JWT.create()
             .withAudience("lettuce-api")
             .withIssuer("http://0.0.0.0:8080/")
             .withClaim("typ", "access")
-            .withExpiresAt(Date(System.currentTimeMillis() + 60_000))
         if (email != null) builder = builder.withClaim("email", email)
         if (userId != null) builder = builder.withClaim("userId", userId)
         if (roles != null) builder = builder.withArrayClaim("roles", roles)
         if (legacyRole != null) builder = builder.withClaim("role", legacyRole)
         if (disabledFeatures != null) builder = builder.withArrayClaim("disabledFeatures", disabledFeatures)
+        if (jti != null) builder = builder.withJWTId(jti)
+        if (expiresAt != null) builder = builder.withExpiresAt(expiresAt)
         return builder.sign(Algorithm.HMAC256("secret"))
     }
 
@@ -107,5 +113,19 @@ class PrincipalAuthTest {
             header(HttpHeaders.Authorization, "Bearer ${mintToken(roles = arrayOf())}")
         }
         assertEquals(HttpStatusCode.OK, response.status)
+    }
+
+    @Test
+    fun `a correctly signed access token without a jti is rejected with 401`() = testApplication {
+        usePostgresTestcontainer()
+        // Could never be blocklisted, so logout/revocation could not end it (v4.5.2).
+        assertRejected(mintToken(jti = null))
+    }
+
+    @Test
+    fun `a correctly signed access token without an exp is rejected with 401`() = testApplication {
+        usePostgresTestcontainer()
+        // java-jwt checks expiry only when the claim is present: without the rule it never expires.
+        assertRejected(mintToken(expiresAt = null))
     }
 }

@@ -3,6 +3,8 @@ package ch.nokillswit.plugins
 import ch.nokillswit.auth.TOKEN_TYPE_ACCESS
 import ch.nokillswit.auth.TokenBlocklistServiceKey
 import ch.nokillswit.infra.catchingFailures
+import ch.nokillswit.infra.config.MAX_DURATION_SECONDS
+import ch.nokillswit.infra.config.requireConfigLong
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.HttpStatusCode
@@ -48,8 +50,12 @@ fun Application.configureSecurity() {
         issuer = environment.config.property("jwt.issuer").getString(),
         audience = environment.config.property("jwt.audience").getString(),
         realm = environment.config.property("jwt.realm").getString(),
-        accessExpiresInSeconds = environment.config.property("jwt.accessExpiresInSeconds").getString().toLong(),
-        refreshExpiresInSeconds = environment.config.property("jwt.refreshExpiresInSeconds").getString().toLong(),
+        // Range-checked (v4.5.2): each is multiplied into milliseconds, so an overflow made tokens
+        // effectively never expire (or dead on arrival); the access token stays short-lived.
+        accessExpiresInSeconds = requireConfigLong(environment.config, "jwt.accessExpiresInSeconds", min = 1, max = 86_400),
+        refreshExpiresInSeconds = requireConfigLong(
+            environment.config, "jwt.refreshExpiresInSeconds", min = 1, max = MAX_DURATION_SECONDS,
+        ),
     )
     // Fail closed: a blank secret, the placeholder "secret", or the repo-committed demo key lets
     // anyone forge tokens for any user/role. Allowed (with a loud warning) only in development;
@@ -82,22 +88,25 @@ fun Application.configureSecurity() {
                 val typOk = credential.payload.getClaim("typ").asString() == TOKEN_TYPE_ACCESS
                 // A structurally invalid token never reaches the database (no outage 500 for junk).
                 if (!audOk || !typOk) return@validate null
-                val jti = credential.payload.id
-                val revoked = if (jti == null) {
-                    false
-                } else {
-                    // A cancelled call (client gone) mid-lookup unwinds — catchingFailures never
-                    // swallows cancellation.
-                    catchingFailures({ application.attributes[TokenBlocklistServiceKey].isRevoked(jti) }) { cause ->
-                        // The lookup itself failed (database unreachable, pool acquire timeout) —
-                        // that is an outage, not an invalid token. Ktor's JWT provider turns ANY
-                        // throw out of validate into a plain challenge, so the cause is stashed
-                        // on the call for the challenge below to answer with the catch-all's 500
-                        // (v3.16.2; measured during the v3.16.1 pool work: 7 of a 120-request
-                        // burst answered 401 this way, which the SPA reads as session expiry).
-                        attributes.put(BlocklistFailureKey, cause)
-                        return@validate null
-                    }
+                // Every token Lettuce mints carries a jti and an exp (auth/Tokens.kt). Without a jti
+                // a token could never be blocklisted, so logout could not end it; without an exp
+                // (java-jwt checks expiry only when the claim is present) it would never expire,
+                // and its blocklist row would be pruned as already expired. Both are rejected like
+                // any invalid token (v4.5.2, defence in depth: forging one needs the signing key).
+                // Structural, so neither ever reaches the database.
+                if (credential.payload.expiresAt == null) return@validate null
+                val jti = credential.payload.id ?: return@validate null
+                // A cancelled call (client gone) mid-lookup unwinds — catchingFailures never
+                // swallows cancellation.
+                val revoked = catchingFailures({ application.attributes[TokenBlocklistServiceKey].isRevoked(jti) }) { cause ->
+                    // The lookup itself failed (database unreachable, pool acquire timeout) —
+                    // that is an outage, not an invalid token. Ktor's JWT provider turns ANY
+                    // throw out of validate into a plain challenge, so the cause is stashed
+                    // on the call for the challenge below to answer with the catch-all's 500
+                    // (v3.16.2; measured during the v3.16.1 pool work: 7 of a 120-request
+                    // burst answered 401 this way, which the SPA reads as session expiry).
+                    attributes.put(BlocklistFailureKey, cause)
+                    return@validate null
                 }
                 if (!revoked) JWTPrincipal(credential.payload) else null
             }

@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.5.2",
+    date: "2026-09-30",
+    en: `Security hardening behind the scenes. Sign-in tokens without a unique identifier are no longer accepted, so every session can always be ended by signing out. Sign-in rate limits can no longer be sidestepped behind proxies that add their own forwarding header, and an invalid forwarded port no longer causes an error. Lockout and code-expiry settings now reject values that would silently switch them off. Server libraries with published security advisories were updated, and every change to the server's libraries is now checked against the advisory database automatically.`,
+    pl: `Zmiany techniczne wzmacniające bezpieczeństwo. Lettuce nie akceptuje już tokenów logowania bez unikalnego identyfikatora, więc każdą sesję zawsze można zakończyć wylogowaniem. Limitów prób logowania nie da się już obejść za serwerami proxy, które dodają własny nagłówek przekierowania, a nieprawidłowy przekazany port nie powoduje już błędu. Ustawienia blokady konta i ważności kodów odrzucają teraz wartości, które po cichu by je wyłączały. Zaktualizowaliśmy biblioteki serwera z opublikowanymi ostrzeżeniami bezpieczeństwa, a każda zmiana w bibliotekach serwera jest teraz automatycznie sprawdzana w bazie ostrzeżeń.`,
+  },
+  {
     version: "4.5.1",
     date: "2026-09-30",
     en: `Behind the scenes: Microsoft Teams notifications are now sent without tying up the server while Microsoft is slow or unreachable, so the rest of Lettuce, emails included, stays responsive during a Teams outage. The database driver and the build tooling were updated as well.`,

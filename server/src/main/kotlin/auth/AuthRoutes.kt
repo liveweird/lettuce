@@ -5,6 +5,8 @@ import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.TooManyRequestsException
 import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.infra.config.requireConfigInt
+import ch.nokillswit.infra.config.MAX_DURATION_SECONDS
+import ch.nokillswit.infra.config.optionalConfigInt
 import ch.nokillswit.infra.config.requireConfigLong
 import ch.nokillswit.infra.db.R2dbcDatabaseKey
 import ch.nokillswit.infra.mail.Mailer
@@ -101,6 +103,9 @@ data class LoginResponse(
     val language: String,
 )
 
+/** Ceiling for the configurable per-minute rate-limit buckets — far above any real need. */
+private const val MAX_RATE_LIMIT_PER_MINUTE = 100_000
+
 // The refresh rejection detail per audited reason — data beside the handler, not control flow
 // in it. Unlisted reasons fall through to the password-change wording (see the handler).
 private val REFRESH_REJECT_MESSAGES = mapOf(
@@ -150,7 +155,9 @@ fun Application.configureAuthRoutes() {
     val loginThrottle = LoginThrottle(
         database = database,
         threshold = requireConfigInt(environment.config, "security.lockout.threshold", min = 1),
-        lockoutMillis = requireConfigLong(environment.config, "security.lockout.durationSeconds", min = 1) * 1000,
+        lockoutMillis = requireConfigLong(
+            environment.config, "security.lockout.durationSeconds", min = 1, max = MAX_DURATION_SECONDS,
+        ) * 1000,
     )
 
     // Self-service password reset: one request per submitted email per interval, uniformly
@@ -159,14 +166,16 @@ fun Application.configureAuthRoutes() {
     val resetThrottle = PasswordResetThrottle(
         database = database,
         minIntervalMillis = requireConfigLong(
-            environment.config, "security.passwordReset.minIntervalSeconds", min = 1,
+            environment.config, "security.passwordReset.minIntervalSeconds", min = 1, max = MAX_DURATION_SECONDS,
         ) * 1000,
     )
     val mailAppUrl = mailAppUrl()
 
     // Email MFA (v2.4.0): pending challenges for MFA-enabled accounts mid-login. DB-backed
     // since V81, like the lockout above (a restart no longer invalidates a pending challenge).
-    val mfaTtlSeconds = requireConfigLong(environment.config, "security.mfa.codeTtlSeconds", min = 1)
+    val mfaTtlSeconds = requireConfigLong(
+        environment.config, "security.mfa.codeTtlSeconds", min = 1, max = MAX_DURATION_SECONDS,
+    )
     val mfaChallenges = MfaChallenges(
         database = database,
         ttlMillis = mfaTtlSeconds * 1000,
@@ -284,11 +293,10 @@ fun Application.configureAuthRoutes() {
     // Blank follows the mode (see application.yaml): production keeps the 10/min login bucket,
     // development lifts it so a single host driving many logins — the e2e suite — is not
     // throttled. The per-account lockout above is the brute-force defence in both modes.
-    val loginLimit = environment.config.propertyOrNull("security.rateLimit.loginPerMinute")
-        ?.getString()?.takeIf { it.isNotBlank() }?.toInt()
+    // Range-checked (v4.5.2): 0 or a negative value would answer every request 429.
+    val loginLimit = optionalConfigInt(environment.config, "security.rateLimit.loginPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE)
         ?: if (developmentMode) 1000 else 10
-    val integrationLimit = environment.config.propertyOrNull("integration.rateLimitPerMinute")
-        ?.getString()?.takeIf { it.isNotBlank() }?.toInt()
+    val integrationLimit = optionalConfigInt(environment.config, "integration.rateLimitPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE)
         ?: DEFAULT_INTEGRATION_RATE_LIMIT
 
     // Throttle login to blunt password brute-forcing, and refresh to blunt token abuse: a token
@@ -465,8 +473,12 @@ fun Application.configureAuthRoutes() {
                     reject("wrong_token_type")
                 }
                 val rawUserId = decoded.getClaim("userId").asLong()
-                val jti = decoded.id
-                if (jti != null && blocklist.isRevoked(jti)) {
+                // A refresh token without a jti could never be revoked by logout, and one without an
+                // exp would never expire (v4.5.2, the bearer-side rule in plugins/Security.kt) —
+                // Lettuce never mints either.
+                if (decoded.expiresAt == null) reject("malformed", rawUserId)
+                val jti = decoded.id ?: reject("malformed", rawUserId)
+                if (blocklist.isRevoked(jti)) {
                     reject("revoked", rawUserId)
                 }
                 val userId = rawUserId?.toUInt() ?: reject("malformed")

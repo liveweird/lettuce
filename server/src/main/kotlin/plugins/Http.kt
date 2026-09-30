@@ -9,6 +9,7 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.compression.*
 import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.plugins.forwardedheaders.*
+import io.ktor.server.plugins.mutableOriginConnectionPoint
 import io.ktor.server.plugins.hsts.*
 import io.ktor.server.plugins.httpsredirect.*
 import io.ktor.server.routing.*
@@ -48,6 +49,18 @@ fun Application.configureHttp() {
         val proxyHops = environment.config.propertyOrNull("http.proxyHops")?.getString()
             ?.takeIf { it.isNotBlank() }?.toInt() ?: 1
         require(proxyHops >= 1) { "http.proxyHops must be >= 1 (was $proxyHops)" }
+        // A proxy may APPEND its own X-Forwarded-For LINE rather than merge into the one the
+        // client sent (HAProxy's `option forwardedfor`), and XForwardedHeaders reads only the
+        // FIRST line (`Headers.get`) — the client's, so the rate-limit key would be spoofable.
+        // Fold every line ourselves and pick the trusted hop (v4.5.2, from the Flow handoff;
+        // RawForwardedForLinesTest pins it against real Netty — ktor-client folds repeated
+        // header() calls into one line, so testApplication cannot reproduce the wire shape).
+        // What keeps XForwardedHeaders from overwriting the result is its EMPTY forHeaders list
+        // below (it then never sets remoteHost) — not phase order: its CallSetup hook runs in
+        // the same Setup phase as this interceptor. Never restore the default forHeaders.
+        intercept(ApplicationCallPipeline.Setup) {
+            resolveForwardedForOrigin(call, proxyHops)
+        }
         install(XForwardedHeaders) {
             // Only the headers the proxy contract sets — and therefore overwrites. Ktor's defaults
             // also honour X-Forwarded-Server / X-Forwarded-Protocol / X-Forwarded-SSL /
@@ -58,11 +71,13 @@ fun Application.configureHttp() {
             protoHeaders.clear()
             protoHeaders.add(HttpHeaders.XForwardedProto)
             httpsFlagHeaders.clear()
-            // Ktor's default is useFirstProxy() — the FIRST X-Forwarded-For value, i.e. whatever
-            // the client sent when a proxy appends rather than replaces. Trust from the END: the
-            // value the last proxy wrote, or the one http.proxyHops-1 places before it
-            // (application.yaml explains the count; ForwardedHeadersTest pins it).
-            if (proxyHops == 1) useLastProxy() else skipLastProxies(proxyHops - 1)
+            // Nothing reads the forwarded port (the HTTPS redirect targets sslPort, the scheme
+            // comes from protoHeaders), and a client-supplied non-numeric value threw a
+            // NumberFormatException inside the plugin — a 500 before any route ran (v4.5.2).
+            portHeaders.clear()
+            // X-Forwarded-For is resolved by resolveForwardedForOrigin above; left empty so this
+            // plugin never overwrites that result with its own first-line-only read.
+            forHeaders.clear()
         }
     }
     install(Compression)
@@ -95,4 +110,29 @@ fun Application.configureHttp() {
             }
         }
     }
+}
+
+/**
+ * The trust-from-the-end X-Forwarded-For selection XForwardedHeaders' useLastProxy() /
+ * skipLastProxies() made (`http.proxyHops`: 1 trusts the value the last proxy wrote, N skips the
+ * N-1 addresses trusted proxies appended after the client's — ForwardedHeadersTest), but over
+ * EVERY X-Forwarded-For header line (`getAll`, joined in the order received — RFC 9110 §5.3), so
+ * a line a trusted proxy appended is never shadowed by a client line of the same name. With fewer
+ * values than hops it falls back to the last one (the value closest to us, never the client's).
+ * Writes the call's mutable origin — what the rate limiter reads as
+ * `call.request.origin.remoteHost`.
+ */
+private fun resolveForwardedForOrigin(call: ApplicationCall, proxyHops: Int) {
+    val hops = call.request.headers.getAll(HttpHeaders.XForwardedFor)
+        ?.flatMap { it.split(',') }
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.takeIf { it.isNotEmpty() }
+        ?: return
+    val chosen = hops.getOrNull(hops.size - proxyHops) ?: hops.last()
+    val origin = call.mutableOriginConnectionPoint
+    origin.remoteHost = chosen
+    // Ktor's own resolution sets remoteAddress too, but only for a value that looks like an IP
+    // (no letters, or an IPv6 literal, which always contains ':'); its helper is internal.
+    if (chosen.contains(':') || chosen.none { it.isLetter() }) origin.remoteAddress = chosen
 }

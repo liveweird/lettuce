@@ -15,6 +15,7 @@ The current indexes include both `linux/amd64` and `linux/arm64` images.
 | PostgreSQL 18.4 Alpine 3.24 | `docker-compose.yaml`, `k8s/postgres-deployment.yaml`, `server/src/test/kotlin/PostgresTestSupport.kt` |
 | Mailpit 1.31.2 | `docker-compose.yaml` |
 | WireMock 3.13.2 (the local Teams stub, v4.5.0) | `docker-compose.yaml` |
+| Trivy 0.74.0 (the CI dependency scan, v4.5.2) | `.github/workflows/quality.yml` |
 
 Initial registry verification: 2026-09-06. PostgreSQL and Mailpit preserve the images
 already running in the development stack. Their exact version tags were checked
@@ -38,6 +39,10 @@ image; 3.13.2 is the newest stable — the 4.x line is still beta) joined as the
 `teams-stub` service, the local stand-in for Microsoft Teams. Its index
 `sha256:0d4ecb3e…61b3` carries linux/amd64, linux/arm64 and linux/arm/v7 images. It runs in
 the local stack only; no deployed environment uses it.
+
+Addition record: 2026-09-30. Trivy 0.74.0 (`ghcr.io/aquasecurity/trivy`, the official image,
+`sha256:62b1e65e…1969` — the same pin Flow's CI uses) joined as the **Dependency scan** CI job's
+scanner. It runs in CI only, over copies of the lockfiles; nothing it produces ships.
 
 ## Updating a pin
 

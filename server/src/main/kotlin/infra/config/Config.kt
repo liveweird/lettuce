@@ -31,5 +31,27 @@ fun requireConfigLong(config: ApplicationConfig, key: String, min: Long, max: Lo
     return value
 }
 
+/**
+ * The [requireConfigInt] sibling for a setting whose BLANK value means "use the default" (the
+ * mode-following rate limits): null when missing or blank, otherwise range-checked the same way.
+ */
+fun optionalConfigInt(config: ApplicationConfig, key: String, min: Int, max: Int): Int? {
+    val raw = config.propertyOrNull(key)?.getString()?.takeIf { it.isNotBlank() } ?: return null
+    val value = raw.toIntOrNull()
+    if (value == null || value < min || value > max) {
+        error("Config \"$key\" must be an integer ${bounds(min.toLong(), max.toLong(), Int.MAX_VALUE.toLong())} (was \"$raw\")")
+    }
+    return value
+}
+
+/**
+ * The ceiling on every seconds-valued security window and token lifetime (the login lockout, the
+ * password-reset interval, the MFA code TTL, the refresh-token TTL): 30 days. Each is multiplied
+ * into milliseconds, so an unbounded value near Long.MAX_VALUE overflowed — negative silently
+ * disabled a window, positive made a token effectively never expire (v4.5.2, the Flow handoff and
+ * its review). Nothing legitimate is anywhere near it.
+ */
+const val MAX_DURATION_SECONDS = 30L * 24 * 3600
+
 private fun bounds(min: Long, max: Long, unbounded: Long): String =
     if (max == unbounded) ">= $min" else "between $min and $max"
