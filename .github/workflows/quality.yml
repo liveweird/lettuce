@@ -134,3 +134,55 @@ jobs:
       - name: Check spec and scenario pairing
         working-directory: e2e
         run: npm run check:scenarios
+
+  dependency-scan:
+    name: Dependency scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Trivy over every Gradle lockfile - the runtime, test, build-tool and plugin classpaths
+      # (the three buildscript lockfiles) - failing on any HIGH or CRITICAL advisory. The
+      # advisory database is fetched at run time, so a newly published advisory can turn this
+      # job red with no code change: that is the point (see "Automatic CI gates" in
+      # .claude/docs/testing.md). The image is pinned by digest like every other container.
+      - name: Scan Gradle lockfiles
+        run: |
+          mkdir -p "$RUNNER_TEMP/gradle-locks/core" "$RUNNER_TEMP/gradle-locks/server" "$RUNNER_TEMP/trivy-cache"
+          cp gradle.lockfile settings-gradle.lockfile buildscript-gradle.lockfile "$RUNNER_TEMP/gradle-locks/"
+          cp core/gradle.lockfile core/buildscript-gradle.lockfile "$RUNNER_TEMP/gradle-locks/core/"
+          cp server/gradle.lockfile server/buildscript-gradle.lockfile "$RUNNER_TEMP/gradle-locks/server/"
+          docker run --rm \
+            -v "$RUNNER_TEMP/gradle-locks:/scan:ro" \
+            -v "$RUNNER_TEMP/trivy-cache:/cache" \
+            -v "$RUNNER_TEMP:/out" \
+            ghcr.io/aquasecurity/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+            fs --scanners vuln --include-dev-deps --format json \
+            --output /out/gradle-vulnerabilities.json --cache-dir /cache --no-progress /scan
+          python3 - <<'PY'
+          import collections
+          import json
+          import os
+
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "gradle-vulnerabilities.json")) as report:
+              results = json.load(report).get("Results") or []
+          found = [
+              (vulnerability["Severity"], vulnerability["VulnerabilityID"], vulnerability["PkgName"],
+               vulnerability["InstalledVersion"], result["Target"])
+              for result in results
+              for vulnerability in result.get("Vulnerabilities") or []
+          ]
+          print("Gradle dependency advisories:", dict(collections.Counter(row[0] for row in found)))
+          for row in sorted(set(found)):
+              print("  " + " ".join(row))
+          if any(row[0] in ("HIGH", "CRITICAL") for row in found):
+              raise SystemExit("HIGH or CRITICAL Gradle dependency advisory")
+          PY
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: gradle-vulnerabilities
+          path: ${{ runner.temp }}/gradle-vulnerabilities.json
+          retention-days: 7

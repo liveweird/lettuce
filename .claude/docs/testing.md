@@ -23,13 +23,21 @@ commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/de
   `npm run gen:api` and a clean-diff assertion for `web/src/api/schema.ts`.
 - **E2E source:** a lockfile install followed by `npm run typecheck` and
   `npm run check:scenarios`.
+- **Dependency scan** (v4.5.2): Trivy 0.74.0 (digest-pinned) over every Gradle lockfile —
+  runtime, test, build-tool and the three plugin-classpath `buildscript-gradle.lockfile`s —
+  failing on any HIGH or CRITICAL advisory, with the JSON report uploaded as an artifact. The
+  advisory database is fetched at run time, so a newly published advisory can turn the job red
+  with no code change: fix it the v4.5.2 way (a version floor — see "Advisory floors" in
+  `.claude/docs/dependency-reproducibility.md`), never by weakening the gate. Local twin: the same
+  `docker run` over copies of the lockfiles (the job's script).
 
 The full Playwright browser journey remains an on-demand, manual workflow in
 `.github/workflows/e2e.yml`; the pull-request gate checks its TypeScript and spec/scenario pairing
 without starting the stack or downloading Chromium. The stable quality job IDs and display names
 for required-check rules are `backend` (**Backend**), `web` (**Web**), `api-contract`
-(**API contract**), and `e2e-static` (**E2E source**). Since 2026-09-06, the active
-repository ruleset requires all four checks from the GitHub Actions app on `master`,
+(**API contract**), `e2e-static` (**E2E source**), and — since v4.5.2 — `dependency-scan`
+(**Dependency scan**; required only once the ruleset lists it, a GitHub setting). Since
+2026-09-06, the active repository ruleset requires the first four checks from the GitHub Actions app on `master`,
 with strict up-to-date checking. Existing PR, deletion, and non-fast-forward protections
 remain in place, with no bypass actors. These settings live in GitHub, separately from
 the workflow file; preserve the check names when editing the workflow. **The browser e2e suite is
