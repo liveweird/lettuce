@@ -48,6 +48,37 @@ does not cover locally produced project artifacts, changing modules such as snap
 distribution, or downloaded Java toolchains. The wrapper distribution has its own SHA-256 pin in
 `gradle/wrapper/gradle-wrapper.properties`; CI supplies JDK 21 separately.
 
+## Advisory floors and the dependency scan
+
+The **Dependency scan** CI job (v4.5.2, see "Automatic CI gates" in `.claude/docs/testing.md`)
+runs Trivy over every lockfile and fails on HIGH/CRITICAL advisories. A flagged module that the
+build only reaches transitively gets a **version floor**, never a gate exception: a platform or
+`constraints` entry in `server/build.gradle.kts` for the runtime/test classpaths (the
+`jackson-bom`/`scram` catalog lines, with their comment naming the advisory), or a literal
+`buildscript` constraint for the plugin classpath (the Ktor plugin's Jackson, plexus-utils and
+log4j). Then regenerate as below.
+
+Two traps the first round (2026-09-30) hit:
+
+- **Write verification metadata from an EMPTY `GRADLE_USER_HOME`, not the warm cache.** The warm
+  run missed four parent POMs (`jackson-base`, `jackson-modules-java8`, `log4j`, `log4j-bom`) that
+  a clean resolution needs — CI and the Docker build would have failed. Run
+  `GRADLE_USER_HOME=$(mktemp -d) ./gradlew --dependency-verification strict resolveAndLockAll --write-locks buildEnvironment :core:buildEnvironment :server:buildEnvironment`
+  (pass `-Porg.gradle.java.installations.paths=<local JDK 21>` to skip the toolchain download)
+  and fix what it reports. Gradle's writer does not record the two log4j parent POMs of the
+  plugin classpath at all, so those entries are hand-added (their `origin` says how they were
+  verified).
+- **Derive a prune from that clean run too**: remove only entries a clean resolution never
+  downloads, then re-run the same strict command in that home. Parent and imported-BOM POMs never
+  appear in lockfiles, so "not in any lockfile" is not a prune criterion.
+
+**Provenance of new checksums** (step 3 below): the publisher's PGP signature is the independent
+check. Without a local gpg, `uv run --python 3.12` with `pgpy` works: download the artifact and
+its `.asc` from Maven Central, fetch the signing key BY FINGERPRINT from keys.openpgp.org (not
+from Maven Central), verify, and compare the file's SHA-256 with the metadata. For keys without a
+published user id, cross-check the key id against the project's own `KEYS` file (Apache) or
+signing continuity with the previously trusted release.
+
 ## Routine builds
 
 Normal commands enforce both controls without extra flags:

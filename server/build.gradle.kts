@@ -11,6 +11,20 @@ buildscript {
             classpath("org.apache.commons:commons-lang3") {
                 version { strictly("3.20.0") }
             }
+            // Advisory floors for the same plugin's Jib/Shadow integrations (build-time only):
+            // jackson 2.21.1 (CVE-2026-68497 and the 2.21.x RCE pair) and plexus-utils 4.0.2
+            // (CVE-2025-67030, directory traversal in extractFile). Literals, not the catalog: the
+            // buildscript block is evaluated before `libs` exists. Keep jackson in step with the
+            // `jackson-bom` catalog line.
+            classpath("com.fasterxml.jackson.core:jackson-databind:2.22.2")
+            classpath("com.fasterxml.jackson.core:jackson-core:2.22.2")
+            classpath("com.fasterxml.jackson.core:jackson-annotations:2.22")
+            classpath("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.2")
+            classpath("org.codehaus.plexus:plexus-utils:4.0.3")
+            // MEDIUM only (below the scan's gate), cleared anyway so the report starts at zero:
+            // log4j 2.25.1 (CVE-2025-68161, CVE-2026-34477/-34478/-34480, CVE-2026-49844).
+            classpath("org.apache.logging.log4j:log4j-core:2.25.5")
+            classpath("org.apache.logging.log4j:log4j-api:2.25.5")
         }
     }
 }
@@ -124,6 +138,13 @@ dependencies {
     // checkDependencyAlignment below.
     implementation(platform(libs.netty.bom))
     implementation(libs.reactor.netty.core)
+    // Advisory floors — see the `jackson-bom`/`scram` comment in gradle/libs.versions.toml. Both
+    // families arrive transitively only; the platform/constraints raise them to the fixed versions.
+    implementation(platform(libs.jackson.bom))
+    constraints {
+        implementation(libs.scram.client) { because("CVE-2026-53712 (r2dbc-postgresql pulls 3.2)") }
+        implementation(libs.scram.common) { because("CVE-2026-53712 (r2dbc-postgresql pulls 3.2)") }
+    }
     // kotlin-reflect rides in transitively (Ktor loads the config modules through it) at whatever
     // version Ktor/Exposed were built with; declaring it lets the Kotlin plugin align it with the
     // stdlib (2026-09-04: 2.3.21 under a 2.4.10 stdlib — readable only because metadata stays

@@ -42,6 +42,14 @@ r2dbc-pool = "1.0.2.RELEASE"
 # moves reactor-netty, so keep it in step with the `netty` pin above (read reactor-netty's Netty
 # version off its published pom).
 reactor-bom = "2025.0.7"
+# Advisory floors (v4.5.2, the Trivy lockfile scan's first run). Nothing here declares Jackson or
+# SCRAM directly: java-jwt / jwks-rsa (the JWT verifier - it parses every bearer token) bring
+# jackson-databind, and r2dbc-postgresql brings the SCRAM client. The platform/constraints in
+# server/build.gradle.kts hold them at or above the fixed versions: jackson 2.22.2
+# (CVE-2026-68497, CPU denial of service in databind; also the 2.21.x RCE pair on the test
+# classpath) and scram 3.3 (CVE-2026-53712, authentication downgrade via TLS channel binding).
+jackson-bom = "2.22.2"
+scram = "3.3"
 swagger-request-validator = "3.0.0"
 testcontainers = "2.0.5"
 
@@ -66,6 +74,9 @@ postgresql = { module = "org.postgresql:postgresql", version = "42.7.13" }
 r2dbc-pool = { module = "io.r2dbc:r2dbc-pool", version.ref = "r2dbc-pool" }
 r2dbc-postgresql = { module = "org.postgresql:r2dbc-postgresql", version.ref = "r2dbc-postgresql" }
 reactor-bom = { module = "io.projectreactor:reactor-bom", version.ref = "reactor-bom" }
+jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson-bom" }
+scram-client = { module = "com.ongres.scram:scram-client", version.ref = "scram" }
+scram-common = { module = "com.ongres.scram:scram-common", version.ref = "scram" }
 reactor-netty-core = { module = "io.projectreactor.netty:reactor-netty-core" }
 reactor-pool = { module = "io.projectreactor.addons:reactor-pool" }
 swagger-request-validator-core = { module = "com.atlassian.oai:openapi-request-validator-core", version.ref = "swagger-request-validator" }
