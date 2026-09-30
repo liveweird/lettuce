@@ -119,9 +119,11 @@ Done by the Microsoft 365 / Entra administrator, once per tenant:
   production the three base URLs must equal Microsoft's public-cloud defaults** — the client secret
   is posted to the login URL, so an overridden URL would hand it to whoever runs that host.
   Overrides exist for the local stub only.
-- Only outbound HTTPS to Microsoft; no inbound endpoint. Requests time out
-  (`teams.requestTimeoutSeconds`, default 10) and a 429 is retried once after `Retry-After`
-  (capped at 10 s).
+- Only outbound HTTPS to Microsoft; no inbound endpoint. Each request must complete — headers
+  AND body — within `teams.requestTimeoutSeconds` (default 10; since v4.5.1 the bound covers the
+  whole exchange, so a peer dripping the body cannot hold a connection open), and a 429 is retried
+  once after `Retry-After` (capped at 10 s). Requests are non-blocking (`sendAsync`, v4.5.1): an
+  outage parks no server thread, and a cancelled or timed-out request aborts its connection.
 - Logs carry the failing step, the HTTP status, the recognized Teams sub-code and the Lettuce
   user id — **never the secret, a token, or a response body**. Response bodies are read up to
   64 KiB; redirects are never followed (the JDK `HttpClient` default), so a redirect from the
