@@ -14,6 +14,7 @@ import {
   createTheme,
   rem,
   type MantineColorsTuple, InputWrapper } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import classes from "./theme.module.css";
 import { foldedOptionsFilter } from "./utils/text";
 
@@ -125,6 +126,9 @@ export const theme = createTheme({
     }),
     Tabs: Tabs.extend({ classNames: { tab: classes.tab } }),
     Tooltip: Tooltip.extend({ defaultProps: { radius: "md", openDelay: 300 } }),
+    // Every date picker's calendar marks today (v4.7.0 — the same "where am I" cue as the
+    // days-off month grid's today column).
+    DateInput: DateInput.extend({ defaultProps: { highlightToday: true } }),
     // Every input renders label → input → description → error (v3.5.0): hints and errors
     // sit UNDER the control, so sibling fields in a row stay level whatever their hints.
     // The 17 per-site inputWrapperOrder props this replaced are gone — never re-add one.

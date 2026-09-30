@@ -1,7 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "../test/render";
 import DaysOffMonthGrid from "./DaysOffMonthGrid";
+import classes from "./DaysOffMonthGrid.module.css";
 import type { DaysOffCalendarResponse } from "../api/daysoff";
 
 const DATA: DaysOffCalendarResponse = {
@@ -86,5 +87,54 @@ describe("DaysOffMonthGrid", () => {
     renderWithProviders(<DaysOffMonthGrid data={DATA} />);
     expect(screen.getByText("Alice Example")).toBeInTheDocument();
     expect(screen.queryByText("AAA")).toBeNull();
+  });
+
+  describe("today (v4.7.0)", () => {
+    afterEach(() => vi.useRealTimers());
+    // Local noon, so the viewer's local date is unambiguous in any test time zone.
+    const setToday = (iso: string) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(`${iso}T12:00:00`));
+    };
+
+    test("marks today's header (aria-current + tooltip) and edges its column, without hiding an entry", () => {
+      setToday("2026-01-07");
+      renderWithProviders(<DaysOffMonthGrid data={DATA} />);
+
+      const headers = screen.getAllByRole("columnheader");
+      const todayHeader = headers[7]; // 0 = the person column
+      expect(todayHeader).toHaveAttribute("aria-current", "date");
+      expect(todayHeader).toHaveAttribute("title", "Today");
+      expect(todayHeader).toHaveClass(classes.todayHeader);
+      expect(headers.filter((h) => h.getAttribute("aria-current") === "date")).toHaveLength(1);
+
+      // Every body cell in today's column carries the edge-line class; Alice's full PAID day on
+      // the 7th still renders its fill inside it — the marker never replaces the entry.
+      const [aliceRow, bobRow] = screen.getAllByRole("row").slice(1);
+      const aliceToday = aliceRow.querySelectorAll("td")[6];
+      const bobToday = bobRow.querySelectorAll("td")[6];
+      expect(aliceToday).toHaveClass(classes.todayColumn);
+      expect(bobToday).toHaveClass(classes.todayColumn);
+      expect(aliceToday.querySelector(`.${classes.paid}`)).not.toBeNull();
+      expect(aliceRow.querySelectorAll(`.${classes.todayColumn}`)).toHaveLength(1);
+
+      expect(screen.getByText("Today")).toBeInTheDocument(); // the legend swatch
+    });
+
+    test("today on a public holiday names both in the header tooltip and keeps the holiday tint", () => {
+      setToday("2026-01-06");
+      renderWithProviders(<DaysOffMonthGrid data={DATA} />);
+      const todayHeader = screen.getAllByRole("columnheader")[6];
+      expect(todayHeader).toHaveAttribute("title", "Today · Epiphany");
+      expect(todayHeader).toHaveClass(classes.holidayDay);
+    });
+
+    test("a month that does not contain today marks nothing and shows no Today legend", () => {
+      setToday("2026-02-10");
+      renderWithProviders(<DaysOffMonthGrid data={DATA} />);
+      expect(screen.getAllByRole("columnheader").some((h) => h.hasAttribute("aria-current"))).toBe(false);
+      expect(document.querySelectorAll(`.${classes.todayColumn}`)).toHaveLength(0);
+      expect(screen.queryByText("Today")).toBeNull();
+    });
   });
 });

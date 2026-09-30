@@ -83,4 +83,21 @@ describe("DateField", () => {
     fireEvent.change(input, { target: { value: "2026-02-28" } });
     expect(onChange).toHaveBeenLastCalledWith("2026-02-28");
   });
+
+  test("the calendar marks today (the theme's highlightToday default, v4.7.0)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-15T12:00:00"));
+    try {
+      const user = userEvent.setup();
+      renderWithProviders(<DateField label="Start" value="" onChange={vi.fn()} />);
+      await user.click(screen.getByRole("textbox", { name: "Start" }));
+      // Mantine stamps data-today on today whatever the setting; the HIGHLIGHT (the visible
+      // mark) is data-highlight-today, set only while highlightToday is on.
+      const today = await screen.findByRole("button", { name: "15 January 2026" });
+      expect(today).toHaveAttribute("data-today");
+      expect(today).toHaveAttribute("data-highlight-today");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

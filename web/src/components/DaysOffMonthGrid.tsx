@@ -2,6 +2,7 @@ import { Group, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import type { DaysOffCalendarEntry, DaysOffCalendarResponse } from "../api/daysoff";
 import { getUserId } from "../api/session";
+import { todayIsoDate } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
 import classes from "./DaysOffMonthGrid.module.css";
 
@@ -49,6 +50,8 @@ function LegendItem({ swatch, label }: { swatch: string; label: string }) {
  * descriptions; hand-rolled — no calendar dependency. `showTeams` (v3.13.0, the managed scope
  * only — a widened chain view says where each report sits) renders a dimmed team-name line
  * under a row's name, mirroring the person-picker subtitle idiom; never on the caller's own row.
+ * Today's column (v4.7.0) is marked in its header (accent + aria-current) and with thin inset
+ * edge lines down the column — never a fill, so an entry on today reads like any other day.
  */
 export default function DaysOffMonthGrid({
   data,
@@ -61,6 +64,12 @@ export default function DaysOffMonthGrid({
   const currentUserId = getUserId();
   const dates = monthDates(data.month);
   const holidayNames = new Map(data.holidays.map((h) => [h.date, h.name]));
+  // Today (the viewer's local date, v4.7.0): the header cell carries the accent and
+  // aria-current, every body cell a thin inset edge line — never a fill, so who is off stays
+  // exactly as readable as on any other day. Only when the shown month contains it.
+  const today = todayIsoDate();
+  const showsToday = dates.includes(today);
+  const todayClass = (iso: string, className: string) => (iso === today ? ` ${className}` : "");
   const weekdayInitial = (iso: string) =>
     new Intl.DateTimeFormat(i18n.language, { weekday: "narrow", timeZone: "UTC" }).format(
       new Date(`${iso}T00:00:00Z`),
@@ -85,12 +94,15 @@ export default function DaysOffMonthGrid({
             </th>
             {dates.map((iso) => {
               const holiday = holidayNames.get(iso);
+              const isToday = iso === today;
+              const todayLabel = t("daysOff.calendar.today");
               return (
                 <th
                   key={iso}
                   scope="col"
-                  className={`${classes.dayHeader}${offDayClass(holiday != null, isWeekend(iso))}`}
-                  title={holiday ?? undefined}
+                  className={`${classes.dayHeader}${offDayClass(holiday != null, isWeekend(iso))}${todayClass(iso, classes.todayHeader)}`}
+                  title={isToday ? [todayLabel, holiday].filter(Boolean).join(" · ") : (holiday ?? undefined)}
+                  aria-current={isToday ? "date" : undefined}
                 >
                   {Number(iso.slice(8))}
                   <br />
@@ -125,7 +137,7 @@ export default function DaysOffMonthGrid({
                   return (
                     <td
                       key={iso}
-                      className={`${classes.dayCell}${offDayClass(holidayNames.has(iso), isWeekend(iso))}`}
+                      className={`${classes.dayCell}${offDayClass(holidayNames.has(iso), isWeekend(iso))}${todayClass(iso, classes.todayColumn)}`}
                       title={
                         entry
                           ? t("daysOff.calendar.cellTitle", {
@@ -153,6 +165,7 @@ export default function DaysOffMonthGrid({
         <LegendItem swatch={classes.unpaid} label={t("daysOff.calendar.legendUnpaid")} />
         <LegendItem swatch={classes.weekendDay} label={t("daysOff.calendar.legendWeekend")} />
         <LegendItem swatch={classes.holidayDay} label={t("daysOff.calendar.legendHoliday")} />
+        {showsToday && <LegendItem swatch={classes.todaySwatch} label={t("daysOff.calendar.today")} />}
       </Group>
     </div>
   );

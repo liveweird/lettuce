@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.7.0",
+    date: "2026-09-30",
+    en: `The days-off calendar now shows which day is today: today's column header is highlighted and thin lines run down the column, while every day off in it stays exactly as visible as on any other day. The legend explains the mark, and hovering the header says "Today". The date pickers' calendars highlight today too.`,
+    pl: `Kalendarz dni wolnych pokazuje teraz, który dzień jest dzisiaj: nagłówek dzisiejszej kolumny jest wyróżniony, a wzdłuż kolumny biegną cienkie linie, przy czym każdy dzień wolny w tej kolumnie jest tak samo dobrze widoczny jak w każdy inny dzień. Legenda objaśnia to oznaczenie, a po najechaniu na nagłówek pojawia się podpowiedź "Dzisiaj". Kalendarze w polach wyboru daty także wyróżniają dzisiejszy dzień.`,
+  },
+  {
     version: "4.6.0",
     date: "2026-09-30",
     en: `"Back" and "Cancel" now take you back to where you actually came from. Open a person from a list, a dashboard tab or a team page, or a team from a badge, the org chart or My teams, and the "Back to ..." link returns you to that same page, on the same tab, and names it, instead of dropping you on a default list. Team pages remember their own origin too, so going from the org chart or My teams to a team, then to a person, a feedback list or the team's KPIs, and back again retraces every step. "Cancel" on a new feedback, goal, 1:1, impact log entry, succession plan, team KPI or days off screen returns you to the tab you clicked "New" from, and "Provide feedback" on the Users list returns you to Users. An existing feedback opened from a duplicate warning now returns you to where you were before you started filling in the form. Links that try to send you to another website are ignored, as before, and now also in several more disguised forms.`,

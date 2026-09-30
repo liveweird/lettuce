@@ -93,3 +93,27 @@
   border-radius: 3px;
   vertical-align: middle;
 }
+
+/* Today (v4.7.0): the header cell takes the brand accent (contrast text, bold date); the body
+   cells get a 2px inset edge line on both sides. An inset box-shadow paints UNDER the cell's
+   content, so an entry's fill stays fully on top and weekend/holiday tints are unchanged — the
+   marker never hides who is off. The legend swatch shows the same edge lines. */
+.todayHeader {
+  background: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-contrast);
+  font-weight: 700;
+  border-radius: 4px 4px 0 0;
+}
+
+.todayColumn {
+  box-shadow:
+    inset 2px 0 0 var(--mantine-primary-color-filled),
+    inset -2px 0 0 var(--mantine-primary-color-filled);
+}
+
+.todaySwatch {
+  box-shadow:
+    inset 2px 0 0 var(--mantine-primary-color-filled),
+    inset -2px 0 0 var(--mantine-primary-color-filled);
+  border-top: 3px solid var(--mantine-primary-color-filled);
+}
