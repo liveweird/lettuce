@@ -25,8 +25,8 @@
 3. The admin opens the subordinate's user edit form.
    - *Expected*: the form has **no** career fields anymore (v2.15.0) — no Career path picker;
      career data is not an admin write.
-4. The admin signs out; the manager signs in and drills into the subordinate's career from the
-   dashboard's subordinates card ("Career progression of …").
+4. The admin signs out; the manager signs in, opens the subordinate card's **More actions** menu,
+   and chooses "Career progression of …".
    - *Expected*: the career progression screen opens with "No positions recorded yet."
 5. The manager starts the first position: start date 2024-01-01, the throwaway career-path entry
    (searched for in the picker — the shared dictionary's list is long), plus the first available
@@ -74,8 +74,8 @@
       the pyramid tab is requested directly by URL.
 18. Still as the subordinate, they open the dashboard's managers tab and then try the manager's
     timeline URL directly (v2.25.0 — seniority privacy).
-    - *Expected*: the manager's card offers **no** "Career progression of …" link, and the direct
-      URL shows "Could not load the career progression." — the server refuses a read outside
+    - *Expected*: the manager's card's **More actions** menu offers no "Career progression of …"
+      item, and the direct URL shows "Could not load the career progression." — the server refuses a read outside
       self/chain/HR.
 19. The subordinate signs out; the admin signs back in and **renames** the throwaway
     career-paths entry in the dictionary editor.

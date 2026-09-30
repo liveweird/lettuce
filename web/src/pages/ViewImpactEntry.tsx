@@ -1,5 +1,5 @@
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Paper, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Button, Container, Stack, Tabs, Text } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ import ImpactEntrySections from "../components/ImpactEntrySections";
 import MetaStrip, { type MetaStripItem } from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
+import RecordLayout from "../components/RecordLayout";
 import { formatIsoDateRange } from "../utils/datetime";
 import { impactEntryEditLink } from "../utils/impactLogLinks";
 import { safeBackParam } from "../utils/url";
@@ -114,7 +115,10 @@ export default function ViewImpactEntry() {
       />
 
       <Container size="md" px={0} w="100%">
-        <Paper withBorder radius="md" p="md">
+        <RecordLayout
+          metadataPlacement="aside"
+          metadata={data ? <MetaStrip items={metaItems} /> : undefined}
+        >
           {isLoading ? (
             <CenteredLoader />
           ) : isError ? (
@@ -122,10 +126,7 @@ export default function ViewImpactEntry() {
               {errorMessage}
             </Alert>
           ) : data ? (
-            <Stack gap="md">
-              <MetaStrip items={metaItems} />
-
-              <Tabs defaultValue="content" keepMounted={false}>
+            <Tabs defaultValue="content" keepMounted={false}>
                 <Tabs.List>
                   <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                   <Tabs.Tab value="history">{t("impactLog.history")}</Tabs.Tab>
@@ -138,10 +139,9 @@ export default function ViewImpactEntry() {
                 <Tabs.Panel value="history" pt="md">
                   <ImpactLogHistory entryId={id} />
                 </Tabs.Panel>
-              </Tabs>
-            </Stack>
+            </Tabs>
           ) : null}
-        </Paper>
+        </RecordLayout>
       </Container>
     </Stack>
   );

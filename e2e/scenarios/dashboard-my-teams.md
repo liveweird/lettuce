@@ -5,21 +5,23 @@
 - **Owns** (exclusive server-side state): nothing — read-only; no data is created or mutated, so
   seeded accounts are untouched
 - **Since**: v1.20.0 (the My teams tab), reshaped v2.5.5 (the adaptive team-details page with the
-  per-team subordinates grid), v1.51.0 (New 1:1 lives in the card's 1:1 dropdown)
+  per-team subordinates grid), v1.51.0 (New 1:1 lives in the card's 1:1 dropdown), v5.0.0
+  (labelled footer topic menus plus More actions)
 
 ## Scenario: a manager walks My teams into the team view and a drill-down round-trips back
 
 1. Manager AAA signs in and opens the Dashboard's "My teams" tab.
-   - *Expected*: team AAA is listed; team CCC is not — the tab shows only the teams the caller
-     *manages* (Manager AAA manages exactly AAA and is a mere member of CCC).
+   - *Expected*: the Name search is always visible without a Filters toggle; team AAA is listed
+     and team CCC is not — the tab shows only the teams the caller *manages* (Manager AAA manages
+     exactly AAA and is a mere member of CCC).
 2. They click the team name "AAA".
    - *Expected*: the adaptive team-details page opens ("Team details" heading, the team name
      AAA) and, because the caller is a manager, they land on the "Subordinates" card grid pinned
      to that team.
 3. They look at a subordinate's card (AAA Three).
    - *Expected*: the same person cards as My subordinates — the stats block (e.g. "Last 1:1") is
-     present, and the card's 1:1 actions menu offers "New 1:1 with AAA Three".
-4. They open the Goals drill-down for AAA Three.
+     present, and the card footer's labelled 1:1 meetings menu offers "New 1:1 with AAA Three".
+4. They open **More actions** and choose the Goals drill-down for AAA Three.
    - *Expected*: the per-user goals page opens.
 5. They use the "Back to Team subordinates" link.
    - *Expected*: they return to the team-details subordinates grid — the drill-down carries the

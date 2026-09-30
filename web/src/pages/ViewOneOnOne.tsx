@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Container,
-  Paper,
   Stack,
   Tabs,
   Text,
@@ -26,6 +25,7 @@ import MetaStrip from "../components/MetaStrip";
 import OneOnOneHistory from "../components/OneOnOneHistory";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
+import RecordLayout from "../components/RecordLayout";
 import StatusPill from "../components/StatusPill";
 import { formatIsoDate } from "../utils/datetime";
 import { safeBackParam } from "../utils/url";
@@ -89,15 +89,9 @@ export default function ViewOneOnOne() {
       />
 
       <Container size="md" px={0} w="100%">
-        <Paper withBorder radius="md" p="md">
-          {isLoading ? (
-            <CenteredLoader />
-          ) : isError ? (
-            <Alert color="red" variant="light">
-              {errorMessage}
-            </Alert>
-          ) : data ? (
-            <Stack gap="md">
+        <RecordLayout
+          metadata={
+            data ? (
               <MetaStrip
                 items={[
                   {
@@ -108,9 +102,7 @@ export default function ViewOneOnOne() {
                   {
                     key: "subordinate",
                     label: t("oneOnOne.subordinate"),
-                    value: (
-                      <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />
-                    ),
+                    value: <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />,
                   },
                   {
                     key: "date",
@@ -119,7 +111,17 @@ export default function ViewOneOnOne() {
                   },
                 ]}
               />
-
+            ) : undefined
+          }
+        >
+          {isLoading ? (
+            <CenteredLoader />
+          ) : isError ? (
+            <Alert color="red" variant="light">
+              {errorMessage}
+            </Alert>
+          ) : data ? (
+            <Stack gap="md">
               <Tabs defaultValue="content" keepMounted={false}>
                 <Tabs.List>
                   <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
@@ -228,7 +230,7 @@ export default function ViewOneOnOne() {
               />
             </Stack>
           ) : null}
-        </Paper>
+        </RecordLayout>
       </Container>
     </Stack>
   );

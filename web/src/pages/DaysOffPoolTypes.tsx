@@ -11,6 +11,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Title,
 } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { IconArchive, IconPencil, IconPlus, IconStack2 } from "@tabler/icons-react";
@@ -29,6 +30,7 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
+import ListSurface from "../components/ListSurface";
 import RowActions from "../components/RowActions";
 import StatusPill from "../components/StatusPill";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -190,6 +192,9 @@ export default function DaysOffPoolTypes() {
       {admin && (
         <Paper withBorder p="md" radius="md">
           <Stack gap="sm">
+            <Title order={3} size="h4">
+              {t("daysOff.pool.addType")}
+            </Title>
             <Group align="flex-end" gap="md" wrap="wrap">
               <TextInput
                 label={t("daysOff.pool.name")}
@@ -233,6 +238,7 @@ export default function DaysOffPoolTypes() {
         </Alert>
       )}
 
+      <ListSurface>
       <ResponsiveTable density="compact">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -303,6 +309,7 @@ export default function DaysOffPoolTypes() {
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
+      </ListSurface>
 
       {/* Keyed on the kind so the modal's local draft resets per row. */}
       {editing && <EditPoolTypeModal key={editing.id} kind={editing} onClose={() => setEditing(null)} />}

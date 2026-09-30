@@ -9,8 +9,28 @@
   position: sticky;
   bottom: 0;
   z-index: 2;
-  margin-inline: calc(-1 * var(--mantine-spacing-xl));
-  padding: var(--mantine-spacing-sm) var(--mantine-spacing-xl);
+  margin-inline: calc(-1 * var(--form-surface-padding, var(--mantine-spacing-xl)));
+  margin-bottom: calc(-1 * var(--form-surface-padding, 0px));
+  padding: var(--mantine-spacing-sm) var(--form-surface-padding, var(--mantine-spacing-xl));
   background-color: color-mix(in srgb, var(--lettuce-surface) 94%, transparent);
   backdrop-filter: blur(8px);
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .actions,
+  .actions > :global(.mantine-Group-root) {
+    width: 100%;
+    gap: var(--mantine-spacing-xs);
+  }
+
+  .actions :global(.mantine-Button-root) {
+    flex: 1 1 9rem;
+    min-height: 44px;
+    height: auto;
+    padding-block: 10px;
+  }
+
+  .actions :global(.mantine-Button-label) {
+    white-space: normal;
+  }
 }

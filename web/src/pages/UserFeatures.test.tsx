@@ -85,6 +85,22 @@ describe("UserFeatures page", () => {
     return JSON.parse((putCall![1] as { body: string }).body);
   }
 
+  test("dirty Cancel keeps feature edits until discard is confirmed", async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderUserFeatures();
+    const goal = await screen.findByRole("switch", { name: "Goals" });
+    await user.click(goal);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(goal).toBeChecked();
+    await user.click(goal);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByTestId("probe")).toHaveTextContent("/users");
+    expect(mockFetch.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+  });
+
   test("renders six switches seeded from the user's disabled set", async () => {
     mockApi();
     renderUserFeatures(7);

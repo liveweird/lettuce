@@ -13,7 +13,8 @@ import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
-import FilterPanel from "../components/FilterPanel";
+import ListSurface from "../components/ListSurface";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -199,12 +200,6 @@ export default function OneOnOneTable({
   const [latestOnly, setLatestOnly] = useStoredState(
     `${storeKey}.filter.latestOnly`, false, isBoolean,
   );
-  const activeFilterCount =
-    (managerFilter.trim() ? 1 : 0) +
-    (subordinateFilter.trim() ? 1 : 0) +
-    (includeIndirect ? 1 : 0) +
-    (latestOnly ? 1 : 0);
-
   const [debouncedManager] = useDebouncedValue(managerFilter, 300);
   const [debouncedSubordinate] = useDebouncedValue(subordinateFilter, 300);
 
@@ -215,6 +210,19 @@ export default function OneOnOneTable({
     managerName: { value: managerFilter, set: setManagerFilter },
     subordinateName: { value: subordinateFilter, set: setSubordinateFilter },
   };
+  const searchColumn = config.personColumns[0];
+  const searchFilter = personFilters[searchColumn.field];
+  const secondaryColumns = config.personColumns.slice(1);
+  const activeFilterCount =
+    config.personColumns.filter((col) => personFilters[col.field].value.trim()).length +
+    (includeIndirect ? 1 : 0) +
+    (latestOnly ? 1 : 0);
+
+  function clearPanelFilters() {
+    config.personColumns.forEach((col) => personFilters[col.field].set(""));
+    setReportsScope("direct");
+    setLatestOnly(false);
+  }
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
@@ -258,37 +266,64 @@ export default function OneOnOneTable({
 
   return (
     <Stack gap="md">
-      {showFilters && (
-        <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
-          {config.personColumns.map((col) => {
-            const filter = personFilters[col.field];
-            return (
-              <ClearableTextInput
-                key={col.field}
-                label={t(col.labelKey)}
-                value={filter.value}
-                onChange={filter.set}
-                clearLabel={t(col.clearFilterLabelKey)}
-              />
-            );
-          })}
-          {view === "team" && (
-            <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-          )}
-          <Switch
-            label={t("oneOnOne.latestOnly")}
-            checked={latestOnly}
-            onChange={(e) => setLatestOnly(e.currentTarget.checked)}
-          />
-        </FilterPanel>
-      )}
-
       {isError && (
         <Alert color="red" variant="light" title={t("oneOnOne.loadListError")}>
           {loadErrorMessage(error, t)}
         </Alert>
       )}
 
+      <ListSurface
+        toolbar={showFilters ? (
+          <ListToolbar
+            search={{
+              label: t(searchColumn.labelKey),
+              value: searchFilter.value,
+              onChange: searchFilter.set,
+              clearLabel: t(searchColumn.clearFilterLabelKey),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              tourId,
+              onClear: clearPanelFilters,
+              children: (
+                <>
+                  {secondaryColumns.map((col) => {
+                    const filter = personFilters[col.field];
+                    return (
+                      <ClearableTextInput
+                        key={col.field}
+                        label={t(col.labelKey)}
+                        value={filter.value}
+                        onChange={filter.set}
+                        clearLabel={t(col.clearFilterLabelKey)}
+                      />
+                    );
+                  })}
+                  {view === "team" && (
+                    <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+                  )}
+                  <Switch
+                    label={t("oneOnOne.latestOnly")}
+                    checked={latestOnly}
+                    onChange={(e) => setLatestOnly(e.currentTarget.checked)}
+                  />
+                </>
+              ),
+            }}
+          />
+        ) : undefined}
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="oneOnOne.rowsPerPage"
+          />
+        }
+      >
       <ResponsiveTable density="wide">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -381,15 +416,7 @@ export default function OneOnOneTable({
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="oneOnOne.rowsPerPage"
-      />
+      </ListSurface>
     </Stack>
   );
 }

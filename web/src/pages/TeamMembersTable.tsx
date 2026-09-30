@@ -6,7 +6,6 @@ import {
   Select,
   SimpleGrid,
   Skeleton,
-  Stack,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconArrowDown, IconArrowUp, IconUsersGroup } from "@tabler/icons-react";
@@ -16,9 +15,10 @@ import { canAudit } from "../api/session";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/teams";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import ListSurface from "../components/ListSurface";
+import ListToolbar from "../components/ListToolbar";
 import PersonCard from "../components/PersonCard";
 import PersonCardBody from "../components/PersonCardStats";
-import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import { usePagedSort } from "../hooks/usePagedSort";
@@ -153,39 +153,53 @@ export default function TeamMembersTable({
   ];
   const DirIcon = sortDir === "asc" ? IconArrowUp : IconArrowDown;
 
-  return (
-    <Stack gap="md">
-      <Group justify="space-between" align="flex-start" wrap="wrap">
-        <FilterPanel activeFilterCount={activeFilterCount} storageKey={settingsKey}>
-          <ClearableTextInput
-            label={t("common.field.name")}
-            value={nameFilter}
-            onChange={setNameFilter}
-            clearLabel={t("teams.clearNameFilter")}
-          />
-          <ClearableTextInput
-            label={t("common.field.email")}
-            value={emailFilter}
-            onChange={setEmailFilter}
-            clearLabel={t("teams.clearEmailFilter")}
-          />
-          {!pinned && (
-            <Select
-              label={t("teams.team")}
-              placeholder={t("common.state.any")}
-              data={teamOptions}
-              value={teamFilter}
-              onChange={setTeamFilter}
-              clearable
-              clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
-              searchable
+  const clearFilters = () => {
+    setNameFilter("");
+    setEmailFilter("");
+    setTeamFilter(null);
+    setReportsScope("direct");
+  };
+
+  const toolbar = (
+    <ListToolbar
+      search={{
+        label: t("common.field.name"),
+        value: nameFilter,
+        onChange: setNameFilter,
+        clearLabel: t("teams.clearNameFilter"),
+      }}
+      filters={{
+        activeCount: activeFilterCount,
+        storageKey: settingsKey,
+        tourId: "dashboard-people-filters",
+        onClear: clearFilters,
+        children: (
+          <>
+            <ClearableTextInput
+              label={t("common.field.email")}
+              value={emailFilter}
+              onChange={setEmailFilter}
+              clearLabel={t("teams.clearEmailFilter")}
             />
-          )}
-          {view === "managed" && !pinned && (
-            <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-          )}
-        </FilterPanel>
-        {/* Column headers are gone with the table — sorting lives up here instead. */}
+            {!pinned && (
+              <Select
+                label={t("teams.team")}
+                placeholder={t("common.state.any")}
+                data={teamOptions}
+                value={teamFilter}
+                onChange={setTeamFilter}
+                clearable
+                clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
+                searchable
+              />
+            )}
+            {view === "managed" && !pinned && (
+              <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+            )}
+          </>
+        ),
+      }}
+      right={(
         <Group gap="xs" wrap="nowrap">
           <Select
             size="xs"
@@ -207,8 +221,21 @@ export default function TeamMembersTable({
             <DirIcon size={14} />
           </ActionIcon>
         </Group>
-      </Group>
+      )}
+    />
+  );
 
+  return (
+    <ListSurface cards toolbar={toolbar} footer={(
+      <PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        rowsPerPageLabelKey="teams.rowsPerPage"
+      />
+    )}>
       {isError && (
         <Alert color="red" variant="light" title={t("teams.loadMembersTableFailed")}>
           {loadErrorMessage(error, t)}
@@ -300,14 +327,6 @@ export default function TeamMembersTable({
         )
       )}
 
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="teams.rowsPerPage"
-      />
-    </Stack>
+    </ListSurface>
   );
 }

@@ -109,7 +109,8 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    const link = await screen.findByRole("link", { name: "1:1 meetings with Manager One" });
+    await openFeedbackMenu(/more actions for manager one/i);
+    const link = await screen.findByRole("menuitem", { name: "1:1 meetings with Manager One" });
     expect(link).toHaveAttribute(
       "href",
       "/users/1/one-on-ones?name=Manager%20One&from=managers",
@@ -129,7 +130,8 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    const link = await screen.findByRole("link", { name: "Goals from Manager One" });
+    await openFeedbackMenu(/more actions for manager one/i);
+    const link = await screen.findByRole("menuitem", { name: "Goals from Manager One" });
     expect(link).toHaveAttribute("href", "/users/1/goals?name=Manager%20One&from=managers");
   });
 
@@ -165,7 +167,8 @@ describe("ManagersTable", () => {
     );
     renderWithProviders(<ManagersTable />);
 
-    const link = await screen.findByRole("link", { name: "Career progression of Manager One" });
+    await openFeedbackMenu(/more actions for manager one/i);
+    const link = await screen.findByRole("menuitem", { name: "Career progression of Manager One" });
     expect(link).toHaveAttribute("href", "/users/1/career?name=Manager%20One&from=managers");
   });
 
@@ -305,7 +308,7 @@ describe("ManagersTable", () => {
     expect(screen.getAllByText("Last feedback")).toHaveLength(1);
   });
 
-  test("manager cards carry the career column: set values plus Not set badges", async () => {
+  test("manager cards keep returned career values visible and omit absent values", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {
         items: [
@@ -330,7 +333,7 @@ describe("ManagersTable", () => {
     expect(await screen.findByText("Path")).toBeInTheDocument();
     expect(screen.getByText("Career-Path-Value")).toBeInTheDocument();
     expect(screen.getByText("Seniority-Value")).toBeInTheDocument();
-    expect(screen.getAllByText("Not set")).toHaveLength(1);
+    expect(screen.queryByText("Not set")).toBeNull();
     // The relationship stats still render, in their own section.
     expect(screen.getByText("Last 1:1")).toBeInTheDocument();
     // The career rows carry no "Career profile" caption (v1.32.2) — the section divider
@@ -338,7 +341,8 @@ describe("ManagersTable", () => {
     expect(screen.queryByText("Career profile")).toBeNull();
     // The labeled sections (v1.46.0): a managers card carries Profile + Collaboration only
     // (its rows never have the review/days-off stats, and it gets neither button).
-    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Profile").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Seniority-Value").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText("Collaboration")).toBeInTheDocument();
     expect(screen.queryByText("Performance")).toBeNull();
     expect(screen.queryByText("Days off")).toBeNull();

@@ -1,3 +1,4 @@
+import ListSurface from "../components/ListSurface";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -16,14 +17,13 @@ import {
   IconTrash,
   IconUsers
 } from "@tabler/icons-react";
-import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
 import SortHeader from "../components/SortHeader";
 import PersonaChip from "../components/PersonaChip";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
@@ -106,138 +106,151 @@ export default function Teams() {
         }
       />
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
-        <ClearableTextInput
-          label={t("common.field.name")}
-          value={nameFilter}
-          onChange={setNameFilter}
-          clearLabel={t("teams.clearNameFilter")}
-        />
-        <Select
-          label={t("common.field.manager")}
-          placeholder={managersLoading ? t("common.state.loading") : t("common.state.any")}
-          data={managerOptions}
-          renderOption={renderUserOption}
-          value={managerIdFilter == null ? null : String(managerIdFilter)}
-          onChange={(v) => setManagerIdFilter(v == null ? null : Number(v))}
-          searchable
-          clearable
-          disabled={managersLoading}
-          nothingFoundMessage={t("teams.noMatchingUsers")}
-        />
-      </FilterPanel>
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("common.field.name"),
+              value: nameFilter,
+              onChange: setNameFilter,
+              clearLabel: t("teams.clearNameFilter"),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: SETTINGS_KEY,
+              children: (
+                <>
+                  <Select
+                    label={t("common.field.manager")}
+                    placeholder={managersLoading ? t("common.state.loading") : t("common.state.any")}
+                    data={managerOptions}
+                    renderOption={renderUserOption}
+                    value={managerIdFilter == null ? null : String(managerIdFilter)}
+                    onChange={(v) => setManagerIdFilter(v == null ? null : Number(v))}
+                    searchable
+                    clearable
+                    disabled={managersLoading}
+                    nothingFoundMessage={t("teams.noMatchingUsers")}
+                  />
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="teams.rowsPerPage"
+          />
+        }
+      >
+        {isError && (
+          <Alert color="red" variant="light" title={t("teams.loadFailed")}>
+            {loadErrorMessage(error, t)}
+          </Alert>
+        )}
 
-      {isError && (
-        <Alert color="red" variant="light" title={t("teams.loadFailed")}>
-          {loadErrorMessage(error, t)}
-        </Alert>
-      )}
-
-      <ResponsiveTable density="normal">
-        <ResponsiveTable.Thead>
-          <ResponsiveTable.Tr>
-            <ResponsiveTable.Th sortable>
-              <SortHeader
-                field="name"
-                label={t("common.field.name")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th>{t("common.field.manager")}</ResponsiveTable.Th>
-            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
-          </ResponsiveTable.Tr>
-        </ResponsiveTable.Thead>
-        <ResponsiveTable.Tbody>
-          {isLoading && !data ? (
-            <TableLoadingRow colSpan={columnCount} />
-          ) : data && data.items.length > 0 ? (
-            data.items.map((team) => (
-              <ResponsiveTable.Tr key={team.id}>
-                <ResponsiveTable.Td label={t("common.field.name")} primary>
-                  {/* The team name links to the team-details view (name + manager + roster). */}
-                  <Anchor
-                    component={RouterLink}
-                    to={teamDetailsLink(team.id)}
-                    size="sm"
-                    fw={500}
-                    aria-label={t("teams.detailsForAria", { name: team.name })}
-                  >
-                    {team.name}
-                  </Anchor>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("common.field.manager")}>
-                  {team.managerDeleted ? (
-                    <Text size="sm" c="dimmed">
-                      {team.managerName}
-                      {t("teams.deletedSuffix")}
-                    </Text>
-                  ) : (
-                    // The manager's name links to their details — the aria carries the name,
-                    // so whose details it opens is unambiguous. One's own persona stays a
-                    // plain chip (the /users own-row rule).
-                    <PersonaChip
-                      name={team.managerName}
-                      to={
-                        team.managerId !== currentUserId
-                          ? userDetailsLink(team.managerId, team.managerName, "teams")
-                          : undefined
-                      }
-                      ariaLabel={t("users.detailsFor", { name: team.managerName })}
-                    />
-                  )}
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td actions>
-                  {admin && (
-                    <RowActions
-                      name={team.name}
-                      primary={{
-                        icon: <IconPencil size={16} />,
-                        label: t("common.action.edit"),
-                        ariaLabel: t("teams.editAria", { name: team.name }),
-                        to: `/teams/${team.id}/edit`,
-                      }}
-                      items={[
-                        {
-                          icon: <IconTrash size={14} />,
-                          label: t("common.action.delete"),
-                          ariaLabel: t("teams.deleteAria", { name: team.name }),
-                          color: "red",
-                          onClick: () =>
-                            deleteConfirm.requestDelete({
-                              id: team.id,
-                              name: team.name,
-                              managerName: team.managerName,
-                            }),
-                        },
-                      ]}
-                    />
-                  )}
+        <ResponsiveTable density="normal">
+          <ResponsiveTable.Thead>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Th sortable>
+                <SortHeader
+                  field="name"
+                  label={t("common.field.name")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th>{t("common.field.manager")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+            </ResponsiveTable.Tr>
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
+            {isLoading && !data ? (
+              <TableLoadingRow colSpan={columnCount} />
+            ) : data && data.items.length > 0 ? (
+              data.items.map((team) => (
+                <ResponsiveTable.Tr key={team.id}>
+                  <ResponsiveTable.Td label={t("common.field.name")} primary>
+                    {/* The team name links to the team-details view (name + manager + roster). */}
+                    <Anchor
+                      component={RouterLink}
+                      to={teamDetailsLink(team.id)}
+                      size="sm"
+                      fw={500}
+                      aria-label={t("teams.detailsForAria", { name: team.name })}
+                    >
+                      {team.name}
+                    </Anchor>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.manager")}>
+                    {team.managerDeleted ? (
+                      <Text size="sm" c="dimmed">
+                        {team.managerName}
+                        {t("teams.deletedSuffix")}
+                      </Text>
+                    ) : (
+                      // The manager's name links to their details — the aria carries the name,
+                      // so whose details it opens is unambiguous. One's own persona stays a
+                      // plain chip (the /users own-row rule).
+                      <PersonaChip
+                        name={team.managerName}
+                        to={
+                          team.managerId !== currentUserId
+                            ? userDetailsLink(team.managerId, team.managerName, "teams")
+                            : undefined
+                        }
+                        ariaLabel={t("users.detailsFor", { name: team.managerName })}
+                      />
+                    )}
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
+                    {admin && (
+                      <RowActions
+                        name={team.name}
+                        primary={{
+                          icon: <IconPencil size={16} />,
+                          label: t("common.action.edit"),
+                          ariaLabel: t("teams.editAria", { name: team.name }),
+                          to: `/teams/${team.id}/edit`,
+                        }}
+                        items={[
+                          {
+                            icon: <IconTrash size={14} />,
+                            label: t("common.action.delete"),
+                            ariaLabel: t("teams.deleteAria", { name: team.name }),
+                            color: "red",
+                            onClick: () =>
+                              deleteConfirm.requestDelete({
+                                id: team.id,
+                                name: team.name,
+                                managerName: team.managerName,
+                              }),
+                          },
+                        ]}
+                      />
+                    )}
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
+              ))
+            ) : !isError ? (
+              <ResponsiveTable.Tr>
+                <ResponsiveTable.Td colSpan={columnCount}>
+  <EmptyState
+                    icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("teams.noTeams")}
+                  />
                 </ResponsiveTable.Td>
               </ResponsiveTable.Tr>
-            ))
-          ) : !isError ? (
-            <ResponsiveTable.Tr>
-              <ResponsiveTable.Td colSpan={columnCount}>
-<EmptyState
-                  icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                  label={t("teams.noTeams")}
-                />
-              </ResponsiveTable.Td>
-            </ResponsiveTable.Tr>
-          ) : null}
-        </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="teams.rowsPerPage"
-      />
+            ) : null}
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

@@ -17,7 +17,8 @@ function todayIso(): string {
 // Open the per-subordinate goals drill-down via the dashboard card, like a user would.
 async function gotoSubordinateGoals(page: Page): Promise<void> {
   await page.goto("/?tab=subordinates");
-  await page.getByRole("link", { name: "Goals for AAA Three" }).click();
+  await page.getByRole("button", { name: "More actions for AAA Three" }).click();
+  await page.getByRole("menuitem", { name: "Goals for AAA Three" }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/goals/);
 }
 
@@ -25,6 +26,7 @@ async function gotoSubordinateGoals(page: Page): Promise<void> {
 async function createGoal(page: Page, title: string, activate: boolean): Promise<number> {
   await page.getByRole("link", { name: "New goal" }).click();
   await expect(page).toHaveURL(/\/goals\/new/);
+  await expect(page.getByRole("heading", { name: "New goal" })).toBeVisible();
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Target").fill("5");
   await fillDate(page, "Due date", todayIso(), false);
@@ -137,6 +139,7 @@ test("a PLAN goal: milestones defined in draft, ticked on the update screen, str
   // Create a PLAN goal with two milestones (the createGoal helper is NUMBER-shaped).
   await page.getByRole("link", { name: "New goal" }).click();
   await expect(page).toHaveURL(/\/goals\/new/);
+  await expect(page.getByRole("heading", { name: "New goal" })).toBeVisible();
   await page.getByLabel("Title").fill(title);
   // exact — the description editor's toolbar has a "Block type" combobox that substring-matches.
   await page.getByRole("combobox", { name: "Type", exact: true }).click();
@@ -245,6 +248,7 @@ test("a chain manager creates a goal for a skip-level report via the widened pic
   // manager sits on team CCC) — from the create picker, which now spans the whole subtree.
   await login(page, MANAGER_CCC);
   await page.goto("/goals/new");
+  await expect(page.getByRole("heading", { name: "New goal" })).toBeVisible();
   // getByLabel would strict-mode-collide with the Select's listbox (it shares the label) —
   // the combobox role targets the input alone (the house Mantine-Select pattern).
   await page.getByRole("combobox", { name: "Team member" }).click();
@@ -333,6 +337,7 @@ test("leaving a dirty goal form through the sidebar asks before discarding", asy
   await gotoSubordinateGoals(page);
   await page.getByRole("link", { name: "New goal" }).click();
   await expect(page).toHaveURL(/\/goals\/new/);
+  await expect(page.getByRole("heading", { name: "New goal" })).toBeVisible();
   const title = uniqueText("E2E-goal-dirty");
   await page.getByLabel("Title").fill(title);
 

@@ -21,7 +21,7 @@ export default function AuthCard({ title, children }: Props) {
   const { t } = useTranslation();
 
   return (
-    <Center h="100vh" p="md" className={classes.canvas}>
+    <Center mih="100dvh" p="md" className={classes.canvas}>
       <Stack gap="md" className={classes.frame}>
         <Paper p="xl" radius="md" w={384} maw="100%" withBorder className={classes.card}>
           <Stack gap="lg">

@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
@@ -9,7 +10,6 @@ import {
   Container,
   FileInput,
   Group,
-  Paper,
   Stack,
   Text,
   Tooltip,
@@ -93,7 +93,7 @@ export default function ImportUsers() {
             `Container size="md"` caps this card at 960px — an `xl` padding left its table
             container 894px, two pixels under the `normal` density's 56rem stacking
             threshold, so the table rendered as stacked cards at every viewport width. */}
-        <Paper withBorder shadow="sm" p="md" radius="md">
+        <FormSurface compact>
           <Stack>
             {result === null ? (
               <>
@@ -178,7 +178,7 @@ export default function ImportUsers() {
               </>
             )}
           </Stack>
-        </Paper>
+        </FormSurface>
       </Stack>
       <DiscardGuard {...guardProps} />
     </Container>

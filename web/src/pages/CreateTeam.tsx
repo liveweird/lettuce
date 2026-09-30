@@ -1,8 +1,9 @@
+import FormSurface from "../components/FormSurface";
 import { teamFormValidation, type TeamFormValues } from "../utils/teamForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Alert, Button, Container, Paper, Stack } from "@mantine/core";
+import { Alert, Button, Container, Stack } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAdmin } from "../api/session";
@@ -61,7 +62,7 @@ export default function CreateTeam() {
     <>
       <PageHeader title={t("teams.createTeam")} mb="lg" />
       <Container size="sm" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
               <TeamFormFields form={form} />
@@ -80,7 +81,7 @@ export default function CreateTeam() {
               </FormFooter>
             </Stack>
           </form>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

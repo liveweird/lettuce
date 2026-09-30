@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Container, Group, Select, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -86,7 +87,7 @@ export default function CreateSuccessionPlan() {
     <>
       <PageHeader title={t("succession.createTitle")} description={t("succession.createHint")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <form onSubmit={form.onSubmit(save)} noValidate>
             <Stack>
               {/* The parties line (v3.5.0): the fixed owner and the seat picker, which keeps
@@ -143,7 +144,7 @@ export default function CreateSuccessionPlan() {
               </FormFooter>
             </Stack>
           </form>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

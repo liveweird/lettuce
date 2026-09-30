@@ -1,0 +1,16 @@
+.surface {
+  --form-surface-padding: var(--mantine-spacing-xl);
+  min-width: 0;
+  padding: var(--form-surface-padding);
+  background: var(--lettuce-surface);
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .surface {
+    --form-surface-padding: var(--mantine-spacing-md);
+  }
+}
+
+.surface[data-compact] {
+  --form-surface-padding: var(--mantine-spacing-md);
+}

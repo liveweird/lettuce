@@ -166,13 +166,18 @@ describe("SuccessionPlanTable", () => {
     });
   });
 
-  test("the status filter narrows the query", async () => {
+  test("the person search stays visible and the status filter narrows the query", async () => {
     const user = userEvent.setup();
     const mockFetch = renderTable();
     await screen.findByText("Sam Seat");
 
-    // The filters sit behind the collapsed FilterPanel.
-    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await user.type(screen.getByLabelText("Person"), "sam");
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.some(([url]) => String(url).includes("userName=sam"))).toBe(true);
+    });
+
+    // Secondary filters remain behind the collapsed panel.
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     await user.click(screen.getByLabelText("Status", { selector: "input" }));
     await user.click(await screen.findByRole("option", { name: "Open" }));
     await waitFor(() => {

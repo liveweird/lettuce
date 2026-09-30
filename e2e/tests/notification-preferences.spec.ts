@@ -58,6 +58,11 @@ test("a user turns off in-app for one type so a second actor's action mints no b
   const inAppRequested = page.getByRole("switch", { name: "Someone requests feedback from me — In app" });
   await expect(inAppRequested).toBeChecked();
   await inAppRequested.click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const discardDialog = page.getByRole("dialog");
+  await expect(discardDialog.getByText("Discard changes?")).toBeVisible();
+  await discardDialog.getByRole("button", { name: "Keep editing" }).click();
+  await expect(inAppRequested).not.toBeChecked();
   await Promise.all([
     page.waitForResponse(
       (r) => /\/notification-preferences$/.test(r.url()) && r.request().method() === "PUT" && r.ok(),

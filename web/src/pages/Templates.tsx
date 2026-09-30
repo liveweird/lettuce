@@ -1,3 +1,4 @@
+import ListSurface from "../components/ListSurface";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
@@ -10,11 +11,10 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconEye, IconFileText, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
@@ -36,7 +36,6 @@ type TemplateRow = { id: number; name: string };
 export default function Templates() {
   const { t } = useTranslation();
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
-  const activeFilterCount = nameFilter.trim() ? 1 : 0;
 
   const queryClient = useQueryClient();
   const admin = isAdmin();
@@ -83,107 +82,112 @@ export default function Templates() {
         }
       />
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
-        <ClearableTextInput
-          label={t("common.field.name")}
-          value={nameFilter}
-          onChange={setNameFilter}
-          clearLabel={t("templates.clearNameFilter")}
-        />
-      </FilterPanel>
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("common.field.name"),
+              value: nameFilter,
+              onChange: setNameFilter,
+              clearLabel: t("templates.clearNameFilter"),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="templates.rowsPerPage"
+          />
+        }
+      >
+        {isError && (
+          <Alert color="red" variant="light" title={t("templates.loadFailed")}>
+            {loadErrorMessage(error, t)}
+          </Alert>
+        )}
 
-      {isError && (
-        <Alert color="red" variant="light" title={t("templates.loadFailed")}>
-          {loadErrorMessage(error, t)}
-        </Alert>
-      )}
-
-      <ResponsiveTable density="normal">
-        <ResponsiveTable.Thead>
-          <ResponsiveTable.Tr>
-            <ResponsiveTable.Th sortable><SortHeader
-                field="name"
-                label={t("common.field.name")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th>{t("common.field.preview")}</ResponsiveTable.Th>
-            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
-          </ResponsiveTable.Tr>
-        </ResponsiveTable.Thead>
-        <ResponsiveTable.Tbody>
-          {isLoading && !data ? (
-            <TableLoadingRow colSpan={columnCount} />
-          ) : data && data.items.length > 0 ? (
-            data.items.map((tpl) => (
-              <ResponsiveTable.Tr key={tpl.id}>
-                <ResponsiveTable.Td label={t("common.field.name")}>
-                  <Text size="sm" fw={500}>
-                    {tpl.name}
-                  </Text>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("common.field.preview")} primary>
-                  <Text size="sm" c="dimmed" lineClamp={3}>
-                    {tpl.contentPreview}
-                  </Text>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td actions>
-                  {admin ? (
-                    <RowActions
-                      name={tpl.name}
-                      primary={{
-                        icon: <IconPencil size={16} />,
-                        label: t("common.action.edit"),
-                        ariaLabel: t("templates.editName", { name: tpl.name }),
-                        to: `/templates/${tpl.id}/edit`
-                      }}
-                      items={[
-                        {
-                          icon: <IconTrash size={14} />,
-                          label: t("common.action.delete"),
-                          ariaLabel: t("templates.deleteName", { name: tpl.name }),
-                          color: "red",
-                          onClick: () => deleteConfirm.requestDelete({ id: tpl.id, name: tpl.name })
-                        },
-                      ]}
+        <ResponsiveTable density="normal">
+          <ResponsiveTable.Thead>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Th sortable><SortHeader
+                  field="name"
+                  label={t("common.field.name")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th>{t("common.field.preview")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+            </ResponsiveTable.Tr>
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
+            {isLoading && !data ? (
+              <TableLoadingRow colSpan={columnCount} />
+            ) : data && data.items.length > 0 ? (
+              data.items.map((tpl) => (
+                <ResponsiveTable.Tr key={tpl.id}>
+                  <ResponsiveTable.Td label={t("common.field.name")}>
+                    <Text size="sm" fw={500}>
+                      {tpl.name}
+                    </Text>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.preview")} primary>
+                    <Text size="sm" c="dimmed" lineClamp={3}>
+                      {tpl.contentPreview}
+                    </Text>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
+                    {admin ? (
+                      <RowActions
+                        name={tpl.name}
+                        primary={{
+                          icon: <IconPencil size={16} />,
+                          label: t("common.action.edit"),
+                          ariaLabel: t("templates.editName", { name: tpl.name }),
+                          to: `/templates/${tpl.id}/edit`
+                        }}
+                        items={[
+                          {
+                            icon: <IconTrash size={14} />,
+                            label: t("common.action.delete"),
+                            ariaLabel: t("templates.deleteName", { name: tpl.name }),
+                            color: "red",
+                            onClick: () => deleteConfirm.requestDelete({ id: tpl.id, name: tpl.name })
+                          },
+                        ]}
+                      />
+                    ) : (
+                      <RowActions
+                        name={tpl.name}
+                        primary={{
+                          icon: <IconEye size={16} />,
+                          label: t("common.action.view"),
+                          ariaLabel: t("templates.viewName", { name: tpl.name }),
+                          to: `/templates/${tpl.id}/view`
+                        }}
+                      />
+                    )}
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
+              ))
+            ) : !isError ? (
+              <ResponsiveTable.Tr>
+                <ResponsiveTable.Td colSpan={columnCount}>
+                  <EmptyState
+                      icon={<IconFileText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                      label={t("templates.empty")}
                     />
-                  ) : (
-                    <RowActions
-                      name={tpl.name}
-                      primary={{
-                        icon: <IconEye size={16} />,
-                        label: t("common.action.view"),
-                        ariaLabel: t("templates.viewName", { name: tpl.name }),
-                        to: `/templates/${tpl.id}/view`
-                      }}
-                    />
-                  )}
                 </ResponsiveTable.Td>
               </ResponsiveTable.Tr>
-            ))
-          ) : !isError ? (
-            <ResponsiveTable.Tr>
-              <ResponsiveTable.Td colSpan={columnCount}>
-                <EmptyState
-                    icon={<IconFileText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                    label={t("templates.empty")}
-                  />
-              </ResponsiveTable.Td>
-            </ResponsiveTable.Tr>
-          ) : null}
-        </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="templates.rowsPerPage"
-      />
+            ) : null}
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

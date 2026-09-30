@@ -1,3 +1,4 @@
+import ListSurface from "../components/ListSurface";
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -279,236 +280,241 @@ export default function Users() {
         }
       />
 
-      <ListToolbar
-        search={{
-          label: t("common.field.name"),
-          value: nameFilter,
-          onChange: setNameFilter,
-          clearLabel: t("users.clearNameFilter"),
-        }}
-        filters={{
-          activeCount: activeFilterCount,
-          storageKey: SETTINGS_KEY,
-          onClear: clearPanelFilters,
-          children: (
-            <>
-        <ClearableTextInput
-          label={t("common.field.email")}
-          value={emailFilter}
-          onChange={setEmailFilter}
-          clearLabel={t("users.clearEmailFilter")}
-        />
-        <Select
-          label={t("common.field.role")}
-          placeholder={t("common.state.any")}
-          data={ROLE_OPTIONS}
-          value={roleFilter}
-          onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
-          clearable
-        />
-        <Select
-          label={t("users.statusFilterLabel")}
-          placeholder={t("common.state.any")}
-          data={[
-            { value: "false", label: t("users.statusActive") },
-            { value: "true", label: t("users.statusInactive") },
-          ]}
-          value={statusFilter}
-          onChange={(v) => setStatusFilter((v as BooleanFilter) ?? null)}
-          clearable
-        />
-        <ClearableTextInput
-          label={t("users.uniqueId")}
-          value={uniqueIdFilter}
-          onChange={setUniqueIdFilter}
-          clearLabel={t("users.clearUniqueIdFilter")}
-        />
-        <Select
-          label={t("users.uniqueIdFilterLabel")}
-          placeholder={t("common.state.any")}
-          data={[
-            { value: "false", label: t("users.uniqueIdSet") },
-            { value: "true", label: t("users.uniqueIdMissing") },
-          ]}
-          value={uniqueIdMissingFilter}
-          onChange={(v) => setUniqueIdMissingFilter((v as BooleanFilter) ?? null)}
-          clearable
-        />
-            </>
-          ),
-        }}
-      />
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("common.field.name"),
+              value: nameFilter,
+              onChange: setNameFilter,
+              clearLabel: t("users.clearNameFilter"),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: SETTINGS_KEY,
+              onClear: clearPanelFilters,
+              children: (
+                <>
+            <ClearableTextInput
+              label={t("common.field.email")}
+              value={emailFilter}
+              onChange={setEmailFilter}
+              clearLabel={t("users.clearEmailFilter")}
+            />
+            <Select
+              label={t("common.field.role")}
+              placeholder={t("common.state.any")}
+              data={ROLE_OPTIONS}
+              value={roleFilter}
+              onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
+              clearable
+            />
+            <Select
+              label={t("users.statusFilterLabel")}
+              placeholder={t("common.state.any")}
+              data={[
+                { value: "false", label: t("users.statusActive") },
+                { value: "true", label: t("users.statusInactive") },
+              ]}
+              value={statusFilter}
+              onChange={(v) => setStatusFilter((v as BooleanFilter) ?? null)}
+              clearable
+            />
+            <ClearableTextInput
+              label={t("users.uniqueId")}
+              value={uniqueIdFilter}
+              onChange={setUniqueIdFilter}
+              clearLabel={t("users.clearUniqueIdFilter")}
+            />
+            <Select
+              label={t("users.uniqueIdFilterLabel")}
+              placeholder={t("common.state.any")}
+              data={[
+                { value: "false", label: t("users.uniqueIdSet") },
+                { value: "true", label: t("users.uniqueIdMissing") },
+              ]}
+              value={uniqueIdMissingFilter}
+              onChange={(v) => setUniqueIdMissingFilter((v as BooleanFilter) ?? null)}
+              clearable
+            />
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="users.rowsPerPage"
+          />
+        }
+      >
+        {isError && (
+          <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
+            {loadErrorMessage(error, t)}
+          </Alert>
+        )}
 
-      {isError && (
-        <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
-          {loadErrorMessage(error, t)}
-        </Alert>
-      )}
+        {transitionError && (
+          <Alert color="red" variant="light">
+            {transitionError}
+          </Alert>
+        )}
 
-      {transitionError && (
-        <Alert color="red" variant="light">
-          {transitionError}
-        </Alert>
-      )}
-
-      <ResponsiveTable density="normal">
-        <ResponsiveTable.Thead>
-          <ResponsiveTable.Tr>
-            <ResponsiveTable.Th sortable>
-              <SortHeader
-                field="name"
-                label={t("common.field.name")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th sortable>
-              <SortHeader
-                field="email"
-                label={t("common.field.email")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th sortable>
-              <SortHeader
-                field="uniqueId"
-                label={t("users.uniqueId")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            {/* A roles set has no order — plain header, deliberately not a SortHeader. */}
-            <ResponsiveTable.Th>{t("common.field.roles")}</ResponsiveTable.Th>
-            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
-          </ResponsiveTable.Tr>
-        </ResponsiveTable.Thead>
-        <ResponsiveTable.Tbody>
-          {isLoading && !data ? (
-            <TableLoadingRow colSpan={columnCount} />
-          ) : data && data.items.length > 0 ? (
-            data.items.map((u) => (
-              <ResponsiveTable.Tr key={u.id}>
-                <ResponsiveTable.Td label={t("common.field.name")}>
-                  <Group gap={6} wrap="wrap">
-                    {/* The name links to the relationship-aware read-only card view — everyone,
-                        except one's own row (the card flavors describe the viewer's relationship
-                        to someone else). */}
-                    <PersonaChip
-                      name={u.name}
-                      to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, "users") : undefined}
-                      ariaLabel={t("users.detailsFor", { name: u.name })}
-                    />
-                    {/* The ONLY place the account state surfaces — everywhere else a
-                        deactivated user renders exactly like an active one. Gray on purpose:
-                        neither the brand accent nor a semantic state color. */}
-                    {u.deactivated && (
-                      <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>
-                    )}
-                  </Group>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("common.field.email")} primary>
-                  <Text size="sm">
-                    {u.email}
-                  </Text>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("users.uniqueId")}>
-                  {u.uniqueId != null ? (
-                    <Text size="sm" aria-label={t("users.uniqueId")}>
-                      {u.uniqueId}
-                    </Text>
-                  ) : (
-                    /* The quiet admin cue (v2.19.0, restyled v3.3.0): a warning-coloured icon
-                       beside dimmed text — the id is optional but should be filled ASAP, and
-                       the "Missing only" filter finds every such row. */
-                    <Group gap={4} wrap="wrap">
-                      <IconAlertCircle
-                        size={14}
-                        aria-hidden="true"
-                        style={{ color: "var(--lettuce-ink-warning)", flexShrink: 0 }}
+        <ResponsiveTable density="normal">
+          <ResponsiveTable.Thead>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Th sortable>
+                <SortHeader
+                  field="name"
+                  label={t("common.field.name")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th sortable>
+                <SortHeader
+                  field="email"
+                  label={t("common.field.email")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th sortable>
+                <SortHeader
+                  field="uniqueId"
+                  label={t("users.uniqueId")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              {/* A roles set has no order — plain header, deliberately not a SortHeader. */}
+              <ResponsiveTable.Th>{t("common.field.roles")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+            </ResponsiveTable.Tr>
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
+            {isLoading && !data ? (
+              <TableLoadingRow colSpan={columnCount} />
+            ) : data && data.items.length > 0 ? (
+              data.items.map((u) => (
+                <ResponsiveTable.Tr key={u.id}>
+                  <ResponsiveTable.Td label={t("common.field.name")}>
+                    <Group gap={6} wrap="wrap">
+                      {/* The name links to the relationship-aware read-only card view — everyone,
+                          except one's own row (the card flavors describe the viewer's relationship
+                          to someone else). */}
+                      <PersonaChip
+                        name={u.name}
+                        to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, "users") : undefined}
+                        ariaLabel={t("users.detailsFor", { name: u.name })}
                       />
-                      <Text size="sm" c="dimmed" fs="italic" aria-label={t("users.uniqueId")}>
-                        {t("users.uniqueIdMissingBadge")}
-                      </Text>
+                      {/* The ONLY place the account state surfaces — everywhere else a
+                          deactivated user renders exactly like an active one. Gray on purpose:
+                          neither the brand accent nor a semantic state color. */}
+                      {u.deactivated && (
+                        <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>
+                      )}
                     </Group>
-                  )}
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("common.field.roles")}>
-                  {u.roles.length > 0 ? (
-                    <Group gap={4} wrap="wrap">
-                      {u.roles.map((role) => (
-                        <StatusPill
-                          key={role}
-                          color={role === "HR" ? "cyan" : "grape"}
-                          ariaLabel={t("common.field.roles")}
-                        >
-                          {t(`common.role.${role}`)}
-                        </StatusPill>
-                      ))}
-                    </Group>
-                  ) : (
-                    <Text size="sm" c="dimmed" aria-label={t("common.field.roles")}>
-                      —
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.email")} primary>
+                    <Text size="sm">
+                      {u.email}
                     </Text>
-                  )}
-                </ResponsiveTable.Td>
-                {/* One row-action cell (v3.4.0): Teams as the visible icon (read-only for
-                    non-admins — the name param feeds the heading there without a getUser call,
-                    which is self-or-admin only), the Feedback menu (never on one's own row),
-                    and the admin account actions behind the ⋯ that keeps the "Modify actions
-                    for X" name (v1.52.0). Item aria-labels are the pre-grouping button ones.
-                    Deactivate/Reactivate stays off one's own row. */}
-                <ResponsiveTable.Td actions>
-                  <RowActions
-                    name={u.name}
-                    primary={{
-                      icon: <IconUsersGroup size={16} />,
-                      label: t("users.teams"),
-                      ariaLabel: t("users.teamsFor", { name: u.name }),
-                      to: `/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`,
-                    }}
-                    menus={
-                      u.id !== currentUserId && hasFeature("FEEDBACKS")
-                        ? [
-                            feedbackRowMenu(t, {
-                              provideTo: feedbackProvideLink(u.id, "/users"),
-                              askTo: feedbackAskLink(u.id, "/users"),
-                              listTo: userFeedbacksLink(u.id, u.name, "users"),
-                              name: u.name,
-                            }),
-                          ]
-                        : []
-                    }
-                    menuLabel={t("users.modifyActionsFor", { name: u.name })}
-                    items={admin ? adminRowItems(u) : []}
-                  />
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("users.uniqueId")}>
+                    {u.uniqueId != null ? (
+                      <Text size="sm" aria-label={t("users.uniqueId")}>
+                        {u.uniqueId}
+                      </Text>
+                    ) : (
+                      /* The quiet admin cue (v2.19.0, restyled v3.3.0): a warning-coloured icon
+                         beside dimmed text — the id is optional but should be filled ASAP, and
+                         the "Missing only" filter finds every such row. */
+                      <Group gap={4} wrap="wrap">
+                        <IconAlertCircle
+                          size={14}
+                          aria-hidden="true"
+                          style={{ color: "var(--lettuce-ink-warning)", flexShrink: 0 }}
+                        />
+                        <Text size="sm" c="dimmed" fs="italic" aria-label={t("users.uniqueId")}>
+                          {t("users.uniqueIdMissingBadge")}
+                        </Text>
+                      </Group>
+                    )}
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.roles")}>
+                    {u.roles.length > 0 ? (
+                      <Group gap={4} wrap="wrap">
+                        {u.roles.map((role) => (
+                          <StatusPill
+                            key={role}
+                            color={role === "HR" ? "cyan" : "grape"}
+                            ariaLabel={t("common.field.roles")}
+                          >
+                            {t(`common.role.${role}`)}
+                          </StatusPill>
+                        ))}
+                      </Group>
+                    ) : (
+                      <Text size="sm" c="dimmed" aria-label={t("common.field.roles")}>
+                        —
+                      </Text>
+                    )}
+                  </ResponsiveTable.Td>
+                  {/* One row-action cell (v3.4.0): Teams as the visible icon (read-only for
+                      non-admins — the name param feeds the heading there without a getUser call,
+                      which is self-or-admin only), the Feedback menu (never on one's own row),
+                      and the admin account actions behind the ⋯ that keeps the "Modify actions
+                      for X" name (v1.52.0). Item aria-labels are the pre-grouping button ones.
+                      Deactivate/Reactivate stays off one's own row. */}
+                  <ResponsiveTable.Td actions>
+                    <RowActions
+                      name={u.name}
+                      primary={{
+                        icon: <IconUsersGroup size={16} />,
+                        label: t("users.teams"),
+                        ariaLabel: t("users.teamsFor", { name: u.name }),
+                        to: `/users/${u.id}/teams?name=${encodeURIComponent(u.name)}`,
+                      }}
+                      menus={
+                        u.id !== currentUserId && hasFeature("FEEDBACKS")
+                          ? [
+                              feedbackRowMenu(t, {
+                                provideTo: feedbackProvideLink(u.id, "/users"),
+                                askTo: feedbackAskLink(u.id, "/users"),
+                                listTo: userFeedbacksLink(u.id, u.name, "users"),
+                                name: u.name,
+                              }),
+                            ]
+                          : []
+                      }
+                      menuLabel={t("users.modifyActionsFor", { name: u.name })}
+                      items={admin ? adminRowItems(u) : []}
+                    />
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
+              ))
+            ) : !isError ? (
+              <ResponsiveTable.Tr>
+                <ResponsiveTable.Td colSpan={columnCount}>
+                  <EmptyState
+                      icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                      label={t("users.noUsers")}
+                    />
                 </ResponsiveTable.Td>
               </ResponsiveTable.Tr>
-            ))
-          ) : !isError ? (
-            <ResponsiveTable.Tr>
-              <ResponsiveTable.Td colSpan={columnCount}>
-                <EmptyState
-                    icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                    label={t("users.noUsers")}
-                  />
-              </ResponsiveTable.Td>
-            </ResponsiveTable.Tr>
-          ) : null}
-        </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="users.rowsPerPage"
-      />
+            ) : null}
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmActionModal
         opened={deactivateTarget != null}

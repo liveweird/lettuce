@@ -126,7 +126,7 @@ describe("Teams page", () => {
     );
   });
 
-  test("filters are collapsed by default and the toggle reveals them", async () => {
+  test("name search stays visible while secondary filters collapse", async () => {
     setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
     const user = userEvent.setup();
     renderTeams();
@@ -135,11 +135,12 @@ describe("Teams page", () => {
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toBeVisible();
+    expect(screen.queryByLabelText("Manager")).not.toBeInTheDocument();
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Manager").length).toBeGreaterThan(0);
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");

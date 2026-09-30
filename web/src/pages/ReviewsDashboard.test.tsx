@@ -142,6 +142,19 @@ describe("ReviewsDashboard tab", () => {
     expect(reviewsCall).toContain("includeIndirect=true");
   });
 
+  test("keeps dataset and view controls available when no review periods exist", async () => {
+    setupMocks({ periods: [] });
+    renderTab();
+
+    expect(
+      await screen.findByText("There are no review periods yet — an administrator creates them under Config → Review periods."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Period", { selector: "input" })).toBeInTheDocument();
+    expect(screen.getByText("Table")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByLabelText("Reports", { selector: "input" })).toBeInTheDocument();
+  });
+
   test("a stored period choice is restored over the latest-period default", async () => {
     // The Select persists like the filters (v1.33.4); pin the restore path so it never
     // regresses to always-latest. useStoredState stores JSON under the viewSettings prefix.

@@ -26,6 +26,7 @@ import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
+import ListSurface from "../components/ListSurface";
 import TableLoadingRow from "../components/TableLoadingRow";
 import PersonaChip from "../components/PersonaChip";
 import RowActions from "../components/RowActions";
@@ -168,30 +169,6 @@ export default function UserTeams() {
         title={`${t("users.teams")}${displayName ? ` — ${displayName}` : ""}`}
       />
 
-      {canManage && (
-        <Group align="flex-end" gap="sm">
-          <Select
-            label={t("users.addToTeam")}
-            placeholder={t("users.pickATeam")}
-            data={addOptions}
-            value={selectedTeam}
-            onChange={setSelectedTeam}
-            searchable
-            clearable
-            nothingFoundMessage={t("users.noTeamsAvailable")}
-            w={280}
-          />
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={add}
-            disabled={!selectedTeam}
-            loading={addMutation.isPending}
-          >
-            {t("users.add")}
-          </Button>
-        </Group>
-      )}
-
       {canManage && addError && (
         <Alert color="red" variant="light" title={t("users.addToTeamFailed")} onClose={() => setAddError(null)} withCloseButton>
           {addError}
@@ -204,7 +181,37 @@ export default function UserTeams() {
         </Alert>
       )}
 
-      <ResponsiveTable density="normal">
+      <ListSurface
+        toolbar={canManage ? (
+          <Group align="flex-end" gap="sm">
+            <Select
+              label={t("users.addToTeam")}
+              placeholder={t("users.pickATeam")}
+              data={addOptions}
+              value={selectedTeam}
+              onChange={setSelectedTeam}
+              searchable
+              clearable
+              nothingFoundMessage={t("users.noTeamsAvailable")}
+              w={280}
+            />
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={add}
+              disabled={!selectedTeam}
+              loading={addMutation.isPending}
+            >
+              {t("users.add")}
+            </Button>
+          </Group>
+        ) : undefined}
+        footer={
+          <Text size="sm" c="dimmed">
+            {t("common.table.total", { count: memberTeams.length })}
+          </Text>
+        }
+      >
+        <ResponsiveTable density="normal">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
             <ResponsiveTable.Th>{t("users.team")}</ResponsiveTable.Th>
@@ -275,11 +282,8 @@ export default function UserTeams() {
             </ResponsiveTable.Tr>
           ) : null}
         </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <Text size="sm" c="dimmed">
-        {t("common.table.total", { count: memberTeams.length })}
-      </Text>
+        </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={removeConfirm}

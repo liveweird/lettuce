@@ -48,6 +48,7 @@ import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
 import ReadOnlyField from "../components/ReadOnlyField";
+import RecordLayout from "../components/RecordLayout";
 import SuccessionHistory from "../components/SuccessionHistory";
 import SuccessionPlanFields from "../components/SuccessionPlanFields";
 import {
@@ -276,7 +277,9 @@ export default function ReviewSuccessionPlan() {
         mb="lg"
       />
       <Container size="md" px={0}>
-        <Paper withBorder p="xl">
+        <RecordLayout
+          metadata={data ? <PlanParties plan={data} currentUserId={currentUserId} /> : undefined}
+        >
           <Stack>
             {isLoading ? (
               <CenteredLoader />
@@ -315,8 +318,6 @@ export default function ReviewSuccessionPlan() {
                           })}
                         </Alert>
                       )}
-
-                      <PlanParties plan={data} currentUserId={currentUserId} />
 
                       {canEdit ? (
                         // The editable definition draws the same two sections as the read-only
@@ -600,7 +601,7 @@ export default function ReviewSuccessionPlan() {
               )}
             </FormFooter>
           </Stack>
-        </Paper>
+        </RecordLayout>
       </Container>
 
       <ConfirmActionModal

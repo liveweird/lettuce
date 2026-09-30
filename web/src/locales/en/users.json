@@ -273,5 +273,7 @@
   "profileDetails": "Profile details",
   "profileAndLeaveDetails": "Profile & days off",
   "profileDetailsFor": "Profile details for {{name}}",
-  "profileAndLeaveDetailsFor": "Profile & days off for {{name}}"
+  "profileAndLeaveDetailsFor": "Profile & days off for {{name}}",
+  "moreActions": "More actions",
+  "moreActionsFor": "More actions for {{name}}"
 }

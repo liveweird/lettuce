@@ -14,6 +14,18 @@ The typed API layer lives in `web/src/api/` as small hand-written modules: `http
 
 `openapi-typescript` is installed with `--legacy-peer-deps` because its declared peer is TS `^5` while the scaffold uses TS 6; the generated output is compatible. If you re-`npm install` from scratch, use `npm install --legacy-peer-deps`.
 
+## V5 page composition
+
+The complete page-family contract and delivery inventory are in `.claude/docs/frontend-design.md`.
+Use `ListSurface` around ordinary list controls, results and pagination, with the existing primary
+text filter visible through `ListToolbar.search`. Use its `cards` variant for relationship grids;
+each person card owns its border. `RecordLayout` uses an aside only for prose documents, while
+rating tables, 1:1 action tables, KPI graphs and succession workspaces keep top metadata and full
+content width. `FormSurface` owns responsive form padding; its `compact` option is required for
+the import-results table to retain desktop columns inside `Container md`. Shared `FormFooter`
+uses the surface padding for sticky actions and provides 44px phone buttons. Preserve every
+feature's field order, save boundaries, access gates, query parameters and stored view keys.
+
 ## Session isolation
 
 `api/session.ts` owns session transitions and subscriptions. Login, logout, definitive refresh rejection, and a session replacement in another tab are boundaries: clear the QueryClient's query and mutation caches before notifying auth subscribers, and remount the authenticated subtree so the previous account's component/form state cannot survive. Keep this binding active for the whole app lifetime, including the login screen. Device preferences (`lettuce.lang`, view settings, changelog seen state) retain their existing lifetime.

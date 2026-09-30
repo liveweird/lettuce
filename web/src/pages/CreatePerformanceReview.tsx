@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useMemo, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Box, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Anchor, Box, Button, Container, Group, Select, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -119,7 +120,7 @@ export default function CreatePerformanceReview() {
         mb="lg"
       />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <Stack gap="md">
             {/* The context line (v3.5.0): the pair and the period — the pickers keep their
                 names via aria-label (the "Team member" / "Period" comboboxes). MetaStrip takes
@@ -211,7 +212,7 @@ export default function CreatePerformanceReview() {
               </Group>
             </FormFooter>
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

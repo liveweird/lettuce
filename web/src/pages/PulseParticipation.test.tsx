@@ -171,5 +171,6 @@ describe("PulseParticipation", () => {
     expect(
       await screen.findByText("No open or closed cycle to monitor."),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Cycle", { selector: "input" })).toBeInTheDocument();
   });
 });

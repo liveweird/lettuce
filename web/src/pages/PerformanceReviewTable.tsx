@@ -11,7 +11,8 @@ import ClearableTextInput from "../components/ClearableTextInput";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
-import FilterPanel from "../components/FilterPanel";
+import ListSurface from "../components/ListSurface";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import PersonCell from "../components/PersonCell";
@@ -147,10 +148,18 @@ export default function PerformanceReviewTable({
   const [periodFilter, setPeriodFilter] = useStoredState(
     `${storeKey}.filter.period`, "", isString,
   );
+  const searchColumn = visibleColumns[0];
+  const secondaryColumns = visibleColumns.slice(1);
   const activeFilterCount =
     visibleColumns.filter((c) => personFilters[c.field].value.trim()).length +
     (statusFilter ? 1 : 0) +
     (periodFilter ? 1 : 0);
+
+  function clearPanelFilters() {
+    visibleColumns.forEach((col) => personFilters[col.field].set(""));
+    setStatusFilter(null);
+    setPeriodFilter("");
+  }
 
   const [debouncedManager] = useDebouncedValue(managerFilter, 300);
   const [debouncedSubordinate] = useDebouncedValue(subordinateFilter, 300);
@@ -206,44 +215,73 @@ export default function PerformanceReviewTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
-        {visibleColumns.map((c) => (
-          <ClearableTextInput
-            key={c.field}
-            label={t(c.labelKey)}
-            value={personFilters[c.field].value}
-            onChange={personFilters[c.field].set}
-            clearLabel={t(c.clearFilterLabelKey)}
-          />
-        ))}
-        <Select
-          label={t("performanceReview.period")}
-          data={[{ value: "", label: t("common.state.all") }, ...periodOptions]}
-          value={periodFilter}
-          onChange={(v) => setPeriodFilter(v ?? "")}
-          allowDeselect={false}
-          renderOption={renderPeriodOption}
-          w={240}
-        />
-        <Select
-          label={t("common.field.status")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`performanceReview.status.${s}`) })),
-          ]}
-          value={statusFilter ?? ""}
-          onChange={(v) => setStatusFilter((v as PerformanceReviewStatus) || null)}
-          allowDeselect={false}
-          w={180}
-        />
-      </FilterPanel>
-
       {isError && (
         <Alert color="red" variant="light" title={t("performanceReview.loadListError")}>
           {loadErrorMessage(error, t)}
         </Alert>
       )}
 
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={searchColumn ? {
+              label: t(searchColumn.labelKey),
+              value: personFilters[searchColumn.field].value,
+              onChange: personFilters[searchColumn.field].set,
+              clearLabel: t(searchColumn.clearFilterLabelKey),
+            } : undefined}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              tourId,
+              onClear: clearPanelFilters,
+              children: (
+                <>
+                  {secondaryColumns.map((c) => (
+                    <ClearableTextInput
+                      key={c.field}
+                      label={t(c.labelKey)}
+                      value={personFilters[c.field].value}
+                      onChange={personFilters[c.field].set}
+                      clearLabel={t(c.clearFilterLabelKey)}
+                    />
+                  ))}
+                  <Select
+                    label={t("performanceReview.period")}
+                    data={[{ value: "", label: t("common.state.all") }, ...periodOptions]}
+                    value={periodFilter}
+                    onChange={(v) => setPeriodFilter(v ?? "")}
+                    allowDeselect={false}
+                    renderOption={renderPeriodOption}
+                    w={240}
+                  />
+                  <Select
+                    label={t("common.field.status")}
+                    data={[
+                      { value: "", label: t("common.state.any") },
+                      ...STATUS_VALUES.map((s) => ({ value: s, label: t(`performanceReview.status.${s}`) })),
+                    ]}
+                    value={statusFilter ?? ""}
+                    onChange={(v) => setStatusFilter((v as PerformanceReviewStatus) || null)}
+                    allowDeselect={false}
+                    w={180}
+                  />
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="performanceReview.rowsPerPage"
+          />
+        }
+      >
       <ResponsiveTable density="wide">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -367,15 +405,7 @@ export default function PerformanceReviewTable({
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="performanceReview.rowsPerPage"
-      />
+      </ListSurface>
     </Stack>
   );
 }

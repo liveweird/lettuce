@@ -7,7 +7,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { Alert, Box, Button, Container, Group, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Alert, Button, Container, Group, Paper, Stack, Tabs, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
@@ -31,7 +31,7 @@ import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { invalidateFeedback } from "../utils/feedbackQueries";
 import { safeBackParam } from "../utils/url";
-import classes from "./ViewFeedback.module.css";
+import RecordLayout from "../components/RecordLayout";
 
 const RECEIVED = "/feedback?tab=received";
 
@@ -199,14 +199,7 @@ export default function ViewFeedback() {
       <Stack gap="md">
         <PageHeader
           title={t("feedback.viewTitle")}
-          badge={
-            data && (
-              <Group gap="xs" wrap="nowrap">
-                <StatusBadge status={data.status} />
-                <VisibilityBadge visibility={data.visibility} />
-              </Group>
-            )
-          }
+          badge={data && <StatusBadge status={data.status} />}
           actions={
             <>
               <Button component={RouterLink} to={backTo} variant="default">
@@ -244,9 +237,17 @@ export default function ViewFeedback() {
               </Alert>
             </Paper>
           ) : data ? (
-            <Box className={classes.layout}>
-              <Paper withBorder radius="md" p="lg" className={classes.document}>
+            <RecordLayout
+              metadataPlacement="aside"
+              metadata={
+                <MetaStrip items={[
+                  { key: "visibility", label: t("common.field.visibility"), value: <VisibilityBadge visibility={data.visibility} /> },
+                  ...metaItems.filter((item) => item.key !== "provider" && item.key !== "recipients"),
+                ]} />
+              }
+            >
                 <Stack gap="md">
+                  <MetaStrip items={metaItems.filter((item) => item.key === "provider" || item.key === "recipients")} />
                   <RequesterMessage value={data.requesterMessage} collapsible />
                   <Tabs defaultValue="content" keepMounted={false}>
                     <Tabs.List>
@@ -276,14 +277,7 @@ export default function ViewFeedback() {
                     </Tabs.Panel>
                   </Tabs>
                 </Stack>
-              </Paper>
-              <Box component="aside" className={classes.metadata}>
-                <Title order={3} size="h4" mb="sm">
-                  {t("feedback.detailsTitle")}
-                </Title>
-                <MetaStrip items={metaItems} />
-              </Box>
-            </Box>
+            </RecordLayout>
           ) : null}
         </Container>
       </Stack>

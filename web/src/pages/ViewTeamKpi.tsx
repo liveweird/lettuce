@@ -1,7 +1,7 @@
 import type { ParseKeys } from "i18next";
 import { lazy, Suspense, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Input, Paper, Skeleton, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Button, Container, Input, Skeleton, Stack, Tabs, Text } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,7 @@ import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
+import RecordLayout from "../components/RecordLayout";
 import TeamKpiHistory from "../components/TeamKpiHistory";
 import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
 import TeamKpiValuesEditor from "../components/TeamKpiValuesEditor";
@@ -172,35 +173,20 @@ export default function ViewTeamKpi() {
         )}
 
         <Container size="md" px={0} w="100%">
-          <Paper withBorder radius="md" p="md">
-            {isLoading ? (
-              <CenteredLoader />
-            ) : isError ? (
-              <Alert color="red" variant="light">
-                {errorMessage}
-              </Alert>
-            ) : data ? (
-              <Stack gap="md">
+          <RecordLayout
+            metadata={
+              data ? (
                 <MetaStrip
                   items={[
                     {
                       key: "title",
                       label: t("teamKpi.title"),
-                      value: (
-                        <Text size="sm" fw={600}>
-                          {data.title}
-                        </Text>
-                      ),
+                      value: <Text size="sm" fw={600}>{data.title}</Text>,
                     },
                     {
                       key: "team",
                       label: t("teamKpi.team"),
-                      value: (
-                        <Text size="sm">
-                          {data.teamName}
-                          {data.teamDeleted ? ` (${t("teamKpi.teamDeleted")})` : ""}
-                        </Text>
-                      ),
+                      value: <Text size="sm">{data.teamName}{data.teamDeleted ? ` (${t("teamKpi.teamDeleted")})` : ""}</Text>,
                     },
                     {
                       key: "manager",
@@ -210,20 +196,23 @@ export default function ViewTeamKpi() {
                     {
                       key: "creator",
                       label: t("common.field.creator"),
-                      value: (
-                        <PersonCell
-                          userId={data.creatorId}
-                          name={data.creatorName}
-                          deleted={data.creatorDeleted}
-                          currentUserId={currentUserId}
-                        />
-                      ),
+                      value: <PersonCell userId={data.creatorId} name={data.creatorName} deleted={data.creatorDeleted} currentUserId={currentUserId} />,
                     },
                     { key: "type", label: t("teamKpi.type.label"), value: <Text size="sm">{t(`teamKpi.type.${data.type}`)}</Text> },
                     { key: "created", label: t("teamKpi.createdAt"), value: <DateCell value={data.createdAt} mode="date" /> },
                   ]}
                 />
-
+              ) : undefined
+            }
+          >
+            {isLoading ? (
+              <CenteredLoader />
+            ) : isError ? (
+              <Alert color="red" variant="light">
+                {errorMessage}
+              </Alert>
+            ) : data ? (
+              <Stack gap="md">
                 <Tabs defaultValue="general" keepMounted={false}>
                   <Tabs.List>
                     <Tabs.Tab value="general">{t("teamKpi.general")}</Tabs.Tab>
@@ -279,7 +268,7 @@ export default function ViewTeamKpi() {
                 </Tabs>
               </Stack>
             ) : null}
-          </Paper>
+          </RecordLayout>
         </Container>
       </Stack>
 

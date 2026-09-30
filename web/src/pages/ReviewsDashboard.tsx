@@ -4,6 +4,7 @@ import {
   Badge,
   Box,
   Group,
+  Paper,
   SegmentedControl,
   Select,
   Skeleton,
@@ -222,118 +223,122 @@ export default function ReviewsDashboard() {
   const isError = periodsError || (isAuditorScope ? auditUsersError : membersError) || reviewsError;
   const columnCount = REVIEWS_DASHBOARD_SORT_FIELDS.length + 1;
 
-  if (periods != null && periods.length === 0) {
-    return (
-      <EmptyState
-        icon={<IconClipboardText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-        label={t("performanceReview.dashboard.noPeriods")}
-      />
-    );
-  }
+  const scopeControl = auditor ? (
+    <ReportsScopeSelect
+      value={reportsScope}
+      onChange={setReportsScope}
+      auditorOption
+      auditorOnly={auditorOnly}
+    />
+  ) : (
+    <ReportsScopeSelect
+      value={reportsScope === "auditor" ? "direct" : reportsScope}
+      onChange={setReportsScope}
+    />
+  );
 
   return (
     <Stack gap="md">
       {/* The period is the dataset scope, not a filter — always visible above the panel.
           The view toggle sits beside it: Table (the completion list) or Distribution (the
           rating-balance charts), both driven by the same period + filters. */}
-      <Group justify="space-between" align="flex-end">
-        <Select
-          label={t("performanceReview.period")}
-          data={periodOptions}
-          value={periodId}
-          onChange={(v) => setStoredPeriod(v ?? "")}
-          allowDeselect={false}
-          renderOption={renderPeriodOption}
-          w={240}
-          // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour anchor
-          // must ride wrapperProps or it would land on the input, not the label+input pair.
-          wrapperProps={{ "data-tour": "performance-period" }}
-        />
-        <SegmentedControl
-          value={view}
-          onChange={(v) => {
-            if (isOneOf(VIEW_MODES)(v)) setView(v);
-          }}
-          data-tour="performance-view"
-          data={[
-            {
-              value: "table",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconTable size={16} />
-                  <span>{t("performanceReview.dashboard.chart.viewTable")}</span>
-                </Group>
-              ),
-            },
-            {
-              value: "chart",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconChartBar size={16} />
-                  <span>{t("performanceReview.dashboard.chart.viewChart")}</span>
-                </Group>
-              ),
-            },
-            {
-              value: "quadrants",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconLayoutGrid size={16} />
-                  <span>{t("performanceReview.dashboard.quadrants.view")}</span>
-                </Group>
-              ),
-            },
-          ]}
-        />
-      </Group>
+      <Paper withBorder p="md" radius="md">
+        <Stack gap="md">
+          <Group justify="space-between" align="flex-end" wrap="wrap">
+            <Select
+              label={t("performanceReview.period")}
+              data={periodOptions}
+              value={periodId}
+              onChange={(v) => setStoredPeriod(v ?? "")}
+              allowDeselect={false}
+              renderOption={renderPeriodOption}
+              w={240}
+              // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour anchor
+              // must ride wrapperProps or it would land on the input, not the label+input pair.
+              wrapperProps={{ "data-tour": "performance-period" }}
+            />
+            <SegmentedControl
+              value={view}
+              onChange={(v) => {
+                if (isOneOf(VIEW_MODES)(v)) setView(v);
+              }}
+              data-tour="performance-view"
+              data={[
+                {
+                  value: "table",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <IconTable size={16} />
+                      <span>{t("performanceReview.dashboard.chart.viewTable")}</span>
+                    </Group>
+                  ),
+                },
+                {
+                  value: "chart",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <IconChartBar size={16} />
+                      <span>{t("performanceReview.dashboard.chart.viewChart")}</span>
+                    </Group>
+                  ),
+                },
+                {
+                  value: "quadrants",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <IconLayoutGrid size={16} />
+                      <span>{t("performanceReview.dashboard.quadrants.view")}</span>
+                    </Group>
+                  ),
+                },
+              ]}
+            />
+          </Group>
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY} tourId="performance-dashboard-filters">
-        {auditor ? (
-          <ReportsScopeSelect
-            value={reportsScope}
-            onChange={setReportsScope}
-            auditorOption
-            auditorOnly={auditorOnly}
-          />
-        ) : (
-          <ReportsScopeSelect
-            value={reportsScope === "auditor" ? "direct" : reportsScope}
-            onChange={setReportsScope}
-          />
-        )}
-        <Select
-          label={t("performanceReview.dashboard.team")}
-          data={[{ value: "", label: t("common.state.all") }, ...teamOptions.map((n) => ({ value: n, label: n }))]}
-          value={teamFilter}
-          onChange={(v) => setTeamFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY} tourId="performance-dashboard-filters">
+            {scopeControl}
+            <Select
+              label={t("performanceReview.dashboard.team")}
+              data={[{ value: "", label: t("common.state.all") }, ...teamOptions.map((n) => ({ value: n, label: n }))]}
+              value={teamFilter}
+              onChange={(v) => setTeamFilter(v ?? "")}
+              allowDeselect={false}
+              w={200}
+            />
+            <Select
+              label={t("common.field.careerPath")}
+              data={[{ value: "", label: t("common.state.all") }, ...pathOptions]}
+              value={pathFilter}
+              onChange={(v) => setPathFilter(v ?? "")}
+              allowDeselect={false}
+              w={200}
+            />
+            <Select
+              label={t("performanceReview.dashboard.specialty")}
+              data={[{ value: "", label: t("common.state.all") }, ...specOptions]}
+              value={specFilter}
+              onChange={(v) => setSpecFilter(v ?? "")}
+              allowDeselect={false}
+              w={200}
+            />
+            <Select
+              label={t("common.field.seniorityLevel")}
+              data={[{ value: "", label: t("common.state.all") }, ...seniorityOptions]}
+              value={seniorityFilter}
+              onChange={(v) => setSeniorityFilter(v ?? "")}
+              allowDeselect={false}
+              w={200}
+            />
+          </FilterPanel>
+        </Stack>
+      </Paper>
+
+      {periods != null && periods.length === 0 && (
+        <EmptyState
+          icon={<IconClipboardText size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+          label={t("performanceReview.dashboard.noPeriods")}
         />
-        <Select
-          label={t("common.field.careerPath")}
-          data={[{ value: "", label: t("common.state.all") }, ...pathOptions]}
-          value={pathFilter}
-          onChange={(v) => setPathFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
-        />
-        <Select
-          label={t("performanceReview.dashboard.specialty")}
-          data={[{ value: "", label: t("common.state.all") }, ...specOptions]}
-          value={specFilter}
-          onChange={(v) => setSpecFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
-        />
-        <Select
-          label={t("common.field.seniorityLevel")}
-          data={[{ value: "", label: t("common.state.all") }, ...seniorityOptions]}
-          value={seniorityFilter}
-          onChange={(v) => setSeniorityFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
-        />
-      </FilterPanel>
+      )}
 
       {isError && (
         <Alert color="red" variant="light" title={t("performanceReview.loadListError")}>
@@ -344,7 +349,7 @@ export default function ReviewsDashboard() {
       {/* The current view's container — table / Distribution / Quadrants — carries the tour
           anchor; the empty-timeline EmptyState above returns before this renders, so it stays
           anchor-free (Joyride skips a missing target). */}
-      <Box data-tour="performance-dashboard">
+      {periods?.length !== 0 && <Box data-tour="performance-dashboard">
       {view === "chart" ? (
         // The Distribution view replaces the table + pagination; the period and every filter
         // above keep applying — filteredRows is the filtered-but-unpaginated selection.
@@ -554,7 +559,7 @@ export default function ReviewsDashboard() {
       />
       </>
       )}
-      </Box>
+      </Box>}
     </Stack>
   );
 }

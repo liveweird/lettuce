@@ -1,6 +1,11 @@
+import FormSurface from "../components/FormSurface";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
+import DiscardGuard from "../components/DiscardGuard";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -8,11 +13,9 @@ import {
   Container,
   Group,
   Loader,
-  Paper,
   Stack,
   Switch,
   Text,
-  Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -117,6 +120,11 @@ export default function NotificationPreferences() {
     return ordered;
   }, [effective, data?.disabledFeatures, t]);
 
+  const { requestCancel, guardProps } = useDiscardGuard({
+    isDirty: () => prefs != null && (masterEnabled !== prefs.emailEnabled || effective.some((item, index) => !item.locked && (item.inApp !== prefs.items[index].inApp || item.email !== prefs.items[index].email || item.teams !== prefs.items[index].teams))),
+    to: returnTo,
+  });
+
   if (!canChange || !idIsValid) return <Navigate to="/" replace />;
 
   function toggle(type: string, channel: Channel, checked: boolean) {
@@ -217,149 +225,152 @@ export default function NotificationPreferences() {
   ];
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="md" radius="md">
-        <Stack>
-          <Title order={2}>{t("notificationPreferences.title")}</Title>
-          {isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : !ready ? (
-            <>
-              <Alert color="red" variant="light">
-                {notFound ? t("notificationPreferences.userNotFound") : t("notificationPreferences.loadFailed")}
-              </Alert>
-              <Group justify="flex-end">
-                <Button component={RouterLink} to={returnTo} variant="default">
-                  {t("common.action.cancel")}
-                </Button>
-              </Group>
-            </>
-          ) : (
-            <Stack>
-              {!isSelf && (
-                <Text c="dimmed" size="sm">
-                  {data.name} ({data.email})
-                </Text>
-              )}
-              <Text c="dimmed" size="sm">
-                {t("notificationPreferences.hint")}
-              </Text>
-              <Stack gap={4}>
-                <Switch
-                  label={t("notificationPreferences.masterSwitchLabel")}
-                  checked={masterEnabled}
-                  onChange={(event) => setMasterChoice(event.currentTarget.checked)}
-                />
-                <Text c="dimmed" size="xs">
-                  {t("notificationPreferences.masterSwitchHint")}
-                </Text>
-              </Stack>
-
-              {sections.map((section) => {
-                const sectionKey = section.feature ?? "other";
-                return (
-                  <div key={sectionKey}>
-                    <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
-                      <Text fw={600}>{section.label}</Text>
-                      <Group gap={4} wrap="wrap">
-                        {columns.map((column, index) => (
-                          <Group key={column.channel} gap={4} wrap="nowrap">
-                            <Text size="xs" c="dimmed" ml={index > 0 ? "sm" : undefined}>
-                              {column.label}:
-                            </Text>
-                            <Button
-                              variant="subtle"
-                              size="compact-xs"
-                              disabled={column.muted}
-                              aria-label={t("notificationPreferences.allOnAria", {
-                                feature: section.label,
-                                column: column.label,
-                              })}
-                              onClick={() => bulkSet(section.items, column.channel, true)}
-                            >
-                              {t("notificationPreferences.allOn")}
-                            </Button>
-                            <Button
-                              variant="subtle"
-                              size="compact-xs"
-                              disabled={column.muted}
-                              aria-label={t("notificationPreferences.allOffAria", {
-                                feature: section.label,
-                                column: column.label,
-                              })}
-                              onClick={() => bulkSet(section.items, column.channel, false)}
-                            >
-                              {t("notificationPreferences.allOff")}
-                            </Button>
-                          </Group>
-                        ))}
-                      </Group>
-                    </Group>
-                    <ResponsiveTable density="normal">
-                      <ResponsiveTable.Thead>
-                        <ResponsiveTable.Tr>
-                          <ResponsiveTable.Th primary>
-                            {t("notificationPreferences.typeColumn")}
-                          </ResponsiveTable.Th>
-                          {columns.map((column) => (
-                            <ResponsiveTable.Th key={column.channel}>{column.label}</ResponsiveTable.Th>
-                          ))}
-                        </ResponsiveTable.Tr>
-                      </ResponsiveTable.Thead>
-                      <ResponsiveTable.Tbody>
-                        {section.items.map((item) => {
-                          const typeLabel = t(PREFERENCE_LABEL_KEY[item.type]);
-                          return (
-                            <ResponsiveTable.Tr key={item.type}>
-                              <ResponsiveTable.Td label={t("notificationPreferences.typeColumn")} primary>
-                                {typeLabel}
-                                {item.locked && (
-                                  <Text span c="dimmed" size="xs" ml={6}>
-                                    ({t("notificationPreferences.lockedHint")})
-                                  </Text>
-                                )}
-                              </ResponsiveTable.Td>
-                              {columns.map((column) => (
-                                <ResponsiveTable.Td key={column.channel} label={column.label}>
-                                  <Switch
-                                    checked={item.locked || item[column.field]}
-                                    disabled={item.locked || column.muted}
-                                    aria-label={t("notificationPreferences.switchAria", {
-                                      label: typeLabel,
-                                      column: column.label,
-                                    })}
-                                    onChange={(event) => toggle(item.type, column.channel, event.currentTarget.checked)}
-                                  />
-                                </ResponsiveTable.Td>
-                              ))}
-                            </ResponsiveTable.Tr>
-                          );
-                        })}
-                      </ResponsiveTable.Tbody>
-                    </ResponsiveTable>
-                  </div>
-                );
-              })}
-
-              {error && (
+    <>
+      <PageHeader title={t("notificationPreferences.title")} mb="lg" />
+      <Container size="md" px={0}>
+        <FormSurface>
+          <Stack>
+            {isLoading ? (
+              <Center py="xl">
+                <Loader />
+              </Center>
+            ) : !ready ? (
+              <>
                 <Alert color="red" variant="light">
-                  {error}
+                  {notFound ? t("notificationPreferences.userNotFound") : t("notificationPreferences.loadFailed")}
                 </Alert>
-              )}
-              <Group justify="flex-end" gap="sm">
-                <Button component={RouterLink} to={returnTo} variant="default">
-                  {t("common.action.cancel")}
-                </Button>
-                <Button onClick={onSave} loading={submitting}>
-                  {t("common.action.save")}
-                </Button>
-              </Group>
-            </Stack>
-          )}
-        </Stack>
-      </Paper>
-    </Container>
+                <Group justify="flex-end">
+                  <Button onClick={requestCancel} variant="default">
+                    {t("common.action.cancel")}
+                  </Button>
+                </Group>
+              </>
+            ) : (
+              <Stack>
+                {!isSelf && (
+                  <Text c="dimmed" size="sm">
+                    {data.name} ({data.email})
+                  </Text>
+                )}
+                <Text c="dimmed" size="sm">
+                  {t("notificationPreferences.hint")}
+                </Text>
+                <Stack gap={4}>
+                  <Switch
+                    label={t("notificationPreferences.masterSwitchLabel")}
+                    checked={masterEnabled}
+                    onChange={(event) => setMasterChoice(event.currentTarget.checked)}
+                  />
+                  <Text c="dimmed" size="xs">
+                    {t("notificationPreferences.masterSwitchHint")}
+                  </Text>
+                </Stack>
+
+                {sections.map((section) => {
+                  const sectionKey = section.feature ?? "other";
+                  return (
+                    <div key={sectionKey}>
+                      <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
+                        <Text fw={600}>{section.label}</Text>
+                        <Group gap={4} wrap="wrap">
+                          {columns.map((column, index) => (
+                            <Group key={column.channel} gap={4} wrap="nowrap">
+                              <Text size="xs" c="dimmed" ml={index > 0 ? "sm" : undefined}>
+                                {column.label}:
+                              </Text>
+                              <Button
+                                variant="subtle"
+                                size="compact-xs"
+                                disabled={column.muted}
+                                aria-label={t("notificationPreferences.allOnAria", {
+                                  feature: section.label,
+                                  column: column.label,
+                                })}
+                                onClick={() => bulkSet(section.items, column.channel, true)}
+                              >
+                                {t("notificationPreferences.allOn")}
+                              </Button>
+                              <Button
+                                variant="subtle"
+                                size="compact-xs"
+                                disabled={column.muted}
+                                aria-label={t("notificationPreferences.allOffAria", {
+                                  feature: section.label,
+                                  column: column.label,
+                                })}
+                                onClick={() => bulkSet(section.items, column.channel, false)}
+                              >
+                                {t("notificationPreferences.allOff")}
+                              </Button>
+                            </Group>
+                          ))}
+                        </Group>
+                      </Group>
+                      <ResponsiveTable density="normal">
+                        <ResponsiveTable.Thead>
+                          <ResponsiveTable.Tr>
+                            <ResponsiveTable.Th primary>
+                              {t("notificationPreferences.typeColumn")}
+                            </ResponsiveTable.Th>
+                            {columns.map((column) => (
+                              <ResponsiveTable.Th key={column.channel}>{column.label}</ResponsiveTable.Th>
+                            ))}
+                          </ResponsiveTable.Tr>
+                        </ResponsiveTable.Thead>
+                        <ResponsiveTable.Tbody>
+                          {section.items.map((item) => {
+                            const typeLabel = t(PREFERENCE_LABEL_KEY[item.type]);
+                            return (
+                              <ResponsiveTable.Tr key={item.type}>
+                                <ResponsiveTable.Td label={t("notificationPreferences.typeColumn")} primary>
+                                  {typeLabel}
+                                  {item.locked && (
+                                    <Text span c="dimmed" size="xs" ml={6}>
+                                      ({t("notificationPreferences.lockedHint")})
+                                    </Text>
+                                  )}
+                                </ResponsiveTable.Td>
+                                {columns.map((column) => (
+                                  <ResponsiveTable.Td key={column.channel} label={column.label}>
+                                    <Switch
+                                      checked={item.locked || item[column.field]}
+                                      disabled={item.locked || column.muted}
+                                      aria-label={t("notificationPreferences.switchAria", {
+                                        label: typeLabel,
+                                        column: column.label,
+                                      })}
+                                      onChange={(event) => toggle(item.type, column.channel, event.currentTarget.checked)}
+                                    />
+                                  </ResponsiveTable.Td>
+                                ))}
+                              </ResponsiveTable.Tr>
+                            );
+                          })}
+                        </ResponsiveTable.Tbody>
+                      </ResponsiveTable>
+                    </div>
+                  );
+                })}
+
+                {error && (
+                  <Alert color="red" variant="light">
+                    {error}
+                  </Alert>
+                )}
+                <FormFooter>
+                  <Button onClick={requestCancel} variant="default">
+                    {t("common.action.cancel")}
+                  </Button>
+                  <Button onClick={onSave} loading={submitting}>
+                    {t("common.action.save")}
+                  </Button>
+                </FormFooter>
+              </Stack>
+            )}
+          </Stack>
+        </FormSurface>
+        <DiscardGuard {...guardProps} />
+      </Container>
+    </>
   );
 }

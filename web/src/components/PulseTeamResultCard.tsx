@@ -137,7 +137,7 @@ export default function PulseTeamResultCard({
       : t(dynamicKey(`pulse.${driver.question.toLowerCase()}`));
 
   return (
-    <Paper withBorder shadow="sm" p="lg" radius="md">
+    <Paper withBorder p="lg" radius="md">
       <Stack gap="sm">
         <Group justify="space-between" align="baseline" style={{ minWidth: 0 }}>
           <Title order={4} style={{ minWidth: 0, overflowWrap: "break-word" }}>{teamName}</Title>

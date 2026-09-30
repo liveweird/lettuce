@@ -128,6 +128,22 @@ describe("NotificationPreferences page", () => {
     });
   }
 
+  test("dirty notification choices remain until discard is confirmed", async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderPage();
+    const master = await screen.findByRole("switch", { name: "Send me emails" });
+    await user.click(master);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(master).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("link", { name: "Discard" }));
+    expect(await screen.findByTestId("probe")).toHaveTextContent(/^\/$/);
+    expect(mockFetch.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+  });
+
   test("groups rows by feature in FEATURES order, with locked types under Other, always on", async () => {
     mockApi();
     renderPage(7);

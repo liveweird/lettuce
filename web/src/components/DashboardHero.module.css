@@ -6,6 +6,9 @@
 .icon { flex-shrink: 0; color: var(--mantine-color-dimmed); }
 .icon svg { width: 16px; height: 16px; }
 .value { font-variant-numeric: tabular-nums; letter-spacing: -0.035em; overflow-wrap: break-word; }
+.callout { background: var(--lettuce-surface-tint); border-color: var(--mantine-primary-color-light-color); }
+.calloutCopy { min-width: min(100%, 22rem); }
+.calloutIcon { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px; border-radius: 50%; color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }
 @media (max-width: $mantine-breakpoint-sm) {
   .tile + .tile { border-left: 0; }
   .tile:nth-child(even) { border-left: 1px solid var(--mantine-color-default-border); }

@@ -187,19 +187,22 @@ test("a manager plans a succession, nominates a successor with a linked developm
     page.getByText("The nomination of AAA Two changed to secondary — a new primary was chosen."),
   ).toBeVisible();
 
-  // 8. The person-card button (v2.47.0): while the plan is OPEN, the subordinates grid's
-  //    AAA One card links straight to it; AAA Two (a candidate, not a seat) gets nothing.
+  // 8. The person-card action (v2.47.0): while the plan is OPEN, the subordinates grid's
+  //    AAA One More-actions menu links straight to it; AAA Two (a candidate, not a seat) gets nothing.
   await page.goto("/?tab=subordinates");
   const aaaOneCard = page.locator("li", { hasText: "AAA One" }).first();
   // The Profile section reports the plan's reviewed stamp beside the button (v2.47.2).
   await aaaOneCard.locator("summary").click();
   await expect(aaaOneCard.locator("details")).toHaveAttribute("open");
   await expect(aaaOneCard.getByText("Succession reviewed")).toBeVisible();
-  await aaaOneCard.getByRole("link", { name: "Succession plan for AAA One" }).click();
+  await aaaOneCard.getByRole("button", { name: "More actions for AAA One" }).click();
+  await page.getByRole("menuitem", { name: "Succession plan for AAA One" }).click();
   await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();
   await page.goto("/?tab=subordinates");
+  const aaaTwoCard = page.locator("li", { hasText: "AAA Two" }).first();
+  await aaaTwoCard.getByRole("button", { name: "More actions for AAA Two" }).click();
   await expect(
-    page.getByRole("link", { name: "Succession plan for AAA Two" }),
+    page.getByRole("menuitem", { name: "Succession plan for AAA Two" }),
   ).toHaveCount(0);
   await page.goto(`/succession/${planId}/view`);
   await expect(page.getByRole("heading", { name: "Succession plan" })).toBeVisible();

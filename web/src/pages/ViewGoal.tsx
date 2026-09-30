@@ -1,7 +1,7 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Group, Input, Paper, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Button, Container, Group, Input, Stack, Tabs, Text } from "@mantine/core";
 import { IconPencil } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -20,6 +20,7 @@ import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
+import RecordLayout from "../components/RecordLayout";
 import { goalEditLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
@@ -192,25 +193,16 @@ export default function ViewGoal() {
         )}
 
         <Container size="md" px={0} w="100%">
-          <Paper withBorder radius="md" p="md">
-            {isLoading ? (
-              <CenteredLoader />
-            ) : isError ? (
-              <Alert color="red" variant="light">
-                {errorMessage}
-              </Alert>
-            ) : data ? (
-              <Stack gap="md">
+          <RecordLayout
+            metadataPlacement="aside"
+            metadata={
+              data ? (
                 <MetaStrip
                   items={[
                     {
                       key: "title",
                       label: t("goal.title"),
-                      value: (
-                        <Text size="sm" fw={600}>
-                          {data.title}
-                        </Text>
-                      ),
+                      value: <Text size="sm" fw={600}>{data.title}</Text>,
                     },
                     {
                       key: "manager",
@@ -220,9 +212,7 @@ export default function ViewGoal() {
                     {
                       key: "subordinate",
                       label: t("goal.subordinate"),
-                      value: (
-                        <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />
-                      ),
+                      value: <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />,
                     },
                     { key: "type", label: t("goal.type.label"), value: <Text size="sm">{t(`goal.type.${data.type}`)}</Text> },
                     { key: "created", label: t("goal.createdAt"), value: <DateCell value={data.createdAt} mode="date" /> },
@@ -238,8 +228,17 @@ export default function ViewGoal() {
                     },
                   ]}
                 />
-
-                <Tabs defaultValue="content" keepMounted={false}>
+              ) : undefined
+            }
+          >
+            {isLoading ? (
+              <CenteredLoader />
+            ) : isError ? (
+              <Alert color="red" variant="light">
+                {errorMessage}
+              </Alert>
+            ) : data ? (
+              <Tabs defaultValue="content" keepMounted={false}>
                   <Tabs.List>
                     <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
                     <Tabs.Tab value="history">{t("goal.history")}</Tabs.Tab>
@@ -275,10 +274,9 @@ export default function ViewGoal() {
                   <Tabs.Panel value="lifecycle" pt="md">
                     <GoalLifecycle currentStatus={data.status} />
                   </Tabs.Panel>
-                </Tabs>
-              </Stack>
+              </Tabs>
             ) : null}
-          </Paper>
+          </RecordLayout>
         </Container>
       </Stack>
 

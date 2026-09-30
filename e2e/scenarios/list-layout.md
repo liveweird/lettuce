@@ -37,8 +37,8 @@
      the viewport without clipped text or internal overflow, both tab controls remain horizontally
      reachable, switching direction updates the active tab, and the page remains contained.
 7. The employee switches to Polish and repeats Received and Provided at representative desktop
-   and mobile widths (1280 and 390 pixels).
-   - *Expected*: the full Polish visibility label, the longer Polish
+   and mobile widths (1440, 1280 and 390 pixels).
+   - *Expected*: the full Polish visibility label wraps at spaces without splitting words, and the longer Polish
      status labels, the deadline, content, and actions remain available without widening the
      page.
 8. Back in English, the employee filters Users to a colleague with maximum-length identity

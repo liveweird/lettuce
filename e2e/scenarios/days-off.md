@@ -42,9 +42,9 @@ where a run died.
      already exists on this date." instead — either way the date is now covered), and the
      holiday appears in the list; "Pool kind added" (or, after a sweep race, "A pool kind with
      that name already exists.") and the kind is listed.
-2. Manager AAA signs in, opens the Dashboard's subordinates tab, and follows AAA Two's
-   "Days off" card link to the per-user drill-down. Beside the default pool strip's Allowance
-   figure, the pencil opens the allowance editor; the manager saves 299, reopens the editor,
+2. Manager AAA signs in, opens the Dashboard's subordinates tab, opens AAA Two's **More actions**
+   menu, and follows its "Days off" item to the per-user drill-down. Beside the default pool
+   strip's Allowance figure, the pencil opens the allowance editor; the manager saves 299, reopens the editor,
    and saves 300 (why two saves: the second is an actual change on every rerun — an idempotent
    re-save of 300 would mint no fresh notification later — and the reopened editor's 299
    prefill proves the first save persisted; v2.32.0 moved the allowance from the admin's

@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import {
   Link as RouterLink,
@@ -11,7 +12,6 @@ import {
   Center,
   Container,
   Loader,
-  Paper,
   Stack,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
@@ -105,7 +105,7 @@ export default function EditTemplate() {
     <>
       <PageHeader title={t("templates.edit")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -154,7 +154,7 @@ export default function EditTemplate() {
               </Stack>
             </form>
           )}
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

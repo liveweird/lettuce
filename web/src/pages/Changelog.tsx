@@ -1,8 +1,10 @@
 import { useEffect } from "react";
-import { Container, Paper, Stack, Text, Timeline, Title } from "@mantine/core";
+import { Container, Stack, Text, Timeline } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { CHANGELOG } from "../changelog/entries";
 import { markChangelogSeen } from "../hooks/useChangelogSeen";
+import PageHeader from "../components/PageHeader";
+import RecordLayout from "../components/RecordLayout";
 import MarkdownView from "../components/MarkdownView";
 
 // Changelog bodies are authored release CONTENT, deliberately not tied to the UI language
@@ -19,22 +21,24 @@ export default function Changelog() {
   }, []);
 
   return (
-    <Container size="md" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("changelog.title")}</Title>
-          <Timeline bulletSize={12} lineWidth={2}>
-            {CHANGELOG.map((entry) => (
-              <Timeline.Item key={entry.version} title={`v${entry.version}`}>
-                <Text size="xs" c="dimmed">
-                  {entry.date}
-                </Text>
-                <MarkdownView>{entry[bodyLang]}</MarkdownView>
-              </Timeline.Item>
-            ))}
-          </Timeline>
-        </Stack>
-      </Paper>
-    </Container>
+    <>
+      <PageHeader title={t("changelog.title")} mb="lg" />
+      <Container size="md" px={0}>
+        <RecordLayout>
+          <Stack>
+            <Timeline bulletSize={12} lineWidth={2}>
+              {CHANGELOG.map((entry) => (
+                <Timeline.Item key={entry.version} title={`v${entry.version}`}>
+                  <Text size="xs" c="dimmed">
+                    {entry.date}
+                  </Text>
+                  <MarkdownView>{entry[bodyLang]}</MarkdownView>
+                </Timeline.Item>
+              ))}
+            </Timeline>
+          </Stack>
+        </RecordLayout>
+      </Container>
+    </>
   );
 }

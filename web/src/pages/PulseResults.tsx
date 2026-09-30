@@ -1,4 +1,4 @@
-import { Alert, Group, SegmentedControl, Select, Skeleton, Stack } from "@mantine/core";
+import { Alert, Group, Paper, SegmentedControl, Select, Skeleton, Stack } from "@mantine/core";
 import { IconChartBar } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -85,13 +85,10 @@ export default function PulseResults() {
       </Alert>
     );
   }
-  if (options.length === 0) {
-    return <EmptyState icon={<IconChartBar size={32} />} label={t("pulse.results.noResultsYet")} />;
-  }
-
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end" wrap="wrap">
+      <Paper withBorder p="md" radius="md">
+        <Group justify="space-between" align="flex-end" wrap="wrap">
         <Select
           label={t("pulse.results.cycle")}
           data={options}
@@ -122,11 +119,14 @@ export default function PulseResults() {
             />
           )}
         </Group>
-      </Group>
+        </Group>
+      </Paper>
 
       {/* The per-view empty states render BELOW the selector — a member-of-nothing manager
           must still be able to switch to "Teams I manage" (and vice versa). */}
-      {viewTeams.length === 0 ? (
+      {options.length === 0 ? (
+        <EmptyState icon={<IconChartBar size={32} />} label={t("pulse.results.noResultsYet")} />
+      ) : viewTeams.length === 0 ? (
         <EmptyState
           icon={<IconChartBar size={32} />}
           label={t(

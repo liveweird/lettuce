@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Center, Container, Loader, Paper, Stack, Text } from "@mantine/core";
+import { Alert, Button, Center, Container, Loader, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -100,7 +101,7 @@ export default function EditImpactEntry() {
     <>
       <PageHeader title={t("impactLog.editTitle")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
               idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
           {isLoading ? (
@@ -145,7 +146,7 @@ export default function EditImpactEntry() {
               />
             </Stack>
           ) : null}
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

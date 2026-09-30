@@ -29,6 +29,11 @@ test("admin toggles a user's Goals feature via both surfaces; the user's UI foll
   const goalsSwitch = page.getByRole("switch", { name: "Goals" });
   await expect(goalsSwitch).toBeChecked();
   await goalsSwitch.click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const discardDialog = page.getByRole("dialog");
+  await expect(discardDialog.getByText("Discard changes?")).toBeVisible();
+  await discardDialog.getByRole("button", { name: "Keep editing" }).click();
+  await expect(goalsSwitch).not.toBeChecked();
   await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith(`/api/v1/users/${user.id}/features`) && r.request().method() === "PUT" && r.ok(),

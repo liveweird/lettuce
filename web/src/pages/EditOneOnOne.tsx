@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -10,7 +11,6 @@ import {
   Group,
   Loader,
   Modal,
-  Paper,
   Stack,
   Tabs,
   Text,
@@ -230,7 +230,7 @@ export default function EditOneOnOne() {
         }
       />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <Stack>
             {isLoading ? (
               <Center py="xl">
@@ -358,7 +358,7 @@ export default function EditOneOnOne() {
               </form>
             ) : null}
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

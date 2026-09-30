@@ -19,6 +19,7 @@ async function gotoTeamKpis(page: Page): Promise<void> {
 async function createKpi(page: Page, title: string, activate: boolean): Promise<number> {
   await page.getByRole("link", { name: "New team KPI" }).click();
   await expect(page).toHaveURL(/\/team-kpis\/new/);
+  await expect(page.getByRole("heading", { name: "New team KPI" })).toBeVisible();
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Target").fill("50");
   const [created] = await Promise.all([

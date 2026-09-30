@@ -13,7 +13,8 @@
    and a unique body, then "Create". Why unique: the shared database is long-lived, and
    `templates.name` is freed on soft-delete anyway, so repeated runs never collide.
 2. On the templates list, they filter by the template's unique name.
-   - *Expected*: the template's row is visible, with its content shown as a preview.
+   - *Expected*: the always-visible Name search needs no Filters toggle; the template's row is
+     visible, with its content shown as a preview.
 3. They open the template's edit screen, change the name (a "-renamed" suffix), and "Save".
 4. They open the template's read-only view.
    - *Expected*: the renamed title and the content render (as plain text under a label).

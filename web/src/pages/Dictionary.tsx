@@ -25,6 +25,7 @@ import CenteredLoader from "../components/CenteredLoader";
 import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
+import ListSurface from "../components/ListSurface";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n";
 import { getDictionary, updateDictionary, type DictionaryEntry, type DictionarySlug } from "../api/dictionaries";
 import { showSuccessToast } from "../utils/toast";
@@ -76,29 +77,30 @@ export default function Dictionary() {
 
   if (slug == null) return <Navigate to="/" replace />;
 
-  // The Config-page shell (v3.5.2): PageHeader outside the container, the border-first Paper
-  // inside. The guided tour anchors the nav leaf, not this title, so no tourId.
+  // The guided tour anchors the nav leaf, not this title, so no tourId. Editors retain a
+  // focused reading width; readers get the compact semantic table without editor padding.
   return (
-    <>
-      <PageHeader title={t(DICTIONARIES[slug].titleKey)} mb="lg" />
-      <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
-          {isError ? (
-            <Alert color="red" variant="light" title={t("dictionary.loadFailed")}>
-              {loadErrorMessage(error, t)}
-            </Alert>
-          ) : isLoading || !data ? (
-            <CenteredLoader />
-          ) : isAdmin() ? (
-            // Keyed by slug: switching between the three nav leaves remounts the editor, so
-            // each dictionary starts from its own freshly loaded document.
+    <Stack gap="md">
+      <PageHeader title={t(DICTIONARIES[slug].titleKey)} />
+      {isError ? (
+        <Alert color="red" variant="light" title={t("dictionary.loadFailed")}>
+          {loadErrorMessage(error, t)}
+        </Alert>
+      ) : isLoading || !data ? (
+        <CenteredLoader />
+      ) : isAdmin() ? (
+        <Container size="md" px={0} w="100%">
+          <Paper withBorder p="xl" radius="md">
+            {/* Keyed by slug: switching leaves remounts the editor with fresh data. */}
             <DictionaryEditor key={slug} slug={slug} initialItems={data} />
-          ) : (
-            <ReadOnlyEntries items={data} />
-          )}
-        </Paper>
-      </Container>
-    </>
+          </Paper>
+        </Container>
+      ) : (
+        <ListSurface>
+          <ReadOnlyEntries items={data} />
+        </ListSurface>
+      )}
+    </Stack>
   );
 }
 

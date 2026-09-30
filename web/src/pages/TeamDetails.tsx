@@ -32,6 +32,7 @@ import RowActions from "../components/RowActions";
 import { feedbackRowMenu } from "../components/feedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
 import MetaStrip from "../components/MetaStrip";
+import ListSurface from "../components/ListSurface";
 import PageHeader from "../components/PageHeader";
 import { renderUserOption, userOption } from "../components/userOptions";
 import TeamMembersTable from "./TeamMembersTable";
@@ -284,32 +285,6 @@ export default function TeamDetails() {
         <>
       <Title order={3}>{t("teams.members")}</Title>
 
-      {canManage && (
-        <Group align="flex-end" gap="sm">
-          <Select
-            label={t("teams.addUser")}
-            placeholder={t("teams.pickUser")}
-            data={addOptions}
-            renderOption={renderUserOption}
-            value={selectedUser}
-            onChange={setSelectedUser}
-            searchable
-            clearable
-            nothingFoundMessage={t("teams.noUsersAvailable")}
-            error={usersError ? t("common.error.optionsFailed") : undefined}
-            w={280}
-          />
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={add}
-            disabled={!selectedUser}
-            loading={addMutation.isPending}
-          >
-            {t("teams.add")}
-          </Button>
-        </Group>
-      )}
-
       {canManage && addError && (
         <Alert color="red" variant="light" title={t("teams.addMemberFailed")} onClose={() => setAddError(null)} withCloseButton>
           {addError}
@@ -322,7 +297,39 @@ export default function TeamDetails() {
         </Alert>
       )}
 
-      <ResponsiveTable density="compact">
+      <ListSurface
+        toolbar={canManage ? (
+          <Group align="flex-end" gap="sm">
+            <Select
+              label={t("teams.addUser")}
+              placeholder={t("teams.pickUser")}
+              data={addOptions}
+              renderOption={renderUserOption}
+              value={selectedUser}
+              onChange={setSelectedUser}
+              searchable
+              clearable
+              nothingFoundMessage={t("teams.noUsersAvailable")}
+              error={usersError ? t("common.error.optionsFailed") : undefined}
+              w={280}
+            />
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={add}
+              disabled={!selectedUser}
+              loading={addMutation.isPending}
+            >
+              {t("teams.add")}
+            </Button>
+          </Group>
+        ) : undefined}
+        footer={
+          <Text size="sm" c="dimmed">
+            {t("common.table.total", { count: members.length })}
+          </Text>
+        }
+      >
+        <ResponsiveTable density="compact">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
             <ResponsiveTable.Th>{t("common.field.name")}</ResponsiveTable.Th>
@@ -394,11 +401,8 @@ export default function TeamDetails() {
             </ResponsiveTable.Tr>
           ) : null}
         </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <Text size="sm" c="dimmed">
-        {t("common.table.total", { count: members.length })}
-      </Text>
+        </ResponsiveTable>
+      </ListSurface>
         </>
       )}
 

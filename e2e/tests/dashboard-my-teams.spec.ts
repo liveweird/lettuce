@@ -9,6 +9,8 @@ test("a manager walks My teams into the team view and a drill-down round-trips b
   await login(page, MANAGER_AAA);
   await page.goto("/?tab=myTeams");
 
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Filters/ })).toHaveCount(0);
   // Manager AAA manages exactly team AAA (they are a mere member of CCC, which must not show).
   await expect(page.getByRole("link", { name: "Team details for AAA" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Team details for CCC" })).toHaveCount(0);
@@ -26,12 +28,13 @@ test("a manager walks My teams into the team view and a drill-down round-trips b
   // (New 1:1 sits in the card's 1:1 dropdown since v1.51.0).
   await expect(page.getByText("AAA Three")).toBeVisible();
   await expect(page.getByText("Last 1:1").first()).toBeVisible();
-  await page.getByRole("button", { name: "1:1 actions for AAA Three" }).click();
+  await page.getByRole("button", { name: "1:1 meetings: 1:1 actions for AAA Three" }).click();
   await expect(page.getByRole("menuitem", { name: "New 1:1 with AAA Three" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   // Full back-link fidelity: the Goals drill-down carries the team origin and returns here.
-  await page.getByRole("link", { name: "Goals for AAA Three" }).click();
+  await page.getByRole("button", { name: "More actions for AAA Three" }).click();
+  await page.getByRole("menuitem", { name: "Goals for AAA Three" }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/goals\?/);
   await page.getByRole("link", { name: /Back to Team subordinates/ }).click();
   await expect(page).toHaveURL(/\/teams\/\d+\/details/);

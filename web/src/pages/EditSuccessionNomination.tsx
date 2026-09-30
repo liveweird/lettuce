@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useMemo, useState } from "react";
 import {
   Navigate,
@@ -15,7 +16,6 @@ import {
   Loader,
   Modal,
   MultiSelect,
-  Paper,
   Select,
   Stack,
   Text,
@@ -622,7 +622,7 @@ export default function EditSuccessionNomination() {
         mb="lg"
       />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -664,7 +664,7 @@ export default function EditSuccessionNomination() {
               onOpenGoalModal={openGoalModal}
             />
           ) : null}
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DevelopmentGoalModal

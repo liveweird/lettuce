@@ -104,8 +104,9 @@ describe("OneOnOneTable", () => {
     expect(
       mockFetch.mock.calls.every(([u]) => !String(u).includes("includeIndirect")),
     ).toBe(true);
-    // The scope select lives in the (collapsed-by-default) filter panel — assert it exists.
-    expect(screen.getByRole("button", { name: /Filters/ })).toBeInTheDocument();
+    // The primary person search stays visible; scope remains in the collapsed panel.
+    expect(screen.getByLabelText("Manager")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^filters(?: \d+)?$/i })).toBeInTheDocument();
   });
 
   test("the latestOnly switch defaults off, and toggling it adds/removes the query param", async () => {
@@ -121,7 +122,7 @@ describe("OneOnOneTable", () => {
     renderWithProviders(<OneOnOneTable view="managed" />);
     await screen.findByText("Sam Subordinate");
 
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     const toggle = screen.getByRole("switch", { name: "Latest 1:1 only" });
     expect(toggle).not.toBeChecked();
 
@@ -143,7 +144,7 @@ describe("OneOnOneTable", () => {
     renderWithProviders(<OneOnOneTable view="own" />);
     await screen.findByText("Mia Manager");
 
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     await user.click(screen.getByRole("switch", { name: "Latest 1:1 only" }));
 
     expect(localStorage.getItem("lettuce.viewSettings.oneOnOnes.own.filter.latestOnly")).toBe(
@@ -164,7 +165,7 @@ describe("OneOnOneTable", () => {
     renderWithProviders(<OneOnOneTable view="managed" />);
     await screen.findByText("Sam Subordinate");
 
-    const filtersToggle = screen.getByRole("button", { name: /filters/i });
+    const filtersToggle = screen.getByRole("button", { name: /^filters(?: \d+)?$/i });
     expect(within(filtersToggle).queryByText("1")).not.toBeInTheDocument();
 
     await user.click(filtersToggle);
@@ -180,7 +181,7 @@ describe("OneOnOneTable", () => {
     renderWithProviders(<OneOnOneTable view="with" counterpartId={3} />);
     await screen.findByText("Mia Manager");
 
-    expect(screen.queryByRole("button", { name: /filters/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^filters(?: \d+)?$/i })).toBeNull();
     expect(screen.queryByRole("switch", { name: "Latest 1:1 only" })).toBeNull();
   });
 
@@ -206,7 +207,7 @@ describe("OneOnOneTable", () => {
     ).toHaveAttribute("href", `/one-on-ones/12/edit?from=with&back=${back}`);
 
     // Both parties are fixed, so there is nothing to filter.
-    expect(screen.queryByRole("button", { name: /Filters/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^filters(?: \d+)?$/i })).toBeNull();
     const url = String(mockFetch.mock.calls[0][0]);
     expect(url).toContain("view=with");
     expect(url).toContain("counterpartId=3");

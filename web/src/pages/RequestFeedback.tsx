@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useMemo, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -6,7 +7,6 @@ import {
   Button,
   Container,
   Group,
-  Paper,
   Select,
   Stack,
   Text,
@@ -204,7 +204,7 @@ export default function RequestFeedback() {
     <>
       <PageHeader title={t("feedback.requestFeedbackTitle")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder p="lg" radius="md">
+        <FormSurface>
           <Stack>
             {/* The context line (v3.5.0): about whom, asked by whom. */}
             <MetaStrip
@@ -362,7 +362,7 @@ export default function RequestFeedback() {
               </Button>
             </FormFooter>
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

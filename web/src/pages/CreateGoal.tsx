@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Container, Group, Select, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { hasFeature } from "../api/session";
@@ -104,7 +105,7 @@ export default function CreateGoal() {
     <>
       <PageHeader title={t("goal.createTitle")} description={t("goal.createHint")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <form onSubmit={form.onSubmit(save)} noValidate>
             <Stack>
               {/* The context line (v3.5.0): the pair — the picker keeps its name via aria-label. */}
@@ -164,7 +165,7 @@ export default function CreateGoal() {
               </FormFooter>
             </Stack>
           </form>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

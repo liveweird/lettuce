@@ -145,7 +145,7 @@ export default function PulseSurvey() {
   // once the user explicitly asks to edit, so "am I on a fresh survey?" is never ambiguous.
   if (alreadySubmitted && !editing) {
     return (
-      <Paper withBorder shadow="sm" p="xl" radius="md">
+      <Paper withBorder p="xl" radius="md">
         <Stack gap="lg">
           <Alert color="teal" variant="light">
             {t("pulse.editableUntil", { date: closeDate })}
@@ -162,7 +162,7 @@ export default function PulseSurvey() {
   return (
     // No Container: tab panels are bare (the AppShell padding governs the width, hub-wide) —
     // every tab renders the same width, unlike a per-tab wrapper.
-    <Paper withBorder shadow="sm" p="xl" radius="md">
+    <Paper withBorder p="xl" radius="md">
         <Stack gap="lg">
           <Text size="sm" c="dimmed">
             {t("pulse.surveyIntro")}

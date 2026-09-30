@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, Container, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Container, Select, Stack, Text } from "@mantine/core";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { MAX_REQUESTER_MESSAGE_LENGTH } from "../utils/feedbackForm";
 import { feedbackViewLink } from "../utils/feedbackLinks";
@@ -108,7 +109,7 @@ export default function AskFeedback() {
     <>
       <PageHeader title={t("feedback.askTitle")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder p="lg" radius="md">
+        <FormSurface>
           <Stack>
             {/* The context line (v3.5.0): who is asked, about whom. */}
             <MetaStrip
@@ -181,7 +182,7 @@ export default function AskFeedback() {
               </Button>
             </FormFooter>
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

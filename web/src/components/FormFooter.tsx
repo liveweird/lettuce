@@ -10,7 +10,7 @@ import classes from "./FormFooter.module.css";
 export default function FormFooter({ children, sticky = false }: { children: ReactNode; sticky?: boolean }) {
   return (
     <Box className={`${classes.footer} ${sticky ? classes.sticky : ""}`}>
-      <Group justify="flex-end" gap="sm">
+      <Group justify="flex-end" gap="sm" className={classes.actions}>
         {children}
       </Group>
     </Box>

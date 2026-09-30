@@ -1,10 +1,11 @@
-import { Stack, Tabs, Text, Title } from "@mantine/core";
+import { Stack, Tabs, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { listCareerPositions } from "../api/career";
 import CareerTimeline from "../components/CareerTimeline";
+import PageHeader from "../components/PageHeader";
 import { useIsManager } from "../hooks/useIsManager";
 import CareerPyramid from "./CareerPyramid";
 
@@ -61,7 +62,7 @@ export default function Career() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("career.title")}</Title>
+      <PageHeader title={t("career.title")} />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="my">

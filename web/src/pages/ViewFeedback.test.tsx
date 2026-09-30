@@ -68,13 +68,12 @@ describe("ViewFeedback page", () => {
     renderViewFeedback();
 
     // The identity strip (v3.5.0): each party renders as a chip or "You" under its label;
-    // the status/visibility pills sit in the page header.
+    // status sits in the header and access metadata remains beside the reading document.
     expect(await screen.findByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.getByText("Provider")).toBeInTheDocument();
     expect(screen.getByText("Recipients")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Feedback details" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary")).toContainElement(screen.getByText("Provider"));
+    expect(screen.getByRole("complementary")).toContainElement(screen.getByText("Visibility"));
     // No requester on this feedback → no Requester cell.
     expect(screen.queryByText("Requester")).toBeNull();
     const visibilityPill = screen.getByLabelText("Visibility: Public");

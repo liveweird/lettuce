@@ -74,7 +74,8 @@ test("career progression: chain manager records positions, the person sees the t
   // 4. The manager drills in from the subordinates card and starts the first position.
   await login(page, manager.email, manager.password);
   await page.goto("/?tab=subordinates");
-  await page.getByRole("link", { name: `Career progression of ${sub.name}` }).click();
+  await page.getByRole("button", { name: `More actions for ${sub.name}` }).click();
+  await page.getByRole("menuitem", { name: `Career progression of ${sub.name}` }).click();
   await expect(page.getByRole("heading", { name: `Career progression — ${sub.name}` })).toBeVisible();
   await expect(page.getByText("No positions recorded yet.")).toBeVisible();
   await fillDate(page, "Start date", "2024-01-01", false);
@@ -222,7 +223,8 @@ test("career progression: chain manager records positions, the person sees the t
   //     link, and a direct URL at the manager's timeline is refused by the server.
   await page.goto("/?tab=managers");
   await expect(page.getByText(manager.name).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: `Career progression of ${manager.name}` })).toHaveCount(0);
+  await page.getByRole("button", { name: `More actions for ${manager.name}` }).click();
+  await expect(page.getByRole("menuitem", { name: `Career progression of ${manager.name}` })).toHaveCount(0);
   await page.goto(`/users/${manager.id}/career`);
   await expect(page.getByText("Could not load the career progression.")).toBeVisible();
   await logout(page);

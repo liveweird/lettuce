@@ -20,9 +20,11 @@
      error"; the comma-in-name row kept "Kowalski, Jan" intact (the name splits on the LAST
      comma).
 3. The admin looks at the results table's layout before revealing anything.
-   - *Expected*: the password cell's masked code, its **Show password** button and its **Copy**
-     button sit on one line (the narrow Line column and the wide
-     Password column give the row the space it needs).
+   - *Expected*: at a 1440-pixel desktop viewport the header remains a visible table header group,
+     result rows remain table rows, and the Name, Email and Status cells align with their column
+     headers rather than stacking as cards. The password cell's masked code, its **Show password**
+     button and its **Copy** button sit on one line (the narrow Line column and the wide Password
+     column give the row the space it needs).
 4. The admin looks at a created row's one-time password.
    - *Expected*: masked by default.
 5. The admin clicks the row's **Show password**.

@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Container, Paper, Stack, Text } from "@mantine/core";
+import { Container, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -72,7 +73,7 @@ export default function CreateImpactEntry() {
     <>
       <PageHeader title={t("impactLog.createTitle")} description={t("impactLog.createHint")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {/* No <form> element — the wizard submits via its explicit button (the PulseSurvey
               idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
           <Stack>
@@ -95,7 +96,7 @@ export default function CreateImpactEntry() {
               onSubmit={() => form.onSubmit(save)()}
             />
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

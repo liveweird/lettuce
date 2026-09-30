@@ -92,7 +92,6 @@ describe("MyTeamsTable", () => {
     renderWithProviders(<MyTeamsTable />);
     await screen.findByText("Platform");
 
-    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Name"), "plat");
     await waitFor(() => {
       expect(teamUrls(mockFetch).some((u) => u.includes("name=plat"))).toBe(true);

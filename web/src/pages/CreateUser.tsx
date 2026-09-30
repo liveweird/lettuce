@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import {
   emptyUserFormValues,
   isUniqueIdConflict,
@@ -14,7 +15,6 @@ import {
   Container,
   Group,
   Modal,
-  Paper,
   Stack,
   Text,
 } from "@mantine/core";
@@ -141,7 +141,7 @@ export default function CreateUser() {
     <>
       <PageHeader title={t("users.createUser")} mb="lg" />
       <Container size="sm" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
               <UserFormFields form={form} />
@@ -165,7 +165,7 @@ export default function CreateUser() {
               </FormFooter>
             </Stack>
           </form>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

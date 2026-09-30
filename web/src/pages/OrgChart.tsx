@@ -10,7 +10,6 @@ import {
   Paper,
   Stack,
   Text,
-  Title,
   UnstyledButton,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
@@ -34,6 +33,7 @@ import { getUserId } from "../api/session";
 import { listAllUsers } from "../api/users";
 import { getTeam, listAllTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
 import {
   applyCollapse,
@@ -316,20 +316,16 @@ export default function OrgChart() {
 
   return (
     <Stack gap="md" h="100%">
-      <Stack gap={4}>
-        <Group justify="space-between" align="flex-end" wrap="wrap">
-          <Title order={2}>
-            {t("org.title")}
-          </Title>
+      <PageHeader
+        title={t("org.title")}
+        description={t("org.hint")}
+        actions={
           <Group gap="md">
             <LegendSwatch color={MANAGES_STROKE} label={t("org.legendManages")} />
             <LegendSwatch color={MEMBER_STROKE} label={t("org.legendMember")} />
           </Group>
-        </Group>
-        <Text size="sm" c="dimmed">
-          {t("org.hint")}
-        </Text>
-      </Stack>
+        }
+      />
 
       {isError ? (
         <Alert color="red" variant="light" title={t("org.loadFailed")}>
@@ -345,8 +341,9 @@ export default function OrgChart() {
           label={t("org.empty")}
         />
       ) : (
-        <Box style={{ height: "calc(100vh - 240px)", minHeight: 420 }}>
-          <ReactFlow
+        <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
+          <Box style={{ height: "calc(100vh - 240px)", minHeight: 420 }}>
+            <ReactFlow
             nodes={rfNodes}
             edges={rfEdges}
             nodeTypes={NODE_TYPES}
@@ -359,11 +356,12 @@ export default function OrgChart() {
             // Nodes must stay selectable: React Flow gives non-draggable, non-selectable nodes
             // pointer-events:none, which would swallow the person/team buttons' clicks.
             minZoom={0.2}
-          >
-            <Controls showInteractive={false} />
-            <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          </ReactFlow>
-        </Box>
+            >
+              <Controls showInteractive={false} />
+              <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+            </ReactFlow>
+          </Box>
+        </Paper>
       )}
     </Stack>
   );

@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { teamFormValidation, type TeamFormValues } from "../utils/teamForm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,7 +14,6 @@ import {
   Center,
   Container,
   Loader,
-  Paper,
   Stack,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
@@ -99,7 +99,7 @@ export default function EditTeam() {
     <>
       <PageHeader title={t("teams.editTeam")} mb="lg" />
       <Container size="sm" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -148,7 +148,7 @@ export default function EditTeam() {
               </Stack>
             </form>
           )}
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

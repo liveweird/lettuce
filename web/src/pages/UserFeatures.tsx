@@ -1,3 +1,8 @@
+import FormSurface from "../components/FormSurface";
+import FormFooter from "../components/FormFooter";
+import PageHeader from "../components/PageHeader";
+import DiscardGuard from "../components/DiscardGuard";
+import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
@@ -8,11 +13,9 @@ import {
   Container,
   Group,
   Loader,
-  Paper,
   Stack,
   Switch,
   Text,
-  Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -53,6 +56,11 @@ export default function UserFeatures() {
           FEATURES.map((f) => [f, overrides[f] ?? !(data.disabledFeatures ?? []).includes(f)]),
         ) as Record<Feature, boolean>);
 
+  const { requestCancel, guardProps } = useDiscardGuard({
+    isDirty: () => data != null && enabled != null && FEATURES.some((f) => enabled[f] !== !(data.disabledFeatures ?? []).includes(f)),
+    to: "/users",
+  });
+
   if (!isAdmin()) return <Navigate to="/users" replace />;
   if (!idIsValid) return <Navigate to="/users" replace />;
 
@@ -82,73 +90,76 @@ export default function UserFeatures() {
   const notFound = isError && fetchError instanceof ApiError && fetchError.status === 404;
 
   return (
-    <Container size="sm" px={0}>
-      <Paper withBorder shadow="sm" p="xl" radius="md">
-        <Stack>
-          <Title order={2}>{t("users.featuresTitle")}</Title>
-          {isLoading || (enabled == null && !isError) ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : notFound ? (
-            <>
-              <Alert color="red" variant="light">
-                {t("users.userNotFound")}
-              </Alert>
-              <Group justify="flex-end">
-                <Button component={RouterLink} to="/users" variant="default">
-                  {t("users.backToUsers")}
-                </Button>
-              </Group>
-            </>
-          ) : isError ? (
-            <>
-              <Alert color="red" variant="light">
-                {t("users.loadUserFailed", {
-                  suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
-                })}
-              </Alert>
-              <Group justify="flex-end">
-                <Button component={RouterLink} to="/users" variant="default">
-                  {t("users.backToUsers")}
-                </Button>
-              </Group>
-            </>
-          ) : (
-            <Stack>
-              {data && (
-                <Text c="dimmed" size="sm">
-                  {t("users.featuresHint", { name: data.name, email: data.email })}
-                </Text>
-              )}
-              {FEATURES.map((f) => (
-                <Switch
-                  key={f}
-                  label={t(`common.feature.${f}`)}
-                  checked={enabled?.[f] ?? true}
-                  onChange={(e) => {
-                    const value = e.currentTarget.checked;
-                    setOverrides((prev) => ({ ...prev, [f]: value }));
-                  }}
-                />
-              ))}
-              {error && (
+    <>
+      <PageHeader title={t("users.featuresTitle")} mb="lg" />
+      <Container size="sm" px={0}>
+        <FormSurface>
+          <Stack>
+            {isLoading || (enabled == null && !isError) ? (
+              <Center py="xl">
+                <Loader />
+              </Center>
+            ) : notFound ? (
+              <>
                 <Alert color="red" variant="light">
-                  {error}
+                  {t("users.userNotFound")}
                 </Alert>
-              )}
-              <Group justify="flex-end" gap="sm">
-                <Button component={RouterLink} to="/users" variant="default">
-                  {t("common.action.cancel")}
-                </Button>
-                <Button onClick={onSave} loading={submitting}>
-                  {t("common.action.save")}
-                </Button>
-              </Group>
-            </Stack>
-          )}
-        </Stack>
-      </Paper>
-    </Container>
+                <Group justify="flex-end">
+                  <Button component={RouterLink} to="/users" variant="default">
+                    {t("users.backToUsers")}
+                  </Button>
+                </Group>
+              </>
+            ) : isError ? (
+              <>
+                <Alert color="red" variant="light">
+                  {t("users.loadUserFailed", {
+                    suffix: fetchError instanceof ApiError ? ` (${fetchError.status})` : "",
+                  })}
+                </Alert>
+                <Group justify="flex-end">
+                  <Button component={RouterLink} to="/users" variant="default">
+                    {t("users.backToUsers")}
+                  </Button>
+                </Group>
+              </>
+            ) : (
+              <Stack>
+                {data && (
+                  <Text c="dimmed" size="sm">
+                    {t("users.featuresHint", { name: data.name, email: data.email })}
+                  </Text>
+                )}
+                {FEATURES.map((f) => (
+                  <Switch
+                    key={f}
+                    label={t(`common.feature.${f}`)}
+                    checked={enabled?.[f] ?? true}
+                    onChange={(e) => {
+                      const value = e.currentTarget.checked;
+                      setOverrides((prev) => ({ ...prev, [f]: value }));
+                    }}
+                  />
+                ))}
+                {error && (
+                  <Alert color="red" variant="light">
+                    {error}
+                  </Alert>
+                )}
+                <FormFooter>
+                  <Button onClick={requestCancel} variant="default">
+                    {t("common.action.cancel")}
+                  </Button>
+                  <Button onClick={onSave} loading={submitting}>
+                    {t("common.action.save")}
+                  </Button>
+                </FormFooter>
+              </Stack>
+            )}
+          </Stack>
+        </FormSurface>
+        <DiscardGuard {...guardProps} />
+      </Container>
+    </>
   );
 }

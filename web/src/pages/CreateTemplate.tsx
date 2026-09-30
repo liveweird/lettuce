@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Alert, Button, Container, Paper, Stack } from "@mantine/core";
+import { Alert, Button, Container, Stack } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { templateFormValidation, type TemplateFormValues } from "../utils/templateForm";
 import { useTranslation } from "react-i18next";
@@ -68,7 +69,7 @@ export default function CreateTemplate() {
     <>
       <PageHeader title={t("templates.create")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
               <TemplateFormFields form={form} />
@@ -87,7 +88,7 @@ export default function CreateTemplate() {
               </FormFooter>
             </Stack>
           </form>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

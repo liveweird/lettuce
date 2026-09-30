@@ -19,7 +19,7 @@ type CreatedUser = {
 };
 
 const VIEWPORTS = [1440, 1280, 1024, 390] as const;
-const REPRESENTATIVE_TRANSLATED_VIEWPORTS = [1280, 390] as const;
+const REPRESENTATIVE_TRANSLATED_VIEWPORTS = [1440, 1280, 390] as const;
 
 async function expectApiOk(response: APIResponse, operation: string): Promise<void> {
   if (!response.ok()) {
@@ -343,6 +343,16 @@ test("list rows stay contained and usable across desktop and mobile widths", asy
         await setViewport(page, width);
         await expect(row.getByText(rowText, { exact: true })).toBeVisible();
         await expectAllRowActionsInViewport(page, table);
+        if (tab === "received") {
+          // Ordinary access labels wrap at spaces, never inside a Polish word.
+          const label = row.locator('[title="Wystawiający + proszący + podmiot"] > span');
+          expect(await label.evaluate((element) => {
+            const range = document.createRange();
+            range.setStart(element.firstChild!, 0);
+            range.setEnd(element.firstChild!, "Wystawiający".length);
+            return range.getClientRects().length;
+          })).toBe(1);
+        }
       }
       if (tab === "received") {
         const plVisibilityPill = row.locator('[title="Wystawiający + proszący + podmiot"]');

@@ -3,6 +3,7 @@
 .statRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 10px; align-items: start; }
 .label { line-height: 1.5; }
 .value { min-width: 0; }
+.identityCareer { display: grid; gap: 6px; padding: 10px 0 12px; border-top: 1px solid var(--mantine-color-default-border); }
 .divider { margin-top: 14px; margin-bottom: 10px; }
 .section:first-child > .divider { margin-top: 0; }
 .summary { padding-block: 12px; border-top: 1px solid var(--mantine-color-default-border); }

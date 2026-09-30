@@ -15,6 +15,7 @@ import {
 } from "../api/pulse";
 import ConfirmActionModal from "./ConfirmActionModal";
 import EmptyState from "./EmptyState";
+import ListSurface from "./ListSurface";
 import RowActions from "./RowActions";
 import PulseCycleStatusBadge from "./PulseCycleStatusBadge";
 import { formatIsoDate, isValidIsoDate } from "../utils/datetime";
@@ -104,22 +105,22 @@ export default function PulseCycleTable({
   return (
     <>
       <Stack gap="sm">
-        <Title order={4}>{t("pulse.admin.cycleListTitle")}</Title>
         {actionError && (
           <Alert color="red" variant="light">
             {actionError}
           </Alert>
         )}
-        {isLoading && <Skeleton height={160} radius="md" />}
         {isError && (
           <Alert color="red" variant="light">
             {t("pulse.error.loadFailed")}
           </Alert>
         )}
-        {cycles != null && rows.length === 0 && (
-          <EmptyState icon={<IconHeartRateMonitor size={32} />} label={t("pulse.admin.noCycles")} />
-        )}
-        {rows.length > 0 && (
+        <ListSurface toolbar={<Title order={4}>{t("pulse.admin.cycleListTitle")}</Title>}>
+          {isLoading && <Skeleton height={160} radius="md" />}
+          {cycles != null && rows.length === 0 && (
+            <EmptyState icon={<IconHeartRateMonitor size={32} />} label={t("pulse.admin.noCycles")} />
+          )}
+          {rows.length > 0 && (
           <ResponsiveTable density="compact">
             <ResponsiveTable.Thead>
               <ResponsiveTable.Tr>
@@ -214,7 +215,8 @@ export default function PulseCycleTable({
               ))}
             </ResponsiveTable.Tbody>
           </ResponsiveTable>
-        )}
+          )}
+        </ListSurface>
       </Stack>
 
       <ConfirmActionModal

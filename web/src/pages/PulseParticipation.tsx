@@ -1,4 +1,4 @@
-import { Alert, Badge, Group, Progress, Select, Skeleton, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Group, Paper, Progress, Select, Skeleton, Stack, Text, Title } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { IconUsersGroup } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -51,10 +51,6 @@ export default function PulseParticipation() {
       </Alert>
     );
   }
-  if (selectedId == null) {
-    return <EmptyState icon={<IconUsersGroup size={32} />} label={t("pulse.participation.noCycle")} />;
-  }
-
   const teams = status.data?.teams ?? [];
   // The team picker (client-side over the already-returned teams — a monitored/org-wide list
   // is already bounded, so no new request): "All teams" plus each team by name, offered only
@@ -74,11 +70,12 @@ export default function PulseParticipation() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end" wrap="wrap">
+      <Paper withBorder p="md" radius="md">
+        <Group justify="space-between" align="flex-end" wrap="wrap">
         <Select
           label={t("pulse.results.cycle")}
           data={options}
-          value={String(selectedId)}
+          value={selectedId != null ? String(selectedId) : null}
           onChange={(v) => {
             setPicked(v);
             // A team picked under the previous cycle may not exist (or mean the same roster)
@@ -101,15 +98,20 @@ export default function PulseParticipation() {
         <Text size="sm" c="dimmed">
           {t(isHr() ? "pulse.participation.hintAudit" : "pulse.participation.hint")}
         </Text>
-      </Group>
+        </Group>
+      </Paper>
 
-      {status.isLoading && <Skeleton height={160} radius="md" />}
-      {status.isError && (
+      {selectedId == null && (
+        <EmptyState icon={<IconUsersGroup size={32} />} label={t("pulse.participation.noCycle")} />
+      )}
+
+      {selectedId != null && status.isLoading && <Skeleton height={160} radius="md" />}
+      {selectedId != null && status.isError && (
         <Alert color="red" variant="light">
           {t("pulse.participation.loadError")}
         </Alert>
       )}
-      {status.isSuccess && teams.length === 0 && (
+      {selectedId != null && status.isSuccess && teams.length === 0 && (
         <EmptyState icon={<IconUsersGroup size={32} />} label={t("pulse.participation.noTeams")} />
       )}
 

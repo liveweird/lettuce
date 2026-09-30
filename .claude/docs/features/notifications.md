@@ -81,3 +81,7 @@ On top of it, a release that removes or renames a type owes the stored rows a mi
 - **No successor** (the feature is gone outright, nothing truthful to show) → soft-delete the rows and let the v3.12.0 purge reclaim them.
 
 The same obligation applies to a type that **keeps its name but changes its params shape** — the rename case is not the only way to orphan a row. Why this is written down: v3.9.0 removed seven types, and `V77` correctly retired the affected `days_off_requests` rows while missing this table entirely; every instance upgraded past it 500-ed on its whole notification list — the badge included, since the unread count is the same call at `pageSize=1` — until v3.25.3. The SPA was already forward-compatible on both paths (`describeNotification` falls back to the raw type, `TYPE_META` to a plain bell); only the server was strict.
+
+**V5 preferences presentation:** the master email control, grouped channel matrix and shared
+form footer retain their existing save boundaries. Unsaved changes use the shared discard guard
+for Cancel, in-app navigation and reload/close; a successful save still replaces the form route.

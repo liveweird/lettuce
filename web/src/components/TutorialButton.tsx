@@ -1,5 +1,5 @@
 import { ActionIcon, Tooltip } from "@mantine/core";
-import { IconHelpCircle } from "@tabler/icons-react";
+import { IconPlayerPlay } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { TutorialId } from "../tutorials/types";
 import { useTour } from "./tourSupport";
@@ -25,7 +25,7 @@ export default function TutorialButton({ id, tourId }: { id: TutorialId; tourId:
         data-tour={tourId}
         onClick={() => startTutorial(id)}
       >
-        <IconHelpCircle size={18} />
+        <IconPlayerPlay size={18} />
       </ActionIcon>
     </Tooltip>
   );

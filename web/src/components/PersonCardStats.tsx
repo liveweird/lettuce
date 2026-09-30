@@ -93,48 +93,35 @@ function TimeStat({ at }: { at: number | null }) {
 // One career value: the entry's text in the viewer's language, or a quiet dimmed "Not set"
 // (v3.3.0 — the former orange badge made every empty profile read as an error; the admin
 // users list keeps the warning cue for the unique id, where it is actionable).
-function CareerValue({ entry }: { entry: LocalizedEntry | null }) {
-  const { t, i18n } = useTranslation();
-  return entry ? (
+function CareerValue({ entry }: { entry: LocalizedEntry }) {
+  const { i18n } = useTranslation();
+  return (
     <Text size="xs" style={{ overflowWrap: "break-word" }}>
       {pickLocalized(entry.values, i18n.resolvedLanguage)}
-    </Text>
-  ) : (
-    <Text size="xs" c="dimmed" fs="italic">
-      {t("users.profile.missingBadge")}
     </Text>
   );
 }
 
-// The career-profile rows (v1.32.1): the dictionary-backed values, with deliberately
-// SHORT card-only labels (users.profile.* — v1.32.2); the Edit/Create pickers keep the full
-// common.field.* wordings. Seniority is private (v2.25.0): the server nulls it outside the
-// viewer's chain (unless HR/self), so null is ambiguous — the row renders only when a value
-// arrived, or where null genuinely means "unset" (the manages flavors + HR viewers), where
-// the orange "Not set" cue stays truthful.
-function CareerRows({
-  person,
-  showSeniorityWhenUnset,
-}: {
-  person: PersonCardData;
-  showSeniorityWhenUnset: boolean;
-}) {
+function CareerIdentity({ person }: { person: PersonCardData }) {
   const { t } = useTranslation();
-  const showSeniority = person.seniorityLevel != null || showSeniorityWhenUnset || canAudit();
+  if (
+    person.careerPath == null &&
+    person.careerSpecialization == null
+  ) return null;
   return (
-    <>
-      <StatRow label={t("users.profile.path")}>
-        <CareerValue entry={person.careerPath} />
-      </StatRow>
-      <StatRow label={t("users.profile.specialization")}>
-        <CareerValue entry={person.careerSpecialization} />
-      </StatRow>
-      {showSeniority && (
-        <StatRow label={t("users.profile.seniority")}>
-          <CareerValue entry={person.seniorityLevel} />
+    <div className={classes.identityCareer}>
+      {person.careerPath != null && (
+        <StatRow label={t("users.profile.path")}>
+          <CareerValue entry={person.careerPath} />
         </StatRow>
       )}
-    </>
+      {person.careerSpecialization != null && (
+        <StatRow label={t("users.profile.specialization")}>
+          <CareerValue entry={person.careerSpecialization} />
+        </StatRow>
+      )}
+
+    </div>
   );
 }
 
@@ -304,7 +291,6 @@ export type PersonCardStatsVariant = "manager" | "subordinate" | "peer" | "none"
 export default function PersonCardBody({
   person,
   stats,
-  showSeniorityWhenUnset = false,
   showLastReview = false,
   showDaysOff = false,
   showLastLogin = false,
@@ -314,7 +300,7 @@ export default function PersonCardBody({
 }: {
   person: PersonCardData;
   stats: PersonCardStatsVariant;
-  /** The viewer manages (or is) this person: a null seniority renders as "Not set" (v2.25.0). */
+  /** Kept for call-site compatibility; null career values are omitted because they may be private. */
   showSeniorityWhenUnset?: boolean;
   showLastReview?: boolean;
   /** Gate for the budget row (v1.44.0) — subordinate flavors only; peers get vacation-only. */
@@ -360,12 +346,23 @@ export default function PersonCardBody({
     (showLastReview && canReviews) || (sectionActions && hasVisibleActions(actions, PERFORMANCE_ACTIONS));
   const showVacation = (stats === "peer" || showDaysOff) && canDaysOff;
   const showDaysOffSection = showVacation || (sectionActions && hasVisibleActions(actions, DAYS_OFF_ACTIONS));
+  const showSecondaryProfile =
+    person.seniorityLevel != null ||
+    person.lastLoginAt != null ||
+    showLastLogin ||
+    canAudit() ||
+    successionReviewedAt != null ||
+    (sectionActions && hasVisibleActions(actions, PROFILE_ACTIONS));
   // Dashboard cards lead with collaboration. Secondary facts stay reachable through a
   // native keyboard-operable disclosure; detail cards keep every section expanded.
   const secondary = (
     <div className={classes.secondary}>
-      <Section label={t("users.section.profile")}>
-        <CareerRows person={person} showSeniorityWhenUnset={showSeniorityWhenUnset} />
+      {showSecondaryProfile && <Section label={t("users.section.profile")}>
+      {person.seniorityLevel != null && (
+        <StatRow label={t("users.profile.seniority")}>
+          <CareerValue entry={person.seniorityLevel} />
+        </StatRow>
+      )}
         {(person.lastLoginAt != null || showLastLogin || canAudit()) && (
           <LastLoginRow person={person} />
         )}
@@ -376,7 +373,7 @@ export default function PersonCardBody({
         )}
         {/* The career-progression drill-down (v2.15.0) — the profile's own button row. */}
         {actionsRow(PROFILE_ACTIONS)}
-      </Section>
+      </Section>}
       {showDaysOffSection && (
         <Section label={t("users.section.daysOff")}>
           {showVacation && <NextVacationRow person={person} />}
@@ -396,6 +393,7 @@ export default function PersonCardBody({
   );
   return (
     <div className={classes.body}>
+      <CareerIdentity person={person} />
       {showCollaboration && (
         <Section label={t("users.section.collaboration")} summary>
           <CollaborationRows

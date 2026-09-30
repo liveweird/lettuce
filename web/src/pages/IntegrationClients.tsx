@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Alert, Button, Group, Paper, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { IconKey, IconKeyOff, IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
+import ListSurface from "../components/ListSurface";
 import RevealablePassword from "../components/RevealablePassword";
 import RowActions from "../components/RowActions";
 import StatusPill from "../components/StatusPill";
@@ -91,6 +92,9 @@ export default function IntegrationClients() {
       {/* The create strip (an in-form adder, hence "Add …" wording). */}
       <Paper withBorder p="md" radius="md">
         <Stack gap="sm">
+          <Title order={3} size="h4">
+            {t("integration.addClient")}
+          </Title>
           <Group align="flex-end" gap="md" wrap="wrap">
             <TextInput
               label={t("integration.name")}
@@ -144,6 +148,7 @@ export default function IntegrationClients() {
         </Alert>
       )}
 
+      <ListSurface>
       <ResponsiveTable density="normal">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -205,6 +210,7 @@ export default function IntegrationClients() {
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={revokeConfirm}

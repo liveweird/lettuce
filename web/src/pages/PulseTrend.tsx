@@ -76,7 +76,8 @@ export default function PulseTrend() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end" wrap="wrap">
+      <Paper withBorder p="md" radius="md">
+        <Group justify="space-between" align="flex-end" wrap="wrap">
         <Group gap="xs" wrap="wrap">
           <SegmentedControl
             aria-label={t("pulse.view.aria")}
@@ -104,7 +105,8 @@ export default function PulseTrend() {
             label={metric === "enps" ? t("pulse.results.hint.enps") : t("pulse.results.hint.favorable")}
           />
         </Group>
-      </Group>
+        </Group>
+      </Paper>
       {metric !== "enps" && (
         <Text size="sm" c="dimmed">
           {t(`pulse.${metric}`)}
@@ -170,7 +172,7 @@ function TrendChartSection({
   const renderableRows = rows.filter((row) => defs.some((def) => row[def.name] != null));
 
   return (
-    <Paper withBorder shadow="sm" p="lg" radius="md">
+    <Paper withBorder p="lg" radius="md">
       <Stack gap="sm">
         <Chip.Group multiple value={visible} onChange={setVisible}>
           <Group gap="xs" wrap="wrap" aria-label={t("pulse.trend.seriesAria")} role="group">

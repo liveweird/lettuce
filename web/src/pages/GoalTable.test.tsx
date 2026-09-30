@@ -155,7 +155,7 @@ describe("GoalTable", () => {
     });
 
     // Filter: lands as managerName= in the query string.
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     await user.type(screen.getByLabelText("Manager"), "ali");
     await waitFor(() => {
       expect(mockFetch.mock.calls.some(([u]) => String(u).includes("managerName=ali"))).toBe(true);
@@ -169,7 +169,7 @@ describe("GoalTable", () => {
 
     expect(screen.queryByRole("button", { name: "Manager" })).toBeNull();
     expect(screen.queryByText("Alice")).toBeNull(); // no manager cells either
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     expect(screen.queryByLabelText("Manager")).toBeNull();
   });
 
@@ -203,7 +203,7 @@ describe("GoalTable", () => {
     });
 
     // Filter: lands as subordinateName= in the query string.
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     await user.type(screen.getByLabelText("Team member"), "me");
     await waitFor(() => {
       expect(mockFetch.mock.calls.some(([u]) => String(u).includes("subordinateName=me"))).toBe(
@@ -229,12 +229,13 @@ describe("GoalTable", () => {
     renderWithProviders(<GoalTable view="own" managerId={10} settingsKey="userGoals" />);
     await screen.findByText("Ship four reports");
 
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    // The primary title filter stays visible while secondary filters remain collapsed.
     await user.type(screen.getByLabelText("Title"), "cover");
     await waitFor(() => {
       expect(mockFetch.mock.calls.some(([u]) => String(u).includes("title=cover"))).toBe(true);
     });
 
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation.
     fireEvent.click(screen.getByLabelText("Created", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "Last six months" }));

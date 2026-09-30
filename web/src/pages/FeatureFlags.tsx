@@ -1,3 +1,4 @@
+import ListSurface from "../components/ListSurface";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Alert, Button, Group, Select, Stack, Switch, Text } from "@mantine/core";
@@ -220,185 +221,190 @@ export default function FeatureFlags() {
         }
       />
 
-      <ListToolbar
-        search={{
-          label: t("common.field.name"),
-          value: nameFilter,
-          onChange: setNameFilter,
-          clearLabel: t("users.clearNameFilter"),
-        }}
-        filters={{
-          activeCount: activeFilterCount,
-          storageKey: SETTINGS_KEY,
-          onClear: () => {
-            setStateFilter(null);
-            setTeamFilter(null);
-            setEmailFilter("");
-          },
-          children: (
-            <>
-              <Select
-                label={t("users.featureFlags.featureLabel")}
-                value={feature}
-                onChange={(v) => {
-                  if (v != null) setFeature(v as Feature);
-                }}
-                allowDeselect={false}
-                data={FEATURES.map((f) => ({ value: f, label: t(`common.feature.${f}`) }))}
-              />
-              <Select
-                label={t("users.featureFlags.stateLabel")}
-                value={stateFilter}
-                onChange={setStateFilter}
-                clearable
-                placeholder={t("common.state.any")}
-                data={[
-                  { value: "enabled", label: t("users.featureFlags.stateEnabled") },
-                  { value: "disabled", label: t("users.featureFlags.stateDisabled") },
-                ]}
-              />
-              <Select
-                label={t("users.featureFlags.teamLabel")}
-                value={teamFilter == null ? null : String(teamFilter)}
-                onChange={(v) => setTeamFilter(v == null ? null : Number(v))}
-                clearable
-                searchable
-                placeholder={t("common.state.any")}
-                data={(teams.data ?? []).map((team) => ({ value: String(team.id), label: team.name }))}
-              />
-              <ClearableTextInput
-                label={t("common.field.email")}
-                value={emailFilter}
-                onChange={setEmailFilter}
-                clearLabel={t("users.clearEmailFilter")}
-              />
-            </>
-          ),
-        }}
-      />
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("common.field.name"),
+              value: nameFilter,
+              onChange: setNameFilter,
+              clearLabel: t("users.clearNameFilter"),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: SETTINGS_KEY,
+              onClear: () => {
+                setStateFilter(null);
+                setTeamFilter(null);
+                setEmailFilter("");
+              },
+              children: (
+                <>
+                  <Select
+                    label={t("users.featureFlags.featureLabel")}
+                    value={feature}
+                    onChange={(v) => {
+                      if (v != null) setFeature(v as Feature);
+                    }}
+                    allowDeselect={false}
+                    data={FEATURES.map((f) => ({ value: f, label: t(`common.feature.${f}`) }))}
+                  />
+                  <Select
+                    label={t("users.featureFlags.stateLabel")}
+                    value={stateFilter}
+                    onChange={setStateFilter}
+                    clearable
+                    placeholder={t("common.state.any")}
+                    data={[
+                      { value: "enabled", label: t("users.featureFlags.stateEnabled") },
+                      { value: "disabled", label: t("users.featureFlags.stateDisabled") },
+                    ]}
+                  />
+                  <Select
+                    label={t("users.featureFlags.teamLabel")}
+                    value={teamFilter == null ? null : String(teamFilter)}
+                    onChange={(v) => setTeamFilter(v == null ? null : Number(v))}
+                    clearable
+                    searchable
+                    placeholder={t("common.state.any")}
+                    data={(teams.data ?? []).map((team) => ({ value: String(team.id), label: team.name }))}
+                  />
+                  <ClearableTextInput
+                    label={t("common.field.email")}
+                    value={emailFilter}
+                    onChange={setEmailFilter}
+                    clearLabel={t("users.clearEmailFilter")}
+                  />
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="users.rowsPerPage"
+          />
+        }
+      >
+        {isError && (
+          <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
+            {loadErrorMessage(loadError, t)}
+          </Alert>
+        )}
+        {error && (
+          <Alert color="red" variant="light">
+            {error}
+          </Alert>
+        )}
+        {bulk.failed && (
+          // The bulk run's partial failure: name every row that failed (their switches kept
+          // their old state) and offer a retry over exactly those rows (v2.24.0).
+          <Alert
+            color="red"
+            variant="light"
+            title={t("users.featureFlags.bulkFailed", { count: bulk.failed.rows.length })}
+          >
+            <Stack gap="xs" align="flex-start">
+              <Text size="sm">{bulk.failed.rows.map((row) => row.name).join(", ")}</Text>
+              <Button
+                size="xs"
+                color="red"
+                variant="light"
+                loading={bulk.running}
+                onClick={() => void bulk.retry()}
+              >
+                {t("users.featureFlags.retryFailed")}
+              </Button>
+            </Stack>
+          </Alert>
+        )}
 
-      {isError && (
-        <Alert color="red" variant="light" title={t("users.loadUsersFailed")}>
-          {loadErrorMessage(loadError, t)}
-        </Alert>
-      )}
-      {error && (
-        <Alert color="red" variant="light">
-          {error}
-        </Alert>
-      )}
-      {bulk.failed && (
-        // The bulk run's partial failure: name every row that failed (their switches kept
-        // their old state) and offer a retry over exactly those rows (v2.24.0).
-        <Alert
-          color="red"
-          variant="light"
-          title={t("users.featureFlags.bulkFailed", { count: bulk.failed.rows.length })}
-        >
-          <Stack gap="xs" align="flex-start">
-            <Text size="sm">{bulk.failed.rows.map((row) => row.name).join(", ")}</Text>
-            <Button
-              size="xs"
-              color="red"
-              variant="light"
-              loading={bulk.running}
-              onClick={() => void bulk.retry()}
-            >
-              {t("users.featureFlags.retryFailed")}
-            </Button>
-          </Stack>
-        </Alert>
-      )}
 
-
-      <ResponsiveTable density="normal">
-        <ResponsiveTable.Thead>
-          <ResponsiveTable.Tr>
-            <ResponsiveTable.Th sortable><SortHeader
-                field="name"
-                label={t("common.field.name")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th sortable><SortHeader
-                field="email"
-                label={t("common.field.email")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th>{t("users.featureFlags.teamsHeader")}</ResponsiveTable.Th>
-            <ResponsiveTable.Th>
-              {t("users.featureFlags.enabledHeader")}
-            </ResponsiveTable.Th>
-          </ResponsiveTable.Tr>
-        </ResponsiveTable.Thead>
-        <ResponsiveTable.Tbody>
-          {isLoading && !data ? (
-            <TableLoadingRow colSpan={columnCount} />
-          ) : data && data.items.length > 0 ? (
-            data.items.map((u) => (
-              <ResponsiveTable.Tr key={u.id}>
-                <ResponsiveTable.Td label={t("common.field.name")}>
-                  {/* The name links to the read-only details view — everyone except one's
-                      own row (the Users-list rule). */}
-                  <PersonaChip
-                    name={u.name}
-                    to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, undefined, undefined, { back: here }) : undefined}
-                    ariaLabel={t("users.detailsFor", { name: u.name })}
+        <ResponsiveTable density="normal">
+          <ResponsiveTable.Thead>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Th sortable><SortHeader
+                  field="name"
+                  label={t("common.field.name")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th sortable><SortHeader
+                  field="email"
+                  label={t("common.field.email")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th>{t("users.featureFlags.teamsHeader")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th>
+                {t("users.featureFlags.enabledHeader")}
+              </ResponsiveTable.Th>
+            </ResponsiveTable.Tr>
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
+            {isLoading && !data ? (
+              <TableLoadingRow colSpan={columnCount} />
+            ) : data && data.items.length > 0 ? (
+              data.items.map((u) => (
+                <ResponsiveTable.Tr key={u.id}>
+                  <ResponsiveTable.Td label={t("common.field.name")}>
+                    {/* The name links to the read-only details view — everyone except one's
+                        own row (the Users-list rule). */}
+                    <PersonaChip
+                      name={u.name}
+                      to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, undefined, undefined, { back: here }) : undefined}
+                      ariaLabel={t("users.detailsFor", { name: u.name })}
+                    />
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("common.field.email")} primary>
+                    <Text size="sm">{u.email}</Text>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("users.featureFlags.teamsHeader")}>
+                    {u.teams && u.teams.length > 0 ? (
+                      <TeamBadges teams={u.teams} />
+                    ) : (
+                      <Text size="sm" c="dimmed">
+                        —
+                      </Text>
+                    )}
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("users.featureFlags.enabledHeader")}>
+                    <Group justify="center">
+                      <Switch
+                        checked={!u.disabledFeatures.includes(feature)}
+                        disabled={pendingId === u.id}
+                        onChange={() => void toggle(u)}
+                        aria-label={t("users.featureFlags.toggleAria", {
+                          feature: featureLabel,
+                          name: u.name,
+                        })}
+                      />
+                    </Group>
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
+              ))
+            ) : !isError ? (
+              <ResponsiveTable.Tr>
+                <ResponsiveTable.Td colSpan={columnCount}>
+                  <EmptyState
+                    icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("users.noUsers")}
                   />
                 </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("common.field.email")} primary>
-                  <Text size="sm">{u.email}</Text>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("users.featureFlags.teamsHeader")}>
-                  {u.teams && u.teams.length > 0 ? (
-                    <TeamBadges teams={u.teams} />
-                  ) : (
-                    <Text size="sm" c="dimmed">
-                      —
-                    </Text>
-                  )}
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("users.featureFlags.enabledHeader")}>
-                  <Group justify="center">
-                    <Switch
-                      checked={!u.disabledFeatures.includes(feature)}
-                      disabled={pendingId === u.id}
-                      onChange={() => void toggle(u)}
-                      aria-label={t("users.featureFlags.toggleAria", {
-                        feature: featureLabel,
-                        name: u.name,
-                      })}
-                    />
-                  </Group>
-                </ResponsiveTable.Td>
               </ResponsiveTable.Tr>
-            ))
-          ) : !isError ? (
-            <ResponsiveTable.Tr>
-              <ResponsiveTable.Td colSpan={columnCount}>
-                <EmptyState
-                  icon={<IconUsers size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                  label={t("users.noUsers")}
-                />
-              </ResponsiveTable.Td>
-            </ResponsiveTable.Tr>
-          ) : null}
-        </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="users.rowsPerPage"
-      />
+            ) : null}
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmActionModal
         opened={bulk.pending != null}

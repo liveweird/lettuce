@@ -17,18 +17,21 @@
    **Modify ▾ → "Features of ‹name›"**.
    - *Expected*: the per-user features editor opens; the **Goals** switch is on (every feature
      starts enabled).
-2. The admin turns the Goals switch off and clicks **Save**.
+2. The admin turns the Goals switch off and clicks **Cancel**.
+   - *Expected*: the shared discard guard asks "Discard changes?"; choosing **Keep editing**
+     preserves the unsaved off state.
+3. The admin clicks **Save**.
    - *Expected*: back on the users list.
-3. The admin signs out; the user signs in with their own credentials.
+4. The admin signs out; the user signs in with their own credentials.
    - *Expected*: the feature is gone end to end — the **Feedback** nav link is still there but
      **Goals** is not, and navigating straight to the Goals page bounces to the dashboard while
      staying signed in.
-4. The admin signs back in and opens the per-feature screen (**Feature flags**), picking
+5. The admin signs back in and opens the per-feature screen (**Feature flags**), picking
    Feature = Goals and State = Disabled, then filtering by the user's unique email (the
    shared-database rule: never assume the row sits on page 1).
    - *Expected*: the user's row shows Goals switched off.
-5. The admin flips the row's switch back on and signs out.
-6. The user signs in again — a fresh login carries the fresh flags.
+6. The admin flips the row's switch back on and signs out.
+7. The user signs in again — a fresh login carries the fresh flags.
    - *Expected*: the **Goals** nav link is back and the Goals page opens normally.
 
 ## Scenario: bulk toggle by team: filter to a fresh team, disable Goals for all members, re-enable

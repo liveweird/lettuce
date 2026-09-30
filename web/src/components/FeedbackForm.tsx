@@ -1,9 +1,9 @@
+import FormSurface from "./FormSurface";
 import {
   Alert,
   Button,
   Container,
   Group,
-  Paper,
   Select,
   Skeleton,
   Stack,
@@ -298,7 +298,7 @@ export default function FeedbackForm({
     <>
       <PageHeader title={title} badge={currentStatus && <StatusBadge status={currentStatus} />} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder p="xl" radius="md">
+        <FormSurface>
           <form onSubmit={form.onSubmit(() => onSubmit("DRAFT", form.values))} noValidate>
             <Stack>
               <MetaStrip items={meta} />
@@ -374,7 +374,7 @@ export default function FeedbackForm({
               </FormFooter>
             </Stack>
           </form>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

@@ -1,3 +1,4 @@
+import ListSurface from "../components/ListSurface";
 import { Link as RouterLink, Navigate } from "react-router-dom";
 import {
   Alert,
@@ -12,13 +13,12 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil, IconPlus, IconSpeakerphone, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import ClearableTextInput from "../components/ClearableTextInput";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
@@ -105,131 +105,144 @@ export default function Alerts() {
         }
       />
 
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
-        <ClearableTextInput
-          label={t("alerts.fieldTitle")}
-          value={titleFilter}
-          onChange={setTitleFilter}
-          clearLabel={t("alerts.clearTitleFilter")}
-        />
-        <Select
-          label={t("alerts.fieldActive")}
-          value={activeFilter}
-          onChange={setActiveFilter}
-          clearable
-          data={[
-            { value: "true", label: t("common.state.yes") },
-            { value: "false", label: t("common.state.no") },
-          ]}
-        />
-      </FilterPanel>
-
-      {isError && (
-        <Alert color="red" variant="light" title={t("alerts.loadFailed")}>
-          {loadErrorMessage(error, t)}
-        </Alert>
-      )}
-
-      <ResponsiveTable density="wide">
-        <ResponsiveTable.Thead>
-          <ResponsiveTable.Tr>
-            <ResponsiveTable.Th sortable><SortHeader
-                field="title"
-                label={t("alerts.fieldTitle")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th>{t("alerts.fieldActive")}</ResponsiveTable.Th>
-            <ResponsiveTable.Th sortable><SortHeader
-                field="startsAt"
-                label={t("alerts.fieldStartsAt")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th sortable><SortHeader
-                field="endsAt"
-                label={t("alerts.fieldEndsAt")}
-                activeField={sortField}
-                activeDir={sortDir}
-                onToggle={toggleSort}
-              />
-            </ResponsiveTable.Th>
-            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
-          </ResponsiveTable.Tr>
-        </ResponsiveTable.Thead>
-        <ResponsiveTable.Tbody>
-          {isLoading && !data ? (
-            <TableLoadingRow colSpan={columnCount} />
-          ) : data && data.items.length > 0 ? (
-            data.items.map((alert) => (
-              <ResponsiveTable.Tr key={alert.id}>
-                <ResponsiveTable.Td label={t("alerts.fieldTitle")} primary>
-                  <Text size="sm" fw={500}>
-                    {alert.title}
-                  </Text>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("alerts.fieldActive")}>
-                  <Badge
-                    variant="light"
-                    color={alert.isActive ? "teal" : "gray"}
-                    style={{ minWidth: "max-content" }}
-                  >
-                    {alert.isActive ? t("common.state.yes") : t("common.state.no")}
-                  </Badge>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("alerts.fieldStartsAt")}>
-                  <Bound value={alert.startsAt} />
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("alerts.fieldEndsAt")}>
-                  <Bound value={alert.endsAt} />
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td actions>
-                  <RowActions
-                    name={alert.title}
-                    primary={{
-                      icon: <IconPencil size={16} />,
-                      label: t("common.action.edit"),
-                      ariaLabel: t("alerts.editName", { name: alert.title }),
-                      to: `/alerts/${alert.id}/edit`,
-                    }}
-                    items={[
-                      {
-                        icon: <IconTrash size={14} />,
-                        label: t("common.action.delete"),
-                        ariaLabel: t("alerts.deleteName", { name: alert.title }),
-                        color: "red",
-                        onClick: () => deleteConfirm.requestDelete({ id: alert.id, name: alert.title }),
-                      },
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("alerts.fieldTitle"),
+              value: titleFilter,
+              onChange: setTitleFilter,
+              clearLabel: t("alerts.clearTitleFilter"),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: SETTINGS_KEY,
+              children: (
+                <>
+                  <Select
+                    label={t("alerts.fieldActive")}
+                    value={activeFilter}
+                    onChange={setActiveFilter}
+                    clearable
+                    data={[
+                      { value: "true", label: t("common.state.yes") },
+                      { value: "false", label: t("common.state.no") },
                     ]}
+                  />
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="alerts.rowsPerPage"
+          />
+        }
+      >
+        {isError && (
+          <Alert color="red" variant="light" title={t("alerts.loadFailed")}>
+            {loadErrorMessage(error, t)}
+          </Alert>
+        )}
+
+        <ResponsiveTable density="wide">
+          <ResponsiveTable.Thead>
+            <ResponsiveTable.Tr>
+              <ResponsiveTable.Th sortable><SortHeader
+                  field="title"
+                  label={t("alerts.fieldTitle")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th>{t("alerts.fieldActive")}</ResponsiveTable.Th>
+              <ResponsiveTable.Th sortable><SortHeader
+                  field="startsAt"
+                  label={t("alerts.fieldStartsAt")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th sortable><SortHeader
+                  field="endsAt"
+                  label={t("alerts.fieldEndsAt")}
+                  activeField={sortField}
+                  activeDir={sortDir}
+                  onToggle={toggleSort}
+                />
+              </ResponsiveTable.Th>
+              <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+            </ResponsiveTable.Tr>
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
+            {isLoading && !data ? (
+              <TableLoadingRow colSpan={columnCount} />
+            ) : data && data.items.length > 0 ? (
+              data.items.map((alert) => (
+                <ResponsiveTable.Tr key={alert.id}>
+                  <ResponsiveTable.Td label={t("alerts.fieldTitle")} primary>
+                    <Text size="sm" fw={500}>
+                      {alert.title}
+                    </Text>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("alerts.fieldActive")}>
+                    <Badge
+                      variant="light"
+                      color={alert.isActive ? "teal" : "gray"}
+                      style={{ minWidth: "max-content" }}
+                    >
+                      {alert.isActive ? t("common.state.yes") : t("common.state.no")}
+                    </Badge>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("alerts.fieldStartsAt")}>
+                    <Bound value={alert.startsAt} />
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("alerts.fieldEndsAt")}>
+                    <Bound value={alert.endsAt} />
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>
+                    <RowActions
+                      name={alert.title}
+                      primary={{
+                        icon: <IconPencil size={16} />,
+                        label: t("common.action.edit"),
+                        ariaLabel: t("alerts.editName", { name: alert.title }),
+                        to: `/alerts/${alert.id}/edit`,
+                      }}
+                      items={[
+                        {
+                          icon: <IconTrash size={14} />,
+                          label: t("common.action.delete"),
+                          ariaLabel: t("alerts.deleteName", { name: alert.title }),
+                          color: "red",
+                          onClick: () => deleteConfirm.requestDelete({ id: alert.id, name: alert.title }),
+                        },
+                      ]}
+                    />
+                  </ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
+              ))
+            ) : !isError ? (
+              <ResponsiveTable.Tr>
+                <ResponsiveTable.Td colSpan={columnCount}>
+                  <EmptyState
+                    icon={<IconSpeakerphone size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("alerts.empty")}
                   />
                 </ResponsiveTable.Td>
               </ResponsiveTable.Tr>
-            ))
-          ) : !isError ? (
-            <ResponsiveTable.Tr>
-              <ResponsiveTable.Td colSpan={columnCount}>
-                <EmptyState
-                  icon={<IconSpeakerphone size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                  label={t("alerts.empty")}
-                />
-              </ResponsiveTable.Td>
-            </ResponsiveTable.Tr>
-          ) : null}
-        </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="alerts.rowsPerPage"
-      />
+            ) : null}
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

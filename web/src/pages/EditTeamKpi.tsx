@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Center, Container, Loader, Paper, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Button, Center, Container, Loader, Stack, Tabs, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -139,7 +140,7 @@ export default function EditTeamKpi() {
     <>
       <PageHeader title={t("teamKpi.editTitle")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <Stack>
             {isLoading ? (
               <Center py="xl">
@@ -241,7 +242,7 @@ export default function EditTeamKpi() {
               </form>
             ) : null}
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

@@ -10,6 +10,7 @@ import {
   Select,
   Stack,
   Text,
+  Title,
 } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { IconCalendarStats, IconPlus, IconTrash } from "@tabler/icons-react";
@@ -22,6 +23,7 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
+import ListSurface from "../components/ListSurface";
 import RowActions from "../components/RowActions";
 import StatusPill from "../components/StatusPill";
 import TableLoadingRow from "../components/TableLoadingRow";
@@ -141,6 +143,9 @@ export default function ReviewPeriods() {
       {admin && periods && (
         <Paper withBorder p="md" radius="md">
           <Stack gap="sm">
+            <Title order={3} size="h4">
+              {t("performanceReview.periods.addPeriod")}
+            </Title>
             <Group align="flex-end" gap="md" wrap="wrap">
               {requiredStart != null ? (
                 <Input.Wrapper
@@ -230,6 +235,7 @@ export default function ReviewPeriods() {
         </Alert>
       )}
 
+      <ListSurface>
       <ResponsiveTable density="compact">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -293,6 +299,7 @@ export default function ReviewPeriods() {
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

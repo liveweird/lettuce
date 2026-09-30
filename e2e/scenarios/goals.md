@@ -14,8 +14,8 @@
 
 ## Scenario: a manager walks a goal around the whole lifecycle: draft, activate, progress, archive, reopen
 
-1. Manager AAA signs in and opens AAA Three's goals drill-down from the dashboard's subordinates
-   card ("Goals for AAA Three") — the same path a real manager takes.
+1. Manager AAA signs in and opens AAA Three's **More actions** menu from the dashboard's
+   subordinates card, then chooses "Goals for AAA Three" — the same path a real manager takes.
 2. They create a new goal ("New goal") with a unique title, a Target of 5, and today as the due
    date (the earliest valid due date, so the run never races midnight), then answer the
    "Do you want to activate the goal immediately?" prompt with **No**.

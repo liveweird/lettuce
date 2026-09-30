@@ -109,9 +109,10 @@ describe("ImpactLogTable", () => {
     expect(screen.getByText("Q1 platform migration")).toBeInTheDocument();
     // The Title column is sortable (v2.37.0 — it replaced the what-happened preview).
     expect(screen.getByRole("button", { name: "Title" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^filters(?: \d+)?$/i })).toBeNull();
     // No owner column on the own view — every row is the caller's.
     expect(screen.queryByText("Author")).toBeNull();
-    // Own rows carry View + Edit + Delete.
     // Own rows carry View + (behind the ⋯ menu, v3.4.0) Edit + Delete.
     await user.click(screen.getByRole("button", { name: "More actions for Shipped the reporting pipeline" }));
     expect(
@@ -155,12 +156,13 @@ describe("ImpactLogTable", () => {
     const mockFetch = renderTable({ view: "managed", withReportsScope: true }, MANAGED_PAGE);
 
     expect(await screen.findByText("Olga Owner")).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toBeInTheDocument();
     // Not the owner → view only, no edit/delete affordances.
     expect(screen.queryByRole("link", { name: /^Edit entry/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Delete entry/ })).toBeNull();
 
-    // The filters live behind the collapsed panel.
-    await user.click(screen.getByRole("button", { name: /filters/i }));
+    // Author and Reports remain secondary filters behind the collapsed panel.
+    await user.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     await user.type(screen.getByLabelText("Author"), "olga");
     await waitFor(() => {
       expect(mockFetch.mock.calls.some(([u]) => String(u).includes("userName=olga"))).toBe(true);

@@ -85,6 +85,11 @@ async function openCardMenu(name: RegExp | string) {
   await userEvent.setup().click(await screen.findByRole("button", { name }));
 }
 
+async function findMoreAction(name: string, action: RegExp | string) {
+  await openCardMenu(new RegExp(`more actions for ${name}`, "i"));
+  return screen.findByRole("menuitem", { name: action });
+}
+
 // The exact timestamp behind a relative phrase — the localized formatDateTime (v3.5.0).
 const stamp = (ms: number) =>
   new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(ms));
@@ -253,9 +258,8 @@ describe("TeamMembersTable", () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: "Goals for Bob Brown" });
+    const link = await findMoreAction("Bob Brown", "Goals for Bob Brown");
     expect(link).toHaveAttribute("href", "/users/11/goals?name=Bob%20Brown&from=subordinates");
-    expect(screen.getAllByRole("link", { name: /goals for/i })).toHaveLength(2);
 
     cleanup();
     setupMocks(mockFetch);
@@ -268,14 +272,13 @@ describe("TeamMembersTable", () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: "Performance reviews of Bob Brown" });
+    const link = await findMoreAction("Bob Brown", "Performance reviews of Bob Brown");
     expect(link).toHaveAttribute(
       "href",
       "/users/11/performance-reviews?name=Bob%20Brown&from=subordinates",
     );
-    expect(screen.getAllByRole("link", { name: /performance reviews of/i })).toHaveLength(2);
     // Its Performance-section sibling (v2.38.0): the per-report journal drill-down.
-    expect(screen.getByRole("link", { name: "Impact log of Bob Brown" })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: "Impact log of Bob Brown" })).toHaveAttribute(
       "href",
       "/users/11/impact-log?name=Bob%20Brown&from=subordinates",
     );
@@ -288,7 +291,7 @@ describe("TeamMembersTable", () => {
     await waitFor(() => {
       expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
     });
-    expect(screen.getAllByRole("link", { name: /impact log of/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /more actions for bob brown/i })).toBeInTheDocument();
 
     cleanup();
     setupMocks(mockFetch);
@@ -305,11 +308,11 @@ describe("TeamMembersTable", () => {
     // Without teamId the origin degrades to "managers" and UserImpactLog bounces the manager
     // to their own journal — the v2.40.1 fix gave userImpactLogLink the teamId its siblings
     // always had.
-    expect(await screen.findByRole("link", { name: "Impact log of Bob Brown" })).toHaveAttribute(
+    expect(await findMoreAction("Bob Brown", "Impact log of Bob Brown")).toHaveAttribute(
       "href",
       "/users/11/impact-log?name=Bob%20Brown&from=team&teamId=4",
     );
-    expect(screen.getByRole("link", { name: "Performance reviews of Bob Brown" })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: "Performance reviews of Bob Brown" })).toHaveAttribute(
       "href",
       "/users/11/performance-reviews?name=Bob%20Brown&from=team&teamId=4",
     );
@@ -342,9 +345,8 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByText("Last login")).toBeNull();
   });
 
-  test("subordinate cards keep the Not set cue for an unset seniority, show last login (v2.25.0/v3.9.1)", async () => {
-    // On view=managed the caller IS the chain — a null seniority genuinely means unset,
-    // so the orange cue stays truthful and renders; last login follows the same rule. The
+  test("subordinate cards omit an unset seniority and keep authorized last login details", async () => {
+    // Null career fields stay quiet even for a manager; authorized last-login details remain. The
     // sibling-scoped query (rather than a bare getByText("never")) isolates each row's own
     // value from the other never-capable rows this flavor also renders unset.
     const loggedInAt = Date.now() - 86_400_000;
@@ -362,8 +364,10 @@ describe("TeamMembersTable", () => {
     );
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No reports" />);
 
-    expect(await screen.findByText("Seniority")).toBeInTheDocument();
-    expect(screen.getAllByText("Not set")).toHaveLength(1);
+    await screen.findByText("System Analyst");
+    expect(screen.queryByText("Seniority")).toBeNull();
+    expect(screen.queryByText("Not set")).toBeNull();
+    fireEvent.click(document.querySelector("summary")!);
     const loginValue = within(screen.getByText("Last login").nextElementSibling as HTMLElement);
     expect(loginValue.getByText("yesterday")).toHaveAttribute("title", stamp(loggedInAt));
   });
@@ -401,7 +405,7 @@ describe("TeamMembersTable", () => {
     setupMocks(mockFetch, membersPage([SEED_MEMBERS[1]]));
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: /days off of bob brown/i });
+    const link = await findMoreAction("Bob Brown", /days off of bob brown/i);
     expect(link.getAttribute("href")).toContain("/users/11/days-off");
     expect(link.getAttribute("href")).toContain("from=subordinates");
   });
@@ -412,7 +416,7 @@ describe("TeamMembersTable", () => {
     ]);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
 
-    const link = await screen.findByRole("link", { name: "Succession plan for Bob Brown" });
+    const link = await findMoreAction("Bob Brown", "Succession plan for Bob Brown");
     expect(link.getAttribute("href")).toContain("/succession/9/view");
     // Alice has no plan in the pool — no button on her card.
     expect(screen.queryByRole("link", { name: "Succession plan for Alice Adams" })).toBeNull();
@@ -463,14 +467,15 @@ describe("TeamMembersTable", () => {
     expect(screen.queryByText("Performance")).toBeNull();
     expect(screen.queryByText("Days off")).toBeNull();
     expect(screen.queryByRole("link", { name: /performance reviews of/i })).toBeNull();
-    expect(screen.getByRole("link", { name: /impact log of/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("Days off of Bob Brown")).toBeInTheDocument();
+    await openCardMenu(/more actions for bob brown/i);
+    expect(screen.getByRole("menuitem", { name: /impact log of/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Days off of Bob Brown" })).toBeInTheDocument();
   });
 
   test("switching the reports scope to all hides the Goals buttons like the 1:1 ones", async () => {
     setupMocks(mockFetch);
     renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
-    await screen.findByRole("link", { name: "Goals for Bob Brown" });
+    await screen.findByRole("button", { name: /more actions for bob brown/i });
 
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     // happy-dom does not open Mantine comboboxes via userEvent's pointer simulation
@@ -503,7 +508,6 @@ describe("TeamMembersTable", () => {
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
     await screen.findByText("Bob Brown");
-    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText("Name"), "ali");
 
     await waitFor(
@@ -526,12 +530,12 @@ describe("TeamMembersTable", () => {
     const toggle = screen.getByRole("button", { name: /filters/i });
     // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await user.type(screen.getByLabelText("Name"), "ali");
-    expect(screen.getByLabelText("Name")).toHaveValue("ali");
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
 
     // Toggling again collapses it.
     await user.click(toggle);
@@ -548,7 +552,6 @@ describe("TeamMembersTable", () => {
     // No filters set → no badge.
     expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
 
-    await user.click(toggle);
     await user.type(screen.getByLabelText("Name"), "ali");
     expect(within(toggle).getByText("1")).toBeInTheDocument();
   });
@@ -942,7 +945,8 @@ describe("TeamMembersTable", () => {
       expect(
         await screen.findByRole("button", { name: "1:1 meetings: 1:1 actions for Bob Brown" }),
       ).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Goals for Bob Brown" })).toBeInTheDocument();
+      await openCardMenu(/more actions for bob brown/i);
+      expect(screen.getByRole("menuitem", { name: "Goals for Bob Brown" })).toBeInTheDocument();
       // …while every feedback affordance is gone: no trigger, no provide/ask items anywhere.
       expect(screen.queryByRole("button", { name: /feedback actions for/i })).toBeNull();
       expect(screen.queryByRole("menuitem", { name: /provide feedback/i })).toBeNull();
@@ -1031,7 +1035,8 @@ describe("TeamMembersTable pinned to a team", () => {
     await openCardMenu(/1:1 actions for bob brown/i);
     expect(await screen.findByRole("menuitem", { name: /new 1:1 with bob brown/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /1:1 meetings with bob brown/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /goals for bob brown/i })).toBeInTheDocument();
+    await openCardMenu(/more actions for bob brown/i);
+    expect(screen.getByRole("menuitem", { name: /goals for bob brown/i })).toBeInTheDocument();
   });
 
   test("action links return to the team view; drill-downs carry the team origin", async () => {
@@ -1061,7 +1066,8 @@ describe("TeamMembersTable pinned to a team", () => {
       "href",
       `/users/11/one-on-ones?name=Bob%20Brown&from=team&teamId=5&back=${back}`,
     );
-    expect(screen.getByRole("link", { name: /goals for bob brown/i })).toHaveAttribute(
+    await openCardMenu(/more actions for bob brown/i);
+    expect(screen.getByRole("menuitem", { name: /goals for bob brown/i })).toHaveAttribute(
       "href",
       `/users/11/goals?name=Bob%20Brown&from=team&teamId=5&back=${back}`,
     );

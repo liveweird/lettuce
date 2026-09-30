@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import {
   Alert,
@@ -230,7 +231,7 @@ export default function CreateDaysOff() {
         mb="lg"
       />
       <Container size="sm" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <Stack gap="md">
             {/* The on-behalf context line (v3.5.0): the report picker keeps its accessible
                 name via aria-label — the strip's <dt> is the visible label. */}
@@ -384,7 +385,7 @@ export default function CreateDaysOff() {
               </Group>
             </FormFooter>
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

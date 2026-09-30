@@ -81,7 +81,6 @@ describe("Templates page", () => {
     renderTemplates();
 
     await screen.findByText("Welcome");
-    await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.type(screen.getByLabelText(/name/i), "Wel");
 
     await waitFor(
@@ -98,37 +97,12 @@ describe("Templates page", () => {
     );
   });
 
-  test("filters are collapsed by default and the toggle reveals them", async () => {
+  test("name search is available immediately without an empty filters panel", async () => {
     setupMocks(mockFetch, () => templatesPage(SEED));
-    const user = userEvent.setup();
     renderTemplates();
-
     await screen.findByText("Welcome");
-    const toggle = screen.getByRole("button", { name: /filters/i });
-    // Collapsed by default — the toggle reports it and the space-eating filter row is hidden.
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
-
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText("Name")).toBeInTheDocument();
-
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-  });
-
-  test("the Filters toggle shows a badge counting the active filters", async () => {
-    setupMocks(mockFetch, () => templatesPage(SEED));
-    const user = userEvent.setup();
-    renderTemplates();
-
-    await screen.findByText("Welcome");
-    const toggle = screen.getByRole("button", { name: /filters/i });
-    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
-
-    await user.click(toggle);
-    await user.type(screen.getByLabelText("Name"), "Wel");
-    expect(within(toggle).getByText("1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /filters/i })).not.toBeInTheDocument();
   });
 
   test("the Name filter clear button empties the field", async () => {
@@ -136,7 +110,6 @@ describe("Templates page", () => {
     const user = userEvent.setup();
     renderTemplates();
 
-    await user.click(screen.getByRole("button", { name: /filters/i }));
     const filter = await screen.findByLabelText(/name/i);
     await user.type(filter, "Wel");
     expect(filter).toHaveValue("Wel");

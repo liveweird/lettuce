@@ -2,7 +2,6 @@ import type { ParseKeys, TFunction } from "i18next";
 import { type ReactNode } from "react";
 import {
   Alert,
-  Box,
   Group,
   Select,
   Stack,
@@ -21,6 +20,7 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import PersonCell from "../components/PersonCell";
 import RowActions from "../components/RowActions";
+import ListSurface from "../components/ListSurface";
 import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -351,8 +351,9 @@ export default function FeedbackTable({
         </Alert>
       )}
 
-      <Box className={classes.listSurface}>
-        <Box className={classes.toolbarFrame} data-tour="feedback-filters">
+      <ListSurface
+        toolbar={
+        <div data-tour="feedback-filters">
           <ListToolbar
             search={{
               label: t(config.searchColumn.labelKey),
@@ -416,9 +417,20 @@ export default function FeedbackTable({
               ),
             }}
           />
-        </Box>
-
-        <ResponsiveTable density="wide" className={classes.table}>
+        </div>
+        }
+        footer={
+<PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        rowsPerPageLabelKey="feedback.rowsPerPage"
+      />
+        }
+      >
+        <ResponsiveTable density="wide">
           <ResponsiveTable.Thead>
             <ResponsiveTable.Tr>
             <ResponsiveTable.Th sortable>
@@ -549,16 +561,7 @@ export default function FeedbackTable({
           ) : null}
           </ResponsiveTable.Tbody>
         </ResponsiveTable>
-      </Box>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="feedback.rowsPerPage"
-      />
+      </ListSurface>
     </Stack>
   );
 }

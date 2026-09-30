@@ -87,6 +87,7 @@ describe("PerformanceReviewTable", () => {
     expect(await screen.findByText("Mona Manager")).toBeInTheDocument();
     expect(screen.getByText("January 2026 – June 2026")).toBeInTheDocument();
     expect(screen.getByText("Published")).toBeInTheDocument();
+    expect(screen.getByLabelText("Manager")).toBeInTheDocument();
     // Ratings as bare numbers; the unset one dims to a dash.
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();

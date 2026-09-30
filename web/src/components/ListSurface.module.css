@@ -1,0 +1,50 @@
+.surface {
+  min-width: 0;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--lettuce-surface);
+}
+
+.toolbar {
+  padding: var(--mantine-spacing-md);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.body {
+  min-width: 0;
+}
+
+.body > :global(.mantine-Table-table),
+.body > [data-mode] :global(.mantine-Table-table) {
+  border: 0;
+  border-radius: 0;
+}
+
+.body > [data-mode] thead th {
+  border-radius: 0;
+}
+
+.footer {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .toolbar,
+  .footer {
+    padding: var(--mantine-spacing-sm);
+  }
+}
+
+.surface[data-cards] {
+  display: grid;
+  gap: var(--mantine-spacing-md);
+  border: 0;
+  background: transparent;
+}
+
+.surface[data-cards] > .toolbar {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--lettuce-surface);
+}

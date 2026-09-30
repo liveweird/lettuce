@@ -49,26 +49,47 @@ describe("DashboardHero", () => {
     localStorage.clear();
   });
 
-  test("a manager gets all five tiles, each linking to its screen", async () => {
+  test("a manager gets an actionable feedback callout and quiet metrics", async () => {
     setupMocks(MANAGER_SUMMARY);
     renderHero();
 
-    expect(await screen.findByText("Feedback requests for you")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(await screen.findByText("2 feedback requests need your response")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review requests" })).toHaveAttribute(
+      "href",
+      "/feedback?tab=provided",
+    );
     expect(screen.getByText("Your active goals")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getAllByText("3")).toHaveLength(2);
     expect(screen.getByText("Feedback received · 30 days")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText("Direct reports")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
-    // The reviews tile reads done/total (total = direct reports).
+    // The count is authored reviews in the period. Direct reports are a different population.
     expect(screen.getByText("Reviews · current period")).toBeInTheDocument();
-    expect(screen.getByText("3/7")).toBeInTheDocument();
 
-    const requestsTile = screen.getByText("Feedback requests for you").closest("a");
-    expect(requestsTile).toHaveAttribute("href", "/feedback?tab=provided");
     const reviewsTile = screen.getByText("Reviews · current period").closest("a");
     expect(reviewsTile).toHaveAttribute("href", "/performance?tab=managed");
+  });
+
+  test("zero pending requests stay a quiet metric", async () => {
+    setupMocks({ ...MANAGER_SUMMARY, pendingFeedbackRequests: 0 });
+    renderHero();
+
+    expect(await screen.findByText("Feedback requests for you")).toBeInTheDocument();
+    expect(screen.queryByText(/needs your response/)).toBeNull();
+  });
+
+  test("an unsubmitted pulse is a callout while a submitted pulse remains a metric", async () => {
+    setupMocks({ ...MANAGER_SUMMARY, pendingFeedbackRequests: 0, pulseOpenCloseDate: "2026-10-10", pulseSubmitted: false });
+    const first = renderHero();
+    expect(await screen.findByText("Your pulse survey is ready")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Take the survey" })).toHaveAttribute("href", "/pulse?tab=survey");
+
+    first.unmount();
+    setupMocks({ ...MANAGER_SUMMARY, pendingFeedbackRequests: 0, pulseOpenCloseDate: "2026-10-10", pulseSubmitted: true });
+    renderHero();
+    expect(await screen.findByText("Pulse survey submitted — editable until")).toBeInTheDocument();
+    expect(screen.queryByText("Your pulse survey is ready")).toBeNull();
   });
 
   test("a non-manager sees only the three universal tiles", async () => {

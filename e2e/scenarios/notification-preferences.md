@@ -16,14 +16,17 @@
 2. The owner opens the header account menu and chooses **Notification preferences**.
    - *Expected*: the matrix opens; the "Someone requests feedback from me" row's **In app**
      switch is on — the default.
-3. The owner turns that one switch off and clicks **Save**.
+3. The owner turns that one switch off and clicks **Cancel**.
+   - *Expected*: the shared discard guard asks "Discard changes?"; choosing **Keep editing**
+     preserves the unsaved off state.
+4. The owner clicks **Save**.
    - *Expected*: the "Notification preferences saved" toast appears and the app returns to the
      home page.
-4. The owner signs out. `AAA_ONE` signs in, asks the owner for feedback (the same request shape
+5. The owner signs out. `AAA_ONE` signs in, asks the owner for feedback (the same request shape
    the bell-mechanics journey uses), and separately sends the owner a kudo from the Kudos wall's
    "New kudo" screen — two different notification types minted for the owner.
    - *Expected*: both requests succeed.
-5. `AAA_ONE` signs out; the owner signs back in and opens the notifications bell.
+6. `AAA_ONE` signs out; the owner signs back in and opens the notifications bell.
    - *Expected*: the kudo's "has been sent" row is visible first (proving the list has finished
      loading — the type the owner left on still arrives), and only then: no row mentions a
      feedback request ("requested feedback about") — the muted type never minted a bell row.

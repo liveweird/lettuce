@@ -1,6 +1,6 @@
 import { charCountDescription } from "../utils/charCount";
 import { lazy, Suspense } from "react";
-import { Group, NumberInput, Select, Skeleton, Stack, Text, TextInput } from "@mantine/core";
+import { SimpleGrid, NumberInput, Select, Skeleton, Stack, Text, TextInput } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import {
@@ -56,7 +56,7 @@ export default function TeamKpiDefinitionFields({
           </Text>
         )}
       </Stack>
-      <Group gap="xl" align="flex-start" data-tour={tourId}>
+      <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="md" data-tour={tourId}>
         <Select
           label={t("teamKpi.type.label")}
           data={(["NUMBER", "PERCENTAGE"] as const).map((type) => ({
@@ -64,13 +64,13 @@ export default function TeamKpiDefinitionFields({
             label: t(`teamKpi.type.${type}`),
           }))}
           allowDeselect={false}
-          w={200}
+
           {...form.getInputProps("type")}
         />
         <NumberInput
           label={t("teamKpi.target")}
           withAsterisk
-          w={200}
+
           min={form.values.type === "PERCENTAGE" ? 0 : undefined}
           max={form.values.type === "PERCENTAGE" ? 100 : undefined}
           suffix={form.values.type === "PERCENTAGE" ? "%" : undefined}
@@ -83,10 +83,10 @@ export default function TeamKpiDefinitionFields({
             label: t(`teamKpi.targetDirection.${direction}`),
           }))}
           allowDeselect={false}
-          w={200}
+
           {...form.getInputProps("targetDirection")}
         />
-      </Group>
+      </SimpleGrid>
       {typeChangeWarning && (
         <Text size="sm" c="var(--lettuce-ink-warning)">
           {t("teamKpi.typeChangeWarning")}

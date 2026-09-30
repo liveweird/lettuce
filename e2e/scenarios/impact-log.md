@@ -40,8 +40,8 @@
    - *Expected*: the entry's row is listed **without** an Edit action; opening it shows the
      content read-only (no Edit button on the view either) — the chain reads, only the owner
      writes.
-7. Still as Manager AAA: on the Dashboard's "My subordinates" tab, AAA Two's card's
-   Performance section now carries an **Impact log** button; they click it.
+7. Still as Manager AAA: on the Dashboard's "My subordinates" tab, they open AAA Two's
+   **More actions** menu and choose **Impact log**.
    - *Expected*: the per-person journal drill-down "Impact log — AAA Two" opens, pinned to
      that report — the entry's row is listed and the Author column is absent (the pin names
      the person).

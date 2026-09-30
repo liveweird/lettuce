@@ -14,6 +14,7 @@ export type ListToolbarProps = {
   filters?: {
     activeCount: number;
     storageKey: string;
+    tourId?: string;
     onClear?: () => void;
     children: ReactNode;
   };
@@ -59,6 +60,7 @@ export default function ListToolbar({ filters, search, right }: ListToolbarProps
               open={open}
               onToggle={() => setOpen(!open)}
               activeFilterCount={filters.activeCount}
+              tourId={filters.tourId}
             />
           )}
           {showClear && (

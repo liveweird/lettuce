@@ -10,12 +10,12 @@ import {
   type SuccessionListView,
   type SuccessionPlanListItem,
 } from "../api/successionPlans";
-import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
-import FilterPanel from "../components/FilterPanel";
+import ListSurface from "../components/ListSurface";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -64,7 +64,7 @@ export default function SuccessionPlanTable({
   backTo?: string;
   /** Show the "Reports" direct/all filter and derive includeIndirect from it (team only). */
   withReportsScope?: boolean;
-  /** Forwarded to FilterPanel's Filters toggle as `data-tour` (a tutorial anchor). */
+  /** Forwarded to the Filters toggle as `data-tour` (a tutorial anchor). */
   tourId?: string;
 }) {
   const { t } = useTranslation();
@@ -94,6 +94,12 @@ export default function SuccessionPlanTable({
     (personFilter.trim() ? 1 : 0) +
     (statusFilter != null ? 1 : 0) +
     (includeIndirect ? 1 : 0);
+
+  function clearPanelFilters() {
+    setPersonFilter("");
+    setStatusFilter(null);
+    setReportsScope("direct");
+  }
 
   const [debouncedPerson] = useDebouncedValue(personFilter, 300);
 
@@ -146,32 +152,55 @@ export default function SuccessionPlanTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
-        <ClearableTextInput
-          label={t("succession.person")}
-          value={personFilter}
-          onChange={setPersonFilter}
-          clearLabel={t("succession.clearPersonFilter")}
-        />
-        <Select
-          label={t("common.field.status")}
-          data={statusOptions}
-          value={statusFilter}
-          onChange={(value) => setStatusFilter((value as (typeof STATUS_FILTERS)[number]) ?? null)}
-          clearable
-          w={160}
-        />
-        {withReportsScope && (
-          <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-        )}
-      </FilterPanel>
-
       {isError && (
         <Alert color="red" variant="light" title={t("succession.loadListError")}>
           {loadErrorMessage(error, t)}
         </Alert>
       )}
 
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("succession.person"),
+              value: personFilter,
+              onChange: setPersonFilter,
+              clearLabel: t("succession.clearPersonFilter"),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              tourId,
+              onClear: clearPanelFilters,
+              children: (
+                <>
+                  <Select
+                    label={t("common.field.status")}
+                    data={statusOptions}
+                    value={statusFilter}
+                    onChange={(value) => setStatusFilter((value as (typeof STATUS_FILTERS)[number]) ?? null)}
+                    clearable
+                    w={160}
+                  />
+                  {withReportsScope && (
+                    <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+                  )}
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="succession.rowsPerPage"
+          />
+        }
+      >
       <ResponsiveTable density="wide">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -296,15 +325,7 @@ export default function SuccessionPlanTable({
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="succession.rowsPerPage"
-      />
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

@@ -8,10 +8,26 @@
 ## Scenario: dashboard details and labelled actions remain reachable at every supported width
 
 1. Manager AAA opens My subordinates at desktop, laptop, tablet and phone widths.
+   - Expected: the current-period Reviews tile shows the authored-review count alone. Pending
+     feedback is either a quiet zero metric or, when work is waiting, a callout with a visible
+     "Review requests" action.
 2. They use the keyboard to expand AAA One's profile and days-off details.
    - Expected: Last login becomes visible; collapsing the section hides secondary details again.
 3. They open the labelled Feedbacks menu with details collapsed.
    - Expected: Provide feedback remains available and the page fits the screen at every width.
+
+## Scenario: list, record and form surfaces adapt across desktop and phone widths
+
+1. AAA One opens Feedback templates at desktop and phone widths.
+   - Expected: the primary Name search is always visible without a Filters toggle; the table and
+     Rows-per-page control are visible and the framed list fits the viewport.
+2. At each width, AAA One opens a seeded template's read-only view.
+   - Expected: the content and metadata remain visible; metadata sits beside the document on
+     desktop and follows it on the phone, and neither layout overflows.
+3. The administrator opens AAA One's feature editor at desktop and phone widths without changing
+   any switch.
+   - Expected: Cancel and Save remain visible inside the shared form footer; phone buttons retain
+     a 44-pixel touch target and the page fits the viewport.
 
 ## Scenario: employees and HR keep readable reference tables without administrative controls
 

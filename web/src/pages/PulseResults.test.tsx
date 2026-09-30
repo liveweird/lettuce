@@ -92,6 +92,7 @@ describe("PulseResults", () => {
     monitored = [] as { id: number; name: string }[],
     allTeams = undefined as { id: number; name: string }[] | undefined,
     comments = { items: [], responseCount: 3, insufficientResponses: false } as unknown,
+    cycles = CYCLES as unknown[],
   } = {}) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
@@ -116,7 +117,7 @@ describe("PulseResults", () => {
       if (u.includes("/trend")) return Promise.resolve(jsonResponse(200, TREND));
       if (u.includes("/comments")) return Promise.resolve(jsonResponse(200, comments));
       if (u.includes("/pulse-surveys/cycles")) {
-        return Promise.resolve(jsonResponse(200, { items: CYCLES }));
+        return Promise.resolve(jsonResponse(200, { items: cycles }));
       }
       return Promise.resolve(jsonResponse(200, { items: [] }));
     });
@@ -170,6 +171,15 @@ describe("PulseResults", () => {
     expect(screen.getByRole("img", { name: /average of this question/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /mean changed versus the previous/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /favorable share changed versus the previous/ })).toBeInTheDocument();
+  });
+
+  test("keeps scope controls available before any cycle has closed", async () => {
+    setupMocks({ cycles: [] });
+    renderWithProviders(<PulseResults />);
+
+    expect(await screen.findByText("No closed pulse cycles yet.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cycle", { selector: "input" })).toBeInTheDocument();
+    expect(screen.getByLabelText("View")).toBeInTheDocument();
   });
 
   test("edge renderings: a zero score is unsigned and a zero delta stays gray", async () => {

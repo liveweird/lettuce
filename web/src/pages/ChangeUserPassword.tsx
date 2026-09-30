@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -12,7 +13,6 @@ import {
   Center,
   Container,
   Loader,
-  Paper,
   PasswordInput,
   Stack,
 } from "@mantine/core";
@@ -115,7 +115,7 @@ export default function ChangeUserPassword() {
         mb="lg"
       />
       <Container size="sm" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -182,7 +182,7 @@ export default function ChangeUserPassword() {
               </Stack>
             </form>
           )}
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

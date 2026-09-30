@@ -238,11 +238,9 @@ test("days off end to end: holiday, allowance, entries, delete, calendar", async
   await login(page, MANAGER_AAA);
   await collapseAlertsBanner(page);
   await page.goto("/?tab=subordinates");
-  await page
-    .locator("li", { hasText: "AAA Two" })
-    .first()
-    .getByRole("link", { name: "Days off of AAA Two" })
-    .click();
+  const aaaTwoDaysOffCard = page.locator("li", { hasText: "AAA Two" }).first();
+  await aaaTwoDaysOffCard.getByRole("button", { name: "More actions for AAA Two" }).click();
+  await page.getByRole("menuitem", { name: "Days off of AAA Two" }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/days-off/);
   await expect(page.getByText(/Paid days off of AAA Two in \d{4}/)).toBeVisible();
   await page.getByLabel("Edit the Paid days off allowance of AAA Two").click();
@@ -459,11 +457,9 @@ test("days off end to end: holiday, allowance, entries, delete, calendar", async
   // The manager archives AAA Two's extra pool on the drill-down (v3.2.0 — the default pool
   // has no such control); no counting entries remain, so the strip simply disappears.
   await page.goto("/?tab=subordinates");
-  await page
-    .locator("li", { hasText: "AAA Two" })
-    .first()
-    .getByRole("link", { name: "Days off of AAA Two" })
-    .click();
+  const aaaTwoCleanupCard = page.locator("li", { hasText: "AAA Two" }).first();
+  await aaaTwoCleanupCard.getByRole("button", { name: "More actions for AAA Two" }).click();
+  await page.getByRole("menuitem", { name: "Days off of AAA Two" }).click();
   await page.getByLabel(`Archive the ${POOL_NAME} pool of AAA Two`).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
   await expect(page.getByText("Pool archived")).toBeVisible();

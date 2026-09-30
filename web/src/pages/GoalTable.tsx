@@ -20,7 +20,8 @@ import ConfirmActionModal from "../components/ConfirmActionModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
-import FilterPanel from "../components/FilterPanel";
+import ListSurface from "../components/ListSurface";
+import ListToolbar from "../components/ListToolbar";
 import GoalCloseModal from "../components/GoalCloseModal";
 import GoalStatusBadge from "../components/GoalStatusBadge";
 import PaginationBar from "../components/PaginationBar";
@@ -176,6 +177,15 @@ export default function GoalTable({
     (statusFilter ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
+  function clearPanelFilters() {
+    setTitleFilter("");
+    setManagerFilter("");
+    setSubordinateFilter("");
+    setCreatedWindow("all");
+    setStatusFilter(null);
+    setReportsScope("direct");
+  }
+
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
   const [debouncedManager] = useDebouncedValue(managerFilter, 300);
   const [debouncedSubordinate] = useDebouncedValue(subordinateFilter, 300);
@@ -254,44 +264,6 @@ export default function GoalTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
-        <ClearableTextInput
-          label={t("goal.title")}
-          value={titleFilter}
-          onChange={setTitleFilter}
-          clearLabel={t("goal.clearTitleFilter")}
-        />
-        {visibleColumns.map((c) => (
-          <ClearableTextInput
-            key={c.field}
-            label={t(c.labelKey)}
-            value={personFilters[c.field].value}
-            onChange={personFilters[c.field].set}
-            clearLabel={t(c.clearFilterLabelKey)}
-          />
-        ))}
-        <Select
-          label={t("goal.createdAt")}
-          data={createdWindowOptions(t)}
-          value={createdWindow}
-          onChange={(v) => setCreatedWindow((v as CreatedWindow) ?? "all")}
-          allowDeselect={false}
-          w={180}
-        />
-        <Select
-          label={t("common.field.status")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`goal.status.${s}`) })),
-          ]}
-          value={statusFilter ?? ""}
-          onChange={(v) => setStatusFilter((v as GoalStatus) || null)}
-          allowDeselect={false}
-          w={160}
-        />
-        {withReportsScope && <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />}
-      </FilterPanel>
-
       {isError && (
         <Alert color="red" variant="light" title={t("goal.loadListError")}>
           {loadErrorMessage(error, t)}
@@ -303,6 +275,67 @@ export default function GoalTable({
         </Alert>
       )}
 
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("goal.title"),
+              value: titleFilter,
+              onChange: setTitleFilter,
+              clearLabel: t("goal.clearTitleFilter"),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              tourId,
+              onClear: clearPanelFilters,
+              children: (
+                <>
+                  {visibleColumns.map((c) => (
+                    <ClearableTextInput
+                      key={c.field}
+                      label={t(c.labelKey)}
+                      value={personFilters[c.field].value}
+                      onChange={personFilters[c.field].set}
+                      clearLabel={t(c.clearFilterLabelKey)}
+                    />
+                  ))}
+                  <Select
+                    label={t("goal.createdAt")}
+                    data={createdWindowOptions(t)}
+                    value={createdWindow}
+                    onChange={(v) => setCreatedWindow((v as CreatedWindow) ?? "all")}
+                    allowDeselect={false}
+                    w={180}
+                  />
+                  <Select
+                    label={t("common.field.status")}
+                    data={[
+                      { value: "", label: t("common.state.any") },
+                      ...STATUS_VALUES.map((s) => ({ value: s, label: t(`goal.status.${s}`) })),
+                    ]}
+                    value={statusFilter ?? ""}
+                    onChange={(v) => setStatusFilter((v as GoalStatus) || null)}
+                    allowDeselect={false}
+                    w={160}
+                  />
+                  {withReportsScope && <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />}
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="goal.rowsPerPage"
+          />
+        }
+      >
       <ResponsiveTable density="wide">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -483,15 +516,7 @@ export default function GoalTable({
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="goal.rowsPerPage"
-      />
+      </ListSurface>
 
       <ConfirmActionModal
         opened={pendingDeactivate != null}

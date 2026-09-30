@@ -27,7 +27,7 @@ test("manager requests feedback about a subordinate; provider sees the message, 
   // "Request feedback for" AAA One, from AAA Three.
   await login(page, MANAGER_AAA);
   await page.goto("/?tab=subordinates");
-  await page.getByRole("button", { name: "Feedback actions for AAA One" }).click();
+  await page.getByRole("button", { name: "Feedbacks: Feedback actions for AAA One" }).click();
   await page.getByRole("menuitem", { name: "Request feedback about AAA One" }).click();
   await expect(page).toHaveURL(/\/feedback\/request/);
   await pickSelectOption(page, "Add a provider", "AAA Three");
@@ -94,7 +94,7 @@ test("a fixed-duration expiration preset is set on the request and shown to the 
 }) => {
   await login(page, MANAGER_AAA);
   await page.goto("/?tab=subordinates");
-  await page.getByRole("button", { name: "Feedback actions for AAA One" }).click();
+  await page.getByRole("button", { name: "Feedbacks: Feedback actions for AAA One" }).click();
   await page.getByRole("menuitem", { name: "Request feedback about AAA One" }).click();
   await expect(page).toHaveURL(/\/feedback\/request/);
   await pickSelectOption(page, "Add a provider", "AAA Three");

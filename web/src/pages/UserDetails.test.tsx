@@ -540,25 +540,25 @@ describe("UserDetails page", () => {
     expect(await screen.findByText("Path")).toBeInTheDocument();
     expect(screen.getByText("Software Engineer")).toBeInTheDocument();
     expect(screen.getByText("Senior")).toBeInTheDocument();
-    // Exactly the unset field wears the orange badge; the stats column renders beside it.
-    expect(screen.getAllByText("Not set")).toHaveLength(1);
+    // Only returned career values are displayed near identity.
+    expect(screen.queryByText("Not set")).not.toBeInTheDocument();
     expect(screen.getByText("Last 1:1")).toBeInTheDocument();
     // The old users-list walk is gone on the relationship path.
     expect(mockFetch.mock.calls.some(([u]) => String(u).startsWith("/api/v1/users?"))).toBe(false);
   });
 
-  test("an entirely unset career profile shows two missing badges - seniority stays hidden", async () => {
-    // An unrelated user's null seniority is ambiguous (the server blanks it outside the
-    // chain, v2.25.0), so only path/specialization wear the "Not set" cue here.
+  test("an absent career profile does not invent missing or private values", async () => {
+    // Null career data must not imply a private value is unset.
     mockApi(mockFetch, {
       users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [] }],
     });
     renderDetails();
 
-    expect(await screen.findByText("Path")).toBeInTheDocument();
-    expect(screen.getByText("Specialization")).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Bob" });
+    expect(screen.queryByText("Path")).toBeNull();
+    expect(screen.queryByText("Specialization")).toBeNull();
     expect(screen.queryByText("Seniority")).toBeNull();
-    expect(screen.getAllByText("Not set")).toHaveLength(2);
+    expect(screen.queryByText("Not set")).not.toBeInTheDocument();
   });
 
   test("the heading uses the name param before the data lands, then the resolved name", async () => {

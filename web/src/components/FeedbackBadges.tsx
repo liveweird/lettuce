@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { FeedbackStatus, FeedbackVisibility } from "../api/feedbacks";
+import { IconLock, IconWorld } from "@tabler/icons-react";
+import classes from "./FeedbackBadges.module.css";
 import StatusPill from "./StatusPill";
 
 // The single source of truth for feedback status colors — shared by the view/edit header
@@ -27,8 +29,9 @@ export function VisibilityBadge({ visibility }: { visibility: FeedbackVisibility
   const { t } = useTranslation();
   const full = t(`common.visibility.${visibility}`);
   return (
-    <StatusPill color="gray" title={full} ariaLabel={`${t("common.field.visibility")}: ${full}`}>
-      {full}
-    </StatusPill>
+    <span className={classes.visibility} title={full} aria-label={`${t("common.field.visibility")}: ${full}`}>
+      {visibility === "PUBLIC" ? <IconWorld size={14} aria-hidden="true" /> : <IconLock size={14} aria-hidden="true" />}
+      <span>{full}</span>
+    </span>
   );
 }

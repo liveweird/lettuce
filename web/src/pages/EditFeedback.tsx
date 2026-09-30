@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import {
   Link as RouterLink,
@@ -6,7 +7,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { Alert, Button, Center, Container, Loader, Paper, Stack, Text } from "@mantine/core";
+import { Alert, Button, Center, Container, Loader, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -152,7 +153,7 @@ export default function EditFeedback() {
       <>
         <PageHeader title={t("feedback.editTitle")} mb="lg" />
         <Container size="md" px={0}>
-          <Paper withBorder p="lg" radius="md">
+          <FormSurface>
             {isLoading ? (
               <Center py="xl">
                 <Loader />
@@ -173,7 +174,7 @@ export default function EditFeedback() {
                 </FormFooter>
               </Stack>
             )}
-          </Paper>
+          </FormSurface>
         </Container>
       </>
     );
@@ -206,7 +207,7 @@ export default function EditFeedback() {
           mb="lg"
         />
         <Container size="md" px={0}>
-          <Paper withBorder p="lg" radius="md">
+          <FormSurface>
             <Stack>
               <MetaStrip
                 items={[
@@ -269,7 +270,7 @@ export default function EditFeedback() {
                 </Button>
               </FormFooter>
             </Stack>
-          </Paper>
+          </FormSurface>
         </Container>
 
         <ConfirmActionModal

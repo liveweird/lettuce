@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Button, Group, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, Stack } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { canAudit, hasFeature } from "../api/session";
 import { getTeam } from "../api/teams";
 import { teamKpiCreateLink, teamKpisLink } from "../utils/teamKpiLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
+import PageHeader from "../components/PageHeader";
 import TeamKpiTable from "./TeamKpiTable";
 import { loadErrorMessage } from "../utils/saveError";
 import { backLabelKey } from "../utils/backLink";
@@ -71,17 +72,22 @@ export default function TeamKpis() {
 
   return (
     <Stack gap="lg">
-      <Stack gap={4}>
-        <Anchor component={RouterLink} to={backLinkTo} size="sm">
-          {backLinkLabel}
-        </Anchor>
-        <Title order={2}>
-          {t("teamKpi.kpisOf", { team: teamLabel })}
-        </Title>
-        <Text size="sm" c="dimmed">
-          {t(auditView ? "teamKpi.kpisOfAuditHint" : "teamKpi.kpisOfHint")}
-        </Text>
-      </Stack>
+      <PageHeader
+        title={t("teamKpi.kpisOf", { team: teamLabel })}
+        description={t(auditView ? "teamKpi.kpisOfAuditHint" : "teamKpi.kpisOfHint")}
+        back={{ to: backLinkTo, label: backLinkLabel }}
+        actions={
+          canManageKpis && (
+          <Button
+            component={RouterLink}
+            to={teamKpiCreateLink(teamId, backTo)}
+            leftSection={<IconPlus size={16} />}
+          >
+            {t("teamKpi.newKpi")}
+          </Button>
+          )
+        }
+      />
 
       {isError && (
         <Alert color="red" variant="light" title={t("teams.loadFailed")}>
@@ -91,19 +97,7 @@ export default function TeamKpis() {
 
       <TeamKpiTable view={view} teamId={teamId} settingsKey="teamKpis.team" backTo={backTo} />
 
-      {canManageKpis && (
-        // The prefilled create entry point, below the list — the house footer convention
-        // (the UserGoals pattern).
-        <Group justify="flex-end">
-          <Button
-            component={RouterLink}
-            to={teamKpiCreateLink(teamId, backTo)}
-            leftSection={<IconPlus size={16} />}
-          >
-            {t("teamKpi.newKpi")}
-          </Button>
-        </Group>
-      )}
+
     </Stack>
   );
 }

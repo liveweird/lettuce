@@ -2,13 +2,20 @@
   "title": "Dashboard",
   "hero": {
     "pendingRequests": "Feedback requests for you",
+    "pendingRequestsAction_one": "1 feedback request needs your response",
+    "pendingRequestsAction_other": "{{count}} feedback requests need your response",
+    "pendingRequestsHint": "Share the feedback people are waiting for.",
+    "openRequests": "Review requests",
     "activeGoals": "Your active goals",
     "received30d": "Feedback received · 30 days",
     "directReports": "Direct reports",
     "reviewsDone": "Reviews · current period",
     "vsPrev30d": "vs previous 30 days",
     "pulseOpen": "Pulse survey open until",
-    "pulseSubmitted": "Pulse survey submitted — editable until"
+    "pulseSubmitted": "Pulse survey submitted — editable until",
+    "pulseAction": "Your pulse survey is ready",
+    "pulseCloses": "Submit your answers by {{date}}.",
+    "openPulse": "Take the survey"
   },
   "tabs": {
     "managers": "My managers",

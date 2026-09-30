@@ -57,11 +57,12 @@
      one-primary demotion of AAA Two — every entry with its actor and timestamp; the trail is
      readable by exactly the plan's readers (the seat's person and candidates still see
      nothing, and no notifications accompany it).
-7. They open the Dashboard's subordinates tab.
-   - *Expected*: AAA One's person card carries a **"Succession plan"** button beside Career
-     progression (the viewer owns an OPEN plan for them) linking straight to the plan's
-     Review screen, plus a "Succession reviewed" row after expanding **Profile & days off**, showing how long
-     ago the plan was last reviewed; AAA Two's card — a candidate, not a seat — has neither.
+7. They open the Dashboard's subordinates tab, expand AAA One's **Profile & days off**, then
+   choose **Succession plan** from the card's **More actions** menu.
+   - *Expected*: the menu item links straight to the plan's Review screen because the viewer owns
+     an OPEN plan for AAA One, and the expanded profile shows a "Succession reviewed" row with
+     how long ago the plan was last reviewed; AAA Two's More-actions menu — a candidate, not a
+     seat — has no Succession-plan item.
 8. They click **Complete review**.
    - *Expected*: a "Review completed" toast (the plan's last-reviewed date is stamped — the
      ONLY thing that updates it besides creation) and a return to the Succession plans list,

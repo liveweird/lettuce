@@ -16,7 +16,8 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
-import FilterPanel from "../components/FilterPanel";
+import ListSurface from "../components/ListSurface";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
@@ -98,6 +99,12 @@ export default function ImpactLogTable({
     // The fixed prop is page scope, not a user-chosen filter — only the toggle counts.
     (withReportsScope === true && reportsScope === "all" ? 1 : 0);
 
+  function clearPanelFilters() {
+    setTitleFilter("");
+    setOwnerFilter("");
+    setReportsScope("direct");
+  }
+
   const [debouncedOwner] = useDebouncedValue(ownerFilter, 300);
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
 
@@ -150,32 +157,55 @@ export default function ImpactLogTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
-        <ClearableTextInput
-          label={t("impactLog.title")}
-          value={titleFilter}
-          onChange={setTitleFilter}
-          clearLabel={t("impactLog.clearTitleFilter")}
-        />
-        {ownerVisible && (
-          <ClearableTextInput
-            label={t("impactLog.owner")}
-            value={ownerFilter}
-            onChange={setOwnerFilter}
-            clearLabel={t("impactLog.clearOwnerFilter")}
-          />
-        )}
-        {withReportsScope && (
-          <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-        )}
-      </FilterPanel>
-
       {isError && (
         <Alert color="red" variant="light" title={t("impactLog.loadListError")}>
           {loadErrorMessage(error, t)}
         </Alert>
       )}
 
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("impactLog.title"),
+              value: titleFilter,
+              onChange: setTitleFilter,
+              clearLabel: t("impactLog.clearTitleFilter"),
+            }}
+            filters={(ownerVisible || withReportsScope || tourId != null) ? {
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              tourId,
+              onClear: clearPanelFilters,
+              children: (
+                <>
+                  {ownerVisible && (
+                    <ClearableTextInput
+                      label={t("impactLog.owner")}
+                      value={ownerFilter}
+                      onChange={setOwnerFilter}
+                      clearLabel={t("impactLog.clearOwnerFilter")}
+                    />
+                  )}
+                  {withReportsScope && (
+                    <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+                  )}
+                </>
+              ),
+            } : undefined}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="impactLog.rowsPerPage"
+          />
+        }
+      >
       <ResponsiveTable density="wide">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -293,15 +323,7 @@ export default function ImpactLogTable({
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="impactLog.rowsPerPage"
-      />
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

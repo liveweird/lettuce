@@ -1,0 +1,14 @@
+.visibility {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1.5;
+  color: var(--mantine-color-dimmed);
+  overflow-wrap: break-word;
+}
+
+.visibility > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}

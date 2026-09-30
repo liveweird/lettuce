@@ -112,14 +112,12 @@ test("an employee journals an accomplishment, their manager reads it, and the ow
   await expect(page.getByText(happened)).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
 
-  // 4b. The person-card drill-down (v2.38.0): the subordinate card's Performance section
-  //     links straight to this report's journal — pinned to them, no Author column.
+  // 4b. The person-card drill-down (v2.38.0): the subordinate card's More-actions menu links
+  //     straight to this report's journal — pinned to them, no Author column.
   await page.goto("/?tab=subordinates");
-  await page
-    .locator("li", { hasText: "AAA Two" })
-    .first()
-    .getByRole("link", { name: "Impact log of AAA Two" })
-    .click();
+  const aaaTwoCard = page.locator("li", { hasText: "AAA Two" }).first();
+  await aaaTwoCard.getByRole("button", { name: "More actions for AAA Two" }).click();
+  await page.getByRole("menuitem", { name: "Impact log of AAA Two" }).click();
   await expect(page).toHaveURL(/\/users\/\d+\/impact-log/);
   await expect(page.getByRole("heading", { name: "Impact log — AAA Two" })).toBeVisible();
   const pinnedRow = page.locator("tr", { hasText: title });

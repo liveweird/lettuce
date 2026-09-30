@@ -1,7 +1,8 @@
+import FormSurface from "../components/FormSurface";
 import type { ParseKeys, TFunction } from "i18next";
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Center, Container, Group, Loader, Paper, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Button, Center, Container, Group, Loader, Stack, Tabs, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -268,7 +269,7 @@ export default function EditGoal() {
     <>
       <PageHeader title={isDraft ? t("goal.editTitle") : t("goal.editProgressTitle")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <Stack>
             {isLoading ? (
               <Center py="xl">
@@ -406,7 +407,7 @@ export default function EditGoal() {
               </form>
             ) : null}
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

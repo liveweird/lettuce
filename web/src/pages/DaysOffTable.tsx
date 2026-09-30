@@ -1,3 +1,4 @@
+import ListSurface from "../components/ListSurface";
 import { Alert, Group, Select, Stack, Text } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
@@ -7,12 +8,11 @@ import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { deleteDaysOff, listDaysOff, type DaysOffListItem, type DaysOffListView, type DaysOffType, listDaysOffPoolTypes } from "../api/daysoff";
-import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
-import FilterPanel from "../components/FilterPanel";
+import ListToolbar from "../components/ListToolbar";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
 import SortHeader from "../components/SortHeader";
@@ -156,145 +156,156 @@ export default function DaysOffTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey}>
-        {personVisible && (
-          <ClearableTextInput
-            label={t("daysOff.person")}
-            value={userFilter}
-            onChange={setUserFilter}
-            clearLabel={t("daysOff.clearPersonFilter")}
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={personVisible ? {
+              label: t("daysOff.person"),
+              value: userFilter,
+              onChange: setUserFilter,
+              clearLabel: t("daysOff.clearPersonFilter"),
+            } : undefined}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              children: (
+                <>
+                  <Select
+                    label={t("daysOff.type.label")}
+                    data={[
+                      { value: "", label: t("common.state.any") },
+                      { value: "PAID", label: t("daysOff.type.PAID") },
+                      ...(poolTypes ?? []).map((k) => ({ value: `${POOL_PICK_PREFIX}${k.id}`, label: `— ${k.name}` })),
+                      { value: "UNPAID", label: t("daysOff.type.UNPAID") },
+                    ]}
+                    value={effectiveTypeFilter ?? ""}
+                    onChange={(v) => setTypeFilter(v || null)}
+                    allowDeselect={false}
+                    w={200}
+                  />
+                </>
+              ),
+            }}
           />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="daysOff.rowsPerPage"
+          />
+        }
+      >
+        {isError && (
+          <Alert color="red" variant="light" title={t("daysOff.loadListError")}>
+            {loadErrorMessage(error, t)}
+          </Alert>
         )}
-        <Select
-          label={t("daysOff.type.label")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            { value: "PAID", label: t("daysOff.type.PAID") },
-            ...(poolTypes ?? []).map((k) => ({ value: `${POOL_PICK_PREFIX}${k.id}`, label: `— ${k.name}` })),
-            { value: "UNPAID", label: t("daysOff.type.UNPAID") },
-          ]}
-          value={effectiveTypeFilter ?? ""}
-          onChange={(v) => setTypeFilter(v || null)}
-          allowDeselect={false}
-          w={200}
-        />
-      </FilterPanel>
 
-      {isError && (
-        <Alert color="red" variant="light" title={t("daysOff.loadListError")}>
-          {loadErrorMessage(error, t)}
-        </Alert>
-      )}
-
-      <ResponsiveTable density="wide">
-        <ResponsiveTable.Thead>
-          <ResponsiveTable.Tr>
-            {personVisible && (
-              <ResponsiveTable.Th sortable><SortHeader
-                  field="userName"
-                  label={t("daysOff.person")}
-                  activeField={sortField}
-                  activeDir={sortDir}
-                  onToggle={toggleSort}
-                />
-              </ResponsiveTable.Th>
-            )}
-            {teamsVisible && <ResponsiveTable.Th>{t("teams.team")}</ResponsiveTable.Th>}
-            {(["startDate", "endDate", "days", "type", "createdAt"] as const).map((f) => (
-              <ResponsiveTable.Th sortable key={f}><SortHeader
-                  field={f}
-                  label={t(f === "type" ? "daysOff.type.label" : `daysOff.column.${f}`)}
-                  activeField={sortField}
-                  activeDir={sortDir}
-                  onToggle={toggleSort}
-                />
-              </ResponsiveTable.Th>
-            ))}
-            <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
-          </ResponsiveTable.Tr>
-        </ResponsiveTable.Thead>
-        <ResponsiveTable.Tbody>
-          {isLoading && !data ? (
-            <TableLoadingRow colSpan={columnCount} />
-          ) : data && data.items.length > 0 ? (
-            data.items.map((r) => (
-              <ResponsiveTable.Tr key={r.id}>
-                {personVisible && (
-                  <ResponsiveTable.Td label={t("daysOff.person")}>
-                    <PersonCell
-                      userId={r.userId}
-                      name={r.userName}
-                      deleted={r.userDeleted}
-                      currentUserId={currentUserId}
-                    />
-                  </ResponsiveTable.Td>
-                )}
-                {teamsVisible && (
-                  <ResponsiveTable.Td label={t("teams.team")}>
-                    <TeamBadges teams={r.teams ?? []} />
-                  </ResponsiveTable.Td>
-                )}
-                <ResponsiveTable.Td label={t("daysOff.column.startDate")}>
-                  <Group gap={4} wrap="nowrap">
-                    <Text size="sm">{formatIsoDate(r.startDate, i18n.language)}</Text>
-                    <Text size="xs" c="dimmed" span>
-                      {formatIsoWeekday(r.startDate, i18n.language)}
-                    </Text>
-                    {r.startHalf && (
-                      <Text size="xs" c="dimmed" span>
-                        {t("daysOff.halfMarker")}
-                      </Text>
-                    )}
-                  </Group>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("daysOff.column.endDate")}>
-                  <Group gap={4} wrap="nowrap">
-                    <Text size="sm">{formatIsoDate(r.endDate, i18n.language)}</Text>
-                    <Text size="xs" c="dimmed" span>
-                      {formatIsoWeekday(r.endDate, i18n.language)}
-                    </Text>
-                    {r.endHalf && (
-                      <Text size="xs" c="dimmed" span>
-                        {t("daysOff.halfMarker")}
-                      </Text>
-                    )}
-                  </Group>
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("daysOff.column.days")}>
-                  {formatDays(r.days, i18n.language)}
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("daysOff.type.label")}>
-                  {/* A paid row names its pool (v3.2.0); pre-pool rows and UNPAID keep the type word. */}
-                  {r.type === "PAID" ? (r.poolName ?? t("daysOff.type.PAID")) : t("daysOff.type.UNPAID")}
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td label={t("daysOff.column.createdAt")}>
-                  <DateCell value={r.createdAt} mode="date" />
-                </ResponsiveTable.Td>
-                <ResponsiveTable.Td actions>{rowActions(r)}</ResponsiveTable.Td>
-              </ResponsiveTable.Tr>
-            ))
-          ) : !isError ? (
+        <ResponsiveTable density="wide">
+          <ResponsiveTable.Thead>
             <ResponsiveTable.Tr>
-              <ResponsiveTable.Td colSpan={columnCount}>
-                <EmptyState
-                  icon={<IconBeach size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-                  label={t("daysOff.noEntries")}
-                  action={emptyAction}
-                />
-              </ResponsiveTable.Td>
+              {personVisible && (
+                <ResponsiveTable.Th sortable><SortHeader
+                    field="userName"
+                    label={t("daysOff.person")}
+                    activeField={sortField}
+                    activeDir={sortDir}
+                    onToggle={toggleSort}
+                  />
+                </ResponsiveTable.Th>
+              )}
+              {teamsVisible && <ResponsiveTable.Th>{t("teams.team")}</ResponsiveTable.Th>}
+              {(["startDate", "endDate", "days", "type", "createdAt"] as const).map((f) => (
+                <ResponsiveTable.Th sortable key={f}><SortHeader
+                    field={f}
+                    label={t(f === "type" ? "daysOff.type.label" : `daysOff.column.${f}`)}
+                    activeField={sortField}
+                    activeDir={sortDir}
+                    onToggle={toggleSort}
+                  />
+                </ResponsiveTable.Th>
+              ))}
+              <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
             </ResponsiveTable.Tr>
-          ) : null}
-        </ResponsiveTable.Tbody>
-      </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="daysOff.rowsPerPage"
-      />
+          </ResponsiveTable.Thead>
+          <ResponsiveTable.Tbody>
+            {isLoading && !data ? (
+              <TableLoadingRow colSpan={columnCount} />
+            ) : data && data.items.length > 0 ? (
+              data.items.map((r) => (
+                <ResponsiveTable.Tr key={r.id}>
+                  {personVisible && (
+                    <ResponsiveTable.Td label={t("daysOff.person")}>
+                      <PersonCell
+                        userId={r.userId}
+                        name={r.userName}
+                        deleted={r.userDeleted}
+                        currentUserId={currentUserId}
+                      />
+                    </ResponsiveTable.Td>
+                  )}
+                  {teamsVisible && (
+                    <ResponsiveTable.Td label={t("teams.team")}>
+                      <TeamBadges teams={r.teams ?? []} />
+                    </ResponsiveTable.Td>
+                  )}
+                  <ResponsiveTable.Td label={t("daysOff.column.startDate")}>
+                    <Group gap={4} wrap="nowrap">
+                      <Text size="sm">{formatIsoDate(r.startDate, i18n.language)}</Text>
+                      <Text size="xs" c="dimmed" span>
+                        {formatIsoWeekday(r.startDate, i18n.language)}
+                      </Text>
+                      {r.startHalf && (
+                        <Text size="xs" c="dimmed" span>
+                          {t("daysOff.halfMarker")}
+                        </Text>
+                      )}
+                    </Group>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("daysOff.column.endDate")}>
+                    <Group gap={4} wrap="nowrap">
+                      <Text size="sm">{formatIsoDate(r.endDate, i18n.language)}</Text>
+                      <Text size="xs" c="dimmed" span>
+                        {formatIsoWeekday(r.endDate, i18n.language)}
+                      </Text>
+                      {r.endHalf && (
+                        <Text size="xs" c="dimmed" span>
+                          {t("daysOff.halfMarker")}
+                        </Text>
+                      )}
+                    </Group>
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("daysOff.column.days")}>
+                    {formatDays(r.days, i18n.language)}
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("daysOff.type.label")}>
+                    {/* A paid row names its pool (v3.2.0); pre-pool rows and UNPAID keep the type word. */}
+                    {r.type === "PAID" ? (r.poolName ?? t("daysOff.type.PAID")) : t("daysOff.type.UNPAID")}
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td label={t("daysOff.column.createdAt")}>
+                    <DateCell value={r.createdAt} mode="date" />
+                  </ResponsiveTable.Td>
+                  <ResponsiveTable.Td actions>{rowActions(r)}</ResponsiveTable.Td>
+                </ResponsiveTable.Tr>
+              ))
+            ) : !isError ? (
+              <ResponsiveTable.Tr>
+                <ResponsiveTable.Td colSpan={columnCount}>
+                  <EmptyState
+                    icon={<IconBeach size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                    label={t("daysOff.noEntries")}
+                    action={emptyAction}
+                  />
+                </ResponsiveTable.Td>
+              </ResponsiveTable.Tr>
+            ) : null}
+          </ResponsiveTable.Tbody>
+        </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

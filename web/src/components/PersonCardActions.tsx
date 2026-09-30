@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Group, Menu, Tooltip } from "@mantine/core";
+import { Button, Group, Menu } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -6,6 +6,7 @@ import {
   IconCalendarEvent,
   IconChevronDown,
   IconClipboardText,
+  IconDots,
   IconMessageCircle,
   IconMessagePlus,
   IconMessageQuestion,
@@ -104,8 +105,8 @@ export type PersonCardActionsProps = {
   audit?: boolean;
   /** Restrict to a subset of buttons (the card body's per-section rendering); order unchanged. */
   only?: readonly ButtonKey[];
-  /** `buttons` (default) = the captioned buttons; `icons` (v3.4.0) = one compact row of icon
-   *  buttons with tooltips — the card footer. The accessible names are identical in both. */
+  /** `buttons` = section actions; the historical `icons` variant now renders the v5 footer
+   *  with labelled topic menus and More actions. Individual accessible names stay stable. */
   variant?: "buttons" | "icons";
 };
 
@@ -163,24 +164,69 @@ export default function PersonCardActions({
     );
   });
 
+  const menuItem = (key: ButtonKey) => {
+    const label = labelSource[key]!;
+    return (
+      <Menu.Item
+        key={key}
+        component={RouterLink}
+        to={links[key]!}
+        leftSection={ICONS[key]}
+        aria-label={t(label.aria, { name })}
+      >
+        {t(label.text)}
+      </Menu.Item>
+    );
+  };
+
+  if (variant === "icons") {
+    const topicGroups = ACTION_GROUPS.map((group) => ({
+      group,
+      members: group.keys.filter((key) => visible.includes(key)),
+      label: audit ? undefined : group.label[labels],
+    })).filter(({ members, label }) => members.length >= 2 && label != null);
+    const topicKeys = new Set(topicGroups.flatMap(({ members }) => members));
+    const more = visible.filter((key) => !topicKeys.has(key));
+    return (
+      <Group gap="xs" wrap="wrap">
+        {topicGroups.map(({ group, members, label }) => (
+          <Menu key={group.id} position="bottom-start" withinPortal>
+            <Menu.Target>
+              <Button
+                variant="default"
+                size="xs"
+                leftSection={GROUP_ICONS[group.id]}
+                rightSection={<IconChevronDown size={14} />}
+                aria-label={actionAccessibleName(t(label!.text), t(label!.aria, { name }))}
+              >
+                {t(label!.text)}
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>{members.map(menuItem)}</Menu.Dropdown>
+          </Menu>
+        ))}
+        {more.length > 0 && (
+          <Menu position="bottom-end" withinPortal>
+            <Menu.Target>
+              <Button
+                variant="default"
+                size="xs"
+                leftSection={<IconDots size={14} />}
+                rightSection={<IconChevronDown size={14} />}
+                aria-label={t("users.moreActionsFor", { name })}
+              >
+                {t("users.moreActions")}
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>{more.map(menuItem)}</Menu.Dropdown>
+          </Menu>
+        )}
+      </Group>
+    );
+  }
+
   const plainButton = (key: ButtonKey) => {
     const label = labelSource[key]!;
-    if (variant === "icons") {
-      return (
-        <Tooltip key={key} label={t(label.text)}>
-          <ActionIcon
-            component={RouterLink}
-            to={links[key]!}
-            variant={ACTION_KEYS.has(key) ? "light" : "subtle"}
-            color={ACTION_KEYS.has(key) ? undefined : "gray"}
-            size="md"
-            aria-label={t(label.aria, { name })}
-          >
-            {ICONS[key]}
-          </ActionIcon>
-        </Tooltip>
-      );
-    }
     return (
       <Button
         key={key}
@@ -221,20 +267,7 @@ export default function PersonCardActions({
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
-              {members.map((key) => {
-                const label = labelSource[key]!;
-                return (
-                  <Menu.Item
-                    key={key}
-                    component={RouterLink}
-                    to={links[key]!}
-                    leftSection={ICONS[key]}
-                    aria-label={t(label.aria, { name })}
-                  >
-                    {t(label.text)}
-                  </Menu.Item>
-                );
-              })}
+              {members.map(menuItem)}
             </Menu.Dropdown>
           </Menu>
         );
@@ -242,11 +275,5 @@ export default function PersonCardActions({
       {visible.filter((key) => !groupedKeys.has(key)).map(plainButton)}
     </>
   );
-  return variant === "icons" ? (
-    <Group gap={4} wrap="wrap">
-      {content}
-    </Group>
-  ) : (
-    content
-  );
+  return content;
 }

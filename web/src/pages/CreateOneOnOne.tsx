@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Box, Button, Container, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import { Alert, Box, Button, Container, Group, Select, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import DateField from "../components/DateField";
@@ -108,7 +109,7 @@ export default function CreateOneOnOne() {
     <>
       <PageHeader title={t("oneOnOne.createTitle")} description={t("oneOnOne.createHint")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <Stack>
             {/* The context line (v3.5.0): the pair and the date — the controls keep their
                 names via aria-label (the e2e "Team member" combobox / "Meeting date" input).
@@ -183,7 +184,7 @@ export default function CreateOneOnOne() {
               </Group>
             </FormFooter>
           </Stack>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

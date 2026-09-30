@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -11,7 +12,6 @@ import {
   Fieldset,
   Group,
   Loader,
-  Paper,
   Select,
   Stack,
   Tabs,
@@ -170,7 +170,7 @@ export default function EditPerformanceReview() {
         mb="lg"
       />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {isLoading && (
             <Center py="xl">
               <Loader />
@@ -324,7 +324,7 @@ export default function EditPerformanceReview() {
               </Stack>
             </form>
           )}
-        </Paper>
+        </FormSurface>
       </Container>
 
       {/* An eight-field editor qualifies as long-form — Cancel is guarded (house convention). */}

@@ -47,7 +47,7 @@ export default function PulseSettingsCard({
   }
 
   return (
-    <Paper withBorder shadow="sm" p="lg" radius="md">
+    <Paper withBorder p="lg" radius="md">
       <form onSubmit={form.onSubmit(save)} noValidate>
         <Stack gap="sm">
           <Title order={4}>{t("pulse.admin.settingsTitle")}</Title>

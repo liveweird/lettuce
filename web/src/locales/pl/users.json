@@ -281,5 +281,7 @@
   "profileDetails": "Szczegóły profilu",
   "profileAndLeaveDetails": "Profil i dni wolne",
   "profileDetailsFor": "Szczegóły profilu: {{name}}",
-  "profileAndLeaveDetailsFor": "Profil i dni wolne: {{name}}"
+  "profileAndLeaveDetailsFor": "Profil i dni wolne: {{name}}",
+  "moreActions": "Więcej akcji",
+  "moreActionsFor": "Więcej akcji dla {{name}}"
 }

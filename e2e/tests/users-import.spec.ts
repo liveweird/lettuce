@@ -17,6 +17,7 @@ test("a mixed CSV imports row-by-row and an imported password signs in", async (
   ].join("\n");
 
   await login(page, ADMIN);
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/users");
   await page.getByRole("link", { name: "Mass import" }).click();
   await expect(page).toHaveURL(/\/users\/import$/);
@@ -36,6 +37,28 @@ test("a mixed CSV imports row-by-row and an imported password signs in", async (
   await expect(page.getByText("Parse error")).toBeVisible();
   const rowB = page.locator("tr", { hasText: emailB });
   await expect(rowB).toContainText("Kowalski, Jan"); // last-comma split kept the name intact
+
+  // The compact FormSurface must leave this normal-density ResponsiveTable above its 56rem
+  // stacking threshold on desktop. Pin the native table geometry directly: the header and body
+  // stay table row groups, and each result cell shares its column's horizontal bounds.
+  const table = page.getByRole("table");
+  const rowGroups = table.getByRole("rowgroup");
+  await expect(rowGroups.first()).toBeVisible();
+  await expect(rowGroups.first()).toHaveCSS("display", "table-header-group");
+  await expect(rowGroups.nth(1)).toHaveCSS("display", "table-row-group");
+  await expect(rowB).toHaveCSS("display", "table-row");
+  const headers = table.getByRole("columnheader");
+  const cells = rowB.getByRole("cell");
+  for (const index of [1, 2, 3]) {
+    const [headerBox, cellBox] = await Promise.all([
+      headers.nth(index).boundingBox(),
+      cells.nth(index).boundingBox(),
+    ]);
+    expect(headerBox).not.toBeNull();
+    expect(cellBox).not.toBeNull();
+    expect(Math.abs(headerBox!.x - cellBox!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(headerBox!.width - cellBox!.width)).toBeLessThanOrEqual(1);
+  }
 
   // The narrow Line column and the wide Password column (ResponsiveTable.Th width, v4.0.4) give
   // the password cell room to lay its masked code, "Show password" button and Copy button on one

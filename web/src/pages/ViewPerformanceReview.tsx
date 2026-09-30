@@ -1,7 +1,7 @@
 import type { ParseKeys } from "i18next";
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Badge, Button, Container, Group, Input, Paper, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Badge, Button, Container, Group, Input, Stack, Tabs, Text } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -17,6 +17,7 @@ import PersonCell from "../components/PersonCell";
 import ReviewLifecycle from "../components/ReviewLifecycle";
 import RatingBadge from "../components/RatingBadge";
 import ProseBox from "../components/ProseBox";
+import RecordLayout from "../components/RecordLayout";
 import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewEditLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
@@ -194,16 +195,9 @@ export default function ViewPerformanceReview() {
       )}
 
       <Container size="md" px={0} w="100%">
-        <Paper withBorder radius="md" p="md">
-          {isLoading && <CenteredLoader />}
-          {isError && (
-            <Alert color="red" variant="light">
-              {loadErrorText}
-            </Alert>
-          )}
-
-          {data && (
-            <Stack gap="md">
+        <RecordLayout
+          metadata={
+            data ? (
               <MetaStrip
                 items={[
                   {
@@ -214,9 +208,7 @@ export default function ViewPerformanceReview() {
                   {
                     key: "subordinate",
                     label: t("performanceReview.subordinate"),
-                    value: (
-                      <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />
-                    ),
+                    value: <PersonCell userId={data.subordinateId} name={data.subordinateName} currentUserId={currentUserId} />,
                   },
                   {
                     key: "period",
@@ -241,7 +233,18 @@ export default function ViewPerformanceReview() {
                   },
                 ]}
               />
+            ) : undefined
+          }
+        >
+          {isLoading && <CenteredLoader />}
+          {isError && (
+            <Alert color="red" variant="light">
+              {loadErrorText}
+            </Alert>
+          )}
 
+          {data && (
+            <Stack gap="md">
               <Tabs defaultValue="content" keepMounted={false}>
                 <Tabs.List>
                   <Tabs.Tab value="content">{t("common.field.content")}</Tabs.Tab>
@@ -264,7 +267,7 @@ export default function ViewPerformanceReview() {
               </Tabs>
             </Stack>
           )}
-        </Paper>
+        </RecordLayout>
       </Container>
     </Stack>
   );

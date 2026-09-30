@@ -1,33 +1,4 @@
-.listSurface {
-  min-width: 0;
-}
-
-.toolbarFrame {
-  padding: var(--mantine-spacing-md);
-  background: var(--lettuce-surface);
-  border: 1px solid var(--mantine-color-default-border);
-  border-bottom: 0;
-  border-radius: var(--mantine-radius-md) var(--mantine-radius-md) 0 0;
-}
-
-.table {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-
-.table thead tr:first-child th:first-child,
-.table thead tr:first-child th:last-child {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-
 .preview {
   color: var(--mantine-color-text);
   line-height: 1.6;
-}
-
-@media (max-width: $mantine-breakpoint-xs) {
-  .toolbarFrame {
-    padding: var(--mantine-spacing-sm);
-  }
 }

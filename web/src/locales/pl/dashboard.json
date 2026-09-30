@@ -2,13 +2,22 @@
   "title": "Pulpit",
   "hero": {
     "pendingRequests": "Prośby o feedback dla Ciebie",
+    "pendingRequestsAction_one": "1 prośba o feedback czeka na Twoją odpowiedź",
+    "pendingRequestsAction_few": "{{count}} prośby o feedback czekają na Twoją odpowiedź",
+    "pendingRequestsAction_many": "{{count}} próśb o feedback czeka na Twoją odpowiedź",
+    "pendingRequestsAction_other": "{{count}} prośby o feedback czeka na Twoją odpowiedź",
+    "pendingRequestsHint": "Przekaż feedback, na który czekają inni.",
+    "openRequests": "Przejrzyj prośby",
     "activeGoals": "Twoje aktywne cele",
     "received30d": "Otrzymany feedback · 30 dni",
     "directReports": "Bezpośredni podwładni",
     "reviewsDone": "Oceny · bieżący okres",
     "vsPrev30d": "vs poprzednie 30 dni",
     "pulseOpen": "Ankieta pulsu otwarta do",
-    "pulseSubmitted": "Ankieta pulsu wysłana — edytuj do"
+    "pulseSubmitted": "Ankieta pulsu wysłana — edytuj do",
+    "pulseAction": "Twoja ankieta pulsu jest gotowa",
+    "pulseCloses": "Prześlij odpowiedzi do {{date}}.",
+    "openPulse": "Wypełnij ankietę"
   },
   "tabs": {
     "managers": "Moi menedżerowie",

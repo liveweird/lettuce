@@ -7,6 +7,7 @@ import {
   Center,
   Group,
   Loader,
+  Paper,
   SegmentedControl,
   Select,
   Stack,
@@ -108,26 +109,8 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end" wrap="wrap">
-        <Group gap="xs" align="center" data-tour="days-off-month">
-          <ActionIcon
-            variant="default"
-            onClick={() => setMonth((m) => addIsoMonths(m, -1))}
-            aria-label={t("daysOff.calendar.previousMonth")}
-          >
-            <IconChevronLeft size={16} />
-          </ActionIcon>
-          <Text fw={600} w={150} ta="center">
-            {formatIsoMonth(month, i18n.language)}
-          </Text>
-          <ActionIcon
-            variant="default"
-            onClick={() => setMonth((m) => addIsoMonths(m, 1))}
-            aria-label={t("daysOff.calendar.nextMonth")}
-          >
-            <IconChevronRight size={16} />
-          </ActionIcon>
-        </Group>
+      <Paper withBorder p="md" radius="md">
+        <Group justify="space-between" align="flex-end" wrap="wrap">
         {(isManager || auditor) && (
           <Group gap="sm" align="flex-end" wrap="wrap">
             <Select
@@ -162,7 +145,27 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
             )}
           </Group>
         )}
-      </Group>
+        <Group gap="xs" align="center" data-tour="days-off-month">
+          <ActionIcon
+            variant="default"
+            onClick={() => setMonth((m) => addIsoMonths(m, -1))}
+            aria-label={t("daysOff.calendar.previousMonth")}
+          >
+            <IconChevronLeft size={16} />
+          </ActionIcon>
+          <Text fw={600} w={150} ta="center">
+            {formatIsoMonth(month, i18n.language)}
+          </Text>
+          <ActionIcon
+            variant="default"
+            onClick={() => setMonth((m) => addIsoMonths(m, 1))}
+            aria-label={t("daysOff.calendar.nextMonth")}
+          >
+            <IconChevronRight size={16} />
+          </ActionIcon>
+        </Group>
+        </Group>
+      </Paper>
 
       {isError ? (
         <Alert color="red" variant="light" title={t("daysOff.calendar.loadError")}>
@@ -283,7 +286,8 @@ export default function DaysOff() {
         {isManager && (
           <Tabs.Panel value="team" pt="md">
             <Stack gap="md">
-              <Group justify="space-between" align="flex-start" gap="sm">
+              <Paper withBorder p="md" radius="md">
+                <Group justify="space-between" align="flex-start" gap="sm" wrap="wrap">
                 <Text size="sm" c="dimmed" maw={720}>
                   {t("daysOff.teamHint")}
                 </Text>
@@ -304,7 +308,8 @@ export default function DaysOff() {
                     data-tour="days-off-team-view"
                   />
                 </Group>
-              </Group>
+                </Group>
+              </Paper>
               {teamView === "requests" ? (
                 <DaysOffTable view="managed" includeIndirect={includeIndirect} />
               ) : (

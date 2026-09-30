@@ -1,3 +1,4 @@
+import FormSurface from "../components/FormSurface";
 import {
   isUniqueIdConflict,
   userFormValidation,
@@ -17,7 +18,6 @@ import {
   Center,
   Container,
   Loader,
-  Paper,
   Stack,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
@@ -132,7 +132,7 @@ export default function EditUser() {
     <>
       <PageHeader title={t("users.editUser")} mb="lg" />
       <Container size="sm" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           {isLoading ? (
             <Center py="xl">
               <Loader />
@@ -183,7 +183,7 @@ export default function EditUser() {
               </Stack>
             </form>
           )}
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

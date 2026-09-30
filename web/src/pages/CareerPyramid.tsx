@@ -131,8 +131,7 @@ export default function CareerPyramid() {
     (debouncedName ? 1 : 0) +
     (pathFilter ? 1 : 0) +
     (specFilter ? 1 : 0) +
-    (seniorityFilter ? 1 : 0) +
-    (includeIndirect ? 1 : 0);
+    (seniorityFilter ? 1 : 0);
   const allRows = buildCareerPyramidRows(data?.items ?? [], i18n.resolvedLanguage, asOf);
   const filteredRows = sortCareerPyramidRows(
     filterCareerPyramidRows(allRows, filters),
@@ -168,72 +167,63 @@ export default function CareerPyramid() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end">
-        <Text size="sm" c="dimmed">
-          {t("career.pyramid.hint")}
-        </Text>
-        <SegmentedControl
-          aria-label={t("career.pyramid.viewAria")}
-          value={view}
-          onChange={(v) => {
-            if (isOneOf(VIEW_MODES)(v)) setView(v);
-          }}
-          data={[
-            {
-              value: "table",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconTable size={16} />
-                  <span>{t("career.pyramid.viewTable")}</span>
-                </Group>
-              ),
-            },
-            {
-              value: "chart",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconChartBar size={16} />
-                  <span>{t("career.pyramid.viewChart")}</span>
-                </Group>
-              ),
-            },
-          ]}
-        />
-      </Group>
-
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
-        <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
-        <ClearableTextInput
-          label={t("career.pyramid.filterName")}
-          value={nameFilter}
-          onChange={setNameFilter}
-          clearLabel={t("career.pyramid.clearNameFilter")}
-        />
-        <Select
-          label={t("common.field.careerPath")}
-          data={withAllAndNotSet(pathOptions)}
-          value={pathFilter}
-          onChange={(v) => setPathFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
-        />
-        <Select
-          label={t("common.field.careerSpecialization")}
-          data={withAllAndNotSet(specOptions)}
-          value={specFilter}
-          onChange={(v) => setSpecFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
-        />
-        <Select
-          label={t("common.field.seniorityLevel")}
-          data={withAllAndNotSet(seniorityOptions)}
-          value={seniorityFilter}
-          onChange={(v) => setSeniorityFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
-        />
-      </FilterPanel>
+      <Paper withBorder p="md" radius="md">
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">{t("career.pyramid.hint")}</Text>
+          <Group justify="space-between" align="flex-end" wrap="wrap">
+            <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+            <SegmentedControl
+              aria-label={t("career.pyramid.viewAria")}
+              value={view}
+              onChange={(v) => {
+                if (isOneOf(VIEW_MODES)(v)) setView(v);
+              }}
+              data={[
+                {
+                  value: "table",
+                  label: <Group gap={6} wrap="nowrap"><IconTable size={16} /><span>{t("career.pyramid.viewTable")}</span></Group>,
+                },
+                {
+                  value: "chart",
+                  label: <Group gap={6} wrap="nowrap"><IconChartBar size={16} /><span>{t("career.pyramid.viewChart")}</span></Group>,
+                },
+              ]}
+            />
+          </Group>
+          <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY}>
+            <ClearableTextInput
+              label={t("career.pyramid.filterName")}
+              value={nameFilter}
+              onChange={setNameFilter}
+              clearLabel={t("career.pyramid.clearNameFilter")}
+            />
+            <Select
+              label={t("common.field.careerPath")}
+              data={withAllAndNotSet(pathOptions)}
+              value={pathFilter}
+              onChange={(v) => setPathFilter(v ?? "")}
+              allowDeselect={false}
+              w={200}
+            />
+            <Select
+              label={t("common.field.careerSpecialization")}
+              data={withAllAndNotSet(specOptions)}
+              value={specFilter}
+              onChange={(v) => setSpecFilter(v ?? "")}
+              allowDeselect={false}
+              w={200}
+            />
+            <Select
+              label={t("common.field.seniorityLevel")}
+              data={withAllAndNotSet(seniorityOptions)}
+              value={seniorityFilter}
+              onChange={(v) => setSeniorityFilter(v ?? "")}
+              allowDeselect={false}
+              w={200}
+            />
+          </FilterPanel>
+        </Stack>
+      </Paper>
 
       {earliest != null && earliest < today && (
         <Paper withBorder p="md" radius="md">

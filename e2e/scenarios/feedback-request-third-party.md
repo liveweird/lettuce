@@ -15,7 +15,7 @@ notified on pick-up and on send.
 ## Scenario: manager requests feedback about a subordinate; provider sees the message, accepts and sends
 
 1. Manager AAA signs in, opens the Dashboard's "My subordinates" tab, and from AAA One's
-   card's Feedback dropdown (v1.51.0) chooses "Request feedback about AAA One".
+   card footer's labelled Feedbacks dropdown chooses "Request feedback about AAA One".
    - *Expected*: the request-feedback screen opens.
 2. Manager AAA adds AAA Three as a provider, writes a unique "Message to the provider", and
    clicks "Request".
@@ -39,7 +39,7 @@ notified on pick-up and on send.
 ## Scenario: a fixed-duration expiration preset is set on the request and shown to the provider before they decide
 
 1. Manager AAA signs in, opens the Dashboard's "My subordinates" tab, and from AAA One's
-   card's Feedback dropdown chooses "Request feedback about AAA One".
+   card footer's labelled Feedbacks dropdown chooses "Request feedback about AAA One".
    - *Expected*: the request-feedback screen opens.
 2. Manager AAA adds AAA Three as a provider, picks "In 1 week" from the Expiration select, and
    clicks "Request".

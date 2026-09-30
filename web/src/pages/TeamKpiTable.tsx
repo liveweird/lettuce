@@ -11,7 +11,8 @@ import ClearableTextInput from "../components/ClearableTextInput";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
-import FilterPanel from "../components/FilterPanel";
+import ListSurface from "../components/ListSurface";
+import ListToolbar from "../components/ListToolbar";
 import PersonCell from "../components/PersonCell";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
@@ -99,6 +100,14 @@ export default function TeamKpiTable({
     (statusFilter ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
+  function clearPanelFilters() {
+    setTitleFilter("");
+    setTeamFilter("");
+    setCreatedWindow("all");
+    setStatusFilter(null);
+    setReportsScope("direct");
+  }
+
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
   const [debouncedTeam] = useDebouncedValue(teamFilter, 300);
 
@@ -144,54 +153,74 @@ export default function TeamKpiTable({
 
   return (
     <Stack gap="md">
-      <FilterPanel activeFilterCount={activeFilterCount} storageKey={storeKey} tourId={tourId}>
-        {withReportsScope && (
-          <ReportsScopeSelect
-            value={reportsScope}
-            onChange={(v) => setReportsScope(v)}
-          />
-        )}
-        <ClearableTextInput
-          label={t("teamKpi.title")}
-          value={titleFilter}
-          onChange={setTitleFilter}
-          clearLabel={t("teamKpi.clearTitleFilter")}
-        />
-        {teamColumnVisible && (
-          <ClearableTextInput
-            label={t("teamKpi.team")}
-            value={teamFilter}
-            onChange={setTeamFilter}
-            clearLabel={t("teamKpi.clearTeamFilter")}
-          />
-        )}
-        <Select
-          label={t("teamKpi.createdAt")}
-          data={createdWindowOptions(t)}
-          value={createdWindow}
-          onChange={(v) => setCreatedWindow((v as CreatedWindow) ?? "all")}
-          allowDeselect={false}
-          w={180}
-        />
-        <Select
-          label={t("common.field.status")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`teamKpi.status.${s}`) })),
-          ]}
-          value={statusFilter ?? ""}
-          onChange={(v) => setStatusFilter((v as TeamKpiStatus) || null)}
-          allowDeselect={false}
-          w={160}
-        />
-      </FilterPanel>
-
       {isError && (
         <Alert color="red" variant="light" title={t("teamKpi.loadListError")}>
           {loadErrorMessage(error, t)}
         </Alert>
       )}
 
+      <ListSurface
+        toolbar={
+          <ListToolbar
+            search={{
+              label: t("teamKpi.title"),
+              value: titleFilter,
+              onChange: setTitleFilter,
+              clearLabel: t("teamKpi.clearTitleFilter"),
+            }}
+            filters={{
+              activeCount: activeFilterCount,
+              storageKey: storeKey,
+              tourId,
+              onClear: clearPanelFilters,
+              children: (
+                <>
+                  {withReportsScope && (
+                    <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
+                  )}
+                  {teamColumnVisible && (
+                    <ClearableTextInput
+                      label={t("teamKpi.team")}
+                      value={teamFilter}
+                      onChange={setTeamFilter}
+                      clearLabel={t("teamKpi.clearTeamFilter")}
+                    />
+                  )}
+                  <Select
+                    label={t("teamKpi.createdAt")}
+                    data={createdWindowOptions(t)}
+                    value={createdWindow}
+                    onChange={(v) => setCreatedWindow((v as CreatedWindow) ?? "all")}
+                    allowDeselect={false}
+                    w={180}
+                  />
+                  <Select
+                    label={t("common.field.status")}
+                    data={[
+                      { value: "", label: t("common.state.any") },
+                      ...STATUS_VALUES.map((s) => ({ value: s, label: t(`teamKpi.status.${s}`) })),
+                    ]}
+                    value={statusFilter ?? ""}
+                    onChange={(v) => setStatusFilter((v as TeamKpiStatus) || null)}
+                    allowDeselect={false}
+                    w={160}
+                  />
+                </>
+              ),
+            }}
+          />
+        }
+        footer={
+          <PaginationBar
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            rowsPerPageLabelKey="teamKpi.rowsPerPage"
+          />
+        }
+      >
       <ResponsiveTable density="wide">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -343,15 +372,7 @@ export default function TeamKpiTable({
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
-
-      <PaginationBar
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        rowsPerPageLabelKey="teamKpi.rowsPerPage"
-      />
+      </ListSurface>
     </Stack>
   );
 }

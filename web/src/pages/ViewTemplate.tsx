@@ -1,5 +1,5 @@
 import { Link as RouterLink, Navigate, useParams } from "react-router-dom";
-import { Alert, Button, Container, Input, Paper, Stack, Text } from "@mantine/core";
+import { Alert, Button, Container, Input, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../api/http";
@@ -9,6 +9,7 @@ import MarkdownView from "../components/MarkdownView";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import ProseBox from "../components/ProseBox";
+import RecordLayout from "../components/RecordLayout";
 
 /**
  * The read-only template document (the v3.5.0 detail layout): ONE Close in the page header
@@ -44,7 +45,22 @@ export default function ViewTemplate() {
       />
 
       <Container size="md" px={0} w="100%">
-        <Paper withBorder radius="md" p="md">
+        <RecordLayout
+          metadataPlacement="aside"
+          metadata={
+            data ? (
+              <MetaStrip
+                items={[
+                  {
+                    key: "name",
+                    label: t("common.field.name"),
+                    value: <Text size="sm" fw={600}>{data.name}</Text>,
+                  },
+                ]}
+              />
+            ) : undefined
+          }
+        >
           {isLoading ? (
             <CenteredLoader />
           ) : notFound ? (
@@ -58,28 +74,13 @@ export default function ViewTemplate() {
               })}
             </Alert>
           ) : (
-            <Stack gap="md">
-              <MetaStrip
-                items={[
-                  {
-                    key: "name",
-                    label: t("common.field.name"),
-                    value: (
-                      <Text size="sm" fw={600}>
-                        {data!.name}
-                      </Text>
-                    ),
-                  },
-                ]}
-              />
-              <Input.Wrapper label={t("common.field.content")}>
+            <Input.Wrapper label={t("common.field.content")}>
                 <ProseBox>
                   <MarkdownView>{data!.content}</MarkdownView>
                 </ProseBox>
-              </Input.Wrapper>
-            </Stack>
+            </Input.Wrapper>
           )}
-        </Paper>
+        </RecordLayout>
       </Container>
     </Stack>
   );

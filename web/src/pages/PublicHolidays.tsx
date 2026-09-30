@@ -1,7 +1,7 @@
 import { charCountDescription } from "../utils/charCount";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Alert, Button, Group, Paper, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { IconCalendarOff, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
+import ListSurface from "../components/ListSurface";
 import RowActions from "../components/RowActions";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { formatIsoWeekday, todayIsoDate } from "../utils/datetime";
@@ -90,6 +91,9 @@ export default function PublicHolidays() {
       {admin && (
         <Paper withBorder p="md" radius="md">
           <Stack gap="sm">
+            <Title order={3} size="h4">
+              {t("daysOff.holidays.addHoliday")}
+            </Title>
             <Group align="flex-end" gap="md" wrap="wrap">
               <DateField
                 label={t("daysOff.holidays.date")}
@@ -129,6 +133,7 @@ export default function PublicHolidays() {
         </Alert>
       )}
 
+      <ListSurface>
       <ResponsiveTable density="compact">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
@@ -184,6 +189,7 @@ export default function PublicHolidays() {
           ) : null}
         </ResponsiveTable.Tbody>
       </ResponsiveTable>
+      </ListSurface>
 
       <ConfirmDeleteModal
         confirm={deleteConfirm}

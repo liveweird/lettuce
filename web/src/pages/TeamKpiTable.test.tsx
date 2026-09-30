@@ -130,7 +130,7 @@ describe("TeamKpiTable", () => {
     // The default direct scope sends NO includeIndirect param.
     expect(kpiUrls(mockFetch)[0]).not.toContain("includeIndirect");
 
-    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     fireEvent.click(screen.getByLabelText("Reports", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "All reports (including indirect)" }));
     await waitFor(() =>
@@ -158,10 +158,11 @@ describe("TeamKpiTable", () => {
     renderWithProviders(<TeamKpiTable view="own" settingsKey="teamKpis.test2" />);
     await screen.findByText("Deploy weekly");
 
-    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    // The primary title filter is available without expanding secondary filters.
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "deploy" } });
     await waitFor(() => expect(kpiUrls(mockFetch).some((u) => u.includes("title=deploy"))).toBe(true));
 
+    fireEvent.click(screen.getByRole("button", { name: /^filters(?: \d+)?$/i }));
     fireEvent.click(screen.getByLabelText("Status", { selector: "input" }));
     fireEvent.click(await screen.findByRole("option", { name: "Active" }));
     await waitFor(() =>

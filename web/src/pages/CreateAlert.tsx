@@ -1,6 +1,7 @@
+import FormSurface from "../components/FormSurface";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Alert, Button, Container, Paper, Stack } from "@mantine/core";
+import { Alert, Button, Container, Stack } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -67,7 +68,7 @@ export default function CreateAlert() {
     <>
       <PageHeader title={t("alerts.create")} mb="lg" />
       <Container size="md" px={0}>
-        <Paper withBorder shadow="sm" p="xl" radius="md">
+        <FormSurface>
           <form onSubmit={form.onSubmit(onSubmit)} noValidate>
             <Stack>
               <AlertFormFields form={form} />
@@ -86,7 +87,7 @@ export default function CreateAlert() {
               </FormFooter>
             </Stack>
           </form>
-        </Paper>
+        </FormSurface>
       </Container>
 
       <DiscardGuard {...guardProps} />

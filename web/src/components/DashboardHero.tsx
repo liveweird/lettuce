@@ -1,4 +1,4 @@
-import { Group, Paper, SimpleGrid, Skeleton, Text, Tooltip } from "@mantine/core";
+import { Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Tooltip } from "@mantine/core";
 import {
   IconClipboardText,
   IconHeartRateMonitor,
@@ -7,6 +7,7 @@ import {
   IconMessage2,
   IconTargetArrow,
   IconUsersGroup,
+  IconArrowRight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
@@ -72,6 +73,37 @@ function StatTile({
   );
 }
 
+function ActionCallout({
+  title,
+  detail,
+  action,
+  to,
+  icon,
+}: {
+  title: string;
+  detail: string;
+  action: string;
+  to: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Paper withBorder radius="md" p="lg" className={classes.callout}>
+      <Group justify="space-between" align="center" wrap="wrap" gap="md">
+        <Group gap="md" wrap="nowrap" className={classes.calloutCopy}>
+          <span className={classes.calloutIcon} aria-hidden="true">{icon}</span>
+          <div>
+            <Text fw={650}>{title}</Text>
+            <Text size="sm" c="dimmed">{detail}</Text>
+          </div>
+        </Group>
+        <Button component={RouterLink} to={to} variant="light" rightSection={<IconArrowRight size={16} />}>
+          {action}
+        </Button>
+      </Group>
+    </Paper>
+  );
+}
+
 /**
  * The Dashboard's v5 quiet summary strip: personal, actionable counts for everyone plus two manager
  * tiles (gated on having direct reports; the reviews tile additionally needs a review period
@@ -105,8 +137,37 @@ export default function DashboardHero() {
   // itself stays ungated, so the counts are present but deliberately unrendered.
   const showReviews = isManager && data.currentPeriodId != null && hasFeature("PERFORMANCE_REVIEWS");
   const showFeedback = hasFeature("FEEDBACKS");
+  const showPendingFeedback = showFeedback && data.pendingFeedbackRequests > 0;
+  const showOpenPulse =
+    hasFeature("PULSE_SURVEYS") &&
+    typeof data.pulseOpenCloseDate === "string" &&
+    data.pulseSubmitted !== true;
+  const callouts = [
+    showPendingFeedback ? (
+      <ActionCallout
+        key="requests"
+        title={t("dashboard.hero.pendingRequestsAction", { count: data.pendingFeedbackRequests })}
+        detail={t("dashboard.hero.pendingRequestsHint")}
+        action={t("dashboard.hero.openRequests")}
+        to="/feedback?tab=provided"
+        icon={<IconMessage2 size={22} />}
+      />
+    ) : null,
+    showOpenPulse ? (
+      <ActionCallout
+        key="pulse"
+        title={t("dashboard.hero.pulseAction")}
+        detail={t("dashboard.hero.pulseCloses", {
+          date: formatIsoDate(data.pulseOpenCloseDate!, locale),
+        })}
+        action={t("dashboard.hero.openPulse")}
+        to="/pulse?tab=survey"
+        icon={<IconHeartRateMonitor size={22} />}
+      />
+    ) : null,
+  ].filter((callout) => callout != null);
   const tiles = [
-    showFeedback ? (
+    showFeedback && !showPendingFeedback ? (
       <StatTile
         key="requests"
         label={t("dashboard.hero.pendingRequests")}
@@ -153,12 +214,12 @@ export default function DashboardHero() {
       <StatTile
         key="reviews"
         label={t("dashboard.hero.reviewsDone")}
-        value={`${data.currentPeriodReviewsDone ?? 0}/${data.directReports}`}
+        value={String(data.currentPeriodReviewsDone ?? 0)}
         to="/performance?tab=managed"
         icon={<IconClipboardText size={20} />}
       />
     ) : null,
-    hasFeature("PULSE_SURVEYS") && typeof data.pulseOpenCloseDate === "string" ? (
+    hasFeature("PULSE_SURVEYS") && typeof data.pulseOpenCloseDate === "string" && !showOpenPulse ? (
       // Only participants of an OPEN cycle get the field (per-field narrowing — an older
       // server simply renders no tile); the wording flips once they've submitted.
       <StatTile
@@ -174,10 +235,15 @@ export default function DashboardHero() {
       />
     ) : null,
   ].filter((tile) => tile != null);
-  if (tiles.length === 0) return null;
+  if (tiles.length === 0 && callouts.length === 0) return null;
   return (
-    <SimpleGrid cols={heroGridCols(tiles.length)} spacing={0} className={classes.strip}>
-      {tiles}
-    </SimpleGrid>
+    <Stack gap="sm">
+      {callouts.length > 0 && <Stack gap="sm">{callouts}</Stack>}
+      {tiles.length > 0 && (
+        <SimpleGrid cols={heroGridCols(tiles.length)} spacing={0} className={classes.strip}>
+          {tiles}
+        </SimpleGrid>
+      )}
+    </Stack>
   );
 }
