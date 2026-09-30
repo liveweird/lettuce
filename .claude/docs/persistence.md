@@ -59,9 +59,30 @@ Current migrations are `V1`–`V85`. **The per-migration catalog lives in `.clau
   `pg_stat_activity`, a saturated pool times out an acquire instead of hanging, the pool releases
   every connection when the application stops (also when a later module refuses startup), and
   out-of-range bounds fail startup.
-- **Exception:** the pool runs r2dbc-pool's defaults for liveness (`ValidationDepth.LOCAL`, no
-  `maxLifeTime`): a connection killed server-side between uses is handed out once and fails that
-  request with a 500 — accepted until a deployment introduces an idle killer or proxy. The
+- **A hung database is bounded (v4.7.1).** The driver has NO socket read timeout, so a database that
+  accepts or holds connections but never answers used to hang requests and `/readyz` forever (an
+  in-process `withTimeout` cannot cancel the R2DBC handshake — tried and dropped in v4.5.2). The
+  bounds, all boot-validated:
+  - **every acquire validates with a round trip** (`ValidationDepth.REMOTE`), bounded by
+    `maxValidationTimeSeconds` (`POSTGRES_POOL_MAX_VALIDATION_SECONDS`, default 5, 1..60) — a frozen
+    or server-killed connection is discarded instead of handed out (this closed the pre-v4.7.1
+    exception where a backend killed server-side was handed out once and failed its request
+    with a 500). Cost: one round trip per `suspendTransaction`;
+  - **creating a connection** (TCP + startup/auth) is bounded by `maxCreateConnectionTimeSeconds`
+    (`POSTGRES_POOL_MAX_CREATE_SECONDS`, default 10, 1..600); the TCP connect alone by
+    `postgres.connectTimeoutSeconds` (`POSTGRES_CONNECT_TIMEOUT_SECONDS`, default 10); TCP keepalive on;
+  - **PostgreSQL's `statement_timeout`** = `postgres.statementTimeoutSeconds`
+    (`POSTGRES_STATEMENT_TIMEOUT_SECONDS`, default 30, 0 = off, 0..3600) cancels a statement a LIVE
+    but stuck server runs too long. It is set through **Exposed's `defaultQueryTimeout`**, NOT a driver
+    option: Exposed's statement executor calls `connection.setStatementTimeout(queryTimeout)` before
+    every statement from that default (0), silently overwriting any driver startup option or
+    post-allocate `SET` — `ConnectionPoolTest` asserts the value the server reports.
+
+  Together a request waits at most about `maxAcquireTime` for a hung database, then fails with the
+  catch-all 500 (`/readyz` answers 503). **Still unbounded:** a query ALREADY in flight when the
+  network black-holes waits until TCP gives up. Pinned by `ConnectionPoolTest` through
+  `FreezableRelay` (a TCP relay in front of the Testcontainer that goes silent on demand).
+- **Exception:** the pool sets no `maxLifeTime` (connections live until idle-recycled). The
   background paths that can outlive the dispose are the two notification mirrors'
   fire-and-forget dispatches — `NotificationEmailer`'s and, since v4.5.0,
   `NotificationTeamsSender`'s (launched on the Application scope, off the request path): a batch
