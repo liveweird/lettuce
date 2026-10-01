@@ -334,13 +334,14 @@ class NotificationEmailTest {
         val params = mapOf("sharer" to "Sia Sharer")
         assertTrue("Sia Sharer shared a succession plan with you." in body(NotificationType.SUCCESSION_PLAN_SHARED, params, "en"))
         assertTrue("Sia Sharer udostępnił/a Ci plan sukcesji." in body(NotificationType.SUCCESSION_PLAN_SHARED, params, "pl"))
-        // The withdrawn copies need no actor/sharee — and render no unresolved param.
+        // The withdrawn copies need no actor/sharee — and render no unresolved param. The sharee's copy
+        // is deliberately actor-neutral: it cannot say WHO withdrew (the sharer or the author).
         assertTrue(
-            "Sia Sharer stopped sharing a succession plan with you." in
+            "You no longer have access to a succession plan Sia Sharer shared with you." in
                 body(NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN, params, "en"),
         )
         assertTrue(
-            "Sia Sharer wycofał/a Twój dostęp do planu sukcesji." in
+            "Nie masz już dostępu do planu sukcesji, który udostępnił/a Ci Sia Sharer." in
                 body(NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN, params, "pl"),
         )
         val sharerCopy = params + ("self" to "sharer")

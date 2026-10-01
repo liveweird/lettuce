@@ -349,7 +349,19 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
  * it ("… oceny okresowej udostępnionej Ci przez …"). Content-free by construction — only the
  * kind, never a title or party (the succession copy in particular names nothing about the seat).
  */
-private data class ShareNoun(val en: String, val plAcc: String, val plGen: String, val plGenShared: String)
+private data class ShareNoun(
+    val en: String,
+    val plAcc: String,
+    val plGen: String,
+    val plGenShared: String,
+    /**
+     * Set only for the kind whose sharee withdrawal copy is deliberately ACTOR-NEUTRAL (succession
+     * plans): the copy carries `{sharer}` only, so it cannot tell whether the sharer or the author
+     * withdrew — it must not claim "{sharer} stopped sharing". The value is the Polish relative
+     * pronoun agreeing with the noun's gender ("który" for "plan").
+     */
+    val plWhich: String? = null,
+)
 
 private val SHARE_NOUN_FEEDBACK =
     ShareNoun(en = "feedback", plAcc = "feedback", plGen = "feedbacku", plGenShared = "udostępnionego")
@@ -365,8 +377,10 @@ private val SHARE_NOUN_IMPACT_ENTRY = ShareNoun(
     en = "an impact log entry", plAcc = "wpis z dziennika wpływu", plGen = "wpisu z dziennika wpływu",
     plGenShared = "udostępnionego",
 )
-private val SHARE_NOUN_SUCCESSION_PLAN =
-    ShareNoun(en = "a succession plan", plAcc = "plan sukcesji", plGen = "planu sukcesji", plGenShared = "udostępnionego")
+private val SHARE_NOUN_SUCCESSION_PLAN = ShareNoun(
+    en = "a succession plan", plAcc = "plan sukcesji", plGen = "planu sukcesji", plGenShared = "udostępnionego",
+    plWhich = "który",
+)
 
 /** `*_SHARED` — params `{sharer}` plus the raw ISO `expiresOn` when the share has an end date. */
 private fun sharedSentence(noun: ShareNoun, p: Map<String, String>): LocalizedText {
@@ -382,8 +396,9 @@ private fun sharedSentence(noun: ShareNoun, p: Map<String, String>): LocalizedTe
  * (`self == "sharer"`, minted only when someone else — the document's author — withdrew their
  * share) names the actor and the sharee; the SHARE'S copy names the actor and the sharer, or,
  * when `actor` is absent or the sharer themselves, reads as the sharer stopping the share. The
- * succession copy carries `{sharer}` only (no `actor`/`sharee`), so it falls into the generic
- * branches without naming anyone else.
+ * succession copy carries `{sharer}` only (no `actor`/`sharee`) and is deliberately actor-neutral
+ * ([ShareNoun.plWhich]): "You no longer have access to a succession plan X shared with you" — true
+ * whether the sharer or the author withdrew, and naming no one else.
  */
 private fun withdrawnSentence(noun: ShareNoun, p: Map<String, String>): LocalizedText {
     val actor = p["actor"]
@@ -395,6 +410,11 @@ private fun withdrawnSentence(noun: ShareNoun, p: Map<String, String>): Localize
         ) else LocalizedText(
             en = "The owner of ${noun.en} withdrew your share of it.",
             pl = "Właściciel/ka ${noun.plGen} wycofał/a Twoje udostępnienie.",
+        )
+    } else if (noun.plWhich != null) {
+        LocalizedText(
+            en = "You no longer have access to ${noun.en} ${p.v("sharer")} shared with you.",
+            pl = "Nie masz już dostępu do ${noun.plGen}, ${noun.plWhich} udostępnił/a Ci ${p.v("sharer")}.",
         )
     } else if (actor == null || actor == p["sharer"]) {
         LocalizedText(
