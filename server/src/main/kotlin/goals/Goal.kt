@@ -150,6 +150,13 @@ data class GoalResponse(
     // Resolved party display names.
     val managerName: String,
     val subordinateName: String,
+    // Document sharing (v4.8.0): true when the caller can read this goal in their OWN right,
+    // independently of any share (the HR role alone does not count) — the share button's gate,
+    // never `sharedBy`. Stamped by the route (`.copy`), false on every internal read.
+    val canShare: Boolean = false,
+    // The sharer's display name when the caller is reading through a share (the "Shared with you
+    // by …" banner); null otherwise. Stamped by the route.
+    val sharedBy: String? = null,
 )
 
 @Serializable

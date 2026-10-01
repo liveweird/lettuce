@@ -218,7 +218,8 @@ class ShareRoutesTest {
 
             // The caller's own flag wins even over a missing document (uniform 403, no 404 oracle).
             assertEquals(HttpStatusCode.Forbidden, noGoals.client.share(TestShareDocuments.nextId(), sharee.id).status)
-            // A kind with no registered adapter is not shareable; an unknown document is 404.
+            // An unknown document is 404 — also for a kind with a REAL adapter (FEEDBACK: the fake goal's
+            // id is no feedback, so the adapter's read answers it). The no-adapter 404 branch has its own test.
             assertEquals(
                 HttpStatusCode.NotFound,
                 author.client.share(documentId, sharee.id, type = ShareableResourceType.FEEDBACK).status,
@@ -521,7 +522,8 @@ class ShareRoutesTest {
             // The subject-like outsider never sees the share list; neither does HR auditor-only access.
             assertEquals(HttpStatusCode.Forbidden, subject.documentView().status)
             assertEquals(HttpStatusCode.Forbidden, hrOnly.documentView().status)
-            // Unknown document / unregistered kind → 404.
+            // Unknown document → 404 (also for FEEDBACK, whose real adapter's read answers it; the
+            // no-adapter branch has its own test).
             assertEquals(
                 HttpStatusCode.NotFound,
                 author.client.get("/api/v1/shares") {
@@ -623,17 +625,31 @@ class ShareRoutesTest {
 
     @Test
     fun `a share whose kind has no registered adapter keeps listing, with null details and link`() = testApplication {
-        // Only FEEDBACK is registered; a GOAL share row written through the store still lists.
+        // Real adapters land per feature, so pick a kind that has none YET (once every kind has one
+        // there is nothing left to test here and this case should be deleted).
         startWithFake(ShareableResourceType.FEEDBACK)
+        val registry = application.attributes[ShareRegistryKey]
+        val unregistered = assertNotNull(
+            ShareableResourceType.entries.firstOrNull { registry.forType(it) == null },
+            "every kind has an adapter — make the registry exhaustive and delete this test",
+        )
         val author = person("author")
         val sharee = person("sharee")
         val documentId = TestShareDocuments.nextId()
-        val id = (ShareService(TestServices.database).create(ShareableResourceType.GOAL, documentId, author.id, sharee.id, null)
+        val id = (ShareService(TestServices.database).create(unregistered, documentId, author.id, sharee.id, null)
             as ShareCreateOutcome.Created).id
         val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
         assertEquals(id, row.id)
         assertNull(row.details)
         assertNull(row.link)
+        // The no-adapter 404 branch: neither creating nor the document view works for the kind.
+        assertEquals(HttpStatusCode.NotFound, author.client.share(documentId, sharee.id, type = unregistered).status)
+        val documentView = author.client.get("/api/v1/shares") {
+            parameter("view", "document")
+            parameter("resourceType", unregistered.name)
+            parameter("resourceId", documentId.toString())
+        }
+        assertEquals(HttpStatusCode.NotFound, documentView.status)
         // Fetching it by id works for the sharer; withdrawing too.
         assertEquals(id, author.client.get("/api/v1/shares/$id").body<ShareResponse>().id)
         assertEquals(HttpStatusCode.NoContent, author.client.post("/api/v1/shares/$id/withdraw").status)

@@ -10,7 +10,7 @@ decisions (user-confirmed unless marked as a technical default):
   succession plans (`ShareableResourceType`, 7 values). **Days-off is deferred** to a point
   release — it has no per-entry view screen yet; pulse surveys are out of scope. The adapters land
   per feature: a type with no registered adapter is simply not shareable (`POST`/`view=document`
-  answer `404`). **Shareable today: feedbacks only** (M1); the other six follow in M2.
+  answer `404`). **Shareable today: feedbacks and goals** (M1, M2.1); the other five follow in M2.
 - **Non-transitive.** Access that came from a share, and access held only through the **HR
   auditor role**, cannot be shared again (`403`). HR users CAN share documents they reach as
   ordinary parties/chain managers, and anyone can share WITH an HR user.
@@ -159,6 +159,13 @@ registered soft-delete exception), and `details`.
 - The GraphQL integration API is unaffected (it resolves through services, never the route
   preambles, and its SDL names no share type).
 
+#### Per-type specifics (what each adapter pins)
+
+| Type | Raw guard | Author | Snapshot labels | View path | Notes |
+|---|---|---|---|---|---|
+| FEEDBACK | `requireFeedbackReadAllowingManager` | provider | `{provider, subjects}` | `/feedback/{id}/view` | content gate on the sharer's principal + the `sufficient` upgrade (requester of an unfinished feedback) |
+| GOAL | `requireGoalReadAllowingManager` | stored `manager_id` | `{title, subordinate}` | `/goals/{id}/view` | **no content gate and no `sufficient`** (every reader sees the same description/summary/milestones); DRAFT privacy pinned: a chain manager cannot read a DRAFT so cannot share it, and a share they made while ACTIVE lapses when the goal returns to DRAFT (the pair's own shares keep working); `PUT …/progress` stays manager+subordinate only — a sharee never passes `requireGoalProgressWrite` |
+
 #### Deferred / not done
 
 Days-off entries (needs a per-entry view page first); the SPA (dialog, button, banner, `/shares`
@@ -170,7 +177,7 @@ page, notification wording) lands in a later milestone; re-sharing is intentiona
 race, terminal withdraw, list views, the snapshot), `ShareAccessTest` (the mechanism over plain
 guards: stripped roles, lapse detail, only-Forbidden-is-a-denial), `ShareRoutesTest` (the generic
 routes over a stub adapter: gate ordering, validation, 409, withdrawal matrix + notifications, list
-views, rate limit), `SharingTest` (real documents — one section per feature; feedbacks today: the read/events grant, write
+views, rate limit), `SharingTest` (real documents — one section per feature; feedbacks and goals today (the goals section: read grant + events, every write incl. the progress PUT 403, no re-share/HR-auditor share, DRAFT privacy + lapse, author withdrawal with notifications, the snapshot surviving a retitle); feedbacks: the read/events grant, write
 403s, no re-share, HR cases, the visibility widening and the upgrade, multi-recipient, lapse,
 expiry, withdrawal + notifications, feature-disabled sharee, the HR audit rules; the chain-walk-500
 case runs the real adapter against an unreachable database with an ACTIVE share from a party

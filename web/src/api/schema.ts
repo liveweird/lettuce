@@ -1445,8 +1445,12 @@ export interface paths {
          *     **subordinate**, and the **HR auditor** (audit-logged) at every status; a **manager in
          *     the subordinate's transitive management chain** (their manager, that manager's manager,
          *     and so on — over non-deleted teams) may read it only once it has left DRAFT
-         *     (ACTIVE/ARCHIVED) — a draft stays private to the pair. Anything else — ADMIN included —
-         *     is `403`.
+         *     (ACTIVE/ARCHIVED) — a draft stays private to the pair. A person the goal was **shared
+         *     with** (`POST /api/v1/shares`, v4.8.0) reads it exactly while the sharer could still open
+         *     it themselves without the HR role (so a share made by a chain manager lapses if the goal
+         *     returns to DRAFT); `sharedBy` then names the sharer, and when every sharer has lost the
+         *     right the answer is `403` "The person who shared this no longer has access to it".
+         *     Anything else — ADMIN included — is `403`.
          */
         get: operations["getGoal"];
         /**
@@ -1646,8 +1650,8 @@ export interface paths {
          *     and positions — never title/description/summary/milestone text), with the acting user
          *     resolved to `userName`; no
          *     rendered string is stored (clients localize the description). Authorization matches the
-         *     single-GET above: whoever may read the goal may read its history. Events are
-         *     server-generated; there is no create/update/delete endpoint.
+         *     single-GET above (including an active share, v4.8.0): whoever may read the goal may read
+         *     its history. Events are server-generated; there is no create/update/delete endpoint.
          */
         get: operations["listGoalEvents"];
         put?: never;
@@ -5438,6 +5442,10 @@ export interface components {
              * @description Epoch milliseconds; server-managed, bumped on every mutation.
              */
             lastModified: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this goal in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this goal through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         GoalListItem: {
             /** Format: int32 */

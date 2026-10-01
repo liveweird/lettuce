@@ -19,6 +19,7 @@ import ch.nokillswit.goals.GoalEventService
 import ch.nokillswit.goals.GoalEventServiceKey
 import ch.nokillswit.goals.GoalService
 import ch.nokillswit.goals.GoalServiceKey
+import ch.nokillswit.goals.GoalShareable
 import ch.nokillswit.impactlog.ImpactLogEventService
 import ch.nokillswit.impactlog.ImpactLogEventServiceKey
 import ch.nokillswit.impactlog.ImpactLogService
@@ -239,7 +240,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
     attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))
-    attributes.put(GoalServiceKey, GoalService(database, attributes[FieldCipherKey]))
+    val goalService = GoalService(database, attributes[FieldCipherKey])
+    attributes.put(GoalServiceKey, goalService)
     // The goal event trail carries the encrypted progress-update comment (V54), hence the cipher.
     attributes.put(GoalEventServiceKey, GoalEventService(database, attributes[FieldCipherKey]))
     attributes.put(TeamKpiServiceKey, TeamKpiService(database, attributes[FieldCipherKey]))
@@ -313,6 +315,7 @@ suspend fun Application.configureDatabase() {
         ShareRegistryKey,
         ShareRegistry().apply {
             register(FeedbackShareable(feedbackService))
+            register(GoalShareable(goalService))
         },
     )
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))

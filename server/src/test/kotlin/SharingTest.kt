@@ -12,6 +12,13 @@ import ch.nokillswit.feedbacks.FeedbackService
 import ch.nokillswit.feedbacks.FeedbackShareable
 import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
+import ch.nokillswit.goals.GoalArchiveRequest
+import ch.nokillswit.goals.GoalCreateRequest
+import ch.nokillswit.goals.GoalDefinitionUpdate
+import ch.nokillswit.goals.GoalEventListResponse
+import ch.nokillswit.goals.GoalProgressUpdate
+import ch.nokillswit.goals.GoalResponse
+import ch.nokillswit.goals.GoalType
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationResponse
 import ch.nokillswit.notifications.NotificationType
@@ -42,6 +49,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import kotlin.test.Test
@@ -87,6 +95,9 @@ class SharingTest {
         assertEquals(HttpStatusCode.Created, response.status)
         return response.body<ShareResponse>().id
     }
+
+    /** The app's own share clock — the one "today" dates are validated against. */
+    private fun ApplicationTestBuilder.serverToday(): LocalDate = application.attributes[ShareServiceKey].today()
 
     private suspend fun HttpClient.feedback(id: UInt) = get("/api/v1/feedbacks/$id")
 
@@ -587,6 +598,275 @@ class SharingTest {
         }.exceptionOrNull()
         assertNotNull(failure)
         assertFalse(failure is ForbiddenException, "an infrastructure failure must stay a 500, not become a 403")
+    }
+
+    // ── Goals ────────────────────────────────────────────────────────────────────────────────
+
+    private class GoalWorld(
+        val manager: Person,
+        val subordinate: Person,
+        val grand: Person,
+        val goalId: UInt,
+    )
+
+    private suspend fun HttpClient.shareGoal(goalId: UInt, shareeId: UInt, expiresOn: String? = null): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.GOAL, goalId, shareeId, expiresOn))
+        }
+
+    private suspend fun HttpClient.shareGoalId(goalId: UInt, shareeId: UInt): UInt {
+        val response = shareGoal(goalId, shareeId)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    /**
+     * M manages S, G manages M (so G is in S's transitive chain). M creates a goal for S —
+     * activated when [activate], otherwise a DRAFT private to the pair.
+     */
+    private suspend fun ApplicationTestBuilder.goalWorld(
+        activate: Boolean = true,
+        managerRoles: Set<UserRole> = emptySet(),
+        grandRoles: Set<UserRole> = emptySet(),
+    ): GoalWorld {
+        val manager = person("manager", roles = managerRoles)
+        val subordinate = person("subordinate")
+        val grand = person("grand-manager", roles = grandRoles)
+        TestServices.teams.create(Team("Squad-${manager.id}", manager.id, listOf(subordinate.id)))
+        TestServices.teams.create(Team("Leads-${grand.id}", grand.id, listOf(manager.id)))
+        val created = manager.client.post("/api/v1/goals") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalCreateRequest(
+                    subordinateId = subordinate.id,
+                    title = "Original goal title",
+                    description = "A private description",
+                    type = GoalType.NUMBER,
+                    targetValue = 10.0,
+                    dueDate = serverToday().plusDays(30).toString(),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, created.status)
+        val createdGoal = created.body<GoalResponse>()
+        assertTrue(createdGoal.canShare, "the creating manager reads their own goal")
+        val goalId = createdGoal.id
+        if (activate) assertEquals(HttpStatusCode.NoContent, manager.client.post("/api/v1/goals/$goalId/activate").status)
+        return GoalWorld(manager, subordinate, grand, goalId)
+    }
+
+    private suspend fun HttpClient.goal(id: UInt) = get("/api/v1/goals/$id")
+
+    @Test
+    fun `goals - a sharee reads the goal and its events, sharedBy set, canShare false, the parties can share`() =
+        runBlockingApp {
+            val w = goalWorld()
+            val sharee = person("sharee")
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.goal(w.goalId).status)
+
+            w.manager.client.shareGoalId(w.goalId, sharee.id)
+            val body = sharee.client.goal(w.goalId).body<GoalResponse>()
+            assertEquals("Original goal title", body.title)
+            assertEquals("A private description", body.description)
+            assertEquals(w.manager.name, body.sharedBy)
+            assertFalse(body.canShare)
+            val events = sharee.client.get("/api/v1/goals/${w.goalId}/events")
+            assertEquals(HttpStatusCode.OK, events.status)
+            assertTrue(events.body<GoalEventListResponse>().items.isNotEmpty())
+
+            for (own in listOf(w.manager, w.subordinate, w.grand)) {
+                val read = own.client.goal(w.goalId).body<GoalResponse>()
+                assertTrue(read.canShare, "${own.name} reads in their own right")
+                assertNull(read.sharedBy)
+            }
+            val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+            assertEquals(mapOf("title" to "Original goal title", "subordinate" to w.subordinate.name), row.details)
+            assertEquals("/goals/${w.goalId}/view", row.link)
+        }
+
+    @Test
+    fun `goals - a sharee can write nothing, the subordinate's progress update included`() = runBlockingApp {
+        val w = goalWorld()
+        val viaManager = person("sharee-m")
+        val viaSubordinate = person("sharee-s")
+        w.manager.client.shareGoalId(w.goalId, viaManager.id)
+        w.subordinate.client.shareGoalId(w.goalId, viaSubordinate.id)
+
+        for (sharee in listOf(viaManager, viaSubordinate)) {
+            val c = sharee.client
+            val definition = c.put("/api/v1/goals/${w.goalId}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    GoalDefinitionUpdate(
+                        title = "tampered",
+                        type = GoalType.NUMBER,
+                        targetValue = 1.0,
+                        dueDate = serverToday().plusDays(5).toString(),
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.Forbidden, definition.status)
+            // PUT …/progress is open to the manager AND the subordinate — a sharee is neither.
+            val progress = c.put("/api/v1/goals/${w.goalId}/progress") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalProgressUpdate(currentValue = 5.0, comment = "sneaky"))
+            }
+            assertEquals(HttpStatusCode.Forbidden, progress.status)
+            for (action in listOf("activate", "deactivate", "reopen")) {
+                assertEquals(HttpStatusCode.Forbidden, c.post("/api/v1/goals/${w.goalId}/$action").status, action)
+            }
+            val archive = c.post("/api/v1/goals/${w.goalId}/archive") {
+                contentType(ContentType.Application.Json)
+                setBody(GoalArchiveRequest("nope"))
+            }
+            assertEquals(HttpStatusCode.Forbidden, archive.status)
+            assertEquals(HttpStatusCode.Forbidden, c.delete("/api/v1/goals/${w.goalId}").status)
+        }
+        // Nothing changed.
+        val after = w.manager.client.goal(w.goalId).body<GoalResponse>()
+        assertEquals("Original goal title", after.title)
+        assertNull(after.currentValue)
+        assertEquals(ch.nokillswit.goals.GoalStatus.ACTIVE, after.status)
+    }
+
+    @Test
+    fun `goals - no re-sharing, no HR-auditor sharing, HR can receive and share as a party`() = runBlockingApp {
+        val w = goalWorld()
+        val sharee = person("sharee")
+        val third = person("third")
+        val auditor = person("auditor", roles = setOf(UserRole.HR))
+        w.manager.client.shareGoalId(w.goalId, sharee.id)
+
+        val reshare = sharee.client.shareGoal(w.goalId, third.id)
+        assertEquals(HttpStatusCode.Forbidden, reshare.status)
+        assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+
+        // The HR role reads the goal as an auditor, which is not an own-right read.
+        val audit = auditor.client.goal(w.goalId)
+        assertEquals(HttpStatusCode.OK, audit.status)
+        assertFalse(audit.body<GoalResponse>().canShare)
+        assertEquals(HttpStatusCode.Forbidden, auditor.client.shareGoal(w.goalId, third.id).status)
+        // …but anyone can share WITH an HR user.
+        assertEquals(HttpStatusCode.Created, w.manager.client.shareGoal(w.goalId, auditor.id).status)
+    }
+
+    @Test
+    fun `goals - an HR user who is a party or a chain manager shares in their own right`() =
+        runBlockingApp {
+            val w = goalWorld(managerRoles = setOf(UserRole.HR), grandRoles = setOf(UserRole.HR))
+            val viaManager = person("sharee-a")
+            val viaGrand = person("sharee-b")
+            val audit = LogCapture("ch.nokillswit.audit")
+            try {
+                for ((hr, sharee) in listOf(w.manager to viaManager, w.grand to viaGrand)) {
+                    // A party / chain manager reads through the ordinary rules (an own-right read,
+                    // never the auditor grant) — so canShare holds and no auditor read is logged.
+                    assertTrue(hr.client.goal(w.goalId).body<GoalResponse>().canShare, "${hr.name} reads in their own right")
+                    assertEquals(HttpStatusCode.Created, hr.client.shareGoal(w.goalId, sharee.id).status)
+                    assertEquals(HttpStatusCode.OK, sharee.client.goal(w.goalId).status)
+                }
+                // The PARTY's read is an ordinary one: no auditor read is logged for them. (An HR chain
+                // manager is logged by grantHrRead before the chain walk — the documented ordering
+                // exception in Guards.kt — which is why only the party is asserted.)
+                assertTrue(
+                    audit.events.none {
+                        it.message == "hr.read" && it.keyValuePairs.any { kv -> kv.value == w.manager.id.toLong() }
+                    },
+                    "an own-right read by an HR party must not be logged as an auditor read",
+                )
+            } finally {
+                audit.detach()
+            }
+        }
+
+    @Test
+    fun `goals - draft privacy - a chain manager cannot share a draft, and a share they made lapses when it returns to draft`() =
+        runBlockingApp {
+            val drafted = goalWorld(activate = false)
+            val x = person("sharee-x")
+            // A DRAFT stays private to the pair: the chain manager neither reads nor shares it.
+            assertEquals(HttpStatusCode.Forbidden, drafted.grand.client.goal(drafted.goalId).status)
+            assertEquals(HttpStatusCode.Forbidden, drafted.grand.client.shareGoal(drafted.goalId, x.id).status)
+
+            val w = goalWorld()
+            val viaChain = person("sharee-chain")
+            val viaManager = person("sharee-manager")
+            val viaSubordinate = person("sharee-subordinate")
+            assertTrue(w.grand.client.goal(w.goalId).body<GoalResponse>().canShare)
+            w.grand.client.shareGoalId(w.goalId, viaChain.id)
+            w.manager.client.shareGoalId(w.goalId, viaManager.id)
+            w.subordinate.client.shareGoalId(w.goalId, viaSubordinate.id)
+            assertEquals(HttpStatusCode.OK, viaChain.client.goal(w.goalId).status)
+
+            // Back to DRAFT: the chain manager's share lapses (with the distinct detail); the pair's keep working.
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/goals/${w.goalId}/deactivate").status)
+            val lapsed = viaChain.client.goal(w.goalId)
+            assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+            assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+            assertEquals(HttpStatusCode.OK, viaManager.client.goal(w.goalId).status)
+            assertEquals(HttpStatusCode.OK, viaSubordinate.client.goal(w.goalId).status)
+            assertEquals(HttpStatusCode.Forbidden, viaChain.client.get("/api/v1/goals/${w.goalId}/events").status)
+
+            // Re-activated: the chain manager's share works again, as nothing was withdrawn.
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/goals/${w.goalId}/activate").status)
+            assertEquals(HttpStatusCode.OK, viaChain.client.goal(w.goalId).status)
+        }
+
+    @Test
+    fun `goals - the manager is the author - sees and withdraws a subordinate's share, notifications and links`() =
+        runBlockingApp {
+            val w = goalWorld()
+            val sharee = person("sharee")
+            val id = w.subordinate.client.shareGoalId(w.goalId, sharee.id)
+
+            val shared = sharee.client.notifications().single { it.type == NotificationType.GOAL_SHARED }
+            assertEquals(mapOf("sharer" to w.subordinate.name), shared.params)
+            assertEquals("/goals/${w.goalId}/view", shared.link)
+
+            // The author lists every share of the goal, the subordinate only their own.
+            val all = w.manager.client.get("/api/v1/shares") {
+                parameter("view", "document")
+                parameter("resourceType", "GOAL")
+                parameter("resourceId", w.goalId.toString())
+            }.body<SharePageResponse>()
+            assertEquals(listOf(id), all.items.map { it.id })
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/shares/$id/withdraw").status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.goal(w.goalId).status)
+
+            val toSharee = sharee.client.notifications().single { it.type == NotificationType.GOAL_SHARE_WITHDRAWN }
+            assertEquals(
+                mapOf("sharer" to w.subordinate.name, "sharee" to sharee.name, "actor" to w.manager.name),
+                toSharee.params,
+            )
+            assertNull(toSharee.link)
+            val toSharer = w.subordinate.client.notifications().single { it.type == NotificationType.GOAL_SHARE_WITHDRAWN }
+            assertEquals("sharer", toSharer.params["self"])
+            assertEquals("/shares?tab=byMe", toSharer.link)
+        }
+
+    @Test
+    fun `goals - the label snapshot survives a later retitle`() = runBlockingApp {
+        val w = goalWorld()
+        val sharee = person("sharee")
+        w.manager.client.shareGoalId(w.goalId, sharee.id)
+        // Retitle: back to DRAFT (definition edits are DRAFT-only), then edit.
+        assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/goals/${w.goalId}/deactivate").status)
+        val edit = w.manager.client.put("/api/v1/goals/${w.goalId}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalDefinitionUpdate(
+                    title = "Retitled afterwards",
+                    type = GoalType.NUMBER,
+                    targetValue = 10.0,
+                    dueDate = serverToday().plusDays(30).toString(),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.NoContent, edit.status)
+        assertEquals("Retitled afterwards", w.manager.client.goal(w.goalId).body<GoalResponse>().title)
+        val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+        assertEquals("Original goal title", row.details?.get("title"))
     }
 
     /** `testApplication` with the container started; the body is the test. */
