@@ -27,6 +27,16 @@ describe("resolveNav", () => {
     expect(nav.footer.map((l) => l.to)).toEqual(["/changelog"]);
   });
 
+  test("the Shared leaf sits in My work, is feature-UNGATED, and carries its tour anchor (v4.8.0)", () => {
+    const everyFeatureOff = resolveNav({ isAdmin: false, isManager: false, hasFeature: () => false }, 1);
+    const myWork = everyFeatureOff.sections.find((s) => s.id === "myWork");
+    // Even with every feature disabled the section survives on the Career + Shared leaves.
+    expect(myWork?.entries.map((e) => ("to" in e ? e.to : e.label))).toEqual(["/career", "/shares"]);
+    const shares = myWork?.entries.find((e) => "to" in e && e.to === "/shares");
+    expect(shares && "tourId" in shares ? shares.tourId : null).toBe("nav-shares");
+    expect(everyFeatureOff.leafTos).toContain("/shares");
+  });
+
   test("a section left without a visible entry disappears", () => {
     const teamFeatures = new Set(["TEAM_KPIS", "PERFORMANCE_REVIEWS", "PULSE_SURVEYS", "SUCCESSION_PLANS"]);
     const nav = resolveNav({ isAdmin: false, isManager: false, hasFeature: (f) => !teamFeatures.has(f) }, 1);

@@ -178,17 +178,27 @@ describe("Tour", () => {
     vi.unstubAllGlobals();
   });
 
-  test("buildSteps resolves content through the translator and includes the full menu (22 manager / 21 non-manager)", () => {
+  test("buildSteps resolves content through the translator and includes the full menu (23 manager / 22 non-manager)", () => {
     const t = (k: string) => k;
     const manager = buildSteps(TOUR_STEPS, t, true);
     const nonManager = buildSteps(TOUR_STEPS, t, false);
 
-    expect(manager).toHaveLength(22);
-    expect(nonManager).toHaveLength(21);
+    expect(manager).toHaveLength(23);
+    expect(nonManager).toHaveLength(22);
     // Config is present for everyone — it is no longer admin-gated.
     expect(nonManager.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
     // Content is resolved through the translator.
     expect(manager[0].content).toBe(TOUR_STEPS[0].contentKey);
+  });
+
+  test("the Shared stop (v4.8.0) is ungated and follows the navbar order: after Days off, before Team KPIs", () => {
+    const targets = TOUR_STEPS.map((s) => s.target);
+    const shares = TOUR_STEPS.find((s) => s.target === '[data-tour="nav-shares"]');
+    expect(shares).toMatchObject({ contentKey: "tour.steps.shares" });
+    expect(shares?.feature).toBeUndefined();
+    expect(shares?.managerOnly).toBeUndefined();
+    expect(targets.indexOf('[data-tour="nav-shares"]')).toBe(targets.indexOf('[data-tour="nav-days-off"]') + 1);
+    expect(targets.indexOf('[data-tour="nav-team-kpis"]')).toBe(targets.indexOf('[data-tour="nav-shares"]') + 1);
   });
 
   test("buildSteps gates only the Succession step on being a manager", () => {
@@ -237,7 +247,7 @@ describe("Tour", () => {
     expect(manager.some((s) => s.target === '[data-tour="synthetic-manager-only"]')).toBe(true);
   });
 
-  test("buildSteps drops a disabled feature's step (21 manager / 20 non-manager) and renumbers against the shrunk total", () => {
+  test("buildSteps drops a disabled feature's step (22 manager / 21 non-manager) and renumbers against the shrunk total", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
 
@@ -247,8 +257,8 @@ describe("Tour", () => {
       const nonManager = buildSteps(TOUR_STEPS, t, false);
 
       expect(manager.some((s) => s.target === '[data-tour="nav-my-goals"]')).toBe(false);
-      expect(manager).toHaveLength(21);
-      expect(nonManager).toHaveLength(20);
+      expect(manager).toHaveLength(22);
+      expect(nonManager).toHaveLength(21);
       // The "Step X of Y" numbering shrinks with the filtered total.
       const total = manager.length;
       expect(manager[0].title).toBe(`1/${total}`);
@@ -258,7 +268,7 @@ describe("Tour", () => {
     }
   });
 
-  test("buildSteps with every feature disabled keeps only the 12 non-feature steps", () => {
+  test("buildSteps with every feature disabled keeps only the 13 non-feature steps", () => {
     localStorage.setItem(
       "lettuce.auth.disabledFeatures",
       JSON.stringify([
@@ -281,6 +291,7 @@ describe("Tour", () => {
         "body",
         '[data-tour="nav-dashboard"]',
         '[data-tour="nav-career"]',
+        '[data-tour="nav-shares"]',
         '[data-tour="nav-config"]',
         '[data-tour="nav-dictionaries"]',
         '[data-tour="nav-change-password"]',
@@ -291,7 +302,7 @@ describe("Tour", () => {
         '[data-tour="user-menu"]',
         '[data-tour="replay"]',
       ]);
-      expect(steps).toHaveLength(12);
+      expect(steps).toHaveLength(13);
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }

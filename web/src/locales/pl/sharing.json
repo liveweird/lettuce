@@ -43,5 +43,50 @@
     "withdrawForbidden": "Nie możesz wycofać tego udostępnienia.",
     "withdrawConflict": "Ktoś już wycofał to udostępnienie.",
     "withdrawFailed": "Nie udało się wycofać udostępnienia. Spróbuj ponownie."
+  },
+  "page": {
+    "title": "Udostępnione",
+    "description": "Dokumenty udostępnione Tobie oraz te, które Ty udostępniłeś/aś innym.",
+    "tab": {
+      "withMe": "Udostępnione mi",
+      "byMe": "Udostępnione przeze mnie"
+    },
+    "withMeHint": "Dokumenty, które inni udostępnili Tobie. Możesz je czytać, ale nie zmieniać.",
+    "byMeHint": "Dokumenty, które udostępniłeś/aś innym. Aktywne udostępnienie możesz wycofać w każdej chwili.",
+    "document": "Dokument",
+    "sharedBy": "Udostępnił/a",
+    "sharedWith": "Udostępnione osobie",
+    "until": "Do",
+    "status": "Status",
+    "created": "Data udostępnienia",
+    "typeFilter": "Typ dokumentu",
+    "statusFilter": "Status",
+    "openAria": "Otwórz udostępniony dokument: {{label}}",
+    "open": "Otwórz",
+    "noWithMe": "Nikt nie udostępnił Ci jeszcze żadnego dokumentu.",
+    "noByMe": "Nie udostępniłeś/aś jeszcze niczego.",
+    "noMatches": "Żadne udostępnienie nie pasuje do tych filtrów.",
+    "loadError": "Nie udało się wczytać udostępnionych dokumentów.",
+    "rowsPerPage": "Udostępnień na stronę"
+  },
+  "type": {
+    "FEEDBACK": "Feedback",
+    "ONE_ON_ONE": "Spotkanie 1:1",
+    "GOAL": "Cel",
+    "PERFORMANCE_REVIEW": "Ocena okresowa",
+    "TEAM_KPI": "KPI zespołu",
+    "IMPACT_LOG_ENTRY": "Wpis w dzienniku wpływu",
+    "SUCCESSION_PLAN": "Plan sukcesji"
+  },
+  "doc": {
+    "unavailable": "Już niedostępny",
+    "FEEDBACK": "Od {{provider}} dla {{subjects}}",
+    "ONE_ON_ONE": "{{manager}} i {{subordinate}}, {{date}}",
+    "GOAL": "{{title}} ({{subordinate}})",
+    "PERFORMANCE_REVIEW": "{{subordinate}}, {{period}}",
+    "TEAM_KPI": "{{title}} ({{team}})",
+    "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
+    "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
+    "SUCCESSION_PLAN": "{{person}} (właściciel/ka: {{owner}})"
   }
 }
