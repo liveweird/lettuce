@@ -61,6 +61,7 @@ tags:
   - name: templates
   - name: dictionaries
   - name: notifications
+  - name: shares
   - name: alerts
   - name: integration-clients
   - name: dashboard
@@ -6114,6 +6115,217 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/shares:
+    get:
+      tags: [shares]
+      operationId: listShares
+      summary: List document shares
+      description: |
+        Lists document shares (v4.8.0 — a reader who holds a document in their own right shares
+        it read-only with another person, open-ended or until a date). Three views:
+
+        - `withMe` (default): shares whose sharee is the caller. WITHDRAWN rows and the types of
+          areas the caller has disabled (feature flags) are excluded from the rows AND from
+          `total`.
+        - `byMe`: shares the caller created, every status.
+        - `document`: the shares of ONE document — requires `resourceType` and `resourceId`
+          (`400` without either, and `resourceId` is `400` on any other view). The document's
+          AUTHOR (feedback: the provider; 1:1/goal/review: the manager; impact log/succession
+          plan: the owner; team KPI: whoever may manage it) sees every row; anyone else who can
+          read the document in their own right sees only the rows they created; everyone else —
+          the document's subject, an HR auditor with auditor-only access, a share-granted
+          reader — is `403`. An unknown or deleted document, or a `resourceType` that is not
+          shareable, is `404`.
+
+        Status is derived, never stored: `WITHDRAWN` (terminal), `EXPIRED` (the end date passed —
+        a share works through the end of its `expiresOn` day, silently, with no notification), else
+        `ACTIVE`. Rows carry content-free `details` — a snapshot of title/party facts the client
+        localizes, taken when the share was created and never refreshed (so a lapsed or withdrawn
+        share cannot leak the document's later title or state) — and a `link` to the document,
+        derived from the kind and id.
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `id`, `createdAt`, `expiresOn`. Default sort is `createdAt` descending.
+          `id` ascending is always appended as a deterministic tiebreaker.
+        - Filters (optional, whitelisted): `resourceType`, `status` — equality, enums by name.
+
+        Malformed query parameters (unknown view, sort field or enum value, out-of-range
+        page/pageSize, a `view`-inconsistent `resourceId`) respond with `400` before any
+        authorization is evaluated.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: view
+          in: query
+          required: false
+          schema: { type: string, enum: [withMe, byMe, document], default: withMe }
+          description: Which slice of shares to list — see the operation description.
+        - name: resourceType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ShareableResourceType' }
+          description: Equality filter on the shared document's kind. Required with `view=document`.
+        - name: resourceId
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 0 }
+          description: The document's id. Accepted only with (and required by) `view=document`.
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ShareStatus' }
+          description: Equality filter on the derived share status.
+      responses:
+        '200':
+          description: A page of shares
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharePage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: >-
+            `view=document` by someone who may neither manage the document's shares nor read it
+            in their own right, or whose feature flag for that area is off
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404':
+          description: >-
+            `view=document` for an unknown/deleted document or a `resourceType` that is not
+            shareable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [shares]
+      operationId: createShare
+      summary: Share a document read-only with one person
+      description: |
+        Shares one document with one person (the dialog submits one request per sharee and
+        itemizes failures; each call counts against a per-caller rate limit — default 60/min,
+        shared with the withdraw action — answering `429` beyond it). Evaluated in this order: the caller's feature flag for the document's
+        area (`403`) → the document is read through its feature (`404` for an unknown/deleted
+        document or a `resourceType` that is not shareable) → the caller must hold read access
+        to the document **in their own right** (`403` — HR-auditor-only access and access that
+        itself came from a share cannot be shared again) → validation (`400`, after the guard):
+        `expiresOn` must be a strict ISO date not before the server's today (no timezone
+        tolerance — a share that is already expired must never exist), and the sharee must exist, be active, and not be the caller → the create itself: an
+        already-ACTIVE share of the same document by the same sharer to the same sharee is
+        `409` with `ProblemDetail.instance` pointing at it. A malformed body (including an unknown
+        `resourceType`) is the one `400` that precedes the gates — the type that selects the
+        feature flag lives in the body.
+
+        The share grants **read access exactly as the sharer has it** (content gates and draft
+        privacy still apply) and works only while the sharer could still open the document
+        without the HR role; it never grants any write. The sharee is notified (the area's
+        `*_SHARED` notification) even when their feature flag for the area is off — the share is
+        then inert and hidden from their list until the flag is back on.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareRequest'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new share resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: >-
+            The caller's feature flag for the area is off, or they cannot read the document in
+            their own right
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404':
+          description: Unknown/deleted document, or a `resourceType` that is not shareable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '409':
+          description: >-
+            An active share of this document by the caller to that person already exists
+            (`instance` points at it)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/shares/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [shares]
+      operationId: getShare
+      summary: Fetch a share
+      description: |
+        The sharer, or the document's author (who sees every share of the document) — everyone
+        else, the sharee and the document's subject included, is `403`; this is what makes the
+        create response's `Location` dereferenceable for the people who may manage the share.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the sharer nor the document's author
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/shares/{id}/withdraw:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [shares]
+      operationId: withdrawShare
+      summary: Withdraw a share
+      description: |
+        Terminal — the share stops granting immediately and is never reopened (a new share is a
+        new resource); the row stays listed as `WITHDRAWN`. The sharer can always withdraw; the
+        document's author can too, while they can still read the document in their own right.
+        Shares the per-caller mutation rate limit with `POST /api/v1/shares` (`429` beyond it). Repeating the action
+        is `409`. The sharee is notified (and the sharer too when the author withdrew it);
+        withdrawing a share that had already expired stamps it silently.
+      responses:
+        '204': { description: Withdrawn }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the sharer nor the document's author
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The share is already withdrawn
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -9892,6 +10104,20 @@ components:
         - IMPACT_ENTRY_UPDATED_TO_MANAGER
         - IMPACT_ENTRY_DELETED_TO_MANAGER
         - CAREER_POSITION_STARTED_TO_USER
+        - FEEDBACK_SHARED
+        - FEEDBACK_SHARE_WITHDRAWN
+        - ONE_ON_ONE_SHARED
+        - ONE_ON_ONE_SHARE_WITHDRAWN
+        - GOAL_SHARED
+        - GOAL_SHARE_WITHDRAWN
+        - TEAM_KPI_SHARED
+        - TEAM_KPI_SHARE_WITHDRAWN
+        - PERFORMANCE_REVIEW_SHARED
+        - PERFORMANCE_REVIEW_SHARE_WITHDRAWN
+        - IMPACT_ENTRY_SHARED
+        - IMPACT_ENTRY_SHARE_WITHDRAWN
+        - SUCCESSION_PLAN_SHARED
+        - SUCCESSION_PLAN_SHARE_WITHDRAWN
         - PASSWORD_CHANGED
       description: >-
         Notification kind — see `NotificationResponse.type` for what each carries and
@@ -9937,6 +10163,12 @@ components:
             `{manager,year,operation,days}` — the client words ADD/SUBTRACT from `operation`.
             The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
             owner's name and the entry's raw ISO period bounds (never section text).
+            The `*_SHARED` kinds (v4.8.0, document sharing) carry `{sharer}` plus the raw ISO
+            `expiresOn` when the share has an end date; the `*_SHARE_WITHDRAWN` kinds carry
+            `{sharer,sharee,actor}`, and the sharer's own copy (minted only when someone else —
+            the document's author — withdrew their share) additionally carries `self: "sharer"`.
+            The `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN` kinds are
+            content-free and carry `{sharer}` only (plus the `self` carrier on the sharer's copy).
         link:
           type: string
           nullable: true
@@ -9953,6 +10185,113 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/NotificationResponse'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    ShareableResourceType:
+      type: string
+      enum: [FEEDBACK, ONE_ON_ONE, GOAL, TEAM_KPI, PERFORMANCE_REVIEW, IMPACT_LOG_ENTRY, SUCCESSION_PLAN]
+      description: >-
+        The kinds of document that can be shared (v4.8.0). Days-off entries and pulse surveys
+        are not shareable. A kind is shareable only once its feature has registered with the
+        sharing module — otherwise the share routes answer `404` for it.
+
+    ShareStatus:
+      type: string
+      enum: [ACTIVE, EXPIRED, WITHDRAWN]
+      description: >-
+        Derived, never stored: `WITHDRAWN` (terminal) beats `EXPIRED` (the end date passed — a
+        share works through the end of its `expiresOn` day) beats `ACTIVE`.
+
+    ShareRequest:
+      type: object
+      required: [resourceType, resourceId, shareeId]
+      properties:
+        resourceType: { $ref: '#/components/schemas/ShareableResourceType' }
+        resourceId: { type: integer, format: int32, minimum: 0 }
+        shareeId:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The person to share with — an active user other than the caller.
+        expiresOn:
+          type: string
+          format: date
+          nullable: true
+          maxLength: 10
+          description: >-
+            Optional end date, inclusive: the share works through the end of that day. A strict
+            ISO date not before the server's today (no timezone tolerance) — else `400`.
+            Null/absent = open-ended until withdrawn.
+
+    ShareResponse:
+      type: object
+      required: [id, resourceType, resourceId, sharerId, sharerName, shareeId, shareeName, createdAt, status]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        resourceType: { $ref: '#/components/schemas/ShareableResourceType' }
+        resourceId: { type: integer, format: int32, minimum: 0 }
+        sharerId: { type: integer, format: int32, minimum: 0 }
+        sharerName: { type: string }
+        shareeId: { type: integer, format: int32, minimum: 0 }
+        shareeName: { type: string }
+        expiresOn:
+          type: string
+          format: date
+          nullable: true
+          description: Inclusive end date; null = open-ended.
+        createdAt:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when the share was created. Server-managed.
+        status: { $ref: '#/components/schemas/ShareStatus' }
+        withdrawnAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: Epoch milliseconds of the withdrawal; null unless `status` is `WITHDRAWN`.
+        withdrawnById:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: Who withdrew it — the sharer or the document's author; null unless withdrawn.
+        withdrawnByName:
+          type: string
+          nullable: true
+        link:
+          type: string
+          nullable: true
+          description: >-
+            In-app path of the shared document's view screen, derived from `resourceType` and
+            `resourceId`; null only when the kind has no registered adapter. It says nothing
+            about whether the document still exists — opening it answers the lapse/404.
+        details:
+          type: object
+          nullable: true
+          additionalProperties: { type: string }
+          description: |
+            Content-free facts about the document for the client to localize, SNAPSHOTTED when
+            the share was created and never refreshed (plaintext title and party columns only —
+            never decrypted content, never a status); null for a row with no snapshot. Keys per
+            `resourceType`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
+            GOAL `{title,subordinate}`; PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
+            TEAM_KPI `{title,team}`; IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`;
+            SUCCESSION_PLAN `{person,owner}`.
+
+    SharePage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareResponse'
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1, maximum: 100 }
         total:

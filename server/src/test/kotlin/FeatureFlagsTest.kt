@@ -346,6 +346,8 @@ class FeatureFlagsTest {
                 type.name.startsWith("DAYS_OFF_") -> Feature.DAYS_OFF
                 type.name.startsWith("PULSE_") -> Feature.PULSE_SURVEYS
                 type.name.startsWith("IMPACT_ENTRY_") -> Feature.IMPACT_LOG
+                // The content-free share notices (v4.8.0) are the only SUCCESSION_PLAN_ types.
+                type.name.startsWith("SUCCESSION_PLAN_") -> Feature.SUCCESSION_PLANS
                 else -> error("Unclassified notification type $type — extend the mapping test")
             }
             assertEquals(expected, type.feature, "mapping for $type")

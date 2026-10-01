@@ -53,6 +53,12 @@ import ch.nokillswit.reviews.ReviewPeriodService
 import ch.nokillswit.reviews.ReviewPeriodServiceKey
 import ch.nokillswit.settings.AppSettingsService
 import ch.nokillswit.settings.AppSettingsServiceKey
+import ch.nokillswit.sharing.ShareAccess
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareRegistry
+import ch.nokillswit.sharing.ShareRegistryKey
+import ch.nokillswit.sharing.ShareService
+import ch.nokillswit.sharing.ShareServiceKey
 import ch.nokillswit.succession.SuccessionEventService
 import ch.nokillswit.succession.SuccessionEventServiceKey
 import ch.nokillswit.succession.SuccessionPlanService
@@ -296,6 +302,13 @@ suspend fun Application.configureDatabase() {
             notificationPurgeIntervalMillis,
         ),
     )
+    // Document sharing (v4.8.0, V86). The registry starts empty: each shareable feature's adapter
+    // is registered here, next to the services it wraps, as it lands — a type with no adapter is
+    // simply not shareable (the routes answer 404).
+    val shareService = ShareService(database)
+    attributes.put(ShareServiceKey, shareService)
+    attributes.put(ShareRegistryKey, ShareRegistry())
+    attributes.put(ShareAccessKey, ShareAccess(shareService, userService))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))
 }

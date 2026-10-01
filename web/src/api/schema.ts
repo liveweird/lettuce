@@ -3998,6 +3998,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List document shares
+         * @description Lists document shares (v4.8.0 — a reader who holds a document in their own right shares
+         *     it read-only with another person, open-ended or until a date). Three views:
+         *
+         *     - `withMe` (default): shares whose sharee is the caller. WITHDRAWN rows and the types of
+         *       areas the caller has disabled (feature flags) are excluded from the rows AND from
+         *       `total`.
+         *     - `byMe`: shares the caller created, every status.
+         *     - `document`: the shares of ONE document — requires `resourceType` and `resourceId`
+         *       (`400` without either, and `resourceId` is `400` on any other view). The document's
+         *       AUTHOR (feedback: the provider; 1:1/goal/review: the manager; impact log/succession
+         *       plan: the owner; team KPI: whoever may manage it) sees every row; anyone else who can
+         *       read the document in their own right sees only the rows they created; everyone else —
+         *       the document's subject, an HR auditor with auditor-only access, a share-granted
+         *       reader — is `403`. An unknown or deleted document, or a `resourceType` that is not
+         *       shareable, is `404`.
+         *
+         *     Status is derived, never stored: `WITHDRAWN` (terminal), `EXPIRED` (the end date passed —
+         *     a share works through the end of its `expiresOn` day, silently, with no notification), else
+         *     `ACTIVE`. Rows carry content-free `details` — a snapshot of title/party facts the client
+         *     localizes, taken when the share was created and never refreshed (so a lapsed or withdrawn
+         *     share cannot leak the document's later title or state) — and a `link` to the document,
+         *     derived from the kind and id.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `createdAt`, `expiresOn`. Default sort is `createdAt` descending.
+         *       `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filters (optional, whitelisted): `resourceType`, `status` — equality, enums by name.
+         *
+         *     Malformed query parameters (unknown view, sort field or enum value, out-of-range
+         *     page/pageSize, a `view`-inconsistent `resourceId`) respond with `400` before any
+         *     authorization is evaluated.
+         */
+        get: operations["listShares"];
+        put?: never;
+        /**
+         * Share a document read-only with one person
+         * @description Shares one document with one person (the dialog submits one request per sharee and
+         *     itemizes failures; each call counts against a per-caller rate limit — default 60/min,
+         *     shared with the withdraw action — answering `429` beyond it). Evaluated in this order: the caller's feature flag for the document's
+         *     area (`403`) → the document is read through its feature (`404` for an unknown/deleted
+         *     document or a `resourceType` that is not shareable) → the caller must hold read access
+         *     to the document **in their own right** (`403` — HR-auditor-only access and access that
+         *     itself came from a share cannot be shared again) → validation (`400`, after the guard):
+         *     `expiresOn` must be a strict ISO date not before the server's today (no timezone
+         *     tolerance — a share that is already expired must never exist), and the sharee must exist, be active, and not be the caller → the create itself: an
+         *     already-ACTIVE share of the same document by the same sharer to the same sharee is
+         *     `409` with `ProblemDetail.instance` pointing at it. A malformed body (including an unknown
+         *     `resourceType`) is the one `400` that precedes the gates — the type that selects the
+         *     feature flag lives in the body.
+         *
+         *     The share grants **read access exactly as the sharer has it** (content gates and draft
+         *     privacy still apply) and works only while the sharer could still open the document
+         *     without the HR role; it never grants any write. The sharee is notified (the area's
+         *     `*_SHARED` notification) even when their feature flag for the area is off — the share is
+         *     then inert and hidden from their list until the flag is back on.
+         */
+        post: operations["createShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch a share
+         * @description The sharer, or the document's author (who sees every share of the document) — everyone
+         *     else, the sharee and the document's subject included, is `403`; this is what makes the
+         *     create response's `Location` dereferenceable for the people who may manage the share.
+         */
+        get: operations["getShare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a share
+         * @description Terminal — the share stops granting immediately and is never reopened (a new share is a
+         *     new resource); the row stays listed as `WITHDRAWN`. The sharer can always withdraw; the
+         *     document's author can too, while they can still read the document in their own right.
+         *     Shares the per-caller mutation rate limit with `POST /api/v1/shares` (`429` beyond it). Repeating the action
+         *     is `409`. The sharee is notified (and the sharer too when the author withdrew it);
+         *     withdrawing a share that had already expired stamps it silently.
+         */
+        post: operations["withdrawShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6451,7 +6575,7 @@ export interface components {
          * @description Notification kind — see `NotificationResponse.type` for what each carries and `NotificationPreferenceItem` for the per-type on/off switches (v4.0.0).
          * @enum {string}
          */
-        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "PASSWORD_CHANGED";
         NotificationResponse: {
             /** Format: int32 */
             id: number;
@@ -6488,6 +6612,12 @@ export interface components {
              *     `{manager,year,operation,days}` — the client words ADD/SUBTRACT from `operation`.
              *     The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
              *     owner's name and the entry's raw ISO period bounds (never section text).
+             *     The `*_SHARED` kinds (v4.8.0, document sharing) carry `{sharer}` plus the raw ISO
+             *     `expiresOn` when the share has an end date; the `*_SHARE_WITHDRAWN` kinds carry
+             *     `{sharer,sharee,actor}`, and the sharer's own copy (minted only when someone else —
+             *     the document's author — withdrew their share) additionally carries `self: "sharer"`.
+             *     The `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN` kinds are
+             *     content-free and carry `{sharer}` only (plus the `self` carrier on the sharer's copy).
              */
             params: {
                 [key: string]: string;
@@ -6499,6 +6629,90 @@ export interface components {
         };
         NotificationPage: {
             items: components["schemas"]["NotificationResponse"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        /**
+         * @description The kinds of document that can be shared (v4.8.0). Days-off entries and pulse surveys are not shareable. A kind is shareable only once its feature has registered with the sharing module — otherwise the share routes answer `404` for it.
+         * @enum {string}
+         */
+        ShareableResourceType: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN";
+        /**
+         * @description Derived, never stored: `WITHDRAWN` (terminal) beats `EXPIRED` (the end date passed — a share works through the end of its `expiresOn` day) beats `ACTIVE`.
+         * @enum {string}
+         */
+        ShareStatus: "ACTIVE" | "EXPIRED" | "WITHDRAWN";
+        ShareRequest: {
+            resourceType: components["schemas"]["ShareableResourceType"];
+            /** Format: int32 */
+            resourceId: number;
+            /**
+             * Format: int32
+             * @description The person to share with — an active user other than the caller.
+             */
+            shareeId: number;
+            /**
+             * Format: date
+             * @description Optional end date, inclusive: the share works through the end of that day. A strict ISO date not before the server's today (no timezone tolerance) — else `400`. Null/absent = open-ended until withdrawn.
+             */
+            expiresOn?: string | null;
+        };
+        ShareResponse: {
+            /** Format: int32 */
+            id: number;
+            resourceType: components["schemas"]["ShareableResourceType"];
+            /** Format: int32 */
+            resourceId: number;
+            /** Format: int32 */
+            sharerId: number;
+            sharerName: string;
+            /** Format: int32 */
+            shareeId: number;
+            shareeName: string;
+            /**
+             * Format: date
+             * @description Inclusive end date; null = open-ended.
+             */
+            expiresOn?: string | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds when the share was created. Server-managed.
+             */
+            createdAt: number;
+            status: components["schemas"]["ShareStatus"];
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the withdrawal; null unless `status` is `WITHDRAWN`.
+             */
+            withdrawnAt?: number | null;
+            /**
+             * Format: int32
+             * @description Who withdrew it — the sharer or the document's author; null unless withdrawn.
+             */
+            withdrawnById?: number | null;
+            withdrawnByName?: string | null;
+            /** @description In-app path of the shared document's view screen, derived from `resourceType` and `resourceId`; null only when the kind has no registered adapter. It says nothing about whether the document still exists — opening it answers the lapse/404. */
+            link?: string | null;
+            /**
+             * @description Content-free facts about the document for the client to localize, SNAPSHOTTED when
+             *     the share was created and never refreshed (plaintext title and party columns only —
+             *     never decrypted content, never a status); null for a row with no snapshot. Keys per
+             *     `resourceType`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
+             *     GOAL `{title,subordinate}`; PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
+             *     TEAM_KPI `{title,team}`; IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`;
+             *     SUCCESSION_PLAN `{person,owner}`.
+             */
+            details?: {
+                [key: string]: string;
+            } | null;
+        };
+        SharePage: {
+            items: components["schemas"]["ShareResponse"][];
             page: number;
             pageSize: number;
             /**
@@ -13206,6 +13420,202 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listShares: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Which slice of shares to list — see the operation description. */
+                view?: "withMe" | "byMe" | "document";
+                /** @description Equality filter on the shared document's kind. Required with `view=document`. */
+                resourceType?: components["schemas"]["ShareableResourceType"];
+                /** @description The document's id. Accepted only with (and required by) `view=document`. */
+                resourceId?: number;
+                /** @description Equality filter on the derived share status. */
+                status?: components["schemas"]["ShareStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of shares */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description `view=document` by someone who may neither manage the document's shares nor read it in their own right, or whose feature flag for that area is off */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description `view=document` for an unknown/deleted document or a `resourceType` that is not shareable */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new share resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The caller's feature flag for the area is off, or they cannot read the document in their own right */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown/deleted document, or a `resourceType` that is not shareable */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description An active share of this document by the caller to that person already exists (`instance` points at it) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the sharer nor the document's author */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    withdrawShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the sharer nor the document's author */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The share is already withdrawn */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };

@@ -47,6 +47,10 @@ class NotificationEmailTest {
         "author" to "Olga Owner",
         "periodStart" to "2026-07-01",
         "periodEnd" to "2026-07-31",
+        "sharer" to "Sia Sharer",
+        "sharee" to "Shay Sharee",
+        "actor" to "Ada Author",
+        "expiresOn" to "2026-12-31",
     )
 
     private val greetings = mapOf("en" to "Hi Rae Recipient,", "pl" to "Cześć Rae Recipient,")
@@ -260,6 +264,11 @@ class NotificationEmailTest {
         assertEquals("Lettuce: days off", subject(NotificationType.DAYS_OFF_CREATED, "en"))
         assertEquals("Lettuce: ankieta pulsu", subject(NotificationType.PULSE_CYCLE_OPENED, "pl"))
         assertEquals("Lettuce: career update", subject(NotificationType.CAREER_POSITION_STARTED_TO_USER, "en"))
+        // The sharing types (v4.8.0) ride their area's subject — succession plans now have their own.
+        assertEquals("Lettuce: feedback update", subject(NotificationType.FEEDBACK_SHARED, "en"))
+        assertEquals("Lettuce: plan sukcesji", subject(NotificationType.SUCCESSION_PLAN_SHARED, "pl"))
+        assertEquals("Lettuce: succession plan", subject(NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN, "en"))
+        assertEquals("Lettuce: dziennik wpływu", subject(NotificationType.IMPACT_ENTRY_SHARED, "pl"))
     }
 
     @Test
@@ -293,5 +302,93 @@ class NotificationEmailTest {
             "R", NotificationType.FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER, allParams, null, null, "pl",
         )!!
         assertTrue("Prośba o feedback od Rita Requester na temat Sam Subject wygasła." in toProviderPl.body)
+    }
+
+    private fun body(type: NotificationType, params: Map<String, String>, lang: String) =
+        notificationEmailContent("R", type, params, null, null, lang)!!.body
+
+    @Test
+    fun `a share notice words the sharer, the kind of document and the optional end date in both languages (v4_8_0)`() {
+        val bound = mapOf("sharer" to "Sia Sharer", "expiresOn" to "2026-12-31")
+        assertTrue(
+            "Sia Sharer shared a goal with you. Access lasts until 2026-12-31." in
+                body(NotificationType.GOAL_SHARED, bound, "en"),
+        )
+        assertTrue(
+            "Sia Sharer udostępnił/a Ci cel. Dostęp obowiązuje do 2026-12-31." in
+                body(NotificationType.GOAL_SHARED, bound, "pl"),
+        )
+        val open = mapOf("sharer" to "Sia Sharer")
+        assertTrue("Sia Sharer shared feedback with you." in body(NotificationType.FEEDBACK_SHARED, open, "en"))
+        assertFalse("Access lasts" in body(NotificationType.FEEDBACK_SHARED, open, "en"))
+        assertTrue(
+            "Sia Sharer udostępnił/a Ci ocenę okresową." in body(NotificationType.PERFORMANCE_REVIEW_SHARED, open, "pl"),
+        )
+        assertTrue(
+            "Sia Sharer udostępnił/a Ci wpis z dziennika wpływu." in body(NotificationType.IMPACT_ENTRY_SHARED, open, "pl"),
+        )
+    }
+
+    @Test
+    fun `the succession share notice is content-free in both languages`() {
+        val params = mapOf("sharer" to "Sia Sharer")
+        assertTrue("Sia Sharer shared a succession plan with you." in body(NotificationType.SUCCESSION_PLAN_SHARED, params, "en"))
+        assertTrue("Sia Sharer udostępnił/a Ci plan sukcesji." in body(NotificationType.SUCCESSION_PLAN_SHARED, params, "pl"))
+        // The withdrawn copies need no actor/sharee — and render no unresolved param.
+        assertTrue(
+            "Sia Sharer stopped sharing a succession plan with you." in
+                body(NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN, params, "en"),
+        )
+        assertTrue(
+            "Sia Sharer wycofał/a Twój dostęp do planu sukcesji." in
+                body(NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN, params, "pl"),
+        )
+        val sharerCopy = params + ("self" to "sharer")
+        assertTrue(
+            "The owner of a succession plan withdrew your share of it." in
+                body(NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN, sharerCopy, "en"),
+        )
+        assertTrue(
+            "Właściciel/ka planu sukcesji wycofał/a Twoje udostępnienie." in
+                body(NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN, sharerCopy, "pl"),
+        )
+    }
+
+    @Test
+    fun `a share withdrawal words the sharee's copy, the author case and the sharer's copy`() {
+        val bySharer = mapOf("sharer" to "Sia Sharer", "sharee" to "Shay Sharee", "actor" to "Sia Sharer")
+        assertTrue(
+            "Sia Sharer stopped sharing a 1:1 meeting with you." in
+                body(NotificationType.ONE_ON_ONE_SHARE_WITHDRAWN, bySharer, "en"),
+        )
+        assertTrue(
+            "Sia Sharer wycofał/a Twój dostęp do spotkania 1:1." in
+                body(NotificationType.ONE_ON_ONE_SHARE_WITHDRAWN, bySharer, "pl"),
+        )
+
+        val reviewByAuthor = mapOf("sharer" to "Sia Sharer", "sharee" to "Shay Sharee", "actor" to "Ada Author")
+        assertTrue(
+            "Ada Author wycofał/a Twój dostęp do oceny okresowej udostępnionej Ci przez Sia Sharer." in
+                body(NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN, reviewByAuthor, "pl"),
+        )
+        val byAuthor = mapOf("sharer" to "Sia Sharer", "sharee" to "Shay Sharee", "actor" to "Ada Author")
+        assertTrue(
+            "Ada Author withdrew your access to a team KPI that Sia Sharer had shared with you." in
+                body(NotificationType.TEAM_KPI_SHARE_WITHDRAWN, byAuthor, "en"),
+        )
+        assertTrue(
+            "Ada Author wycofał/a Twój dostęp do KPI zespołu udostępnionego Ci przez Sia Sharer." in
+                body(NotificationType.TEAM_KPI_SHARE_WITHDRAWN, byAuthor, "pl"),
+        )
+
+        val sharerCopy = byAuthor + ("self" to "sharer")
+        assertTrue(
+            "Ada Author withdrew your share of feedback with Shay Sharee." in
+                body(NotificationType.FEEDBACK_SHARE_WITHDRAWN, sharerCopy, "en"),
+        )
+        assertTrue(
+            "Ada Author wycofał/a Twoje udostępnienie feedbacku osobie Shay Sharee." in
+                body(NotificationType.FEEDBACK_SHARE_WITHDRAWN, sharerCopy, "pl"),
+        )
     }
 }
