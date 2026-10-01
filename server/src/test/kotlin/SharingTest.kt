@@ -19,6 +19,9 @@ import ch.nokillswit.goals.GoalEventListResponse
 import ch.nokillswit.goals.GoalProgressUpdate
 import ch.nokillswit.goals.GoalResponse
 import ch.nokillswit.goals.GoalType
+import ch.nokillswit.impactlog.ImpactEntryEventListResponse
+import ch.nokillswit.impactlog.ImpactEntryRequest
+import ch.nokillswit.impactlog.ImpactEntryResponse
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationResponse
 import ch.nokillswit.notifications.NotificationType
@@ -1455,6 +1458,206 @@ class SharingTest {
             "rewritten afterwards",
             sharee.client.review(w.review.id).body<PerformanceReviewResponse>().attitude.summary,
         )
+    }
+
+    // ── Impact log ───────────────────────────────────────────────────────────────────────────
+
+    private class EntryWorld(
+        val owner: Person,
+        val manager: Person,
+        val teamId: UInt,
+        val entry: ImpactEntryResponse,
+    )
+
+    private suspend fun HttpClient.shareEntry(entryId: UInt, shareeId: UInt): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.IMPACT_LOG_ENTRY, entryId, shareeId, null))
+        }
+
+    private suspend fun HttpClient.shareEntryId(entryId: UInt, shareeId: UInt): UInt {
+        val response = shareEntry(entryId, shareeId)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    private suspend fun HttpClient.entry(id: UInt) = get("/api/v1/impact-log/$id")
+
+    private fun entryRequest(title: String = "Original entry title") = ImpactEntryRequest(
+        title = title,
+        periodStart = "2026-07-01",
+        periodEnd = "2026-07-31",
+        whatHappened = "what happened (private section)",
+        contribution = "my contribution (private section)",
+        whyItMattered = "why it mattered (private section)",
+        evidence = "evidence (private section)",
+    )
+
+    /** The owner O keeps a journal; M manages O (so M reads the owner's entries via the chain). */
+    private suspend fun ApplicationTestBuilder.entryWorld(ownerRoles: Set<UserRole> = emptySet()): EntryWorld {
+        val owner = person("owner", roles = ownerRoles)
+        val manager = person("manager")
+        val team = TestServices.teams.create(Team("Squad-${manager.id}", manager.id, listOf(owner.id)))
+        val created = owner.client.post("/api/v1/impact-log") {
+            contentType(ContentType.Application.Json)
+            setBody(entryRequest())
+        }
+        assertEquals(HttpStatusCode.Created, created.status)
+        val entry = created.body<ImpactEntryResponse>()
+        assertTrue(entry.canShare, "the owner reads their own entry")
+        return EntryWorld(owner, manager, team, entry)
+    }
+
+    @Test
+    fun `impact log - a sharee reads the entry's sections and events exactly as the sharer sees them`() = runBlockingApp {
+        val w = entryWorld()
+        val sharee = person("sharee")
+        assertEquals(HttpStatusCode.Forbidden, sharee.client.entry(w.entry.id).status)
+
+        w.owner.client.shareEntryId(w.entry.id, sharee.id)
+        val shared = sharee.client.entry(w.entry.id).body<ImpactEntryResponse>()
+        val own = w.owner.client.entry(w.entry.id).body<ImpactEntryResponse>()
+        assertEquals(own.whatHappened, shared.whatHappened)
+        assertEquals(own.evidence, shared.evidence)
+        assertEquals("my contribution (private section)", shared.contribution)
+        assertEquals(w.owner.name, shared.sharedBy)
+        assertFalse(shared.canShare)
+        val events = sharee.client.get("/api/v1/impact-log/${w.entry.id}/events")
+        assertEquals(HttpStatusCode.OK, events.status)
+        assertTrue(events.body<ImpactEntryEventListResponse>().items.isNotEmpty())
+
+        for (reader in listOf(w.owner, w.manager)) {
+            val read = reader.client.entry(w.entry.id).body<ImpactEntryResponse>()
+            assertTrue(read.canShare, "${reader.name} reads in their own right")
+            assertNull(read.sharedBy)
+        }
+        val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+        // The snapshot is the title, the owner and the period only — never a section.
+        assertEquals(
+            mapOf(
+                "title" to "Original entry title",
+                "author" to w.owner.name,
+                "periodStart" to "2026-07-01",
+                "periodEnd" to "2026-07-31",
+            ),
+            row.details,
+        )
+        assertEquals("/impact-log/${w.entry.id}/view", row.link)
+    }
+
+    @Test
+    fun `impact log - a sharee can write nothing`() = runBlockingApp {
+        val w = entryWorld()
+        val viaOwner = person("sharee-o")
+        val viaManager = person("sharee-m")
+        w.owner.client.shareEntryId(w.entry.id, viaOwner.id)
+        w.manager.client.shareEntryId(w.entry.id, viaManager.id)
+        for (sharee in listOf(viaOwner, viaManager)) {
+            val put = sharee.client.put("/api/v1/impact-log/${w.entry.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(entryRequest("tampered"))
+            }
+            assertEquals(HttpStatusCode.Forbidden, put.status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.delete("/api/v1/impact-log/${w.entry.id}").status)
+        }
+        // The chain manager reads but never writes either — the share adds no pen.
+        assertEquals(HttpStatusCode.Forbidden, w.manager.client.delete("/api/v1/impact-log/${w.entry.id}").status)
+        assertEquals("Original entry title", w.owner.client.entry(w.entry.id).body<ImpactEntryResponse>().title)
+    }
+
+    @Test
+    fun `impact log - no re-sharing, no HR-auditor sharing, an HR owner can share`() = runBlockingApp {
+        val w = entryWorld(ownerRoles = setOf(UserRole.HR))
+        val sharee = person("sharee")
+        val third = person("third")
+        val auditor = person("auditor", roles = setOf(UserRole.HR))
+        assertTrue(w.owner.client.entry(w.entry.id).body<ImpactEntryResponse>().canShare)
+        w.owner.client.shareEntryId(w.entry.id, sharee.id)
+
+        val reshare = sharee.client.shareEntry(w.entry.id, third.id)
+        assertEquals(HttpStatusCode.Forbidden, reshare.status)
+        assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+
+        val audit = auditor.client.entry(w.entry.id)
+        assertEquals(HttpStatusCode.OK, audit.status)
+        assertFalse(audit.body<ImpactEntryResponse>().canShare)
+        assertEquals(HttpStatusCode.Forbidden, auditor.client.shareEntry(w.entry.id, third.id).status)
+        assertEquals(HttpStatusCode.Created, w.owner.client.shareEntry(w.entry.id, auditor.id).status)
+    }
+
+    @Test
+    fun `impact log - a chain manager's share lapses when they leave the chain, and the owner withdraws it`() = runBlockingApp {
+        val w = entryWorld()
+        val sharee = person("sharee")
+        val id = w.manager.client.shareEntryId(w.entry.id, sharee.id)
+        assertEquals(HttpStatusCode.OK, sharee.client.entry(w.entry.id).status)
+
+        TestServices.teams.removeMember(w.teamId, w.owner.id)
+        val lapsed = sharee.client.entry(w.entry.id)
+        assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+        assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+        assertEquals(HttpStatusCode.Forbidden, sharee.client.get("/api/v1/impact-log/${w.entry.id}/events").status)
+
+        // Back in the chain it works again — then the OWNER (the author) lists and withdraws it.
+        TestServices.teams.addMember(w.teamId, w.owner.id)
+        assertEquals(HttpStatusCode.OK, sharee.client.entry(w.entry.id).status)
+        val all = w.owner.client.get("/api/v1/shares") {
+            parameter("view", "document")
+            parameter("resourceType", "IMPACT_LOG_ENTRY")
+            parameter("resourceId", w.entry.id.toString())
+        }.body<SharePageResponse>()
+        assertEquals(listOf(id), all.items.map { it.id })
+        assertEquals(HttpStatusCode.NoContent, w.owner.client.post("/api/v1/shares/$id/withdraw").status)
+        assertEquals(HttpStatusCode.Forbidden, sharee.client.entry(w.entry.id).status)
+    }
+
+    @Test
+    fun `impact log - notifications and links for a share and an author withdrawal`() = runBlockingApp {
+        val w = entryWorld()
+        val sharee = person("sharee")
+        val id = w.manager.client.shareEntryId(w.entry.id, sharee.id)
+        val shared = sharee.client.notifications().single { it.type == NotificationType.IMPACT_ENTRY_SHARED }
+        assertEquals(mapOf("sharer" to w.manager.name), shared.params)
+        assertEquals("/impact-log/${w.entry.id}/view", shared.link)
+
+        assertEquals(HttpStatusCode.NoContent, w.owner.client.post("/api/v1/shares/$id/withdraw").status)
+        val toSharee = sharee.client.notifications().single { it.type == NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN }
+        assertEquals(
+            mapOf("sharer" to w.manager.name, "sharee" to sharee.name, "actor" to w.owner.name),
+            toSharee.params,
+        )
+        assertNull(toSharee.link)
+        val toSharer = w.manager.client.notifications().single { it.type == NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN }
+        assertEquals("sharer", toSharer.params["self"])
+        assertEquals("/shares?tab=byMe", toSharer.link)
+    }
+
+    @Test
+    fun `impact log - the full label snapshot is stable after a retitle`() = runBlockingApp {
+        val w = entryWorld()
+        val sharee = person("sharee")
+        w.owner.client.shareEntryId(w.entry.id, sharee.id)
+        val before = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details
+        val edit = w.owner.client.put("/api/v1/impact-log/${w.entry.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(entryRequest("Retitled afterwards"))
+        }
+        assertEquals(HttpStatusCode.NoContent, edit.status)
+        assertEquals("Retitled afterwards", w.owner.client.entry(w.entry.id).body<ImpactEntryResponse>().title)
+        assertEquals(before, sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details)
+        assertEquals("Original entry title", before?.get("title"))
+    }
+
+    @Test
+    fun `impact log - a sharee with the area disabled gets the caller-gate 403 and no row in withMe`() = runBlockingApp {
+        val w = entryWorld()
+        val sharee = person("sharee-off", disabled = setOf(Feature.IMPACT_LOG))
+        w.owner.client.shareEntryId(w.entry.id, sharee.id)
+        val gated = sharee.client.entry(w.entry.id)
+        assertEquals(HttpStatusCode.Forbidden, gated.status)
+        assertEquals("The IMPACT_LOG feature is disabled for this account", gated.detail())
+        assertEquals(0L, sharee.client.get("/api/v1/shares").body<SharePageResponse>().total)
+        assertTrue(sharee.client.notifications().none { it.type == NotificationType.IMPACT_ENTRY_SHARED })
     }
 
     /** `testApplication` with the container started; the body is the test. */

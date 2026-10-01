@@ -1747,7 +1747,11 @@ export interface paths {
          * @description Returns the full entry document — owner, period, and the four sections. Readable by
          *     the entry's **owner**, the **HR auditor** (audit-logged), and any **manager in the
          *     owner's transitive management chain** (their manager, that manager's manager, and so
-         *     on — over non-deleted teams). Anything else — ADMIN and teammates included — is `403`.
+         *     on — over non-deleted teams), plus a person the entry was **shared with**
+         *     (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could still open
+         *     it themselves without the HR role (`sharedBy` then names the sharer; when every sharer
+         *     has lost the right the answer is `403` "The person who shared this no longer has access
+         *     to it"). Anything else — ADMIN and teammates included — is `403`.
          */
         get: operations["getImpactEntry"];
         /**
@@ -1792,7 +1796,7 @@ export interface paths {
          *     plus a `params` map (ISO dates and field-name lists — never section text), with the
          *     acting user resolved to `userName`; no rendered string is stored (clients localize
          *     the description). Authorization matches the single-GET above: whoever may read the
-         *     entry may read its history. Events are server-generated; there is no
+         *     entry may read its history (including an active share, v4.8.0). Events are server-generated; there is no
          *     create/update/delete endpoint.
          */
         get: operations["listImpactEntryEvents"];
@@ -5599,6 +5603,10 @@ export interface components {
              * @description Epoch milliseconds; server-managed, bumped on every mutation.
              */
             lastModified: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this entry in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this entry through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         ImpactEntryListItem: {
             /** Format: int32 */

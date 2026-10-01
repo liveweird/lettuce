@@ -24,6 +24,7 @@ import ch.nokillswit.impactlog.ImpactLogEventService
 import ch.nokillswit.impactlog.ImpactLogEventServiceKey
 import ch.nokillswit.impactlog.ImpactLogService
 import ch.nokillswit.impactlog.ImpactLogServiceKey
+import ch.nokillswit.impactlog.ImpactLogShareable
 import ch.nokillswit.infra.config.requireConfigInt
 import ch.nokillswit.infra.config.requireConfigLong
 import ch.nokillswit.infra.crypto.FieldCipherKey
@@ -260,7 +261,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(AppSettingsServiceKey, AppSettingsService(database))
     attributes.put(PulseCycleServiceKey, PulseCycleService(database))
     attributes.put(PulseResponseServiceKey, PulseResponseService(database, attributes[FieldCipherKey]))
-    attributes.put(ImpactLogServiceKey, ImpactLogService(database, attributes[FieldCipherKey]))
+    val impactLogService = ImpactLogService(database, attributes[FieldCipherKey])
+    attributes.put(ImpactLogServiceKey, impactLogService)
     attributes.put(ImpactLogEventServiceKey, ImpactLogEventService(database))
     attributes.put(SuccessionPlanServiceKey, SuccessionPlanService(database, attributes[FieldCipherKey]))
     attributes.put(SuccessionEventServiceKey, SuccessionEventService(database))
@@ -322,6 +324,7 @@ suspend fun Application.configureDatabase() {
             register(GoalShareable(goalService))
             register(OneOnOneShareable(oneOnOneService))
             register(PerformanceReviewShareable(performanceReviewService))
+            register(ImpactLogShareable(impactLogService))
         },
     )
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))

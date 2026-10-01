@@ -1,10 +1,11 @@
 package ch.nokillswit.impactlog
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
-import ch.nokillswit.authz.requireImpactEntryRead
 import ch.nokillswit.authz.requireImpactEntryWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
@@ -14,6 +15,9 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.sharing.ReadVia
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -52,6 +56,9 @@ private fun ImpactEntryEventDescriptor.toEvent(entryId: UInt, userId: UInt) = Im
     params = params,
 )
 
+/** An entry the caller may read, and how (own right or through a share). */
+private class GuardedEntry(val entry: ImpactEntryResponse, val via: ReadVia<Unit>)
+
 // The gated caller (V46): every impact-log handler resolves its principal through this, so the
 // per-user IMPACT_LOG flag is enforced before any other guard or read.
 private fun ApplicationCall.impactLogCaller() =
@@ -61,18 +68,34 @@ fun Application.configureImpactLogRoutes() {
     val impactLogService = attributes[ImpactLogServiceKey]
     val eventService = attributes[ImpactLogEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+    val shareAccess = attributes[ShareAccessKey]
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the entry (missing →
     // NotFoundException) and enforces the read rule (owner / audited HR / the owner's transitive
-    // chain — the guard itself throws ForbiddenException). Shared by the document and events GETs.
-    suspend fun readGuardedEntry(call: ApplicationCall, entryId: UInt): ImpactEntryResponse {
+    // chain — the guard itself throws ForbiddenException), OR — since v4.8.0 — an active SHARE of
+    // it (`ShareAccess.readOrShared`: the same guard, re-run for the sharer with the HR role
+    // stripped). A journal entry has no per-reader content gate (every reader sees the same four
+    // sections) and the response references no other entry, so no `sufficient` check and no field
+    // stripping. Shared by the document and events GETs.
+    suspend fun readGuardedEntry(call: ApplicationCall, entryId: UInt): GuardedEntry {
         val caller = call.impactLogCaller()
         val entry = impactLogService.read(entryId)
             ?: throw NotFoundException("Impact log entry not found")
-        requireImpactEntryRead(caller, entry) {
-            impactLogService.managesOwner(caller.userId, entry.userId)
+        val via = shareAccess.readOrShared(caller, ShareableResourceType.IMPACT_LOG_ENTRY, entryId) {
+            impactLogService.requireReadable(it, entry)
         }
-        return entry
+        return GuardedEntry(entry, via)
+    }
+
+    // `canShare` (the share button's gate): the caller reads this entry in their OWN right — no
+    // share involved, and never via the HR role alone (the guard is re-run role-stripped, which
+    // only matters for an HR caller). No guard re-run when the read already tells.
+    suspend fun canShare(caller: CallerPrincipal, via: ReadVia<Unit>, entry: ImpactEntryResponse): Boolean = when {
+        via is ReadVia.Shared && via.ownDenied -> false
+        !caller.isHr() -> true
+        else -> shareAccess.holdsOwnRight(caller, ShareableResourceType.IMPACT_LOG_ENTRY) {
+            impactLogService.requireReadable(it, entry)
+        }
     }
 
     // The write sibling: owner-only (nobody else — the chain, ADMIN, and HR included). Guards
@@ -149,11 +172,18 @@ fun Application.configureImpactLogRoutes() {
                 )
                 val created = impactLogService.read(id)
                     .orVanished("Impact log entry", id)
-                call.respond(HttpStatusCode.Created, created)
+                // The owner always reads their own entry (the cheap owner rule).
+                call.respond(HttpStatusCode.Created, created.copy(canShare = true))
             }
             get<ImpactLog.Id> { route ->
-                val entry = readGuardedEntry(call, route.id)
-                call.respond(HttpStatusCode.OK, entry)
+                val read = readGuardedEntry(call, route.id)
+                call.respond(
+                    HttpStatusCode.OK,
+                    read.entry.copy(
+                        canShare = canShare(call.caller(), read.via, read.entry),
+                        sharedBy = (read.via as? ReadVia.Shared)?.sharerName,
+                    ),
+                )
             }
             put<ImpactLog.Id> { route ->
                 val existing = writeGuardedEntry(call, route.id)
