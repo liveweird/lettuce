@@ -218,3 +218,5 @@ case runs the real adapter against an unreachable database with an ACTIVE share 
 `assertNotNull(failure)` catches),
 `NotificationEmailTest` + `FeatureFlagsTest` (the 14 types). Synthetic ids in store/stub tests come
 from `TestShareDocuments` (a high range) so they never collide with real documents.
+
+SPA tests: `ShareDialog.test.tsx`, `api/shares.test.ts`, `Shares.test.tsx`, the sharing blocks of the seven view-page tests and `NotificationsButton.test.tsx`; browser journey: `e2e/tests/sharing.spec.ts` (throwaway provider/subject/sharee — share with an end date, bell link to a read-only view, Shared screen, withdraw, lock-out).
