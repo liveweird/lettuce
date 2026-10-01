@@ -114,7 +114,11 @@ test("a provider shares a feedback, the sharee reads it read-only, and withdrawi
     page.waitForResponse(
       (r) => /\/api\/v1\/shares\/\d+\/withdraw$/.test(r.url()) && r.request().method() === "POST" && r.ok(),
     ),
-    page.getByRole("button", { name: "Withdraw", exact: true }).click(),
+    // Scoped to the confirm: the feedback view itself carries the provider's own "Withdraw" transition.
+    page
+      .getByRole("dialog", { name: "Withdraw this share?" })
+      .getByRole("button", { name: "Withdraw", exact: true })
+      .click(),
   ]);
   await expect(page.getByText("Share withdrawn")).toBeVisible();
   await expect(
