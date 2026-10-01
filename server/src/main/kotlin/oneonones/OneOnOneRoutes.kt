@@ -1,11 +1,12 @@
 package ch.nokillswit.oneonones
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
-import ch.nokillswit.authz.requireOneOnOneReadAllowingManager
 import ch.nokillswit.authz.requireOneOnOneWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
@@ -18,6 +19,9 @@ import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.parseIsoDateStrict
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.sharing.ReadVia
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
@@ -117,6 +121,9 @@ private fun validateOneOnOnePayload(
     }
 }
 
+/** A meeting the caller may read, and how (own right or through a share). */
+private class GuardedMeeting(val meeting: OneOnOneResponse, val via: ReadVia<Unit>)
+
 // The gated caller (V46): every 1:1 handler resolves its principal through this, so the
 // per-user ONE_ON_ONES flag is enforced before any other guard or read.
 private fun ApplicationCall.oneOnOneCaller() =
@@ -127,19 +134,35 @@ fun Application.configureOneOnOneRoutes() {
     val oneOnOneEventService = attributes[OneOnOneEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
+    val shareAccess = attributes[ShareAccessKey]
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the meeting (missing →
     // NotFoundException) and enforces the document read rule (parties / audited HR / chain
-    // managers — the guard itself throws ForbiddenException). Shared by the document and
-    // events GETs (the action-item history keys its 404s on the ITEM, so it stays inline).
-    suspend fun readGuardedMeeting(call: ApplicationCall, meetingId: UInt): OneOnOneResponse {
+    // managers — the guard itself throws ForbiddenException), OR — since v4.8.0 — an active SHARE
+    // of it (`ShareAccess.readOrShared`: the same guard, re-run for the sharer with the HR role
+    // stripped). 1:1s have no per-reader content gate (every reader sees the same notes,
+    // decisions and action items), so no `sufficient` check is needed. Shared by the document and
+    // events GETs; the action-item history keys its 404s on the ITEM, stays inline, and stays
+    // OWN-RIGHT ONLY (see there).
+    suspend fun readGuardedMeeting(call: ApplicationCall, meetingId: UInt): GuardedMeeting {
         val caller = call.oneOnOneCaller()
         val meeting = oneOnOneService.read(meetingId)
             ?: throw NotFoundException("1:1 meeting not found")
-        requireOneOnOneReadAllowingManager(caller, meeting) {
-            oneOnOneService.managesSubordinate(caller.userId, meeting.subordinateId)
+        val via = shareAccess.readOrShared(caller, ShareableResourceType.ONE_ON_ONE, meetingId) {
+            oneOnOneService.requireReadable(it, meeting)
         }
-        return meeting
+        return GuardedMeeting(meeting, via)
+    }
+
+    // `canShare` (the share button's gate): the caller reads this meeting in their OWN right — no
+    // share involved, and never via the HR role alone (the guard is re-run role-stripped, which
+    // only matters for an HR caller). No guard re-run when the read already tells.
+    suspend fun canShare(caller: CallerPrincipal, via: ReadVia<Unit>, meeting: OneOnOneResponse): Boolean = when {
+        via is ReadVia.Shared && via.ownDenied -> false
+        !caller.isHr() -> true
+        else -> shareAccess.holdsOwnRight(caller, ShareableResourceType.ONE_ON_ONE) {
+            oneOnOneService.requireReadable(it, meeting)
+        }
     }
 
     // The write sibling: manager-only (nobody else — ADMIN included). Guards run BEFORE any
@@ -231,11 +254,21 @@ fun Application.configureOneOnOneRoutes() {
                 )
                 val created = oneOnOneService.read(result.id)
                     .orVanished("1:1 meeting", result.id)
-                call.respond(HttpStatusCode.Created, created)
+                // The creating manager always reads their own meeting (the cheap party rule).
+                call.respond(HttpStatusCode.Created, created.copy(canShare = true))
             }
             get<OneOnOnes.Id> { route ->
-                val meeting = readGuardedMeeting(call, route.id)
-                call.respond(HttpStatusCode.OK, meeting)
+                val read = readGuardedMeeting(call, route.id)
+                // A share read shows the shared meeting only — never facts about the pair's other
+                // meetings (see forSharee).
+                val shown = if (read.via is ReadVia.Shared) read.meeting.forSharee() else read.meeting
+                call.respond(
+                    HttpStatusCode.OK,
+                    shown.copy(
+                        canShare = canShare(call.caller(), read.via, read.meeting),
+                        sharedBy = (read.via as? ReadVia.Shared)?.sharerName,
+                    ),
+                )
             }
             put<OneOnOnes.Id> { route ->
                 val existing = writeGuardedMeeting(call, route.id)
@@ -287,9 +320,10 @@ fun Application.configureOneOnOneRoutes() {
                 // to the caller).
                 val meeting = oneOnOneService.read(result.meetingId)
                     ?: throw NotFoundException("Action item not found")
-                requireOneOnOneReadAllowingManager(caller, meeting) {
-                    oneOnOneService.managesSubordinate(caller.userId, meeting.subordinateId)
-                }
+                // OWN-RIGHT ONLY, deliberately NOT share-aware (v4.8.0): the chain spans carry-over
+                // copies of the item across meetings that were never shared, so a share of one
+                // meeting does not open it — a sharee gets this ordinary 403.
+                oneOnOneService.requireReadable(caller, meeting)
                 call.respond(HttpStatusCode.OK, ActionItemHistoryResponse(result.entries))
             }
         }

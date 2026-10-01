@@ -43,6 +43,7 @@ import ch.nokillswit.oneonones.OneOnOneEventService
 import ch.nokillswit.oneonones.OneOnOneEventServiceKey
 import ch.nokillswit.oneonones.OneOnOneService
 import ch.nokillswit.oneonones.OneOnOneServiceKey
+import ch.nokillswit.oneonones.OneOnOneShareable
 import ch.nokillswit.pulse.PulseCycleService
 import ch.nokillswit.pulse.PulseCycleServiceKey
 import ch.nokillswit.pulse.PulseResponseService
@@ -238,7 +239,8 @@ suspend fun Application.configureDatabase() {
     val feedbackService = FeedbackService(database, attributes[FieldCipherKey], sweepIntervalMillis)
     attributes.put(FeedbackServiceKey, feedbackService)
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
-    attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
+    val oneOnOneService = OneOnOneService(database, attributes[FieldCipherKey])
+    attributes.put(OneOnOneServiceKey, oneOnOneService)
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))
     val goalService = GoalService(database, attributes[FieldCipherKey])
     attributes.put(GoalServiceKey, goalService)
@@ -316,6 +318,7 @@ suspend fun Application.configureDatabase() {
         ShareRegistry().apply {
             register(FeedbackShareable(feedbackService))
             register(GoalShareable(goalService))
+            register(OneOnOneShareable(oneOnOneService))
         },
     )
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))

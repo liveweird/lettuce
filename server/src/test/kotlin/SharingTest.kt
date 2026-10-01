@@ -22,6 +22,14 @@ import ch.nokillswit.goals.GoalType
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationResponse
 import ch.nokillswit.notifications.NotificationType
+import ch.nokillswit.oneonones.ActionItemHistoryResponse
+import ch.nokillswit.oneonones.ActionItemOwner
+import ch.nokillswit.oneonones.OneOnOneActionItemInput
+import ch.nokillswit.oneonones.OneOnOneCreateRequest
+import ch.nokillswit.oneonones.OneOnOneEventListResponse
+import ch.nokillswit.oneonones.OneOnOneItemInput
+import ch.nokillswit.oneonones.OneOnOneResponse
+import ch.nokillswit.oneonones.OneOnOneUpdateRequest
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.sharing.ShareAccess
 import ch.nokillswit.sharing.ShareCreateOutcome
@@ -867,6 +875,256 @@ class SharingTest {
         assertEquals("Retitled afterwards", w.manager.client.goal(w.goalId).body<GoalResponse>().title)
         val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
         assertEquals("Original goal title", row.details?.get("title"))
+    }
+
+    // ── 1:1 meetings ─────────────────────────────────────────────────────────────────────────
+
+    private class MeetingWorld(
+        val manager: Person,
+        val subordinate: Person,
+        val grand: Person,
+        val leadsTeamId: UInt,
+        val meeting: OneOnOneResponse,
+    )
+
+    private suspend fun HttpClient.shareMeeting(meetingId: UInt, shareeId: UInt): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.ONE_ON_ONE, meetingId, shareeId, null))
+        }
+
+    private suspend fun HttpClient.shareMeetingId(meetingId: UInt, shareeId: UInt): UInt {
+        val response = shareMeeting(meetingId, shareeId)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    private suspend fun HttpClient.meeting(id: UInt) = get("/api/v1/one-on-ones/$id")
+
+    /** M manages S, G manages M; M documents a 1:1 with S carrying one action item. */
+    private suspend fun ApplicationTestBuilder.meetingWorld(managerRoles: Set<UserRole> = emptySet()): MeetingWorld {
+        val manager = person("manager", roles = managerRoles)
+        val subordinate = person("subordinate")
+        val grand = person("grand-manager")
+        TestServices.teams.create(Team("Squad-${manager.id}", manager.id, listOf(subordinate.id)))
+        val leads = TestServices.teams.create(Team("Leads-${grand.id}", grand.id, listOf(manager.id)))
+        val created = manager.client.post("/api/v1/one-on-ones") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                OneOnOneCreateRequest(
+                    subordinateId = subordinate.id,
+                    meetingDate = "2026-07-01",
+                    points = listOf(OneOnOneItemInput(content = "roadmap")),
+                    decisions = listOf(OneOnOneItemInput(content = "ship in August")),
+                    actionItems = listOf(
+                        OneOnOneActionItemInput(content = "prepare demo", owner = ActionItemOwner.SUBORDINATE),
+                    ),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, created.status)
+        val meeting = created.body<OneOnOneResponse>()
+        assertTrue(meeting.canShare, "the documenting manager reads their own meeting")
+        return MeetingWorld(manager, subordinate, grand, leads, meeting)
+    }
+
+    @Test
+    fun `one-on-ones - a sharee reads the meeting and its events but not the action-item history`() = runBlockingApp {
+        val w = meetingWorld()
+        val sharee = person("sharee")
+        val itemId = w.meeting.actionItems.single().id
+        assertEquals(HttpStatusCode.Forbidden, sharee.client.meeting(w.meeting.id).status)
+
+        w.manager.client.shareMeetingId(w.meeting.id, sharee.id)
+        val body = sharee.client.meeting(w.meeting.id).body<OneOnOneResponse>()
+        assertEquals("roadmap", body.points.single().content)
+        assertEquals(w.manager.name, body.sharedBy)
+        assertFalse(body.canShare)
+        val events = sharee.client.get("/api/v1/one-on-ones/${w.meeting.id}/events")
+        assertEquals(HttpStatusCode.OK, events.status)
+        assertTrue(events.body<OneOnOneEventListResponse>().items.isNotEmpty())
+
+        // The action-item history spans carry-over copies in meetings that were never shared: it
+        // stays OWN-RIGHT ONLY, so the sharee gets the ordinary 403 while the sharer reads it.
+        val denied = sharee.client.get("/api/v1/one-on-ones/action-items/$itemId/history")
+        assertEquals(HttpStatusCode.Forbidden, denied.status)
+        assertEquals("Caller may not read this 1:1 meeting", denied.detail())
+        assertEquals(HttpStatusCode.OK, w.manager.client.get("/api/v1/one-on-ones/action-items/$itemId/history").status)
+        assertTrue(
+            w.subordinate.client.get("/api/v1/one-on-ones/action-items/$itemId/history")
+                .body<ActionItemHistoryResponse>().items.isNotEmpty(),
+        )
+
+        for (own in listOf(w.manager, w.subordinate, w.grand)) {
+            val read = own.client.meeting(w.meeting.id).body<OneOnOneResponse>()
+            assertTrue(read.canShare, "${own.name} reads in their own right")
+            assertNull(read.sharedBy)
+        }
+        val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+        assertEquals(
+            mapOf("manager" to w.manager.name, "subordinate" to w.subordinate.name, "meetingDate" to "2026-07-01"),
+            row.details,
+        )
+        assertEquals("/one-on-ones/${w.meeting.id}/view", row.link)
+    }
+
+    @Test
+    fun `one-on-ones - a sharee can write nothing`() = runBlockingApp {
+        val w = meetingWorld()
+        val viaManager = person("sharee-m")
+        val viaSubordinate = person("sharee-s")
+        w.manager.client.shareMeetingId(w.meeting.id, viaManager.id)
+        w.subordinate.client.shareMeetingId(w.meeting.id, viaSubordinate.id)
+        for (sharee in listOf(viaManager, viaSubordinate)) {
+            val put = sharee.client.put("/api/v1/one-on-ones/${w.meeting.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    OneOnOneUpdateRequest(
+                        meetingDate = "2026-07-02",
+                        points = listOf(OneOnOneItemInput(content = "tampered")),
+                        decisions = emptyList(),
+                        actionItems = emptyList(),
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.Forbidden, put.status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.delete("/api/v1/one-on-ones/${w.meeting.id}").status)
+        }
+        val after = w.manager.client.meeting(w.meeting.id).body<OneOnOneResponse>()
+        assertEquals("roadmap", after.points.single().content)
+        assertEquals("2026-07-01", after.meetingDate)
+    }
+
+    @Test
+    fun `one-on-ones - no re-sharing, no HR-auditor sharing, an HR party can share`() = runBlockingApp {
+        val w = meetingWorld(managerRoles = setOf(UserRole.HR))
+        val sharee = person("sharee")
+        val third = person("third")
+        val auditor = person("auditor", roles = setOf(UserRole.HR))
+        // The HR user documenting the meeting is a party: an own-right read, so they can share.
+        assertTrue(w.manager.client.meeting(w.meeting.id).body<OneOnOneResponse>().canShare)
+        w.manager.client.shareMeetingId(w.meeting.id, sharee.id)
+
+        val reshare = sharee.client.shareMeeting(w.meeting.id, third.id)
+        assertEquals(HttpStatusCode.Forbidden, reshare.status)
+        assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+
+        val audit = auditor.client.meeting(w.meeting.id)
+        assertEquals(HttpStatusCode.OK, audit.status)
+        assertFalse(audit.body<OneOnOneResponse>().canShare)
+        assertEquals(HttpStatusCode.Forbidden, auditor.client.shareMeeting(w.meeting.id, third.id).status)
+        assertEquals(HttpStatusCode.Created, w.manager.client.shareMeeting(w.meeting.id, auditor.id).status)
+    }
+
+    @Test
+    fun `one-on-ones - a chain manager's share lapses when they leave the chain`() = runBlockingApp {
+        val w = meetingWorld()
+        val sharee = person("sharee")
+        assertTrue(w.grand.client.meeting(w.meeting.id).body<OneOnOneResponse>().canShare)
+        w.grand.client.shareMeetingId(w.meeting.id, sharee.id)
+        assertEquals(HttpStatusCode.OK, sharee.client.meeting(w.meeting.id).status)
+
+        TestServices.teams.removeMember(w.leadsTeamId, w.manager.id)
+        val lapsed = sharee.client.meeting(w.meeting.id)
+        assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+        assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+        assertEquals(HttpStatusCode.Forbidden, sharee.client.get("/api/v1/one-on-ones/${w.meeting.id}/events").status)
+
+        TestServices.teams.addMember(w.leadsTeamId, w.manager.id)
+        assertEquals(HttpStatusCode.OK, sharee.client.meeting(w.meeting.id).status)
+    }
+
+    @Test
+    fun `one-on-ones - the manager is the author - withdraws a subordinate's share, notifications and links`() =
+        runBlockingApp {
+            val w = meetingWorld()
+            val sharee = person("sharee")
+            val id = w.subordinate.client.shareMeetingId(w.meeting.id, sharee.id)
+
+            val shared = sharee.client.notifications().single { it.type == NotificationType.ONE_ON_ONE_SHARED }
+            assertEquals(mapOf("sharer" to w.subordinate.name), shared.params)
+            assertEquals("/one-on-ones/${w.meeting.id}/view", shared.link)
+
+            val all = w.manager.client.get("/api/v1/shares") {
+                parameter("view", "document")
+                parameter("resourceType", "ONE_ON_ONE")
+                parameter("resourceId", w.meeting.id.toString())
+            }.body<SharePageResponse>()
+            assertEquals(listOf(id), all.items.map { it.id })
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/shares/$id/withdraw").status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.meeting(w.meeting.id).status)
+
+            val toSharee = sharee.client.notifications().single { it.type == NotificationType.ONE_ON_ONE_SHARE_WITHDRAWN }
+            assertEquals(
+                mapOf("sharer" to w.subordinate.name, "sharee" to sharee.name, "actor" to w.manager.name),
+                toSharee.params,
+            )
+            assertNull(toSharee.link)
+            val toSharer =
+                w.subordinate.client.notifications().single { it.type == NotificationType.ONE_ON_ONE_SHARE_WITHDRAWN }
+            assertEquals("sharer", toSharer.params["self"])
+            assertEquals("/shares?tab=byMe", toSharer.link)
+        }
+
+    @Test
+    fun `one-on-ones - a sharee sees the shared meeting, never facts about the pair's other meetings`() = runBlockingApp {
+        val w = meetingWorld()
+        val second = w.manager.client.post("/api/v1/one-on-ones") {
+            contentType(ContentType.Application.Json)
+            setBody(OneOnOneCreateRequest(subordinateId = w.subordinate.id, meetingDate = "2026-07-08"))
+        }
+        assertEquals(HttpStatusCode.Created, second.status)
+        val secondMeeting = second.body<OneOnOneResponse>()
+        // Carry-over copied the unresolved action item into #2, so #2 references meeting #1.
+        val ownSecond = w.manager.client.meeting(secondMeeting.id).body<OneOnOneResponse>()
+        assertTrue(ownSecond.isLatest)
+        assertEquals("2026-07-01", ownSecond.minMeetingDate)
+        assertNotNull(ownSecond.actionItems.single().copiedFromId)
+        assertNotNull(ownSecond.actionItems.single().firstAppearedOn)
+        // Meeting #1 (older) reveals the later sibling's date as its floor to its own parties.
+        assertEquals("2026-07-08", w.manager.client.meeting(w.meeting.id).body<OneOnOneResponse>().minMeetingDate)
+
+        val first = person("sharee-first")
+        val latest = person("sharee-latest")
+        w.manager.client.shareMeetingId(w.meeting.id, first.id)
+        w.manager.client.shareMeetingId(secondMeeting.id, latest.id)
+
+        // Sharing #1: the sharee does not learn that #2 exists or when it took place.
+        val seenFirst = first.client.meeting(w.meeting.id).body<OneOnOneResponse>()
+        assertEquals("2026-07-01", seenFirst.meetingDate)
+        assertNull(seenFirst.minMeetingDate)
+        assertFalse(seenFirst.isLatest)
+        // Sharing #2: nothing about #1 either — no floor date, no carry-over link, no first-appearance date —
+        // and no claim of being the latest.
+        val seenSecond = latest.client.meeting(secondMeeting.id).body<OneOnOneResponse>()
+        assertEquals("2026-07-08", seenSecond.meetingDate)
+        assertNull(seenSecond.minMeetingDate)
+        assertFalse(seenSecond.isLatest)
+        assertEquals("prepare demo", seenSecond.actionItems.single().content)
+        assertNull(seenSecond.actionItems.single().copiedFromId)
+        assertNull(seenSecond.actionItems.single().firstAppearedOn)
+    }
+
+    @Test
+    fun `one-on-ones - the label snapshot survives a later edit of the meeting date`() = runBlockingApp {
+        val w = meetingWorld()
+        val sharee = person("sharee")
+        w.manager.client.shareMeetingId(w.meeting.id, sharee.id)
+        val edit = w.manager.client.put("/api/v1/one-on-ones/${w.meeting.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                OneOnOneUpdateRequest(
+                    meetingDate = "2026-07-09",
+                    points = listOf(OneOnOneItemInput(content = "roadmap")),
+                    decisions = emptyList(),
+                    actionItems = emptyList(),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.NoContent, edit.status)
+        assertEquals("2026-07-09", w.manager.client.meeting(w.meeting.id).body<OneOnOneResponse>().meetingDate)
+        val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+        assertEquals("2026-07-01", row.details?.get("meetingDate"))
     }
 
     /** `testApplication` with the container started; the body is the test. */

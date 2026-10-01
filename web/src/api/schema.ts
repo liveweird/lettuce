@@ -1242,7 +1242,11 @@ export interface paths {
          *     discussed, decisions made, action items). Readable by the meeting's **manager**, its
          *     **subordinate**, the **HR auditor** (audit-logged), and any **manager in the
          *     subordinate's transitive management chain** (their manager, that manager's manager, and
-         *     so on — over non-deleted teams). Anything else — ADMIN included — is `403`.
+         *     so on — over non-deleted teams), plus a person the meeting was **shared with**
+         *     (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could still open it
+         *     themselves without the HR role (`sharedBy` then names the sharer; when every sharer has lost
+         *     the right the answer is `403` "The person who shared this no longer has access to it").
+         *     Anything else — ADMIN included — is `403`.
          */
         get: operations["getOneOnOne"];
         /**
@@ -1298,8 +1302,8 @@ export interface paths {
          *     entry is structural: an event `type` plus a
          *     `params` map (1-based positions, ISO dates, owner enum names — never item text), with the
          *     acting user resolved to `userName`; no rendered string is stored (clients localize the
-         *     description). Authorization matches the single-GET above: whoever may read the meeting
-         *     may read its history. Events are server-generated; there is no create/update/delete
+         *     description). Authorization matches the single-GET above (including an active share, v4.8.0):
+         *     whoever may read the meeting may read its history. Events are server-generated; there is no create/update/delete
          *     endpoint.
          */
         get: operations["listOneOnOneEvents"];
@@ -1329,8 +1333,10 @@ export interface paths {
          *     through them, so history survives a deleted intermediate meeting.
          *
          *     Authorization matches the meeting single-GET, checked against the queried item's meeting
-         *     (every copy in a chain belongs to the same manager+subordinate pair). `404` when the item
-         *     does not exist or its meeting has been deleted.
+         *     (every copy in a chain belongs to the same manager+subordinate pair) — **in the caller's own
+         *     right only**: unlike the meeting GET and its events, a person the meeting was merely shared
+         *     with gets `403` here (the chain spans copies in meetings that were never shared). `404` when
+         *     the item does not exist or its meeting has been deleted.
          */
         get: operations["getActionItemHistory"];
         put?: never;
@@ -5162,12 +5168,12 @@ export interface components {
             resolved: boolean;
             /**
              * Format: int32
-             * @description The source action item in the pair's previous meeting this one was carried over from; null for items authored in this meeting (or when the source row no longer exists). Server-managed.
+             * @description The source action item in the pair's previous meeting this one was carried over from; null for items authored in this meeting (or when the source row no longer exists), and always null on a read through a share (v4.8.0 — it names another meeting). Server-managed.
              */
             copiedFromId?: number | null;
             /**
              * Format: date
-             * @description ISO date of the item's earliest surviving appearance in its carry-over chain — the same meeting the item's history shows first (soft-deleted ancestor meetings are skipped). Null when the item first appeared in this meeting or the chain no longer survives. Server-managed, read-only.
+             * @description ISO date of the item's earliest surviving appearance in its carry-over chain — the same meeting the item's history shows first (soft-deleted ancestor meetings are skipped). Null when the item first appeared in this meeting or the chain no longer survives, and always null on a read through a share (v4.8.0 — it dates another meeting). Server-managed, read-only.
              */
             firstAppearedOn?: string | null;
         };
@@ -5194,15 +5200,19 @@ export interface components {
             /** @description Action items, in stored order. */
             actionItems: components["schemas"]["OneOnOneActionItem"][];
             /**
-             * @description Whether this is the pair's latest non-deleted meeting (meeting date, id as tiebreaker). Only the latest may be edited or deleted (PUT/DELETE answer 409 otherwise); clients open older meetings read-only.
+             * @description Whether this is the pair's latest non-deleted meeting (meeting date, id as tiebreaker). Only the latest may be edited or deleted (PUT/DELETE answer 409 otherwise); clients open older meetings read-only. Always `false` on a read through a share (v4.8.0 — a sharee sees the shared meeting, never facts about the pair's other meetings, and can edit nothing).
              * @default true
              */
             isLatest: boolean;
             /**
              * Format: date
-             * @description The pair's previous meeting's date — the chronological floor for this meeting's date (PUT rejects anything below it with 409; the edit form uses it as the date input's `min`). Null when this is the pair's first meeting.
+             * @description The date of the pair's latest OTHER meeting — the chronological floor for this meeting's date (PUT rejects anything below it with 409; the edit form uses it as the date input's `min`). For the pair's latest (editable) meeting that is its previous meeting; for an older read-only meeting it is the latest meeting's date, which no edit consults. Null when the pair has no other meeting, and always null on a read through a share (v4.8.0).
              */
             minMeetingDate?: string | null;
+            /** @description Document sharing (v4.8.0): true when the caller can read this meeting in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this meeting through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         OneOnOneListItem: {
             /** Format: int32 */
