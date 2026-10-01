@@ -531,6 +531,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The user's activity log
+         * @description A chronological log of what the user DID (v4.9.0): one row per history event they authored
+         *     on a document — feedbacks, 1:1 meetings, goals, team KPIs, performance reviews, impact-log
+         *     entries and succession plans — newest first. The log is a query-time union over those
+         *     features' per-document event trails, filtered on the ACTING user (a row lives in the log of
+         *     the person who acted, never in the log of the person it concerned); it starts at the event
+         *     trails' own beginnings. System-originated events (no human actor) belong to nobody. Event
+         *     `params` are the same content-free maps the documents' own History tabs render; no document
+         *     text, comment or rating value ever appears. The days-off, career-position and sign-in areas
+         *     are declared in `ActivityArea` but produce no rows yet.
+         *
+         *     Who may read: the user themselves, and the HR auditor (audited as `hr.list`, resource
+         *     `activity`) — anyone else, ADMIN included, is `403`. A missing or soft-deleted user is `404`
+         *     BEFORE the guard (user existence is no secret given the open users list); a deactivated
+         *     user stays readable. The VIEWER's feature flags apply: an area the viewer has disabled is
+         *     left out of the rows AND of `total`, and an `area` filter naming one answers an empty page
+         *     (never `400`).
+         *
+         *     For the user's own log every row is listed, but `link` and `details` are null when the user
+         *     can no longer read the document in their own right (deleted, or no longer visible to them):
+         *     the fact that they acted is theirs, the document's current title is not. The HR auditor
+         *     always receives both (a deleted document's `link` then answers `404`).
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `createdAt` only. Default sort is `-createdAt`. A union row has no scalar
+         *       `id`, so the deterministic tiebreaker is the synthetic `id`'s own components — `area`
+         *       ascending, `source` ascending, then the event's id descending — a total order (a
+         *       registered deviation from API-LIST-003).
+         *     - Filters (optional, whitelisted): `area` — equality, enum by name; `createdAt[gte]` /
+         *       `createdAt[lte]` — inclusive epoch-millisecond bounds (`400` when the lower bound is after
+         *       the upper one).
+         *
+         *     Malformed query parameters (unknown sort field or area, a non-numeric bound, out-of-range
+         *     page/pageSize) respond with `400` before the user lookup and the role gate.
+         */
+        get: operations["listUserActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/career-positions": {
         parameters: {
             query?: never;
@@ -6783,6 +6838,61 @@ export interface components {
              */
             total: number;
         };
+        /**
+         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF`, `CAREER_POSITION` and `ACCOUNT` (sign-ins) are declared up front — the enum is append-only — and produce no rows until their trails exist.
+         * @enum {string}
+         */
+        ActivityArea: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF" | "CAREER_POSITION" | "ACCOUNT";
+        ActivityEntry: {
+            /**
+             * @description Synthetic, unique, stable: `<AREA>:<SOURCE>:<eventId>` — SOURCE is `EVENT` for a row
+             *     of a document's event trail. A union row has no scalar id; the log is ordered by this
+             *     id's components (`createdAt` descending, then `area`, `source` ascending and the event
+             *     id descending), a total order.
+             */
+            id: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the event. Server-managed.
+             */
+            createdAt: number;
+            area: components["schemas"]["ActivityArea"];
+            /** @description The event's type name, as in the document's own history (`CREATED`, `PROGRESS_UPDATED`, …) — an open set the client localizes by `area` + `eventType`. */
+            eventType: string;
+            /** @description The event's content-free parameter map (positions, dates, numbers, enum names, party names where that area's history carries them) — never document text, comments or rating values. */
+            params: {
+                [key: string]: string;
+            };
+            /**
+             * Format: int32
+             * @description The document the event belongs to; null for the person-scoped areas.
+             */
+            documentId: number | null;
+            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (the user's own log) — and always null for the person-scoped areas. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
+            link: string | null;
+            /**
+             * @description Content-free facts about the document for the client to localize, read at request time
+             *     from plaintext title/party columns (never decrypted content, never a status) — the
+             *     document's CURRENT labels, and therefore null under the same condition as `link`. Keys
+             *     per `area`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
+             *     GOAL `{title,subordinate}`; TEAM_KPI `{title,team,type}`;
+             *     PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
+             *     IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`; SUCCESSION_PLAN `{person,owner}`.
+             */
+            details: {
+                [key: string]: string;
+            } | null;
+        };
+        ActivityPage: {
+            items: components["schemas"]["ActivityEntry"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
         DashboardSummary: {
             /**
              * Format: int64
@@ -7398,7 +7508,8 @@ export interface components {
          * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
          *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
          *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-         *     always appended as a deterministic tiebreaker.
+         *     always appended as a deterministic tiebreaker — except where an operation documents a
+         *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
          */
         Sort: string;
         /**
@@ -7620,7 +7731,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the user's name (e.g. `zolw` matches `Żółw`). */
@@ -8180,6 +8292,60 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
+    listUserActivity: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Equality filter on the row's area. */
+                area?: components["schemas"]["ActivityArea"];
+                /** @description Lower bound (inclusive) on the event moment, epoch milliseconds. */
+                "createdAt[gte]"?: number;
+                /** @description Upper bound (inclusive) on the event moment, epoch milliseconds. */
+                "createdAt[lte]"?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the user's activity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the user nor HR */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
     listUserCareerPositions: {
         parameters: {
             query?: never;
@@ -8387,7 +8553,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the team's name. */
@@ -8480,7 +8647,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /**
@@ -8723,7 +8891,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of feedbacks to list — caller-relative, except the HR auditor view `user` and the org-wide `kudos` wall. */
@@ -9155,7 +9324,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of 1:1 meetings to list — caller-relative, except the HR auditor view `user`. */
@@ -9443,7 +9613,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of goals to list — caller-relative, except the HR auditor view `user`. */
@@ -9875,7 +10046,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of journals to list — caller-relative, except the HR auditor view `user`. */
@@ -10090,7 +10262,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of plans to list — caller-relative, except the HR auditor view `user`. */
@@ -10508,7 +10681,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of team KPIs to list. `own`/`managed` are caller-relative; `all` is the HR auditor view (403 for anyone else). */
@@ -11102,7 +11276,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of reviews to list — caller-relative, except the HR auditor views `user` and `all`. */
@@ -11475,7 +11650,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of requests to list — caller-relative, except the HR auditor view `user`. */
@@ -12166,7 +12342,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the template name. */
@@ -12922,7 +13099,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the alert title. */
@@ -13305,7 +13483,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Restrict to seen (`true`) or unseen (`false`) notifications. */
@@ -13496,7 +13675,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of shares to list — see the operation description. */

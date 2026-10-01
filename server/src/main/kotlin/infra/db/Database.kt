@@ -1,5 +1,7 @@
 package ch.nokillswit.infra.db
 
+import ch.nokillswit.activity.ActivityService
+import ch.nokillswit.activity.ActivityServiceKey
 import ch.nokillswit.alerts.AlertService
 import ch.nokillswit.alerts.AlertServiceKey
 import ch.nokillswit.auth.TokenBlocklistService
@@ -321,8 +323,8 @@ suspend fun Application.configureDatabase() {
     // services it wraps — one per ShareableResourceType, enforced by the compiler (see below).
     val shareService = ShareService(database)
     attributes.put(ShareServiceKey, shareService)
-    attributes.put(
-        ShareRegistryKey,
+    // Built as a local so the activity log (v4.9.0) can take it for the view path of its rows.
+    val shareRegistry =
         // Complete by construction: no `else` — a new ShareableResourceType without an adapter
         // fails to compile here.
         ShareRegistry { type ->
@@ -335,8 +337,11 @@ suspend fun Application.configureDatabase() {
                 ShareableResourceType.IMPACT_LOG_ENTRY -> ImpactLogShareable(impactLogService)
                 ShareableResourceType.SUCCESSION_PLAN -> SuccessionShareable(successionPlanService)
             }
-        },
-    )
+        }
+    attributes.put(ShareRegistryKey, shareRegistry)
+    // The per-user activity log (v4.9.0): a query-time UNION over the seven *_events tables; it
+    // needs the share registry only for each document's view path.
+    attributes.put(ActivityServiceKey, ActivityService(database, shareRegistry))
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))

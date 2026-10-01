@@ -678,6 +678,35 @@ class AuditTest {
     }
 
     @Test
+    fun `hr list is audited for the activity log with the target and the pinned area (v4_9_0)`() = testApplication {
+        usePostgresTestcontainer()
+        val hrEmail = uniqueEmail("hrlist-act-hr")
+        val hrId = TestUsers.seed(hrEmail, "pw", roles = setOf(UserRole.HR))
+        val hr = authedClient(hrEmail, "pw")
+        val targetId = TestUsers.seed(uniqueEmail("hrlist-act-target"), "pw", roles = emptySet())
+
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/users/$targetId/activity").status)
+            val event = appender.events.find {
+                it.message == "hr.list" && it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "activity" }
+            }
+            assertNotNull(event, "the activity log read by HR should be audited")
+            assertEquals(hrId.toLong(), event.keyValuePairs.first { it.key == "byUserId" }.value)
+            assertEquals(targetId.toLong(), event.keyValuePairs.first { it.key == "targetUserId" }.value)
+            assertTrue(event.keyValuePairs.none { it.key == "area" })
+
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/users/$targetId/activity?area=GOAL").status)
+            val pinned = appender.events.last {
+                it.message == "hr.list" && it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "activity" }
+            }
+            assertEquals("GOAL", pinned.keyValuePairs.first { it.key == "area" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
     fun `hr list is audited for the performance-review auditor view (v4_3_0)`() = testApplication {
         usePostgresTestcontainer()
         val hrEmail = uniqueEmail("hrlist-pr-hr")

@@ -180,6 +180,35 @@ suspend fun requireCareerPositionRead(
     }
 }
 
+/** Which rule let a caller read someone's activity log (v4.9.0) — the route maps it to a visibility scope. */
+enum class ActivityReadGrant { SELF, HR }
+
+/**
+ * Read guard for `GET /api/v1/users/{id}/activity` (v4.9.0): the person themselves (an HR caller
+ * reading their OWN log is plain self access — no audit event, the log is theirs), then the HR
+ * auditor (audited `hr.list`, resource `activity`, with `targetUserId` and — when the request
+ * pinned one — the `area`, emitted only when the ordinary rules missed, the
+ * [requireCareerPositionRead] shape), else 403. ADMIN-as-such gets nothing (the narrowed-ADMIN
+ * rule). Runs AFTER the existence read (404-before-403, user existence is no secret given the
+ * open users list) and after the list's shape 400s.
+ *
+ * Step 2 adds the third branch here — a manager in the target's TRANSITIVE chain (with a
+ * `managesTarget` lambda, the [requireCareerPositionRead] signature) — whose rows are filtered to
+ * the documents that manager can read themselves.
+ */
+fun requireActivityRead(caller: CallerPrincipal, targetUserId: UInt, area: String? = null): ActivityReadGrant {
+    if (caller.userId == targetUserId) return ActivityReadGrant.SELF
+    if (caller.isHr()) {
+        if (area == null) {
+            auditHrList("activity", caller.userId, "targetUserId" to targetUserId.toLong())
+        } else {
+            auditHrList("activity", caller.userId, "targetUserId" to targetUserId.toLong(), "area" to area)
+        }
+        return ActivityReadGrant.HR
+    }
+    throw ForbiddenException("Only the user or HR may read this activity log")
+}
+
 /**
  * The [requireCanAssignRoles] sibling for the unique id (V59): newly assigning
  * or changing it is ADMIN-only. A null request (= leave unchanged) or resubmitting the current

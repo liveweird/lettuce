@@ -4,12 +4,12 @@ import ch.nokillswit.users.UserService
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.IdTable
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.selectAll
@@ -93,10 +93,13 @@ class EventLog(private val database: R2dbcDatabase, private val table: EventLogT
      * The record's history, newest first, with acting user names. The id tiebreaker is descending
      * too: one mutation mints several events in the same millisecond, and they must read as a true
      * reversal of mint order — not the notifications list's always-ascending-id quirk. A LEFT JOIN
-     * (not INNER) — an inner join would silently drop system-originated (null-actor) rows.
+     * (not INNER) — an inner join would silently drop system-originated (null-actor) rows. The
+     * join is EXPLICIT on the acting-user column: an implicit `leftJoin` resolves the join key from
+     * the FK between the two tables and is ambiguous for a table with two FKs to `users` (v4.9.0's
+     * person-keyed event tables carry both an owner and an actor).
      */
     suspend fun listFor(ownerId: UInt): List<EventLogRow> = suspendTransaction(database) {
-        (table leftJoin UserService.Users)
+        table.join(UserService.Users, JoinType.LEFT, onColumn = table.userId, otherColumn = UserService.Users.id)
             .selectAll()
             .where { table.ownerId eq ownerId }
             .orderBy(table.timestamp to SortOrder.DESC, table.id to SortOrder.DESC)

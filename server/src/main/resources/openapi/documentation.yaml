@@ -833,6 +833,84 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/users/{id}/activity:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [users]
+      operationId: listUserActivity
+      summary: The user's activity log
+      description: |
+        A chronological log of what the user DID (v4.9.0): one row per history event they authored
+        on a document — feedbacks, 1:1 meetings, goals, team KPIs, performance reviews, impact-log
+        entries and succession plans — newest first. The log is a query-time union over those
+        features' per-document event trails, filtered on the ACTING user (a row lives in the log of
+        the person who acted, never in the log of the person it concerned); it starts at the event
+        trails' own beginnings. System-originated events (no human actor) belong to nobody. Event
+        `params` are the same content-free maps the documents' own History tabs render; no document
+        text, comment or rating value ever appears. The days-off, career-position and sign-in areas
+        are declared in `ActivityArea` but produce no rows yet.
+
+        Who may read: the user themselves, and the HR auditor (audited as `hr.list`, resource
+        `activity`) — anyone else, ADMIN included, is `403`. A missing or soft-deleted user is `404`
+        BEFORE the guard (user existence is no secret given the open users list); a deactivated
+        user stays readable. The VIEWER's feature flags apply: an area the viewer has disabled is
+        left out of the rows AND of `total`, and an `area` filter naming one answers an empty page
+        (never `400`).
+
+        For the user's own log every row is listed, but `link` and `details` are null when the user
+        can no longer read the document in their own right (deleted, or no longer visible to them):
+        the fact that they acted is theirs, the document's current title is not. The HR auditor
+        always receives both (a deleted document's `link` then answers `404`).
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `createdAt` only. Default sort is `-createdAt`. A union row has no scalar
+          `id`, so the deterministic tiebreaker is the synthetic `id`'s own components — `area`
+          ascending, `source` ascending, then the event's id descending — a total order (a
+          registered deviation from API-LIST-003).
+        - Filters (optional, whitelisted): `area` — equality, enum by name; `createdAt[gte]` /
+          `createdAt[lte]` — inclusive epoch-millisecond bounds (`400` when the lower bound is after
+          the upper one).
+
+        Malformed query parameters (unknown sort field or area, a non-numeric bound, out-of-range
+        page/pageSize) respond with `400` before the user lookup and the role gate.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: area
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ActivityArea' }
+          description: Equality filter on the row's area.
+        - name: createdAt[gte]
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+          description: Lower bound (inclusive) on the event moment, epoch milliseconds.
+        - name: createdAt[lte]
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+          description: Upper bound (inclusive) on the event moment, epoch milliseconds.
+      responses:
+        '200':
+          description: A page of the user's activity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is neither the user nor HR
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/users/{id}/career-positions:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -6399,7 +6477,8 @@ components:
         Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
         comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
         sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-        always appended as a deterministic tiebreaker.
+        always appended as a deterministic tiebreaker — except where an operation documents a
+        composite tiebreak instead (registered gap, API-LIST-003; the activity log).
     IncludeIndirect:
       name: includeIndirect
       in: query
@@ -10430,6 +10509,96 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ShareResponse'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
+
+    ActivityArea:
+      type: string
+      enum:
+        - FEEDBACK
+        - ONE_ON_ONE
+        - GOAL
+        - TEAM_KPI
+        - PERFORMANCE_REVIEW
+        - IMPACT_LOG_ENTRY
+        - SUCCESSION_PLAN
+        - DAYS_OFF
+        - CAREER_POSITION
+        - ACCOUNT
+      description: >-
+        The areas an activity row can belong to (v4.9.0). The first seven name a document kind
+        (equal to `ShareableResourceType`, so the row's `link` is that kind's view path);
+        `DAYS_OFF`, `CAREER_POSITION` and `ACCOUNT` (sign-ins) are declared up front — the enum
+        is append-only — and produce no rows until their trails exist.
+
+    ActivityEntry:
+      type: object
+      required: [id, createdAt, area, eventType, params, documentId, link, details]
+      properties:
+        id:
+          type: string
+          description: |
+            Synthetic, unique, stable: `<AREA>:<SOURCE>:<eventId>` — SOURCE is `EVENT` for a row
+            of a document's event trail. A union row has no scalar id; the log is ordered by this
+            id's components (`createdAt` descending, then `area`, `source` ascending and the event
+            id descending), a total order.
+        createdAt:
+          type: integer
+          format: int64
+          description: Epoch milliseconds of the event. Server-managed.
+        area: { $ref: '#/components/schemas/ActivityArea' }
+        eventType:
+          type: string
+          description: >-
+            The event's type name, as in the document's own history (`CREATED`, `PROGRESS_UPDATED`, …)
+            — an open set the client localizes by `area` + `eventType`.
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: >-
+            The event's content-free parameter map (positions, dates, numbers, enum names, party
+            names where that area's history carries them) — never document text, comments or
+            rating values.
+        documentId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The document the event belongs to; null for the person-scoped areas.
+        link:
+          type: string
+          nullable: true
+          description: >-
+            In-app path of the document's view screen, derived from `area` and `documentId`. Null
+            when the viewer cannot currently read the document in their own right (the user's own
+            log) — and always null for the person-scoped areas. The HR auditor always receives it,
+            even for a deleted document (opening it then answers `404`).
+        details:
+          type: object
+          nullable: true
+          additionalProperties: { type: string }
+          description: |
+            Content-free facts about the document for the client to localize, read at request time
+            from plaintext title/party columns (never decrypted content, never a status) — the
+            document's CURRENT labels, and therefore null under the same condition as `link`. Keys
+            per `area`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
+            GOAL `{title,subordinate}`; TEAM_KPI `{title,team,type}`;
+            PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
+            IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`; SUCCESSION_PLAN `{person,owner}`.
+
+    ActivityPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityEntry'
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1, maximum: 100 }
         total:

@@ -30,6 +30,7 @@ ktor:
       # — features
       - ch.nokillswit.users.UserRoutesKt.configureUserRoutes
       - ch.nokillswit.users.CareerPositionRoutesKt.configureCareerPositionRoutes
+      - ch.nokillswit.activity.ActivityRoutesKt.configureActivityRoutes
       - ch.nokillswit.teams.TeamRoutesKt.configureTeamRoutes
       - ch.nokillswit.feedbacks.FeedbackRoutesKt.configureFeedbackRoutes
       - ch.nokillswit.oneonones.OneOnOneRoutesKt.configureOneOnOneRoutes
