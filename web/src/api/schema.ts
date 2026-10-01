@@ -2582,8 +2582,12 @@ export interface paths {
          *     **subordinate** only once **PUBLISHED** (a review in DRAFT or CALIBRATION is invisible
          *     to them — `403`); and by a **manager in the subordinate's transitive management chain**
          *     (over non-deleted teams) once it has left DRAFT (CALIBRATION/PUBLISHED — calibration is
-         *     exactly the phase upper managers join to compare ratings). Anything else — ADMIN
-         *     included — is `403`.
+         *     exactly the phase upper managers join to compare ratings), plus a person the review was
+         *     **shared with** (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could
+         *     still open it themselves without the HR role (so a subordinate's share lapses if the review
+         *     is un-published, a chain manager's if it returns to DRAFT); `sharedBy` then names the
+         *     sharer, and when every sharer has lost the right the answer is `403` "The person who
+         *     shared this no longer has access to it". Anything else — ADMIN included — is `403`.
          */
         get: operations["getPerformanceReview"];
         /**
@@ -2737,7 +2741,7 @@ export interface paths {
          *     and never rating values, since all ten assessment fields are encrypted at rest while
          *     this trail is plaintext), with the acting user resolved to `userName`; no rendered
          *     string is stored (clients localize the description). Authorization matches the
-         *     single-GET above:
+         *     single-GET above (including an active share, v4.8.0):
          *     whoever may read the review may read its history. Events are server-generated; there is
          *     no create/update/delete endpoint.
          */
@@ -6205,6 +6209,10 @@ export interface components {
             managerName: string;
             /** @description Display name of the reviewed subordinate. Server-resolved, read-only. */
             subordinateName: string;
+            /** @description Document sharing (v4.8.0): true when the caller can read this review in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this review through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         PerformanceReviewListItem: {
             /** Format: int32 */

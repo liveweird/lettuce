@@ -52,6 +52,7 @@ import ch.nokillswit.reviews.PerformanceReviewEventService
 import ch.nokillswit.reviews.PerformanceReviewEventServiceKey
 import ch.nokillswit.reviews.PerformanceReviewService
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
+import ch.nokillswit.reviews.PerformanceReviewShareable
 import ch.nokillswit.reviews.ReviewPeriodService
 import ch.nokillswit.reviews.ReviewPeriodServiceKey
 import ch.nokillswit.settings.AppSettingsService
@@ -249,7 +250,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(TeamKpiServiceKey, TeamKpiService(database, attributes[FieldCipherKey]))
     attributes.put(TeamKpiEventServiceKey, TeamKpiEventService(database))
     attributes.put(ReviewPeriodServiceKey, ReviewPeriodService(database))
-    attributes.put(PerformanceReviewServiceKey, PerformanceReviewService(database, attributes[FieldCipherKey]))
+    val performanceReviewService = PerformanceReviewService(database, attributes[FieldCipherKey])
+    attributes.put(PerformanceReviewServiceKey, performanceReviewService)
     attributes.put(PerformanceReviewEventServiceKey, PerformanceReviewEventService(database))
     attributes.put(PublicHolidayServiceKey, PublicHolidayService(database))
     attributes.put(DaysOffServiceKey, DaysOffService(database, attributes[FieldCipherKey]))
@@ -319,6 +321,7 @@ suspend fun Application.configureDatabase() {
             register(FeedbackShareable(feedbackService))
             register(GoalShareable(goalService))
             register(OneOnOneShareable(oneOnOneService))
+            register(PerformanceReviewShareable(performanceReviewService))
         },
     )
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))

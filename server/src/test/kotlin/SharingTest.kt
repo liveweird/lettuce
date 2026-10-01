@@ -31,6 +31,12 @@ import ch.nokillswit.oneonones.OneOnOneItemInput
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.oneonones.OneOnOneUpdateRequest
 import ch.nokillswit.plugins.ProblemDetail
+import ch.nokillswit.reviews.CategoryAssessment
+import ch.nokillswit.reviews.PerformanceReviewCreateRequest
+import ch.nokillswit.reviews.PerformanceReviewEventListResponse
+import ch.nokillswit.reviews.PerformanceReviewResponse
+import ch.nokillswit.reviews.PerformanceReviewStatus
+import ch.nokillswit.reviews.PerformanceReviewUpdateRequest
 import ch.nokillswit.sharing.ShareAccess
 import ch.nokillswit.sharing.ShareCreateOutcome
 import ch.nokillswit.sharing.SharePageResponse
@@ -1125,6 +1131,330 @@ class SharingTest {
         assertEquals("2026-07-09", w.manager.client.meeting(w.meeting.id).body<OneOnOneResponse>().meetingDate)
         val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
         assertEquals("2026-07-01", row.details?.get("meetingDate"))
+    }
+
+    // ── Performance reviews ──────────────────────────────────────────────────────────────────
+
+    private class ReviewWorld(
+        val manager: Person,
+        val subordinate: Person,
+        val grand: Person,
+        val leadsTeamId: UInt,
+        val review: PerformanceReviewResponse,
+    )
+
+    private suspend fun HttpClient.shareReview(reviewId: UInt, shareeId: UInt): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.PERFORMANCE_REVIEW, reviewId, shareeId, null))
+        }
+
+    private suspend fun HttpClient.shareReviewId(reviewId: UInt, shareeId: UInt): UInt {
+        val response = shareReview(reviewId, shareeId)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    private suspend fun HttpClient.review(id: UInt) = get("/api/v1/performance-reviews/$id")
+
+    private suspend fun HttpClient.reviewAction(id: UInt, action: String) =
+        post("/api/v1/performance-reviews/$id/$action")
+
+    /**
+     * M manages S, G manages M; M writes a complete review of S for a fresh period and moves it to
+     * [stage] (DRAFT → CALIBRATION via submit → PUBLISHED via publish).
+     */
+    private suspend fun ApplicationTestBuilder.reviewWorld(
+        stage: PerformanceReviewStatus = PerformanceReviewStatus.PUBLISHED,
+        managerRoles: Set<UserRole> = emptySet(),
+        subordinateRoles: Set<UserRole> = emptySet(),
+    ): ReviewWorld {
+        val manager = person("manager", roles = managerRoles)
+        val subordinate = person("subordinate", roles = subordinateRoles)
+        val grand = person("grand-manager")
+        TestServices.teams.create(Team("Squad-${manager.id}", manager.id, listOf(subordinate.id)))
+        val leads = TestServices.teams.create(Team("Leads-${grand.id}", grand.id, listOf(manager.id)))
+        val period = TestReviewPeriods.append()
+        val created = manager.client.post("/api/v1/performance-reviews") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                PerformanceReviewCreateRequest(
+                    subordinateId = subordinate.id,
+                    periodId = period.id,
+                    attitude = CategoryAssessment(3, "attitude secret summary"),
+                    delivery = CategoryAssessment(4, "delivery secret summary"),
+                    skills = CategoryAssessment(5, "skills secret summary"),
+                    aptitude = CategoryAssessment(5, "aptitude secret summary"),
+                    overall = CategoryAssessment(4, "overall secret summary"),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, created.status)
+        val review = created.body<PerformanceReviewResponse>()
+        assertTrue(review.canShare, "the authoring manager reads their own review")
+        if (stage != PerformanceReviewStatus.DRAFT) {
+            assertEquals(HttpStatusCode.NoContent, manager.client.reviewAction(review.id, "submit").status)
+        }
+        if (stage == PerformanceReviewStatus.PUBLISHED) {
+            assertEquals(HttpStatusCode.NoContent, manager.client.reviewAction(review.id, "publish").status)
+        }
+        return ReviewWorld(manager, subordinate, grand, leads, review)
+    }
+
+    @Test
+    fun `reviews - a sharee reads the review with ratings and summaries exactly as the sharer sees them, and its events`() =
+        runBlockingApp {
+            val w = reviewWorld()
+            val sharee = person("sharee")
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.review(w.review.id).status)
+
+            w.manager.client.shareReviewId(w.review.id, sharee.id)
+            val own = w.manager.client.review(w.review.id).body<PerformanceReviewResponse>()
+            val shared = sharee.client.review(w.review.id).body<PerformanceReviewResponse>()
+            assertEquals(own.attitude, shared.attitude)
+            assertEquals(own.overall, shared.overall)
+            assertEquals("skills secret summary", shared.skills.summary)
+            assertEquals(5, shared.skills.rating)
+            assertEquals(w.manager.name, shared.sharedBy)
+            assertFalse(shared.canShare)
+            val events = sharee.client.get("/api/v1/performance-reviews/${w.review.id}/events")
+            assertEquals(HttpStatusCode.OK, events.status)
+            assertTrue(events.body<PerformanceReviewEventListResponse>().items.isNotEmpty())
+
+            for (party in listOf(w.manager, w.subordinate, w.grand)) {
+                val read = party.client.review(w.review.id).body<PerformanceReviewResponse>()
+                assertTrue(read.canShare, "${party.name} reads in their own right")
+                assertNull(read.sharedBy)
+            }
+            val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+            // The snapshot is the subordinate and the period bounds ONLY — never a rating or summary.
+            assertEquals(
+                mapOf(
+                    "subordinate" to w.subordinate.name,
+                    "startMonth" to w.review.periodStartMonth,
+                    "endMonth" to w.review.periodEndMonth,
+                ),
+                row.details,
+            )
+            assertEquals("/performance-reviews/${w.review.id}/view", row.link)
+        }
+
+    @Test
+    fun `reviews - a sharee can write nothing`() = runBlockingApp {
+        val w = reviewWorld(stage = PerformanceReviewStatus.CALIBRATION)
+        val viaManager = person("sharee-m")
+        val viaGrand = person("sharee-g")
+        w.manager.client.shareReviewId(w.review.id, viaManager.id)
+        w.grand.client.shareReviewId(w.review.id, viaGrand.id)
+        for (sharee in listOf(viaManager, viaGrand)) {
+            val put = sharee.client.put("/api/v1/performance-reviews/${w.review.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    PerformanceReviewUpdateRequest(
+                        attitude = CategoryAssessment(1, "tampered"),
+                        delivery = CategoryAssessment(4, "delivery secret summary"),
+                        skills = CategoryAssessment(5, "skills secret summary"),
+                        aptitude = CategoryAssessment(5, "aptitude secret summary"),
+                        overall = CategoryAssessment(4, "overall secret summary"),
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.Forbidden, put.status)
+            for (action in listOf("submit", "revert", "publish", "unpublish")) {
+                assertEquals(HttpStatusCode.Forbidden, sharee.client.reviewAction(w.review.id, action).status, action)
+            }
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.delete("/api/v1/performance-reviews/${w.review.id}").status)
+        }
+        val after = w.manager.client.review(w.review.id).body<PerformanceReviewResponse>()
+        assertEquals(CategoryAssessment(3, "attitude secret summary"), after.attitude)
+        assertEquals(PerformanceReviewStatus.CALIBRATION, after.status)
+    }
+
+    @Test
+    fun `reviews - no re-sharing, no HR-auditor sharing, an HR party can share`() = runBlockingApp {
+        val w = reviewWorld(managerRoles = setOf(UserRole.HR))
+        val sharee = person("sharee")
+        val third = person("third")
+        val auditor = person("auditor", roles = setOf(UserRole.HR))
+        assertTrue(w.manager.client.review(w.review.id).body<PerformanceReviewResponse>().canShare)
+        w.manager.client.shareReviewId(w.review.id, sharee.id)
+
+        val reshare = sharee.client.shareReview(w.review.id, third.id)
+        assertEquals(HttpStatusCode.Forbidden, reshare.status)
+        assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+
+        val audit = auditor.client.review(w.review.id)
+        assertEquals(HttpStatusCode.OK, audit.status)
+        assertFalse(audit.body<PerformanceReviewResponse>().canShare)
+        assertEquals(HttpStatusCode.Forbidden, auditor.client.shareReview(w.review.id, third.id).status)
+        assertEquals(HttpStatusCode.Created, w.manager.client.shareReview(w.review.id, auditor.id).status)
+    }
+
+    @Test
+    fun `reviews - the subordinate shares only a PUBLISHED review, and the share lapses if it is un-published`() =
+        runBlockingApp {
+            val w = reviewWorld(stage = PerformanceReviewStatus.CALIBRATION)
+            val viaSubordinate = person("sharee-s")
+            val viaManager = person("sharee-m")
+            val stranger = person("someone")
+            // DRAFT/CALIBRATION is invisible to the subordinate — so they cannot share it either.
+            assertEquals(HttpStatusCode.Forbidden, w.subordinate.client.review(w.review.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.subordinate.client.shareReview(w.review.id, stranger.id).status)
+
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "publish").status)
+            assertTrue(w.subordinate.client.review(w.review.id).body<PerformanceReviewResponse>().canShare)
+            w.subordinate.client.shareReviewId(w.review.id, viaSubordinate.id)
+            w.manager.client.shareReviewId(w.review.id, viaManager.id)
+            assertEquals(HttpStatusCode.OK, viaSubordinate.client.review(w.review.id).status)
+
+            // Un-published (PUBLISHED is not terminal): the subordinate loses sight, so their share lapses;
+            // the manager's keeps working.
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "unpublish").status)
+            val lapsed = viaSubordinate.client.review(w.review.id)
+            assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+            assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+            assertEquals(HttpStatusCode.Forbidden, viaSubordinate.client.get("/api/v1/performance-reviews/${w.review.id}/events").status)
+            assertEquals(HttpStatusCode.OK, viaManager.client.review(w.review.id).status)
+
+            // Published again: the subordinate's share (never withdrawn) works again.
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "publish").status)
+            assertEquals(HttpStatusCode.OK, viaSubordinate.client.review(w.review.id).status)
+        }
+
+    @Test
+    fun `reviews - an HR subordinate reads a CALIBRATION review only as an auditor and cannot share it until it is published`() =
+        runBlockingApp {
+            val w = reviewWorld(stage = PerformanceReviewStatus.CALIBRATION, subordinateRoles = setOf(UserRole.HR))
+            val sharee = person("sharee")
+            val audit = LogCapture("ch.nokillswit.audit")
+            try {
+                // The subordinate's own right needs PUBLISHED; the HR role still reads (audited) — but
+                // that auditor read is not an own-right read, so no share.
+                val read = w.subordinate.client.review(w.review.id)
+                assertEquals(HttpStatusCode.OK, read.status)
+                assertFalse(read.body<PerformanceReviewResponse>().canShare)
+                assertNotNull(
+                    audit.events.find {
+                        it.message == "hr.read" && it.keyValuePairs.any { kv -> kv.value == w.subordinate.id.toLong() }
+                    },
+                    "the auditor read is logged",
+                )
+                val denied = w.subordinate.client.shareReview(w.review.id, sharee.id)
+                assertEquals(HttpStatusCode.Forbidden, denied.status)
+                assertEquals("Only someone who can read this document in their own right may share it", denied.detail())
+
+                assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "publish").status)
+                assertTrue(w.subordinate.client.review(w.review.id).body<PerformanceReviewResponse>().canShare)
+                assertEquals(HttpStatusCode.Created, w.subordinate.client.shareReview(w.review.id, sharee.id).status)
+            } finally {
+                audit.detach()
+            }
+        }
+
+    @Test
+    fun `reviews - a chain manager cannot share a DRAFT, and their CALIBRATION share lapses when it returns to DRAFT`() =
+        runBlockingApp {
+            val w = reviewWorld(stage = PerformanceReviewStatus.DRAFT)
+            val sharee = person("sharee")
+            assertEquals(HttpStatusCode.Forbidden, w.grand.client.review(w.review.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.grand.client.shareReview(w.review.id, sharee.id).status)
+            // The reviewed subordinate cannot read — so cannot share — a DRAFT either.
+            assertEquals(HttpStatusCode.Forbidden, w.subordinate.client.review(w.review.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.subordinate.client.shareReview(w.review.id, sharee.id).status)
+
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "submit").status)
+            assertTrue(w.grand.client.review(w.review.id).body<PerformanceReviewResponse>().canShare)
+            w.grand.client.shareReviewId(w.review.id, sharee.id)
+            assertEquals(HttpStatusCode.OK, sharee.client.review(w.review.id).status)
+
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "revert").status)
+            val lapsed = sharee.client.review(w.review.id)
+            assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+            assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+            // The chain-manager lapse also holds when the sharer leaves the chain entirely.
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "submit").status)
+            assertEquals(HttpStatusCode.OK, sharee.client.review(w.review.id).status)
+            TestServices.teams.removeMember(w.leadsTeamId, w.manager.id)
+            val leftChain = sharee.client.review(w.review.id)
+            assertEquals(HttpStatusCode.Forbidden, leftChain.status)
+            assertEquals("The person who shared this no longer has access to it", leftChain.detail())
+        }
+
+    @Test
+    fun `reviews - accepted consequence - an own-right reader may share a pre-publication review with the subordinate`() =
+        runBlockingApp {
+            // (a) The manager shares a DRAFT with the reviewed subordinate, who cannot read it in their own right.
+            val draft = reviewWorld(stage = PerformanceReviewStatus.DRAFT)
+            assertEquals(HttpStatusCode.Forbidden, draft.subordinate.client.review(draft.review.id).status)
+            draft.manager.client.shareReviewId(draft.review.id, draft.subordinate.id)
+            val seen = draft.subordinate.client.review(draft.review.id)
+            assertEquals(HttpStatusCode.OK, seen.status)
+            val body = seen.body<PerformanceReviewResponse>()
+            assertEquals(PerformanceReviewStatus.DRAFT, body.status)
+            assertEquals(CategoryAssessment(3, "attitude secret summary"), body.attitude)
+            assertEquals(draft.manager.name, body.sharedBy)
+            assertFalse(body.canShare, "their only way in is the share")
+
+            // (b) A chain manager shares a CALIBRATION review with the subordinate; the author withdraws it.
+            val calibration = reviewWorld(stage = PerformanceReviewStatus.CALIBRATION)
+            val shareId = calibration.grand.client.shareReviewId(calibration.review.id, calibration.subordinate.id)
+            assertEquals(HttpStatusCode.OK, calibration.subordinate.client.review(calibration.review.id).status)
+            assertEquals(HttpStatusCode.NoContent, calibration.manager.client.post("/api/v1/shares/$shareId/withdraw").status)
+            assertEquals(HttpStatusCode.Forbidden, calibration.subordinate.client.review(calibration.review.id).status)
+        }
+
+    @Test
+    fun `reviews - the manager is the author - withdraws a subordinate's share, notifications and links`() =
+        runBlockingApp {
+            val w = reviewWorld()
+            val sharee = person("sharee")
+            val id = w.subordinate.client.shareReviewId(w.review.id, sharee.id)
+
+            val shared = sharee.client.notifications().single { it.type == NotificationType.PERFORMANCE_REVIEW_SHARED }
+            assertEquals(mapOf("sharer" to w.subordinate.name), shared.params)
+            assertEquals("/performance-reviews/${w.review.id}/view", shared.link)
+
+            val all = w.manager.client.get("/api/v1/shares") {
+                parameter("view", "document")
+                parameter("resourceType", "PERFORMANCE_REVIEW")
+                parameter("resourceId", w.review.id.toString())
+            }.body<SharePageResponse>()
+            assertEquals(listOf(id), all.items.map { it.id })
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/shares/$id/withdraw").status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.review(w.review.id).status)
+
+            val toSharee =
+                sharee.client.notifications().single { it.type == NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN }
+            assertEquals(
+                mapOf("sharer" to w.subordinate.name, "sharee" to sharee.name, "actor" to w.manager.name),
+                toSharee.params,
+            )
+            assertNull(toSharee.link)
+            val toSharer = w.subordinate.client.notifications()
+                .single { it.type == NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN }
+            assertEquals("sharer", toSharer.params["self"])
+            assertEquals("/shares?tab=byMe", toSharer.link)
+        }
+
+    @Test
+    fun `reviews - the label snapshot is unaffected by later assessment edits`() = runBlockingApp {
+        val w = reviewWorld(stage = PerformanceReviewStatus.DRAFT)
+        val sharee = person("sharee")
+        w.manager.client.shareReviewId(w.review.id, sharee.id)
+        val before = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details
+        val edit = w.manager.client.put("/api/v1/performance-reviews/${w.review.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(PerformanceReviewUpdateRequest(attitude = CategoryAssessment(6, "rewritten afterwards")))
+        }
+        assertEquals(HttpStatusCode.NoContent, edit.status)
+        val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+        assertEquals(before, row.details)
+        assertEquals(setOf("subordinate", "startMonth", "endMonth"), row.details?.keys)
+        // …and the sharee reads the CURRENT document (a share is a live read of the document).
+        assertEquals(
+            "rewritten afterwards",
+            sharee.client.review(w.review.id).body<PerformanceReviewResponse>().attitude.summary,
+        )
     }
 
     /** `testApplication` with the container started; the body is the test. */
