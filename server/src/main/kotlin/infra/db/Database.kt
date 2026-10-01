@@ -14,6 +14,7 @@ import ch.nokillswit.feedbacks.FeedbackEventService
 import ch.nokillswit.feedbacks.FeedbackEventServiceKey
 import ch.nokillswit.feedbacks.FeedbackService
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.feedbacks.FeedbackShareable
 import ch.nokillswit.goals.GoalEventService
 import ch.nokillswit.goals.GoalEventServiceKey
 import ch.nokillswit.goals.GoalService
@@ -233,7 +234,8 @@ suspend fun Application.configureDatabase() {
     val sweepIntervalMillis = requireConfigLong(
         environment.config, "feedbacks.expirySweepIntervalSeconds", min = 0, max = MAX_SWEEP_INTERVAL_SECONDS,
     ) * 1000
-    attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey], sweepIntervalMillis))
+    val feedbackService = FeedbackService(database, attributes[FieldCipherKey], sweepIntervalMillis)
+    attributes.put(FeedbackServiceKey, feedbackService)
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
     attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))
@@ -302,12 +304,17 @@ suspend fun Application.configureDatabase() {
             notificationPurgeIntervalMillis,
         ),
     )
-    // Document sharing (v4.8.0, V86). The registry starts empty: each shareable feature's adapter
-    // is registered here, next to the services it wraps, as it lands — a type with no adapter is
-    // simply not shareable (the routes answer 404).
+    // Document sharing (v4.8.0, V86). Each shareable feature's adapter is registered here, next to
+    // the services it wraps, as it lands — a type with no adapter is simply not shareable (the
+    // routes answer 404).
     val shareService = ShareService(database)
     attributes.put(ShareServiceKey, shareService)
-    attributes.put(ShareRegistryKey, ShareRegistry())
+    attributes.put(
+        ShareRegistryKey,
+        ShareRegistry().apply {
+            register(FeedbackShareable(feedbackService))
+        },
+    )
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))

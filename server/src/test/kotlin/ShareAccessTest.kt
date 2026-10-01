@@ -59,8 +59,12 @@ class ShareAccessTest {
     @Test
     fun `a caller who passes the guard reads in their own right and the shares are never consulted`(): Unit = runBlocking {
         val caller = user("owner")
-        val guard = RecordingGuard(allowed = setOf(caller))
-        val via = access.readOrShared(principal(caller), type, doc, guard::check)
+        val sharer = user("sharer")
+        // A share the caller holds exists AND its sharer would pass — so the guard's call log
+        // (only the caller) is what proves the shares were never consulted.
+        share(sharer, caller, doc)
+        val guard = RecordingGuard(allowed = setOf(caller, sharer))
+        val via = access.readOrShared(principal(caller), type, doc, guard = guard::check)
         assertIs<ReadVia.Own<String>>(via)
         assertEquals("grant-$caller", via.grant)
         assertEquals(listOf(caller), guard.seenUsers)
@@ -83,7 +87,7 @@ class ShareAccessTest {
         share(sharer, sharee, doc)
         val guard = RecordingGuard(allowed = setOf(sharer))
 
-        val via = access.readOrShared(principal(sharee), type, doc, guard::check)
+        val via = access.readOrShared(principal(sharee), type, doc, guard = guard::check)
         assertIs<ReadVia.Shared<String>>(via)
         assertEquals(sharer, via.sharerId)
         assertEquals("sharer", via.sharerName)
@@ -101,10 +105,10 @@ class ShareAccessTest {
         val other = user("other")
         share(sharer, sharee, doc)
         val guard = RecordingGuard(allowed = setOf(sharer))
-        assertFailsWith<ForbiddenException> { access.readOrShared(principal(sharee), type, otherDoc, guard::check) }
-        assertFailsWith<ForbiddenException> { access.readOrShared(principal(other), type, doc, guard::check) }
+        assertFailsWith<ForbiddenException> { access.readOrShared(principal(sharee), type, otherDoc, guard = guard::check) }
+        assertFailsWith<ForbiddenException> { access.readOrShared(principal(other), type, doc, guard = guard::check) }
         assertFailsWith<ForbiddenException> {
-            access.readOrShared(principal(sharee), ShareableResourceType.FEEDBACK, doc, guard::check)
+            access.readOrShared(principal(sharee), ShareableResourceType.FEEDBACK, doc, guard = guard::check)
         }
     }
 
@@ -114,7 +118,7 @@ class ShareAccessTest {
         val sharee = user("sharee")
         share(sharer, sharee, doc)
         val guard = RecordingGuard(allowed = emptySet())
-        val thrown = assertFailsWith<ForbiddenException> { access.readOrShared(principal(sharee), type, doc, guard::check) }
+        val thrown = assertFailsWith<ForbiddenException> { access.readOrShared(principal(sharee), type, doc, guard = guard::check) }
         assertEquals("The person who shared this no longer has access to it", thrown.message)
     }
 
@@ -127,7 +131,7 @@ class ShareAccessTest {
         shares.withdraw(id, sharer)
         // An expired share (the store does not validate dates — the route does) is equally inert.
         shares.create(type, doc, sharer, sharee, "2000-01-01")
-        val thrown = assertFailsWith<ForbiddenException> { access.readOrShared(principal(sharee), type, doc, guard::check) }
+        val thrown = assertFailsWith<ForbiddenException> { access.readOrShared(principal(sharee), type, doc, guard = guard::check) }
         assertEquals("denied for $sharee", thrown.message)
     }
 
@@ -144,7 +148,7 @@ class ShareAccessTest {
         TestServices.users.setDisabledFeatures(flagOff, setOf(Feature.GOALS))
         val guard = RecordingGuard(allowed = setOf(deactivated, flagOff, good))
 
-        val via = access.readOrShared(principal(sharee), type, doc, guard::check)
+        val via = access.readOrShared(principal(sharee), type, doc, guard = guard::check)
         assertIs<ReadVia.Shared<String>>(via)
         assertEquals(good, via.sharerId)
         // Neither skipped sharer ever reached the guard.
@@ -190,5 +194,70 @@ class ShareAccessTest {
         assertFalse(access.holdsOwnRight(principal(owner, disabled = setOf(Feature.GOALS)), type, guard))
         // Other exceptions propagate.
         assertFailsWith<IllegalStateException> { access.holdsOwnRight(principal(owner), type) { error("boom") } }
+    }
+
+    @Test
+    fun `a share upgrades a weaker own read, but only to a sufficient one`(): Unit = runBlocking {
+        val sharer = user("sharer")
+        val sharee = user("sharee")
+        val loner = user("loner")
+        share(sharer, sharee, doc)
+        // The sharee passes the guard with a WEAK grant, the sharer with a FULL one.
+        val guard: suspend (CallerPrincipal) -> String = { p ->
+            if (p.userId == sharer) "full" else if (p.userId == sharee || p.userId == loner) "weak" else error("unexpected")
+        }
+        val sufficient: (CallerPrincipal, String) -> Boolean = { _, grant -> grant == "full" }
+
+        val upgraded = access.readOrShared(principal(sharee), type, doc, sufficient, guard)
+        assertIs<ReadVia.Shared<String>>(upgraded)
+        assertEquals("full", upgraded.grant)
+        assertEquals(sharer, upgraded.sharerId)
+
+        // No share to upgrade with: the weak own read stands, it is not an error.
+        val own = access.readOrShared(principal(loner), type, doc, sufficient, guard)
+        assertIs<ReadVia.Own<String>>(own)
+        assertEquals("weak", own.grant)
+
+        // A share whose sharer is no better off does not replace the own read either.
+        val equallyWeak = access.readOrShared(principal(sharee), type, doc, { _, _ -> false }, guard)
+        assertIs<ReadVia.Own<String>>(equallyWeak)
+        assertEquals("weak", equallyWeak.grant)
+    }
+
+    @Test
+    fun `a denied caller prefers a sufficient sharer over an earlier insufficient one`(): Unit = runBlocking {
+        val weak = user("weak-sharer")
+        val full = user("full-sharer")
+        val sharee = user("sharee")
+        share(weak, sharee, doc)
+        share(full, sharee, doc)
+        val guard: suspend (CallerPrincipal) -> String = { p ->
+            when (p.userId) {
+                weak -> "weak"
+                full -> "full"
+                else -> throw ForbiddenException("denied")
+            }
+        }
+        val via = access.readOrShared(principal(sharee), type, doc, { _, grant -> grant == "full" }, guard)
+        assertIs<ReadVia.Shared<String>>(via)
+        assertEquals(full, via.sharerId)
+        // Without a sufficiency requirement the oldest passing share simply wins.
+        val first = access.readOrShared(principal(sharee), type, doc, guard = guard)
+        assertIs<ReadVia.Shared<String>>(first)
+        assertEquals(weak, first.sharerId)
+    }
+
+    @Test
+    fun `an insufficient own read whose shares have all lapsed stays the own read, not the lapse 403`(): Unit = runBlocking {
+        val sharer = user("sharer")
+        val sharee = user("sharee")
+        share(sharer, sharee, doc)
+        // The sharee reads (weakly); the sharer no longer passes the guard at all.
+        val guard: suspend (CallerPrincipal) -> String = { p ->
+            if (p.userId == sharee) "weak" else throw ForbiddenException("sharer lost the right")
+        }
+        val via = access.readOrShared(principal(sharee), type, doc, { _, grant -> grant == "full" }, guard)
+        assertIs<ReadVia.Own<String>>(via)
+        assertEquals("weak", via.grant)
     }
 }

@@ -179,6 +179,14 @@ data class FeedbackResponse(
     val providerName: String? = null,
     // Every recipient in position order; subjects[0] is subjectId/subjectName (v3.1.0).
     val subjects: List<FeedbackSubject> = emptyList(),
+    // Document sharing (v4.8.0): true when the caller can read this feedback in their OWN right,
+    // independently of any share (an upgraded read may carry `sharedBy` too; the HR role alone does
+    // not count) — the share button's gate, never `sharedBy`. Detail-only (this class answers just
+    // the create and single-GET responses).
+    val canShare: Boolean = false,
+    // The sharer's display name when the caller is reading through a share (the "Shared with you
+    // by …" banner); null otherwise.
+    val sharedBy: String? = null,
 )
 
 fun Feedback.toResponse(
@@ -186,6 +194,8 @@ fun Feedback.toResponse(
     names: Map<UInt, String> = emptyMap(),
     includeContent: Boolean = true,
     subjects: List<FeedbackSubject>? = null,
+    canShare: Boolean = false,
+    sharedBy: String? = null,
 ) =
     FeedbackResponse(
         id, requesterId, subjectId, providerId, visibility, status,
@@ -197,6 +207,8 @@ fun Feedback.toResponse(
         subjectName = names[subjectId],
         providerName = names[providerId],
         subjects = subjects ?: subjectIds.map { FeedbackSubject(it, names[it] ?: "#$it") },
+        canShare = canShare,
+        sharedBy = sharedBy,
     )
 
 @Serializable

@@ -6,12 +6,12 @@ import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.sharing.ShareCreateOutcome
+import ch.nokillswit.sharing.SharePageResponse
 import ch.nokillswit.sharing.ShareRegistryKey
 import ch.nokillswit.sharing.ShareRequest
-import ch.nokillswit.sharing.ShareServiceKey
-import ch.nokillswit.sharing.SharePageResponse
 import ch.nokillswit.sharing.ShareResponse
 import ch.nokillswit.sharing.ShareService
+import ch.nokillswit.sharing.ShareServiceKey
 import ch.nokillswit.sharing.ShareStatus
 import ch.nokillswit.sharing.ShareableResource
 import ch.nokillswit.sharing.ShareableResourceType

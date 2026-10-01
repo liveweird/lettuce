@@ -44,9 +44,14 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   explicit review action `POST …/{id}/complete-review`** (v2.44.0 — owner-only, OPEN-only 409,
   repeatable; the v2.42.0 editing-is-reviewing model is REVERSED by the user: plan/nomination
   mutations and closing never touch the stamp; the V68 SQL comment saying otherwise is
-  historical — Flyway checksums freeze it). **NO notifications of any kind** (deliberate:
-  confidential, pull-not-push; the SPA's invalidation skips the bell — history events are
-  silent too).
+  historical — Flyway checksums freeze it). **No notifications, with ONE exception: document
+  sharing (v4.8.0)** — sharing a plan mints `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN`
+  to the sharee (and the sharer when the owner withdrew it), **content-free by decision**: the
+  params carry the sharer's name only (never the seat, the person, the end date or any plan text —
+  the type name already says "succession plan"; pinned by the params assertions). Everything
+  else stays silent (deliberate: confidential, pull-not-push; the SPA's invalidation skips the
+  bell — history events are silent too, and shares are never written to them). See
+  `.claude/docs/features/sharing.md`.
 - **Bench math (user decision)**: `benchCount` counts ALL active nominations — emergency
   interims included; the under-bench cue compares it against `targetBenchDepth` (orange
   warning while short, teal once met, equality good). List rows get it via one grouped count

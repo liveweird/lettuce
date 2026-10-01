@@ -973,6 +973,11 @@ export interface paths {
          *       subordinate once it is delivered — `status` is `SENT` or `WITHDRAWN`; the provider's
          *       `DRAFT`/`REQUESTED` work stays private to the parties involved.
          *     - otherwise a `PUBLIC` record may be read by any authenticated user once `status` is `SENT`.
+         *     - a person the feedback was **shared with** (`POST /api/v1/shares`, v4.8.0) reads it exactly
+         *       while the sharer could still open it themselves without the HR role; `sharedBy` then
+         *       names the sharer, and the content gate below is evaluated as the sharer. When every
+         *       sharer has lost the right the answer is `403` with the detail "The person who shared
+         *       this no longer has access to it".
          *     Anything else is `403`.
          *
          *     Content redaction: a requester may see that a feedback they requested exists, but while it
@@ -1022,8 +1027,8 @@ export interface paths {
          *     tiebreaker). Each entry is structural: an event
          *     `type` plus a `params` map of enum names, with the acting user resolved to `userName`; no
          *     rendered string is stored (clients localize the description). Authorization matches the
-         *     single-GET above (`canReadFeedback`, with a managing caller allowed): whoever may read the
-         *     feedback may read its history. Events are server-generated; there is no
+         *     single-GET above (`canReadFeedback`, with a managing caller allowed, or an active share —
+         *     v4.8.0): whoever may read the feedback may read its history. Events are server-generated; there is no
          *     create/update/delete endpoint.
          */
         get: operations["listFeedbackEvents"];
@@ -4833,6 +4838,10 @@ export interface components {
             providerName?: string | null;
             /** @description Every recipient in position order (v3.1.0); the first entry is the `subjectId`/`subjectName` pair. Server-resolved, read-only. */
             subjects: components["schemas"]["FeedbackSubject"][];
+            /** @description Document sharing (v4.8.0): true when the caller can read this feedback in their OWN right, independently of any share (an upgraded read may carry `sharedBy` too) — the HR auditor role alone does not count — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this feedback through a share (the "Shared with you by …" banner; the content is then gated as the sharer would see it); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         FeedbackListItem: {
             /** Format: int32 */
