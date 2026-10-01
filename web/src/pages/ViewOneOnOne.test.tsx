@@ -206,3 +206,65 @@ describe("ViewOneOnOne page", () => {
     expect(await screen.findByText("This 1:1 meeting was not found.")).toBeInTheDocument();
   });
 });
+
+describe("ViewOneOnOne sharing (v4.8.0)", () => {
+  function setup(meeting: unknown, status = 200) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+        if (url.includes("/api/v1/one-on-ones/5")) return Promise.resolve(jsonResponse(status, meeting));
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.setItem("lettuce.auth.token", "fake-token");
+    localStorage.setItem("lettuce.auth.roles", "[]");
+    localStorage.setItem("lettuce.auth.userId", "9");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Share button renders only when canShare is true", async () => {
+    setup({ ...MEETING, canShare: true });
+    renderView();
+    expect(await screen.findByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("a sharee sees the banner, no Share button and NO per-action-item history icon (that route 403s sharees)", async () => {
+    // A share read: sibling-revealing fields are null, the document itself is intact.
+    setup({
+      ...MEETING,
+      canShare: false,
+      sharedBy: "Sue Sharer",
+      isLatest: false,
+      minMeetingDate: null,
+      actionItems: MEETING.actionItems.map((i) => ({ ...i, copiedFromId: null, firstAppearedOn: null })),
+    });
+    renderView();
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.getByText("Prepare the demo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /history of action item/i })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Actions" })).toBeNull();
+  });
+
+  test("an own-right reader keeps the history icon", async () => {
+    setup({ ...MEETING, canShare: true });
+    renderView();
+    await screen.findByText("Prepare the demo");
+    expect(screen.getAllByRole("button", { name: /history/i }).length).toBeGreaterThan(0);
+  });
+
+  test("the lapse 403 renders the friendly localized message", async () => {
+    setup({ title: "Forbidden", status: 403, detail: "The person who shared this no longer has access to it" }, 403);
+    renderView();
+    expect(await screen.findByText("The person who shared this document with you can no longer open it, so your access has ended.")).toBeInTheDocument();
+  });
+});

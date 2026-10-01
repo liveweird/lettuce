@@ -20,8 +20,11 @@ import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
+import ShareButton from "../components/ShareButton";
+import SharedByBanner from "../components/SharedByBanner";
 import { goalEditLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
+import { isShareLapse } from "../utils/shareLapse";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { GoalValues, isGoalOverdue, OverdueBadge } from "../utils/goalValues";
@@ -91,7 +94,9 @@ export default function ViewGoal() {
     errorStatus === 404
       ? t("goal.error.notFound")
       : errorStatus === 403
-        ? t("goal.error.viewPermission")
+        ? isShareLapse(error)
+          ? t("sharing.lapsed")
+          : t("goal.error.viewPermission")
         : t("goal.error.loadFailed");
 
   async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: ParseKeys) {
@@ -127,6 +132,7 @@ export default function ViewGoal() {
       <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
         {t("common.action.close")}
       </Button>
+      <ShareButton canShare={data?.canShare} resourceType="GOAL" resourceId={id} />
       {isManager && data && data.status === "DRAFT" && (
         <Button
           component={RouterLink}
@@ -201,6 +207,7 @@ export default function ViewGoal() {
               </Alert>
             ) : data ? (
               <Stack gap="md">
+                <SharedByBanner name={data.sharedBy} />
                 <MetaStrip
                   items={[
                     {

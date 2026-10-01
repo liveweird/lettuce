@@ -13,8 +13,11 @@ import ImpactEntrySections from "../components/ImpactEntrySections";
 import MetaStrip, { type MetaStripItem } from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
+import ShareButton from "../components/ShareButton";
+import SharedByBanner from "../components/SharedByBanner";
 import { formatIsoDateRange } from "../utils/datetime";
 import { impactEntryEditLink } from "../utils/impactLogLinks";
+import { isShareLapse } from "../utils/shareLapse";
 import { safeBackParam } from "../utils/url";
 
 /**
@@ -51,7 +54,9 @@ export default function ViewImpactEntry() {
     errorStatus === 404
       ? t("impactLog.error.notFound")
       : errorStatus === 403
-        ? t("impactLog.error.viewPermission")
+        ? isShareLapse(error)
+          ? t("sharing.lapsed")
+          : t("impactLog.error.viewPermission")
         : t("impactLog.error.loadFailed");
 
   const metaItems: MetaStripItem[] = data
@@ -99,6 +104,7 @@ export default function ViewImpactEntry() {
             <Button component={RouterLink} to={backTo} variant="default">
               {t("common.action.close")}
             </Button>
+            <ShareButton canShare={data?.canShare} resourceType="IMPACT_LOG_ENTRY" resourceId={id} />
             {isOwner && (
               <Button
                 component={RouterLink}
@@ -123,6 +129,7 @@ export default function ViewImpactEntry() {
             </Alert>
           ) : data ? (
             <Stack gap="md">
+              <SharedByBanner name={data.sharedBy} />
               <MetaStrip items={metaItems} />
 
               <Tabs defaultValue="content" keepMounted={false}>

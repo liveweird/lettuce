@@ -366,3 +366,51 @@ describe("ViewGoal page", () => {
     expect(await screen.findByText("You may not view this goal.")).toBeInTheDocument();
   });
 });
+
+describe("ViewGoal sharing (v4.8.0)", () => {
+  function setup(body: unknown, status = 200) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        const u = String(url);
+        if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+        if (u.includes("/api/v1/goals/5")) return Promise.resolve(jsonResponse(status, body));
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(USER_ID_KEY, "9"); // neither party: a plain sharee
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Share button renders only when canShare is true", async () => {
+    setup({ ...GOAL, canShare: true });
+    renderScreen();
+    expect(await screen.findByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("a sharee sees the banner and none of the edit/lifecycle/progress actions, and no Share button", async () => {
+    setup({ ...GOAL, canShare: false, sharedBy: "Sue Sharer" });
+    renderScreen();
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /^edit$/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Update" })).toBeNull();
+    for (const name of ["Return to draft", "Archive goal", "Activate", "Reopen"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+  });
+
+  test("the lapse 403 renders the friendly localized message", async () => {
+    setup({ title: "Forbidden", status: 403, detail: "The person who shared this no longer has access to it" }, 403);
+    renderScreen();
+    expect(await screen.findByText("The person who shared this document with you can no longer open it, so your access has ended.")).toBeInTheDocument();
+  });
+});

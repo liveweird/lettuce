@@ -1,0 +1,47 @@
+{
+  "button": "Share",
+  "dialogTitle": "Share this document",
+  "intro": "People you share this document with can read it, but never change it. A share works only while you can open the document yourself.",
+  "shareWith": "Share with",
+  "pickPeople": "Pick people",
+  "noPeople": "No people available",
+  "removePerson": "Remove {{name}}",
+  "until": "Until",
+  "untilHint": "Optional. Access ends at the end of this day (server time); leave it empty for no end date.",
+  "submit": "Share",
+  "currentShares": "Current shares",
+  "noShares": "Nothing is shared yet.",
+  "untilDate": "Until {{date}}",
+  "noEnd": "No end date",
+  "sharedBy": "Shared by {{name}}",
+  "status": {
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "WITHDRAWN": "Withdrawn"
+  },
+  "withdraw": "Withdraw",
+  "withdrawAria": "Withdraw the share with {{name}}",
+  "withdrawTitle": "Withdraw this share?",
+  "withdrawBody": "{{name}} will no longer be able to open this document through this share. This cannot be undone.",
+  "toast": {
+    "shared": "Document shared",
+    "withdrawn": "Share withdrawn"
+  },
+  "failureItem": "Couldn't share with {{name}}: {{reason}}",
+  "banner": "Shared with you by {{name}}",
+  "lapsed": "The person who shared this document with you can no longer open it, so your access has ended.",
+  "error": {
+    "duplicate": "It is already shared with this person.",
+    "invalid": "The server rejected the request. Check the end date.",
+    "untilPast": "The end date cannot be in the past.",
+    "rateLimited": "You are sharing too fast. Wait a moment and try again.",
+    "forbidden": "You can't share this document.",
+    "notFound": "This document or person no longer exists.",
+    "failed": "Sharing failed. Try again.",
+    "failedStatus": "Sharing failed (HTTP {{status}}).",
+    "loadSharesFailed": "Couldn't load the current shares.",
+    "withdrawForbidden": "You can't withdraw this share.",
+    "withdrawConflict": "This share is already withdrawn.",
+    "withdrawFailed": "Withdrawing the share failed. Try again."
+  }
+}

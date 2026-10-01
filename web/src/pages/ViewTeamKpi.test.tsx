@@ -334,3 +334,56 @@ describe("ViewTeamKpi", () => {
     expect(await screen.findByText("You may not view this team KPI.")).toBeInTheDocument();
   });
 });
+
+describe("ViewTeamKpi sharing (v4.8.0)", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(USER_ID_KEY, "9");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Share button renders only when canShare is true", async () => {
+    mockApi(mockFetch, { ...KPI, canShare: true });
+    renderView();
+    expect(await screen.findByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("a share-only reader (canManage/canRecordValues false) sees the banner, no Share, no edit/lifecycle/record-value controls", async () => {
+    mockApi(mockFetch, {
+      ...KPI,
+      canManage: false,
+      canRecordValues: false,
+      canShare: false,
+      sharedBy: "Sue Sharer",
+    });
+    const user = userEvent.setup();
+    renderView();
+
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+    for (const name of ["Return to draft", "Archive", "Activate", "Reopen"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    // The data tab shows the points but offers no recording.
+    await user.click(screen.getByRole("tab", { name: "KPI data" }));
+    expect(await screen.findByText("Jul 10, 2026")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add value" })).toBeNull();
+  });
+
+  test("the lapse 403 renders the friendly localized message", async () => {
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(403, { title: "Forbidden", status: 403, detail: "The person who shared this no longer has access to it" })),
+    );
+    renderView();
+    expect(await screen.findByText("The person who shared this document with you can no longer open it, so your access has ended.")).toBeInTheDocument();
+  });
+});

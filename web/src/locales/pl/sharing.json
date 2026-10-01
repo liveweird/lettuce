@@ -1,0 +1,47 @@
+{
+  "button": "Udostępnij",
+  "dialogTitle": "Udostępnij ten dokument",
+  "intro": "Osoby, którym udostępnisz ten dokument, mogą go czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć ten dokument.",
+  "shareWith": "Udostępnij osobom",
+  "pickPeople": "Wybierz osoby",
+  "noPeople": "Brak dostępnych osób",
+  "removePerson": "Usuń: {{name}}",
+  "until": "Do dnia",
+  "untilHint": "Opcjonalnie. Dostęp kończy się z końcem tego dnia (czas serwera); zostaw puste, aby nie ustawiać daty końcowej.",
+  "submit": "Udostępnij",
+  "currentShares": "Aktualne udostępnienia",
+  "noShares": "Nic jeszcze nie udostępniono.",
+  "untilDate": "Do {{date}}",
+  "noEnd": "Bez daty końcowej",
+  "sharedBy": "Udostępnił/a: {{name}}",
+  "status": {
+    "ACTIVE": "Aktywne",
+    "EXPIRED": "Wygasło",
+    "WITHDRAWN": "Wycofane"
+  },
+  "withdraw": "Wycofaj",
+  "withdrawAria": "Wycofaj udostępnienie dla: {{name}}",
+  "withdrawTitle": "Wycofać to udostępnienie?",
+  "withdrawBody": "{{name}} nie będzie już mogł/a otworzyć tego dokumentu dzięki temu udostępnieniu. Nie możesz tego cofnąć.",
+  "toast": {
+    "shared": "Dokument udostępniony",
+    "withdrawn": "Udostępnienie wycofane"
+  },
+  "failureItem": "Nie udało się udostępnić osobie {{name}}: {{reason}}",
+  "banner": "{{name}} udostępnił/a Ci ten dokument",
+  "lapsed": "Osoba, która udostępniła Ci ten dokument, nie ma już do niego dostępu, więc Twój dostęp wygasł.",
+  "error": {
+    "duplicate": "Ten dokument jest już udostępniony tej osobie.",
+    "invalid": "Serwer odrzucił żądanie. Sprawdź datę końcową.",
+    "untilPast": "Data końcowa nie może być w przeszłości.",
+    "rateLimited": "Udostępniasz zbyt szybko. Poczekaj chwilę i spróbuj ponownie.",
+    "forbidden": "Nie możesz udostępnić tego dokumentu.",
+    "notFound": "Ten dokument lub ta osoba już nie istnieje.",
+    "failed": "Nie udało się udostępnić. Spróbuj ponownie.",
+    "failedStatus": "Nie udało się udostępnić (HTTP {{status}}).",
+    "loadSharesFailed": "Nie udało się wczytać aktualnych udostępnień.",
+    "withdrawForbidden": "Nie możesz wycofać tego udostępnienia.",
+    "withdrawConflict": "Ktoś już wycofał to udostępnienie.",
+    "withdrawFailed": "Nie udało się wycofać udostępnienia. Spróbuj ponownie."
+  }
+}

@@ -26,8 +26,11 @@ import MetaStrip from "../components/MetaStrip";
 import OneOnOneHistory from "../components/OneOnOneHistory";
 import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
+import ShareButton from "../components/ShareButton";
+import SharedByBanner from "../components/SharedByBanner";
 import StatusPill from "../components/StatusPill";
 import { formatIsoDate } from "../utils/datetime";
+import { isShareLapse } from "../utils/shareLapse";
 import { safeBackParam } from "../utils/url";
 
 /**
@@ -67,8 +70,14 @@ export default function ViewOneOnOne() {
     errorStatus === 404
       ? t("oneOnOne.error.notFound")
       : errorStatus === 403
-        ? t("oneOnOne.error.viewPermission")
+        ? isShareLapse(error)
+          ? t("sharing.lapsed")
+          : t("oneOnOne.error.viewPermission")
         : t("oneOnOne.error.loadFailed");
+
+  // The per-item history route is own-right only (it spans carry-over copies in meetings that were
+  // never shared), so a reader who came in through a share would only meet its 403 — no icon.
+  const showItemHistory = data != null && data.sharedBy == null;
 
   const ownerDisplay = (owner: "MANAGER" | "SUBORDINATE") => {
     if (!data) return "";
@@ -82,9 +91,12 @@ export default function ViewOneOnOne() {
       <PageHeader
         title={t("oneOnOne.viewTitle")}
         actions={
-          <Button component={RouterLink} to={backTo} variant="default">
-            {t("common.action.close")}
-          </Button>
+          <>
+            <Button component={RouterLink} to={backTo} variant="default">
+              {t("common.action.close")}
+            </Button>
+            <ShareButton canShare={data?.canShare} resourceType="ONE_ON_ONE" resourceId={id} />
+          </>
         }
       />
 
@@ -98,6 +110,7 @@ export default function ViewOneOnOne() {
             </Alert>
           ) : data ? (
             <Stack gap="md">
+              <SharedByBanner name={data.sharedBy} />
               <MetaStrip
                 items={[
                   {
@@ -153,7 +166,9 @@ export default function ViewOneOnOne() {
                               <ResponsiveTable.Th>{t("oneOnOne.owner")}</ResponsiveTable.Th>
                               <ResponsiveTable.Th>{t("oneOnOne.dueDate")}</ResponsiveTable.Th>
                               <ResponsiveTable.Th>{t("common.field.status")}</ResponsiveTable.Th>
-                              <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+                              {showItemHistory && (
+                                <ResponsiveTable.Th actions aria-label={t("common.table.actions")} />
+                              )}
                             </ResponsiveTable.Tr>
                           </ResponsiveTable.Thead>
                           <ResponsiveTable.Tbody>
@@ -192,16 +207,18 @@ export default function ViewOneOnOne() {
                                     {item.resolved ? t("oneOnOne.resolved") : t("oneOnOne.open")}
                                   </StatusPill>
                                 </ResponsiveTable.Td>
-                                <ResponsiveTable.Td actions>
-                                  <ActionIcon
-                                    variant="subtle"
-                                    color="gray"
-                                    onClick={() => setHistoryItemId(item.id)}
-                                    aria-label={t("oneOnOne.itemHistoryAria", { position: index + 1 })}
-                                  >
-                                    <IconHistory size={16} />
-                                  </ActionIcon>
-                                </ResponsiveTable.Td>
+                                {showItemHistory && (
+                                  <ResponsiveTable.Td actions>
+                                    <ActionIcon
+                                      variant="subtle"
+                                      color="gray"
+                                      onClick={() => setHistoryItemId(item.id)}
+                                      aria-label={t("oneOnOne.itemHistoryAria", { position: index + 1 })}
+                                    >
+                                      <IconHistory size={16} />
+                                    </ActionIcon>
+                                  </ResponsiveTable.Td>
+                                )}
                               </ResponsiveTable.Tr>
                             ))}
                           </ResponsiveTable.Tbody>
