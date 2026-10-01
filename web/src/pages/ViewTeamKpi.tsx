@@ -18,10 +18,13 @@ import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
 import ReadOnlyField from "../components/ReadOnlyField";
+import ShareButton from "../components/ShareButton";
+import SharedByBanner from "../components/SharedByBanner";
 import TeamKpiHistory from "../components/TeamKpiHistory";
 import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
 import TeamKpiValuesEditor from "../components/TeamKpiValuesEditor";
 import { formatTargetValue } from "../utils/goalValues";
+import { isShareLapse } from "../utils/shareLapse";
 import { teamKpiEditLink } from "../utils/teamKpiLinks";
 import { invalidateTeamKpi } from "../utils/teamKpiQueries";
 import { showSuccessToast } from "../utils/toast";
@@ -91,7 +94,9 @@ export default function ViewTeamKpi() {
     errorStatus === 404
       ? t("teamKpi.error.notFound")
       : errorStatus === 403
-        ? t("teamKpi.error.viewPermission")
+        ? isShareLapse(error)
+          ? t("sharing.lapsed")
+          : t("teamKpi.error.viewPermission")
         : t("teamKpi.error.loadFailed");
 
   async function runAction(actionKey: string, run: (id: number) => Promise<void>, successKey: ParseKeys) {
@@ -123,6 +128,7 @@ export default function ViewTeamKpi() {
       <Button component={RouterLink} to={backTo} variant="default" disabled={submitting != null}>
         {t("common.action.close")}
       </Button>
+      <ShareButton canShare={data?.canShare} resourceType="TEAM_KPI" resourceId={id} />
       {canManage && data && data.status === "DRAFT" && (
         <Button
           component={RouterLink}
@@ -181,6 +187,7 @@ export default function ViewTeamKpi() {
               </Alert>
             ) : data ? (
               <Stack gap="md">
+                <SharedByBanner name={data.sharedBy} />
                 <MetaStrip
                   items={[
                     {

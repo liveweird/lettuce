@@ -1,11 +1,12 @@
 package ch.nokillswit.succession
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireRelationship
-import ch.nokillswit.authz.requireSuccessionPlanRead
 import ch.nokillswit.authz.requireSuccessionPlanWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
@@ -15,6 +16,9 @@ import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
+import ch.nokillswit.sharing.ReadVia
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
@@ -62,6 +66,9 @@ class SuccessionPlans {
     }
 }
 
+/** A plan the caller may read, and how (own right or through a share). */
+private class GuardedPlan(val plan: SuccessionPlanResponse, val via: ReadVia<Unit>)
+
 // The gated caller (V46): every succession handler resolves its principal through this, so the
 // per-user SUCCESSION_PLANS flag is enforced before any other guard or read.
 private fun ApplicationCall.successionCaller() =
@@ -75,19 +82,35 @@ fun Application.configureSuccessionRoutes() {
     val successionService = attributes[SuccessionPlanServiceKey]
     val eventService = attributes[SuccessionEventServiceKey]
     val userService = attributes[UserServiceKey]
+    val shareAccess = attributes[ShareAccessKey]
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the plan (missing →
-    // NotFoundException) and enforces the read rule (owner / audited HR / the OWNER's
-    // transitive chain — the guard itself throws ForbiddenException). The seat's person and the
-    // candidates never pass.
-    suspend fun readGuardedPlan(call: ApplicationCall, planId: UInt): SuccessionPlanResponse {
+    // NotFoundException) and enforces the read rule (owner / audited HR / the OWNER's transitive
+    // chain — the guard itself throws ForbiddenException; the seat's person and the candidates
+    // never pass), OR — since v4.8.0 — an active SHARE of it (`ShareAccess.readOrShared`: the
+    // same guard, re-run for the sharer with the HR role stripped). A plan has no per-reader
+    // content gate (so no `sufficient` check); what a sharee must NOT learn — the linked goals —
+    // is stripped at the single GET (`forSharee`). Shared by the document and events GETs (the
+    // plan has no other GET route: nominations ride embedded in the plan).
+    suspend fun readGuardedPlan(call: ApplicationCall, planId: UInt): GuardedPlan {
         val caller = call.successionCaller()
         val plan = successionService.read(planId)
             ?: throw NotFoundException("Succession plan not found")
-        requireSuccessionPlanRead(caller, plan) {
-            successionService.managesUser(caller.userId, plan.managerId)
+        val via = shareAccess.readOrShared(caller, ShareableResourceType.SUCCESSION_PLAN, planId) {
+            successionService.requireReadable(it, plan)
         }
-        return plan
+        return GuardedPlan(plan, via)
+    }
+
+    // `canShare` (the share button's gate): the caller reads this plan in their OWN right — no
+    // share involved, and never via the HR role alone (the guard is re-run role-stripped, which
+    // only matters for an HR caller). No guard re-run when the read already tells.
+    suspend fun canShare(caller: CallerPrincipal, via: ReadVia<Unit>, plan: SuccessionPlanResponse): Boolean = when {
+        via is ReadVia.Shared && via.ownDenied -> false
+        !caller.isHr() -> true
+        else -> shareAccess.holdsOwnRight(caller, ShareableResourceType.SUCCESSION_PLAN) {
+            successionService.requireReadable(it, plan)
+        }
     }
 
     // The write sibling: owner-only (nobody else — the chain, ADMIN, and HR included). Guards
@@ -170,11 +193,21 @@ fun Application.configureSuccessionRoutes() {
                 call.response.header(HttpHeaders.Location, call.application.href(SuccessionPlans.Id(id = id)))
                 val created = successionService.read(id)
                     .orVanished("Succession plan", id)
-                call.respond(HttpStatusCode.Created, created)
+                // The owner always reads their own plan (the cheap owner rule).
+                call.respond(HttpStatusCode.Created, created.copy(canShare = true))
             }
             get<SuccessionPlans.Id> { route ->
-                val plan = readGuardedPlan(call, route.id)
-                call.respond(HttpStatusCode.OK, plan)
+                val read = readGuardedPlan(call, route.id)
+                // A share read shows the plan, never the linked goals' identities (other documents —
+                // see forSharee).
+                val shown = if (read.via is ReadVia.Shared) read.plan.forSharee() else read.plan
+                call.respond(
+                    HttpStatusCode.OK,
+                    shown.copy(
+                        canShare = canShare(call.caller(), read.via, read.plan),
+                        sharedBy = (read.via as? ReadVia.Shared)?.sharerName,
+                    ),
+                )
             }
             put<SuccessionPlans.Id> { route ->
                 val existing = writeGuardedPlan(call, route.id)
@@ -285,11 +318,13 @@ fun Application.configureSuccessionRoutes() {
                 call.respond(HttpStatusCode.NoContent)
             }
             get<SuccessionPlans.Id.Events> { route ->
-                // Whoever may read the plan may read its history (the impact-log rule).
-                readGuardedPlan(call, route.parent.id)
+                // Whoever may read the plan may read its history (the impact-log rule). On a share read
+                // the goal-link facts are dropped from the history too (see forSharee).
+                val read = readGuardedPlan(call, route.parent.id)
+                val events = eventService.listForPlan(route.parent.id)
                 call.respond(
                     HttpStatusCode.OK,
-                    SuccessionPlanEventListResponse(eventService.listForPlan(route.parent.id)),
+                    SuccessionPlanEventListResponse(if (read.via is ReadVia.Shared) events.forSharee() else events),
                 )
             }
         }

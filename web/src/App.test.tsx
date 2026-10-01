@@ -98,6 +98,27 @@ describe("App shell", () => {
       );
     });
 
+    test("the Shared leaf sits in My work for everyone — even with every feature disabled — and opens /shares (v4.8.0)", async () => {
+      localStorage.setItem(
+        "lettuce.auth.disabledFeatures",
+        JSON.stringify(["FEEDBACKS", "ONE_ON_ONES", "GOALS", "IMPACT_LOG", "DAYS_OFF"]),
+      );
+      try {
+        const user = userEvent.setup();
+        renderApp("/");
+        const myWork = await screen.findByRole("group", { name: "My work" });
+        const shared = within(myWork).getByRole("link", { name: /^shared$/i });
+        expect(shared).toHaveAttribute("href", "/shares");
+        expect(shared).toHaveAttribute("data-tour", "nav-shares");
+        await user.click(shared);
+        expect(await screen.findByRole("heading", { level: 2, name: "Shared" })).toBeInTheDocument();
+        expect(screen.getByRole("tab", { name: "Shared with me" })).toBeInTheDocument();
+        expect(screen.getByRole("tab", { name: "Shared by me" })).toBeInTheDocument();
+      } finally {
+        localStorage.removeItem("lettuce.auth.disabledFeatures");
+      }
+    });
+
     test("an admin's Config group additionally lists Alerts", async () => {
       localStorage.setItem("lettuce.auth.roles", JSON.stringify(["ADMIN"]));
       try {

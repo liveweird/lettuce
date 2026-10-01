@@ -25,11 +25,14 @@ import PageHeader from "../components/PageHeader";
 import PersonCell from "../components/PersonCell";
 import ProseBox from "../components/ProseBox";
 import RequesterMessage from "../components/RequesterMessage";
+import ShareButton from "../components/ShareButton";
+import SharedByBanner from "../components/SharedByBanner";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import { feedbackSubjects } from "../utils/feedbackSubjects";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { invalidateFeedback } from "../utils/feedbackQueries";
+import { isShareLapse } from "../utils/shareLapse";
 import { safeBackParam } from "../utils/url";
 
 const RECEIVED = "/feedback?tab=received";
@@ -99,8 +102,12 @@ export default function ViewFeedback() {
   // (REJECTED). The server also redacts the content field for these cases; hiding the section here
   // avoids rendering an empty Content box.
   const isRequester = data != null && data.requesterId != null && currentUserId === data.requesterId;
+  // A requester who reads through a share (the upgrade: the sharer's content gate passed) gets the
+  // content back from the server, so the sharedBy marker lifts the hint — unless the content is
+  // still empty (a not-yet-written feedback), where the hint beats an empty box.
   const hideContent =
     isRequester &&
+    (data!.sharedBy == null || !data!.content) &&
     (data!.status === "REQUESTED" || data!.status === "REJECTED" || data!.status === "DRAFT");
 
   async function handleAction(run: (id: number) => Promise<void>, successKey: ParseKeys) {
@@ -133,7 +140,9 @@ export default function ViewFeedback() {
     errorStatus === 404
       ? t("feedback.error.notFound")
       : errorStatus === 403
-        ? t("feedback.error.viewPermission")
+        ? isShareLapse(fetchError)
+          ? t("sharing.lapsed")
+          : t("feedback.error.viewPermission")
         : errorStatus != null
           ? t("feedback.error.loadFailedStatus", { status: errorStatus })
           : t("feedback.error.loadFailed");
@@ -212,6 +221,7 @@ export default function ViewFeedback() {
               <Button component={RouterLink} to={backTo} variant="default">
                 {t("common.action.close")}
               </Button>
+              <ShareButton canShare={data?.canShare} resourceType="FEEDBACK" resourceId={id} />
               {action && (
                 <Button
                   onClick={() =>
@@ -242,6 +252,7 @@ export default function ViewFeedback() {
               </Alert>
             ) : data ? (
               <Stack gap="md">
+                <SharedByBanner name={data.sharedBy} />
                 <MetaStrip items={metaItems} />
                 <RequesterMessage value={data.requesterMessage} collapsible />
                 <Tabs defaultValue="content" keepMounted={false}>

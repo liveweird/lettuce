@@ -1,12 +1,13 @@
 package ch.nokillswit.reviews
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireAuditScopeListAccess
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
-import ch.nokillswit.authz.requirePerformanceReviewReadAllowingManager
 import ch.nokillswit.authz.requirePerformanceReviewWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
@@ -20,6 +21,9 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.sharing.ReadVia
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
@@ -72,6 +76,9 @@ private fun PerformanceReviewEventDescriptor.toEvent(reviewId: UInt, userId: UIn
         params = params,
     )
 
+/** A review the caller may read, and how (own right or through a share). */
+private class GuardedReview(val review: PerformanceReviewResponse, val via: ReadVia<Unit>)
+
 // The gated caller (V46): every review handler resolves its principal through this, so the
 // per-user PERFORMANCE_REVIEWS flag is enforced before any other guard or read.
 private fun ApplicationCall.reviewCaller() =
@@ -82,19 +89,37 @@ fun Application.configurePerformanceReviewRoutes() {
     val reviewEventService = attributes[PerformanceReviewEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
+    val shareAccess = attributes[ShareAccessKey]
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the review (missing →
     // NotFoundException) and enforces the document read rule (manager / audited HR at any
     // status; the subordinate once PUBLISHED; chain managers once out of DRAFT — the guard
-    // itself throws ForbiddenException). Shared by the document and events GETs.
-    suspend fun readGuardedReview(call: ApplicationCall, reviewId: UInt): PerformanceReviewResponse {
+    // itself throws ForbiddenException), OR — since v4.8.0 — an active SHARE of it
+    // (`ShareAccess.readOrShared`: the same guard, re-run for the sharer with the HR role
+    // stripped, so a subordinate's share lapses if the review is un-published and a chain
+    // manager's if it returns to DRAFT). Reviews have no per-reader content gate (ratings and
+    // summaries are the same for every reader), so no `sufficient` check is needed, and the
+    // response references no sibling review (the period is a registry row, not another review).
+    // Shared by the document and events GETs.
+    suspend fun readGuardedReview(call: ApplicationCall, reviewId: UInt): GuardedReview {
         val caller = call.reviewCaller()
         val review = reviewService.read(reviewId)
             ?: throw NotFoundException("Performance review not found")
-        requirePerformanceReviewReadAllowingManager(caller, review) {
-            reviewService.managesSubordinate(caller.userId, review.subordinateId)
+        val via = shareAccess.readOrShared(caller, ShareableResourceType.PERFORMANCE_REVIEW, reviewId) {
+            reviewService.requireReadable(it, review)
         }
-        return review
+        return GuardedReview(review, via)
+    }
+
+    // `canShare` (the share button's gate): the caller reads this review in their OWN right — no
+    // share involved, and never via the HR role alone (the guard is re-run role-stripped, which
+    // only matters for an HR caller). No guard re-run when the read already tells.
+    suspend fun canShare(caller: CallerPrincipal, via: ReadVia<Unit>, review: PerformanceReviewResponse): Boolean = when {
+        via is ReadVia.Shared && via.ownDenied -> false
+        !caller.isHr() -> true
+        else -> shareAccess.holdsOwnRight(caller, ShareableResourceType.PERFORMANCE_REVIEW) {
+            reviewService.requireReadable(it, review)
+        }
     }
 
     // The write sibling: manager-only (nobody else — ADMIN included). Guards run BEFORE any
@@ -218,11 +243,18 @@ fun Application.configurePerformanceReviewRoutes() {
                 reviewEventService.create(reviewCreationEvent().toEvent(id, caller.userId))
                 val created = reviewService.read(id)
                     .orVanished("Performance review", id)
-                call.respond(HttpStatusCode.Created, created)
+                // The creating manager always reads their own review (the cheap author rule).
+                call.respond(HttpStatusCode.Created, created.copy(canShare = true))
             }
             get<PerformanceReviews.Id> { route ->
-                val review = readGuardedReview(call, route.id)
-                call.respond(HttpStatusCode.OK, review)
+                val read = readGuardedReview(call, route.id)
+                call.respond(
+                    HttpStatusCode.OK,
+                    read.review.copy(
+                        canShare = canShare(call.caller(), read.via, read.review),
+                        sharedBy = (read.via as? ReadVia.Shared)?.sharerName,
+                    ),
+                )
             }
             put<PerformanceReviews.Id> { route ->
                 val existing = writeGuardedReview(call, route.id)

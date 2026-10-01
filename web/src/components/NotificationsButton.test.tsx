@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { renderWithProviders, screen, waitFor, within } from "../test/render";
 import NotificationsButton from "./NotificationsButton";
 import { jsonResponse } from "../test/http";
+import i18n from "../i18n";
 
 const TOKEN_KEY = "lettuce.auth.token";
 
@@ -675,4 +676,150 @@ describe("NotificationsButton", () => {
       ),
     ).toBeInTheDocument();
   });
+});
+
+describe("NotificationsButton — document sharing wording (v4.8.0)", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage("en");
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  const note = (id: number, type: string, params: Record<string, string>, link: string | null): Item => ({
+    id,
+    recipientId: 7,
+    timestamp: Date.now(),
+    wasSeen: false,
+    type,
+    params,
+    link,
+  });
+
+  async function openBell() {
+    await userEvent.setup().click(await screen.findByRole("button", { name: /unread/i }));
+  }
+
+  test("every branch of the goal wording: started (with and without an end date), stopped, withdrawn by the author, and the sharer's own copy", async () => {
+    const rows: Item[] = [
+      note(31, "GOAL_SHARED", { sharer: "Sue Sharer" }, "/goals/5/view"),
+      note(32, "GOAL_SHARED", { sharer: "Sue Sharer", expiresOn: "2026-12-31" }, "/goals/5/view"),
+      // The sharer stopped it herself (actor == sharer) — and the actor-less shape reads the same.
+      note(33, "GOAL_SHARE_WITHDRAWN", { sharer: "Sue Sharer", sharee: "Me", actor: "Sue Sharer" }, null),
+      note(34, "GOAL_SHARE_WITHDRAWN", { sharer: "Sue Sharer" }, null),
+      // The author withdrew it (actor != sharer) — the sharee's copy.
+      note(35, "GOAL_SHARE_WITHDRAWN", { sharer: "Sue Sharer", sharee: "Me", actor: "Olga Author" }, null),
+      // The sharer's own copy of an author withdrawal.
+      note(
+        36,
+        "GOAL_SHARE_WITHDRAWN",
+        { sharer: "Sue Sharer", sharee: "Ben Bystander", actor: "Olga Author", self: "sharer" },
+        "/shares?tab=byMe",
+      ),
+    ];
+    setupMocks(mockFetch, rows, 6);
+    renderWithProviders(<Harness />);
+    await openBell();
+
+    expect(await screen.findByText("Sue Sharer shared a goal with you.")).toBeInTheDocument();
+    // The end date is formatted for the viewer's locale, never the raw ISO.
+    expect(screen.getByText("Sue Sharer shared a goal with you. Access lasts until Dec 31, 2026.")).toBeInTheDocument();
+    expect(screen.getAllByText("Sue Sharer stopped sharing a goal with you.")).toHaveLength(2);
+    expect(
+      screen.getByText("Olga Author withdrew your access to a goal that Sue Sharer had shared with you."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Olga Author withdrew your share of a goal with Ben Bystander."),
+    ).toBeInTheDocument();
+  });
+
+  test("links: a started share goes to the document, the sharee's withdrawal has none, the sharer's copy keeps its query string", async () => {
+    const rows: Item[] = [
+      note(41, "GOAL_SHARED", { sharer: "Sue Sharer" }, "/goals/5/view"),
+      note(42, "GOAL_SHARE_WITHDRAWN", { sharer: "Sue Sharer", sharee: "Me", actor: "Olga Author" }, null),
+      note(
+        43,
+        "GOAL_SHARE_WITHDRAWN",
+        { sharer: "Sue Sharer", sharee: "Ben Bystander", actor: "Olga Author", self: "sharer" },
+        "/shares?tab=byMe",
+      ),
+    ];
+    setupMocks(mockFetch, rows, 3);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />);
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+
+    // No link → no Go to action (the null link is handled, not navigated).
+    await screen.findByText(/withdrew your access/);
+    expect(screen.queryByRole("button", { name: "Go to notification 42" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Go to notification 43" }));
+    expect(screen.getByTestId("path")).toHaveTextContent("/shares?tab=byMe");
+  });
+
+  test("the succession copies are content-free: they name the sharer and nothing else", async () => {
+    const rows: Item[] = [
+      // Extra params a hostile/legacy row might carry must never surface in the text.
+      note(51, "SUCCESSION_PLAN_SHARED", { sharer: "Sue Sharer", expiresOn: "2026-12-31", person: "Sam Seat" }, "/succession/5/view"),
+      note(52, "SUCCESSION_PLAN_SHARE_WITHDRAWN", { sharer: "Sue Sharer" }, null),
+      note(53, "SUCCESSION_PLAN_SHARE_WITHDRAWN", { sharer: "Sue Sharer", self: "sharer" }, "/shares?tab=byMe"),
+    ];
+    setupMocks(mockFetch, rows, 3);
+    renderWithProviders(<Harness />);
+    await openBell();
+
+    expect(await screen.findByText("Sue Sharer shared a succession plan with you.")).toBeInTheDocument();
+    expect(screen.getByText("You no longer have access to a succession plan Sue Sharer shared with you.")).toBeInTheDocument();
+    expect(screen.getByText("The owner of a succession plan withdrew your share of it.")).toBeInTheDocument();
+    expect(screen.queryByText(/Sam Seat|2026|Dec 31/)).toBeNull();
+  });
+
+  const SHARE_TYPES = [
+    "FEEDBACK",
+    "ONE_ON_ONE",
+    "GOAL",
+    "TEAM_KPI",
+    "PERFORMANCE_REVIEW",
+    "IMPACT_ENTRY",
+    "SUCCESSION_PLAN",
+  ] as const;
+
+  test.each(["en", "pl"] as const)(
+    "all 14 share types render real %s wording (never a raw key or type name)",
+    async (lang) => {
+      await i18n.changeLanguage(lang);
+      const rows: Item[] = SHARE_TYPES.flatMap((area, i) => [
+        note(100 + i * 10, `${area}_SHARED`, { sharer: "Sue Sharer", expiresOn: "2026-12-31" }, null),
+        note(101 + i * 10, `${area}_SHARE_WITHDRAWN`, { sharer: "Sue Sharer", sharee: "Me", actor: "Sue Sharer" }, null),
+        note(102 + i * 10, `${area}_SHARE_WITHDRAWN`, { sharer: "Sue Sharer", sharee: "Me", actor: "Olga Author" }, null),
+        note(103 + i * 10, `${area}_SHARE_WITHDRAWN`, { sharer: "Sue Sharer", sharee: "Ben", actor: "Olga Author", self: "sharer" }, null),
+      ]);
+      setupMocks(mockFetch, rows, rows.length);
+      renderWithProviders(<Harness />);
+      await userEvent.setup().click(await screen.findByRole("button", { name: /\(/ }));
+
+      const items = await screen.findAllByRole("listitem");
+      expect(items).toHaveLength(rows.length);
+      for (const item of items) {
+        const text = item.textContent ?? "";
+        expect(text, text).not.toMatch(/notifications\.event|_SHARE|_SHARED|ShareWithdrawn|Shared\b/);
+        // Every row names a person (sharer, actor or owner wording) and is a real sentence.
+        expect(text).toMatch(/Sue Sharer|Olga Author|owner|Właściciel/);
+        expect(text).toMatch(/[.]/);
+      }
+      if (lang === "pl") {
+        // The inclusive slash form and the per-noun case.
+        expect(screen.getAllByText(/udostępnił\/a Ci cel/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/wycofał\/a Twój dostęp do oceny okresowej/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/udostępnił\/a Ci wpis z dziennika wpływu/).length).toBeGreaterThan(0);
+      }
+    },
+  );
 });

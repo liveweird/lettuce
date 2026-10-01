@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
  * goals/GoalNotifications.kt, teamkpis/TeamKpiNotifications.kt,
  * reviews/PerformanceReviewNotifications.kt, daysoff/DaysOffNotifications.kt,
  * pulse/PulseNotifications.kt, impactlog/ImpactLogNotifications.kt,
+ * sharing/ShareNotifications.kt (the 14 `*_SHARED` / `*_SHARE_WITHDRAWN` types, v4.8.0),
  * and the password-change paths (users/UserRoutes.kt,
  * auth/AuthRoutes.kt); the SPA renders each one in the viewer's language from
  * `notifications.event.*` keys.
@@ -61,6 +62,27 @@ enum class NotificationType {
     IMPACT_ENTRY_UPDATED_TO_MANAGER,
     IMPACT_ENTRY_DELETED_TO_MANAGER,
     CAREER_POSITION_STARTED_TO_USER,
+    // Document sharing (v4.8.0, sharing/ShareNotifications.kt): one SHARED + one SHARE_WITHDRAWN
+    // type per shareable area, so the feature mapping, the preference grouping and the per-noun
+    // Polish wording stay precise (days-off is not shareable yet). The sharee hears when a
+    // share starts and when it is withdrawn; the sharer hears too when someone else (the
+    // document's author) withdrew it.
+    FEEDBACK_SHARED,
+    FEEDBACK_SHARE_WITHDRAWN,
+    ONE_ON_ONE_SHARED,
+    ONE_ON_ONE_SHARE_WITHDRAWN,
+    GOAL_SHARED,
+    GOAL_SHARE_WITHDRAWN,
+    TEAM_KPI_SHARED,
+    TEAM_KPI_SHARE_WITHDRAWN,
+    PERFORMANCE_REVIEW_SHARED,
+    PERFORMANCE_REVIEW_SHARE_WITHDRAWN,
+    IMPACT_ENTRY_SHARED,
+    IMPACT_ENTRY_SHARE_WITHDRAWN,
+    // Content-free by decision: names only the sharer and the kind of document (see
+    // .claude/docs/features/succession-plans.md — the no-notifications posture's one exception).
+    SUCCESSION_PLAN_SHARED,
+    SUCCESSION_PLAN_SHARE_WITHDRAWN,
     PASSWORD_CHANGED,
 }
 
@@ -86,9 +108,13 @@ val NotificationType.feature: Feature?
         NotificationType.FEEDBACK_DELETED_TO_REQUESTER,
         NotificationType.FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER,
         NotificationType.FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER,
+        NotificationType.FEEDBACK_SHARED,
+        NotificationType.FEEDBACK_SHARE_WITHDRAWN,
         -> Feature.FEEDBACKS
         NotificationType.ONE_ON_ONE_CREATED_TO_SUBORDINATE,
         NotificationType.ONE_ON_ONE_CREATED_TO_MANAGER,
+        NotificationType.ONE_ON_ONE_SHARED,
+        NotificationType.ONE_ON_ONE_SHARE_WITHDRAWN,
         -> Feature.ONE_ON_ONES
         NotificationType.GOAL_ACTIVATED_TO_SUBORDINATE,
         NotificationType.GOAL_DEACTIVATED_TO_SUBORDINATE,
@@ -96,6 +122,8 @@ val NotificationType.feature: Feature?
         NotificationType.GOAL_REOPENED_TO_SUBORDINATE,
         NotificationType.GOAL_PROGRESS_UPDATED_TO_SUBORDINATE,
         NotificationType.GOAL_PROGRESS_UPDATED_TO_MANAGER,
+        NotificationType.GOAL_SHARED,
+        NotificationType.GOAL_SHARE_WITHDRAWN,
         -> Feature.GOALS
         NotificationType.TEAM_KPI_ACTIVATED_TO_MEMBER,
         NotificationType.TEAM_KPI_DEACTIVATED_TO_MEMBER,
@@ -104,9 +132,13 @@ val NotificationType.feature: Feature?
         NotificationType.TEAM_KPI_VALUE_RECORDED_TO_MEMBER,
         NotificationType.TEAM_KPI_VALUE_CORRECTED_TO_MEMBER,
         NotificationType.TEAM_KPI_VALUE_REMOVED_TO_MEMBER,
+        NotificationType.TEAM_KPI_SHARED,
+        NotificationType.TEAM_KPI_SHARE_WITHDRAWN,
         -> Feature.TEAM_KPIS
         NotificationType.PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE,
         NotificationType.PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE,
+        NotificationType.PERFORMANCE_REVIEW_SHARED,
+        NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN,
         -> Feature.PERFORMANCE_REVIEWS
         NotificationType.DAYS_OFF_CREATED,
         NotificationType.DAYS_OFF_DELETED,
@@ -121,7 +153,12 @@ val NotificationType.feature: Feature?
         NotificationType.IMPACT_ENTRY_CREATED_TO_MANAGER,
         NotificationType.IMPACT_ENTRY_UPDATED_TO_MANAGER,
         NotificationType.IMPACT_ENTRY_DELETED_TO_MANAGER,
+        NotificationType.IMPACT_ENTRY_SHARED,
+        NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN,
         -> Feature.IMPACT_LOG
+        NotificationType.SUCCESSION_PLAN_SHARED,
+        NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN,
+        -> Feature.SUCCESSION_PLANS
         // Career positions ride the ungated users area (v2.15.0) — feature-neutral like the
         // password notice, never filtered by a flag.
         NotificationType.CAREER_POSITION_STARTED_TO_USER,

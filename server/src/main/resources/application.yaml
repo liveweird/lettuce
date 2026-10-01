@@ -49,6 +49,9 @@ ktor:
       - ch.nokillswit.alerts.AlertRoutesKt.configureAlertRoutes
       - ch.nokillswit.integration.IntegrationClientRoutesKt.configureIntegrationClientRoutes
       - ch.nokillswit.auth.AuthRoutesKt.configureAuthRoutes
+      # — document sharing (after AuthRoutes: its mutation routes wrap the per-caller "shares"
+      #   RateLimit bucket AuthRoutes' single install registers)
+      - ch.nokillswit.sharing.ShareRoutesKt.configureShareRoutes
       # — integration API (after AuthRoutes: its route wrapper needs the RateLimit bucket
       #   AuthRoutes' single install registers; registers nothing when integration.enabled=false)
       - ch.nokillswit.integration.IntegrationKt.configureIntegration
@@ -210,6 +213,15 @@ integration:
   enabled: "$INTEGRATION_ENABLED:false"
   # Per-API-key token bucket (requests/minute) on the /integration endpoints.
   rateLimitPerMinute: "$INTEGRATION_RATE_LIMIT_PER_MINUTE:120"
+
+sharing:
+  # Per-caller token bucket (requests/minute) on the document-sharing mutations (POST /shares and
+  # POST /shares/{id}/withdraw) — each call fans out a notification and an email mirror.
+  rateLimitPerMinute: "$SHARING_RATE_LIMIT_PER_MINUTE:60"
+  # Per-(sharer, sharee) notification cap per rolling 24 h (see SHARE_NOTIFICATION_DAILY_CAP_PER_PAIR
+  # in sharing/Share.kt): beyond it shares/withdrawals still happen but mint no notification.
+  # Blank = the built-in default (20); a number is boot-validated 1..1000.
+  notificationDailyCapPerPair: "$SHARING_NOTIFICATION_DAILY_CAP_PER_PAIR:"
 
 feedbacks:
   # The v3.8.0 lazy expiry sweep (FeedbackService.expireOverdueRequests) is a WRITE on the

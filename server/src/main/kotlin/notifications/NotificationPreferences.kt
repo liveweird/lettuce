@@ -75,6 +75,20 @@ val NotificationType.lockedOn: Boolean
         NotificationType.IMPACT_ENTRY_UPDATED_TO_MANAGER,
         NotificationType.IMPACT_ENTRY_DELETED_TO_MANAGER,
         NotificationType.CAREER_POSITION_STARTED_TO_USER,
+        NotificationType.FEEDBACK_SHARED,
+        NotificationType.FEEDBACK_SHARE_WITHDRAWN,
+        NotificationType.ONE_ON_ONE_SHARED,
+        NotificationType.ONE_ON_ONE_SHARE_WITHDRAWN,
+        NotificationType.GOAL_SHARED,
+        NotificationType.GOAL_SHARE_WITHDRAWN,
+        NotificationType.TEAM_KPI_SHARED,
+        NotificationType.TEAM_KPI_SHARE_WITHDRAWN,
+        NotificationType.PERFORMANCE_REVIEW_SHARED,
+        NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN,
+        NotificationType.IMPACT_ENTRY_SHARED,
+        NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN,
+        NotificationType.SUCCESSION_PLAN_SHARED,
+        NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN,
         -> false
     }
 

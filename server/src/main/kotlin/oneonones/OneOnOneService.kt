@@ -355,8 +355,9 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         val managerId = row[Meetings.managerId].value
         val subordinateId = row[Meetings.subordinateId].value
         val isLatest = latestMeetingOfPair(managerId, subordinateId)?.first == id
-        // The chronological floor for edits: the pair's previous meeting's date (the edit form
-        // sets it as the date input's `min`; the PUT route rejects anything below it).
+        // The chronological floor for edits: the date of the pair's latest OTHER meeting — the
+        // previous one, for the latest (only editable) meeting (the edit form sets it as the date
+        // input's `min`; the PUT route rejects anything below it).
         val minMeetingDate = latestMeetingOfPair(managerId, subordinateId, excludeId = id)?.second
 
         OneOnOneResponse(

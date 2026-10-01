@@ -12,6 +12,7 @@ import type {
   SuccessorReadiness,
 } from "../api/successionPlans";
 import { saveErrorMessage } from "./saveError";
+import { isShareLapse } from "./shareLapse";
 
 // Mirror of the server bounds (SuccessionPlan.kt).
 export const MAX_SUCCESSION_LIST_ITEMS = 20;
@@ -181,7 +182,7 @@ export function nominationValidation(t: TFunction) {
 export function successionLoadErrorMessage(err: unknown, t: TFunction): string {
   const status = err instanceof ApiError ? err.status : null;
   if (status === 404) return t("succession.error.notFound");
-  if (status === 403) return t("succession.error.viewPermission");
+  if (status === 403) return isShareLapse(err) ? t("sharing.lapsed") : t("succession.error.viewPermission");
   return t("succession.error.loadFailed");
 }
 

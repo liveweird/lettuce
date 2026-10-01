@@ -1,0 +1,92 @@
+{
+  "button": "Share",
+  "dialogTitle": "Share this document",
+  "intro": "People you share this document with can read it, but never change it. A share works only while you can open the document yourself.",
+  "shareWith": "Share with",
+  "pickPeople": "Pick people",
+  "noPeople": "No people available",
+  "removePerson": "Remove {{name}}",
+  "until": "Until",
+  "untilHint": "Optional. Access ends at the end of this day (server time); leave it empty for no end date.",
+  "submit": "Share",
+  "currentShares": "Current shares",
+  "noShares": "Nothing is shared yet.",
+  "untilDate": "Until {{date}}",
+  "noEnd": "No end date",
+  "sharedBy": "Shared by {{name}}",
+  "status": {
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "WITHDRAWN": "Withdrawn"
+  },
+  "withdraw": "Withdraw",
+  "withdrawAria": "Withdraw the share with {{name}}",
+  "withdrawTitle": "Withdraw this share?",
+  "withdrawBody": "{{name}} will no longer be able to open this document through this share. This cannot be undone.",
+  "toast": {
+    "shared": "Document shared",
+    "withdrawn": "Share withdrawn"
+  },
+  "failureItem": "Couldn't share with {{name}}: {{reason}}",
+  "banner": "Shared with you by {{name}}",
+  "lapsed": "The person who shared this document with you can no longer open it, so your access has ended.",
+  "error": {
+    "duplicate": "It is already shared with this person.",
+    "invalid": "The server rejected the request. Check the end date.",
+    "untilPast": "The end date cannot be in the past.",
+    "rateLimited": "You are sharing too fast. Wait a moment and try again.",
+    "forbidden": "You can't share this document.",
+    "notFound": "This document or person no longer exists.",
+    "failed": "Sharing failed. Try again.",
+    "failedStatus": "Sharing failed (HTTP {{status}}).",
+    "loadSharesFailed": "Couldn't load the current shares.",
+    "withdrawForbidden": "You can't withdraw this share.",
+    "withdrawConflict": "This share is already withdrawn.",
+    "withdrawFailed": "Withdrawing the share failed. Try again."
+  },
+  "page": {
+    "title": "Shared",
+    "description": "Documents shared with you, and the ones you shared with others.",
+    "tab": {
+      "withMe": "Shared with me",
+      "byMe": "Shared by me"
+    },
+    "withMeHint": "Documents other people shared with you. You can read them, but not change them.",
+    "byMeHint": "Documents you shared with others. You can withdraw an active share at any time.",
+    "document": "Document",
+    "sharedBy": "Shared by",
+    "sharedWith": "Shared with",
+    "until": "Until",
+    "status": "Status",
+    "created": "Shared on",
+    "typeFilter": "Document type",
+    "statusFilter": "Status",
+    "openAria": "Open the shared document: {{label}}",
+    "open": "Open",
+    "noWithMe": "Nothing has been shared with you.",
+    "noByMe": "You haven't shared anything.",
+    "noMatches": "No shares match these filters.",
+    "loadError": "Couldn't load the shared documents.",
+    "rowsPerPage": "Shares per page"
+  },
+  "type": {
+    "FEEDBACK": "Feedback",
+    "ONE_ON_ONE": "1:1 meeting",
+    "GOAL": "Goal",
+    "PERFORMANCE_REVIEW": "Performance review",
+    "TEAM_KPI": "Team KPI",
+    "IMPACT_LOG_ENTRY": "Impact log entry",
+    "SUCCESSION_PLAN": "Succession plan"
+  },
+  "doc": {
+    "unavailable": "No longer available",
+    "FEEDBACK": "From {{provider}} to {{subjects}}",
+    "ONE_ON_ONE": "{{manager}} and {{subordinate}}, {{date}}",
+    "GOAL": "{{title}} ({{subordinate}})",
+    "PERFORMANCE_REVIEW": "{{subordinate}}, {{period}}",
+    "TEAM_KPI": "{{title}} ({{team}})",
+    "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
+    "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
+    "SUCCESSION_PLAN": "{{person}} (owner: {{owner}})"
+  }
+}

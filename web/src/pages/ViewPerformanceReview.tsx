@@ -16,10 +16,13 @@ import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusB
 import PersonCell from "../components/PersonCell";
 import ReviewLifecycle from "../components/ReviewLifecycle";
 import RatingBadge from "../components/RatingBadge";
+import ShareButton from "../components/ShareButton";
+import SharedByBanner from "../components/SharedByBanner";
 import ProseBox from "../components/ProseBox";
 import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewEditLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
+import { isShareLapse } from "../utils/shareLapse";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
@@ -120,7 +123,9 @@ export default function ViewPerformanceReview() {
     errorStatus === 404
       ? t("performanceReview.error.notFound")
       : errorStatus === 403
-        ? t("performanceReview.error.viewPermission")
+        ? isShareLapse(loadError)
+          ? t("sharing.lapsed")
+          : t("performanceReview.error.viewPermission")
         : t("performanceReview.loadError");
 
   async function runAction(labelKey: string, run: (id: number) => Promise<void>, successKey: ParseKeys) {
@@ -154,6 +159,7 @@ export default function ViewPerformanceReview() {
       <Button component={RouterLink} to={backTo} variant="default">
         {t("common.action.close")}
       </Button>
+      <ShareButton canShare={data?.canShare} resourceType="PERFORMANCE_REVIEW" resourceId={id} />
       {canEdit && (
         <Button
           component={RouterLink}
@@ -204,6 +210,7 @@ export default function ViewPerformanceReview() {
 
           {data && (
             <Stack gap="md">
+              <SharedByBanner name={data.sharedBy} />
               <MetaStrip
                 items={[
                   {

@@ -52,7 +52,7 @@ describe("reviewRatings", () => {
       skills: { rating: 2, summary: null },
       aptitude: { rating: 6, summary: "sharp" },
       overall: { rating: null, summary: "only text" },
-      createdAt: 1, lastModified: 1, managerName: "M", subordinateName: "S",
+      createdAt: 1, lastModified: 1, managerName: "M", subordinateName: "S", canShare: false,
     };
     const values = toReviewFormValues(response);
     expect(values.attitude).toEqual({ rating: "5", summary: "great" });

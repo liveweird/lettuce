@@ -100,11 +100,21 @@ data class OneOnOneResponse(
      */
     val isLatest: Boolean = true,
     /**
-     * The pair's PREVIOUS meeting's date — the chronological floor for this meeting's date
-     * (1:1s are documented in order: PUT rejects a date below it with 409, and the edit form
-     * sets it as the date input's `min`). Null when this is the pair's first meeting.
+     * The date of the pair's latest OTHER non-deleted meeting — the chronological floor for this
+     * meeting's date (1:1s are documented in order: PUT rejects a date below it with 409, and the
+     * edit form sets it as the date input's `min`). For the pair's latest meeting — the only
+     * editable one — that IS its previous meeting; for an older (read-only) meeting it is the
+     * LATEST meeting's date, which no edit ever consults. Null when the pair has no other meeting,
+     * and always null on a read through a share (a sibling's date is not the sharee's to see).
      */
     val minMeetingDate: String? = null,
+    // Document sharing (v4.8.0): true when the caller can read this meeting in their OWN right,
+    // independently of any share (the HR role alone does not count) — the share button's gate,
+    // never `sharedBy`. Stamped by the route (`.copy`), false on every internal read.
+    val canShare: Boolean = false,
+    // The sharer's display name when the caller is reading through a share (the "Shared with you
+    // by …" banner); null otherwise. Stamped by the route.
+    val sharedBy: String? = null,
 )
 
 @Serializable

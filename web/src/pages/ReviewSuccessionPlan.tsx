@@ -48,6 +48,8 @@ import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
 import ReadOnlyField from "../components/ReadOnlyField";
+import ShareButton from "../components/ShareButton";
+import SharedByBanner from "../components/SharedByBanner";
 import SuccessionHistory from "../components/SuccessionHistory";
 import SuccessionPlanFields from "../components/SuccessionPlanFields";
 import {
@@ -273,6 +275,7 @@ export default function ReviewSuccessionPlan() {
       <PageHeader
         title={t("succession.viewTitle")}
         badge={data && <PlanStatusBadge value={data.status} />}
+        actions={<ShareButton canShare={data?.canShare} resourceType="SUCCESSION_PLAN" resourceId={id} />}
         mb="lg"
       />
       <Container size="md" px={0}>
@@ -286,6 +289,7 @@ export default function ReviewSuccessionPlan() {
               </Alert>
             ) : data ? (
               <>
+                <SharedByBanner name={data.sharedBy} />
                 {!isOpen && (
                   <Alert color="gray" variant="light">
                     {t("succession.closedNote")}
@@ -504,44 +508,49 @@ export default function ReviewSuccessionPlan() {
                                 </ReadOnlyField>
                               )}
 
-                              <ReadOnlyField
-                                label={t("succession.developmentGoals")}
-                              >
-                                {nomination.goals.length === 0 ? (
-                                  <Text size="sm" c="dimmed">
-                                    {t("succession.noLinkedGoals")}
-                                  </Text>
-                                ) : (
-                                  <Stack gap={4}>
-                                    {nomination.goals.map((goal) => (
-                                      <Group
-                                        key={goal.id}
-                                        gap="xs"
-                                        wrap="nowrap"
-                                      >
-                                        <Anchor
-                                          component={RouterLink}
-                                          to={goalViewLink(
-                                            goal.id,
-                                            undefined,
-                                            hereUrl,
-                                          )}
-                                          size="sm"
-                                          aria-label={t(
-                                            "succession.openGoalAria",
-                                            {
-                                              title: goal.title,
-                                            },
-                                          )}
+                              {/* A share read always returns empty goals (the linked goals are other
+                                  documents the sharee could not read) — an empty list there would
+                                  falsely say "no linked goals", so the whole field is hidden. */}
+                              {data.sharedBy == null && (
+                                <ReadOnlyField
+                                  label={t("succession.developmentGoals")}
+                                >
+                                  {nomination.goals.length === 0 ? (
+                                    <Text size="sm" c="dimmed">
+                                      {t("succession.noLinkedGoals")}
+                                    </Text>
+                                  ) : (
+                                    <Stack gap={4}>
+                                      {nomination.goals.map((goal) => (
+                                        <Group
+                                          key={goal.id}
+                                          gap="xs"
+                                          wrap="nowrap"
                                         >
-                                          {goal.title}
-                                        </Anchor>
-                                        <GoalStatusBadge status={goal.status} />
-                                      </Group>
-                                    ))}
-                                  </Stack>
-                                )}
-                              </ReadOnlyField>
+                                          <Anchor
+                                            component={RouterLink}
+                                            to={goalViewLink(
+                                              goal.id,
+                                              undefined,
+                                              hereUrl,
+                                            )}
+                                            size="sm"
+                                            aria-label={t(
+                                              "succession.openGoalAria",
+                                              {
+                                                title: goal.title,
+                                              },
+                                            )}
+                                          >
+                                            {goal.title}
+                                          </Anchor>
+                                          <GoalStatusBadge status={goal.status} />
+                                        </Group>
+                                      ))}
+                                    </Stack>
+                                  )}
+                                </ReadOnlyField>
+                              )}
                             </Stack>
                           </Paper>
                         ))

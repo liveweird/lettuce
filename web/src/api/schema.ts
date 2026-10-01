@@ -973,6 +973,11 @@ export interface paths {
          *       subordinate once it is delivered — `status` is `SENT` or `WITHDRAWN`; the provider's
          *       `DRAFT`/`REQUESTED` work stays private to the parties involved.
          *     - otherwise a `PUBLIC` record may be read by any authenticated user once `status` is `SENT`.
+         *     - a person the feedback was **shared with** (`POST /api/v1/shares`, v4.8.0) reads it exactly
+         *       while the sharer could still open it themselves without the HR role; `sharedBy` then
+         *       names the sharer, and the content gate below is evaluated as the sharer. When every
+         *       sharer has lost the right the answer is `403` with the detail "The person who shared
+         *       this no longer has access to it".
          *     Anything else is `403`.
          *
          *     Content redaction: a requester may see that a feedback they requested exists, but while it
@@ -1022,8 +1027,8 @@ export interface paths {
          *     tiebreaker). Each entry is structural: an event
          *     `type` plus a `params` map of enum names, with the acting user resolved to `userName`; no
          *     rendered string is stored (clients localize the description). Authorization matches the
-         *     single-GET above (`canReadFeedback`, with a managing caller allowed): whoever may read the
-         *     feedback may read its history. Events are server-generated; there is no
+         *     single-GET above (`canReadFeedback`, with a managing caller allowed, or an active share —
+         *     v4.8.0): whoever may read the feedback may read its history. Events are server-generated; there is no
          *     create/update/delete endpoint.
          */
         get: operations["listFeedbackEvents"];
@@ -1237,7 +1242,11 @@ export interface paths {
          *     discussed, decisions made, action items). Readable by the meeting's **manager**, its
          *     **subordinate**, the **HR auditor** (audit-logged), and any **manager in the
          *     subordinate's transitive management chain** (their manager, that manager's manager, and
-         *     so on — over non-deleted teams). Anything else — ADMIN included — is `403`.
+         *     so on — over non-deleted teams), plus a person the meeting was **shared with**
+         *     (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could still open it
+         *     themselves without the HR role (`sharedBy` then names the sharer; when every sharer has lost
+         *     the right the answer is `403` "The person who shared this no longer has access to it").
+         *     Anything else — ADMIN included — is `403`.
          */
         get: operations["getOneOnOne"];
         /**
@@ -1293,8 +1302,8 @@ export interface paths {
          *     entry is structural: an event `type` plus a
          *     `params` map (1-based positions, ISO dates, owner enum names — never item text), with the
          *     acting user resolved to `userName`; no rendered string is stored (clients localize the
-         *     description). Authorization matches the single-GET above: whoever may read the meeting
-         *     may read its history. Events are server-generated; there is no create/update/delete
+         *     description). Authorization matches the single-GET above (including an active share, v4.8.0):
+         *     whoever may read the meeting may read its history. Events are server-generated; there is no create/update/delete
          *     endpoint.
          */
         get: operations["listOneOnOneEvents"];
@@ -1324,8 +1333,10 @@ export interface paths {
          *     through them, so history survives a deleted intermediate meeting.
          *
          *     Authorization matches the meeting single-GET, checked against the queried item's meeting
-         *     (every copy in a chain belongs to the same manager+subordinate pair). `404` when the item
-         *     does not exist or its meeting has been deleted.
+         *     (every copy in a chain belongs to the same manager+subordinate pair) — **in the caller's own
+         *     right only**: unlike the meeting GET and its events, a person the meeting was merely shared
+         *     with gets `403` here (the chain spans copies in meetings that were never shared). `404` when
+         *     the item does not exist or its meeting has been deleted.
          */
         get: operations["getActionItemHistory"];
         put?: never;
@@ -1440,8 +1451,12 @@ export interface paths {
          *     **subordinate**, and the **HR auditor** (audit-logged) at every status; a **manager in
          *     the subordinate's transitive management chain** (their manager, that manager's manager,
          *     and so on — over non-deleted teams) may read it only once it has left DRAFT
-         *     (ACTIVE/ARCHIVED) — a draft stays private to the pair. Anything else — ADMIN included —
-         *     is `403`.
+         *     (ACTIVE/ARCHIVED) — a draft stays private to the pair. A person the goal was **shared
+         *     with** (`POST /api/v1/shares`, v4.8.0) reads it exactly while the sharer could still open
+         *     it themselves without the HR role (so a share made by a chain manager lapses if the goal
+         *     returns to DRAFT); `sharedBy` then names the sharer, and when every sharer has lost the
+         *     right the answer is `403` "The person who shared this no longer has access to it".
+         *     Anything else — ADMIN included — is `403`.
          */
         get: operations["getGoal"];
         /**
@@ -1641,8 +1656,8 @@ export interface paths {
          *     and positions — never title/description/summary/milestone text), with the acting user
          *     resolved to `userName`; no
          *     rendered string is stored (clients localize the description). Authorization matches the
-         *     single-GET above: whoever may read the goal may read its history. Events are
-         *     server-generated; there is no create/update/delete endpoint.
+         *     single-GET above (including an active share, v4.8.0): whoever may read the goal may read
+         *     its history. Events are server-generated; there is no create/update/delete endpoint.
          */
         get: operations["listGoalEvents"];
         put?: never;
@@ -1732,7 +1747,11 @@ export interface paths {
          * @description Returns the full entry document — owner, period, and the four sections. Readable by
          *     the entry's **owner**, the **HR auditor** (audit-logged), and any **manager in the
          *     owner's transitive management chain** (their manager, that manager's manager, and so
-         *     on — over non-deleted teams). Anything else — ADMIN and teammates included — is `403`.
+         *     on — over non-deleted teams), plus a person the entry was **shared with**
+         *     (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could still open
+         *     it themselves without the HR role (`sharedBy` then names the sharer; when every sharer
+         *     has lost the right the answer is `403` "The person who shared this no longer has access
+         *     to it"). Anything else — ADMIN and teammates included — is `403`.
          */
         get: operations["getImpactEntry"];
         /**
@@ -1777,7 +1796,7 @@ export interface paths {
          *     plus a `params` map (ISO dates and field-name lists — never section text), with the
          *     acting user resolved to `userName`; no rendered string is stored (clients localize
          *     the description). Authorization matches the single-GET above: whoever may read the
-         *     entry may read its history. Events are server-generated; there is no
+         *     entry may read its history (including an active share, v4.8.0). Events are server-generated; there is no
          *     create/update/delete endpoint.
          */
         get: operations["listImpactEntryEvents"];
@@ -1876,7 +1895,13 @@ export interface paths {
          *     **manager in the OWNER's transitive management chain**. HR retains this audit grant
          *     even when the auditor is the seat's person or a nominated candidate. Without one
          *     of these grants, access is `403`; subject/candidate, teammate, or ADMIN status alone
-         *     grants no access.
+         *     grants no access. A person the plan was **shared with** (`POST /api/v1/shares`, v4.8.0 —
+         *     the plan's owner, or a manager in the owner's chain, may share it with anyone, the
+         *     seat's person included) reads it exactly while the sharer could still open it themselves
+         *     without the HR role (`sharedBy` then names the sharer; when every sharer has lost the
+         *     right the answer is `403` "The person who shared this no longer has access to it"). On a
+         *     read through a share each nomination's `goals` is always empty — the linked goals are
+         *     other documents, which the sharee could not read under the goal rules.
          */
         get: operations["getSuccessionPlan"];
         /**
@@ -1968,8 +1993,8 @@ export interface paths {
          *     is stored (clients localize the description) and the encrypted loss-impact /
          *     competency-gap texts NEVER appear. Nomination changes are plan-level events.
          *     Authorization matches the single-GET above: whoever may read the plan may read its
-         *     history, including HR auditors who are also the seat's person or a nominated candidate.
-         *     Subject/candidate status alone grants no access.
+         *     history, including HR auditors who are also the seat's person or a nominated candidate, and
+         *     an active share (v4.8.0) — on a read through a share, `goals` is dropped from every NOMINATION_UPDATED event's `changed` list and an update that changed only the goal links is omitted (the linked goals are other documents the sharee cannot read). Subject/candidate status alone grants no access.
          *     Events are server-generated; there is no create/update/delete endpoint, and no
          *     notifications accompany them.
          */
@@ -2153,7 +2178,13 @@ export interface paths {
          *     that manager's manager, and so on — over non-deleted teams; since v2.26.0 the chain
          *     reads DRAFTs too), and the **HR auditor** (audit-logged) at every status; a current
          *     **team member** may read it only once it has left DRAFT (ACTIVE/ARCHIVED) — a draft
-         *     stays private to the manager and the chain. Anything else — ADMIN included — is `403`.
+         *     stays private to the manager and the chain; plus a person the KPI was **shared with**
+         *     (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could still open it
+         *     themselves without the HR role (a member's share lapses if the KPI returns to DRAFT or they
+         *     leave the team) — `sharedBy` then names the sharer, `canManage`/`canRecordValues` are false
+         *     for someone whose only way in is the share, and when every sharer has lost the right the
+         *     answer is `403` "The person who shared this no longer has access to it". Anything else —
+         *     ADMIN included — is `403`.
          */
         get: operations["getTeamKpi"];
         /**
@@ -2200,7 +2231,7 @@ export interface paths {
          *     measurement, at most one per date, sorted by date **newest first**. Unpaged (the set is
          *     a hand-entered measurement series, intrinsically small). The view screen's KPI-data tab
          *     and its value-over-time graph both feed on this list. Authorization matches the
-         *     single-GET: whoever may read the KPI may read its data points.
+         *     single-GET (including an active share, v4.8.0): whoever may read the KPI may read its data points.
          */
         get: operations["listTeamKpiValues"];
         put?: never;
@@ -2388,8 +2419,8 @@ export interface paths {
          *     structural: an event `type` plus a `params` map (enum names, numeric values, and ISO
          *     dates — never title/description/summary text), with the acting user resolved to
          *     `userName`; no rendered string is stored (clients localize the description).
-         *     Authorization matches the single-GET above: whoever may read the KPI may read its
-         *     history. Events are server-generated; there is no create/update/delete endpoint.
+         *     Authorization matches the single-GET above (including an active share, v4.8.0): whoever
+         *     may read the KPI may read its history. Events are server-generated; there is no create/update/delete endpoint.
          */
         get: operations["listTeamKpiEvents"];
         put?: never;
@@ -2567,8 +2598,12 @@ export interface paths {
          *     **subordinate** only once **PUBLISHED** (a review in DRAFT or CALIBRATION is invisible
          *     to them — `403`); and by a **manager in the subordinate's transitive management chain**
          *     (over non-deleted teams) once it has left DRAFT (CALIBRATION/PUBLISHED — calibration is
-         *     exactly the phase upper managers join to compare ratings). Anything else — ADMIN
-         *     included — is `403`.
+         *     exactly the phase upper managers join to compare ratings), plus a person the review was
+         *     **shared with** (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could
+         *     still open it themselves without the HR role (so a subordinate's share lapses if the review
+         *     is un-published, a chain manager's if it returns to DRAFT); `sharedBy` then names the
+         *     sharer, and when every sharer has lost the right the answer is `403` "The person who
+         *     shared this no longer has access to it". Anything else — ADMIN included — is `403`.
          */
         get: operations["getPerformanceReview"];
         /**
@@ -2722,7 +2757,7 @@ export interface paths {
          *     and never rating values, since all ten assessment fields are encrypted at rest while
          *     this trail is plaintext), with the acting user resolved to `userName`; no rendered
          *     string is stored (clients localize the description). Authorization matches the
-         *     single-GET above:
+         *     single-GET above (including an active share, v4.8.0):
          *     whoever may read the review may read its history. Events are server-generated; there is
          *     no create/update/delete endpoint.
          */
@@ -3998,6 +4033,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List document shares
+         * @description Lists document shares (v4.8.0 — a reader who holds a document in their own right shares
+         *     it read-only with another person, open-ended or until a date). Three views:
+         *
+         *     - `withMe` (default): shares whose sharee is the caller. WITHDRAWN rows and the types of
+         *       areas the caller has disabled (feature flags) are excluded from the rows AND from
+         *       `total`.
+         *     - `byMe`: shares the caller created, every status.
+         *     - `document`: the shares of ONE document — requires `resourceType` and `resourceId`
+         *       (`400` without either, and `resourceId` is `400` on any other view). The document's
+         *       AUTHOR (feedback: the provider; 1:1/goal/review: the manager; impact log/succession
+         *       plan: the owner; team KPI: whoever may manage it) sees every row; anyone else who can
+         *       read the document in their own right sees only the rows they created; everyone else —
+         *       the document's subject, an HR auditor with auditor-only access, a share-granted
+         *       reader — is `403`. An unknown or deleted document is `404`.
+         *
+         *     Status is derived, never stored: `WITHDRAWN` (terminal), `EXPIRED` (the end date passed —
+         *     a share works through the end of its `expiresOn` day, silently, with no notification), else
+         *     `ACTIVE`. Rows carry content-free `details` — a snapshot of title/party facts the client
+         *     localizes, taken when the share was created and never refreshed (so a lapsed or withdrawn
+         *     share cannot leak the document's later title or state) — and a `link` to the document,
+         *     derived from the kind and id.
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `id`, `createdAt`, `expiresOn`. Default sort is `createdAt` descending.
+         *       `id` ascending is always appended as a deterministic tiebreaker.
+         *     - Filters (optional, whitelisted): `resourceType`, `status` — equality, enums by name.
+         *
+         *     Malformed query parameters (unknown view, sort field or enum value, out-of-range
+         *     page/pageSize, a `view`-inconsistent `resourceId`) respond with `400` before any
+         *     authorization is evaluated.
+         */
+        get: operations["listShares"];
+        put?: never;
+        /**
+         * Share a document read-only with one person
+         * @description Shares one document with one person (the dialog submits one request per sharee and
+         *     itemizes failures; each call counts against a per-caller rate limit — default 60/min,
+         *     shared with the withdraw action — answering `429` beyond it). Evaluated in this order: the caller's feature flag for the document's
+         *     area (`403`) → the document is read through its feature (`404` for an unknown/deleted
+         *     document) → the caller must hold read access
+         *     to the document **in their own right** (`403` — HR-auditor-only access and access that
+         *     itself came from a share cannot be shared again) → validation (`400`, after the guard):
+         *     `expiresOn` must be a strict ISO date not before the server's today (no timezone
+         *     tolerance — a share that is already expired must never exist), and the sharee must exist, be active, and not be the caller → the create itself: an
+         *     already-ACTIVE share of the same document by the same sharer to the same sharee is
+         *     `409` with `ProblemDetail.instance` pointing at it. A malformed body (including an unknown
+         *     `resourceType`) is the one `400` that precedes the gates — the type that selects the
+         *     feature flag lives in the body.
+         *
+         *     The share grants **read access exactly as the sharer has it** (content gates and draft
+         *     privacy still apply) and works only while the sharer could still open the document
+         *     without the HR role; it never grants any write. The sharee is notified (the area's
+         *     `*_SHARED` notification) even when their feature flag for the area is off — the share is
+         *     then inert and hidden from their list until the flag is back on.
+         */
+        post: operations["createShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch a share
+         * @description The sharer, or the document's author (who sees every share of the document) — everyone
+         *     else, the sharee and the document's subject included, is `403`; this is what makes the
+         *     create response's `Location` dereferenceable for the people who may manage the share.
+         */
+        get: operations["getShare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a share
+         * @description Terminal — the share stops granting immediately and is never reopened (a new share is a
+         *     new resource); the row stays listed as `WITHDRAWN`. The sharer can always withdraw; the
+         *     document's author can too, while they can still read the document in their own right.
+         *     Shares the per-caller mutation rate limit with `POST /api/v1/shares` (`429` beyond it). Repeating the action
+         *     is `409`. The sharee is notified (and the sharer too when the author withdrew it);
+         *     withdrawing a share that had already expired stamps it silently.
+         */
+        post: operations["withdrawShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4709,6 +4867,10 @@ export interface components {
             providerName?: string | null;
             /** @description Every recipient in position order (v3.1.0); the first entry is the `subjectId`/`subjectName` pair. Server-resolved, read-only. */
             subjects: components["schemas"]["FeedbackSubject"][];
+            /** @description Document sharing (v4.8.0): true when the caller can read this feedback in their OWN right, independently of any share (an upgraded read may carry `sharedBy` too) — the HR auditor role alone does not count — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this feedback through a share (the "Shared with you by …" banner; the content is then gated as the sharer would see it); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         FeedbackListItem: {
             /** Format: int32 */
@@ -5025,12 +5187,12 @@ export interface components {
             resolved: boolean;
             /**
              * Format: int32
-             * @description The source action item in the pair's previous meeting this one was carried over from; null for items authored in this meeting (or when the source row no longer exists). Server-managed.
+             * @description The source action item in the pair's previous meeting this one was carried over from; null for items authored in this meeting (or when the source row no longer exists), and always null on a read through a share (v4.8.0 — it names another meeting). Server-managed.
              */
             copiedFromId?: number | null;
             /**
              * Format: date
-             * @description ISO date of the item's earliest surviving appearance in its carry-over chain — the same meeting the item's history shows first (soft-deleted ancestor meetings are skipped). Null when the item first appeared in this meeting or the chain no longer survives. Server-managed, read-only.
+             * @description ISO date of the item's earliest surviving appearance in its carry-over chain — the same meeting the item's history shows first (soft-deleted ancestor meetings are skipped). Null when the item first appeared in this meeting or the chain no longer survives, and always null on a read through a share (v4.8.0 — it dates another meeting). Server-managed, read-only.
              */
             firstAppearedOn?: string | null;
         };
@@ -5057,15 +5219,19 @@ export interface components {
             /** @description Action items, in stored order. */
             actionItems: components["schemas"]["OneOnOneActionItem"][];
             /**
-             * @description Whether this is the pair's latest non-deleted meeting (meeting date, id as tiebreaker). Only the latest may be edited or deleted (PUT/DELETE answer 409 otherwise); clients open older meetings read-only.
+             * @description Whether this is the pair's latest non-deleted meeting (meeting date, id as tiebreaker). Only the latest may be edited or deleted (PUT/DELETE answer 409 otherwise); clients open older meetings read-only. Always `false` on a read through a share (v4.8.0 — a sharee sees the shared meeting, never facts about the pair's other meetings, and can edit nothing).
              * @default true
              */
             isLatest: boolean;
             /**
              * Format: date
-             * @description The pair's previous meeting's date — the chronological floor for this meeting's date (PUT rejects anything below it with 409; the edit form uses it as the date input's `min`). Null when this is the pair's first meeting.
+             * @description The date of the pair's latest OTHER meeting — the chronological floor for this meeting's date (PUT rejects anything below it with 409; the edit form uses it as the date input's `min`). For the pair's latest (editable) meeting that is its previous meeting; for an older read-only meeting it is the latest meeting's date, which no edit consults. Null when the pair has no other meeting, and always null on a read through a share (v4.8.0).
              */
             minMeetingDate?: string | null;
+            /** @description Document sharing (v4.8.0): true when the caller can read this meeting in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this meeting through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         OneOnOneListItem: {
             /** Format: int32 */
@@ -5305,6 +5471,10 @@ export interface components {
              * @description Epoch milliseconds; server-managed, bumped on every mutation.
              */
             lastModified: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this goal in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this goal through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         GoalListItem: {
             /** Format: int32 */
@@ -5444,6 +5614,10 @@ export interface components {
              * @description Epoch milliseconds; server-managed, bumped on every mutation.
              */
             lastModified: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this entry in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this entry through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         ImpactEntryListItem: {
             /** Format: int32 */
@@ -5700,6 +5874,10 @@ export interface components {
              * @description Epoch milliseconds; set at creation and updated ONLY by the explicit complete-review action (since v2.44.0) — plan/nomination mutations and closing never touch it.
              */
             lastReviewedAt: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this plan in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this plan through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         SuccessionPlanListItem: {
             /** Format: int32 */
@@ -5875,6 +6053,10 @@ export interface components {
              * @description Epoch milliseconds; server-managed, bumped on every mutation.
              */
             lastModified: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this KPI in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this KPI through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         TeamKpiListItem: {
             /** Format: int32 */
@@ -6054,6 +6236,10 @@ export interface components {
             managerName: string;
             /** @description Display name of the reviewed subordinate. Server-resolved, read-only. */
             subordinateName: string;
+            /** @description Document sharing (v4.8.0): true when the caller can read this review in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this review through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         PerformanceReviewListItem: {
             /** Format: int32 */
@@ -6451,7 +6637,7 @@ export interface components {
          * @description Notification kind — see `NotificationResponse.type` for what each carries and `NotificationPreferenceItem` for the per-type on/off switches (v4.0.0).
          * @enum {string}
          */
-        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "PASSWORD_CHANGED";
+        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "PASSWORD_CHANGED";
         NotificationResponse: {
             /** Format: int32 */
             id: number;
@@ -6488,6 +6674,12 @@ export interface components {
              *     `{manager,year,operation,days}` — the client words ADD/SUBTRACT from `operation`.
              *     The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
              *     owner's name and the entry's raw ISO period bounds (never section text).
+             *     The `*_SHARED` kinds (v4.8.0, document sharing) carry `{sharer}` plus the raw ISO
+             *     `expiresOn` when the share has an end date; the `*_SHARE_WITHDRAWN` kinds carry
+             *     `{sharer,sharee,actor}`, and the sharer's own copy (minted only when someone else —
+             *     the document's author — withdrew their share) additionally carries `self: "sharer"`.
+             *     The `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN` kinds are
+             *     content-free and carry `{sharer}` only (plus the `self` carrier on the sharer's copy).
              */
             params: {
                 [key: string]: string;
@@ -6499,6 +6691,90 @@ export interface components {
         };
         NotificationPage: {
             items: components["schemas"]["NotificationResponse"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
+        /**
+         * @description The kinds of document that can be shared (v4.8.0). Days-off entries and pulse surveys are not shareable. Every kind listed here has its feature's adapter (compile-time complete).
+         * @enum {string}
+         */
+        ShareableResourceType: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN";
+        /**
+         * @description Derived, never stored: `WITHDRAWN` (terminal) beats `EXPIRED` (the end date passed — a share works through the end of its `expiresOn` day) beats `ACTIVE`.
+         * @enum {string}
+         */
+        ShareStatus: "ACTIVE" | "EXPIRED" | "WITHDRAWN";
+        ShareRequest: {
+            resourceType: components["schemas"]["ShareableResourceType"];
+            /** Format: int32 */
+            resourceId: number;
+            /**
+             * Format: int32
+             * @description The person to share with — an active user other than the caller.
+             */
+            shareeId: number;
+            /**
+             * Format: date
+             * @description Optional end date, inclusive: the share works through the end of that day. A strict ISO date not before the server's today (no timezone tolerance) — else `400`. Null/absent = open-ended until withdrawn.
+             */
+            expiresOn?: string | null;
+        };
+        ShareResponse: {
+            /** Format: int32 */
+            id: number;
+            resourceType: components["schemas"]["ShareableResourceType"];
+            /** Format: int32 */
+            resourceId: number;
+            /** Format: int32 */
+            sharerId: number;
+            sharerName: string;
+            /** Format: int32 */
+            shareeId: number;
+            shareeName: string;
+            /**
+             * Format: date
+             * @description Inclusive end date; null = open-ended.
+             */
+            expiresOn?: string | null;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds when the share was created. Server-managed.
+             */
+            createdAt: number;
+            status: components["schemas"]["ShareStatus"];
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the withdrawal; null unless `status` is `WITHDRAWN`.
+             */
+            withdrawnAt?: number | null;
+            /**
+             * Format: int32
+             * @description Who withdrew it — the sharer or the document's author; null unless withdrawn.
+             */
+            withdrawnById?: number | null;
+            withdrawnByName?: string | null;
+            /** @description In-app path of the shared document's view screen, derived from `resourceType` and `resourceId`. It says nothing about whether the document still exists — opening it answers the lapse/404. */
+            link: string;
+            /**
+             * @description Content-free facts about the document for the client to localize, SNAPSHOTTED when
+             *     the share was created and never refreshed (plaintext title and party columns only —
+             *     never decrypted content, never a status); null for a row with no snapshot. Keys per
+             *     `resourceType`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
+             *     GOAL `{title,subordinate}`; PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
+             *     TEAM_KPI `{title,team}`; IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`;
+             *     SUCCESSION_PLAN `{person,owner}`.
+             */
+            details?: {
+                [key: string]: string;
+            } | null;
+        };
+        SharePage: {
+            items: components["schemas"]["ShareResponse"][];
             page: number;
             pageSize: number;
             /**
@@ -13206,6 +13482,202 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listShares: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker.
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Which slice of shares to list — see the operation description. */
+                view?: "withMe" | "byMe" | "document";
+                /** @description Equality filter on the shared document's kind. Required with `view=document`. */
+                resourceType?: components["schemas"]["ShareableResourceType"];
+                /** @description The document's id. Accepted only with (and required by) `view=document`. */
+                resourceId?: number;
+                /** @description Equality filter on the derived share status. */
+                status?: components["schemas"]["ShareStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of shares */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description `view=document` by someone who may neither manage the document's shares nor read it in their own right, or whose feature flag for that area is off */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description `view=document` for an unknown/deleted document */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new share resource */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The caller's feature flag for the area is off, or they cannot read the document in their own right */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or deleted document */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description An active share of this document by the caller to that person already exists (`instance` points at it) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the sharer nor the document's author */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    withdrawShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the sharer nor the document's author */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The share is already withdrawn */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };

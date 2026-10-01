@@ -44,9 +44,14 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   explicit review action `POST …/{id}/complete-review`** (v2.44.0 — owner-only, OPEN-only 409,
   repeatable; the v2.42.0 editing-is-reviewing model is REVERSED by the user: plan/nomination
   mutations and closing never touch the stamp; the V68 SQL comment saying otherwise is
-  historical — Flyway checksums freeze it). **NO notifications of any kind** (deliberate:
-  confidential, pull-not-push; the SPA's invalidation skips the bell — history events are
-  silent too).
+  historical — Flyway checksums freeze it). **No notifications, with ONE exception: document
+  sharing (v4.8.0)** — sharing a plan mints `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN`
+  to the sharee (and the sharer when the owner withdrew it), **content-free by decision**: the
+  params carry the sharer's name only (never the seat, the person, the end date or any plan text —
+  the type name already says "succession plan"; pinned by the params assertions). Everything
+  else stays silent (deliberate: confidential, pull-not-push; the SPA's invalidation skips the
+  bell — history events are silent too, and shares are never written to them). See
+  `.claude/docs/features/sharing.md`.
 - **Bench math (user decision)**: `benchCount` counts ALL active nominations — emergency
   interims included; the under-bench cue compares it against `targetBenchDepth` (orange
   warning while short, teal once met, equality good). List rows get it via one grouped count
@@ -200,3 +205,7 @@ validators, `SuccessionPlanService.kt`, `SuccessionRoutes.kt`), cloned from impa
   App nav-gate and Tour cases; e2e `succession.spec.ts` (owns Manager AAA's plans — seat AAA
   One, candidates AAA Two/Three — and the modal-created goal for the (Manager AAA, AAA Two)
   pair).
+
+#### Sharing a succession plan (v4.8.0)
+
+The most confidential feature is shareable read-only, deliberately minimally (`succession/SuccessionShareable.kt`, registered in `configureDatabase`). Anyone who reads the plan **in their own right** may share it — the OWNER, or a manager in the OWNER's transitive chain; the HR auditor role alone does not qualify (HR retains its audit read, not a share right), a share-granted reader cannot share again, an HR owner can. The **author** (who sees and may withdraw every share) is the OWNER (`manager_id`) — never the seat's person. **Subject/candidate status still grants nothing** — a seat person or candidate who is not a sharee still gets `403` — but the owner may deliberately share the plan with them ("whoever I want"; they cannot re-share). Every succession GET surface: `GET /{id}` and `GET /{id}/events` are **share-aware** (`readGuardedPlan` → `ShareAccess.readOrShared` with the RAW `requireSuccessionPlanRead`; a chain manager's share lapses if they leave the owner's chain); the list (caller-scoped), the dashboard and the GraphQL API (succession is excluded from its v1 schema) are **not**; there is no separate nominations GET — they ride embedded in the plan. **Sibling-facts rule applied:** each nomination embeds light references to the candidate's linked development GOALS (`{id, title, status, type}`); those are other documents which a sharee could not read under the goal rules, so on a read through a share every nomination's `goals` list is emptied (`SuccessionPlanResponse.forSharee`) and the history is filtered to match (`goals` is dropped from each NOMINATION_UPDATED event's `changed` list, and an update that changed only the goal links is dropped — read-time, storage untouched) — the candidate, readiness, type, competency gaps, awareness, bench depth, `last_reviewed_at` and the loss-impact list are the plan itself, shown exactly as the sharer sees them. A CLOSED plan is readable/shareable like an OPEN one (the guard has no status nuance); every write (plan PUT, close, complete-review, DELETE, nomination POST/PUT/DELETE) stays owner-only — a sharee gets `403`. `SuccessionPlanResponse` carries `canShare` (true on create) and `sharedBy`. **Notifications (the deliberate content-free exception noted above):** `SUCCESSION_PLAN_SHARED` carries `{sharer}` only — not the seat's person, not the end date, nothing about the plan — and `SUCCESSION_PLAN_SHARE_WITHDRAWN` carries `{sharer}` (plus the `self` context carrier on the sharer's copy when the owner withdrew it); the email/Teams copy comes from the same catalog and names only the kind of document and the sharer; the snapshot labels are `{person, owner}`. No other succession notification exists or can be triggered. See `.claude/docs/features/sharing.md`; tests: the succession section of `SharingTest`.

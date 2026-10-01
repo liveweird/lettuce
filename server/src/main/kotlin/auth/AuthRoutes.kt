@@ -14,6 +14,7 @@ import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
 import ch.nokillswit.integration.INTEGRATION_RATE_LIMIT
+import ch.nokillswit.sharing.SHARES_RATE_LIMIT
 import ch.nokillswit.integration.apiKeyHash
 import ch.nokillswit.integration.integrationBearerToken
 import ch.nokillswit.notifications.Notification
@@ -55,6 +56,7 @@ private const val REFRESH_RATE_LIMIT = "refresh"
 private const val PASSWORD_RESET_RATE_LIMIT = "password-reset"
 private const val MFA_RATE_LIMIT = "mfa"
 private const val DEFAULT_INTEGRATION_RATE_LIMIT = 120
+private const val DEFAULT_SHARES_RATE_LIMIT = 60
 
 @Serializable
 data class LoginRequest(val email: String, val password: String)
@@ -298,6 +300,8 @@ fun Application.configureAuthRoutes() {
         ?: if (developmentMode) 1000 else 10
     val integrationLimit = optionalConfigInt(environment.config, "integration.rateLimitPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE)
         ?: DEFAULT_INTEGRATION_RATE_LIMIT
+    val sharesLimit = optionalConfigInt(environment.config, "sharing.rateLimitPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE)
+        ?: DEFAULT_SHARES_RATE_LIMIT
 
     // Throttle login to blunt password brute-forcing, and refresh to blunt token abuse: a token
     // bucket per client host.
@@ -330,6 +334,17 @@ fun Application.configureAuthRoutes() {
             rateLimiter(limit = integrationLimit, refillPeriod = 60.seconds)
             requestKey { call ->
                 integrationBearerToken(call)?.let { apiKeyHash(it) }
+                    ?: call.request.origin.remoteHost
+            }
+        }
+        // Document sharing's mutations (v4.8.0 — POST /shares and POST /shares/{id}/withdraw): a
+        // per-CALLER bucket, since both routes are authenticated and a share fans out a
+        // notification (and an email) per call. Keyed on the verified principal's userId; an
+        // unauthenticated request never reaches the handler, and shares the per-host bucket here.
+        register(RateLimitName(SHARES_RATE_LIMIT)) {
+            rateLimiter(limit = sharesLimit, refillPeriod = 60.seconds)
+            requestKey { call ->
+                call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asLong()
                     ?: call.request.origin.remoteHost
             }
         }

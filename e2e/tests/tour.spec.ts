@@ -8,9 +8,9 @@ import type { Page } from "@playwright/test";
 // instead. The suite's tour-seen stub only suppresses the AUTO-start; the replay button always
 // works.
 //
-// Audience math over the 22 steps: MANAGER_AAA is a manager, so the manager-only Succession step
-// is present → 22. The seed admin is an ADMIN but manages no team, so the Succession step is
-// absent → 21, +1 when the shared dev DB gives the admin a team (the existing `managerId` probe).
+// Audience math over the 23 steps: MANAGER_AAA is a manager, so the manager-only Succession step
+// is present → 23. The seed admin is an ADMIN but manages no team, so the Succession step is
+// absent → 22, +1 when the shared dev DB gives the admin a team (the existing `managerId` probe).
 
 const LANDMARKS = [
   "Take a quick tour",
@@ -22,6 +22,7 @@ const LANDMARKS = [
   "Impact log —",
   "Career —",
   "Days off —",
+  "Shared —",
   "Team KPIs —",
   "Performance —",
   "Pulse —",
@@ -70,7 +71,7 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-test("the guided tour walks all 22 manager menu steps in the documented order", async ({
+test("the guided tour walks all 23 manager menu steps in the documented order", async ({
   page,
 }) => {
   await login(page, MANAGER_AAA);
@@ -79,13 +80,13 @@ test("the guided tour walks all 22 manager menu steps in the documented order", 
   const before = page.url();
   const seen = await walkTour(page);
 
-  expect(seen).toHaveLength(22);
+  expect(seen).toHaveLength(23);
   assertLandmarkOrder(seen, LANDMARKS);
   // No step navigates — the walk never left the Dashboard.
   await expect(page).toHaveURL(before);
 });
 
-test("the guided tour walks the 21 admin menu steps without the manager-only Succession stop", async ({
+test("the guided tour walks the 22 admin menu steps without the manager-only Succession stop", async ({
   page,
   request,
 }) => {
@@ -103,7 +104,7 @@ test("the guided tour walks the 21 admin menu steps without the manager-only Suc
       headers: { Authorization: `Bearer ${token}` },
     })
   ).json()) as { total: number };
-  const expected = 21 + (managed.total > 0 ? 1 : 0);
+  const expected = 22 + (managed.total > 0 ? 1 : 0);
 
   const seen = await walkTour(page);
 

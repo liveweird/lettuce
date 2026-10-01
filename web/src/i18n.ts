@@ -19,6 +19,7 @@ import enGoals from "./locales/en/goals.json";
 import enImpactLog from "./locales/en/impactLog.json";
 import enIntegration from "./locales/en/integration.json";
 import enSuccession from "./locales/en/succession.json";
+import enSharing from "./locales/en/sharing.json";
 import enTeamKpis from "./locales/en/teamKpis.json";
 import enPerformanceReviews from "./locales/en/performanceReviews.json";
 import enDaysOff from "./locales/en/daysOff.json";
@@ -85,6 +86,7 @@ export const en = {
   impactLog: enImpactLog,
   integration: enIntegration,
   succession: enSuccession,
+  sharing: enSharing,
   teamKpi: enTeamKpis,
   // Mounted as the singular area `performanceReview` (the teamKpis.json -> teamKpi precedent).
   performanceReview: enPerformanceReviews,

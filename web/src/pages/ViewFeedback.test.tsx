@@ -442,3 +442,94 @@ describe("ViewFeedback page", () => {
     expect(screen.getByText("Still visible")).toBeInTheDocument();
   });
 });
+
+describe("ViewFeedback sharing (v4.8.0)", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "[]");
+    localStorage.setItem(USER_ID_KEY, "7");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Share button renders only when canShare is true", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ...FEEDBACK, canShare: true }));
+    renderViewFeedback();
+    expect(await screen.findByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("canShare false hides the button; sharedBy shows the banner", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...FEEDBACK, canShare: false, sharedBy: "Sue Sharer" }),
+    );
+    renderViewFeedback();
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+  });
+
+  test("an upgraded read (the requester of an unfinished feedback, shared the content) shows the content and the Share button", async () => {
+    // The requester (viewer 7) of a DRAFT: normally "content not available" — but through a share
+    // the server returns the sharer's view of the content, so the page must render it.
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 7,
+        status: "DRAFT",
+        visibility: "PROVIDER_REQUESTER",
+        sharedBy: "Sue Sharer",
+        canShare: true,
+      }),
+    );
+    renderViewFeedback();
+    expect(await screen.findByText("Nice work on the launch")).toBeInTheDocument();
+    expect(screen.getByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("an upgraded read of a not-yet-written feedback keeps the hint instead of an empty box", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 7,
+        content: "",
+        status: "REQUESTED",
+        visibility: "PROVIDER_REQUESTER",
+        sharedBy: "Sue Sharer",
+        canShare: true,
+      }),
+    );
+    renderViewFeedback();
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.getByText("Content isn't available yet.")).toBeInTheDocument();
+  });
+
+  test("without a share the requester of an unfinished feedback still gets no content", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ...FEEDBACK,
+        requesterId: 7,
+        content: "",
+        status: "DRAFT",
+        visibility: "PROVIDER_REQUESTER",
+        canShare: true,
+      }),
+    );
+    renderViewFeedback();
+    expect(await screen.findByText("Content isn't available yet.")).toBeInTheDocument();
+  });
+
+  test("the lapse 403 renders the friendly localized message", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(403, { title: "Forbidden", status: 403, detail: "The person who shared this no longer has access to it" }),
+    );
+    renderViewFeedback();
+    expect(await screen.findByText("The person who shared this document with you can no longer open it, so your access has ended.")).toBeInTheDocument();
+  });
+});

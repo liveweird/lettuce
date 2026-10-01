@@ -1,12 +1,13 @@
 package ch.nokillswit.feedbacks
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.canReadFeedbackContent
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireAuditListAccess
-import ch.nokillswit.authz.requireFeedbackReadAllowingManager
 import ch.nokillswit.authz.requireFeedbackWrite
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
@@ -19,6 +20,9 @@ import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.sharing.ReadVia
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
@@ -66,6 +70,9 @@ class Feedbacks {
     }
 }
 
+/** A feedback the caller may read, and how: [effective] is the principal the content gate runs on. */
+private class GuardedFeedback(val feedback: Feedback, val via: ReadVia<Unit>, val effective: CallerPrincipal)
+
 // Turn a structured event descriptor into the persistable audit event (the SPA localizes it).
 // userId null = system-originated (no acting user) — the REQUEST_EXPIRED lazy sweep.
 private fun FeedbackEventDescriptor.toEvent(feedbackId: UInt, userId: UInt?) = FeedbackEvent(
@@ -85,20 +92,51 @@ fun Application.configureFeedbackRoutes() {
     val feedbackEventService = attributes[FeedbackEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
+    val shareAccess = attributes[ShareAccessKey]
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the feedback (missing →
     // NotFoundException) and enforces the read matrix (parties / audited HR / delivered-only
-    // chain managers / PUBLIC+SENT — the guard itself throws ForbiddenException). Whether the
-    // CONTENT may be shown stays a separate gate (canReadFeedbackContent) at the
-    // single-document GET.
-    suspend fun readGuardedFeedback(call: ApplicationCall, feedbackId: UInt): Feedback {
+    // chain managers / PUBLIC+SENT — the guard itself throws ForbiddenException), OR — since
+    // v4.8.0 — an active SHARE of it (`ShareAccess.readOrShared`: the same guard, re-evaluated
+    // for the sharer with the HR role stripped). Whether the CONTENT may be shown stays a
+    // separate gate (canReadFeedbackContent) at the single-document GET, evaluated on
+    // [GuardedFeedback.effective] — the sharer, when access came from a share ("the sharee sees
+    // at most what the sharer sees").
+    suspend fun readGuardedFeedback(
+        call: ApplicationCall,
+        feedbackId: UInt,
+        // Only the single GET shows content; the events sub-route passes false so a content-blank
+        // requester does not pay the extra share lookup there for an upgrade nothing would use.
+        upgradeContent: Boolean = true,
+    ): GuardedFeedback {
         val caller = call.feedbackCaller()
         val feedback = feedbackService.read(feedbackId)
             ?: throw NotFoundException("Feedback not found")
-        requireFeedbackReadAllowingManager(caller, feedback, feedbackId) {
-            feedbackService.managesAnySubject(caller.userId, feedback.subjectIds)
+        val doc = FeedbackDoc(feedbackId, feedback)
+        // A share also UPGRADES a weaker own read: a requester who may see that an unfinished
+        // feedback exists but not its content reads it (content included) through a share from
+        // someone whose read shows the content — "sufficient" = the content gate passes.
+        val sufficient: (CallerPrincipal, Unit) -> Boolean =
+            if (upgradeContent) { principal, _ -> canReadFeedbackContent(principal, feedback) } else { _, _ -> true }
+        val via = shareAccess.readOrShared(caller, ShareableResourceType.FEEDBACK, feedbackId, sufficient) {
+            feedbackService.requireReadable(it, doc)
         }
-        return feedback
+        return GuardedFeedback(
+            feedback = feedback,
+            via = via,
+            effective = (via as? ReadVia.Shared)?.principal ?: caller,
+        )
+    }
+
+    // `canShare` (the share button's gate): the caller reads this feedback in their OWN right —
+    // independently of any share (an upgraded read may carry `sharedBy` too), never via the HR
+    // role alone (the guard is re-run role-stripped, which only matters for an HR caller). No
+    // guard re-run when the read already tells: a share that was the caller's only way in means
+    // no own right; a role-less caller's own read is the stripped guard's own result.
+    suspend fun canShare(caller: CallerPrincipal, via: ReadVia<Unit>, doc: FeedbackDoc): Boolean = when {
+        via is ReadVia.Shared && via.ownDenied -> false
+        !caller.isHr() -> true
+        else -> shareAccess.holdsOwnRight(caller, ShareableResourceType.FEEDBACK) { feedbackService.requireReadable(it, doc) }
     }
 
     // The write sibling: provider-only (nobody else — ADMIN included). Guards run BEFORE any
@@ -277,21 +315,29 @@ fun Application.configureFeedbackRoutes() {
                 // then record the creation audit event against the acting caller.
                 persistOutcome(result.notifications, feedbackCreationEvent(created), id, caller.userId)
                 val names = feedbackService.partyNames(created)
+                // Whether the creator can read what they just created in their own right (a
+                // requester whose visibility excludes them cannot) decides the share button.
+                val mayShare = shareAccess.holdsOwnRight(caller, ShareableResourceType.FEEDBACK) {
+                    feedbackService.requireReadable(it, FeedbackDoc(id, created))
+                }
                 call.respond(
                     HttpStatusCode.Created,
-                    created.toResponse(id, names, subjects = feedbackService.subjectsOf(id, created)),
+                    created.toResponse(id, names, subjects = feedbackService.subjectsOf(id, created), canShare = mayShare),
                 )
             }
             get<Feedbacks.Id> { route ->
-                val feedback = readGuardedFeedback(call, route.id)
+                val read = readGuardedFeedback(call, route.id)
+                val feedback = read.feedback
                 val names = feedbackService.partyNames(feedback)
                 call.respond(
                     HttpStatusCode.OK,
                     feedback.toResponse(
                         route.id,
                         names,
-                        includeContent = canReadFeedbackContent(call.caller(), feedback),
+                        includeContent = canReadFeedbackContent(read.effective, feedback),
                         subjects = feedbackService.subjectsOf(route.id, feedback),
+                        canShare = canShare(call.caller(), read.via, FeedbackDoc(route.id, feedback)),
+                        sharedBy = (read.via as? ReadVia.Shared)?.sharerName,
                     ),
                 )
             }
@@ -319,8 +365,9 @@ fun Application.configureFeedbackRoutes() {
             post<Feedbacks.Id.PickUp> { route -> transitionTo(call, route.parent.id, FeedbackStatus.DRAFT) }
             get<Feedbacks.Id.Events> { route ->
                 val feedbackId = route.parent.id
-                // Whoever may read the feedback may read its history.
-                readGuardedFeedback(call, feedbackId)
+                // Whoever may read the feedback may read its history (events carry no content, so
+                // no content-upgrade share lookup).
+                readGuardedFeedback(call, feedbackId, upgradeContent = false)
                 call.respond(
                     HttpStatusCode.OK,
                     FeedbackEventListResponse(feedbackEventService.listForFeedback(feedbackId)),

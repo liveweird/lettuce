@@ -45,7 +45,12 @@ const EVENTS = {
   ],
 };
 
-function renderScreen(route = "/impact-log/5/view", entryStatus = 200, entry = ENTRY) {
+function renderScreen(
+  route = "/impact-log/5/view",
+  entryStatus = 200,
+  entry: Record<string, unknown> = ENTRY,
+  errorBody: Record<string, unknown> = { title: "x" },
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const mockFetch = vi.fn((url: string) => {
     const u = String(url);
@@ -53,7 +58,7 @@ function renderScreen(route = "/impact-log/5/view", entryStatus = 200, entry = E
       return Promise.resolve(jsonResponse(200, EVENTS));
     }
     if (u === "/api/v1/impact-log/5") {
-      return Promise.resolve(jsonResponse(entryStatus, entryStatus === 200 ? entry : { title: "x" }));
+      return Promise.resolve(jsonResponse(entryStatus, entryStatus === 200 ? entry : errorBody));
     }
     return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
   });
@@ -158,5 +163,51 @@ describe("ViewImpactEntry page", () => {
     const mockFetch = renderScreen("/impact-log/abc/view");
     expect(screen.getByTestId("probe")).toHaveTextContent("/impact-log");
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("ViewImpactEntry sharing (v4.8.0)", () => {
+  beforeEach(() => {
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "[]");
+    localStorage.setItem(USER_ID_KEY, "7");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Share button renders only when canShare is true", async () => {
+    renderScreen("/impact-log/5/view", 200, { ...ENTRY, canShare: true });
+    expect(await screen.findByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("canShare false hides the button, and a sharedBy read shows the banner without it", async () => {
+    renderScreen("/impact-log/5/view", 200, { ...ENTRY, canShare: false, sharedBy: "Sue Sharer" });
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+    // Read-only: a sharee is never the owner, so there is no Edit entry point.
+    expect(screen.queryByRole("link", { name: /^edit$/i })).toBeNull();
+  });
+
+  test("an upgraded read can carry sharedBy AND canShare — the button follows canShare only", async () => {
+    renderScreen("/impact-log/5/view", 200, { ...ENTRY, canShare: true, sharedBy: "Sue Sharer" });
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("the lapse 403 renders the friendly localized message, not the generic denial", async () => {
+    renderScreen("/impact-log/5/view", 403, ENTRY, {
+      title: "Forbidden",
+      status: 403,
+      detail: "The person who shared this no longer has access to it",
+    });
+    expect(
+      await screen.findByText(
+        "The person who shared this document with you can no longer open it, so your access has ended.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("You don't have access to this entry.")).toBeNull();
   });
 });

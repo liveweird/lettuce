@@ -1,12 +1,13 @@
 package ch.nokillswit.goals
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditListAccess
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireGoalProgressWrite
-import ch.nokillswit.authz.requireGoalReadAllowingManager
 import ch.nokillswit.authz.requireGoalWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
@@ -20,6 +21,9 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.sharing.ReadVia
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
@@ -77,6 +81,9 @@ private fun GoalEventDescriptor.toEvent(goalId: UInt, userId: UInt, comment: Str
     comment = comment,
 )
 
+/** A goal the caller may read, and how (own right or through a share). */
+private class GuardedGoal(val goal: GoalResponse, val via: ReadVia<Unit>)
+
 // The gated caller (V46): every goal handler resolves its principal through this, so the
 // per-user GOALS flag is enforced before any other guard or read.
 private fun ApplicationCall.goalCaller() =
@@ -87,19 +94,33 @@ fun Application.configureGoalRoutes() {
     val goalEventService = attributes[GoalEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
+    val shareAccess = attributes[ShareAccessKey]
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the goal (missing →
     // NotFoundException) and enforces the document read rule (parties / audited HR at any
-    // status; chain managers once out of DRAFT — the guard itself throws ForbiddenException).
+    // status; chain managers once out of DRAFT — the guard itself throws ForbiddenException), OR —
+    // since v4.8.0 — an active SHARE of it (`ShareAccess.readOrShared`: the same guard, re-run for
+    // the sharer with the HR role stripped, so a DRAFT stays private and a share a chain manager
+    // made lapses if the goal returns to DRAFT). Goals have no per-reader content gate (every
+    // reader sees the same description/summary/milestones), so no `sufficient` check is needed.
     // Shared by the document and events GETs.
-    suspend fun readGuardedGoal(call: ApplicationCall, goalId: UInt): GoalResponse {
+    suspend fun readGuardedGoal(call: ApplicationCall, goalId: UInt): GuardedGoal {
         val caller = call.goalCaller()
         val goal = goalService.read(goalId)
             ?: throw NotFoundException("Goal not found")
-        requireGoalReadAllowingManager(caller, goal) {
-            goalService.managesSubordinate(caller.userId, goal.subordinateId)
+        val via = shareAccess.readOrShared(caller, ShareableResourceType.GOAL, goalId) {
+            goalService.requireReadable(it, goal)
         }
-        return goal
+        return GuardedGoal(goal, via)
+    }
+
+    // `canShare` (the share button's gate): the caller reads this goal in their OWN right — no
+    // share involved, and never via the HR role alone (the guard is re-run role-stripped, which
+    // only matters for an HR caller). No guard re-run when the read already tells.
+    suspend fun canShare(caller: CallerPrincipal, via: ReadVia<Unit>, goal: GoalResponse): Boolean = when {
+        via is ReadVia.Shared && via.ownDenied -> false
+        !caller.isHr() -> true
+        else -> shareAccess.holdsOwnRight(caller, ShareableResourceType.GOAL) { goalService.requireReadable(it, goal) }
     }
 
     // The write sibling: manager-only (nobody else — ADMIN included). Guards run BEFORE any
@@ -223,11 +244,18 @@ fun Application.configureGoalRoutes() {
                 goalEventService.create(goalCreationEvent(request.type).toEvent(id, caller.userId))
                 val created = goalService.read(id)
                     .orVanished("Goal", id)
-                call.respond(HttpStatusCode.Created, created)
+                // The creating manager always reads their own goal (canReadGoal's cheap rule).
+                call.respond(HttpStatusCode.Created, created.copy(canShare = true))
             }
             get<Goals.Id> { route ->
-                val goal = readGuardedGoal(call, route.id)
-                call.respond(HttpStatusCode.OK, goal)
+                val read = readGuardedGoal(call, route.id)
+                call.respond(
+                    HttpStatusCode.OK,
+                    read.goal.copy(
+                        canShare = canShare(call.caller(), read.via, read.goal),
+                        sharedBy = (read.via as? ReadVia.Shared)?.sharerName,
+                    ),
+                )
             }
             put<Goals.Id> { route ->
                 val existing = writeGuardedGoal(call, route.id)

@@ -165,3 +165,50 @@ describe("ViewPerformanceReview page", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ViewPerformanceReview sharing (v4.8.0)", () => {
+  function setup(body: unknown, status = 200) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        const u = String(url);
+        if (u.includes("/events")) return Promise.resolve(jsonResponse(200, { items: [] }));
+        if (u.includes("/api/v1/performance-reviews/5")) return Promise.resolve(jsonResponse(status, body));
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(USER_ID_KEY, "9"); // neither the manager nor the subordinate
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Share button renders only when canShare is true", async () => {
+    setup({ ...REVIEW, canShare: true });
+    renderScreen();
+    expect(await screen.findByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("a sharee sees the banner and no Share/Edit/lifecycle controls", async () => {
+    setup({ ...REVIEW, canShare: false, sharedBy: "Sue Sharer" });
+    renderScreen();
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    for (const name of ["Return to draft", "Publish", "Submit for calibration", "Unpublish"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+  });
+
+  test("the lapse 403 renders the friendly localized message", async () => {
+    setup({ title: "Forbidden", status: 403, detail: "The person who shared this no longer has access to it" }, 403);
+    renderScreen();
+    expect(await screen.findByText("The person who shared this document with you can no longer open it, so your access has ended.")).toBeInTheDocument();
+  });
+});

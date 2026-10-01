@@ -62,13 +62,15 @@ private fun subjectFor(type: NotificationType): LocalizedText = if (
     Feature.DAYS_OFF -> LocalizedText(en = "Lettuce: days off", pl = "Lettuce: dni wolne")
     Feature.PULSE_SURVEYS -> LocalizedText(en = "Lettuce: pulse survey", pl = "Lettuce: ankieta pulsu")
     Feature.IMPACT_LOG -> LocalizedText(en = "Lettuce: impact log", pl = "Lettuce: dziennik wpływu")
-    // MFA mints no notifications (its emails are the sign-in codes themselves, sent directly
-    // from the login flow), SUCCESSION_PLANS mints none BY DESIGN (confidential — the subjects
-    // must never learn of it, and the owner is always the actor), and TEAMS_NOTIFICATIONS
-    // (v4.5.0) is a CHANNEL, never a NotificationType.feature value (no type maps to it — this
-    // branch exists only because the `when` is over the whole Feature? enum) — same fallback as
-    // the feature-neutral security types.
-    Feature.MFA, Feature.SUCCESSION_PLANS, Feature.TEAMS_NOTIFICATIONS, null ->
+    // SUCCESSION_PLANS mints only the content-free share notices (v4.8.0 — it used to mint none, by
+    // design: confidential, the owner is always the actor). MFA mints no notifications (its
+    // emails are the sign-in codes themselves, sent directly from the login flow), and
+    // TEAMS_NOTIFICATIONS (v4.5.0) is a CHANNEL, never a NotificationType.feature value (no type
+    // maps to it — this branch exists only because the `when` is over the whole Feature? enum) —
+    // same fallback as the feature-neutral security types.
+    Feature.SUCCESSION_PLANS ->
+        LocalizedText(en = "Lettuce: succession plan", pl = "Lettuce: plan sukcesji")
+    Feature.MFA, Feature.TEAMS_NOTIFICATIONS, null ->
         LocalizedText(en = "Lettuce: security notice", pl = "Lettuce: powiadomienie o bezpieczeństwie")
 }
 
@@ -312,6 +314,20 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
         en = "${p.v("manager")} recorded a new position in your career progression, starting ${p.v("startDate")}.",
         pl = "${p.v("manager")} odnotował/a nowe stanowisko w Twojej historii kariery, obowiązujące od ${p.v("startDate")}.",
     )
+    NotificationType.FEEDBACK_SHARED -> sharedSentence(SHARE_NOUN_FEEDBACK, p)
+    NotificationType.FEEDBACK_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_FEEDBACK, p)
+    NotificationType.ONE_ON_ONE_SHARED -> sharedSentence(SHARE_NOUN_ONE_ON_ONE, p)
+    NotificationType.ONE_ON_ONE_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_ONE_ON_ONE, p)
+    NotificationType.GOAL_SHARED -> sharedSentence(SHARE_NOUN_GOAL, p)
+    NotificationType.GOAL_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_GOAL, p)
+    NotificationType.TEAM_KPI_SHARED -> sharedSentence(SHARE_NOUN_TEAM_KPI, p)
+    NotificationType.TEAM_KPI_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_TEAM_KPI, p)
+    NotificationType.PERFORMANCE_REVIEW_SHARED -> sharedSentence(SHARE_NOUN_PERFORMANCE_REVIEW, p)
+    NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_PERFORMANCE_REVIEW, p)
+    NotificationType.IMPACT_ENTRY_SHARED -> sharedSentence(SHARE_NOUN_IMPACT_ENTRY, p)
+    NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_IMPACT_ENTRY, p)
+    NotificationType.SUCCESSION_PLAN_SHARED -> sharedSentence(SHARE_NOUN_SUCCESSION_PLAN, p)
+    NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_SUCCESSION_PLAN, p)
     NotificationType.PASSWORD_CHANGED -> when (p["self"]) {
         // The reset flow's own email (with the new password) IS the notice — no duplicate.
         "reset" -> null
@@ -322,6 +338,93 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
         else -> LocalizedText(
             en = "Your password was changed.",
             pl = "Twoje hasło zostało zmienione.",
+        )
+    }
+}
+
+/**
+ * The kind of document a share notification names, in the forms the wording needs: [en] (with
+ * its article), the Polish accusative [plAcc] ("udostępnił/a Ci …"), the Polish genitive [plGen]
+ * ("dostęp do …", "udostępnienie …") and [plGenShared], the genitive participle agreeing with
+ * it ("… oceny okresowej udostępnionej Ci przez …"). Content-free by construction — only the
+ * kind, never a title or party (the succession copy in particular names nothing about the seat).
+ */
+private data class ShareNoun(
+    val en: String,
+    val plAcc: String,
+    val plGen: String,
+    val plGenShared: String,
+    /**
+     * Set only for the kind whose sharee withdrawal copy is deliberately ACTOR-NEUTRAL (succession
+     * plans): the copy carries `{sharer}` only, so it cannot tell whether the sharer or the author
+     * withdrew — it must not claim "{sharer} stopped sharing". The value is the Polish relative
+     * pronoun agreeing with the noun's gender ("który" for "plan").
+     */
+    val plWhich: String? = null,
+)
+
+private val SHARE_NOUN_FEEDBACK =
+    ShareNoun(en = "feedback", plAcc = "feedback", plGen = "feedbacku", plGenShared = "udostępnionego")
+private val SHARE_NOUN_ONE_ON_ONE =
+    ShareNoun(en = "a 1:1 meeting", plAcc = "spotkanie 1:1", plGen = "spotkania 1:1", plGenShared = "udostępnionego")
+private val SHARE_NOUN_GOAL = ShareNoun(en = "a goal", plAcc = "cel", plGen = "celu", plGenShared = "udostępnionego")
+private val SHARE_NOUN_TEAM_KPI =
+    ShareNoun(en = "a team KPI", plAcc = "KPI zespołu", plGen = "KPI zespołu", plGenShared = "udostępnionego")
+private val SHARE_NOUN_PERFORMANCE_REVIEW = ShareNoun(
+    en = "a performance review", plAcc = "ocenę okresową", plGen = "oceny okresowej", plGenShared = "udostępnionej",
+)
+private val SHARE_NOUN_IMPACT_ENTRY = ShareNoun(
+    en = "an impact log entry", plAcc = "wpis z dziennika wpływu", plGen = "wpisu z dziennika wpływu",
+    plGenShared = "udostępnionego",
+)
+private val SHARE_NOUN_SUCCESSION_PLAN = ShareNoun(
+    en = "a succession plan", plAcc = "plan sukcesji", plGen = "planu sukcesji", plGenShared = "udostępnionego",
+    plWhich = "który",
+)
+
+/** `*_SHARED` — params `{sharer}` plus the raw ISO `expiresOn` when the share has an end date. */
+private fun sharedSentence(noun: ShareNoun, p: Map<String, String>): LocalizedText {
+    val until = p["expiresOn"]
+    return LocalizedText(
+        en = "${p.v("sharer")} shared ${noun.en} with you." + (until?.let { " Access lasts until $it." } ?: ""),
+        pl = "${p.v("sharer")} udostępnił/a Ci ${noun.plAcc}." + (until?.let { " Dostęp obowiązuje do $it." } ?: ""),
+    )
+}
+
+/**
+ * `*_SHARE_WITHDRAWN` — three audiences share one type, told apart by params. The SHARER'S copy
+ * (`self == "sharer"`, minted only when someone else — the document's author — withdrew their
+ * share) names the actor and the sharee; the SHARE'S copy names the actor and the sharer, or,
+ * when `actor` is absent or the sharer themselves, reads as the sharer stopping the share. The
+ * succession copy carries `{sharer}` only (no `actor`/`sharee`) and is deliberately actor-neutral
+ * ([ShareNoun.plWhich]): "You no longer have access to a succession plan X shared with you" — true
+ * whether the sharer or the author withdrew, and naming no one else.
+ */
+private fun withdrawnSentence(noun: ShareNoun, p: Map<String, String>): LocalizedText {
+    val actor = p["actor"]
+    val sharee = p["sharee"]
+    return if (p["self"] == "sharer") {
+        if (actor != null && sharee != null) LocalizedText(
+            en = "$actor withdrew your share of ${noun.en} with $sharee.",
+            pl = "$actor wycofał/a Twoje udostępnienie ${noun.plGen} osobie $sharee.",
+        ) else LocalizedText(
+            en = "The owner of ${noun.en} withdrew your share of it.",
+            pl = "Właściciel/ka ${noun.plGen} wycofał/a Twoje udostępnienie.",
+        )
+    } else if (noun.plWhich != null) {
+        LocalizedText(
+            en = "You no longer have access to ${noun.en} ${p.v("sharer")} shared with you.",
+            pl = "Nie masz już dostępu do ${noun.plGen}, ${noun.plWhich} udostępnił/a Ci ${p.v("sharer")}.",
+        )
+    } else if (actor == null || actor == p["sharer"]) {
+        LocalizedText(
+            en = "${p.v("sharer")} stopped sharing ${noun.en} with you.",
+            pl = "${p.v("sharer")} wycofał/a Twój dostęp do ${noun.plGen}.",
+        )
+    } else {
+        LocalizedText(
+            en = "$actor withdrew your access to ${noun.en} that ${p.v("sharer")} had shared with you.",
+            pl = "$actor wycofał/a Twój dostęp do ${noun.plGen} ${noun.plGenShared} Ci przez ${p.v("sharer")}.",
         )
     }
 }

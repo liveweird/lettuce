@@ -1,12 +1,13 @@
 package ch.nokillswit.teamkpis
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
+import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireAuditScopeListAccess
 import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requireTeamKpiManage
-import ch.nokillswit.authz.requireTeamKpiReadAllowingChain
 import ch.nokillswit.authz.requireTeamKpiValueWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
@@ -20,6 +21,9 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.notifications.NotificationType
+import ch.nokillswit.sharing.ReadVia
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -79,6 +83,9 @@ private fun TeamKpiEventDescriptor.toEvent(kpiId: UInt, userId: UInt) = TeamKpiE
     params = params,
 )
 
+/** A KPI the caller may read, and how (own right or through a share). */
+private class GuardedKpi(val kpi: TeamKpiResponse, val via: ReadVia<Unit>)
+
 // The gated caller (V46): every team-KPI handler resolves its principal through this (via the
 // shared read/write preambles or directly), so the per-user TEAM_KPIS flag is enforced before
 // any other guard or read.
@@ -89,6 +96,7 @@ fun Application.configureTeamKpiRoutes() {
     val kpiService = attributes[TeamKpiServiceKey]
     val kpiEventService = attributes[TeamKpiEventServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+    val shareAccess = attributes[ShareAccessKey]
 
     // Fan out a data-point mutation to the team's current members + manager, minus the ACTOR
     // (v2.26.0 — members and chain managers record data too, so the actor is the caller, not
@@ -116,19 +124,29 @@ fun Application.configureTeamKpiRoutes() {
 
     // The uniform read preamble (the 404-before-403 idiom): resolves the KPI (missing →
     // NotFoundException) and enforces the document read rule (manager / audited HR at any
-    // status; member / chain once out of DRAFT — the guard itself throws ForbiddenException).
-    // Shared by the document, values, and events GETs.
-    suspend fun readGuardedKpi(call: ApplicationCall, kpiId: UInt): TeamKpiResponse {
+    // status; member / chain once out of DRAFT — the guard itself throws ForbiddenException), OR
+    // — since v4.8.0 — an active SHARE of it (`ShareAccess.readOrShared`: the same guard, re-run
+    // for the sharer with the HR role stripped, so a member's share lapses when the KPI returns to
+    // DRAFT or they leave the team). A KPI has no per-reader content gate (so no `sufficient`
+    // check) and references no other KPI (nothing to strip). Shared by the document, values, and
+    // events GETs.
+    suspend fun readGuardedKpi(call: ApplicationCall, kpiId: UInt): GuardedKpi {
         val caller = call.teamKpiCaller()
         val kpi = kpiService.read(kpiId)
             ?: throw NotFoundException("Team KPI not found")
-        requireTeamKpiReadAllowingChain(
-            caller,
-            kpi,
-            isTeamMember = { kpiService.isTeamMember(caller.userId, kpi.teamId) },
-            managesTeamManager = { kpiService.managesManagerOf(caller.userId, kpi.managerId) },
-        )
-        return kpi
+        val via = shareAccess.readOrShared(caller, ShareableResourceType.TEAM_KPI, kpiId) {
+            kpiService.requireReadable(it, kpi)
+        }
+        return GuardedKpi(kpi, via)
+    }
+
+    // `canShare` (the share button's gate): the caller reads this KPI in their OWN right — no
+    // share involved, and never via the HR role alone (the guard is re-run role-stripped, which
+    // only matters for an HR caller). No guard re-run when the read already tells.
+    suspend fun canShare(caller: CallerPrincipal, via: ReadVia<Unit>, kpi: TeamKpiResponse): Boolean = when {
+        via is ReadVia.Shared && via.ownDenied -> false
+        !caller.isHr() -> true
+        else -> shareAccess.holdsOwnRight(caller, ShareableResourceType.TEAM_KPI) { kpiService.requireReadable(it, kpi) }
     }
 
     // The definition/lifecycle sibling (v2.26.0): the team's current manager + the chain above
@@ -251,20 +269,35 @@ fun Application.configureTeamKpiRoutes() {
                     .orVanished("Team KPI", id)
                 // The creator just passed the manage-or-chain gate, so both capability flags
                 // are true by construction — stamped like the single GET.
-                call.respond(HttpStatusCode.Created, created.copy(canManage = true, canRecordValues = true))
+                // The creating manager/chain manager reads (and manages) their own KPI at every status.
+                call.respond(HttpStatusCode.Created, created.copy(canManage = true, canRecordValues = true, canShare = true))
             }
             get<TeamKpis.Id> { route ->
-                val kpi = readGuardedKpi(call, route.id)
+                val read = readGuardedKpi(call, route.id)
+                val kpi = read.kpi
                 // Capability flags (v2.26.0): the SPA cannot walk management chains, so the
                 // server states the caller's rights on the document itself. The short-circuits
                 // keep THIS block to at most two queries; the read guard above may already have
                 // evaluated the same predicates (its results aren't reusable here) — accepted:
                 // 1–2 cheap extra queries on a single-document read (registered, backlog #8).
+                // A caller whose ONLY way in is a share holds neither right (a share confers read
+                // alone; managing implies reading, and values are recorded only while ACTIVE by
+                // members who read in their own right) — both false without a query.
                 val caller = call.caller()
-                val canManage = caller.userId == kpi.managerId ||
-                    kpiService.managesManagerOf(caller.userId, kpi.managerId)
-                val canRecordValues = canManage || kpiService.isTeamMember(caller.userId, kpi.teamId)
-                call.respond(HttpStatusCode.OK, kpi.copy(canManage = canManage, canRecordValues = canRecordValues))
+                val shareOnly = read.via is ReadVia.Shared && read.via.ownDenied
+                val canManage = !shareOnly && (
+                    caller.userId == kpi.managerId || kpiService.managesManagerOf(caller.userId, kpi.managerId)
+                    )
+                val canRecordValues = !shareOnly && (canManage || kpiService.isTeamMember(caller.userId, kpi.teamId))
+                call.respond(
+                    HttpStatusCode.OK,
+                    kpi.copy(
+                        canManage = canManage,
+                        canRecordValues = canRecordValues,
+                        canShare = canShare(caller, read.via, kpi),
+                        sharedBy = (read.via as? ReadVia.Shared)?.sharerName,
+                    ),
+                )
             }
             put<TeamKpis.Id> { route ->
                 val existing = manageGuardedKpi(call, route.id)

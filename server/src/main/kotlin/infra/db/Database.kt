@@ -14,14 +14,17 @@ import ch.nokillswit.feedbacks.FeedbackEventService
 import ch.nokillswit.feedbacks.FeedbackEventServiceKey
 import ch.nokillswit.feedbacks.FeedbackService
 import ch.nokillswit.feedbacks.FeedbackServiceKey
+import ch.nokillswit.feedbacks.FeedbackShareable
 import ch.nokillswit.goals.GoalEventService
 import ch.nokillswit.goals.GoalEventServiceKey
 import ch.nokillswit.goals.GoalService
 import ch.nokillswit.goals.GoalServiceKey
+import ch.nokillswit.goals.GoalShareable
 import ch.nokillswit.impactlog.ImpactLogEventService
 import ch.nokillswit.impactlog.ImpactLogEventServiceKey
 import ch.nokillswit.impactlog.ImpactLogService
 import ch.nokillswit.impactlog.ImpactLogServiceKey
+import ch.nokillswit.impactlog.ImpactLogShareable
 import ch.nokillswit.infra.config.requireConfigInt
 import ch.nokillswit.infra.config.requireConfigLong
 import ch.nokillswit.infra.crypto.FieldCipherKey
@@ -41,6 +44,7 @@ import ch.nokillswit.oneonones.OneOnOneEventService
 import ch.nokillswit.oneonones.OneOnOneEventServiceKey
 import ch.nokillswit.oneonones.OneOnOneService
 import ch.nokillswit.oneonones.OneOnOneServiceKey
+import ch.nokillswit.oneonones.OneOnOneShareable
 import ch.nokillswit.pulse.PulseCycleService
 import ch.nokillswit.pulse.PulseCycleServiceKey
 import ch.nokillswit.pulse.PulseResponseService
@@ -49,18 +53,28 @@ import ch.nokillswit.reviews.PerformanceReviewEventService
 import ch.nokillswit.reviews.PerformanceReviewEventServiceKey
 import ch.nokillswit.reviews.PerformanceReviewService
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
+import ch.nokillswit.reviews.PerformanceReviewShareable
 import ch.nokillswit.reviews.ReviewPeriodService
 import ch.nokillswit.reviews.ReviewPeriodServiceKey
 import ch.nokillswit.settings.AppSettingsService
 import ch.nokillswit.settings.AppSettingsServiceKey
+import ch.nokillswit.sharing.ShareAccess
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.sharing.ShareRegistry
+import ch.nokillswit.sharing.ShareRegistryKey
+import ch.nokillswit.sharing.ShareService
+import ch.nokillswit.sharing.ShareServiceKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.succession.SuccessionEventService
 import ch.nokillswit.succession.SuccessionEventServiceKey
 import ch.nokillswit.succession.SuccessionPlanService
 import ch.nokillswit.succession.SuccessionPlanServiceKey
+import ch.nokillswit.succession.SuccessionShareable
 import ch.nokillswit.teamkpis.TeamKpiEventService
 import ch.nokillswit.teamkpis.TeamKpiEventServiceKey
 import ch.nokillswit.teamkpis.TeamKpiService
 import ch.nokillswit.teamkpis.TeamKpiServiceKey
+import ch.nokillswit.teamkpis.TeamKpiShareable
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.templates.TemplateService
@@ -227,17 +241,22 @@ suspend fun Application.configureDatabase() {
     val sweepIntervalMillis = requireConfigLong(
         environment.config, "feedbacks.expirySweepIntervalSeconds", min = 0, max = MAX_SWEEP_INTERVAL_SECONDS,
     ) * 1000
-    attributes.put(FeedbackServiceKey, FeedbackService(database, attributes[FieldCipherKey], sweepIntervalMillis))
+    val feedbackService = FeedbackService(database, attributes[FieldCipherKey], sweepIntervalMillis)
+    attributes.put(FeedbackServiceKey, feedbackService)
     attributes.put(FeedbackEventServiceKey, FeedbackEventService(database))
-    attributes.put(OneOnOneServiceKey, OneOnOneService(database, attributes[FieldCipherKey]))
+    val oneOnOneService = OneOnOneService(database, attributes[FieldCipherKey])
+    attributes.put(OneOnOneServiceKey, oneOnOneService)
     attributes.put(OneOnOneEventServiceKey, OneOnOneEventService(database))
-    attributes.put(GoalServiceKey, GoalService(database, attributes[FieldCipherKey]))
+    val goalService = GoalService(database, attributes[FieldCipherKey])
+    attributes.put(GoalServiceKey, goalService)
     // The goal event trail carries the encrypted progress-update comment (V54), hence the cipher.
     attributes.put(GoalEventServiceKey, GoalEventService(database, attributes[FieldCipherKey]))
-    attributes.put(TeamKpiServiceKey, TeamKpiService(database, attributes[FieldCipherKey]))
+    val teamKpiService = TeamKpiService(database, attributes[FieldCipherKey])
+    attributes.put(TeamKpiServiceKey, teamKpiService)
     attributes.put(TeamKpiEventServiceKey, TeamKpiEventService(database))
     attributes.put(ReviewPeriodServiceKey, ReviewPeriodService(database))
-    attributes.put(PerformanceReviewServiceKey, PerformanceReviewService(database, attributes[FieldCipherKey]))
+    val performanceReviewService = PerformanceReviewService(database, attributes[FieldCipherKey])
+    attributes.put(PerformanceReviewServiceKey, performanceReviewService)
     attributes.put(PerformanceReviewEventServiceKey, PerformanceReviewEventService(database))
     attributes.put(PublicHolidayServiceKey, PublicHolidayService(database))
     attributes.put(DaysOffServiceKey, DaysOffService(database, attributes[FieldCipherKey]))
@@ -246,9 +265,11 @@ suspend fun Application.configureDatabase() {
     attributes.put(AppSettingsServiceKey, AppSettingsService(database))
     attributes.put(PulseCycleServiceKey, PulseCycleService(database))
     attributes.put(PulseResponseServiceKey, PulseResponseService(database, attributes[FieldCipherKey]))
-    attributes.put(ImpactLogServiceKey, ImpactLogService(database, attributes[FieldCipherKey]))
+    val impactLogService = ImpactLogService(database, attributes[FieldCipherKey])
+    attributes.put(ImpactLogServiceKey, impactLogService)
     attributes.put(ImpactLogEventServiceKey, ImpactLogEventService(database))
-    attributes.put(SuccessionPlanServiceKey, SuccessionPlanService(database, attributes[FieldCipherKey]))
+    val successionPlanService = SuccessionPlanService(database, attributes[FieldCipherKey])
+    attributes.put(SuccessionPlanServiceKey, successionPlanService)
     attributes.put(SuccessionEventServiceKey, SuccessionEventService(database))
     attributes.put(IntegrationClientServiceKey, IntegrationClientService(database))
     // Per-user notification preferences (v4.0.0, V84) — constructed before the emailer, which
@@ -296,6 +317,27 @@ suspend fun Application.configureDatabase() {
             notificationPurgeIntervalMillis,
         ),
     )
+    // Document sharing (v4.8.0, V86). Each shareable feature's adapter is built here, next to the
+    // services it wraps — one per ShareableResourceType, enforced by the compiler (see below).
+    val shareService = ShareService(database)
+    attributes.put(ShareServiceKey, shareService)
+    attributes.put(
+        ShareRegistryKey,
+        // Complete by construction: no `else` — a new ShareableResourceType without an adapter
+        // fails to compile here.
+        ShareRegistry { type ->
+            when (type) {
+                ShareableResourceType.FEEDBACK -> FeedbackShareable(feedbackService)
+                ShareableResourceType.ONE_ON_ONE -> OneOnOneShareable(oneOnOneService)
+                ShareableResourceType.GOAL -> GoalShareable(goalService)
+                ShareableResourceType.TEAM_KPI -> TeamKpiShareable(teamKpiService)
+                ShareableResourceType.PERFORMANCE_REVIEW -> PerformanceReviewShareable(performanceReviewService)
+                ShareableResourceType.IMPACT_LOG_ENTRY -> ImpactLogShareable(impactLogService)
+                ShareableResourceType.SUCCESSION_PLAN -> SuccessionShareable(successionPlanService)
+            }
+        },
+    )
+    attributes.put(ShareAccessKey, ShareAccess(shareService, userService))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))
 }

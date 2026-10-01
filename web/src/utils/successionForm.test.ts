@@ -34,6 +34,7 @@ const plan: SuccessionPlanResponse = {
   nominations: [],
   createdAt: 1,
   lastReviewedAt: 2,
+  canShare: false,
 };
 
 const nomination: SuccessionNominationResponse = {

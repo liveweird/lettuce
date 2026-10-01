@@ -454,3 +454,73 @@ describe("ReviewSuccessionPlan page", () => {
     expect(screen.queryByRole("button", { name: "Close plan" })).toBeNull();
   });
 });
+
+describe("ReviewSuccessionPlan sharing (v4.8.0)", () => {
+  beforeEach(() => {
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "[]");
+    localStorage.setItem(USER_ID_KEY, "99");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Share button renders only when canShare is true", async () => {
+    renderScreen({ ...PLAN, canShare: true });
+    expect(await screen.findByRole("button", { name: "Share" })).toBeInTheDocument();
+  });
+
+  test("a sharee sees the banner, no Share button, and the development-goals field is hidden entirely (never 'no linked goals')", async () => {
+    const user = userEvent.setup();
+    // A share read always returns empty goals (the linked goals are other documents).
+    renderScreen({
+      ...PLAN,
+      canShare: false,
+      sharedBy: "Sue Sharer",
+      nominations: PLAN.nominations.map((n) => ({ ...n, goals: [] })),
+    });
+    expect(await screen.findByText("Shared with you by Sue Sharer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Nominations" }));
+    expect(await screen.findByText("Cleo Candidate")).toBeInTheDocument();
+    // The nomination's own content is there ...
+    expect(screen.getByText("Budget ownership")).toBeInTheDocument();
+    // ... but neither the goals field nor its empty state.
+    expect(screen.queryByText("Development action items")).toBeNull();
+    expect(screen.queryByText("No development goals linked.")).toBeNull();
+    // Read-only: no owner actions.
+    expect(screen.queryByRole("link", { name: /add nomination/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Complete review" })).toBeNull();
+  });
+
+  test("an own-right reader keeps the development-goals field with its linked goals", async () => {
+    const user = userEvent.setup();
+    renderScreen({ ...PLAN, canShare: true });
+    await user.click(await screen.findByRole("tab", { name: "Nominations" }));
+    expect(await screen.findByText("Development action items")).toBeInTheDocument();
+    expect(screen.getByText("Lead the on-call rotation")).toBeInTheDocument();
+  });
+
+  test("the lapse 403 renders the friendly localized message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(jsonResponse(403, { title: "Forbidden", status: 403, detail: "The person who shared this no longer has access to it" }))),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MantineProvider env="test" theme={theme}>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/succession/5/view"]}>
+            <Routes>
+              <Route path="/succession/:id/view" element={<ReviewSuccessionPlan />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    expect(await screen.findByText("The person who shared this document with you can no longer open it, so your access has ended.")).toBeInTheDocument();
+  });
+});

@@ -31,6 +31,7 @@ import {
   IconNotebook,
   IconPencil,
   IconSend,
+  IconShare,
   IconStairsUp,
   IconTargetArrow,
   IconTrash,
@@ -99,6 +100,22 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   IMPACT_ENTRY_UPDATED_TO_MANAGER: "impactEntryUpdated",
   IMPACT_ENTRY_DELETED_TO_MANAGER: "impactEntryDeleted",
   CAREER_POSITION_STARTED_TO_USER: "careerPositionStarted",
+  // Document sharing (v4.8.0) — the wording variants (until / author / sharer / owner) ride the
+  // SHARED_SPEC / SHARE_WITHDRAWN_SPEC context functions below.
+  FEEDBACK_SHARED: "feedbackShared",
+  FEEDBACK_SHARE_WITHDRAWN: "feedbackShareWithdrawn",
+  ONE_ON_ONE_SHARED: "oneOnOneShared",
+  ONE_ON_ONE_SHARE_WITHDRAWN: "oneOnOneShareWithdrawn",
+  GOAL_SHARED: "goalShared",
+  GOAL_SHARE_WITHDRAWN: "goalShareWithdrawn",
+  TEAM_KPI_SHARED: "teamKpiShared",
+  TEAM_KPI_SHARE_WITHDRAWN: "teamKpiShareWithdrawn",
+  PERFORMANCE_REVIEW_SHARED: "performanceReviewShared",
+  PERFORMANCE_REVIEW_SHARE_WITHDRAWN: "performanceReviewShareWithdrawn",
+  IMPACT_ENTRY_SHARED: "impactEntryShared",
+  IMPACT_ENTRY_SHARE_WITHDRAWN: "impactEntryShareWithdrawn",
+  SUCCESSION_PLAN_SHARED: "successionPlanShared",
+  SUCCESSION_PLAN_SHARE_WITHDRAWN: "successionPlanShareWithdrawn",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -115,6 +132,10 @@ type ParamFormatSpec = {
   kpiValueParams?: string[];
   /** The param whose value picks the i18next context variant (default "self"). */
   contextParam?: string;
+  /** Computes the context variant from the (formatted) params — for a type whose variant is a
+   *  combination of params rather than one param's value (the share notifications). Wins over
+   *  `contextParam`; `undefined` = the base wording. */
+  contextFn?: (params: Record<string, string | undefined>) => string | undefined;
 };
 
 // The team-KPI data-point kinds are the only ones carrying numeric values; the rest localize
@@ -130,7 +151,38 @@ const DAYS_OFF_FANOUT_SPEC: ParamFormatSpec = { dateParams: ["startDate", "endDa
 const PULSE_SPEC: ParamFormatSpec = { dateParams: ["openDate", "closeDate"] };
 const IMPACT_LOG_SPEC: ParamFormatSpec = { dateParams: ["periodStart", "periodEnd"] };
 
+// Document sharing (v4.8.0). `*_SHARED` carries `{sharer}` plus the raw ISO `expiresOn` when the
+// share has an end date → the "until" variant. `*_SHARE_WITHDRAWN` serves three audiences with one
+// type, told apart by params (mirroring the server email catalog's withdrawnSentence): the
+// sharer's own copy (`self: "sharer"`, with the actor and sharee named → "sharer"; without them —
+// the content-free succession copy — "owner"), the sharee told by the author (`actor` present and
+// not the sharer → "author"), and otherwise the sharer stopping the share (base wording).
+const SHARED_SPEC: ParamFormatSpec = {
+  dateParams: ["expiresOn"],
+  contextFn: (p) => (p.expiresOn != null ? "until" : undefined),
+};
+const SHARE_WITHDRAWN_SPEC: ParamFormatSpec = {
+  contextFn: (p) => {
+    if (p.self === "sharer") return p.actor != null && p.sharee != null ? "sharer" : "owner";
+    return p.actor != null && p.actor !== p.sharer ? "author" : undefined;
+  },
+};
+
 const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
+  feedbackShared: SHARED_SPEC,
+  feedbackShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  oneOnOneShared: SHARED_SPEC,
+  oneOnOneShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  goalShared: SHARED_SPEC,
+  goalShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  teamKpiShared: SHARED_SPEC,
+  teamKpiShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  performanceReviewShared: SHARED_SPEC,
+  performanceReviewShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  impactEntryShared: SHARED_SPEC,
+  impactEntryShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  successionPlanShared: SHARED_SPEC,
+  successionPlanShareWithdrawn: SHARE_WITHDRAWN_SPEC,
   teamKpiValueRecorded: KPI_VALUE_SPEC,
   teamKpiValueCorrected: KPI_VALUE_SPEC,
   teamKpiValueRemoved: KPI_VALUE_SPEC,
@@ -173,7 +225,7 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
   for (const k of spec.monthParams ?? []) {
     if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
   }
-  const context = params[spec.contextParam ?? "self"];
+  const context = spec.contextFn ? spec.contextFn(params) : params[spec.contextParam ?? "self"];
   return t(dynamicKey(`notifications.event.${key}`), { ...params, context });
 }
 
@@ -223,6 +275,20 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   IMPACT_ENTRY_UPDATED_TO_MANAGER: { icon: IconNotebook, color: "indigo" },
   IMPACT_ENTRY_DELETED_TO_MANAGER: { icon: IconNotebook, color: "gray" },
   CAREER_POSITION_STARTED_TO_USER: { icon: IconStairsUp, color: "indigo" },
+  FEEDBACK_SHARED: { icon: IconShare, color: "blue" },
+  FEEDBACK_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  ONE_ON_ONE_SHARED: { icon: IconShare, color: "blue" },
+  ONE_ON_ONE_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  GOAL_SHARED: { icon: IconShare, color: "blue" },
+  GOAL_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  TEAM_KPI_SHARED: { icon: IconShare, color: "blue" },
+  TEAM_KPI_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  PERFORMANCE_REVIEW_SHARED: { icon: IconShare, color: "blue" },
+  PERFORMANCE_REVIEW_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  IMPACT_ENTRY_SHARED: { icon: IconShare, color: "blue" },
+  IMPACT_ENTRY_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  SUCCESSION_PLAN_SHARED: { icon: IconShare, color: "blue" },
+  SUCCESSION_PLAN_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

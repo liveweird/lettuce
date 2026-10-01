@@ -21,6 +21,7 @@ import {
   IconPlugConnected,
   IconRoute,
   IconSettings,
+  IconShare3,
   IconSpeakerphone,
   IconStack2,
   IconStairs,
@@ -78,6 +79,9 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
       // Deliberately feature-UNGATED — the whole career area is (FEATURE_OF.career = null).
       { to: "/career", label: "appShell.nav.career", icon: IconStairsUp, tourId: "nav-career" },
       { to: "/days-off", label: "appShell.nav.daysOff", icon: IconBeach, tourId: "nav-days-off", feature: "DAYS_OFF" },
+      // Deliberately feature-UNGATED (v4.8.0): the page spans seven areas and filters its rows and
+      // type options per kind by the viewer's flags itself.
+      { to: "/shares", label: "appShell.nav.shares", icon: IconShare3, tourId: "nav-shares" },
     ],
   },
   {
