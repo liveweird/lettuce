@@ -1895,7 +1895,13 @@ export interface paths {
          *     **manager in the OWNER's transitive management chain**. HR retains this audit grant
          *     even when the auditor is the seat's person or a nominated candidate. Without one
          *     of these grants, access is `403`; subject/candidate, teammate, or ADMIN status alone
-         *     grants no access.
+         *     grants no access. A person the plan was **shared with** (`POST /api/v1/shares`, v4.8.0 —
+         *     the plan's owner, or a manager in the owner's chain, may share it with anyone, the
+         *     seat's person included) reads it exactly while the sharer could still open it themselves
+         *     without the HR role (`sharedBy` then names the sharer; when every sharer has lost the
+         *     right the answer is `403` "The person who shared this no longer has access to it"). On a
+         *     read through a share each nomination's `goals` is always empty — the linked goals are
+         *     other documents, which the sharee could not read under the goal rules.
          */
         get: operations["getSuccessionPlan"];
         /**
@@ -1987,8 +1993,8 @@ export interface paths {
          *     is stored (clients localize the description) and the encrypted loss-impact /
          *     competency-gap texts NEVER appear. Nomination changes are plan-level events.
          *     Authorization matches the single-GET above: whoever may read the plan may read its
-         *     history, including HR auditors who are also the seat's person or a nominated candidate.
-         *     Subject/candidate status alone grants no access.
+         *     history, including HR auditors who are also the seat's person or a nominated candidate, and
+         *     an active share (v4.8.0) — on a read through a share, `goals` is dropped from every NOMINATION_UPDATED event's `changed` list and an update that changed only the goal links is omitted (the linked goals are other documents the sharee cannot read). Subject/candidate status alone grants no access.
          *     Events are server-generated; there is no create/update/delete endpoint, and no
          *     notifications accompany them.
          */
@@ -5863,6 +5869,10 @@ export interface components {
              * @description Epoch milliseconds; set at creation and updated ONLY by the explicit complete-review action (since v2.44.0) — plan/nomination mutations and closing never touch it.
              */
             lastReviewedAt: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this plan in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this plan through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         SuccessionPlanListItem: {
             /** Format: int32 */

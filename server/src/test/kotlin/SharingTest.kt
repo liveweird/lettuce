@@ -48,6 +48,20 @@ import ch.nokillswit.sharing.ShareResponse
 import ch.nokillswit.sharing.ShareService
 import ch.nokillswit.sharing.ShareServiceKey
 import ch.nokillswit.sharing.ShareableResourceType
+import ch.nokillswit.succession.CandidateAwareness
+import ch.nokillswit.succession.NominationType
+import ch.nokillswit.succession.RetentionRisk
+import ch.nokillswit.succession.RoleCriticality
+import ch.nokillswit.succession.SuccessionCompetencyGap
+import ch.nokillswit.succession.SuccessionEventType
+import ch.nokillswit.succession.SuccessionNominationRequest
+import ch.nokillswit.succession.SuccessionNominationResponse
+import ch.nokillswit.succession.SuccessionPlanCreateRequest
+import ch.nokillswit.succession.SuccessionPlanEventListResponse
+import ch.nokillswit.succession.SuccessionPlanResponse
+import ch.nokillswit.succession.SuccessionPlanStatus
+import ch.nokillswit.succession.SuccessionPlanUpdate
+import ch.nokillswit.succession.SuccessorReadiness
 import ch.nokillswit.teams.Team
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.OPT_IN_FEATURES
@@ -1658,6 +1672,325 @@ class SharingTest {
         assertEquals("The IMPACT_LOG feature is disabled for this account", gated.detail())
         assertEquals(0L, sharee.client.get("/api/v1/shares").body<SharePageResponse>().total)
         assertTrue(sharee.client.notifications().none { it.type == NotificationType.IMPACT_ENTRY_SHARED })
+    }
+
+    // ── Succession plans ─────────────────────────────────────────────────────────────────────
+
+    private class PlanWorld(
+        val owner: Person,
+        val manager: Person,
+        val seat: Person,
+        val candidate: Person,
+        val teamId: UInt,
+        val plan: SuccessionPlanResponse,
+        val nomination: SuccessionNominationResponse,
+        val goalTitle: String,
+    )
+
+    private suspend fun HttpClient.sharePlan(planId: UInt, shareeId: UInt, expiresOn: String? = null): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.SUCCESSION_PLAN, planId, shareeId, expiresOn))
+        }
+
+    private suspend fun HttpClient.sharePlanId(planId: UInt, shareeId: UInt, expiresOn: String? = null): UInt {
+        val response = sharePlan(planId, shareeId, expiresOn)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    private suspend fun HttpClient.plan(id: UInt) = get("/api/v1/succession-plans/$id")
+
+    /**
+     * The owner O plans the succession of the seat person S, nominating the candidate C with one
+     * linked development goal of C's; M manages O (a chain reader of the owner's plans).
+     */
+    private suspend fun ApplicationTestBuilder.planWorld(ownerRoles: Set<UserRole> = emptySet()): PlanWorld {
+        val owner = person("owner", roles = ownerRoles)
+        val manager = person("manager")
+        val seat = person("seat-person")
+        val candidate = person("candidate")
+        TestServices.teams.create(Team("Squad-${owner.id}", owner.id, listOf(seat.id, candidate.id)))
+        val teamId = TestServices.teams.create(Team("Leads-${manager.id}", manager.id, listOf(owner.id)))
+        val goal = owner.client.post("/api/v1/goals") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                GoalCreateRequest(
+                    subordinateId = candidate.id,
+                    title = "Lead the platform migration",
+                    type = GoalType.NUMBER,
+                    targetValue = 1.0,
+                    dueDate = serverToday().plusDays(30).toString(),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, goal.status)
+        val goalId = goal.body<GoalResponse>().id
+        val created = owner.client.post("/api/v1/succession-plans") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                SuccessionPlanCreateRequest(
+                    userId = seat.id,
+                    roleCriticality = RoleCriticality.CRITICAL,
+                    retentionRisk = RetentionRisk.HIGH,
+                    lossImpact = listOf("Client trust (private)", "Domain knowledge (private)"),
+                    targetBenchDepth = 2,
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, created.status)
+        val plan = created.body<SuccessionPlanResponse>()
+        assertTrue(plan.canShare, "the owner reads their own plan")
+        val nominated = owner.client.post("/api/v1/succession-plans/${plan.id}/nominations") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                SuccessionNominationRequest(
+                    candidateId = candidate.id,
+                    readiness = SuccessorReadiness.READY_SOON,
+                    nominationType = NominationType.PRIMARY,
+                    competencyGaps = listOf(SuccessionCompetencyGap("Stakeholder management (private)")),
+                    awareness = CandidateAwareness.CONFIDENTIAL,
+                    goalIds = listOf(goalId),
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, nominated.status)
+        val nomination = nominated.body<SuccessionNominationResponse>()
+        return PlanWorld(owner, manager, seat, candidate, teamId, plan, nomination, "Lead the platform migration")
+    }
+
+    @Test
+    fun `succession - a sharee reads the plan and events as the sharer sees them, but never the linked goals`() =
+        runBlockingApp {
+            val w = planWorld()
+            val sharee = person("sharee")
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.plan(w.plan.id).status)
+
+            w.owner.client.sharePlanId(w.plan.id, sharee.id)
+            val own = w.owner.client.plan(w.plan.id).body<SuccessionPlanResponse>()
+            val shared = sharee.client.plan(w.plan.id).body<SuccessionPlanResponse>()
+            // The plan itself — as the sharer sees it …
+            assertEquals(own.lossImpact, shared.lossImpact)
+            assertEquals(own.benchCount, shared.benchCount)
+            assertEquals(w.candidate.name, shared.nominations.single().candidateName)
+            assertEquals("Stakeholder management (private)", shared.nominations.single().competencyGaps.single().text)
+            assertEquals(w.owner.name, shared.sharedBy)
+            assertFalse(shared.canShare)
+            // … but the linked goals are OTHER documents the sharee could not read: the owner sees the
+            // chip, the sharee sees none.
+            assertEquals(listOf(w.goalTitle), own.nominations.single().goals.map { it.title })
+            assertEquals(emptyList(), shared.nominations.single().goals)
+
+            val events = sharee.client.get("/api/v1/succession-plans/${w.plan.id}/events")
+            assertEquals(HttpStatusCode.OK, events.status)
+            val types = events.body<SuccessionPlanEventListResponse>().items.map { it.type }
+            assertTrue(types.containsAll(listOf(SuccessionEventType.CREATED, SuccessionEventType.NOMINATION_ADDED)), "$types")
+
+            for (reader in listOf(w.owner, w.manager)) {
+                val read = reader.client.plan(w.plan.id).body<SuccessionPlanResponse>()
+                assertTrue(read.canShare, "${reader.name} reads in their own right")
+                assertNull(read.sharedBy)
+            }
+            val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+            // The snapshot is the seat's person and the owner ONLY.
+            assertEquals(mapOf("person" to w.seat.name, "owner" to w.owner.name), row.details)
+            assertEquals("/succession/${w.plan.id}/view", row.link)
+        }
+
+    @Test
+    fun `succession - a sharee can write nothing`() = runBlockingApp {
+        val w = planWorld()
+        val viaOwner = person("sharee-o")
+        val viaManager = person("sharee-m")
+        w.owner.client.sharePlanId(w.plan.id, viaOwner.id)
+        w.manager.client.sharePlanId(w.plan.id, viaManager.id)
+        val nominationBody = SuccessionNominationRequest(
+            candidateId = w.candidate.id,
+            readiness = SuccessorReadiness.READY_NOW,
+            nominationType = NominationType.SECONDARY,
+            awareness = CandidateAwareness.TRANSPARENT,
+        )
+        for (sharee in listOf(viaOwner, viaManager)) {
+            val c = sharee.client
+            val base = "/api/v1/succession-plans/${w.plan.id}"
+            val put = c.put(base) {
+                contentType(ContentType.Application.Json)
+                setBody(SuccessionPlanUpdate(RoleCriticality.STANDARD, RetentionRisk.LOW, listOf("tampered"), 5))
+            }
+            assertEquals(HttpStatusCode.Forbidden, put.status)
+            assertEquals(HttpStatusCode.Forbidden, c.post("$base/close").status)
+            assertEquals(HttpStatusCode.Forbidden, c.post("$base/complete-review").status)
+            assertEquals(HttpStatusCode.Forbidden, c.delete(base).status)
+            val addNomination = c.post("$base/nominations") {
+                contentType(ContentType.Application.Json)
+                setBody(nominationBody)
+            }
+            assertEquals(HttpStatusCode.Forbidden, addNomination.status)
+            val editNomination = c.put("$base/nominations/${w.nomination.id}") {
+                contentType(ContentType.Application.Json)
+                setBody(nominationBody)
+            }
+            assertEquals(HttpStatusCode.Forbidden, editNomination.status)
+            assertEquals(HttpStatusCode.Forbidden, c.delete("$base/nominations/${w.nomination.id}").status)
+        }
+        val after = w.owner.client.plan(w.plan.id).body<SuccessionPlanResponse>()
+        assertEquals(RoleCriticality.CRITICAL, after.roleCriticality)
+        assertEquals(1, after.nominations.size)
+        assertEquals(SuccessionPlanStatus.OPEN, after.status)
+    }
+
+    @Test
+    fun `succession - no re-sharing, no HR-auditor sharing, an HR owner can share`() = runBlockingApp {
+        val w = planWorld(ownerRoles = setOf(UserRole.HR))
+        val sharee = person("sharee")
+        val third = person("third")
+        val auditor = person("auditor", roles = setOf(UserRole.HR))
+        assertTrue(w.owner.client.plan(w.plan.id).body<SuccessionPlanResponse>().canShare)
+        w.owner.client.sharePlanId(w.plan.id, sharee.id)
+
+        val reshare = sharee.client.sharePlan(w.plan.id, third.id)
+        assertEquals(HttpStatusCode.Forbidden, reshare.status)
+        assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+
+        val audit = auditor.client.plan(w.plan.id)
+        assertEquals(HttpStatusCode.OK, audit.status)
+        assertFalse(audit.body<SuccessionPlanResponse>().canShare)
+        assertEquals(HttpStatusCode.Forbidden, auditor.client.sharePlan(w.plan.id, third.id).status)
+        assertEquals(HttpStatusCode.Created, w.owner.client.sharePlan(w.plan.id, auditor.id).status)
+    }
+
+    @Test
+    fun `succession - the seat person and a candidate gain nothing from their status, a share is the only way in`() =
+        runBlockingApp {
+            val w = planWorld()
+            // Subject/candidate status grants no access — until the owner deliberately shares ("whoever I want").
+            assertEquals(HttpStatusCode.Forbidden, w.seat.client.plan(w.plan.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.candidate.client.plan(w.plan.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.seat.client.get("/api/v1/succession-plans/${w.plan.id}/events").status)
+
+            w.owner.client.sharePlanId(w.plan.id, w.seat.id)
+            val seen = w.seat.client.plan(w.plan.id)
+            assertEquals(HttpStatusCode.OK, seen.status)
+            assertEquals(w.owner.name, seen.body<SuccessionPlanResponse>().sharedBy)
+            // The candidate is still shut out by the seat person's share (no re-share).
+            assertEquals(HttpStatusCode.Forbidden, w.seat.client.sharePlan(w.plan.id, w.candidate.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.candidate.client.plan(w.plan.id).status)
+            w.owner.client.sharePlanId(w.plan.id, w.candidate.id)
+            assertEquals(HttpStatusCode.OK, w.candidate.client.plan(w.plan.id).status)
+        }
+
+    @Test
+    fun `succession - a CLOSED plan stays readable and shareable, a chain manager's share lapses when they leave the chain`() =
+        runBlockingApp {
+            val w = planWorld()
+            val sharee = person("sharee")
+            val closedSharee = person("sharee-closed")
+            val id = w.manager.client.sharePlanId(w.plan.id, sharee.id)
+            assertEquals(HttpStatusCode.OK, sharee.client.plan(w.plan.id).status)
+
+            // CLOSED is terminal and read-only — the read guard has no status nuance.
+            assertEquals(HttpStatusCode.NoContent, w.owner.client.post("/api/v1/succession-plans/${w.plan.id}/close").status)
+            assertEquals(HttpStatusCode.OK, sharee.client.plan(w.plan.id).status)
+            assertEquals(HttpStatusCode.Created, w.owner.client.sharePlan(w.plan.id, closedSharee.id).status)
+            assertEquals(HttpStatusCode.OK, closedSharee.client.plan(w.plan.id).status)
+
+            TestServices.teams.removeMember(w.teamId, w.owner.id)
+            val lapsed = sharee.client.plan(w.plan.id)
+            assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+            assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.get("/api/v1/succession-plans/${w.plan.id}/events").status)
+            // The owner's own share is unaffected by the chain change.
+            assertEquals(HttpStatusCode.OK, closedSharee.client.plan(w.plan.id).status)
+
+            // The OWNER (the author, not the seat person) lists and withdraws the chain manager's share.
+            val all = w.owner.client.get("/api/v1/shares") {
+                parameter("view", "document")
+                parameter("resourceType", "SUCCESSION_PLAN")
+                parameter("resourceId", w.plan.id.toString())
+            }.body<SharePageResponse>()
+            // The owner sees every share of the plan: the chain manager's and their own.
+            assertEquals(2L, all.total)
+            assertTrue(id in all.items.map { it.id })
+            assertEquals(HttpStatusCode.NoContent, w.owner.client.post("/api/v1/shares/$id/withdraw").status)
+        }
+
+    @Test
+    fun `succession - the notifications are content-free - the sharer's name and nothing else`() = runBlockingApp {
+        val w = planWorld()
+        val sharee = person("sharee")
+        // An end date is given, and still must not ride the content-free succession notice.
+        val id = w.manager.client.sharePlanId(w.plan.id, sharee.id, expiresOn = serverToday().plusDays(30).toString())
+
+        val shared = sharee.client.notifications().single { it.type == NotificationType.SUCCESSION_PLAN_SHARED }
+        assertEquals(setOf("sharer"), shared.params.keys)
+        assertEquals(w.manager.name, shared.params["sharer"])
+        assertEquals("/succession/${w.plan.id}/view", shared.link)
+
+        assertEquals(HttpStatusCode.NoContent, w.owner.client.post("/api/v1/shares/$id/withdraw").status)
+        val toSharee = sharee.client.notifications().single { it.type == NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN }
+        assertEquals(setOf("sharer"), toSharee.params.keys)
+        assertNull(toSharee.link)
+        val toSharer = w.manager.client.notifications().single { it.type == NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN }
+        assertEquals(setOf("sharer", "self"), toSharer.params.keys)
+        assertEquals("/shares?tab=byMe", toSharer.link)
+
+        // Nothing else about succession ever reaches anyone: the seat person and the candidate (who are
+        // not sharees) have no succession notification at all.
+        for (bystander in listOf(w.seat, w.candidate)) {
+            assertTrue(
+                bystander.client.notifications().none { it.type.name.startsWith("SUCCESSION_PLAN_") },
+                "${bystander.name} must hear nothing about the plan",
+            )
+        }
+    }
+
+    @Test
+    fun `succession - a sharee's history hides goal-link edits, the owner's keeps them`() = runBlockingApp {
+        val w = planWorld()
+        val sharee = person("sharee")
+        w.owner.client.sharePlanId(w.plan.id, sharee.id)
+        val goalId = w.nomination.goals.single().id
+        val base = "/api/v1/succession-plans/${w.plan.id}/nominations/${w.nomination.id}"
+        suspend fun edit(readiness: SuccessorReadiness, goals: List<UInt>) = w.owner.client.put(base) {
+            contentType(ContentType.Application.Json)
+            setBody(
+                SuccessionNominationRequest(
+                    candidateId = w.candidate.id,
+                    readiness = readiness,
+                    nominationType = NominationType.PRIMARY,
+                    competencyGaps = w.nomination.competencyGaps,
+                    awareness = CandidateAwareness.CONFIDENTIAL,
+                    goalIds = goals,
+                ),
+            )
+        }
+        // One edit touching ONLY the goal links, one touching readiness AND the goal links.
+        assertEquals(HttpStatusCode.NoContent, edit(SuccessorReadiness.READY_SOON, emptyList()).status)
+        assertEquals(HttpStatusCode.NoContent, edit(SuccessorReadiness.READY_NOW, listOf(goalId)).status)
+
+        suspend fun changedLists(client: HttpClient) = client.get("/api/v1/succession-plans/${w.plan.id}/events")
+            .body<SuccessionPlanEventListResponse>().items
+            .filter { it.type == SuccessionEventType.NOMINATION_UPDATED }
+            .map { it.params["changed"] }
+        // The owner sees the full history (newest first) …
+        assertEquals(listOf("readiness,goals", "goals"), changedLists(w.owner.client))
+        // … the sharee cannot infer goal links: the goals-only update is gone, the mixed one lost `goals`.
+        assertEquals(listOf("readiness"), changedLists(sharee.client))
+    }
+
+    @Test
+    fun `succession - the label snapshot is stable after a plan edit`() = runBlockingApp {
+        val w = planWorld()
+        val sharee = person("sharee")
+        w.owner.client.sharePlanId(w.plan.id, sharee.id)
+        val before = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details
+        val edit = w.owner.client.put("/api/v1/succession-plans/${w.plan.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(SuccessionPlanUpdate(RoleCriticality.CORE, RetentionRisk.LOW, listOf("rewritten"), 3))
+        }
+        assertEquals(HttpStatusCode.NoContent, edit.status)
+        assertEquals(before, sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details)
+        assertEquals(setOf("person", "owner"), before?.keys)
     }
 
     /** `testApplication` with the container started; the body is the test. */

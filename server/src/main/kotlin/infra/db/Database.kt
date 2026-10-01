@@ -68,6 +68,7 @@ import ch.nokillswit.succession.SuccessionEventService
 import ch.nokillswit.succession.SuccessionEventServiceKey
 import ch.nokillswit.succession.SuccessionPlanService
 import ch.nokillswit.succession.SuccessionPlanServiceKey
+import ch.nokillswit.succession.SuccessionShareable
 import ch.nokillswit.teamkpis.TeamKpiEventService
 import ch.nokillswit.teamkpis.TeamKpiEventServiceKey
 import ch.nokillswit.teamkpis.TeamKpiService
@@ -264,7 +265,8 @@ suspend fun Application.configureDatabase() {
     val impactLogService = ImpactLogService(database, attributes[FieldCipherKey])
     attributes.put(ImpactLogServiceKey, impactLogService)
     attributes.put(ImpactLogEventServiceKey, ImpactLogEventService(database))
-    attributes.put(SuccessionPlanServiceKey, SuccessionPlanService(database, attributes[FieldCipherKey]))
+    val successionPlanService = SuccessionPlanService(database, attributes[FieldCipherKey])
+    attributes.put(SuccessionPlanServiceKey, successionPlanService)
     attributes.put(SuccessionEventServiceKey, SuccessionEventService(database))
     attributes.put(IntegrationClientServiceKey, IntegrationClientService(database))
     // Per-user notification preferences (v4.0.0, V84) — constructed before the emailer, which
@@ -325,6 +327,7 @@ suspend fun Application.configureDatabase() {
             register(OneOnOneShareable(oneOnOneService))
             register(PerformanceReviewShareable(performanceReviewService))
             register(ImpactLogShareable(impactLogService))
+            register(SuccessionShareable(successionPlanService))
         },
     )
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))
