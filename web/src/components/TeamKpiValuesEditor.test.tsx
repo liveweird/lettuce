@@ -23,6 +23,7 @@ const KPI: TeamKpiResponse = {
   creatorDeleted: false,
   canManage: true,
   canRecordValues: true,
+  canShare: false,
   createdAt: Date.now(),
   title: "Deploy weekly",
   description: "",

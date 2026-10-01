@@ -7,6 +7,7 @@ import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireFeatureEnabled
+import ch.nokillswit.infra.config.optionalConfigInt
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
@@ -77,7 +78,7 @@ private fun Parameters.shareView(): ShareListView {
     )
 }
 
-private fun ShareRecord.toResponse(link: String?) = ShareResponse(
+private fun ShareRecord.toResponse(link: String) = ShareResponse(
     id = id,
     resourceType = resourceType,
     resourceId = resourceId,
@@ -101,26 +102,32 @@ private fun ShareRecord.toResponse(link: String?) = ShareResponse(
  * adapter read (404 — read-before-guard, existence is already disclosed by the feature GETs) →
  * own-right guard (403) → payload validation (400, AFTER the guard) → the locked create (409).
  * `POST` has to receive its body first (the type that picks the feature flag and the adapter
- * lives IN it), so a malformed body is the one 400 that precedes the gates. A type with no
- * registered adapter is simply not shareable: 404.
+ * lives IN it), so a malformed body is the one 400 that precedes the gates. Every
+ * [ShareableResourceType] has an adapter ([ShareRegistry] is complete by construction).
  */
 fun Application.configureShareRoutes() {
     val shareService = attributes[ShareServiceKey]
-    val registry = attributes[ShareRegistryKey]
+    // The per-(sharer, sharee) notification flood cap per rolling 24 h — boot-validated like every
+    // numeric knob (blank = SHARE_NOTIFICATION_DAILY_CAP_PER_PAIR).
+    val dailyCap = optionalConfigInt(environment.config, "sharing.notificationDailyCapPerPair", min = 1, max = 1000)
+        ?: SHARE_NOTIFICATION_DAILY_CAP_PER_PAIR
+    // Looked up per call (cheap): the registry is the one piece of wiring a test swaps for stub
+    // adapters AFTER the modules ran (the BlocklistOutageTest idiom — an attribute read at request
+    // time rather than captured at configuration time).
+    fun registry() = attributes[ShareRegistryKey]
     val shareAccess = attributes[ShareAccessKey]
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
 
     suspend fun resolveDocument(type: ShareableResourceType, id: UInt): ResolvedDocument {
-        val adapter = registry.forType(type) ?: throw NotFoundException("Sharing is not available for ${type.name}")
-        return adapter.resolve(id) ?: throw NotFoundException("Document not found")
+        return registry().forType(type).resolve(id) ?: throw NotFoundException("Document not found")
     }
 
     // The wire form of a stored share: `details` is the creation-time snapshot (never a live
     // lookup — a lapsed share must not leak the document's later state); `link` is derived from
-    // kind + id, null only when the kind has no adapter registered.
+    // kind + id (the document may be gone by now — opening it then answers 404/lapse).
     fun ShareRecord.toWire(): ShareResponse =
-        toResponse(link = registry.forType(resourceType)?.viewPath(resourceId))
+        toResponse(link = registry().forType(resourceType).viewPath(resourceId))
 
     // The sharer manages their own shares always (even with the area's flag since switched off —
     // taking a share back is never blocked); anyone else must be the document's AUTHOR, who
@@ -129,7 +136,7 @@ fun Application.configureShareRoutes() {
     suspend fun requireSharerOrAuthor(caller: CallerPrincipal, record: ShareRecord) {
         if (record.sharerId == caller.userId) return
         requireFeatureEnabled(caller, record.resourceType.feature)
-        val document = registry.forType(record.resourceType)?.resolve(record.resourceId)
+        val document = registry().forType(record.resourceType).resolve(record.resourceId)
         // The author acts "while they can still read the document": authorship alone is not enough,
         // the same own-right evaluation the share POST demands (HR-auditor access is not it).
         val mayManage = document != null && document.isAuthor(caller.userId) &&
@@ -208,17 +215,21 @@ fun Application.configureShareRoutes() {
                     if (request.shareeId == caller.userId) throw BadRequestException("A document cannot be shared with yourself")
                     userService.read(request.shareeId) ?: throw BadRequestException("Referenced user does not exist")
                     userService.requireNoDeactivatedUsers(listOf(request.shareeId))
-                    val id = when (
+                    // The per-pair notification cap is decided inside the create's locked transaction.
+                    val created = when (
                         val outcome = shareService.create(
                             type, request.resourceId, caller.userId, request.shareeId, request.expiresOn, document.label(),
+                            notificationCap = dailyCap,
                         )
                     ) {
                         is ShareCreateOutcome.Duplicate -> throw ConflictException(
                             "This document is already shared with that person",
                             instance = call.application.href(Shares.Id(id = outcome.existingId)),
                         )
-                        is ShareCreateOutcome.Created -> outcome.id
+                        is ShareCreateOutcome.Created -> outcome
                     }
+                    val id = created.id
+                    val mayNotify = created.notify
                     val record = checkNotNull(shareService.read(id)) { "just-created share $id must exist" }
                     audit(
                         "share.created",
@@ -230,17 +241,21 @@ fun Application.configureShareRoutes() {
                         "expiresOn" to request.expiresOn,
                         // Always the sharer: only someone reading in their own right can create a share.
                         "role" to "sharer",
+                        // false = the per-pair daily notification cap swallowed the notice (the share exists).
+                        "notified" to mayNotify,
                     )
                     // Best-effort side effect after the commit (the documented consistency model).
-                    notificationService.create(
-                        shareCreatedNotification(
-                            type = type,
-                            shareeId = request.shareeId,
-                            sharerName = record.sharerName,
-                            expiresOn = request.expiresOn,
-                            link = document.adapter.viewPath(request.resourceId),
-                        ),
-                    )
+                    if (mayNotify) {
+                        notificationService.create(
+                            shareCreatedNotification(
+                                type = type,
+                                shareeId = request.shareeId,
+                                sharerName = record.sharerName,
+                                expiresOn = request.expiresOn,
+                                link = document.adapter.viewPath(request.resourceId),
+                            ),
+                        )
+                    }
                     call.response.header(HttpHeaders.Location, call.application.href(Shares.Id(id = id)))
                     call.respond(HttpStatusCode.Created, record.toWire())
                 }
@@ -249,7 +264,7 @@ fun Application.configureShareRoutes() {
                     val id = route.parent.id
                     val record = shareService.read(id) ?: throw NotFoundException("Share not found")
                     requireSharerOrAuthor(caller, record)
-                    when (val outcome = shareService.withdraw(id, caller.userId)) {
+                    when (val outcome = shareService.withdraw(id, caller.userId, notificationCap = dailyCap)) {
                         ShareWithdrawOutcome.NotFound -> throw NotFoundException("Share not found")
                         ShareWithdrawOutcome.AlreadyWithdrawn -> throw ConflictException("Share is already withdrawn")
                         is ShareWithdrawOutcome.Withdrawn -> {
@@ -263,8 +278,12 @@ fun Application.configureShareRoutes() {
                                 "resourceId" to record.resourceId.toLong(),
                                 "role" to if (caller.userId == record.sharerId) "sharer" else "author",
                                 "wasActive" to outcome.wasActive,
+                                // false = the SHARED-facing notice was silent: already expired, or swallowed by the
+                                // per-pair daily cap (the sharer's own copy on an author withdrawal is never capped).
+                                "notified" to outcome.notify,
                             )
-                            // A share that had already expired is stamped silently — nobody is told.
+                            // A share that had already expired is stamped silently — nobody is told. Otherwise
+                            // the sharee's notice is subject to the per-pair cap, the sharer's own copy never is.
                             if (outcome.wasActive) {
                                 shareWithdrawnNotifications(
                                     type = record.resourceType,
@@ -274,7 +293,9 @@ fun Application.configureShareRoutes() {
                                     shareeName = record.shareeName,
                                     actorId = caller.userId,
                                     actorName = outcome.record.withdrawnByName ?: record.sharerName,
-                                ).forEach { notificationService.create(it) }
+                                )
+                                    .filter { outcome.notify || it.recipientId != record.shareeId }
+                                    .forEach { notificationService.create(it) }
                             }
                             call.respond(HttpStatusCode.NoContent)
                         }

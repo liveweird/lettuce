@@ -3,7 +3,6 @@ package ch.nokillswit.sharing
 import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.users.Feature
 import io.ktor.util.AttributeKey
-import java.util.concurrent.ConcurrentHashMap
 
 val ShareServiceKey = AttributeKey<ShareService>("ShareService")
 val ShareRegistryKey = AttributeKey<ShareRegistry>("ShareRegistry")
@@ -12,9 +11,9 @@ val ShareAccessKey = AttributeKey<ShareAccess>("ShareAccess")
 /**
  * What one feature contributes so its documents can be shared (v4.8.0) — the seam between the
  * generic `sharing/` package and each feature's own read rules. One adapter per feature
- * (`feedbacks/FeedbackShareable.kt`, …), registered in [ShareRegistry] where the services are
- * constructed (`infra/db/Database.kt`). [D] is the feature's detail document, [G] whatever its
- * read guard returns (the days-off grant style; `Unit` for the plain guards).
+ * (`feedbacks/FeedbackShareable.kt`, …), built into the [ShareRegistry] where the services are
+ * constructed (`infra/db/Database.kt`, an exhaustive `when` over the resource types). [D] is the
+ * feature's detail document, [G] whatever its read guard returns (the days-off grant style; `Unit` for the plain guards).
  *
  * The adapter never re-implements a read rule: [guard] calls the SAME `authz/Guards.kt` guard
  * the feature's read preamble calls, so "may this principal read this document" has exactly one
@@ -57,18 +56,17 @@ interface ShareableResource<D : Any, G> {
 }
 
 /**
- * The per-application set of registered adapters, keyed by [ShareableResourceType]. Built empty
- * in `infra/db/Database.kt` and filled there as each feature's adapter lands; a type with no
- * adapter is simply not shareable yet (the routes answer 404 for it). Tests register fakes
- * through [register] — every test application boots its own registry, so nothing leaks.
+ * The per-application set of adapters — **complete by construction**: it is built from a function
+ * over EVERY [ShareableResourceType], so [forType] is never null, and the one construction site
+ * (`infra/db/Database.kt`) writes that function as an exhaustive `when (type)` with no `else` —
+ * adding an enum value without an adapter fails to COMPILE there. Each adapter must report the
+ * type it was built for.
  */
-class ShareRegistry {
-    private val adapters = ConcurrentHashMap<ShareableResourceType, ShareableResource<*, *>>()
+class ShareRegistry(adapterFor: (ShareableResourceType) -> ShareableResource<*, *>) {
+    private val adapters: Map<ShareableResourceType, ShareableResource<*, *>> =
+        ShareableResourceType.entries.associateWith { type ->
+            adapterFor(type).also { check(it.type == type) { "The adapter for $type reports ${it.type}" } }
+        }
 
-    /** Registers (or replaces) the adapter for its type. */
-    fun register(adapter: ShareableResource<*, *>) {
-        adapters[adapter.type] = adapter
-    }
-
-    fun forType(type: ShareableResourceType): ShareableResource<*, *>? = adapters[type]
+    fun forType(type: ShareableResourceType): ShareableResource<*, *> = adapters.getValue(type)
 }

@@ -51,15 +51,21 @@ data class ShareListFilter(
 data class ShareListResult(val items: List<ShareRecord>, val total: Long)
 
 sealed interface ShareCreateOutcome {
-    data class Created(val id: UInt) : ShareCreateOutcome
+    /** [notify] = the sharee-facing SHARED notice is within the per-pair daily cap (see `notificationCap`). */
+    data class Created(val id: UInt, val notify: Boolean) : ShareCreateOutcome
 
     /** An ACTIVE share of the same document by the same sharer to the same sharee exists. */
     data class Duplicate(val existingId: UInt) : ShareCreateOutcome
 }
 
 sealed interface ShareWithdrawOutcome {
-    /** [wasActive] false = the share had already expired (the route then mints no notification). */
-    data class Withdrawn(val record: ShareRecord, val wasActive: Boolean) : ShareWithdrawOutcome
+    /**
+     * [wasActive] false = the share had already expired (the route then mints no notification at
+     * all); [notify] = the sharee-facing WITHDRAWN notice is within the per-pair daily cap (always
+     * false for an already-expired share). The sharer's own copy on an author withdrawal is never
+     * subject to the cap.
+     */
+    data class Withdrawn(val record: ShareRecord, val wasActive: Boolean, val notify: Boolean) : ShareWithdrawOutcome
 
     data object NotFound : ShareWithdrawOutcome
 
@@ -73,6 +79,8 @@ private val withdrawerUsers = UserService.Users.alias("withdrawer_users")
 /** The first key of the two-key advisory lock — a namespace, so it cannot collide with
  *  `MfaChallenges`' one-key lock on a bare user id (the key spaces are disjoint by arity). */
 private const val SHARE_LOCK_NAMESPACE = 86
+
+private const val DAY_MILLIS = 24L * 60 * 60 * 1000
 
 /**
  * Document shares (v4.8.0, V86): who shared which document with whom, until when. Status is
@@ -125,6 +133,35 @@ class ShareService(
         ShareStatus.ACTIVE -> activeOp(todayIso)
     }
 
+    /** Takes the per-sharer advisory lock for this transaction (the two-key form — see [SHARE_LOCK_NAMESPACE]). */
+    private suspend fun R2dbcTransaction.lockSharer(sharerId: UInt) {
+        exec(
+            "SELECT pg_advisory_xact_lock(?, ?)",
+            listOf(IntegerColumnType() to SHARE_LOCK_NAMESPACE, IntegerColumnType() to sharerId.toInt()),
+        )
+    }
+
+    /**
+     * The per-(sharer, sharee) flood-cap count, ONE query: every share the sharer CREATED for the
+     * sharee in the last 24 h (a SHARED notice) plus every one WITHDRAWN in it (a WITHDRAWN notice),
+     * summed as two CASE terms per row so a row that was both created and withdrawn in the window
+     * counts twice. Silent operations (capped, already-expired withdrawals) still count — the cap is
+     * slightly stricter than "notices actually sent", the safe direction. Runs inside the callers'
+     * locked transaction and BEFORE their own insert/stamp, so the current operation is not counted.
+     */
+    private suspend fun notificationsInWindow(sharerId: UInt, shareeId: UInt): Long {
+        val since = System.currentTimeMillis() - DAY_MILLIS
+        val createdTerm = Case().When(DocumentShares.createdAt greaterEq since, intLiteral(1)).Else(intLiteral(0))
+        val withdrawnTerm = Case().When(DocumentShares.withdrawnAt greaterEq since, intLiteral(1)).Else(intLiteral(0))
+        val total = (createdTerm + withdrawnTerm).sum()
+        return DocumentShares.select(total)
+            .where { (DocumentShares.sharerId eq sharerId) and (DocumentShares.shareeId eq shareeId) }
+            .map { it[total] }
+            .toList()
+            .singleOrNull()
+            ?.toLong() ?: 0L
+    }
+
     /**
      * Inserts a share unless an ACTIVE one of the same (document, sharer, sharee) already exists.
      * "Active" depends on today's date, so no unique index can express the rule — the pre-check
@@ -133,6 +170,10 @@ class ShareService(
      * and the key space is disjoint from `MfaChallenges`' one-key lock), so a concurrent burst of
      * identical requests yields exactly one [ShareCreateOutcome.Created]. Expired and withdrawn
      * rows never block a fresh share.
+     *
+     * The per-pair notification cap is decided INSIDE that same lock, so concurrent shares by one
+     * sharer cannot overshoot it: [ShareCreateOutcome.Created.notify] is false once the pair has
+     * already caused [notificationCap] notices in the last 24 h (the share is still created).
      */
     suspend fun create(
         type: ShareableResourceType,
@@ -141,13 +182,11 @@ class ShareService(
         shareeId: UInt,
         expiresOn: String?,
         details: Map<String, String>? = null,
+        notificationCap: Int = Int.MAX_VALUE,
     ): ShareCreateOutcome {
         val todayIso = today().toString()
         return suspendTransaction(database) {
-            exec(
-                "SELECT pg_advisory_xact_lock(?, ?)",
-                listOf(IntegerColumnType() to SHARE_LOCK_NAMESPACE, IntegerColumnType() to sharerId.toInt()),
-            )
+            lockSharer(sharerId)
             val existing = DocumentShares.select(DocumentShares.id)
                 .where {
                     (DocumentShares.resourceType eq type.name) and
@@ -160,6 +199,7 @@ class ShareService(
                 .toList()
                 .firstOrNull()
             if (existing != null) return@suspendTransaction ShareCreateOutcome.Duplicate(existing)
+            val notify = notificationsInWindow(sharerId, shareeId) < notificationCap
             val id = DocumentShares.insert {
                 it[DocumentShares.resourceType] = type.name
                 it[DocumentShares.resourceId] = resourceId
@@ -169,7 +209,7 @@ class ShareService(
                 it[DocumentShares.createdAt] = System.currentTimeMillis()
                 it[DocumentShares.details] = details?.let(::encodeParams)
             }[DocumentShares.id].value
-            ShareCreateOutcome.Created(id)
+            ShareCreateOutcome.Created(id, notify)
         }
     }
 
@@ -190,19 +230,29 @@ class ShareService(
      * yet so two concurrent withdrawals lose cleanly ([ShareWithdrawOutcome.AlreadyWithdrawn] →
      * 409, the `IntegrationClientService.revoke` shape). An already-EXPIRED share is stamped
      * too (so it reads WITHDRAWN thereafter) but reports `wasActive = false`.
+     *
+     * Like [create], it takes the SHARE'S SHARER's advisory lock and decides the per-pair
+     * notification cap inside it ([ShareWithdrawOutcome.Withdrawn.notify]); the count is skipped
+     * when the withdrawal ends 409 or is a silent already-expired one.
      */
-    suspend fun withdraw(id: UInt, byUserId: UInt): ShareWithdrawOutcome {
+    suspend fun withdraw(id: UInt, byUserId: UInt, notificationCap: Int = Int.MAX_VALUE): ShareWithdrawOutcome {
         val todayIso = today().toString()
         return suspendTransaction(database) {
+            val first = readInTransaction(id, todayIso) ?: return@suspendTransaction ShareWithdrawOutcome.NotFound
+            // The sharer's lock first, THEN the authoritative read: the cap count and the state check
+            // both see everything any concurrent operation by this sharer committed.
+            lockSharer(first.sharerId)
             val before = readInTransaction(id, todayIso) ?: return@suspendTransaction ShareWithdrawOutcome.NotFound
             if (before.status == ShareStatus.WITHDRAWN) return@suspendTransaction ShareWithdrawOutcome.AlreadyWithdrawn
+            val wasActive = before.status == ShareStatus.ACTIVE
+            val notify = wasActive && notificationsInWindow(before.sharerId, before.shareeId) < notificationCap
             val updated = DocumentShares.update({ (DocumentShares.id eq id) and DocumentShares.withdrawnAt.isNull() }) {
                 it[withdrawnAt] = System.currentTimeMillis()
                 it[withdrawnBy] = byUserId
             }
             if (updated == 0) return@suspendTransaction ShareWithdrawOutcome.AlreadyWithdrawn
             val after = checkNotNull(readInTransaction(id, todayIso)) { "just-withdrawn share $id must exist" }
-            ShareWithdrawOutcome.Withdrawn(after, wasActive = before.status == ShareStatus.ACTIVE)
+            ShareWithdrawOutcome.Withdrawn(after, wasActive = wasActive, notify = notify)
         }
     }
 

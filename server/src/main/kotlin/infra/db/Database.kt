@@ -64,6 +64,7 @@ import ch.nokillswit.sharing.ShareRegistry
 import ch.nokillswit.sharing.ShareRegistryKey
 import ch.nokillswit.sharing.ShareService
 import ch.nokillswit.sharing.ShareServiceKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.succession.SuccessionEventService
 import ch.nokillswit.succession.SuccessionEventServiceKey
 import ch.nokillswit.succession.SuccessionPlanService
@@ -73,6 +74,7 @@ import ch.nokillswit.teamkpis.TeamKpiEventService
 import ch.nokillswit.teamkpis.TeamKpiEventServiceKey
 import ch.nokillswit.teamkpis.TeamKpiService
 import ch.nokillswit.teamkpis.TeamKpiServiceKey
+import ch.nokillswit.teamkpis.TeamKpiShareable
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.templates.TemplateService
@@ -249,7 +251,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(GoalServiceKey, goalService)
     // The goal event trail carries the encrypted progress-update comment (V54), hence the cipher.
     attributes.put(GoalEventServiceKey, GoalEventService(database, attributes[FieldCipherKey]))
-    attributes.put(TeamKpiServiceKey, TeamKpiService(database, attributes[FieldCipherKey]))
+    val teamKpiService = TeamKpiService(database, attributes[FieldCipherKey])
+    attributes.put(TeamKpiServiceKey, teamKpiService)
     attributes.put(TeamKpiEventServiceKey, TeamKpiEventService(database))
     attributes.put(ReviewPeriodServiceKey, ReviewPeriodService(database))
     val performanceReviewService = PerformanceReviewService(database, attributes[FieldCipherKey])
@@ -314,20 +317,24 @@ suspend fun Application.configureDatabase() {
             notificationPurgeIntervalMillis,
         ),
     )
-    // Document sharing (v4.8.0, V86). Each shareable feature's adapter is registered here, next to
-    // the services it wraps, as it lands — a type with no adapter is simply not shareable (the
-    // routes answer 404).
+    // Document sharing (v4.8.0, V86). Each shareable feature's adapter is built here, next to the
+    // services it wraps — one per ShareableResourceType, enforced by the compiler (see below).
     val shareService = ShareService(database)
     attributes.put(ShareServiceKey, shareService)
     attributes.put(
         ShareRegistryKey,
-        ShareRegistry().apply {
-            register(FeedbackShareable(feedbackService))
-            register(GoalShareable(goalService))
-            register(OneOnOneShareable(oneOnOneService))
-            register(PerformanceReviewShareable(performanceReviewService))
-            register(ImpactLogShareable(impactLogService))
-            register(SuccessionShareable(successionPlanService))
+        // Complete by construction: no `else` — a new ShareableResourceType without an adapter
+        // fails to compile here.
+        ShareRegistry { type ->
+            when (type) {
+                ShareableResourceType.FEEDBACK -> FeedbackShareable(feedbackService)
+                ShareableResourceType.ONE_ON_ONE -> OneOnOneShareable(oneOnOneService)
+                ShareableResourceType.GOAL -> GoalShareable(goalService)
+                ShareableResourceType.TEAM_KPI -> TeamKpiShareable(teamKpiService)
+                ShareableResourceType.PERFORMANCE_REVIEW -> PerformanceReviewShareable(performanceReviewService)
+                ShareableResourceType.IMPACT_LOG_ENTRY -> ImpactLogShareable(impactLogService)
+                ShareableResourceType.SUCCESSION_PLAN -> SuccessionShareable(successionPlanService)
+            }
         },
     )
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))

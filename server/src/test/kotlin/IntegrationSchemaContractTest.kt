@@ -85,7 +85,7 @@ class IntegrationSchemaContractTest {
         val schema = parseIntegrationSchema(sdl)
         val forbidden = setOf(
             "canManage", "canRecordValues", "canDelete", "canCorrect", "canEdit",
-            "canManageKpis", "passwordHash", "keyHash", "apiKey",
+            "canManageKpis", "canShare", "sharedBy", "passwordHash", "keyHash", "apiKey",
         )
         val leaked = schema.typeMap.values
             .filterIsInstance<GraphQLFieldsContainer>()

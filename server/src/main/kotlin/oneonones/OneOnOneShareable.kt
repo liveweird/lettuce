@@ -51,3 +51,14 @@ internal fun OneOnOneResponse.forSharee(): OneOnOneResponse = copy(
     minMeetingDate = null,
     actionItems = actionItems.map { it.copy(copiedFromId = null, firstAppearedOn = null) },
 )
+
+/**
+ * The history counterpart of [forSharee]: the CREATED event's `carriedOver` count says how many
+ * action items were carried over from the pair's PREVIOUS meeting — a fact about a sibling
+ * meeting (that there is one, and what it left open). On a share read it is dropped from every
+ * event's params; the event's own `date` and every other param stay. Read-time only — storage is
+ * untouched and own-right readers see the full history.
+ */
+internal fun List<OneOnOneEventResponse>.forSharee(): List<OneOnOneEventResponse> = map { event ->
+    if ("carriedOver" in event.params) event.copy(params = event.params - "carriedOver") else event
+}

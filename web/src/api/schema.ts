@@ -2178,7 +2178,13 @@ export interface paths {
          *     that manager's manager, and so on — over non-deleted teams; since v2.26.0 the chain
          *     reads DRAFTs too), and the **HR auditor** (audit-logged) at every status; a current
          *     **team member** may read it only once it has left DRAFT (ACTIVE/ARCHIVED) — a draft
-         *     stays private to the manager and the chain. Anything else — ADMIN included — is `403`.
+         *     stays private to the manager and the chain; plus a person the KPI was **shared with**
+         *     (`POST /api/v1/shares`, v4.8.0), who reads it exactly while the sharer could still open it
+         *     themselves without the HR role (a member's share lapses if the KPI returns to DRAFT or they
+         *     leave the team) — `sharedBy` then names the sharer, `canManage`/`canRecordValues` are false
+         *     for someone whose only way in is the share, and when every sharer has lost the right the
+         *     answer is `403` "The person who shared this no longer has access to it". Anything else —
+         *     ADMIN included — is `403`.
          */
         get: operations["getTeamKpi"];
         /**
@@ -2225,7 +2231,7 @@ export interface paths {
          *     measurement, at most one per date, sorted by date **newest first**. Unpaged (the set is
          *     a hand-entered measurement series, intrinsically small). The view screen's KPI-data tab
          *     and its value-over-time graph both feed on this list. Authorization matches the
-         *     single-GET: whoever may read the KPI may read its data points.
+         *     single-GET (including an active share, v4.8.0): whoever may read the KPI may read its data points.
          */
         get: operations["listTeamKpiValues"];
         put?: never;
@@ -2413,8 +2419,8 @@ export interface paths {
          *     structural: an event `type` plus a `params` map (enum names, numeric values, and ISO
          *     dates — never title/description/summary text), with the acting user resolved to
          *     `userName`; no rendered string is stored (clients localize the description).
-         *     Authorization matches the single-GET above: whoever may read the KPI may read its
-         *     history. Events are server-generated; there is no create/update/delete endpoint.
+         *     Authorization matches the single-GET above (including an active share, v4.8.0): whoever
+         *     may read the KPI may read its history. Events are server-generated; there is no create/update/delete endpoint.
          */
         get: operations["listTeamKpiEvents"];
         put?: never;
@@ -4049,8 +4055,7 @@ export interface paths {
          *       plan: the owner; team KPI: whoever may manage it) sees every row; anyone else who can
          *       read the document in their own right sees only the rows they created; everyone else —
          *       the document's subject, an HR auditor with auditor-only access, a share-granted
-         *       reader — is `403`. An unknown or deleted document, or a `resourceType` that is not
-         *       shareable, is `404`.
+         *       reader — is `403`. An unknown or deleted document is `404`.
          *
          *     Status is derived, never stored: `WITHDRAWN` (terminal), `EXPIRED` (the end date passed —
          *     a share works through the end of its `expiresOn` day, silently, with no notification), else
@@ -4077,7 +4082,7 @@ export interface paths {
          *     itemizes failures; each call counts against a per-caller rate limit — default 60/min,
          *     shared with the withdraw action — answering `429` beyond it). Evaluated in this order: the caller's feature flag for the document's
          *     area (`403`) → the document is read through its feature (`404` for an unknown/deleted
-         *     document or a `resourceType` that is not shareable) → the caller must hold read access
+         *     document) → the caller must hold read access
          *     to the document **in their own right** (`403` — HR-auditor-only access and access that
          *     itself came from a share cannot be shared again) → validation (`400`, after the guard):
          *     `expiresOn` must be a strict ISO date not before the server's today (no timezone
@@ -6048,6 +6053,10 @@ export interface components {
              * @description Epoch milliseconds; server-managed, bumped on every mutation.
              */
             lastModified: number;
+            /** @description Document sharing (v4.8.0): true when the caller can read this KPI in their OWN right, independently of any share (the HR auditor role alone does not count) — i.e. whether `POST /api/v1/shares` would accept it. Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading this KPI through a share (the "Shared with you by …" banner); null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
         };
         TeamKpiListItem: {
             /** Format: int32 */
@@ -6691,7 +6700,7 @@ export interface components {
             total: number;
         };
         /**
-         * @description The kinds of document that can be shared (v4.8.0). Days-off entries and pulse surveys are not shareable. A kind is shareable only once its feature has registered with the sharing module — otherwise the share routes answer `404` for it.
+         * @description The kinds of document that can be shared (v4.8.0). Days-off entries and pulse surveys are not shareable. Every kind listed here has its feature's adapter (compile-time complete).
          * @enum {string}
          */
         ShareableResourceType: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN";
@@ -6749,8 +6758,8 @@ export interface components {
              */
             withdrawnById?: number | null;
             withdrawnByName?: string | null;
-            /** @description In-app path of the shared document's view screen, derived from `resourceType` and `resourceId`; null only when the kind has no registered adapter. It says nothing about whether the document still exists — opening it answers the lapse/404. */
-            link?: string | null;
+            /** @description In-app path of the shared document's view screen, derived from `resourceType` and `resourceId`. It says nothing about whether the document still exists — opening it answers the lapse/404. */
+            link: string;
             /**
              * @description Content-free facts about the document for the client to localize, SNAPSHOTTED when
              *     the share was created and never refreshed (plaintext title and party columns only —
@@ -13525,7 +13534,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description `view=document` for an unknown/deleted document or a `resourceType` that is not shareable */
+            /** @description `view=document` for an unknown/deleted document */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -13572,7 +13581,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Unknown/deleted document, or a `resourceType` that is not shareable */
+            /** @description Unknown or deleted document */
             404: {
                 headers: {
                     [name: string]: unknown;

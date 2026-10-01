@@ -303,11 +303,13 @@ fun Application.configureOneOnOneRoutes() {
             }
             get<OneOnOnes.Id.Events> { route ->
                 val meetingId = route.parent.id
-                // Whoever may read the meeting may read its history.
-                readGuardedMeeting(call, meetingId)
+                // Whoever may read the meeting may read its history; a share read drops the facts about
+                // sibling meetings (the CREATED event's carried-over count — see forSharee).
+                val read = readGuardedMeeting(call, meetingId)
+                val events = oneOnOneEventService.listForMeeting(meetingId)
                 call.respond(
                     HttpStatusCode.OK,
-                    OneOnOneEventListResponse(oneOnOneEventService.listForMeeting(meetingId)),
+                    OneOnOneEventListResponse(if (read.via is ReadVia.Shared) events.forSharee() else events),
                 )
             }
             get<OneOnOnes.ActionItems.Id.History> { route ->

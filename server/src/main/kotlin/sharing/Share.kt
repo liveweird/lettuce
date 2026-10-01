@@ -62,6 +62,17 @@ val ShareableResourceType.withdrawnNotification: NotificationType
         ShareableResourceType.SUCCESSION_PLAN -> NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN
     }
 
+/**
+ * The per-(sharer, sharee) notification flood cap, per rolling 24 hours: once a sharer has already
+ * caused this many share notifications (SHARED + WITHDRAWN, counted from `document_shares`
+ * `created_at`/`withdrawn_at` — no extra table) to one sharee in that window, further shares and
+ * withdrawals between the pair still happen but mint NO notification (audited `notified=false`).
+ * This is the DEFAULT of `sharing.notificationDailyCapPerPair` (`$SHARING_NOTIFICATION_DAILY_CAP_PER_PAIR`,
+ * boot-validated 1..1000) — the per-caller rate limit bounds the rate, this bounds what one victim
+ * can be made to receive.
+ */
+const val SHARE_NOTIFICATION_DAILY_CAP_PER_PAIR = 20
+
 /** Derived, never stored: WITHDRAWN beats EXPIRED beats ACTIVE (see [ShareService]). */
 @Serializable
 enum class ShareStatus { ACTIVE, EXPIRED, WITHDRAWN }
@@ -99,9 +110,9 @@ data class ShareResponse(
     val withdrawnAt: Long?,
     val withdrawnById: UInt?,
     val withdrawnByName: String?,
-    // In-app path of the shared document's view screen, derived from the kind and id; null only
-    // when the kind has no adapter registered (so there is nowhere to point).
-    val link: String?,
+    // In-app path of the shared document's view screen, derived from the kind and id (the document
+    // may have been deleted since — opening it then answers 404 or the lapse 403).
+    val link: String,
     // Content-free facts about the document, SNAPSHOTTED when the share was created (title/party
     // columns only, never decrypted content, never a status) and never refreshed — a lapsed or
     // withdrawn share must not keep leaking the document's later state. Null for a row with no

@@ -7,6 +7,7 @@ import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.sharing.ShareCreateOutcome
 import ch.nokillswit.sharing.SharePageResponse
+import ch.nokillswit.sharing.ShareRegistry
 import ch.nokillswit.sharing.ShareRegistryKey
 import ch.nokillswit.sharing.ShareRequest
 import ch.nokillswit.sharing.ShareResponse
@@ -32,6 +33,11 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.time.LocalDate
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.r2dbc.update
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -96,11 +102,15 @@ class ShareRoutesTest {
         type: ShareableResourceType = ShareableResourceType.GOAL,
         vararg overrides: Pair<String, String>,
     ): FakeShareable {
-        val fake = FakeShareable(type)
+        // The registry is complete by construction (one adapter per kind), so the stub registry is too:
+        // one fake per kind, each with its OWN (initially empty) document store — only [type]'s is
+        // returned for the test to fill. The routes look the registry up per request, so swapping the
+        // attribute after the modules ran takes effect.
+        val fakes = ShareableResourceType.entries.associateWith { FakeShareable(it) }
         configureApp(*overrides)
-        application { attributes[ShareRegistryKey].register(fake) }
+        application { attributes.put(ShareRegistryKey, ShareRegistry { fakes.getValue(it) }) }
         startApplication()
-        return fake
+        return fakes.getValue(type)
     }
 
     /** A seeded user with a logged-in client. [disabled] is applied BEFORE login so the JWT carries it. */
@@ -218,8 +228,7 @@ class ShareRoutesTest {
 
             // The caller's own flag wins even over a missing document (uniform 403, no 404 oracle).
             assertEquals(HttpStatusCode.Forbidden, noGoals.client.share(TestShareDocuments.nextId(), sharee.id).status)
-            // An unknown document is 404 — also for a kind with a REAL adapter (FEEDBACK: the fake goal's
-            // id is no feedback, so the adapter's read answers it). The no-adapter 404 branch has its own test.
+            // An unknown document is 404 — also under another kind (FEEDBACK's stub store has no such id).
             assertEquals(
                 HttpStatusCode.NotFound,
                 author.client.share(documentId, sharee.id, type = ShareableResourceType.FEEDBACK).status,
@@ -522,8 +531,7 @@ class ShareRoutesTest {
             // The subject-like outsider never sees the share list; neither does HR auditor-only access.
             assertEquals(HttpStatusCode.Forbidden, subject.documentView().status)
             assertEquals(HttpStatusCode.Forbidden, hrOnly.documentView().status)
-            // Unknown document → 404 (also for FEEDBACK, whose real adapter's read answers it; the
-            // no-adapter branch has its own test).
+            // Unknown document → 404 (also under another kind, whose stub store has no such id).
             assertEquals(
                 HttpStatusCode.NotFound,
                 author.client.get("/api/v1/shares") {
@@ -624,35 +632,106 @@ class ShareRoutesTest {
         }
 
     @Test
-    fun `a share whose kind has no registered adapter keeps listing, with null details and link`() = testApplication {
-        // Real adapters land per feature, so pick a kind that has none YET (once every kind has one
-        // there is nothing left to test here and this case should be deleted).
-        startWithFake(ShareableResourceType.FEEDBACK)
-        val registry = application.attributes[ShareRegistryKey]
-        val unregistered = assertNotNull(
-            ShareableResourceType.entries.firstOrNull { registry.forType(it) == null },
-            "every kind has an adapter — make the registry exhaustive and delete this test",
-        )
+    fun `the per-pair daily notification cap - shares and withdrawals still happen, but mint no notification`() =
+        testApplication {
+            val fake = startWithFake(ShareableResourceType.GOAL, "sharing.notificationDailyCapPerPair" to "2")
+            val author = person("author")
+            val sharee = person("sharee")
+            val other = person("other-sharee")
+            val docs = List(3) { fake.add(author.id) }
+            val audit = LogCapture("ch.nokillswit.audit")
+            try {
+                val ids = docs.map { author.client.shareId(it, sharee.id) }
+                // The first two shares notified; the third (cap = 2 already caused) did not — but exists.
+                assertEquals(2, sharee.client.notifications().count { it.type == NotificationType.GOAL_SHARED })
+                assertEquals(ShareStatus.ACTIVE, author.client.get("/api/v1/shares/${ids[2]}").body<ShareResponse>().status)
+                fun notifiedOf(shareId: UInt, event: String) = audit.events.single {
+                    it.message == event && it.keyValuePairs.any { kv -> kv.key == "shareId" && kv.value == shareId.toLong() }
+                }.keyValuePairs.single { it.key == "notified" }.value
+                assertEquals(listOf(true, true, false), ids.map { notifiedOf(it, "share.created") })
+
+                // Withdrawals between the capped pair are silent too …
+                assertEquals(HttpStatusCode.NoContent, author.client.post("/api/v1/shares/${ids[0]}/withdraw").status)
+                assertEquals(0, sharee.client.notifications().count { it.type == NotificationType.GOAL_SHARE_WITHDRAWN })
+                assertEquals(false, notifiedOf(ids[0], "share.withdrawn"))
+                // … and the cap is per PAIR: the same sharer toward someone else still notifies.
+                author.client.shareId(docs[0], other.id)
+                assertEquals(1, other.client.notifications().count { it.type == NotificationType.GOAL_SHARED })
+            } finally {
+                audit.detach()
+            }
+        }
+
+    @Test
+    fun `the cap gates only the sharee-facing notices - an author withdrawal still tells the sharer`() = testApplication {
+        val fake = startWithFake(ShareableResourceType.GOAL, "sharing.notificationDailyCapPerPair" to "2")
+        val author = person("author")
+        val sharer = person("sharer")
+        val sharee = person("sharee")
+        val docs = List(3) { fake.add(author.id, readers = setOf(sharer.id)) }
+        val ids = docs.map { sharer.client.shareId(it, sharee.id) }
+        // The pair is capped now (two notices minted, the third share silent).
+        assertEquals(2, sharee.client.notifications().count { it.type == NotificationType.GOAL_SHARED })
+
+        assertEquals(HttpStatusCode.NoContent, author.client.post("/api/v1/shares/${ids[2]}/withdraw").status)
+        // The sharee hears nothing about it …
+        assertEquals(0, sharee.client.notifications().count { it.type == NotificationType.GOAL_SHARE_WITHDRAWN })
+        // … but the sharer, who did not act, still gets their own copy — the cap never silences it.
+        val toSharer = sharer.client.notifications().single { it.type == NotificationType.GOAL_SHARE_WITHDRAWN }
+        assertEquals("sharer", toSharer.params["self"])
+        assertEquals("/shares?tab=byMe", toSharer.link)
+    }
+
+    @Test
+    fun `a withdrawal counts toward the cap, and the cap rolls off after 24 hours`() = testApplication {
+        val fake = startWithFake(ShareableResourceType.GOAL, "sharing.notificationDailyCapPerPair" to "2")
         val author = person("author")
         val sharee = person("sharee")
-        val documentId = TestShareDocuments.nextId()
-        val id = (ShareService(TestServices.database).create(unregistered, documentId, author.id, sharee.id, null)
-            as ShareCreateOutcome.Created).id
-        val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
-        assertEquals(id, row.id)
-        assertNull(row.details)
-        assertNull(row.link)
-        // The no-adapter 404 branch: neither creating nor the document view works for the kind.
-        assertEquals(HttpStatusCode.NotFound, author.client.share(documentId, sharee.id, type = unregistered).status)
-        val documentView = author.client.get("/api/v1/shares") {
-            parameter("view", "document")
-            parameter("resourceType", unregistered.name)
-            parameter("resourceId", documentId.toString())
+        val docs = List(4) { fake.add(author.id) }
+
+        // share (notice 1), withdraw (notice 2) — the next share would be notice 3: suppressed.
+        val firstShare = author.client.shareId(docs[0], sharee.id)
+        assertEquals(HttpStatusCode.NoContent, author.client.post("/api/v1/shares/$firstShare/withdraw").status)
+        assertEquals(1, sharee.client.notifications().count { it.type == NotificationType.GOAL_SHARE_WITHDRAWN })
+        author.client.shareId(docs[1], sharee.id)
+        assertEquals(1, sharee.client.notifications().count { it.type == NotificationType.GOAL_SHARED }, "capped")
+
+        // Roll-off: age every created/withdrawn stamp of the pair past 24 h and the pair is clean again.
+        val aged = System.currentTimeMillis() - 25L * 60 * 60 * 1000
+        suspendTransaction(TestServices.database) {
+            val pair = (ShareService.DocumentShares.sharerId eq author.id) and
+                (ShareService.DocumentShares.shareeId eq sharee.id)
+            ShareService.DocumentShares.update({ pair }) { it[createdAt] = aged }
+            ShareService.DocumentShares.update({ pair and ShareService.DocumentShares.withdrawnAt.isNotNull() }) {
+                it[withdrawnAt] = aged
+            }
         }
-        assertEquals(HttpStatusCode.NotFound, documentView.status)
-        // Fetching it by id works for the sharer; withdrawing too.
-        assertEquals(id, author.client.get("/api/v1/shares/$id").body<ShareResponse>().id)
-        assertEquals(HttpStatusCode.NoContent, author.client.post("/api/v1/shares/$id/withdraw").status)
+        author.client.shareId(docs[2], sharee.id)
+        assertEquals(2, sharee.client.notifications().count { it.type == NotificationType.GOAL_SHARED }, "rolled off")
+    }
+
+    @Test
+    fun `the notification cap is boot-validated`() = testApplication {
+        configureApp("sharing.notificationDailyCapPerPair" to "0")
+        assertStartupFails("sharing.notificationDailyCapPerPair") { startApplication() }
+    }
+
+    @Test
+    fun `the REAL registry answers 404 for a missing document under every kind`() = testApplication {
+        // No stub registry swap here: each real feature adapter's read answers the missing id.
+        usePostgresTestcontainer()
+        val author = person("author")
+        val sharee = person("sharee")
+        val missing = TestShareDocuments.nextId()
+        ShareableResourceType.entries.forEach { type ->
+            assertEquals(HttpStatusCode.NotFound, author.client.share(missing, sharee.id, type = type).status, "POST $type")
+            val view = author.client.get("/api/v1/shares") {
+                parameter("view", "document")
+                parameter("resourceType", type.name)
+                parameter("resourceId", missing.toString())
+            }
+            assertEquals(HttpStatusCode.NotFound, view.status, "view=document $type")
+        }
     }
 
     @Test

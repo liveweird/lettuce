@@ -30,6 +30,7 @@ import ch.nokillswit.oneonones.ActionItemOwner
 import ch.nokillswit.oneonones.OneOnOneActionItemInput
 import ch.nokillswit.oneonones.OneOnOneCreateRequest
 import ch.nokillswit.oneonones.OneOnOneEventListResponse
+import ch.nokillswit.oneonones.OneOnOneEventType
 import ch.nokillswit.oneonones.OneOnOneItemInput
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.oneonones.OneOnOneUpdateRequest
@@ -62,6 +63,13 @@ import ch.nokillswit.succession.SuccessionPlanResponse
 import ch.nokillswit.succession.SuccessionPlanStatus
 import ch.nokillswit.succession.SuccessionPlanUpdate
 import ch.nokillswit.succession.SuccessorReadiness
+import ch.nokillswit.teamkpis.TeamKpiCreateRequest
+import ch.nokillswit.teamkpis.TeamKpiDefinitionUpdate
+import ch.nokillswit.teamkpis.TeamKpiEventListResponse
+import ch.nokillswit.teamkpis.TeamKpiResponse
+import ch.nokillswit.teamkpis.TeamKpiType
+import ch.nokillswit.teamkpis.TeamKpiValueListResponse
+import ch.nokillswit.teamkpis.TeamKpiValueWrite
 import ch.nokillswit.teams.Team
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.OPT_IN_FEATURES
@@ -1126,6 +1134,15 @@ class SharingTest {
         assertEquals("prepare demo", seenSecond.actionItems.single().content)
         assertNull(seenSecond.actionItems.single().copiedFromId)
         assertNull(seenSecond.actionItems.single().firstAppearedOn)
+
+        // The history too: the CREATED event of #2 records how many items were carried over from #1 — a
+        // fact about the sibling meeting — which the owner sees and a sharee does not.
+        suspend fun createdParams(client: HttpClient, meetingId: UInt) =
+            client.get("/api/v1/one-on-ones/$meetingId/events").body<OneOnOneEventListResponse>().items
+                .single { it.type == OneOnOneEventType.CREATED }.params
+        assertEquals("1", createdParams(w.manager.client, secondMeeting.id)["carriedOver"])
+        assertEquals(mapOf("date" to "2026-07-08"), createdParams(latest.client, secondMeeting.id))
+        assertEquals(mapOf("date" to "2026-07-01"), createdParams(first.client, w.meeting.id))
     }
 
     @Test
@@ -1991,6 +2008,329 @@ class SharingTest {
         assertEquals(HttpStatusCode.NoContent, edit.status)
         assertEquals(before, sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details)
         assertEquals(setOf("person", "owner"), before?.keys)
+    }
+
+    // ── Team KPIs ────────────────────────────────────────────────────────────────────────────
+
+    private class KpiWorld(
+        val manager: Person,
+        val member: Person,
+        val otherMember: Person,
+        val grand: Person,
+        val teamId: UInt,
+        val grandTeamId: UInt,
+        val teamName: String,
+        val kpi: TeamKpiResponse,
+    )
+
+    private suspend fun HttpClient.shareKpi(kpiId: UInt, shareeId: UInt): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.TEAM_KPI, kpiId, shareeId, null))
+        }
+
+    private suspend fun HttpClient.shareKpiId(kpiId: UInt, shareeId: UInt): UInt {
+        val response = shareKpi(kpiId, shareeId)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    private suspend fun HttpClient.kpi(id: UInt) = get("/api/v1/team-kpis/$id")
+
+    private fun kpiDefinition(title: String) = TeamKpiDefinitionUpdate(
+        title = title,
+        description = "A private description",
+        type = TeamKpiType.NUMBER,
+        targetValue = 10.0,
+    )
+
+    /**
+     * M manages team T (members m1, m2), G manages M. M creates a KPI for T — activated when
+     * [activate] (with one recorded data point), otherwise a DRAFT private to the manager + chain.
+     */
+    private suspend fun ApplicationTestBuilder.kpiWorld(
+        activate: Boolean = true,
+        managerRoles: Set<UserRole> = emptySet(),
+    ): KpiWorld {
+        val manager = person("manager", roles = managerRoles)
+        val member = person("member")
+        val otherMember = person("other-member")
+        val grand = person("grand-manager")
+        val teamName = "Squad-${manager.id}"
+        val teamId = TestServices.teams.create(Team(teamName, manager.id, listOf(member.id, otherMember.id)))
+        val grandTeamId = TestServices.teams.create(Team("Leads-${grand.id}", grand.id, listOf(manager.id)))
+        val created = manager.client.post("/api/v1/team-kpis") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                TeamKpiCreateRequest(
+                    teamId = teamId,
+                    title = "Original KPI title",
+                    description = "A private description",
+                    type = TeamKpiType.NUMBER,
+                    targetValue = 10.0,
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, created.status)
+        val kpi = created.body<TeamKpiResponse>()
+        assertTrue(kpi.canShare, "the creating manager reads their own KPI")
+        if (activate) {
+            assertEquals(HttpStatusCode.NoContent, manager.client.post("/api/v1/team-kpis/${kpi.id}/activate").status)
+            val value = manager.client.post("/api/v1/team-kpis/${kpi.id}/values") {
+                contentType(ContentType.Application.Json)
+                setBody(TeamKpiValueWrite(date = serverToday().minusDays(1).toString(), value = 4.0))
+            }
+            assertEquals(HttpStatusCode.Created, value.status)
+        }
+        return KpiWorld(manager, member, otherMember, grand, teamId, grandTeamId, teamName, kpi)
+    }
+
+    @Test
+    fun `team KPIs - a sharee reads the KPI, its data points and events, with no management or recording rights`() =
+        runBlockingApp {
+            val w = kpiWorld()
+            val sharee = person("sharee")
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.kpi(w.kpi.id).status)
+
+            w.manager.client.shareKpiId(w.kpi.id, sharee.id)
+            val body = sharee.client.kpi(w.kpi.id).body<TeamKpiResponse>()
+            assertEquals("A private description", body.description)
+            assertEquals(4.0, body.currentValue)
+            assertEquals(w.manager.name, body.sharedBy)
+            assertFalse(body.canShare)
+            assertFalse(body.canManage)
+            assertFalse(body.canRecordValues)
+            val values = sharee.client.get("/api/v1/team-kpis/${w.kpi.id}/values")
+            assertEquals(HttpStatusCode.OK, values.status)
+            assertEquals(1, values.body<TeamKpiValueListResponse>().items.size)
+            val events = sharee.client.get("/api/v1/team-kpis/${w.kpi.id}/events")
+            assertEquals(HttpStatusCode.OK, events.status)
+            assertTrue(events.body<TeamKpiEventListResponse>().items.isNotEmpty())
+
+            val own = w.manager.client.kpi(w.kpi.id).body<TeamKpiResponse>()
+            assertTrue(own.canShare && own.canManage)
+            val asMember = w.member.client.kpi(w.kpi.id).body<TeamKpiResponse>()
+            assertTrue(asMember.canShare, "an ACTIVE KPI is readable — and shareable — by a team member")
+            assertFalse(asMember.canManage)
+            assertTrue(asMember.canRecordValues)
+            assertTrue(w.grand.client.kpi(w.kpi.id).body<TeamKpiResponse>().canShare)
+
+            val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
+            assertEquals(mapOf("title" to "Original KPI title", "team" to w.teamName), row.details)
+            assertEquals("/team-kpis/${w.kpi.id}/view", row.link)
+        }
+
+    @Test
+    fun `team KPIs - a pure sharee can write nothing - definition, lifecycle and data points alike`() = runBlockingApp {
+        val w = kpiWorld()
+        val sharee = person("sharee")
+        w.manager.client.shareKpiId(w.kpi.id, sharee.id)
+        val valueId = w.manager.client.get("/api/v1/team-kpis/${w.kpi.id}/values")
+            .body<TeamKpiValueListResponse>().items.single().id
+        val c = sharee.client
+        val base = "/api/v1/team-kpis/${w.kpi.id}"
+        val put = c.put(base) {
+            contentType(ContentType.Application.Json)
+            setBody(kpiDefinition("tampered"))
+        }
+        assertEquals(HttpStatusCode.Forbidden, put.status)
+        for (action in listOf("activate", "deactivate", "reopen")) {
+            assertEquals(HttpStatusCode.Forbidden, c.post("$base/$action").status, action)
+        }
+        assertEquals(HttpStatusCode.Forbidden, c.delete(base).status)
+        // The data-point rights (manager + chain + CURRENT members) are not a share's to give.
+        val write = TeamKpiValueWrite(date = serverToday().minusDays(2).toString(), value = 99.0)
+        val post = c.post("$base/values") {
+            contentType(ContentType.Application.Json)
+            setBody(write)
+        }
+        assertEquals(HttpStatusCode.Forbidden, post.status)
+        val putValue = c.put("$base/values/$valueId") {
+            contentType(ContentType.Application.Json)
+            setBody(write)
+        }
+        assertEquals(HttpStatusCode.Forbidden, putValue.status)
+        assertEquals(HttpStatusCode.Forbidden, c.delete("$base/values/$valueId").status)
+        val after = w.manager.client.kpi(w.kpi.id).body<TeamKpiResponse>()
+        assertEquals("Original KPI title", after.title)
+        assertEquals(4.0, after.currentValue)
+    }
+
+    @Test
+    fun `team KPIs - no re-sharing, no HR-auditor sharing, an HR manager can share`() = runBlockingApp {
+        val w = kpiWorld(managerRoles = setOf(UserRole.HR))
+        val sharee = person("sharee")
+        val third = person("third")
+        val auditor = person("auditor", roles = setOf(UserRole.HR))
+        assertTrue(w.manager.client.kpi(w.kpi.id).body<TeamKpiResponse>().canShare)
+        w.manager.client.shareKpiId(w.kpi.id, sharee.id)
+
+        val reshare = sharee.client.shareKpi(w.kpi.id, third.id)
+        assertEquals(HttpStatusCode.Forbidden, reshare.status)
+        assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+
+        // The HR auditor reads every KPI (the org-wide view=all auditor role) — not as an own-right reader.
+        val audit = auditor.client.kpi(w.kpi.id)
+        assertEquals(HttpStatusCode.OK, audit.status)
+        assertFalse(audit.body<TeamKpiResponse>().canShare)
+        assertEquals(HttpStatusCode.Forbidden, auditor.client.shareKpi(w.kpi.id, third.id).status)
+        assertEquals(HttpStatusCode.Created, w.manager.client.shareKpi(w.kpi.id, auditor.id).status)
+    }
+
+    @Test
+    fun `team KPIs - a member shares only a non-DRAFT KPI, and the share lapses on DRAFT, on leaving the team, and on reassignment`() =
+        runBlockingApp {
+            val w = kpiWorld(activate = false)
+            val sharee = person("sharee")
+            val viaManager = person("sharee-manager")
+            // A DRAFT stays private to the manager and the chain: a member neither reads nor shares it.
+            assertEquals(HttpStatusCode.Forbidden, w.member.client.kpi(w.kpi.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.member.client.shareKpi(w.kpi.id, sharee.id).status)
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/team-kpis/${w.kpi.id}/activate").status)
+
+            // ACTIVE: the member shares; back to DRAFT → their share lapses (the manager's keeps working).
+            w.member.client.shareKpiId(w.kpi.id, sharee.id)
+            w.manager.client.shareKpiId(w.kpi.id, viaManager.id)
+            assertEquals(HttpStatusCode.OK, sharee.client.kpi(w.kpi.id).status)
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/team-kpis/${w.kpi.id}/deactivate").status)
+            val lapsed = sharee.client.kpi(w.kpi.id)
+            assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+            assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.get("/api/v1/team-kpis/${w.kpi.id}/values").status)
+            assertEquals(HttpStatusCode.OK, viaManager.client.kpi(w.kpi.id).status)
+
+            // Re-activated, then the member LEAVES the team: their share lapses.
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/team-kpis/${w.kpi.id}/activate").status)
+            assertEquals(HttpStatusCode.OK, sharee.client.kpi(w.kpi.id).status)
+            TestServices.teams.removeMember(w.teamId, w.member.id)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.kpi(w.kpi.id).status)
+            TestServices.teams.addMember(w.teamId, w.member.id)
+            assertEquals(HttpStatusCode.OK, sharee.client.kpi(w.kpi.id).status)
+
+            // Manager reassignment: the OLD manager is no longer the team's manager — nor in the chain
+            // above the new one — so the share they made lapses.
+            val newManager = person("new-manager")
+            assertEquals(
+                1,
+                TestServices.teams.update(w.teamId, Team(w.teamName, newManager.id, listOf(w.member.id, w.otherMember.id))),
+            )
+            val oldManagerLapse = viaManager.client.kpi(w.kpi.id)
+            assertEquals(HttpStatusCode.Forbidden, oldManagerLapse.status)
+            assertEquals("The person who shared this no longer has access to it", oldManagerLapse.detail())
+            // The member's share is unaffected by the reassignment (they are still a member).
+            assertEquals(HttpStatusCode.OK, sharee.client.kpi(w.kpi.id).status)
+        }
+
+    @Test
+    fun `team KPIs - a member reads a DRAFT through the manager's share with no rights, the ACTIVE KPI in their own right`() =
+        runBlockingApp {
+            val w = kpiWorld(activate = false)
+            // The DRAFT is invisible to the member in their own right — the manager's share is their way in.
+            assertEquals(HttpStatusCode.Forbidden, w.member.client.kpi(w.kpi.id).status)
+            w.manager.client.shareKpiId(w.kpi.id, w.member.id)
+            val viaShare = w.member.client.kpi(w.kpi.id).body<TeamKpiResponse>()
+            assertEquals(w.manager.name, viaShare.sharedBy)
+            assertFalse(viaShare.canManage)
+            assertFalse(viaShare.canRecordValues, "a share confers read only — nothing is recorded on a DRAFT")
+            assertFalse(viaShare.canShare)
+
+            // ACTIVE: the member's ordinary own-right read takes over (no banner, their member rights).
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/team-kpis/${w.kpi.id}/activate").status)
+            val own = w.member.client.kpi(w.kpi.id).body<TeamKpiResponse>()
+            assertNull(own.sharedBy)
+            assertTrue(own.canRecordValues)
+            assertFalse(own.canManage)
+            assertTrue(own.canShare)
+        }
+
+    @Test
+    fun `team KPIs - after a reassignment an old manager still in the chain above the new one keeps a working share`() =
+        runBlockingApp {
+            val w = kpiWorld()
+            val sharee = person("sharee")
+            val newManager = person("new-manager")
+            // The OLD manager manages the new manager (a team of their own): they stay in the chain above.
+            TestServices.teams.create(Team("Over-${w.manager.id}", w.manager.id, listOf(newManager.id)))
+            w.manager.client.shareKpiId(w.kpi.id, sharee.id)
+            assertEquals(HttpStatusCode.OK, sharee.client.kpi(w.kpi.id).status)
+
+            assertEquals(
+                1,
+                TestServices.teams.update(w.teamId, Team(w.teamName, newManager.id, listOf(w.member.id, w.otherMember.id))),
+            )
+            // The old manager is no longer the team's manager, but they read as the chain above the new one.
+            assertEquals(HttpStatusCode.OK, sharee.client.kpi(w.kpi.id).status)
+            assertTrue(w.manager.client.kpi(w.kpi.id).body<TeamKpiResponse>().canShare)
+        }
+
+    @Test
+    fun `team KPIs - a chain manager's share lapses when they leave the chain`() = runBlockingApp {
+        val w = kpiWorld()
+        val sharee = person("sharee")
+        w.grand.client.shareKpiId(w.kpi.id, sharee.id)
+        assertEquals(HttpStatusCode.OK, sharee.client.kpi(w.kpi.id).status)
+        TestServices.teams.removeMember(w.grandTeamId, w.manager.id)
+        val lapsed = sharee.client.kpi(w.kpi.id)
+        assertEquals(HttpStatusCode.Forbidden, lapsed.status)
+        assertEquals("The person who shared this no longer has access to it", lapsed.detail())
+    }
+
+    @Test
+    fun `team KPIs - the manage predicate is the author - manager and chain list and withdraw a member's share, notifications and links`() =
+        runBlockingApp {
+            val w = kpiWorld()
+            val sharee = person("sharee")
+            val id = w.member.client.shareKpiId(w.kpi.id, sharee.id)
+
+            val shared = sharee.client.notifications().single { it.type == NotificationType.TEAM_KPI_SHARED }
+            assertEquals(mapOf("sharer" to w.member.name), shared.params)
+            assertEquals("/team-kpis/${w.kpi.id}/view", shared.link)
+
+            // The chain manager (above the team's manager) is an author too; the plain member is not.
+            suspend fun documentView(client: HttpClient) = client.get("/api/v1/shares") {
+                parameter("view", "document")
+                parameter("resourceType", "TEAM_KPI")
+                parameter("resourceId", w.kpi.id.toString())
+            }.body<SharePageResponse>()
+            assertEquals(listOf(id), documentView(w.grand.client).items.map { it.id })
+            assertEquals(listOf(id), documentView(w.member.client).items.map { it.id })
+            assertEquals(0L, documentView(w.otherMember.client).total)
+            // The DIRECT manager is an author as well: lists every share of the KPI and withdraws one.
+            val sharee2 = person("sharee-2")
+            val id2 = w.otherMember.client.shareKpiId(w.kpi.id, sharee2.id)
+            assertEquals(setOf(id, id2), documentView(w.manager.client).items.map { it.id }.toSet())
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/shares/$id2/withdraw").status)
+            assertEquals(HttpStatusCode.Forbidden, sharee2.client.kpi(w.kpi.id).status)
+            assertEquals(HttpStatusCode.NoContent, w.grand.client.post("/api/v1/shares/$id/withdraw").status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.kpi(w.kpi.id).status)
+
+            val toSharee = sharee.client.notifications().single { it.type == NotificationType.TEAM_KPI_SHARE_WITHDRAWN }
+            assertEquals(
+                mapOf("sharer" to w.member.name, "sharee" to sharee.name, "actor" to w.grand.name),
+                toSharee.params,
+            )
+            assertNull(toSharee.link)
+            val toSharer = w.member.client.notifications().single { it.type == NotificationType.TEAM_KPI_SHARE_WITHDRAWN }
+            assertEquals("sharer", toSharer.params["self"])
+            assertEquals("/shares?tab=byMe", toSharer.link)
+        }
+
+    @Test
+    fun `team KPIs - the full label snapshot is stable after a retitle`() = runBlockingApp {
+        val w = kpiWorld()
+        val sharee = person("sharee")
+        w.manager.client.shareKpiId(w.kpi.id, sharee.id)
+        val before = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details
+        // Definition edits are DRAFT-only: back to DRAFT, then retitle.
+        assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/team-kpis/${w.kpi.id}/deactivate").status)
+        val edit = w.manager.client.put("/api/v1/team-kpis/${w.kpi.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(kpiDefinition("Retitled afterwards"))
+        }
+        assertEquals(HttpStatusCode.NoContent, edit.status)
+        assertEquals("Retitled afterwards", w.manager.client.kpi(w.kpi.id).body<TeamKpiResponse>().title)
+        assertEquals(before, sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details)
+        assertEquals("Original KPI title", before?.get("title"))
     }
 
     /** `testApplication` with the container started; the body is the test. */
