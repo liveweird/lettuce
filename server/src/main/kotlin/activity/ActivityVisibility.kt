@@ -10,6 +10,8 @@ import ch.nokillswit.impactlog.ImpactLogService.Entries
 import ch.nokillswit.oneonones.OneOnOneService.Meetings
 import ch.nokillswit.reviews.PerformanceReviewService.Reviews
 import ch.nokillswit.reviews.PerformanceReviewStatus
+import ch.nokillswit.sharing.ShareService.DocumentShares
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.succession.SuccessionPlanService.Plans
 import ch.nokillswit.teamkpis.TeamKpiService.TeamKpis
 import ch.nokillswit.teamkpis.TeamKpiStatus
@@ -17,6 +19,7 @@ import ch.nokillswit.teams.TeamService.TeamMembers
 import ch.nokillswit.teams.TeamService.Teams
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
+import org.jetbrains.exposed.v1.r2dbc.Query
 import org.jetbrains.exposed.v1.r2dbc.select
 
 /**
@@ -127,6 +130,58 @@ internal object ActivityVisibility {
      */
     private fun successionPlan(viewer: UInt, chain: Collection<UInt>): Op<Boolean> =
         (Plans.markedAsDeleted eq false) and ((Plans.managerId eq viewer) or Plans.managerId.anyOf(chain))
+
+    /**
+     * Which SHARE rows a chain viewer may see: only those of a document the viewer AUTHORS — the
+     * `GET /shares?view=document` rule (so the document's subject, and a non-author chain manager,
+     * never learn of a share), AND the document is not soft-deleted (the adapter's `read` answers
+     * null for one). Mirrors each adapter's `isAuthor`: feedback → the provider; 1:1/goal/review →
+     * the stored `manager_id`; impact log → the owner; succession plan → the plan's owner; team KPI →
+     * whoever passes the manage predicate (the team's CURRENT manager `teams.manager_id`, or the
+     * chain above them). One `resource_type`-guarded sub-select per type, OR-ed.
+     */
+    fun authoredShares(viewer: UInt, chain: Collection<UInt>): Op<Boolean> {
+        fun ofType(type: ShareableResourceType, ids: Query): Op<Boolean> =
+            (DocumentShares.resourceType eq type.name) and (DocumentShares.resourceId inSubQuery ids)
+        val kpiAuthored = TeamKpis.join(Teams, JoinType.INNER, onColumn = TeamKpis.teamId, otherColumn = Teams.id)
+            .select(TeamKpis.id)
+            .where {
+                (TeamKpis.markedAsDeleted eq false) and ((Teams.managerId eq viewer) or Teams.managerId.anyOf(chain))
+            }
+        return ShareableResourceType.entries.map { type ->
+            // Exhaustive: a new shareable type without an author predicate does not compile.
+            when (type) {
+                ShareableResourceType.FEEDBACK -> ofType(
+                    type,
+                    Feedbacks.select(Feedbacks.id)
+                        .where { (Feedbacks.providerId eq viewer) and (Feedbacks.markedAsDeleted eq false) },
+                )
+                ShareableResourceType.ONE_ON_ONE -> ofType(
+                    type,
+                    Meetings.select(Meetings.id)
+                        .where { (Meetings.managerId eq viewer) and (Meetings.markedAsDeleted eq false) },
+                )
+                ShareableResourceType.GOAL -> ofType(
+                    type,
+                    Goals.select(Goals.id).where { (Goals.managerId eq viewer) and (Goals.markedAsDeleted eq false) },
+                )
+                ShareableResourceType.TEAM_KPI -> ofType(type, kpiAuthored)
+                ShareableResourceType.PERFORMANCE_REVIEW -> ofType(
+                    type,
+                    Reviews.select(Reviews.id)
+                        .where { (Reviews.managerId eq viewer) and (Reviews.markedAsDeleted eq false) },
+                )
+                ShareableResourceType.IMPACT_LOG_ENTRY -> ofType(
+                    type,
+                    Entries.select(Entries.id).where { (Entries.userId eq viewer) and (Entries.markedAsDeleted eq false) },
+                )
+                ShareableResourceType.SUCCESSION_PLAN -> ofType(
+                    type,
+                    Plans.select(Plans.id).where { (Plans.managerId eq viewer) and (Plans.markedAsDeleted eq false) },
+                )
+            }
+        }.reduce { acc, op -> acc or op }
+    }
 
     /** The feedback's recipient set (anchor column OR the join table — `FeedbackService.subjectIn`). */
     private fun isRecipient(users: Collection<UInt>): Op<Boolean> =

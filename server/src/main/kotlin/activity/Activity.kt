@@ -30,6 +30,18 @@ enum class ActivityArea {
     ACCOUNT,
 }
 
+/** The activity area of a shareable document type — an exhaustive `when`, never name matching. */
+val ShareableResourceType.activityArea: ActivityArea
+    get() = when (this) {
+        ShareableResourceType.FEEDBACK -> ActivityArea.FEEDBACK
+        ShareableResourceType.ONE_ON_ONE -> ActivityArea.ONE_ON_ONE
+        ShareableResourceType.GOAL -> ActivityArea.GOAL
+        ShareableResourceType.TEAM_KPI -> ActivityArea.TEAM_KPI
+        ShareableResourceType.PERFORMANCE_REVIEW -> ActivityArea.PERFORMANCE_REVIEW
+        ShareableResourceType.IMPACT_LOG_ENTRY -> ActivityArea.IMPACT_LOG_ENTRY
+        ShareableResourceType.SUCCESSION_PLAN -> ActivityArea.SUCCESSION_PLAN
+    }
+
 /** The sharing type of a document area; null for the person-scoped areas. */
 val ActivityArea.shareType: ShareableResourceType?
     get() = when (this) {
@@ -62,17 +74,24 @@ val ActivityArea.feature: Feature?
     }
 
 /**
- * One line of a person's activity log. [id] is a SYNTHETIC string `<AREA>:<SOURCE>:<eventId>`
- * (SOURCE `EVENT` for a row of an `*_events` table; the share sources arrive in step 3): a union
- * row has no scalar id, and the string is the stable, unique key a client needs. The log is
- * ordered by the id's components — `createdAt DESC, area, source, eventId DESC` — a total order
- * (a registered deviation from API-LIST-003, see the known-gaps register).
+ * One line of a person's activity log. [id] is a SYNTHETIC string `<AREA>:<SOURCE>:<id>` — SOURCE
+ * `EVENT` for a row of a document's `*_events` trail (id = the event's id), `SHARE` for a share the
+ * person created and `SHARE_WITHDRAWAL` for one they withdrew (id = the share's id): a union row
+ * has no scalar id, and the string is the stable, unique key a client needs. The log is ordered by
+ * the id's components — `createdAt DESC, area, source, id DESC` — a total order (a registered
+ * deviation from API-LIST-003, see the known-gaps register).
  *
- * [params] is the event's content-free map (the same one the document's own History tab renders),
- * localized client-side. [details]/[link] are the document's label snapshot and view path: null
- * when the VIEWER can no longer read the document in their own right (a self viewer's own row for
- * a document since deleted or made private to them again — the fact that they acted is theirs, the
- * document's current title is not).
+ * [params] is the content-free map the client localizes: an event row's is the same one the
+ * document's own History tab renders; a share row's is `{sharee, expiresOn?}` (+ `byAuthor`,
+ * `sharer` on a withdrawal by someone other than the sharer), the names LIVE. [eventType] of a share
+ * row is `SHARE_CREATED` / `SHARE_WITHDRAWN`.
+ *
+ * [details]/[link] are the document's labels and view path. Event rows: the document's CURRENT
+ * plaintext labels, null when the VIEWER can no longer read the document in their own right (a
+ * self viewer's own row for a document since deleted or made private to them again — the fact
+ * that they acted is theirs, the document's current title is not). Share rows: [details] is the
+ * share's STORED creation-time snapshot (`ShareResponse.details` keys — e.g. TEAM_KPI
+ * `{title, team}`, no `type`), and [link] is always present.
  */
 @Serializable
 data class ActivityEntry(

@@ -544,8 +544,9 @@ export interface paths {
          * The user's activity log
          * @description A chronological log of what the user DID (v4.9.0): one row per history event they authored
          *     on a document — feedbacks, 1:1 meetings, goals, team KPIs, performance reviews, impact-log
-         *     entries and succession plans — newest first. The log is a query-time union over those
-         *     features' per-document event trails, filtered on the ACTING user (a row lives in the log of
+         *     entries and succession plans — plus the document shares they created (`SHARE_CREATED`)
+         *     and withdrew (`SHARE_WITHDRAWN`, see `ActivityEntry`) — newest first. The log is a
+         *     query-time union over those features' per-document event trails and the share registry, filtered on the ACTING user (a row lives in the log of
          *     the person who acted, never in the log of the person it concerned); it starts at the event
          *     trails' own beginnings. System-originated events (no human actor) belong to nobody. Event
          *     `params` are the same content-free maps the documents' own History tabs render; no document
@@ -557,8 +558,10 @@ export interface paths {
          *     included, is `403`. A chain manager sees ONLY the entries whose document they can currently
          *     read in their OWN right (party roles, chain and status rules — e.g. a report's DRAFT goal or
          *     review, or a feedback not delivered into the manager's chain, never appears; share-granted
-         *     reads and teammate calendar grants do not count). Hidden entries are not listed and not
-         *     counted: `total` is exact for the viewer. A missing or soft-deleted user is `404`
+         *     reads and teammate calendar grants do not count) — and the share rows of the user's log
+         *     only for documents that manager AUTHORS (the document's author sees every share of it; the
+         *     document's subject or any other reader never learns of one). HR sees all share rows.
+         *     Hidden entries are not listed and not counted: `total` is exact for the viewer. A missing or soft-deleted user is `404`
          *     BEFORE the guard (user existence is no secret given the open users list); a deactivated
          *     user stays readable. The VIEWER's feature flags apply: an area the viewer has disabled is
          *     left out of the rows AND of `total`, and an `area` filter naming one answers an empty page
@@ -6851,8 +6854,10 @@ export interface components {
         ActivityArea: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF" | "CAREER_POSITION" | "ACCOUNT";
         ActivityEntry: {
             /**
-             * @description Synthetic, unique, stable: `<AREA>:<SOURCE>:<eventId>` — SOURCE is `EVENT` for a row
-             *     of a document's event trail. A union row has no scalar id; the log is ordered by this
+             * @description Synthetic, unique, stable: `<AREA>:<SOURCE>:<id>` — SOURCE is `EVENT` for a row of a
+             *     document's event trail (id = the event's id), `SHARE` for a share the user created and
+             *     `SHARE_WITHDRAWAL` for one they withdrew (id = the share's id; one share can therefore
+             *     appear as two rows, possibly in two different people's logs). A union row has no scalar id; the log is ordered by this
              *     id's components (`createdAt` descending, then `area`, `source` ascending and the event
              *     id descending), a total order.
              */
@@ -6863,9 +6868,23 @@ export interface components {
              */
             createdAt: number;
             area: components["schemas"]["ActivityArea"];
-            /** @description The event's type name, as in the document's own history (`CREATED`, `PROGRESS_UPDATED`, …) — an open set the client localizes by `area` + `eventType`. */
+            /**
+             * @description The event's type name, as in the document's own history (`CREATED`, `PROGRESS_UPDATED`, …)
+             *     — an open set the client localizes by `area` + `eventType`. Share rows (v4.9.0) carry the
+             *     two values `SHARE_CREATED` (the user shared the document — dated the share's creation,
+             *     actor = the sharer) and `SHARE_WITHDRAWN` (the user withdrew a share — dated the
+             *     withdrawal, actor = the WITHDRAWER, which may be the document's author rather than the
+             *     sharer: the row then lives in the author's log). Share rows ride the document's `area`.
+             */
             eventType: string;
-            /** @description The event's content-free parameter map (positions, dates, numbers, enum names, party names where that area's history carries them) — never document text, comments or rating values. */
+            /**
+             * @description The event's content-free parameter map (positions, dates, numbers, enum names, party
+             *     names where that area's history carries them) — never document text, comments or
+             *     rating values. Share rows: `{sharee, expiresOn?}` — `sharee` is the recipient's LIVE
+             *     display name, `expiresOn` the share's inclusive end date when set — and, on a
+             *     `SHARE_WITHDRAWN` row withdrawn by someone other than the sharer, `byAuthor: "true"` plus
+             *     `sharer` (the sharer's live display name).
+             */
             params: {
                 [key: string]: string;
             };
@@ -6874,12 +6893,16 @@ export interface components {
              * @description The document the event belongs to; null for the person-scoped areas.
              */
             documentId: number | null;
-            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (only possible in the user's own log — a chain manager's rows are filtered instead) — and always null for the person-scoped areas. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
+            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (only possible for event rows of the user's own log — a chain manager's rows are filtered instead; share rows always carry it, and opening it for a deleted or no-longer-readable document answers the document's own 404/403) — and always null for the person-scoped areas. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
             link: string | null;
             /**
-             * @description Content-free facts about the document for the client to localize, read at request time
-             *     from plaintext title/party columns (never decrypted content, never a status) — the
-             *     document's CURRENT labels, and therefore null under the same condition as `link`. Keys
+             * @description Content-free facts about the document for the client to localize. For event rows: read
+             *     at request time from plaintext title/party columns (never decrypted content, never a
+             *     status) — the document's CURRENT labels, and therefore null under the same condition as
+             *     `link`. For share rows: the share's STORED creation-time snapshot — the keys of
+             *     `ShareResponse.details`, which for TEAM_KPI are `{title,team}` WITHOUT `type` (never
+             *     refreshed; null only for a share stored without one) — always delivered together with
+             *     a `link`. Keys
              *     per `area`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
              *     GOAL `{title,subordinate}`; TEAM_KPI `{title,team,type}`;
              *     PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;

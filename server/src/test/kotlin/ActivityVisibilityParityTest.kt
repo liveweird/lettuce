@@ -28,6 +28,7 @@ import ch.nokillswit.reviews.PerformanceReviewEventService.ReviewEvents
 import ch.nokillswit.reviews.PerformanceReviewService.Reviews
 import ch.nokillswit.reviews.PerformanceReviewStatus
 import ch.nokillswit.sharing.ShareRegistryKey
+import ch.nokillswit.sharing.ShareService.DocumentShares
 import ch.nokillswit.sharing.ShareableResource
 import ch.nokillswit.succession.RetentionRisk
 import ch.nokillswit.succession.RoleCriticality
@@ -76,6 +77,11 @@ class ActivityVisibilityParityTest {
         } catch (_: ForbiddenException) {
             false
         }
+    }
+
+    private suspend fun <D : Any, G> ShareableResource<D, G>.authors(userId: UInt, id: UInt): Boolean {
+        val doc = read(id) ?: return false
+        return isAuthor(userId, doc)
     }
 
     private suspend fun user(prefix: String): UInt =
@@ -160,6 +166,21 @@ class ActivityVisibilityParityTest {
         docs
     }
 
+    /** T shared EVERY document and withdrew it again: a SHARE and a SHARE_WITHDRAWAL row per document. */
+    private suspend fun seedShares(o: Org, docs: List<Doc>, now: Long) = suspendTransaction(TestServices.database) {
+        for (doc in docs) {
+            DocumentShares.insert {
+                it[resourceType] = doc.area.shareType!!.name
+                it[resourceId] = doc.id
+                it[sharerId] = o.t
+                it[shareeId] = o.o
+                it[createdAt] = now
+                it[withdrawnAt] = now + 1
+                it[withdrawnBy] = o.t
+            }
+        }
+    }
+
     /** Reviews need a distinct period per (subordinate, period). */
     private suspend fun seedReviews(o: Org, now: Long): List<Doc> {
         val periods = List(4) { TestReviewPeriods.append(months = 1).id }
@@ -204,25 +225,35 @@ class ActivityVisibilityParityTest {
             val shareable = ActivityArea.entries.filter { it.shareType != null }.toSet()
             assertEquals(shareable, docs.map { it.area }.toSet())
             assertEquals(
-                ch.nokillswit.sharing.ShareableResourceType.entries.map { it.name }.toSet(),
-                shareable.map { it.name }.toSet(),
+                ch.nokillswit.sharing.ShareableResourceType.entries.toSet(),
+                shareable.map { it.shareType }.toSet(),
             )
             seedEvents(o, docs, now)
+            seedShares(o, docs, now)
 
             val mismatches = mutableListOf<String>()
             val outcomes = mutableMapOf<Pair<ActivityArea, Boolean>, Int>()
+            val authorOutcomes = mutableMapOf<Pair<ActivityArea, Boolean>, Int>()
             for (area in shareable) {
                 val areaDocs = docs.filter { it.area == area }
                 val adapter = registry.forType(area.shareType!!)
                 for (viewer in o.viewers) {
                     val expected = areaDocs.associate { it.id to adapter.ownRight(viewer, it.id) }
                     // chain mode (viewer reads T's log): a row per readable document, none for the rest.
-                    val chainRows = listed(service, o.t, viewer, ActivityScope.CHAIN, area)
+                    val chainRows = listed(service, o.t, viewer, ActivityScope.CHAIN, area, shares = false)
+                    // share rows (T shared and withdrew every document): a chain viewer sees them only for
+                    // documents they AUTHOR (adapter.isAuthor, document not deleted) — never as a mere reader.
+                    val shareRows = listed(service, o.t, viewer, ActivityScope.CHAIN, area, shares = true)
                     // self mode (viewer reads their own log): every document is listed; details ⇔ readable.
                     val selfRows = listed(service, viewer, viewer, ActivityScope.OWN_RIGHT, area)
                     for (doc in areaDocs) {
                         val ok = expected.getValue(doc.id)
                         outcomes.merge(area to ok, 1, Int::plus)
+                        val authored = adapter.authors(viewer, doc.id)
+                        authorOutcomes.merge(area to authored, 1, Int::plus)
+                        if ((doc.id in shareRows) != authored) {
+                            mismatches += "SHARE $area doc=${doc.id} viewer=$viewer author=$authored listed=${doc.id in shareRows}"
+                        }
                         if ((doc.id in chainRows) != ok) {
                             mismatches += "CHAIN $area doc=${doc.id} viewer=$viewer oracle=$ok listed=${doc.id in chainRows}"
                         }
@@ -239,6 +270,8 @@ class ActivityVisibilityParityTest {
             for (area in shareable) {
                 assertTrue((outcomes[area to true] ?: 0) > 0, "$area never readable in the matrix")
                 assertTrue((outcomes[area to false] ?: 0) > 0, "$area never hidden in the matrix")
+                assertTrue((authorOutcomes[area to true] ?: 0) > 0, "$area never authored in the matrix")
+                assertTrue((authorOutcomes[area to false] ?: 0) > 0, "$area never non-authored in the matrix")
             }
         }
 
@@ -249,6 +282,7 @@ class ActivityVisibilityParityTest {
         viewer: UInt,
         scope: ActivityScope,
         area: ActivityArea,
+        shares: Boolean = false,
     ): Map<UInt, Boolean> {
         val seen = mutableMapOf<UInt, Boolean>()
         val seenIds = mutableListOf<String>()
@@ -263,7 +297,8 @@ class ActivityVisibilityParityTest {
             val ids = result.items.map { it.id }
             assertEquals(ids.size, ids.toSet().size, "duplicate row ids on one page")
             seenIds += ids
-            result.items.forEach { seen[it.documentId!!] = it.details != null }
+            // Event rows and share rows of one log are told apart by the synthetic id's SOURCE part.
+            result.items.filter { (":EVENT:" in it.id) != shares }.forEach { seen[it.documentId!!] = it.details != null }
             if (page * 100 >= result.total) {
                 assertEquals(result.total, seenIds.size.toLong(), "the pages' rows must add up to total")
                 assertEquals(seenIds.size, seenIds.toSet().size, "a row repeated across pages")

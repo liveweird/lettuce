@@ -15,8 +15,8 @@ and what is still to come).
 - **Access = self / the HR auditor / a manager in the target's transitive chain** (the chain viewer
   sees only the entries whose document they can read themselves). ADMIN gets nothing special.
   No new feature flag; the VIEWER's disabled areas are left out.
-- **HR sees the target's share rows** (a later step; the endpoint is `hr.list`-audited and the
-  succession-plan precedent already grants HR audit reads).
+- **HR sees the target's share rows** (the endpoint is `hr.list`-audited and the succession-plan
+  precedent already grants HR audit reads).
 - **Forward-only history.** New persisted trails start at their deploy; nothing before it can be
   reconstructed (the OTel audit stream is not a store). Step 1 needs none — the seven event tables
   are the history.
@@ -42,13 +42,15 @@ migration.
   needed**. If a future Exposed upgrade breaks any of it, the fallback is a migration-owned
   `CREATE VIEW` over the same SELECTs queried through a plain `Table`; nothing above the service
   would change.
-- **One branch.** Exposed has no one-branch set operation; a single source (an `area` filter, or
-  every other area disabled for the viewer) is paired with its own `WHERE FALSE` twin — same rows,
-  one code path. No source at all (a disabled/empty area) answers an empty page without a query.
+- **One branch.** Exposed has no one-branch set operation, so a lone branch is paired with its own
+  `WHERE FALSE` twin — same rows, one code path. Today every shareable area contributes an event
+  branch plus the two share branches (never fewer than three); the twin guards the day a
+  non-shareable area (days-off, career) is the only source. No source at all (a disabled or
+  not-yet-producing area) answers an empty page without a query.
 - **V87 indexes.** `(user_id, created_at)` on each of the seven event tables turns every branch
   into one index range scan (`user_id` is nullable since V80 — a NULL actor is never in the
-  range), plus the partial `document_shares(withdrawn_by)` index for the share rows of a later
-  step.
+  range), plus the partial `document_shares(withdrawn_by, withdrawn_at)` index for the share-withdrawal
+  rows (step 3).
 - **Deep offset pages** over the union are accepted at this app's scale.
 
 #### Entry shape and order
@@ -56,8 +58,9 @@ migration.
 `ActivityEntry { id, createdAt, area, eventType, params, documentId, link, details }` (nullable
 fields are always encoded as explicit nulls).
 
-- **`id` is a synthetic string** `<AREA>:<SOURCE>:<eventId>` (SOURCE `EVENT` here; the share
-  sources arrive in step 3). A union row has no scalar id; the string is the stable unique key.
+- **`id` is a synthetic string** `<AREA>:<SOURCE>:<id>` (SOURCE `EVENT`,
+  `SHARE` or `SHARE_WITHDRAWAL`; id = the event's or the share's id).
+  A union row has no scalar id; the string is the stable unique key.
 - **Order is total: `createdAt DESC, area, source, eventId DESC`** — the id's own components. The
   only sortable field is `createdAt` (default `-createdAt`; ascending reverses the WHOLE key — the
   tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
@@ -114,6 +117,31 @@ when pinned); HR reading their OWN log is self access and is not audited.
   visibility / multi-recipient feedback / soft-deleted documents and teams), and fails on any
   disagreement; a new `ShareableResourceType` without a matrix fails its exhaustiveness check.
 
+#### Share rows (step 3)
+
+Two more union branches read `document_shares` (V87's partial `(withdrawn_by, withdrawn_at)` index
+serves the second): `SHARE` — a share the person CREATED (actor = `sharer_id`, dated `created_at`,
+eventType `SHARE_CREATED`) — and `SHARE_WITHDRAWAL` — a share the person WITHDREW (actor =
+`withdrawn_by`, dated `withdrawn_at`, `SHARE_WITHDRAWN`). The log is actor-only, so an AUTHOR who
+withdraws a report's share has the withdrawal row in THEIR log (params `byAuthor: "true"` plus
+`sharer`), while the sharer keeps only the creation row. The row's `area` is the share's
+`resource_type` (the enum NAME — a stored type this build does not know is filtered by the
+enabled-types list, the open-set rule; viewer-disabled areas are excluded just like event rows).
+Synthetic ids `<AREA>:SHARE:<shareId>` / `<AREA>:SHARE_WITHDRAWAL:<shareId>`. The union's params
+column is `{}` for these branches: the page's share rows are hydrated set-at-a-time from
+`document_shares` joined to both parties — `sharee` (and `sharer`) are **live display names**
+(a rename shows), `expiresOn` when set, while `details` is the share's **stored creation-time
+snapshot** (never a live lookup, so a lapsed share cannot leak the document's later title). `link`
+is the adapter's `viewPath`, always present on a share row.
+
+Visibility: self and HR (decision 2, `hr.list`-audited) see every share row; a CHAIN viewer sees a
+share row only when the viewer is the document's AUTHOR and the document is not soft-deleted
+(`ActivityVisibility.authoredShares` — the per-type SQL twin of each adapter's `isAuthor`: provider /
+stored `manager_id` / owner / the KPI team's current manager or the chain above) — the
+`GET /shares?view=document` rule, so the document's subject and a non-author manager never learn of
+a share. Share-granted reads grant nothing here. `ActivityVisibilityParityTest` checks the author
+predicate against `adapter.isAuthor` (with `read != null`) for every area.
+
 #### Tests
 
 `ActivityLogTest` (the access matrix, seven areas with labels, deleted/KPI-member
@@ -131,6 +159,6 @@ covered by `EventLogTest`.
   endpoint, the OpenAPI path/schemas, the guard, the self `readable` projection.
 - **Step 2 (in force):** chain-viewer visibility — `ActivityVisibility` as the WHERE of each branch
   (hide, never redact), the chain branch of `requireActivityRead`, `ActivityVisibilityParityTest`.
-- **Step 3:** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only for
-  documents they author). **Steps 4–6:** the days-off, career-position and sign-in trails
+- **Step 3 (in force):** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only
+  for documents they author). **Steps 4–6:** the days-off, career-position and sign-in trails
   (V88–V90, forward-only). **Steps 7–8:** the SPA page and the release.

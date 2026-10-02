@@ -18,6 +18,9 @@ import ch.nokillswit.infra.db.EventLogTable
 import ch.nokillswit.oneonones.OneOnOneCreateRequest
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.plugins.ProblemDetail
+import ch.nokillswit.sharing.ShareRequest
+import ch.nokillswit.sharing.ShareResponse
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.reviews.CategoryAssessment
 import ch.nokillswit.reviews.PerformanceReviewCreateRequest
 import ch.nokillswit.reviews.PerformanceReviewResponse
@@ -500,6 +503,145 @@ class ActivityLogTest {
                 appender.detach()
             }
         }
+
+    // ——— share rows ———
+
+    private suspend fun HttpClient.shareDocument(type: ShareableResourceType, id: UInt, sharee: UInt, expiresOn: String? = null) =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(type, id, sharee, expiresOn))
+        }.also { assertEquals(HttpStatusCode.Created, it.status) }.body<ShareResponse>()
+
+    private suspend fun HttpClient.withdrawShare(id: UInt) =
+        assertEquals(HttpStatusCode.NoContent, post("/api/v1/shares/$id/withdraw").status)
+
+    private fun List<ActivityEntry>.shareRows() = filter { it.eventType.startsWith("SHARE_") }
+
+    @Test
+    fun `a sharer's own created and withdrawn shares are rows of their log with the stored snapshot`() = testApplication {
+        usePostgresTestcontainer()
+        val w = world()
+        val sharee = person("sharee")
+        val expires = LocalDate.now().plusDays(10).toString()
+        val share = w.manager.client.shareDocument(ShareableResourceType.GOAL, w.goalId, sharee.id, expires)
+        kotlinx.coroutines.delay(5) // the withdrawal must be dated strictly after the creation
+        w.manager.client.withdrawShare(share.id)
+
+        val rows = w.manager.client.page(w.manager.id, "area=GOAL&pageSize=100").items.shareRows()
+        assertEquals(setOf("SHARE_CREATED", "SHARE_WITHDRAWN"), rows.map { it.eventType }.toSet())
+        val created = rows.first { it.eventType == "SHARE_CREATED" }
+        val withdrawn = rows.first { it.eventType == "SHARE_WITHDRAWN" }
+        assertEquals("GOAL:SHARE:${share.id}", created.id)
+        assertEquals("GOAL:SHARE_WITHDRAWAL:${share.id}", withdrawn.id)
+        assertEquals(mapOf("sharee" to sharee.name, "expiresOn" to expires), created.params)
+        assertEquals(mapOf("sharee" to sharee.name, "expiresOn" to expires), withdrawn.params, "withdrawn by the sharer: no byAuthor")
+        assertEquals(w.goalId, created.documentId)
+        assertEquals("/goals/${w.goalId}/view", created.link)
+        assertEquals(share.details, created.details, "the stored creation-time snapshot, never a live lookup")
+        assertEquals(share.createdAt, created.createdAt)
+        // Newest first: the withdrawal row precedes the creation row.
+        val order = w.manager.client.page(w.manager.id, "area=GOAL&pageSize=100").items.map { it.id }
+        assertTrue(order.indexOf(withdrawn.id) < order.indexOf(created.id))
+        assertTotalOrder(w.manager.client.page(w.manager.id, "pageSize=100").items)
+        // The sharee's own log has nothing (actor-only).
+        assertEquals(0L, sharee.client.page(sharee.id).total)
+
+        // A lower bound between the creation and the withdrawal keeps the withdrawal row only, which is
+        // dated the share's withdrawal moment (not its creation).
+        val stored = w.manager.client.get("/api/v1/shares/${share.id}").body<ShareResponse>()
+        val withdrawnAt = checkNotNull(stored.withdrawnAt)
+        assertTrue(withdrawnAt > share.createdAt, "the withdrawal must postdate the creation for this bound")
+        val bounded = w.manager.client.page(w.manager.id, "area=GOAL&createdAt[gte]=$withdrawnAt&pageSize=100")
+            .items.shareRows()
+        assertEquals(listOf("GOAL:SHARE_WITHDRAWAL:${share.id}"), bounded.map { it.id })
+        assertEquals(withdrawnAt, bounded.single().createdAt)
+        val upTo = w.manager.client.page(w.manager.id, "area=GOAL&createdAt[lte]=${withdrawnAt - 1}&pageSize=100")
+            .items.shareRows()
+        assertEquals(listOf("GOAL:SHARE:${share.id}"), upTo.map { it.id })
+    }
+
+    @Test
+    fun `an author withdrawing a report's share has the row in their own log, with byAuthor and the sharer`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val w = world()
+            val sharee = person("sharee")
+            // E reads the goal as its subordinate, so may share it; M is its author and may withdraw any share.
+            val share = w.employee.client.shareDocument(ShareableResourceType.GOAL, w.goalId, sharee.id)
+            w.manager.client.withdrawShare(share.id)
+
+            val managerRows = w.manager.client.page(w.manager.id, "area=GOAL&pageSize=100").items.shareRows()
+            val withdrawal = managerRows.single()
+            assertEquals("SHARE_WITHDRAWN", withdrawal.eventType)
+            assertEquals(
+                mapOf("sharee" to sharee.name, "byAuthor" to "true", "sharer" to w.employee.name),
+                withdrawal.params,
+            )
+            // E's log holds only the creation: the withdrawal is the AUTHOR's act.
+            val employeeRows = w.employee.client.page(w.employee.id, "area=GOAL&pageSize=100").items.shareRows()
+            assertEquals(listOf("SHARE_CREATED"), employeeRows.map { it.eventType })
+            // M authors the goal and is E's manager: M reads E's creation row; GM (chain, NOT the author) does not.
+            assertEquals(
+                listOf("SHARE_CREATED"),
+                w.manager.client.page(w.employee.id, "area=GOAL&pageSize=100").items.shareRows().map { it.eventType },
+            )
+            assertTrue(w.grand.client.page(w.employee.id, "area=GOAL&pageSize=100").items.shareRows().isEmpty())
+            // HR sees every share row of both logs (decision 2).
+            val hr = person("hr", roles = setOf(UserRole.HR))
+            assertEquals(1, hr.client.page(w.employee.id, "area=GOAL&pageSize=100").items.shareRows().size)
+            assertEquals(1, hr.client.page(w.manager.id, "area=GOAL&pageSize=100").items.shareRows().size)
+        }
+
+    @Test
+    fun `a chain manager who does not author the document never sees the report's share rows`() = testApplication {
+        usePostgresTestcontainer()
+        val w = world()
+        val sharee = person("sharee")
+        // E owns an impact entry: only E authors it, so M (E's manager) reads its events but not its shares.
+        val entry = w.employee.client.post("/api/v1/impact-log") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                ImpactEntryRequest(
+                    title = "E journal", periodStart = "2026-07-01", periodEnd = "2026-07-31",
+                    whatHappened = "a", contribution = "b", whyItMattered = "c", evidence = "d",
+                ),
+            )
+        }
+        assertEquals(HttpStatusCode.Created, entry.status)
+        val entryId = entry.body<ImpactEntryResponse>().id
+        w.employee.client.shareDocument(ShareableResourceType.IMPACT_LOG_ENTRY, entryId, sharee.id)
+
+        val viaManager = w.manager.client.page(w.employee.id, "area=IMPACT_LOG_ENTRY&pageSize=100").items
+        assertTrue(viaManager.isNotEmpty() && viaManager.any { it.eventType == "CREATED" }, "the entry's events are readable by the chain")
+        assertTrue(viaManager.shareRows().isEmpty())
+        val own = w.employee.client.page(w.employee.id, "area=IMPACT_LOG_ENTRY&pageSize=100").items
+        assertEquals(1, own.shareRows().size)
+        assertEquals("E journal", own.shareRows().single().details?.get("title"))
+    }
+
+    @Test
+    fun `the viewer's disabled area hides that type's share rows, totals stay consistent over pages`() = testApplication {
+        usePostgresTestcontainer()
+        val w = world()
+        val sharee = person("sharee")
+        val goalShare = w.manager.client.shareDocument(ShareableResourceType.GOAL, w.goalId, sharee.id)
+        w.manager.client.withdrawShare(goalShare.id)
+        w.manager.client.shareDocument(ShareableResourceType.IMPACT_LOG_ENTRY, w.entryId, sharee.id)
+
+        val all = w.manager.client.page(w.manager.id, "pageSize=100")
+        assertEquals(3, all.items.shareRows().size)
+        assertEquals(all.items.size.toLong(), all.total)
+        val p1 = w.manager.client.page(w.manager.id, "pageSize=4&page=1")
+        val p2 = w.manager.client.page(w.manager.id, "pageSize=4&page=2")
+        assertEquals(all.total, p1.total)
+        assertEquals(all.items.take(8).map { it.id }, (p1.items + p2.items).map { it.id })
+
+        val noGoals = person("viewer", roles = setOf(UserRole.HR), disabled = setOf(Feature.GOALS))
+        val hrRows = noGoals.client.page(w.manager.id, "pageSize=100")
+        assertTrue(hrRows.items.none { it.area == ActivityArea.GOAL })
+        assertEquals(1, hrRows.items.shareRows().size, "only the impact-log share remains")
+        assertEquals(0L, noGoals.client.page(w.manager.id, "area=GOAL").total)
+    }
 
     @Test
     fun `a manager who left the chain is forbidden`() = testApplication {
