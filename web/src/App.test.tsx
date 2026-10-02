@@ -119,6 +119,27 @@ describe("App shell", () => {
       }
     });
 
+    test("the My activity leaf sits in My work for everyone — even with every feature disabled — and opens /activity (v4.9.0)", async () => {
+      // The page is the caller's own log, keyed on the stored user id.
+      localStorage.setItem(USER_ID_KEY, "7");
+      localStorage.setItem(
+        "lettuce.auth.disabledFeatures",
+        JSON.stringify(["FEEDBACKS", "ONE_ON_ONES", "GOALS", "IMPACT_LOG", "DAYS_OFF"]),
+      );
+      try {
+        const user = userEvent.setup();
+        renderApp("/");
+        const myWork = await screen.findByRole("group", { name: "My work" });
+        const activity = within(myWork).getByRole("link", { name: /^my activity$/i });
+        expect(activity).toHaveAttribute("href", "/activity");
+        expect(activity).toHaveAttribute("data-tour", "nav-activity");
+        await user.click(activity);
+        expect(await screen.findByRole("heading", { level: 2, name: "My activity" })).toBeInTheDocument();
+      } finally {
+        localStorage.removeItem("lettuce.auth.disabledFeatures");
+      }
+    });
+
     test("an admin's Config group additionally lists Alerts", async () => {
       localStorage.setItem("lettuce.auth.roles", JSON.stringify(["ADMIN"]));
       try {

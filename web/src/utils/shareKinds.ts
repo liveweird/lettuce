@@ -38,16 +38,20 @@ const REQUIRED_KEYS: Record<ShareableResourceType, readonly string[]> = {
 };
 
 /**
- * The localized one-line description of a share's document, built from the `details` snapshot
- * (the server sends facts, never text). A row with no snapshot — or one missing a key its kind
- * needs — reads "No longer available" rather than a half-filled sentence.
+ * The localized one-line description of a document from its content-free `details` facts (the
+ * share snapshot vocabulary — also the activity log's), built per kind. Null details, or details
+ * missing a key the kind needs, read "No longer available" rather than a half-filled sentence.
  */
-export function shareDocumentLabel(share: ShareResponse, t: TFunction, locale: string): string {
-  const d = share.details;
-  if (d == null || REQUIRED_KEYS[share.resourceType].some((key) => d[key] == null)) {
+export function documentLabel(
+  resourceType: ShareableResourceType,
+  d: Record<string, string> | null | undefined,
+  t: TFunction,
+  locale: string,
+): string {
+  if (d == null || REQUIRED_KEYS[resourceType].some((key) => d[key] == null)) {
     return t("sharing.doc.unavailable");
   }
-  switch (share.resourceType) {
+  switch (resourceType) {
     case "FEEDBACK":
       return t("sharing.doc.FEEDBACK", { provider: d.provider, subjects: d.subjects });
     case "ONE_ON_ONE":
@@ -75,4 +79,9 @@ export function shareDocumentLabel(share: ShareResponse, t: TFunction, locale: s
     case "SUCCESSION_PLAN":
       return t("sharing.doc.SUCCESSION_PLAN", { person: d.person, owner: d.owner });
   }
+}
+
+/** The localized document label of a share row — the server sends facts, never text. */
+export function shareDocumentLabel(share: ShareResponse, t: TFunction, locale: string): string {
+  return documentLabel(share.resourceType, share.details, t, locale);
 }

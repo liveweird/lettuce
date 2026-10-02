@@ -218,4 +218,8 @@ covered by `EventLogTest`.
 - **Step 3 (in force):** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only
   for documents they author). **Step 4 (in force):** the days-off trail (V88, forward-only; owner-in-chain visibility).
   **Step 5 (in force):** the career-position trail (V89, forward-only; owner-in-chain
-  visibility). **Step 6 (in force):** the sign-in trail (V90, forward-only, retention-purged). **Steps 7–8:** the SPA page and the release.
+  visibility). **Step 6 (in force):** the sign-in trail (V90, forward-only, retention-purged). **Step 7 (in force):** the own-log SPA — `/activity`
+  ("My activity", ungated nav leaf + whirlwind stop, tour totals 24/23), `pages/ActivityLog.tsx`,
+  `utils/describeActivity.ts` dispatching to the per-area describers (now exported from
+  `utils/<area>EventText.ts`) plus the share/days-off/career/sign-in wording, EN+PL `activity`
+  locale area; see "Activity log" in `web/CLAUDE.md`. **Step 8:** the report/HR flavors, e2e and the release.

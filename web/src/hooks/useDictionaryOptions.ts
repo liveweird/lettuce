@@ -12,6 +12,7 @@ import { pickLocalized } from "../utils/localized";
 export function useDictionaryOptions(
   slug: DictionarySlug,
   current?: DictionaryEntry | null,
+  enabled = true,
 ): { options: { value: string; label: string }[]; loading: boolean; error: boolean } {
   const { i18n } = useTranslation();
   const lang = i18n.resolvedLanguage;
@@ -19,6 +20,7 @@ export function useDictionaryOptions(
     queryKey: ["dictionary", slug],
     queryFn: () => getDictionary(slug),
     staleTime: 5 * 60 * 1000,
+    enabled,
   });
 
   const options = useMemo(() => {

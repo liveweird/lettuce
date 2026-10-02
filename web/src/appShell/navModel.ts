@@ -1,6 +1,7 @@
 import type { ParseKeys } from "i18next";
 import type { Icon } from "@tabler/icons-react";
 import {
+  IconActivity,
   IconBeach,
   IconBook2,
   IconBriefcase,
@@ -82,6 +83,9 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
       // Deliberately feature-UNGATED (v4.8.0): the page spans seven areas and filters its rows and
       // type options per kind by the viewer's flags itself.
       { to: "/shares", label: "appShell.nav.shares", icon: IconShare3, tourId: "nav-shares" },
+      // Deliberately feature-UNGATED (v4.9.0): the log spans every area plus ungated sign-ins and
+      // career actions; the server leaves out the areas the viewer has disabled.
+      { to: "/activity", label: "appShell.nav.activity", icon: IconActivity, tourId: "nav-activity" },
     ],
   },
   {
