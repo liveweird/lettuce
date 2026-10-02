@@ -131,5 +131,11 @@
     "manager": "menedżer/ka",
     "report": "podwładny/a"
   },
-  "forPersonAria": "Dla: {{name}} — {{sentence}}"
+  "forPersonAria": "Dla: {{name}} — {{sentence}}",
+  "noPermission": "Nie masz uprawnień do wyświetlenia tego dziennika aktywności.",
+  "userFallback": "użytkownik #{{id}}",
+  "titleFor": "Aktywność: {{who}}",
+  "titleAudit": "Aktywność: {{who}} (audyt)",
+  "hintFor": "To, co zrobił/a {{who}}, po kolei — tylko dokumenty, które sam/a możesz przeczytać.",
+  "hintAudit": "Widok audytora: wszystko, co zrobił/a {{who}}, tylko do odczytu. Dostęp jest zapisywany w dzienniku audytu bezpieczeństwa."
 }

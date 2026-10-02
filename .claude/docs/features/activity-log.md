@@ -1,10 +1,9 @@
-### Activity log (v4.9.0, V87 — a multi-step series)
+### Activity log (v4.9.0, V87–V90)
 
 A chronological, per-person log of **what that person did** — `GET /api/v1/users/{id}/activity`
 (package `activity/`). Every feature already keeps a per-document history (the seven `*_events`
 tables, one `EventLogTable` shape; V88/V89 add person-keyed ones for days-off and career positions); nothing answered "what did this person do, in order". This
-doc is the authoritative design; it grows with each step (the last section says what is in force
-and what is still to come).
+doc is the authoritative design (the last section says what shipped).
 
 #### Decisions (user-locked 2026-10-02)
 
@@ -209,17 +208,30 @@ injected equal timestamps, filters and bounds, disabled areas, shape-400-before-
 shared `EventLog` mechanics stay
 covered by `EventLogTest`.
 
-#### Status — what is in force and what is next
+#### SPA (steps 7–8)
 
-- **Step 1:** V87 indexes, the union read model for the seven document trails, the self + HR
-  endpoint, the OpenAPI path/schemas, the guard, the self `readable` projection.
-- **Step 2 (in force):** chain-viewer visibility — `ActivityVisibility` as the WHERE of each branch
-  (hide, never redact), the chain branch of `requireActivityRead`, `ActivityVisibilityParityTest`.
-- **Step 3 (in force):** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only
-  for documents they author). **Step 4 (in force):** the days-off trail (V88, forward-only; owner-in-chain visibility).
-  **Step 5 (in force):** the career-position trail (V89, forward-only; owner-in-chain
-  visibility). **Step 6 (in force):** the sign-in trail (V90, forward-only, retention-purged). **Step 7 (in force):** the own-log SPA — `/activity`
-  ("My activity", ungated nav leaf + whirlwind stop, tour totals 24/23), `pages/ActivityLog.tsx`,
-  `utils/describeActivity.ts` dispatching to the per-area describers (now exported from
-  `utils/<area>EventText.ts`) plus the share/days-off/career/sign-in wording, EN+PL `activity`
-  locale area; see "Activity log" in `web/CLAUDE.md`. **Step 8:** the report/HR flavors, e2e and the release.
+Three flavors of one component (`components/ActivityFeed.tsx`): **My activity** (`/activity`, the
+caller's own log — ungated nav leaf in My work + a whirlwind stop; persisted key `activity.own`), a
+**report's** log (`/users/:userId/activity`, key `userActivity.managed` — reached from the person
+card's Profile "Activity" button — on the card grids where `career` is (the managed view, plus HR
+viewers), on UserDetails only for a direct report; the card of the signed-in person routes to
+`/activity`) and the **HR auditor's** (key `userActivity.audit`; reached from the User details Audit
+block, which now always renders for HR because the activity drill-down is ungated). **The flavor
+follows the viewer's role, not `?mode` alone**: HR is checked before the chain server-side, so an
+HR viewer of someone else's log always gets the auditor title/hint and the audit settings key (and
+the card links carry `mode=audit`). The page asserts no relationship itself: the server's
+`403` (a peer opening the URL) renders "You don't have permission to view this activity log." Wording
+is client-side and subject-free (`utils/describeActivity.ts`, dispatching to the per-area
+describers in `utils/<area>EventText.ts`); see "Activity log" in `web/CLAUDE.md`. e2e:
+`activity-log.spec.ts` (throwaway cast: own log, manager sees the sign-in but not the undelivered
+draft, HR sees all, the rows appear for the manager once the feedback is sent, a peer is refused).
+
+#### Status — complete
+
+- **Server (steps 1–6):** V87 indexes and the union read model; chain-viewer visibility and its
+  parity test; share rows; the days-off (V88), career-position (V89) and sign-in (V90, 90-day
+  retention) trails.
+- **SPA and release (steps 7–8, in force):** the own/report/audit pages, the person-card and Audit
+  block entry points, the nav leaf and tour stop, the e2e journey and the v4.9.0 changelog entry.
+  History starts at the v4.9.0 deploy for days-off, career and sign-ins (forward-only); the
+  document trails reach back as far as the documents' own histories.

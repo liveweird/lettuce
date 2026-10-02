@@ -89,7 +89,9 @@
   "daysOff": "Dni wolne",
   "daysOffForAria": "Dni wolne: {{name}}",
   "careerProgression": "Historia kariery",
+  "activity": "Aktywność",
   "successionPlan": "Plan sukcesji",
   "successionPlanForAria": "Plan sukcesji dla {{name}}",
-  "careerProgressionForAria": "Historia kariery: {{name}}"
+  "careerProgressionForAria": "Historia kariery: {{name}}",
+  "activityForAria": "Aktywność: {{name}}"
 }

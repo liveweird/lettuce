@@ -107,5 +107,11 @@
     "manager": "the manager",
     "report": "the report"
   },
-  "forPersonAria": "For {{name}}: {{sentence}}"
+  "forPersonAria": "For {{name}}: {{sentence}}",
+  "noPermission": "You don't have permission to view this activity log.",
+  "userFallback": "user #{{id}}",
+  "titleFor": "Activity of {{who}}",
+  "titleAudit": "Activity of {{who}} (audit)",
+  "hintFor": "What {{who}} did, in order, limited to the documents you can read yourself.",
+  "hintAudit": "The auditor view: everything {{who}} did, read-only. Access is recorded in the security audit trail."
 }

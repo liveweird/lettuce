@@ -12,6 +12,7 @@ import {
   IconMessages,
   IconNotebook,
   IconPlus,
+  IconActivity,
   IconStairsUp,
   IconTargetArrow,
   IconUserPlus,
@@ -23,6 +24,7 @@ import {
   feedbackRequestLink,
   userFeedbacksLink,
 } from "../utils/feedbackLinks";
+import { userActivityLink } from "../utils/activityLinks";
 import { userCareerLink } from "../utils/careerLinks";
 import { userDaysOffLink } from "../utils/daysOffLinks";
 import { userImpactLogLink } from "../utils/impactLogLinks";
@@ -30,7 +32,7 @@ import { userGoalsLink } from "../utils/goalLinks";
 import { oneOnOneCreateLink, userOneOnOnesLink } from "../utils/oneOnOneLinks";
 import { userPerformanceReviewsLink } from "../utils/performanceReviewLinks";
 import { successionPlanViewLink, userSuccessionLink } from "../utils/successionLinks";
-import { hasFeature } from "../api/session";
+import { canAudit, hasFeature } from "../api/session";
 import {
   ACTION_GROUPS,
   FEATURE_OF,
@@ -57,6 +59,7 @@ const LABELS = PERSON_CARD_ACTION_LABELS;
 
 const ICONS: Record<ButtonKey, React.ReactNode> = {
   career: <IconStairsUp size={14} />,
+  activity: <IconActivity size={14} />,
   provide: <IconMessagePlus size={14} />,
   ask: <IconMessageQuestion size={14} />,
   request: <IconUserPlus size={14} />,
@@ -128,6 +131,7 @@ export default function PersonCardActions({
 
   const links: Partial<Record<ButtonKey, string>> = {
     career: userCareerLink(userId, name, drillFrom ?? "managers", drillTeamId, drillOpts),
+    activity: userActivityLink(userId, name, drillFrom ?? "managers", drillTeamId, audit || canAudit(), drillOpts),
     provide: feedbackProvideLink(userId, back),
     ask: feedbackAskLink(userId, back),
     request: feedbackRequestLink(userId, back),
