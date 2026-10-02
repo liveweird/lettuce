@@ -52,6 +52,10 @@ export function useStoredState<T>(
 /** Validator for plain string state (the text filters). */
 export const isString = (v: unknown): v is string => typeof v === "string";
 
+/** Validator for a list of strings (the multi-select facets' stored picks). */
+export const isStringArray = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((item) => typeof item === "string");
+
 /** Validator for plain boolean state (e.g. the FilterPanel open flag). */
 export const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 

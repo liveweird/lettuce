@@ -294,6 +294,10 @@ class SecurityConfigTest {
             "feedbacks.expirySweepIntervalSeconds" to "86401",
             "security.rateLimit.loginPerMinute" to "0",
             "integration.rateLimitPerMinute" to "-5",
+            "sharing.rateLimitPerMinute" to "0",
+            "sharing.batchRateLimitPerMinute" to "0",
+            "sharing.batchRateLimitPerMinute" to "100001",
+            "sharing.batchRateLimitPerMinute" to "many",
         )
         for ((key, value) in cases) {
             testApplication {
@@ -320,6 +324,8 @@ class SecurityConfigTest {
             "feedbacks.expirySweepIntervalSeconds" to "0",
             "security.rateLimit.loginPerMinute" to "100000",
             "integration.rateLimitPerMinute" to "1",
+            "sharing.rateLimitPerMinute" to "100000",
+            "sharing.batchRateLimitPerMinute" to "100000",
         )
         startApplication()
         assertEquals(HttpStatusCode.Unauthorized, jsonClient().get("/api/v1/notifications").status)

@@ -84,7 +84,10 @@ document just stops resolving), `sharer_id`/`sharee_id` (FK `RESTRICT`, `CHECK (
 sharee_id)`), `expires_on` (nullable strict-ISO `VARCHAR(10)`, **inclusive** — the share works
 through the end of that day), `created_at`, `withdrawn_at`/`withdrawn_by` (paired CHECK — a
 **terminal stamp, rows are never deleted**: the `integration_clients.revoked_at` precedent, a
-registered soft-delete exception), and `details`.
+registered soft-delete exception), `details`, and — since V91 (v4.10.0) — `batch_id`
+(nullable UUID string stamped on every row one mass share creates; NULL for a single share; never
+on the wire — it lets the flood cap count a batch as one notice and joins the rows to their
+`share.batch_created` audit event).
 
 - **Status is derived, never stored**: `WITHDRAWN` beats `EXPIRED` beats `ACTIVE`. **Silent
   expiry**: no sweep, no notification; an expired share stays listed as `EXPIRED`. Everything
@@ -137,7 +140,7 @@ registered soft-delete exception), and `details`.
   `SHARE_NOTIFICATION_DAILY_CAP_PER_PAIR` (20, `sharing/Share.kt`; override `sharing.notificationDailyCapPerPair`
   / `$SHARING_NOTIFICATION_DAILY_CAP_PER_PAIR`, boot-validated 1..1000) share notifications
   (SHARED + WITHDRAWN) to that sharee in a rolling 24 h — counted from `document_shares`
-  `created_at`/`withdrawn_at` for the pair, no extra table — further shares and withdrawals between
+  `created_at`/`withdrawn_at` for the pair, no extra table; since V91 (v4.10.0) the rows of one batch share a `batch_id` and count as ONE notice, `COUNT(DISTINCT COALESCE(batch_id, id::text))` — further shares and withdrawals between
   them STILL HAPPEN but mint no notification, and the audit event carries `notified=false`
   (`share.created`/`share.withdrawn`; a withdrawal of an already-expired share is also
   `notified=false`). The count is taken before the operation, so the cap-th notice is the last minted.
@@ -149,9 +152,78 @@ registered soft-delete exception), and `details`.
   the safe direction.
 - **Rate limit**: the `shares` RateLimit bucket, **per caller** (keyed on the JWT principal's
   `userId`), covers `POST /shares` and `POST /shares/{id}/withdraw` — `sharing.rateLimitPerMinute`
-  (`$SHARING_RATE_LIMIT_PER_MINUTE`, default 60, boot-validated `1..100000`), registered in
+  (`$SHARING_RATE_LIMIT_PER_MINUTE`, default 60, boot-validated `1..100000`); **`POST /shares/batch` has its
+  own `shares-batch` bucket** (v4.10.0, same keying and validation) — `sharing.batchRateLimitPerMinute`
+  (`$SHARING_BATCH_RATE_LIMIT_PER_MINUTE`, default 10): one batch fans out up to 20 summary notices (+ email +
+  Teams), so it neither rides nor spends the single-share tokens. Both are registered in
   `AuthRoutes`' single `install(RateLimit)` — which is why `configureShareRoutes` runs AFTER
-  `configureAuthRoutes`. `429` is declared on both operations. Reads are not throttled.
+  `configureAuthRoutes`. `429` is declared on all three operations. Reads are not throttled.
+
+#### Mass share (v4.10.0, `POST /api/v1/shares/batch`)
+
+Many documents of ONE kind × several sharees in one call; **only `PERFORMANCE_REVIEW` is batchable**
+(`ShareableResourceType.batchSharedNotification` non-null = batchable; every other kind answers `400`).
+Each created row is an ordinary `document_shares` row (per-share withdrawal, author visibility, the lapse
+rule, the Shared screen and the activity log all work unchanged) stamped with the batch's `batch_id` (V91).
+
+- **Body** `{resourceType, resourceIds[1..200], shareeIds[1..20], expiresOn?}` (`MAX_BATCH_SHARE_RESOURCES`/
+  `MAX_BATCH_SHARE_SHAREES` in `sharing/Share.kt`; at most 4,000 pairs; the SPA chunks a bigger selection
+  into sequential calls of at most 200 documents). **Response `200` + `ShareBatchResponse`** — the
+  `POST /users/import` precedent (a batch may create nothing, there is no single `Location`):
+  `{batchId, items[], created, alreadyShared, forbidden, notFound}`. `batchId` is **null when nothing was
+  created** (a pure replay — no id for a batch that was never stored). Items follow the request order:
+  per document one item per sharee in request order (`CREATED` with the new `shareId`, or `ALREADY_SHARED`
+  with the existing ACTIVE share's id — the single POST's 409 `instance`, itemized; **the existing share is left
+  completely unchanged, its end date included — the batch's `expiresOn` is NOT applied to it**, the SPA result
+  panel must say so), or ONE item with a null
+  `shareeId` for a `FORBIDDEN` / `NOT_FOUND` document; the four counts equal the number of items with that
+  status.
+- **Order of checks** (the route KDoc mirrors it): malformed body `400` (the one pre-gate 400) → the caller's
+  feature flag `403` → non-batchable kind `400` → list shape `400` (sizes/duplicates, schema-declared, before any
+  document is read) → per document in request order: adapter read, then `holdsOwnRight` (missing =
+  `NOT_FOUND` item, unreadable = `FORBIDDEN` item — the single POST's read-before-guard existence idiom,
+  ids only, never content — up to 200 ids per call) → **no shareable document at all = the whole-request `403`** ("You can't share any of
+  these documents in your own right", at least one `FORBIDDEN`) **or `404`** ("None of the documents exist"),
+  BEFORE any semantic 400, so a caller with no right learns nothing about them → semantic `400`s after the
+  guard: `expiresOn` (strict, not before the server's today), every sharee exists, is active and is **not the
+  caller** (`createBatch` does not exclude the sharer itself — the DB CHECK would roll the whole batch back
+  with a `500`, hence the route check) → `ShareService.createBatch` → audit → notifications → `200`.
+  Documents the caller may not share and documents that do not exist never fail the call as long as at least
+  one document is shareable.
+- **One transaction**: `createBatch` takes the same per-sharer advisory lock as the single create, reads the
+  existing ACTIVE pairs, inserts the rest with ONE `created_at` and ONE `batch_id`; a failure creates nothing and
+  a concurrent identical batch yields exactly one set of rows. **Idempotent in effect** (API-IDEM-001 stays a
+  registered gap): a replay reports every pair `ALREADY_SHARED` and creates nothing; expired and withdrawn rows
+  never block a pair. The snapshot `details` are the same per-document labels as a single share's, taken once
+  per document after the semantic validation.
+- **Notifications**: ONE summary notice per sharee (`PERFORMANCE_REVIEWS_BATCH_SHARED`, params
+  `{sharer, count}` + `expiresOn`, link `/shares`; `NotificationService.createAll`) — only for a sharee with
+  at least one NEWLY created pair whose per-pair cap check passed, `count` = that sharee's created pairs;
+  nothing for a sharee whose pairs were all duplicates or whose cap is exhausted (their shares still exist,
+  silently); **never** the per-share `PERFORMANCE_REVIEW_SHARED`. The cap counts a batch as ONE notice
+  (`COUNT(DISTINCT COALESCE(batch_id, id::text))`), so a batch of 30 does not exhaust a cap of 20; withdrawals
+  stay per share and per notice. Each ≤200-document chunk the SPA sends is a separate server batch, so a recipient gets one summary notice per chunk (the dialog hints at it only when a selection exceeds 200).
+- **Audit**: ONE `share.batch_created` event per call (`byUserId`, `batchId`, `resourceType`, `resourceIds`,
+  `shareeIds`, `created`/`alreadyShared`/`forbidden`/`notFound`, `forbiddenResourceIds`/`notFoundResourceIds`,
+  `expiresOn`, `notifiedShareeIds`; comma-joined id lists, `""` = none) and **no per-share `share.created`** for
+  batch rows (the `batch_id` joins the rows to the event). A whole-request `403` is the ordinary `authz.denied`;
+  a `404`/`400` emits no batch event. A replay that created nothing is still audited (`created=0`, `batchId`
+  null).
+- **Rate limit**: one call = one token of the per-caller `shares-batch` bucket (default 10/min, its own — see the rate-limit bullet above); the SPA's >200-document chunks run sequentially.
+- **Candidates (the picker's data source)**: `GET /api/v1/performance-reviews/share-candidates?periodId=`
+  (reviews package — see "Mass share" in `.claude/docs/features/performance-reviews.md`): every person in the
+  caller's transitive chain with the period's review and the server-computed `shareable`/`reason`
+  (`NO_REVIEW` | `UNREADABLE_DRAFT`) — the in-memory twin of `holdsOwnRight` for this adapter
+  (`canShareInOwnRight`: author, or not DRAFT), pinned against the real adapter guard by
+  `ShareCandidatesTest`. The batch itself never trusts it — the route re-runs the real guard per document.
+- **Accepted consequences**: the activity log lists one `SHARE_CREATED` row per created share (its SQL projects
+  `document_shares` rows and ignores `batch_id`) — accurate, verbose at 100+; the Shared screen shows one row
+  per share (no batch grouping); the pre-flight cost is at most 200 adapter reads and 200 role-stripped guard
+  runs per call (each review guard is one chain walk) — accepted for a deliberate bulk action, no `readMany`
+  on the adapter interface; sharing with a subordinate whose own review is in the batch reveals
+  pre-publication ratings to them (the v4.8.0 accepted consequence — the author can withdraw); a sharee with
+  PERFORMANCE_REVIEWS disabled still gets the rows and the minted notice, both hidden by the list filter (the
+  single-share rule).
 
 #### Notifications (14 types), audit, history
 
@@ -190,7 +262,7 @@ registered soft-delete exception), and `details`.
 | FEEDBACK | `requireFeedbackReadAllowingManager` | provider | `{provider, subjects}` | `/feedback/{id}/view` | content gate on the sharer's principal + the `sufficient` upgrade (requester of an unfinished feedback) |
 | GOAL | `requireGoalReadAllowingManager` | stored `manager_id` | `{title, subordinate}` | `/goals/{id}/view` | **no content gate and no `sufficient`** (every reader sees the same description/summary/milestones); DRAFT privacy pinned: a chain manager cannot read a DRAFT so cannot share it, and a share they made while ACTIVE lapses when the goal returns to DRAFT (the pair's own shares keep working); `PUT …/progress` stays manager+subordinate only — a sharee never passes `requireGoalProgressWrite` |
 | ONE_ON_ONE | `requireOneOnOneReadAllowingManager` | stored `manager_id` | `{manager, subordinate, meetingDate}` | `/one-on-ones/{id}/view` | **no content gate, no `sufficient`** (notes, decisions and action items are the same for every reader); share-aware routes: the single GET and `…/events`; **sibling-meeting facts are stripped on a share read** (`minMeetingDate` null, `isLatest` false, action items' `copiedFromId`/`firstAppearedOn` null — the contract keeps them nullable, so there is no residual disclosure); **`GET /one-on-ones/action-items/{id}/history` stays OWN-RIGHT ONLY** (raw guard, a sharee gets the ordinary 403 — the chain spans carry-over copies in meetings that were never shared); no write is subordinate-writable, so a sharee never passes any |
-| PERFORMANCE_REVIEW | `requirePerformanceReviewReadAllowingManager` | stored `manager_id` | `{subordinate, startMonth, endMonth}` (period bounds, plaintext — never a rating or summary) | `/performance-reviews/{id}/view` | **no content gate, no `sufficient`** (all ten assessment fields read the same for every reader); share-aware routes: the single GET and `…/events` (the other GETs are the caller-scoped list and the create); **accepted consequence (user decision, 2026-10-01): an own-right reader — the author manager, or a chain manager from CALIBRATION — may share a pre-publication review with anyone, the subordinate included, so a share can reveal pre-publication ratings to the subordinate; the author sees every share and can withdraw it** (pinned by a test); **status nuances come from the guard, not from sharing**: the subordinate reads — so can share — only a PUBLISHED review and their share lapses if it is un-published (PUBLISHED is not terminal), a chain manager cannot read — so cannot share — a DRAFT and their CALIBRATION share lapses if it returns to DRAFT; no sibling-document facts in the response (`periodId` is a registry row, not another review), so no stripping; writes (PUT, submit/revert/publish/unpublish, DELETE) are manager-only and untouched |
+| PERFORMANCE_REVIEW | `requirePerformanceReviewReadAllowingManager` | stored `manager_id` | `{subordinate, startMonth, endMonth}` (period bounds, plaintext — never a rating or summary) | `/performance-reviews/{id}/view` | **no content gate, no `sufficient`** (all ten assessment fields read the same for every reader); share-aware routes: the single GET and `…/events` (the other GETs are the caller-scoped list, the create and the v4.10.0 `share-candidates` picker read); **batchable** (v4.10.0 mass share — `POST /shares/batch`, summary notice `PERFORMANCE_REVIEWS_BATCH_SHARED`); **accepted consequence (user decision, 2026-10-01): an own-right reader — the author manager, or a chain manager from CALIBRATION — may share a pre-publication review with anyone, the subordinate included, so a share can reveal pre-publication ratings to the subordinate; the author sees every share and can withdraw it** (pinned by a test); **status nuances come from the guard, not from sharing**: the subordinate reads — so can share — only a PUBLISHED review and their share lapses if it is un-published (PUBLISHED is not terminal), a chain manager cannot read — so cannot share — a DRAFT and their CALIBRATION share lapses if it returns to DRAFT; no sibling-document facts in the response (`periodId` is a registry row, not another review), so no stripping; writes (PUT, submit/revert/publish/unpublish, DELETE) are manager-only and untouched |
 | IMPACT_LOG_ENTRY | `requireImpactEntryRead` | the owner (`user_id`) | `{title, author, periodStart, periodEnd}` (plaintext title and period — never the four encrypted sections) | `/impact-log/{id}/view` | **no content gate, no `sufficient`** (the four sections read the same for every reader; a journal has no lifecycle/status nuance); share-aware routes: the single GET and `…/events`; not share-aware (by design): the list (caller-scoped), the dashboard summary, `/teams/members` and the GraphQL API (impact log is not in its v1 schema); no sibling-document facts in the response (nothing references another entry); writes (PUT/DELETE) are owner-only — the chain's read right and a share carry no pen |
 | SUCCESSION_PLAN | `requireSuccessionPlanRead` (keyed on the OWNER's chain) | the OWNER (`manager_id`) — never the seat's person | `{person, owner}` ONLY (no criticality, risk, loss impact, candidates or gaps) | `/succession/{id}/view` | the most confidential kind: **content-free notifications** (`{sharer}` only — also no `expiresOn`; the sharer's withdrawal copy adds only the `self` carrier; the sharee's withdrawal copy is deliberately **actor-neutral** — "You no longer have access to a succession plan {sharer} shared with you" — because with `{sharer}` only it cannot say whether the sharer or the author withdrew, so it never claims "{sharer} stopped sharing"; email/Teams use the same catalog, which names the kind of document and the sharer, nothing else) and **no other succession notification can ever be minted** (the plan has none of its own); **sibling-facts rule applied**: each nomination embeds light refs to the candidate's linked development GOALS (`{id, title, status, type}` — other documents the sharee could not read under the goal rules), so on a share read every nomination's `goals` is emptied (`SuccessionPlanResponse.forSharee`); the candidate, readiness, gaps, awareness, bench depth and `last_reviewed_at` are plan content and stay; the plan has **no nominations GET route** (they ride embedded in the plan GET) and its events carry only enum names, field names (the NOMINATION_UPDATED `changed` list — filtered for sharees, see above) and candidate display names (the same disclosure class as the plan itself — no dates); share-aware routes: the single GET and `…/events` (the list stays caller-scoped); subject/candidate status grants nothing, but the owner may share with the seat's person or a candidate on purpose ("whoever I want" — no re-share); a CLOSED plan is read/shared like any other (the guard has no status nuance); writes (plan PUT, close, complete-review, DELETE, every nomination mutation) are owner-only and untouched |
 | TEAM_KPI | `requireTeamKpiReadAllowingChain` | whoever passes `requireTeamKpiManage` — the team's CURRENT manager + the chain above them (`isAuthor` is a suspend predicate; `created_by` grants nothing) | `{title, team}` (plaintext title and team name — never the description/summary) | `/team-kpis/{id}/view` | share-aware routes: the single GET, `…/values` and `…/events` (the team-scoped lists and the `view=all` HR list stay caller-scoped; the **GraphQL integration API exposes team KPIs but resolves through services with its deliberate authorization bypass — shares do not touch it**); **status/membership nuances come from the guard**: a team member reads — so can share — only a non-DRAFT KPI, and their share lapses if it returns to DRAFT or they leave the team; after a manager reassignment the old manager's shares lapse unless they are still in the chain above the new one; **no content gate, no `sufficient`**; no sibling-KPI facts in the response (team name/id, manager and the stored creator are part of the KPI); a share-only caller gets `canManage = canRecordValues = false` (stamped without a query), and the value writes (manager + chain + CURRENT members) and every definition/lifecycle write stay untouched — a pure sharee passes none |
@@ -214,7 +286,7 @@ registered soft-delete exception), and `details`.
 race, terminal withdraw, list views, the snapshot), `ShareAccessTest` (the mechanism over plain
 guards: stripped roles, lapse detail, only-Forbidden-is-a-denial), `ShareRoutesTest` (the generic
 routes over a stub registry (the routes look the registry up per request, so a test swaps the attribute with one fake per kind — no production test hook): gate ordering, validation, 409, withdrawal matrix + notifications, list
-views, rate limit), `SharingTest` (real documents — one section per feature; all seven kinds (the team-KPI section: doc + values + events with no manage/record rights, every definition/lifecycle/data-point write 403, no re-share/HR-auditor share + HR manager, member-of-DRAFT cannot share + the DRAFT/leave-team/reassignment lapses, chain-manager lapse, author (manage predicate incl. the chain) lists + withdraws a member's share, notifications + links, snapshot stable after a retitle; the succession section: plan + events as the sharer sees them with the linked goals stripped, every write incl. nominations 403, no re-share/HR-auditor share + HR owner, seat person/candidate gain nothing from status but can be shared with, CLOSED plans, chain-manager lapse + owner withdrawal, notification params keys pinned exactly, bystanders hear nothing, snapshot stable; the impact-log section: sections as the sharer sees them + events, write 403s, no re-share/HR-auditor share + HR owner, chain-manager lapse with the detail and back, owner lists + withdraws, notifications + links, the full snapshot stable after a retitle, feature-disabled sharee; the reviews section: ratings/summaries as the sharer sees them + events, write 403s incl. every transition, no re-share/HR-auditor share + HR party, subordinate-of-DRAFT/CALIBRATION cannot share, the un-publish and back-to-DRAFT lapses, author withdrawal + notifications, snapshot unaffected by assessment edits; the 1:1 section: read grant + events, the history 403 for a sharee while the sharer reads it, write 403s, no re-share/HR-auditor share + HR party share, chain-manager lapse, author withdrawal + notifications, snapshot stable after a date edit; the goals section: read grant + events, every write incl. the progress PUT 403, no re-share/HR-auditor share, DRAFT privacy + lapse, author withdrawal with notifications, the snapshot surviving a retitle); feedbacks: the read/events grant, write
+views, rate limit), `ShareBatchRoutesTest` (mass share over the stub registry under `PERFORMANCE_REVIEW`: the gate order incl. 403/404-before-400, the itemized report with one batch id + snapshots + the single audit event, one summary notice per sharee with the right count and none per-share, the replay, the batch-aware cap with a capped sharee, the 200 × 20 bounds, the shared rate-limit bucket), `SharingTest` (real documents — one section per feature; all seven kinds (the team-KPI section: doc + values + events with no manage/record rights, every definition/lifecycle/data-point write 403, no re-share/HR-auditor share + HR manager, member-of-DRAFT cannot share + the DRAFT/leave-team/reassignment lapses, chain-manager lapse, author (manage predicate incl. the chain) lists + withdraws a member's share, notifications + links, snapshot stable after a retitle; the succession section: plan + events as the sharer sees them with the linked goals stripped, every write incl. nominations 403, no re-share/HR-auditor share + HR owner, seat person/candidate gain nothing from status but can be shared with, CLOSED plans, chain-manager lapse + owner withdrawal, notification params keys pinned exactly, bystanders hear nothing, snapshot stable; the impact-log section: sections as the sharer sees them + events, write 403s, no re-share/HR-auditor share + HR owner, chain-manager lapse with the detail and back, owner lists + withdraws, notifications + links, the full snapshot stable after a retitle, feature-disabled sharee; the reviews section: ratings/summaries as the sharer sees them + events, write 403s incl. every transition, no re-share/HR-auditor share + HR party, subordinate-of-DRAFT/CALIBRATION cannot share, the un-publish and back-to-DRAFT lapses, author withdrawal + notifications, snapshot unaffected by assessment edits; the 1:1 section: read grant + events, the history 403 for a sharee while the sharer reads it, write 403s, no re-share/HR-auditor share + HR party share, chain-manager lapse, author withdrawal + notifications, snapshot stable after a date edit; the goals section: read grant + events, every write incl. the progress PUT 403, no re-share/HR-auditor share, DRAFT privacy + lapse, author withdrawal with notifications, the snapshot surviving a retitle); feedbacks: the read/events grant, write
 403s, no re-share, HR cases, the visibility widening and the upgrade, multi-recipient, lapse,
 expiry, withdrawal + notifications, feature-disabled sharee, the HR audit rules; the chain-walk-500
 case runs the real adapter against an unreachable database with an ACTIVE share from a party

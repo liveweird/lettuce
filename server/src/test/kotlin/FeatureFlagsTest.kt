@@ -342,7 +342,9 @@ class FeatureFlagsTest {
                 type.name.startsWith("ONE_ON_ONE_") -> Feature.ONE_ON_ONES
                 type.name.startsWith("GOAL_") -> Feature.GOALS
                 type.name.startsWith("TEAM_KPI_") -> Feature.TEAM_KPIS
-                type.name.startsWith("PERFORMANCE_REVIEW_") -> Feature.PERFORMANCE_REVIEWS
+                // PERFORMANCE_REVIEWS_BATCH_SHARED (v4.10.0) carries the plural noun.
+                type.name.startsWith("PERFORMANCE_REVIEW_") ||
+                    type.name.startsWith("PERFORMANCE_REVIEWS_") -> Feature.PERFORMANCE_REVIEWS
                 type.name.startsWith("DAYS_OFF_") -> Feature.DAYS_OFF
                 type.name.startsWith("PULSE_") -> Feature.PULSE_SURVEYS
                 type.name.startsWith("IMPACT_ENTRY_") -> Feature.IMPACT_LOG

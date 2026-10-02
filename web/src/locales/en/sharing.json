@@ -25,7 +25,8 @@
   "withdrawBody": "{{name}} will no longer be able to open this document through this share. This cannot be undone.",
   "toast": {
     "shared": "Document shared",
-    "withdrawn": "Share withdrawn"
+    "withdrawn": "Share withdrawn",
+    "batchShared": "Reviews shared"
   },
   "failureItem": "Couldn't share with {{name}}: {{reason}}",
   "banner": "Shared with you by {{name}}",
@@ -88,5 +89,38 @@
     "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
     "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
     "SUCCESSION_PLAN": "{{person}} (owner: {{owner}})"
+  },
+  "batch": {
+    "title": "Share performance reviews",
+    "intro_one": "You are sharing {{count}} performance review. People you share it with can read it, but never change it. A share works only while you can open the review yourself.",
+    "intro_other": "You are sharing {{count}} performance reviews. People you share them with can read them, but never change them. A share works only while you can open the review yourself.",
+    "maxPeople": "Up to {{max}} people at once.",
+    "subjectWarning_one": "{{names}} is one of the people whose review you are sharing. They will be able to read it, including ratings that are not published to them yet.",
+    "subjectWarning_other": "{{names}} are among the people whose reviews you are sharing. They will be able to read those reviews, including ratings that are not published to them yet.",
+    "moreNames": "{{names}} and {{count}} more",
+    "chunkHint": "A selection of more than {{max}} reviews goes out in {{batches}} batches, so each recipient gets one notification per batch.",
+    "result": {
+      "created": "New shares: {{count}}",
+      "nothing": "Nothing new was shared.",
+      "alreadyTitle": "Already shared. Left unchanged, including their end date:",
+      "alreadyLine": "{{person}}: already shared with {{sharees}}",
+      "failedTitle": "Not shared:",
+      "failedLine_FORBIDDEN": "{{person}}: you can't share this review.",
+      "failedLine_NOT_FOUND": "{{person}}: this review no longer exists.",
+      "title": "Result"
+    },
+    "partial_one": "Sharing stopped early: {{reason}} {{count}} review was not sent.",
+    "partial_other": "Sharing stopped early: {{reason}} {{count}} reviews were not sent.",
+    "retry_one": "Retry the remaining {{count}} review",
+    "retry_other": "Retry the remaining {{count}} reviews",
+    "error": {
+      "forbidden": "You can't share any of these reviews.",
+      "notFound": "None of these reviews exist any more.",
+      "invalid": "The server rejected the request. Check the end date and the people you picked.",
+      "rateLimited": "You are sharing too fast. Try again in a minute.",
+      "failed": "Sharing failed. Try again.",
+      "failedStatus": "Sharing failed (HTTP {{status}})."
+    },
+    "backToForm": "Change and try again"
   }
 }

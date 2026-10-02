@@ -104,6 +104,7 @@ const UserPerformanceReviews = lazy(() => import("./pages/UserPerformanceReviews
 const CreatePerformanceReview = lazy(() => import("./pages/CreatePerformanceReview"));
 const EditPerformanceReview = lazy(() => import("./pages/EditPerformanceReview"));
 const ViewPerformanceReview = lazy(() => import("./pages/ViewPerformanceReview"));
+const MassSharePerformanceReviews = lazy(() => import("./pages/MassSharePerformanceReviews"));
 const ReviewPeriods = lazy(() => import("./pages/ReviewPeriods"));
 const DaysOff = lazy(() => import("./pages/DaysOff"));
 const CreateDaysOff = lazy(() => import("./pages/CreateDaysOff"));
@@ -510,6 +511,7 @@ export const appRoutes = createRoutesFromElements(
             <Route path="performance-reviews/new" element={<CreatePerformanceReview />} />
             <Route path="performance-reviews/:id/edit" element={<EditPerformanceReview />} />
             <Route path="performance-reviews/:id/view" element={<ViewPerformanceReview />} />
+            <Route path="performance-reviews/mass-share" element={<MassSharePerformanceReviews />} />
             <Route path="review-periods" element={<ReviewPeriods />} />
             <Route path="pulse" element={<Pulse />} />
             <Route path="pulse-cycles" element={<PulseCycles />} />

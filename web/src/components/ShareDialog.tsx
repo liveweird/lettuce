@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, Divider, Group, Modal, MultiSelect, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, Divider, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -17,12 +17,11 @@ import { formatIsoDate, todayIsoDate } from "../utils/datetime";
 import { documentSharesKey, invalidateShares } from "../utils/shareQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
-import { accessibleRenderPill } from "./accessiblePill";
 import CenteredLoader from "./CenteredLoader";
 import ConfirmActionModal from "./ConfirmActionModal";
 import DateField from "./DateField";
 import ShareStatusBadge from "./ShareStatusBadge";
-import { renderUserOption, userOption } from "./userOptions";
+import SharePeoplePicker from "./SharePeoplePicker";
 
 type Failure = { shareeId: number; name: string; reason: string; retryable: boolean };
 
@@ -56,29 +55,12 @@ function ShareForm({
 }: Docs & { excludedIds: ReadonlySet<number> }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const currentUserId = getUserId();
-  const { userPool, usersError } = useAllUsers();
+  const { userPool } = useAllUsers();
   const [selected, setSelected] = useState<string[]>([]);
   const [until, setUntil] = useState("");
   const [untilError, setUntilError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [failures, setFailures] = useState<Failure[]>([]);
-
-  // Never the caller, never a deactivated account (the server answers those 400), and nobody who
-  // already holds an ACTIVE share from this caller (that would be the 409). A person still in the
-  // selection stays listed so a refetch can never orphan a pill.
-  const options = useMemo(
-    () =>
-      (userPool ?? [])
-        .filter(
-          (u) =>
-            selected.includes(String(u.id)) ||
-            (u.id !== currentUserId && !u.deactivated && !excludedIds.has(u.id)),
-        )
-        .map((u) => userOption(u.id, u.name, (u.teams ?? []).map((team) => team.name)))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [userPool, currentUserId, excludedIds, selected],
-  );
 
   async function submit() {
     if (selected.length === 0) return;
@@ -99,7 +81,7 @@ function ShareForm({
       } catch (err) {
         failed.push({
           shareeId,
-          name: options.find((o) => o.value === value)?.label ?? `#${shareeId}`,
+          name: userPool?.find((u) => u.id === shareeId)?.name ?? `#${shareeId}`,
           reason: failureReason(err, t, "create"),
           // A duplicate has nothing to retry — the person already holds an active share.
           retryable: !(err instanceof ApiError && err.status === 409),
@@ -117,19 +99,7 @@ function ShareForm({
 
   return (
     <Stack gap="sm">
-      <MultiSelect
-        label={t("sharing.shareWith")}
-        placeholder={selected.length === 0 ? t("sharing.pickPeople") : undefined}
-        data={options}
-        renderOption={renderUserOption}
-        value={selected}
-        onChange={setSelected}
-        searchable
-        hidePickedOptions
-        nothingFoundMessage={t("sharing.noPeople")}
-        error={usersError ? t("common.error.optionsFailed") : undefined}
-        renderPill={accessibleRenderPill((name) => t("sharing.removePerson", { name }))}
-      />
+      <SharePeoplePicker value={selected} onChange={setSelected} excludedIds={excludedIds} />
       <DateField
         label={t("sharing.until")}
         description={t("sharing.untilHint")}

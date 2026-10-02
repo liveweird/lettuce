@@ -67,7 +67,9 @@ for any new or edited spec:
   recipient (`notifications.spec` is the template) — seed bells receive concurrent traffic.
 - **Global documents/registries have one writer file each**: dictionaries — `dictionaries.spec`
   edits `seniority-levels`, `user-career.spec` edits `career-paths`; review periods —
-  `performance-reviews.spec`; public holidays + the paid-leave pool kinds ("E2E Pool") + AAA
+  `performance-reviews.spec` (plus three CONDITIONAL fresh-database writers that append one period
+  only while the whole timeline is empty: `performance-reviews-tutorial.spec`, `list-layout.spec`
+  and `mass-share.spec`); public holidays + the paid-leave pool kinds ("E2E Pool") + AAA
   Two's days-off/pools/allowances/corrections — `days-off.spec`; templates — `templates.spec`
   (unique names).
 - **Residue sweep + the marker contract (v2.34.0)**: `global-setup.ts` sweeps PREVIOUS runs'
@@ -139,6 +141,7 @@ scenario file is the design.
 - [`pulse-tutorial.spec.ts`](scenarios/pulse-tutorial.md) — the "How pulse surveys work" guided tutorial (v3.21.0, the first three-audience walk): the admin's 11-or-12-step (computed from whether the admin manages a team), the manager's 8-step, and the team member's 7-step read-only walks, landmark order, and the return to the Pulse surveys page with no non-GET API request issued during the walk.
 - [`succession-tutorial.spec.ts`](scenarios/succession-tutorial.md) — the "How succession plans work" guided tutorial (v3.22.0, the ninth and last feature-area tutorial): the manager's 13-step and the non-manager's 5-step read-only walk, landmark order, and the return to the Succession plans page with no non-GET API request issued during the walk.
 - [`sharing.spec.ts`](scenarios/sharing.md) — document sharing (v4.8.0) on a throwaway provider/subject/sharee trio: the provider shares a sent feedback with an end date from the view page, the sharee follows the bell notification to a read-only view (banner, no Share/Withdraw) and finds it on the Shared screen, the provider withdraws from the dialog, and the sharee's Active-filtered list is empty with the direct URL refused.
+- [`mass-share.spec.ts`](scenarios/mass-share.md) — mass sharing of performance reviews (v4.10.0) on a throwaway manager/two-reports/sharee cast: the manager follows Team's performance → "Share reviews…", narrows by team, "Select all matching", shares both DRAFT reviews with an end date in one dialog ("New shares: 2"), the sharee gets ONE summary bell card to the Shared screen with two Active rows and reads one read-only ("Shared with you by", no Share button), the manager withdraws that one from the review's Share dialog, and the sharee's Active-filtered list keeps only the other. (An empty period timeline is filled once by ADMIN as a precondition.)
 - [`org-chart.spec.ts`](scenarios/org-chart.md) — the org-chart canvas and its drill-downs, plus the v2.40.0 team collapse/expand (cascading fold of a hidden member's own subtree).
 - [`password-reset.spec.ts`](scenarios/password-reset.md) — the Forgot-password flow (neutral answers, working new password; Mailpit-gated).
 - [`performance-reviews.spec.ts`](scenarios/performance-reviews.md) — review periods, the full review lifecycle, Distribution + Quadrants views.

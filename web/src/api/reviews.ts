@@ -2,7 +2,7 @@
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
 import { buildQuery, jsonRequest, voidRequest } from "./http";
-import type { paths } from "./schema";
+import type { components, paths } from "./schema";
 
 export type ReviewPeriod =
   paths["/api/v1/review-periods"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
@@ -147,4 +147,17 @@ export type PerformanceReviewEvent = PerformanceReviewEventList["items"][number]
 
 export async function listPerformanceReviewEvents(id: number): Promise<PerformanceReviewEvent[]> {
   return (await jsonRequest<PerformanceReviewEventList>(`/api/v1/performance-reviews/${id}/events`)).items;
+}
+
+export type ShareCandidateList = components["schemas"]["ShareCandidateList"];
+export type ShareCandidate = components["schemas"]["ShareCandidate"];
+
+/**
+ * The mass-share picker's data: everyone in the caller's transitive reporting line with their
+ * review for the period and a server-computed `shareable` flag. Unpaged, strictly caller-relative.
+ */
+export async function listShareCandidates(periodId: number): Promise<ShareCandidateList> {
+  return jsonRequest<ShareCandidateList>(
+    `/api/v1/performance-reviews/share-candidates?${buildQuery({ periodId })}`,
+  );
 }

@@ -100,6 +100,10 @@ data class User(
     val language: String = "en",
 )
 
+/** A bare (id, name) user reference — the share-candidates direct-manager edge (v4.10.0). */
+@Serializable
+data class UserRef(val id: UInt, val name: String)
+
 @Serializable
 data class UserRequest(
     val name: String,

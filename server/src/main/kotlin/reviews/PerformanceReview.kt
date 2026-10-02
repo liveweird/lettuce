@@ -1,6 +1,9 @@
 package ch.nokillswit.reviews
 
+import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
+import ch.nokillswit.teams.TeamRef
+import ch.nokillswit.users.UserRef
 import io.ktor.server.plugins.BadRequestException
 import kotlinx.serialization.Serializable
 
@@ -109,6 +112,60 @@ data class PerformanceReviewListItem(
     val overallRating: Int?,
     val createdAt: Long,
     val lastModified: Long,
+)
+
+/**
+ * Why a share candidate cannot be picked: [NO_REVIEW] (nothing exists for the period) or
+ * [UNREADABLE_DRAFT] (another chain manager's DRAFT — the caller cannot read it in their own
+ * right, so cannot share it). Null on a shareable row.
+ */
+@Serializable
+enum class ShareCandidateReason { NO_REVIEW, UNREADABLE_DRAFT }
+
+/**
+ * The period's review of one share candidate (v4.10.0). When the caller cannot read it in their
+ * own right (another chain manager's DRAFT — the registered API-ERR-006 disclosure, decision D1)
+ * only [status] and the author's [managerName] are set: [id], [managerId] and every rating are null. Ratings
+ * (decrypted) ride only on readable reviews — the same disclosure as the managed list rows.
+ */
+@Serializable
+data class ShareCandidateReview(
+    val id: UInt?,
+    val status: PerformanceReviewStatus,
+    val managerId: UInt?,
+    val managerName: String,
+    val attitudeRating: Int?,
+    val deliveryRating: Int?,
+    val skillsRating: Int?,
+    val aptitudeRating: Int?,
+    val overallRating: Int?,
+)
+
+/** One person in the caller's transitive chain, for the mass-share picker (v4.10.0). */
+@Serializable
+data class ShareCandidate(
+    val userId: UInt,
+    val name: String,
+    val email: String,
+    val deactivated: Boolean,
+    val teams: List<TeamRef>,
+    // Managers of the person's teams, minus the person themselves — the caller appears here as
+    // themselves; the SPA's direct-manager facet keeps the subtree under a chosen manager.
+    val directManagers: List<UserRef>,
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    // Always attached: every row is the caller's own chain (the seniority-visibility rule).
+    val seniorityLevel: DictionaryEntry?,
+    val review: ShareCandidateReview?,
+    val shareable: Boolean,
+    val reason: ShareCandidateReason?,
+)
+
+/** Unpaged, caller-relative picker dataset — see [PerformanceReviewService.shareCandidates]. */
+@Serializable
+data class ShareCandidateList(
+    val periodId: UInt,
+    val items: List<ShareCandidate>,
 )
 
 typealias PerformanceReviewPageResponse = PageResponse<PerformanceReviewListItem>

@@ -51,6 +51,7 @@ class NotificationEmailTest {
         "sharee" to "Shay Sharee",
         "actor" to "Ada Author",
         "expiresOn" to "2026-12-31",
+        "count" to "3",
     )
 
     private val greetings = mapOf("en" to "Hi Rae Recipient,", "pl" to "Cześć Rae Recipient,")
@@ -326,6 +327,28 @@ class NotificationEmailTest {
         )
         assertTrue(
             "Sia Sharer udostępnił/a Ci wpis z dziennika wpływu." in body(NotificationType.IMPACT_ENTRY_SHARED, open, "pl"),
+        )
+    }
+
+    @Test
+    fun `a mass share notice words the sharer, the total and the optional end date in both languages (v4_10_0)`() {
+        val open = mapOf("sharer" to "Sia Sharer", "count" to "30")
+        assertTrue(
+            "Sia Sharer shared performance reviews with you (30 in total)." in
+                body(NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED, open, "en"),
+        )
+        assertFalse("Access lasts" in body(NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED, open, "en"))
+        assertTrue(
+            "Sia Sharer udostępnił/a Ci oceny okresowe (łącznie: 30)." in
+                body(NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED, open, "pl"),
+        )
+        assertFalse("Dostęp obowiązuje" in body(NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED, open, "pl"))
+        val bound = open + ("expiresOn" to "2026-12-31")
+        assertTrue(
+            "Access lasts until 2026-12-31." in body(NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED, bound, "en"),
+        )
+        assertTrue(
+            "Dostęp obowiązuje do 2026-12-31." in body(NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED, bound, "pl"),
         )
     }
 

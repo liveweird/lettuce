@@ -1,9 +1,13 @@
 package ch.nokillswit.sharing
 
 import ch.nokillswit.notifications.Notification
+import ch.nokillswit.notifications.NotificationType
 
 /** Where a withdrawn share's SHARER is sent: their own "Shared by me" list. */
 internal const val SHARED_BY_ME_LINK = "/shares?tab=byMe"
+
+/** Where a mass share's summary notice sends the sharee: the Shared screen (their "With me" tab). */
+internal const val BATCH_SHARED_LINK = "/shares"
 
 /**
  * The notification a new share mints for the SHARE'S RECIPIENT (the sharee): params `{sharer}`
@@ -25,6 +29,28 @@ internal fun shareCreatedNotification(
         if (expiresOn != null && type != ShareableResourceType.SUCCESSION_PLAN) put("expiresOn", expiresOn)
     }
     return Notification(recipientId = shareeId, type = type.sharedNotification, params = params, link = link)
+}
+
+/**
+ * The ONE summary notification a mass share (v4.10.0) mints per sharee: params `{sharer, count}`
+ * plus the raw ISO `expiresOn` when the batch has an end date (formatted client-side), link = the
+ * Shared screen. [count] is the number of shares created for this sharee in the batch. Pure and
+ * DB-free; the route resolves the sharer's name, the count and the type via
+ * [batchSharedNotification] on the resource type.
+ */
+internal fun batchSharedNotification(
+    type: NotificationType,
+    shareeId: UInt,
+    sharerName: String,
+    count: Int,
+    expiresOn: String?,
+): Notification {
+    val params = buildMap {
+        put("sharer", sharerName)
+        put("count", count.toString())
+        if (expiresOn != null) put("expiresOn", expiresOn)
+    }
+    return Notification(recipientId = shareeId, type = type, params = params, link = BATCH_SHARED_LINK)
 }
 
 /**

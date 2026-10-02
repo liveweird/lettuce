@@ -140,6 +140,19 @@ describe("App shell", () => {
       }
     });
 
+    test("the mass-share page is a routed screen, reached from the team view and not a nav leaf (v4.10.0)", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      renderApp("/performance-reviews/mass-share?periodId=5");
+      expect(await screen.findByRole("heading", { level: 2, name: "Share performance reviews" })).toBeInTheDocument();
+      // No nav leaf of its own.
+      expect(screen.queryByRole("link", { name: /share reviews|share performance reviews/i })).toBeNull();
+    });
+
+    test("a malformed mass-share link falls back to the team's performance tab", async () => {
+      renderApp("/performance-reviews/mass-share");
+      expect(await screen.findByRole("heading", { level: 2, name: "Performance" })).toBeInTheDocument();
+    });
+
     test("an admin's Config group additionally lists Alerts", async () => {
       localStorage.setItem("lettuce.auth.roles", JSON.stringify(["ADMIN"]));
       try {

@@ -11,8 +11,11 @@ import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
+import ch.nokillswit.teams.teamMembershipsByUserIds
 import ch.nokillswit.teams.transitiveSubordinateIds
+import ch.nokillswit.users.UserRef
 import ch.nokillswit.users.UserService
+import ch.nokillswit.users.currentProfilesByUserIds
 import ch.nokillswit.users.userNameOf
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.flow.map
@@ -57,6 +60,17 @@ data class LatestReviewStats(
     val periodEndMonth: String,
     val status: PerformanceReviewStatus,
 )
+
+/**
+ * The own-right read rule of a review for a manager in its subordinate's transitive chain, with
+ * the HR branch stripped — the in-memory twin of `requirePerformanceReviewReadAllowingManager`
+ * run for a role-stripped caller (`ShareAccess.holdsOwnRight`): the author reads at every
+ * status, any other chain manager only once the review has left DRAFT. The caller is never the
+ * subordinate of a chain row, so the subordinate branch cannot apply. Pinned against the real
+ * adapter guard by `ShareCandidatesTest`'s parity cases.
+ */
+internal fun canShareInOwnRight(callerId: UInt, managerId: UInt, status: PerformanceReviewStatus): Boolean =
+    managerId == callerId || status != PerformanceReviewStatus.DRAFT
 
 private val managerUsers = UserService.Users.alias("manager_users")
 private val subordinateUsers = UserService.Users.alias("subordinate_users")
@@ -392,6 +406,112 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
     }
 
     /**
+     * The mass-share picker's dataset (v4.10.0): every non-deleted person in [callerId]'s
+     * TRANSITIVE chain (deactivated INCLUDED with their flag — the pyramid rule; the caller and
+     * strangers never appear), name-ascending then id, each with their teams, direct managers,
+     * current career triple and the [periodId] review. Strictly caller-relative — no HR/ADMIN
+     * widening, nothing audited — and unpaged (bounded by the chain). Returns null when the
+     * period does not exist (the route's 400). ONE transaction, set-at-a-time: one chain walk,
+     * then one query each for the users, the period's reviews, the team memberships, the career
+     * profiles and the names of managers outside the chain.
+     *
+     * Shareability is [canShareInOwnRight], computed in memory (the activity-visibility "twin of
+     * the guard" precedent) and pinned against the real adapter guard by `ShareCandidatesTest`.
+     * An unreadable review (another manager's DRAFT) becomes a STUB — status and the author's
+     * NAME only, never its id, the author's id or ratings (decision D1); ratings are decrypted only for readable reviews.
+     */
+    suspend fun shareCandidates(callerId: UInt, periodId: UInt): ShareCandidateList? =
+        suspendTransaction(database) {
+            val periodExists = ReviewPeriodService.ReviewPeriods
+                .select(ReviewPeriodService.ReviewPeriods.id)
+                .where { ReviewPeriodService.ReviewPeriods.id eq periodId }
+                .count() > 0
+            if (!periodExists) return@suspendTransaction null
+            val chain = transitiveSubordinateIds(callerId)
+            if (chain.isEmpty()) return@suspendTransaction ShareCandidateList(periodId, emptyList())
+            // Every query is drained (.toList()) before the next one starts — a nested query
+            // inside a still-open flow would deadlock the shared R2DBC connection.
+            val people = UserService.Users
+                .select(
+                    UserService.Users.id,
+                    UserService.Users.name,
+                    UserService.Users.email,
+                    UserService.Users.deactivated,
+                )
+                .where { (UserService.Users.id inList chain) and (UserService.Users.markedAsDeleted eq false) }
+                .toList()
+            if (people.isEmpty()) return@suspendTransaction ShareCandidateList(periodId, emptyList())
+            val personIds = people.map { it[UserService.Users.id].value }.toSet()
+            val reviews = Reviews
+                .join(
+                    managerUsers,
+                    JoinType.INNER,
+                    onColumn = Reviews.managerId,
+                    otherColumn = managerUsers[UserService.Users.id],
+                )
+                .select(
+                    Reviews.id,
+                    Reviews.managerId,
+                    Reviews.subordinateId,
+                    Reviews.status,
+                    Reviews.attitudeRating,
+                    Reviews.deliveryRating,
+                    Reviews.skillsRating,
+                    Reviews.aptitudeRating,
+                    Reviews.overallRating,
+                    managerUsers[UserService.Users.name],
+                )
+                .where { (Reviews.subordinateId inList personIds) and (Reviews.periodId eq periodId) and active() }
+                .toList()
+                .associateBy { it[Reviews.subordinateId].value }
+            val memberships = teamMembershipsByUserIds(personIds)
+            val profiles = currentProfilesByUserIds(personIds)
+            val managerIds = memberships.entries
+                .flatMap { (personId, edges) -> edges.map { it.managerId }.filter { it != personId } }
+                .toSet()
+            // Managers outside the chain (the caller, a dotted-line outsider): one lookup,
+            // soft-deleted accounts included — a team may still name them.
+            val outsideIds = managerIds - personIds
+            val outsideNames = if (outsideIds.isEmpty()) emptyMap() else UserService.Users
+                .select(UserService.Users.id, UserService.Users.name)
+                .where { UserService.Users.id inList outsideIds }
+                .toList()
+                .associate { it[UserService.Users.id].value to it[UserService.Users.name] }
+            val names = people.associate { it[UserService.Users.id].value to it[UserService.Users.name] } + outsideNames
+            val items = people.map { person ->
+                val personId = person[UserService.Users.id].value
+                val row = reviews[personId]
+                val readable = row != null &&
+                    canShareInOwnRight(callerId, row[Reviews.managerId].value, row[Reviews.status])
+                val edges = memberships[personId].orEmpty()
+                val profile = profiles[personId]
+                ShareCandidate(
+                    userId = personId,
+                    name = person[UserService.Users.name],
+                    email = person[UserService.Users.email],
+                    deactivated = person[UserService.Users.deactivated],
+                    teams = edges.map { it.team }.sortedWith(compareBy({ it.name.lowercase() }, { it.id })),
+                    directManagers = edges.map { it.managerId }
+                        .filter { it != personId }
+                        .distinct()
+                        .map { UserRef(it, names[it] ?: "#$it") }
+                        .sortedWith(compareBy({ it.name.lowercase() }, { it.id })),
+                    careerPath = profile?.careerPath,
+                    careerSpecialization = profile?.careerSpecialization,
+                    seniorityLevel = profile?.seniorityLevel,
+                    review = row?.toShareCandidateReview(readable),
+                    shareable = readable,
+                    reason = when {
+                        row == null -> ShareCandidateReason.NO_REVIEW
+                        !readable -> ShareCandidateReason.UNREADABLE_DRAFT
+                        else -> null
+                    },
+                )
+            }.sortedWith(compareBy({ it.name.lowercase() }, { it.userId }))
+            ShareCandidateList(periodId, items)
+        }
+
+    /**
      * For each subordinate in [subordinateIds], the latest (by period, newest first) non-deleted
      * review [managerId] authored about them — at ANY status: the caller wrote it, so DRAFTs
      * count, matching the card's other author-side stats (last feedback, active goals) and the
@@ -534,6 +654,24 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         rating = this[ratingColumn]?.let(cipher::decrypt)?.toInt(),
         summary = this[summaryColumn]?.let(cipher::decrypt),
     )
+
+    // The share-candidates review view: the unreadable stub carries status + author name only — no ids,
+    // and the ratings are not even decrypted (see [shareCandidates]).
+    private fun ResultRow.toShareCandidateReview(readable: Boolean): ShareCandidateReview {
+        fun rating(column: Column<String?>): Int? =
+            if (readable) this[column]?.let(cipher::decrypt)?.toInt() else null
+        return ShareCandidateReview(
+            id = if (readable) this[Reviews.id].value else null,
+            status = this[Reviews.status],
+            managerId = if (readable) this[Reviews.managerId].value else null,
+            managerName = this[managerUsers[UserService.Users.name]],
+            attitudeRating = rating(Reviews.attitudeRating),
+            deliveryRating = rating(Reviews.deliveryRating),
+            skillsRating = rating(Reviews.skillsRating),
+            aptitudeRating = rating(Reviews.aptitudeRating),
+            overallRating = rating(Reviews.overallRating),
+        )
+    }
 
     // The transition path's row view (party ids + the period months for the notification params;
     // no name aliases, no decryption).

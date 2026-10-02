@@ -85,6 +85,7 @@ val NotificationType.lockedOn: Boolean
         NotificationType.TEAM_KPI_SHARE_WITHDRAWN,
         NotificationType.PERFORMANCE_REVIEW_SHARED,
         NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN,
+        NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED,
         NotificationType.IMPACT_ENTRY_SHARED,
         NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN,
         NotificationType.SUCCESSION_PLAN_SHARED,

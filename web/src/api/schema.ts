@@ -2662,6 +2662,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/performance-reviews/share-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The mass-share picker's dataset for one review period
+         * @description The data source of "Share reviews..." (v4.10.0): one row per non-deleted person in the
+         *     authenticated caller's **transitive management chain** (reports of reports included;
+         *     deactivated accounts included with `deactivated: true`), each with their teams, direct
+         *     managers, current career triple and the review the person has in the given period, plus
+         *     whether the caller can share it. Rows are sorted by name (case-insensitive), then id.
+         *
+         *     **Caller-relative, no role widening** (the `/career/pyramid` rule): any authenticated
+         *     caller with the PERFORMANCE_REVIEWS feature enabled may ask; a caller who manages nobody
+         *     gets an empty list (no `403`); HR and ADMIN see exactly their own chain, and the read is
+         *     not audit-logged — every row is the caller's own chain, so `seniorityLevel` is always
+         *     attached (the seniority-visibility rule is satisfied by construction).
+         *
+         *     **`shareable`** is the own-right rule of document sharing computed server-side: the
+         *     caller reads the review in their own right, the HR role not counting — i.e. they authored
+         *     it, or it has left DRAFT. A person with no review in the period has `review: null`,
+         *     `shareable: false`, `reason: NO_REVIEW`. Another chain manager's **DRAFT** is returned as a
+         *     **stub** — `review` carries `status` and the author's `managerName` ONLY (`id`, `managerId`
+         *     and every rating are `null`), `shareable: false`, `reason: UNREADABLE_DRAFT`. That the
+         *     draft exists and who is writing it is a deliberate, registered existence disclosure
+         *     (API-ERR-006: the create-time `409` already tells a chain manager a review exists — also
+         *     for deactivated reports, where no `409` applies); the ratings of a
+         *     readable review ride along exactly as in the managed list rows, never the summaries.
+         *
+         *     A missing, malformed or unknown `periodId` is `400` (a query-parameter reference, decided
+         *     before anything else).
+         *
+         *     **Unpaged** — bounded by the caller's chain, a plain `{ periodId, items }` wrapper
+         *     (API-STRUCT-004's unpaged exception, the `/career/pyramid` shape); the SPA filters and
+         *     pages it client-side.
+         */
+        get: operations["listPerformanceReviewShareCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/performance-reviews/{id}": {
         parameters: {
             query?: never;
@@ -4180,6 +4228,55 @@ export interface paths {
          *     then inert and hidden from their list until the flag is back on.
          */
         post: operations["createShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share many documents of one kind with several people at once (mass share)
+         * @description Mass share (v4.10.0): shares up to 200 documents of ONE kind with up to 20 people in a
+         *     single call — one `document_shares` row per (document, person), each an ordinary share
+         *     (withdrawn, listed and lapsing exactly like a share made through `POST /api/v1/shares`).
+         *     Only `PERFORMANCE_REVIEW` is batchable today; every other `resourceType` is `400`. The call
+         *     counts as ONE request against its OWN per-caller rate limit (default 10/min, independent
+         *     of the bucket `POST /api/v1/shares` and the withdraw action share — `429` beyond it).
+         *
+         *     Evaluated in this order: a malformed body is the one `400` that precedes the gates →
+         *     the caller's feature flag for the area (`403`) → the kind must be batchable (`400`) → the
+         *     list shape (`400`: 1–200 `resourceIds`, 1–20 `shareeIds`, no duplicates — declared on the
+         *     schema, so the malformed-body class) → each document in request order: read through its
+         *     feature, then the **own-right** rule of `POST /api/v1/shares` (HR-auditor-only access and
+         *     access that came from a share cannot be shared) — a missing document is a `NOT_FOUND`
+         *     item, an unreadable one a `FORBIDDEN` item (the same read-before-guard existence idiom as
+         *     the single share: ids are sequential, existence is no secret, never content) → if NO
+         *     document is shareable the whole request is `403` (at least one was `FORBIDDEN`) or `404`
+         *     (all missing) — before any semantic `400`, so a caller without the right learns nothing
+         *     about them → validation (`400`, after the guard): `expiresOn` must be a strict ISO date not
+         *     before the server's today, and every sharee must exist, be active and not be the caller →
+         *     the create: ONE locked transaction (a failure creates nothing), idempotent in effect — an
+         *     already-ACTIVE share of the same document by the same sharer to the same sharee is
+         *     reported `ALREADY_SHARED` with the existing share's id and never duplicated, so a replay
+         *     creates nothing. Per-item problems never fail the call: it answers `200` with an itemized
+         *     report whenever at least one document was shareable.
+         *
+         *     Each sharee who received at least one NEW share gets exactly ONE summary notification
+         *     (`PERFORMANCE_REVIEWS_BATCH_SHARED`, with the number of reviews shared with them) — never the per-share
+         *     notice. A batch counts as ONE notice against the per-(sharer, sharee) daily notification
+         *     cap; a sharee whose cap is exhausted still gets the shares, silently. The call is audited
+         *     as a single `share.batch_created` event.
+         */
+        post: operations["createShareBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6351,6 +6448,58 @@ export interface components {
             /** Format: int64 */
             lastModified: number;
         };
+        ShareCandidateList: {
+            /** Format: int32 */
+            periodId: number;
+            /** @description Unpaged; sorted by name (case-insensitive), then id. */
+            items: components["schemas"]["ShareCandidate"][];
+        };
+        ShareCandidate: {
+            /** Format: int32 */
+            userId: number;
+            name: string;
+            email: string;
+            /** @description True for a deactivated account (still listed — the pyramid rule). */
+            deactivated: boolean;
+            /** @description The non-deleted teams the person is a member of, name-ascending. */
+            teams: components["schemas"]["TeamRef"][];
+            /** @description The managers of those teams, minus the person themselves; the caller appears as themselves, a manager outside the caller's chain is listed too. */
+            directManagers: components["schemas"]["UserRef"][];
+            /** @description From the person's CURRENT career position; null when none recorded. */
+            careerPath: components["schemas"]["DictionaryEntry"] | null;
+            careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Always attached — every row is the caller's own chain. */
+            seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
+            /** @description The person's review in the requested period; null = none. */
+            review: components["schemas"]["ShareCandidateReview"] | null;
+            /** @description True exactly when the caller can share the review (it exists and they read it in their own right). */
+            shareable: boolean;
+            /**
+             * @description Why the row is not shareable; null exactly when `shareable` is true.
+             * @enum {string|null}
+             */
+            reason: "NO_REVIEW" | "UNREADABLE_DRAFT" | null;
+        };
+        ShareCandidateReview: {
+            /**
+             * Format: int32
+             * @description Null on the stub of another manager's DRAFT (never disclosed).
+             */
+            id: number | null;
+            /** @enum {string} */
+            status: "DRAFT" | "CALIBRATION" | "PUBLISHED";
+            /**
+             * Format: int32
+             * @description Null on the stub of another manager's DRAFT (only the author's name is disclosed).
+             */
+            managerId: number | null;
+            managerName: string;
+            attitudeRating: number | null;
+            deliveryRating: number | null;
+            skillsRating: number | null;
+            aptitudeRating: number | null;
+            overallRating: number | null;
+        };
         PerformanceReviewPage: {
             items: components["schemas"]["PerformanceReviewListItem"][];
             page: number;
@@ -6718,7 +6867,7 @@ export interface components {
          * @description Notification kind — see `NotificationResponse.type` for what each carries and `NotificationPreferenceItem` for the per-type on/off switches (v4.0.0).
          * @enum {string}
          */
-        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "PASSWORD_CHANGED";
+        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEWS_BATCH_SHARED" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "PASSWORD_CHANGED";
         NotificationResponse: {
             /** Format: int32 */
             id: number;
@@ -6756,7 +6905,9 @@ export interface components {
              *     The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
              *     owner's name and the entry's raw ISO period bounds (never section text).
              *     The `*_SHARED` kinds (v4.8.0, document sharing) carry `{sharer}` plus the raw ISO
-             *     `expiresOn` when the share has an end date; the `*_SHARE_WITHDRAWN` kinds carry
+             *     `expiresOn` when the share has an end date; `PERFORMANCE_REVIEWS_BATCH_SHARED` (v4.10.0,
+             *     the mass-share summary — one per sharee per batch) carries `{sharer,count}` plus
+             *     `expiresOn` when bound and links to `/shares`; the `*_SHARE_WITHDRAWN` kinds carry
              *     `{sharer,sharee,actor}`, and the sharer's own copy (minted only when someone else —
              *     the document's author — withdrew their share) additionally carries `self: "sharer"`.
              *     The `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN` kinds are
@@ -6804,6 +6955,52 @@ export interface components {
              * @description Optional end date, inclusive: the share works through the end of that day. A strict ISO date not before the server's today (no timezone tolerance) — else `400`. Null/absent = open-ended until withdrawn.
              */
             expiresOn?: string | null;
+        };
+        ShareBatchRequest: {
+            resourceType: components["schemas"]["ShareableResourceType"];
+            /** @description The documents to share (all of `resourceType`), in the order the report follows. */
+            resourceIds: number[];
+            /** @description The people to share with — active users other than the caller. */
+            shareeIds: number[];
+            /**
+             * Format: date
+             * @description Optional end date for every share of the batch, inclusive. A strict ISO date not before the server's today (no timezone tolerance) — else `400`. Null/absent = open-ended until withdrawn.
+             */
+            expiresOn?: string | null;
+        };
+        /**
+         * @description `CREATED` and `ALREADY_SHARED` are per (document, person) pair; `FORBIDDEN` (the caller cannot read the document in their own right) and `NOT_FOUND` are per document. `ALREADY_SHARED` leaves the existing ACTIVE share exactly as it is — its end date included: the batch's `expiresOn` is NOT applied to it (withdraw it and share again to change it).
+         * @enum {string}
+         */
+        ShareBatchItemStatus: "CREATED" | "ALREADY_SHARED" | "FORBIDDEN" | "NOT_FOUND";
+        ShareBatchItem: {
+            /** Format: int32 */
+            resourceId: number;
+            /**
+             * Format: int32
+             * @description The person of the pair; null for a `FORBIDDEN` / `NOT_FOUND` document.
+             */
+            shareeId?: number | null;
+            status: components["schemas"]["ShareBatchItemStatus"];
+            /**
+             * Format: int32
+             * @description The new share (`CREATED`) or the existing ACTIVE share that blocked the pair (`ALREADY_SHARED` — left unchanged, its own end date kept, the batch's `expiresOn` not applied); null for `FORBIDDEN` / `NOT_FOUND`.
+             */
+            shareId?: number | null;
+        };
+        ShareBatchResponse: {
+            /** @description The id (a UUID) stamped on every row this call created — the join key of the `share.batch_created` audit event. Null when nothing was created (a pure replay): no batch exists then. */
+            batchId?: string | null;
+            /** @description In request order: per document, one item per sharee (`CREATED` / `ALREADY_SHARED`), or ONE item with a null `shareeId` for a `FORBIDDEN` / `NOT_FOUND` document. */
+            items: components["schemas"]["ShareBatchItem"][];
+            /** @description Number of `CREATED` items. */
+            created: number;
+            /** @description Number of `ALREADY_SHARED` items. */
+            alreadyShared: number;
+            /** @description Number of `FORBIDDEN` items (documents). */
+            forbidden: number;
+            /** @description Number of `NOT_FOUND` items (documents). */
+            notFound: number;
         };
         ShareResponse: {
             /** Format: int32 */
@@ -7254,6 +7451,11 @@ export interface components {
             mode: components["schemas"]["PulseAggregationMode"];
             /** @description Non-cancelled CLOSED cycles, oldest first. */
             points: components["schemas"]["PulseTrendPoint"][];
+        };
+        UserRef: {
+            /** Format: int32 */
+            id: number;
+            name: string;
         };
         TeamRef: {
             /** Format: int32 */
@@ -11471,6 +11673,41 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
+    listPerformanceReviewShareCandidates: {
+        parameters: {
+            query: {
+                /** @description The review period to look the people's reviews up in. */
+                periodId: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareCandidateList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The PERFORMANCE_REVIEWS feature is disabled for the caller */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
     getPerformanceReview: {
         parameters: {
             query?: never;
@@ -13849,6 +14086,52 @@ export interface operations {
             };
             /** @description An active share of this document by the caller to that person already exists (`instance` points at it) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createShareBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description The itemized report (at least one document was shareable; per-item `FORBIDDEN` / `NOT_FOUND` / `ALREADY_SHARED` are reported, never an error) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareBatchResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The caller's feature flag for the area is off, or none of the named documents can be read in their own right */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description None of the named documents exists */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

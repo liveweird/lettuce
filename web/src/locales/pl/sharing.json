@@ -25,7 +25,8 @@
   "withdrawBody": "{{name}} nie będzie już mogł/a otworzyć tego dokumentu dzięki temu udostępnieniu. Nie możesz tego cofnąć.",
   "toast": {
     "shared": "Dokument udostępniony",
-    "withdrawn": "Udostępnienie wycofane"
+    "withdrawn": "Udostępnienie wycofane",
+    "batchShared": "Oceny udostępnione"
   },
   "failureItem": "Nie udało się udostępnić osobie {{name}}: {{reason}}",
   "banner": "{{name}} udostępnił/a Ci ten dokument",
@@ -88,5 +89,46 @@
     "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
     "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
     "SUCCESSION_PLAN": "{{person}} (właściciel/ka: {{owner}})"
+  },
+  "batch": {
+    "title": "Udostępnij oceny okresowe",
+    "intro_one": "Udostępniasz {{count}} ocenę okresową. Osoby, którym ją udostępnisz, mogą ją czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć tę ocenę.",
+    "intro_few": "Udostępniasz {{count}} oceny okresowe. Osoby, którym je udostępnisz, mogą je czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć daną ocenę.",
+    "intro_many": "Udostępniasz {{count}} ocen okresowych. Osoby, którym je udostępnisz, mogą je czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć daną ocenę.",
+    "intro_other": "Udostępniasz {{count}} oceny okresowej. Osoby, którym ją udostępnisz, mogą ją czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć tę ocenę.",
+    "maxPeople": "Maksymalnie {{max}} osób naraz.",
+    "subjectWarning_one": "{{names}} jest jedną z osób, których ocenę udostępniasz. Ta osoba będzie mogła ją przeczytać, także oceny, które nie są jeszcze dla niej opublikowane.",
+    "subjectWarning_few": "{{names}} są wśród osób, których oceny udostępniasz. Te osoby będą mogły przeczytać swoje oceny, także oceny, które nie są jeszcze dla nich opublikowane.",
+    "subjectWarning_many": "{{names}} są wśród osób, których oceny udostępniasz. Te osoby będą mogły przeczytać swoje oceny, także oceny, które nie są jeszcze dla nich opublikowane.",
+    "subjectWarning_other": "{{names}} są wśród osób, których oceny udostępniasz. Te osoby będą mogły przeczytać swoje oceny, także oceny, które nie są jeszcze dla nich opublikowane.",
+    "moreNames": "{{names}} i {{count}} więcej",
+    "chunkHint": "Zaznaczenie liczące więcej niż {{max}} ocen jest wysyłane w {{batches}} paczkach, więc każdy odbiorca dostaje jedno powiadomienie na paczkę.",
+    "result": {
+      "created": "Nowe udostępnienia: {{count}}",
+      "nothing": "Nie ma nowych udostępnień.",
+      "alreadyTitle": "Już udostępnione — bez zmian (także data końcowa):",
+      "alreadyLine": "{{person}} — już udostępnione odbiorcom: {{sharees}}",
+      "failedTitle": "Nie udało się udostępnić:",
+      "failedLine_FORBIDDEN": "{{person}}: nie możesz udostępnić tej oceny.",
+      "failedLine_NOT_FOUND": "{{person}}: ta ocena już nie istnieje.",
+      "title": "Wynik"
+    },
+    "partial_one": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} ocena.",
+    "partial_few": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czekają jeszcze {{count}} oceny.",
+    "partial_many": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} ocen.",
+    "partial_other": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} oceny.",
+    "retry_one": "Ponów dla pozostałej {{count}} oceny",
+    "retry_few": "Ponów dla pozostałych {{count}} ocen",
+    "retry_many": "Ponów dla pozostałych {{count}} ocen",
+    "retry_other": "Ponów dla pozostałych {{count}} oceny",
+    "error": {
+      "forbidden": "Nie możesz udostępnić żadnej z tych ocen.",
+      "notFound": "Żadna z tych ocen już nie istnieje.",
+      "invalid": "Serwer odrzucił żądanie. Sprawdź datę końcową i wybrane osoby.",
+      "rateLimited": "Udostępniasz zbyt szybko. Spróbuj ponownie za minutę.",
+      "failed": "Nie udało się udostępnić. Spróbuj ponownie.",
+      "failedStatus": "Nie udało się udostępnić (HTTP {{status}})."
+    },
+    "backToForm": "Zmień i spróbuj ponownie"
   }
 }

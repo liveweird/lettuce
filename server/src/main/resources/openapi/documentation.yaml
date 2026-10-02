@@ -4214,6 +4214,63 @@ paths:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/performance-reviews/share-candidates:
+    get:
+      tags: [performance-reviews]
+      operationId: listPerformanceReviewShareCandidates
+      summary: The mass-share picker's dataset for one review period
+      description: |
+        The data source of "Share reviews..." (v4.10.0): one row per non-deleted person in the
+        authenticated caller's **transitive management chain** (reports of reports included;
+        deactivated accounts included with `deactivated: true`), each with their teams, direct
+        managers, current career triple and the review the person has in the given period, plus
+        whether the caller can share it. Rows are sorted by name (case-insensitive), then id.
+
+        **Caller-relative, no role widening** (the `/career/pyramid` rule): any authenticated
+        caller with the PERFORMANCE_REVIEWS feature enabled may ask; a caller who manages nobody
+        gets an empty list (no `403`); HR and ADMIN see exactly their own chain, and the read is
+        not audit-logged — every row is the caller's own chain, so `seniorityLevel` is always
+        attached (the seniority-visibility rule is satisfied by construction).
+
+        **`shareable`** is the own-right rule of document sharing computed server-side: the
+        caller reads the review in their own right, the HR role not counting — i.e. they authored
+        it, or it has left DRAFT. A person with no review in the period has `review: null`,
+        `shareable: false`, `reason: NO_REVIEW`. Another chain manager's **DRAFT** is returned as a
+        **stub** — `review` carries `status` and the author's `managerName` ONLY (`id`, `managerId`
+        and every rating are `null`), `shareable: false`, `reason: UNREADABLE_DRAFT`. That the
+        draft exists and who is writing it is a deliberate, registered existence disclosure
+        (API-ERR-006: the create-time `409` already tells a chain manager a review exists — also
+        for deactivated reports, where no `409` applies); the ratings of a
+        readable review ride along exactly as in the managed list rows, never the summaries.
+
+        A missing, malformed or unknown `periodId` is `400` (a query-parameter reference, decided
+        before anything else).
+
+        **Unpaged** — bounded by the caller's chain, a plain `{ periodId, items }` wrapper
+        (API-STRUCT-004's unpaged exception, the `/career/pyramid` shape); the SPA filters and
+        pages it client-side.
+      parameters:
+        - name: periodId
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 0 }
+          description: The review period to look the people's reviews up in.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareCandidateList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The PERFORMANCE_REVIEWS feature is disabled for the caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/performance-reviews/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -6397,6 +6454,74 @@ paths:
           description: >-
             An active share of this document by the caller to that person already exists
             (`instance` points at it)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/shares/batch:
+    post:
+      tags: [shares]
+      operationId: createShareBatch
+      summary: Share many documents of one kind with several people at once (mass share)
+      description: |
+        Mass share (v4.10.0): shares up to 200 documents of ONE kind with up to 20 people in a
+        single call — one `document_shares` row per (document, person), each an ordinary share
+        (withdrawn, listed and lapsing exactly like a share made through `POST /api/v1/shares`).
+        Only `PERFORMANCE_REVIEW` is batchable today; every other `resourceType` is `400`. The call
+        counts as ONE request against its OWN per-caller rate limit (default 10/min, independent
+        of the bucket `POST /api/v1/shares` and the withdraw action share — `429` beyond it).
+
+        Evaluated in this order: a malformed body is the one `400` that precedes the gates →
+        the caller's feature flag for the area (`403`) → the kind must be batchable (`400`) → the
+        list shape (`400`: 1–200 `resourceIds`, 1–20 `shareeIds`, no duplicates — declared on the
+        schema, so the malformed-body class) → each document in request order: read through its
+        feature, then the **own-right** rule of `POST /api/v1/shares` (HR-auditor-only access and
+        access that came from a share cannot be shared) — a missing document is a `NOT_FOUND`
+        item, an unreadable one a `FORBIDDEN` item (the same read-before-guard existence idiom as
+        the single share: ids are sequential, existence is no secret, never content) → if NO
+        document is shareable the whole request is `403` (at least one was `FORBIDDEN`) or `404`
+        (all missing) — before any semantic `400`, so a caller without the right learns nothing
+        about them → validation (`400`, after the guard): `expiresOn` must be a strict ISO date not
+        before the server's today, and every sharee must exist, be active and not be the caller →
+        the create: ONE locked transaction (a failure creates nothing), idempotent in effect — an
+        already-ACTIVE share of the same document by the same sharer to the same sharee is
+        reported `ALREADY_SHARED` with the existing share's id and never duplicated, so a replay
+        creates nothing. Per-item problems never fail the call: it answers `200` with an itemized
+        report whenever at least one document was shareable.
+
+        Each sharee who received at least one NEW share gets exactly ONE summary notification
+        (`PERFORMANCE_REVIEWS_BATCH_SHARED`, with the number of reviews shared with them) — never the per-share
+        notice. A batch counts as ONE notice against the per-(sharer, sharee) daily notification
+        cap; a sharee whose cap is exhausted still gets the shares, silently. The call is audited
+        as a single `share.batch_created` event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareBatchRequest'
+      responses:
+        '200':
+          description: >-
+            The itemized report (at least one document was shareable; per-item `FORBIDDEN` /
+            `NOT_FOUND` / `ALREADY_SHARED` are reported, never an error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareBatchResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: >-
+            The caller's feature flag for the area is off, or none of the named documents can be
+            read in their own right
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404':
+          description: None of the named documents exists
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
@@ -9794,6 +9919,88 @@ components:
         createdAt: { type: integer, format: int64 }
         lastModified: { type: integer, format: int64 }
 
+    ShareCandidateList:
+      type: object
+      required: [periodId, items]
+      properties:
+        periodId: { type: integer, format: int32, minimum: 0 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ShareCandidate' }
+          description: Unpaged; sorted by name (case-insensitive), then id.
+
+    ShareCandidate:
+      type: object
+      required: [userId, name, email, deactivated, teams, directManagers, careerPath,
+        careerSpecialization, seniorityLevel, review, shareable, reason]
+      properties:
+        userId: { type: integer, format: int32, minimum: 0 }
+        name: { type: string }
+        email: { type: string }
+        deactivated:
+          type: boolean
+          description: True for a deactivated account (still listed — the pyramid rule).
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: The non-deleted teams the person is a member of, name-ascending.
+        directManagers:
+          type: array
+          items: { $ref: '#/components/schemas/UserRef' }
+          description: >-
+            The managers of those teams, minus the person themselves; the caller appears as
+            themselves, a manager outside the caller's chain is listed too.
+        careerPath:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: From the person's CURRENT career position; null when none recorded.
+        careerSpecialization:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        seniorityLevel:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: Always attached — every row is the caller's own chain.
+        review:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/ShareCandidateReview' } ]
+          description: The person's review in the requested period; null = none.
+        shareable:
+          type: boolean
+          description: True exactly when the caller can share the review (it exists and they read it in their own right).
+        reason:
+          type: string
+          nullable: true
+          enum: [NO_REVIEW, UNREADABLE_DRAFT]
+          description: Why the row is not shareable; null exactly when `shareable` is true.
+
+    ShareCandidateReview:
+      type: object
+      required: [id, status, managerId, managerName, attitudeRating, deliveryRating,
+        skillsRating, aptitudeRating, overallRating]
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: Null on the stub of another manager's DRAFT (never disclosed).
+        status:
+          type: string
+          enum: [DRAFT, CALIBRATION, PUBLISHED]
+        managerId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: Null on the stub of another manager's DRAFT (only the author's name is disclosed).
+        managerName: { type: string }
+        attitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        deliveryRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        skillsRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        aptitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        overallRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+
     PerformanceReviewPage:
       type: object
       required: [items, page, pageSize, total]
@@ -10358,6 +10565,7 @@ components:
         - TEAM_KPI_SHARE_WITHDRAWN
         - PERFORMANCE_REVIEW_SHARED
         - PERFORMANCE_REVIEW_SHARE_WITHDRAWN
+        - PERFORMANCE_REVIEWS_BATCH_SHARED
         - IMPACT_ENTRY_SHARED
         - IMPACT_ENTRY_SHARE_WITHDRAWN
         - SUCCESSION_PLAN_SHARED
@@ -10408,7 +10616,9 @@ components:
             The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
             owner's name and the entry's raw ISO period bounds (never section text).
             The `*_SHARED` kinds (v4.8.0, document sharing) carry `{sharer}` plus the raw ISO
-            `expiresOn` when the share has an end date; the `*_SHARE_WITHDRAWN` kinds carry
+            `expiresOn` when the share has an end date; `PERFORMANCE_REVIEWS_BATCH_SHARED` (v4.10.0,
+            the mass-share summary — one per sharee per batch) carries `{sharer,count}` plus
+            `expiresOn` when bound and links to `/shares`; the `*_SHARE_WITHDRAWN` kinds carry
             `{sharer,sharee,actor}`, and the sharer's own copy (minted only when someone else —
             the document's author — withdrew their share) additionally carries `self: "sharer"`.
             The `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN` kinds are
@@ -10472,6 +10682,89 @@ components:
             Optional end date, inclusive: the share works through the end of that day. A strict
             ISO date not before the server's today (no timezone tolerance) — else `400`.
             Null/absent = open-ended until withdrawn.
+
+    ShareBatchRequest:
+      type: object
+      required: [resourceType, resourceIds, shareeIds]
+      properties:
+        resourceType:
+          $ref: '#/components/schemas/ShareableResourceType'
+        resourceIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          uniqueItems: true
+          items: { type: integer, format: int32, minimum: 0 }
+          description: The documents to share (all of `resourceType`), in the order the report follows.
+        shareeIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { type: integer, format: int32, minimum: 0 }
+          description: The people to share with — active users other than the caller.
+        expiresOn:
+          type: string
+          format: date
+          nullable: true
+          maxLength: 10
+          description: >-
+            Optional end date for every share of the batch, inclusive. A strict ISO date not
+            before the server's today (no timezone tolerance) — else `400`. Null/absent =
+            open-ended until withdrawn.
+
+    ShareBatchItemStatus:
+      type: string
+      enum: [CREATED, ALREADY_SHARED, FORBIDDEN, NOT_FOUND]
+      description: >-
+        `CREATED` and `ALREADY_SHARED` are per (document, person) pair; `FORBIDDEN` (the caller
+        cannot read the document in their own right) and `NOT_FOUND` are per document.
+        `ALREADY_SHARED` leaves the existing ACTIVE share exactly as it is — its end date included:
+        the batch's `expiresOn` is NOT applied to it (withdraw it and share again to change it).
+
+    ShareBatchItem:
+      type: object
+      required: [resourceId, status]
+      properties:
+        resourceId: { type: integer, format: int32, minimum: 0 }
+        shareeId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The person of the pair; null for a `FORBIDDEN` / `NOT_FOUND` document.
+        status: { $ref: '#/components/schemas/ShareBatchItemStatus' }
+        shareId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: >-
+            The new share (`CREATED`) or the existing ACTIVE share that blocked the pair
+            (`ALREADY_SHARED` — left unchanged, its own end date kept, the batch's `expiresOn`
+            not applied); null for `FORBIDDEN` / `NOT_FOUND`.
+
+    ShareBatchResponse:
+      type: object
+      required: [items, created, alreadyShared, forbidden, notFound]
+      properties:
+        batchId:
+          type: string
+          nullable: true
+          description: >-
+            The id (a UUID) stamped on every row this call created — the join key of the
+            `share.batch_created` audit event. Null when nothing was created (a pure replay): no
+            batch exists then.
+        items:
+          type: array
+          description: >-
+            In request order: per document, one item per sharee (`CREATED` / `ALREADY_SHARED`),
+            or ONE item with a null `shareeId` for a `FORBIDDEN` / `NOT_FOUND` document.
+          items: { $ref: '#/components/schemas/ShareBatchItem' }
+        created: { type: integer, minimum: 0, description: "Number of `CREATED` items." }
+        alreadyShared: { type: integer, minimum: 0, description: "Number of `ALREADY_SHARED` items." }
+        forbidden: { type: integer, minimum: 0, description: "Number of `FORBIDDEN` items (documents)." }
+        notFound: { type: integer, minimum: 0, description: "Number of `NOT_FOUND` items (documents)." }
 
     ShareResponse:
       type: object
@@ -11079,6 +11372,13 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PulseTrendPoint' }
           description: Non-cancelled CLOSED cycles, oldest first.
+
+    UserRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        name: { type: string }
 
     TeamRef:
       type: object

@@ -7,6 +7,7 @@ import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService
 import java.time.LocalDate
+import java.util.UUID
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
@@ -57,6 +58,25 @@ sealed interface ShareCreateOutcome {
     /** An ACTIVE share of the same document by the same sharer to the same sharee exists. */
     data class Duplicate(val existingId: UInt) : ShareCreateOutcome
 }
+
+/** One (document, sharee) pair a batch inserted; [id] is the new `document_shares` row. */
+data class ShareBatchCreated(val resourceId: UInt, val shareeId: UInt, val id: UInt)
+
+/** One (document, sharee) pair a batch skipped because an ACTIVE share already exists ([existingId]). */
+data class ShareBatchDuplicate(val resourceId: UInt, val shareeId: UInt, val existingId: UInt)
+
+/**
+ * What [ShareService.createBatch] did. [batchId] is the `document_shares.batch_id` stamped on every
+ * row in [created] (empty when everything was a duplicate); [notifiedSharees] = the sharees with at
+ * least one created pair whose per-pair daily cap still had room — the ones the route mints the ONE
+ * summary notification for.
+ */
+data class ShareBatchOutcome(
+    val batchId: String,
+    val created: List<ShareBatchCreated>,
+    val duplicates: List<ShareBatchDuplicate>,
+    val notifiedSharees: Set<UInt>,
+)
 
 sealed interface ShareWithdrawOutcome {
     /**
@@ -112,6 +132,9 @@ class ShareService(
         val withdrawnAt = long("withdrawn_at").nullable()
         val withdrawnBy = reference("withdrawn_by", UserService.Users).nullable()
         val details = text("details").nullable()
+
+        /** V91 (v4.10.0): the UUID of the mass share that created the row; null for single shares. */
+        val batchId = varchar("batch_id", length = 36).nullable()
     }
 
     /**
@@ -142,24 +165,30 @@ class ShareService(
     }
 
     /**
-     * The per-(sharer, sharee) flood-cap count, ONE query: every share the sharer CREATED for the
-     * sharee in the last 24 h (a SHARED notice) plus every one WITHDRAWN in it (a WITHDRAWN notice),
-     * summed as two CASE terms per row so a row that was both created and withdrawn in the window
-     * counts twice. Silent operations (capped, already-expired withdrawals) still count — the cap is
-     * slightly stricter than "notices actually sent", the safe direction. Runs inside the callers'
-     * locked transaction and BEFORE their own insert/stamp, so the current operation is not counted.
+     * The per-(sharer, sharee) flood-cap count, ONE query: the number of NOTICES the sharer caused
+     * for the sharee in the last 24 h — every distinct creation notice (a single share is its own
+     * notice; all rows of one batch share a `batch_id` and count as ONE, because a batch mints one
+     * summary notification: `COUNT(DISTINCT COALESCE(batch_id, id::text))` over the rows created in
+     * the window) plus every share WITHDRAWN in it (each withdrawal is its own notice, per row, so
+     * a row both created and withdrawn in the window counts twice). Silent operations (capped,
+     * already-expired withdrawals) still count — the cap is slightly stricter than "notices
+     * actually sent", the safe direction. Runs inside the callers' locked transaction and BEFORE
+     * their own insert/stamp, so the current operation is not counted.
      */
     private suspend fun notificationsInWindow(sharerId: UInt, shareeId: UInt): Long {
         val since = System.currentTimeMillis() - DAY_MILLIS
-        val createdTerm = Case().When(DocumentShares.createdAt greaterEq since, intLiteral(1)).Else(intLiteral(0))
+        val noticeKey = Coalesce(DocumentShares.batchId, DocumentShares.id.castTo(VarCharColumnType()))
+        val createdNotices = Count(
+            Case().When(DocumentShares.createdAt greaterEq since, noticeKey).Else(Op.nullOp<String>()),
+            distinct = true,
+        )
         val withdrawnTerm = Case().When(DocumentShares.withdrawnAt greaterEq since, intLiteral(1)).Else(intLiteral(0))
-        val total = (createdTerm + withdrawnTerm).sum()
-        return DocumentShares.select(total)
+        val withdrawnNotices = withdrawnTerm.sum()
+        return DocumentShares.select(createdNotices, withdrawnNotices)
             .where { (DocumentShares.sharerId eq sharerId) and (DocumentShares.shareeId eq shareeId) }
-            .map { it[total] }
+            .map { (it[createdNotices]) + (it[withdrawnNotices] ?: 0) }
             .toList()
-            .singleOrNull()
-            ?.toLong() ?: 0L
+            .singleOrNull() ?: 0L
     }
 
     /**
@@ -210,6 +239,79 @@ class ShareService(
                 it[DocumentShares.details] = details?.let(::encodeParams)
             }[DocumentShares.id].value
             ShareCreateOutcome.Created(id, notify)
+        }
+    }
+
+    /**
+     * Mass share (v4.10.0): creates one share per (document, sharee) pair of [resourceIds] ×
+     * [shareeIds] in ONE transaction behind the same per-sharer advisory lock as [create], so a
+     * concurrent identical batch yields exactly one set of rows (the other sees all duplicates) and
+     * a failure part-way creates nothing. Pairs with an ACTIVE share by the sharer are skipped and
+     * reported as [ShareBatchOutcome.duplicates] with the existing id; expired/withdrawn rows never
+     * block. Every inserted row carries ONE fresh `batch_id` and ONE `created_at`, so the per-pair
+     * cap (see [notificationsInWindow]) counts the whole batch as a single notice. The cap is
+     * decided per sharee BEFORE the inserts, inside the lock; [details] is the creation-time label
+     * snapshot per document (a document absent from the map stores none).
+     */
+    suspend fun createBatch(
+        type: ShareableResourceType,
+        resourceIds: List<UInt>,
+        sharerId: UInt,
+        shareeIds: List<UInt>,
+        expiresOn: String?,
+        details: Map<UInt, Map<String, String>> = emptyMap(),
+        notificationCap: Int = Int.MAX_VALUE,
+    ): ShareBatchOutcome {
+        val newBatchId = UUID.randomUUID().toString()
+        val documents = resourceIds.distinct()
+        val sharees = shareeIds.distinct()
+        if (documents.isEmpty() || sharees.isEmpty()) {
+            return ShareBatchOutcome(newBatchId, emptyList(), emptyList(), emptySet())
+        }
+        val todayIso = today().toString()
+        return suspendTransaction(database) {
+            lockSharer(sharerId)
+            val existing = DocumentShares.select(
+                DocumentShares.id,
+                DocumentShares.resourceId,
+                DocumentShares.shareeId,
+            )
+                .where {
+                    (DocumentShares.resourceType eq type.name) and
+                        (DocumentShares.resourceId inList documents) and
+                        (DocumentShares.sharerId eq sharerId) and
+                        (DocumentShares.shareeId inList sharees) and
+                        activeOp(todayIso)
+                }
+                .orderBy(DocumentShares.id to SortOrder.ASC)
+                .map { Triple(it[DocumentShares.resourceId], it[DocumentShares.shareeId].value, it[DocumentShares.id].value) }
+                .toList()
+                .groupBy { it.first to it.second }
+                .mapValues { (_, rows) -> rows.first().third }
+            val pairs = documents.flatMap { doc -> sharees.map { doc to it } }
+            val (skipped, fresh) = pairs.partition { it in existing }
+            val duplicates = skipped.map { (doc, sharee) -> ShareBatchDuplicate(doc, sharee, existing.getValue(doc to sharee)) }
+            val notified = fresh.map { it.second }.distinct()
+                .filter { notificationsInWindow(sharerId, it) < notificationCap }
+                .toSet()
+            val stamp = System.currentTimeMillis()
+            val inserted = if (fresh.isEmpty()) {
+                emptyList()
+            } else {
+                DocumentShares.batchInsert(fresh) { (doc, sharee) ->
+                    this[DocumentShares.resourceType] = type.name
+                    this[DocumentShares.resourceId] = doc
+                    this[DocumentShares.sharerId] = sharerId
+                    this[DocumentShares.shareeId] = sharee
+                    this[DocumentShares.expiresOn] = expiresOn
+                    this[DocumentShares.createdAt] = stamp
+                    this[DocumentShares.details] = details[doc]?.let(::encodeParams)
+                    this[DocumentShares.batchId] = newBatchId
+                }
+            }
+            check(inserted.size == fresh.size) { "batch insert returned ${inserted.size} ids for ${fresh.size} rows" }
+            val created = fresh.zip(inserted) { (doc, sharee), row -> ShareBatchCreated(doc, sharee, row[DocumentShares.id].value) }
+            ShareBatchOutcome(newBatchId, created, duplicates, notified)
         }
     }
 
