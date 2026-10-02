@@ -4186,6 +4186,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shares/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share many documents of one kind with several people at once (mass share)
+         * @description Mass share (v4.10.0): shares up to 200 documents of ONE kind with up to 20 people in a
+         *     single call — one `document_shares` row per (document, person), each an ordinary share
+         *     (withdrawn, listed and lapsing exactly like a share made through `POST /api/v1/shares`).
+         *     Only `PERFORMANCE_REVIEW` is batchable today; every other `resourceType` is `400`. The call
+         *     counts as ONE request against the per-caller share rate limit (default 60/min, shared
+         *     with `POST /api/v1/shares` and the withdraw action — `429` beyond it).
+         *
+         *     Evaluated in this order: a malformed body is the one `400` that precedes the gates →
+         *     the caller's feature flag for the area (`403`) → the kind must be batchable (`400`) → the
+         *     list shape (`400`: 1–200 `resourceIds`, 1–20 `shareeIds`, no duplicates — declared on the
+         *     schema, so the malformed-body class) → each document in request order: read through its
+         *     feature, then the **own-right** rule of `POST /api/v1/shares` (HR-auditor-only access and
+         *     access that came from a share cannot be shared) — a missing document is a `NOT_FOUND`
+         *     item, an unreadable one a `FORBIDDEN` item (the same read-before-guard existence idiom as
+         *     the single share: ids are sequential, existence is no secret, never content) → if NO
+         *     document is shareable the whole request is `403` (at least one was `FORBIDDEN`) or `404`
+         *     (all missing) — before any semantic `400`, so a caller without the right learns nothing
+         *     about them → validation (`400`, after the guard): `expiresOn` must be a strict ISO date not
+         *     before the server's today, and every sharee must exist, be active and not be the caller →
+         *     the create: ONE locked transaction (a failure creates nothing), idempotent in effect — an
+         *     already-ACTIVE share of the same document by the same sharer to the same sharee is
+         *     reported `ALREADY_SHARED` with the existing share's id and never duplicated, so a replay
+         *     creates nothing. Per-item problems never fail the call: it answers `200` with an itemized
+         *     report whenever at least one document was shareable.
+         *
+         *     Each sharee who received at least one NEW share gets exactly ONE summary notification
+         *     (`PERFORMANCE_REVIEWS_BATCH_SHARED`, with the number of reviews shared with them) — never the per-share
+         *     notice. A batch counts as ONE notice against the per-(sharer, sharee) daily notification
+         *     cap; a sharee whose cap is exhausted still gets the shares, silently. The call is audited
+         *     as a single `share.batch_created` event.
+         */
+        post: operations["createShareBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shares/{id}": {
         parameters: {
             query?: never;
@@ -6806,6 +6855,52 @@ export interface components {
              * @description Optional end date, inclusive: the share works through the end of that day. A strict ISO date not before the server's today (no timezone tolerance) — else `400`. Null/absent = open-ended until withdrawn.
              */
             expiresOn?: string | null;
+        };
+        ShareBatchRequest: {
+            resourceType: components["schemas"]["ShareableResourceType"];
+            /** @description The documents to share (all of `resourceType`), in the order the report follows. */
+            resourceIds: number[];
+            /** @description The people to share with — active users other than the caller. */
+            shareeIds: number[];
+            /**
+             * Format: date
+             * @description Optional end date for every share of the batch, inclusive. A strict ISO date not before the server's today (no timezone tolerance) — else `400`. Null/absent = open-ended until withdrawn.
+             */
+            expiresOn?: string | null;
+        };
+        /**
+         * @description `CREATED` and `ALREADY_SHARED` are per (document, person) pair; `FORBIDDEN` (the caller cannot read the document in their own right) and `NOT_FOUND` are per document. `ALREADY_SHARED` leaves the existing ACTIVE share exactly as it is — its end date included: the batch's `expiresOn` is NOT applied to it (withdraw it and share again to change it).
+         * @enum {string}
+         */
+        ShareBatchItemStatus: "CREATED" | "ALREADY_SHARED" | "FORBIDDEN" | "NOT_FOUND";
+        ShareBatchItem: {
+            /** Format: int32 */
+            resourceId: number;
+            /**
+             * Format: int32
+             * @description The person of the pair; null for a `FORBIDDEN` / `NOT_FOUND` document.
+             */
+            shareeId?: number | null;
+            status: components["schemas"]["ShareBatchItemStatus"];
+            /**
+             * Format: int32
+             * @description The new share (`CREATED`) or the existing ACTIVE share that blocked the pair (`ALREADY_SHARED` — left unchanged, its own end date kept, the batch's `expiresOn` not applied); null for `FORBIDDEN` / `NOT_FOUND`.
+             */
+            shareId?: number | null;
+        };
+        ShareBatchResponse: {
+            /** @description The id (a UUID) stamped on every row this call created — the join key of the `share.batch_created` audit event. Null when nothing was created (a pure replay): no batch exists then. */
+            batchId?: string | null;
+            /** @description In request order: per document, one item per sharee (`CREATED` / `ALREADY_SHARED`), or ONE item with a null `shareeId` for a `FORBIDDEN` / `NOT_FOUND` document. */
+            items: components["schemas"]["ShareBatchItem"][];
+            /** @description Number of `CREATED` items. */
+            created: number;
+            /** @description Number of `ALREADY_SHARED` items. */
+            alreadyShared: number;
+            /** @description Number of `FORBIDDEN` items (documents). */
+            forbidden: number;
+            /** @description Number of `NOT_FOUND` items (documents). */
+            notFound: number;
         };
         ShareResponse: {
             /** Format: int32 */
@@ -13851,6 +13946,52 @@ export interface operations {
             };
             /** @description An active share of this document by the caller to that person already exists (`instance` points at it) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createShareBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description The itemized report (at least one document was shareable; per-item `FORBIDDEN` / `NOT_FOUND` / `ALREADY_SHARED` are reported, never an error) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareBatchResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The caller's feature flag for the area is off, or none of the named documents can be read in their own right */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description None of the named documents exists */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

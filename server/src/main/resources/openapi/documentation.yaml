@@ -6403,6 +6403,74 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/shares/batch:
+    post:
+      tags: [shares]
+      operationId: createShareBatch
+      summary: Share many documents of one kind with several people at once (mass share)
+      description: |
+        Mass share (v4.10.0): shares up to 200 documents of ONE kind with up to 20 people in a
+        single call — one `document_shares` row per (document, person), each an ordinary share
+        (withdrawn, listed and lapsing exactly like a share made through `POST /api/v1/shares`).
+        Only `PERFORMANCE_REVIEW` is batchable today; every other `resourceType` is `400`. The call
+        counts as ONE request against the per-caller share rate limit (default 60/min, shared
+        with `POST /api/v1/shares` and the withdraw action — `429` beyond it).
+
+        Evaluated in this order: a malformed body is the one `400` that precedes the gates →
+        the caller's feature flag for the area (`403`) → the kind must be batchable (`400`) → the
+        list shape (`400`: 1–200 `resourceIds`, 1–20 `shareeIds`, no duplicates — declared on the
+        schema, so the malformed-body class) → each document in request order: read through its
+        feature, then the **own-right** rule of `POST /api/v1/shares` (HR-auditor-only access and
+        access that came from a share cannot be shared) — a missing document is a `NOT_FOUND`
+        item, an unreadable one a `FORBIDDEN` item (the same read-before-guard existence idiom as
+        the single share: ids are sequential, existence is no secret, never content) → if NO
+        document is shareable the whole request is `403` (at least one was `FORBIDDEN`) or `404`
+        (all missing) — before any semantic `400`, so a caller without the right learns nothing
+        about them → validation (`400`, after the guard): `expiresOn` must be a strict ISO date not
+        before the server's today, and every sharee must exist, be active and not be the caller →
+        the create: ONE locked transaction (a failure creates nothing), idempotent in effect — an
+        already-ACTIVE share of the same document by the same sharer to the same sharee is
+        reported `ALREADY_SHARED` with the existing share's id and never duplicated, so a replay
+        creates nothing. Per-item problems never fail the call: it answers `200` with an itemized
+        report whenever at least one document was shareable.
+
+        Each sharee who received at least one NEW share gets exactly ONE summary notification
+        (`PERFORMANCE_REVIEWS_BATCH_SHARED`, with the number of reviews shared with them) — never the per-share
+        notice. A batch counts as ONE notice against the per-(sharer, sharee) daily notification
+        cap; a sharee whose cap is exhausted still gets the shares, silently. The call is audited
+        as a single `share.batch_created` event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareBatchRequest'
+      responses:
+        '200':
+          description: >-
+            The itemized report (at least one document was shareable; per-item `FORBIDDEN` /
+            `NOT_FOUND` / `ALREADY_SHARED` are reported, never an error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareBatchResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: >-
+            The caller's feature flag for the area is off, or none of the named documents can be
+            read in their own right
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404':
+          description: None of the named documents exists
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/shares/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -10475,6 +10543,89 @@ components:
             Optional end date, inclusive: the share works through the end of that day. A strict
             ISO date not before the server's today (no timezone tolerance) — else `400`.
             Null/absent = open-ended until withdrawn.
+
+    ShareBatchRequest:
+      type: object
+      required: [resourceType, resourceIds, shareeIds]
+      properties:
+        resourceType:
+          $ref: '#/components/schemas/ShareableResourceType'
+        resourceIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          uniqueItems: true
+          items: { type: integer, format: int32, minimum: 0 }
+          description: The documents to share (all of `resourceType`), in the order the report follows.
+        shareeIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { type: integer, format: int32, minimum: 0 }
+          description: The people to share with — active users other than the caller.
+        expiresOn:
+          type: string
+          format: date
+          nullable: true
+          maxLength: 10
+          description: >-
+            Optional end date for every share of the batch, inclusive. A strict ISO date not
+            before the server's today (no timezone tolerance) — else `400`. Null/absent =
+            open-ended until withdrawn.
+
+    ShareBatchItemStatus:
+      type: string
+      enum: [CREATED, ALREADY_SHARED, FORBIDDEN, NOT_FOUND]
+      description: >-
+        `CREATED` and `ALREADY_SHARED` are per (document, person) pair; `FORBIDDEN` (the caller
+        cannot read the document in their own right) and `NOT_FOUND` are per document.
+        `ALREADY_SHARED` leaves the existing ACTIVE share exactly as it is — its end date included:
+        the batch's `expiresOn` is NOT applied to it (withdraw it and share again to change it).
+
+    ShareBatchItem:
+      type: object
+      required: [resourceId, status]
+      properties:
+        resourceId: { type: integer, format: int32, minimum: 0 }
+        shareeId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: The person of the pair; null for a `FORBIDDEN` / `NOT_FOUND` document.
+        status: { $ref: '#/components/schemas/ShareBatchItemStatus' }
+        shareId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: >-
+            The new share (`CREATED`) or the existing ACTIVE share that blocked the pair
+            (`ALREADY_SHARED` — left unchanged, its own end date kept, the batch's `expiresOn`
+            not applied); null for `FORBIDDEN` / `NOT_FOUND`.
+
+    ShareBatchResponse:
+      type: object
+      required: [items, created, alreadyShared, forbidden, notFound]
+      properties:
+        batchId:
+          type: string
+          nullable: true
+          description: >-
+            The id (a UUID) stamped on every row this call created — the join key of the
+            `share.batch_created` audit event. Null when nothing was created (a pure replay): no
+            batch exists then.
+        items:
+          type: array
+          description: >-
+            In request order: per document, one item per sharee (`CREATED` / `ALREADY_SHARED`),
+            or ONE item with a null `shareeId` for a `FORBIDDEN` / `NOT_FOUND` document.
+          items: { $ref: '#/components/schemas/ShareBatchItem' }
+        created: { type: integer, minimum: 0, description: "Number of `CREATED` items." }
+        alreadyShared: { type: integer, minimum: 0, description: "Number of `ALREADY_SHARED` items." }
+        forbidden: { type: integer, minimum: 0, description: "Number of `FORBIDDEN` items (documents)." }
+        notFound: { type: integer, minimum: 0, description: "Number of `NOT_FOUND` items (documents)." }
 
     ShareResponse:
       type: object

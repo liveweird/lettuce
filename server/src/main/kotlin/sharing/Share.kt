@@ -112,6 +112,59 @@ data class ShareRequest(
     val expiresOn: String? = null,
 )
 
+/** Mass share (v4.10.0): the most documents one `POST /shares/batch` call may name. */
+const val MAX_BATCH_SHARE_RESOURCES = 200
+
+/** Mass share (v4.10.0): the most sharees one `POST /shares/batch` call may name. */
+const val MAX_BATCH_SHARE_SHAREES = 20
+
+/**
+ * Mass share (v4.10.0) — many documents of ONE kind × many sharees in one call (at most
+ * [MAX_BATCH_SHARE_RESOURCES] × [MAX_BATCH_SHARE_SHAREES] = 4,000 pairs). The list-size and
+ * uniqueness rules are schema-declared (`minItems`/`maxItems`/`uniqueItems`), so a violation is
+ * the "malformed body" class of 400, enforced by [validateShareBatchShape].
+ */
+@Serializable
+data class ShareBatchRequest(
+    val resourceType: ShareableResourceType,
+    val resourceIds: List<UInt>,
+    val shareeIds: List<UInt>,
+    /** Strict ISO date, inclusive through that day; null = open-ended — same rule as [ShareRequest]. */
+    val expiresOn: String? = null,
+)
+
+/** The per-item outcome of a mass share; `CREATED`/`ALREADY_SHARED` are per (document, sharee) pair. */
+@Serializable
+enum class ShareBatchItemStatus { CREATED, ALREADY_SHARED, FORBIDDEN, NOT_FOUND }
+
+/**
+ * One line of a mass-share report. `CREATED`/`ALREADY_SHARED` name the pair and the share's id
+ * (the new row, or the existing ACTIVE one); `FORBIDDEN`/`NOT_FOUND` are per document, with a
+ * null [shareeId] and [shareId].
+ */
+@Serializable
+data class ShareBatchItem(
+    val resourceId: UInt,
+    val shareeId: UInt?,
+    val status: ShareBatchItemStatus,
+    val shareId: UInt?,
+)
+
+/**
+ * The mass-share report. [batchId] is the `document_shares.batch_id` of every `CREATED` row, null
+ * when nothing was created (a pure replay) — no id for a batch that does not exist. The four
+ * counts equal the number of [items] with that status.
+ */
+@Serializable
+data class ShareBatchResponse(
+    val batchId: String?,
+    val items: List<ShareBatchItem>,
+    val created: Int,
+    val alreadyShared: Int,
+    val forbidden: Int,
+    val notFound: Int,
+)
+
 @Serializable
 data class ShareResponse(
     val id: UInt,
@@ -151,4 +204,20 @@ internal fun validateShareExpiry(expiresOn: String?, today: LocalDate) {
     if (expiresOn == null) return
     val parsed = parseIsoDateStrict(expiresOn, "expiresOn")
     if (parsed < today) throw BadRequestException("expiresOn must not be in the past")
+}
+
+/**
+ * The mass-share list-shape rule (schema-declared, the malformed-body class of 400): 1..
+ * [MAX_BATCH_SHARE_RESOURCES] documents and 1..[MAX_BATCH_SHARE_SHAREES] sharees, no duplicate id
+ * in either list. Runs BEFORE any per-document work, so an oversized request never costs a read.
+ */
+internal fun validateShareBatchShape(resourceIds: List<UInt>, shareeIds: List<UInt>) {
+    if (resourceIds.isEmpty() || resourceIds.size > MAX_BATCH_SHARE_RESOURCES) {
+        throw BadRequestException("resourceIds must hold 1 to $MAX_BATCH_SHARE_RESOURCES ids")
+    }
+    if (shareeIds.isEmpty() || shareeIds.size > MAX_BATCH_SHARE_SHAREES) {
+        throw BadRequestException("shareeIds must hold 1 to $MAX_BATCH_SHARE_SHAREES ids")
+    }
+    if (resourceIds.toSet().size != resourceIds.size) throw BadRequestException("resourceIds must not contain duplicates")
+    if (shareeIds.toSet().size != shareeIds.size) throw BadRequestException("shareeIds must not contain duplicates")
 }

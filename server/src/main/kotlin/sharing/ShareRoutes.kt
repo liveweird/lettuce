@@ -5,6 +5,7 @@ import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.NotFoundException
+import ch.nokillswit.authz.UnauthorizedException
 import ch.nokillswit.authz.caller
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.config.optionalConfigInt
@@ -40,6 +41,11 @@ const val SHARES_RATE_LIMIT = "shares"
 @Serializable
 @Resource("/api/v1/shares")
 class Shares {
+    /** `POST /api/v1/shares/batch` (v4.10.0) — a constant segment, so it wins over `{id}` in routing. */
+    @Serializable
+    @Resource("batch")
+    class Batch(val parent: Shares = Shares())
+
     @Serializable
     @Resource("{id}")
     class Id(val parent: Shares = Shares(), val id: UInt) {
@@ -104,6 +110,15 @@ private fun ShareRecord.toResponse(link: String) = ShareResponse(
  * `POST` has to receive its body first (the type that picks the feature flag and the adapter
  * lives IN it), so a malformed body is the one 400 that precedes the gates. Every
  * [ShareableResourceType] has an adapter ([ShareRegistry] is complete by construction).
+ *
+ * `POST /api/v1/shares/batch` (v4.10.0, mass share) evaluates in this order: malformed body 400 →
+ * the caller's feature flag for the area 403 → the kind must be batchable (400) → the list shape
+ * (sizes/duplicates, schema-declared, 400) → per document in request order: read (missing = a
+ * `NOT_FOUND` item) then the own-right guard (failing = a `FORBIDDEN` item) → NO shareable
+ * document at all is the whole-request 403 (any `FORBIDDEN`) or 404 (all missing), BEFORE any
+ * semantic 400, so a caller with no right learns nothing about them → semantic validation 400
+ * (`expiresOn`, sharees ≠ caller, existing, active) → one locked transaction → ONE `share.batch_created`
+ * audit event (never per-share `share.created`) → one summary notification per notified sharee.
  */
 fun Application.configureShareRoutes() {
     val shareService = attributes[ShareServiceKey]
@@ -153,6 +168,111 @@ fun Application.configureShareRoutes() {
         if (document.isAuthor(caller.userId)) return null
         if (shareAccess.holdsOwnRight(caller, type) { document.guard(it) }) return caller.userId
         throw ForbiddenException("Only someone who can read this document in their own right may list its shares")
+    }
+
+    // Mass share (v4.10.0) — the contract of the order is in the KDoc above and `.claude/docs/features/sharing.md`.
+    suspend fun shareBatch(caller: CallerPrincipal, request: ShareBatchRequest): ShareBatchResponse {
+        val type = request.resourceType
+        requireFeatureEnabled(caller, type.feature)
+        val summaryType = type.batchSharedNotification
+            ?: throw BadRequestException("Batch sharing is not available for this document kind")
+        validateShareBatchShape(request.resourceIds, request.shareeIds)
+
+        // Per document, in request order: missing -> NOT_FOUND, not readable in the caller's OWN right -> FORBIDDEN.
+        val shareable = LinkedHashMap<UInt, ResolvedDocument>()
+        val forbidden = LinkedHashSet<UInt>()
+        val notFound = LinkedHashSet<UInt>()
+        for (resourceId in request.resourceIds) {
+            val document = registry().forType(type).resolve(resourceId)
+            when {
+                document == null -> notFound += resourceId
+                !shareAccess.holdsOwnRight(caller, type) { document.guard(it) } -> forbidden += resourceId
+                else -> shareable[resourceId] = document
+            }
+        }
+        if (shareable.isEmpty()) {
+            if (forbidden.isNotEmpty()) {
+                throw ForbiddenException("You can't share any of these documents in your own right")
+            }
+            throw NotFoundException("None of the documents exist")
+        }
+
+        // After the authz outcome above (403/404 win over 400).
+        validateShareExpiry(request.expiresOn, shareService.today())
+        if (caller.userId in request.shareeIds) throw BadRequestException("A document cannot be shared with yourself")
+        request.shareeIds.forEach { userService.read(it) ?: throw BadRequestException("Referenced user does not exist") }
+        userService.requireNoDeactivatedUsers(request.shareeIds)
+        // The sharer's display name for the summary notices, read BEFORE the commit so a concurrent
+        // soft-delete of the caller cannot turn a committed batch into a post-commit 500.
+        val sharerName = (userService.read(caller.userId) ?: throw UnauthorizedException("Caller no longer exists")).name
+
+        val outcome = shareService.createBatch(
+            type = type,
+            resourceIds = shareable.keys.toList(),
+            sharerId = caller.userId,
+            shareeIds = request.shareeIds,
+            expiresOn = request.expiresOn,
+            details = shareable.mapValues { (_, document) -> document.label() },
+            notificationCap = dailyCap,
+        )
+        // No batch id for a batch that created nothing (a pure replay stores no row to join on).
+        val batchId = outcome.batchId.takeIf { outcome.created.isNotEmpty() }
+        val createdPerSharee = outcome.created.groupingBy { it.shareeId }.eachCount()
+        // `notifiedSharees` already holds only sharees with a created pair; request order keeps it deterministic.
+        val notifiedSharees = request.shareeIds.filter { it in outcome.notifiedSharees }
+        fun ids(values: Collection<UInt>) = values.joinToString(",")
+        audit(
+            "share.batch_created",
+            "byUserId" to caller.userId.toLong(),
+            "batchId" to batchId,
+            "resourceType" to type.name,
+            "resourceIds" to ids(request.resourceIds),
+            "shareeIds" to ids(request.shareeIds),
+            "created" to outcome.created.size,
+            "alreadyShared" to outcome.duplicates.size,
+            "forbidden" to forbidden.size,
+            "notFound" to notFound.size,
+            "forbiddenResourceIds" to ids(forbidden),
+            "notFoundResourceIds" to ids(notFound),
+            "expiresOn" to request.expiresOn,
+            "notifiedShareeIds" to ids(notifiedSharees),
+        )
+        // Best-effort side effect after the commit: ONE summary notice per sharee that got at least one
+        // new share and had cap room — never the per-share SHARED notice, nothing for the others.
+        if (notifiedSharees.isNotEmpty()) {
+            notificationService.createAll(
+                notifiedSharees.map { shareeId ->
+                    batchSharedNotification(summaryType, shareeId, sharerName, createdPerSharee.getValue(shareeId), request.expiresOn)
+                },
+            )
+        }
+
+        val createdByPair = outcome.created.associateBy { it.resourceId to it.shareeId }
+        val duplicateByPair = outcome.duplicates.associateBy { it.resourceId to it.shareeId }
+        val items = request.resourceIds.flatMap { resourceId ->
+            when (resourceId) {
+                in forbidden -> listOf(ShareBatchItem(resourceId, null, ShareBatchItemStatus.FORBIDDEN, null))
+                in notFound -> listOf(ShareBatchItem(resourceId, null, ShareBatchItemStatus.NOT_FOUND, null))
+                else -> request.shareeIds.map { shareeId ->
+                    val pair = resourceId to shareeId
+                    createdByPair[pair]?.let { ShareBatchItem(resourceId, shareeId, ShareBatchItemStatus.CREATED, it.id) }
+                        ?: ShareBatchItem(
+                            resourceId,
+                            shareeId,
+                            ShareBatchItemStatus.ALREADY_SHARED,
+                            duplicateByPair.getValue(pair).existingId,
+                        )
+                }
+            }
+        }
+        return ShareBatchResponse(
+            batchId = batchId,
+            items = items,
+            created = outcome.created.size,
+            alreadyShared = outcome.duplicates.size,
+            forbidden = forbidden.size,
+            notFound = notFound.size,
+        )
     }
 
     routing {
@@ -258,6 +378,9 @@ fun Application.configureShareRoutes() {
                     }
                     call.response.header(HttpHeaders.Location, call.application.href(Shares.Id(id = id)))
                     call.respond(HttpStatusCode.Created, record.toWire())
+                }
+                post<Shares.Batch> {
+                    call.respond(HttpStatusCode.OK, shareBatch(call.caller(), call.receive<ShareBatchRequest>()))
                 }
                 post<Shares.Id.Withdraw> { route ->
                     val caller = call.caller()

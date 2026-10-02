@@ -42,6 +42,9 @@ import ch.nokillswit.reviews.PerformanceReviewResponse
 import ch.nokillswit.reviews.PerformanceReviewStatus
 import ch.nokillswit.reviews.PerformanceReviewUpdateRequest
 import ch.nokillswit.sharing.ShareAccess
+import ch.nokillswit.sharing.ShareBatchItemStatus
+import ch.nokillswit.sharing.ShareBatchRequest
+import ch.nokillswit.sharing.ShareBatchResponse
 import ch.nokillswit.sharing.ShareCreateOutcome
 import ch.nokillswit.sharing.SharePageResponse
 import ch.nokillswit.sharing.ShareRequest
@@ -1412,6 +1415,58 @@ class SharingTest {
             val leftChain = sharee.client.review(w.review.id)
             assertEquals(HttpStatusCode.Forbidden, leftChain.status)
             assertEquals("The person who shared this no longer has access to it", leftChain.detail())
+        }
+
+    @Test
+    fun `reviews - a batch through the real adapter - another manager's DRAFT is FORBIDDEN, a CALIBRATION review is created`() =
+        runBlockingApp {
+            val draft = reviewWorld(stage = PerformanceReviewStatus.DRAFT)
+            val sharee = person("sharee")
+            // A second report of the same manager M, whose review M moves to CALIBRATION.
+            val second = person("second-report")
+            TestServices.teams.create(Team("Squad2-${draft.manager.id}", draft.manager.id, listOf(second.id)))
+            val period = TestReviewPeriods.append()
+            val created = draft.manager.client.post("/api/v1/performance-reviews") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    PerformanceReviewCreateRequest(
+                        subordinateId = second.id,
+                        periodId = period.id,
+                        attitude = CategoryAssessment(3, "a"),
+                        delivery = CategoryAssessment(4, "b"),
+                        skills = CategoryAssessment(5, "c"),
+                        aptitude = CategoryAssessment(5, "d"),
+                        overall = CategoryAssessment(4, "e"),
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.Created, created.status)
+            val calibration = created.body<PerformanceReviewResponse>()
+            assertEquals(HttpStatusCode.NoContent, draft.manager.client.reviewAction(calibration.id, "submit").status)
+
+            // G (M's manager) cannot read M's DRAFT in their own right -> FORBIDDEN; the CALIBRATION one -> CREATED.
+            val response = draft.grand.client.post("/api/v1/shares/batch") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    ShareBatchRequest(
+                        ShareableResourceType.PERFORMANCE_REVIEW,
+                        listOf(draft.review.id, calibration.id),
+                        listOf(sharee.id),
+                    ),
+                )
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val report = response.body<ShareBatchResponse>()
+            assertEquals(listOf(ShareBatchItemStatus.FORBIDDEN, ShareBatchItemStatus.CREATED), report.items.map { it.status })
+            assertEquals(1, report.created)
+            assertEquals(HttpStatusCode.OK, sharee.client.review(calibration.id).status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.review(draft.review.id).status)
+            // The sharer alone (the DRAFT only) gets the whole-request 403.
+            val onlyDraft = draft.grand.client.post("/api/v1/shares/batch") {
+                contentType(ContentType.Application.Json)
+                setBody(ShareBatchRequest(ShareableResourceType.PERFORMANCE_REVIEW, listOf(draft.review.id), listOf(sharee.id)))
+            }
+            assertEquals(HttpStatusCode.Forbidden, onlyDraft.status)
         }
 
     @Test
