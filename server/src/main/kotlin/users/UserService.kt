@@ -10,6 +10,7 @@ import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.teams.TeamRef
 import ch.nokillswit.teams.TeamService
+import ch.nokillswit.teams.teamMembershipsByUserIds
 import ch.nokillswit.teams.transitiveSubordinateIds
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
@@ -485,25 +486,7 @@ class UserService(val database: R2dbcDatabase) {
      * Must run inside a transaction.
      */
     private suspend fun teamRefsByUserIds(ids: List<UInt>): Map<UInt, List<TeamRef>> =
-        if (ids.isEmpty()) emptyMap()
-        else TeamService.TeamMembers
-            .join(
-                TeamService.Teams,
-                JoinType.INNER,
-                onColumn = TeamService.TeamMembers.teamId,
-                otherColumn = TeamService.Teams.id,
-            )
-            .select(TeamService.TeamMembers.userId, TeamService.Teams.id, TeamService.Teams.name)
-            .where {
-                (TeamService.TeamMembers.userId inList ids) and
-                    (TeamService.Teams.markedAsDeleted eq false)
-            }
-            .toList()
-            .groupBy(
-                { it[TeamService.TeamMembers.userId].value },
-                { TeamRef(id = it[TeamService.Teams.id].value, name = it[TeamService.Teams.name]) },
-            )
-            .mapValues { (_, refs) -> refs.sortedBy { r -> r.name } }
+        teamMembershipsByUserIds(ids.toSet()).mapValues { (_, edges) -> edges.map { it.team } }
 
     /** Must run inside a transaction. */
     private suspend fun insertRoles(id: UInt, roles: Set<UserRole>) {
@@ -617,55 +600,6 @@ class UserService(val database: R2dbcDatabase) {
         }
     }
 
-    /** Must run inside a transaction — see [careerProfilesByUserIds]. */
-    private suspend fun currentProfilesByUserIds(ids: Set<UInt>): Map<UInt, CareerProfile> {
-        if (ids.isEmpty()) return emptyMap()
-        val positions = CareerPositionService.CareerPositions
-            .select(
-                CareerPositionService.CareerPositions.userId,
-                CareerPositionService.CareerPositions.startDate,
-                CareerPositionService.CareerPositions.careerPathId,
-                CareerPositionService.CareerPositions.careerSpecializationId,
-                CareerPositionService.CareerPositions.seniorityLevelId,
-            )
-            .where {
-                (CareerPositionService.CareerPositions.userId inList ids) and
-                    (CareerPositionService.CareerPositions.markedAsDeleted eq false)
-            }
-            .map {
-                CurrentPositionRefs(
-                    userId = it[CareerPositionService.CareerPositions.userId].value,
-                    startDate = it[CareerPositionService.CareerPositions.startDate],
-                    careerPathId = it[CareerPositionService.CareerPositions.careerPathId],
-                    careerSpecializationId = it[CareerPositionService.CareerPositions.careerSpecializationId],
-                    seniorityLevelId = it[CareerPositionService.CareerPositions.seniorityLevelId],
-                )
-            }
-            .toList()
-        // Latest start per user == current (strict ISO keeps the VARCHAR comparison chronological).
-        val current = positions.groupBy { it.userId }.mapValues { (_, rows) -> rows.maxBy { it.startDate } }
-        val entries = entriesByIds(
-            current.values
-                .flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }
-                .toSet(),
-        )
-        return current.mapValues { (_, r) ->
-            CareerProfile(
-                careerPath = r.careerPathId?.let { entries[it] },
-                careerSpecialization = r.careerSpecializationId?.let { entries[it] },
-                seniorityLevel = r.seniorityLevelId?.let { entries[it] },
-            )
-        }
-    }
-
-    private data class CurrentPositionRefs(
-        val userId: UInt,
-        val startDate: String,
-        val careerPathId: UInt?,
-        val careerSpecializationId: UInt?,
-        val seniorityLevelId: UInt?,
-    )
-
     /**
      * 400 unless every (dictionary, id) pair is an ACTIVE entry of exactly that dictionary.
      * Callers pass only NEWLY-assigned ids — resubmitting a user's current (possibly
@@ -689,18 +623,71 @@ class UserService(val database: R2dbcDatabase) {
             }
         }
     }
-
-    /** Must run inside a transaction. Soft-deleted included — see [resolveEntryRefs]. */
-    private suspend fun entriesByIds(ids: Set<UInt>): Map<UInt, DictionaryEntry> =
-        if (ids.isEmpty()) emptyMap()
-        else DictionaryService.Entries.selectAll()
-            .where { DictionaryService.Entries.id inList ids }
-            .toList()
-            .associate {
-                it[DictionaryService.Entries.id].value to DictionaryEntry(
-                    id = it[DictionaryService.Entries.id].value,
-                    values = mapOf(DEFAULT_LANGUAGE to it[DictionaryService.Entries.valueEn]) +
-                        decodeParams(it[DictionaryService.Entries.translations]),
-                )
-            }
 }
+
+/**
+ * The in-transaction core of [UserService.careerProfilesByUserIds] (a top-level `internal` since
+ * v4.10.0 so the review share-candidates read can resolve the career triple inside its OWN
+ * transaction — the cross-feature table-read rule). **Must run inside a transaction.**
+ */
+internal suspend fun currentProfilesByUserIds(ids: Set<UInt>): Map<UInt, CareerProfile> {
+    if (ids.isEmpty()) return emptyMap()
+    val positions = CareerPositionService.CareerPositions
+        .select(
+            CareerPositionService.CareerPositions.userId,
+            CareerPositionService.CareerPositions.startDate,
+            CareerPositionService.CareerPositions.careerPathId,
+            CareerPositionService.CareerPositions.careerSpecializationId,
+            CareerPositionService.CareerPositions.seniorityLevelId,
+        )
+        .where {
+            (CareerPositionService.CareerPositions.userId inList ids) and
+                (CareerPositionService.CareerPositions.markedAsDeleted eq false)
+        }
+        .map {
+            CurrentPositionRefs(
+                userId = it[CareerPositionService.CareerPositions.userId].value,
+                startDate = it[CareerPositionService.CareerPositions.startDate],
+                careerPathId = it[CareerPositionService.CareerPositions.careerPathId],
+                careerSpecializationId = it[CareerPositionService.CareerPositions.careerSpecializationId],
+                seniorityLevelId = it[CareerPositionService.CareerPositions.seniorityLevelId],
+            )
+        }
+        .toList()
+    // Latest start per user == current (strict ISO keeps the VARCHAR comparison chronological).
+    val current = positions.groupBy { it.userId }.mapValues { (_, rows) -> rows.maxBy { it.startDate } }
+    val entries = entriesByIds(
+        current.values
+            .flatMap { listOfNotNull(it.careerPathId, it.careerSpecializationId, it.seniorityLevelId) }
+            .toSet(),
+    )
+    return current.mapValues { (_, r) ->
+        CareerProfile(
+            careerPath = r.careerPathId?.let { entries[it] },
+            careerSpecialization = r.careerSpecializationId?.let { entries[it] },
+            seniorityLevel = r.seniorityLevelId?.let { entries[it] },
+        )
+    }
+}
+
+private data class CurrentPositionRefs(
+    val userId: UInt,
+    val startDate: String,
+    val careerPathId: UInt?,
+    val careerSpecializationId: UInt?,
+    val seniorityLevelId: UInt?,
+)
+
+/** Must run inside a transaction. Soft-deleted included — see [resolveEntryRefs]. */
+private suspend fun entriesByIds(ids: Set<UInt>): Map<UInt, DictionaryEntry> =
+    if (ids.isEmpty()) emptyMap()
+    else DictionaryService.Entries.selectAll()
+        .where { DictionaryService.Entries.id inList ids }
+        .toList()
+        .associate {
+            it[DictionaryService.Entries.id].value to DictionaryEntry(
+                id = it[DictionaryService.Entries.id].value,
+                values = mapOf(DEFAULT_LANGUAGE to it[DictionaryService.Entries.valueEn]) +
+                    decodeParams(it[DictionaryService.Entries.translations]),
+            )
+        }

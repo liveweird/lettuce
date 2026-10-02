@@ -46,6 +46,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Resource("/api/v1/performance-reviews")
 class PerformanceReviews {
+    // The mass-share picker's dataset (v4.10.0) — a constant segment, so it wins over `{id}`
+    // (the `/teams/members` precedent). `periodId` is read by hand so its 400s keep the list
+    // endpoints' vocabulary.
+    @Serializable
+    @Resource("share-candidates")
+    class ShareCandidates(val parent: PerformanceReviews = PerformanceReviews())
+
     @Serializable
     @Resource("{id}")
     class Id(val parent: PerformanceReviews = PerformanceReviews(), val id: UInt) {
@@ -218,6 +225,20 @@ fun Application.configurePerformanceReviewRoutes() {
                     targetUserId = userId,
                 )
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
+            }
+            // Strictly caller-relative (the /career/pyramid rule): any authenticated caller with
+            // PERFORMANCE_REVIEWS enabled; a caller who manages nobody gets `items: []` (no 403);
+            // NO role widening (HR/ADMIN see exactly their own chain) and NOT audited — every row
+            // is the caller's own chain. The feature 403 (reviewCaller) comes first; then the query-shape
+            // 400s (periodId missing/malformed/unknown) precede everything else — there is no role
+            // gate for them to be an oracle for.
+            get<PerformanceReviews.ShareCandidates> {
+                val caller = call.reviewCaller()
+                val periodId = call.request.queryParameters.optionalUInt("periodId")
+                    ?: throw BadRequestException("periodId is required")
+                val candidates = reviewService.shareCandidates(caller.userId, periodId)
+                    ?: throw BadRequestException("Referenced review period does not exist")
+                call.respond(HttpStatusCode.OK, candidates)
             }
             post<PerformanceReviews> {
                 val caller = call.reviewCaller()

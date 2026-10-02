@@ -4214,6 +4214,63 @@ paths:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/performance-reviews/share-candidates:
+    get:
+      tags: [performance-reviews]
+      operationId: listPerformanceReviewShareCandidates
+      summary: The mass-share picker's dataset for one review period
+      description: |
+        The data source of "Share reviews..." (v4.10.0): one row per non-deleted person in the
+        authenticated caller's **transitive management chain** (reports of reports included;
+        deactivated accounts included with `deactivated: true`), each with their teams, direct
+        managers, current career triple and the review the person has in the given period, plus
+        whether the caller can share it. Rows are sorted by name (case-insensitive), then id.
+
+        **Caller-relative, no role widening** (the `/career/pyramid` rule): any authenticated
+        caller with the PERFORMANCE_REVIEWS feature enabled may ask; a caller who manages nobody
+        gets an empty list (no `403`); HR and ADMIN see exactly their own chain, and the read is
+        not audit-logged — every row is the caller's own chain, so `seniorityLevel` is always
+        attached (the seniority-visibility rule is satisfied by construction).
+
+        **`shareable`** is the own-right rule of document sharing computed server-side: the
+        caller reads the review in their own right, the HR role not counting — i.e. they authored
+        it, or it has left DRAFT. A person with no review in the period has `review: null`,
+        `shareable: false`, `reason: NO_REVIEW`. Another chain manager's **DRAFT** is returned as a
+        **stub** — `review` carries `status` and the author's `managerName` ONLY (`id`, `managerId`
+        and every rating are `null`), `shareable: false`, `reason: UNREADABLE_DRAFT`. That the
+        draft exists and who is writing it is a deliberate, registered existence disclosure
+        (API-ERR-006: the create-time `409` already tells a chain manager a review exists — also
+        for deactivated reports, where no `409` applies); the ratings of a
+        readable review ride along exactly as in the managed list rows, never the summaries.
+
+        A missing, malformed or unknown `periodId` is `400` (a query-parameter reference, decided
+        before anything else).
+
+        **Unpaged** — bounded by the caller's chain, a plain `{ periodId, items }` wrapper
+        (API-STRUCT-004's unpaged exception, the `/career/pyramid` shape); the SPA filters and
+        pages it client-side.
+      parameters:
+        - name: periodId
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 0 }
+          description: The review period to look the people's reviews up in.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareCandidateList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The PERFORMANCE_REVIEWS feature is disabled for the caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/performance-reviews/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -9862,6 +9919,88 @@ components:
         createdAt: { type: integer, format: int64 }
         lastModified: { type: integer, format: int64 }
 
+    ShareCandidateList:
+      type: object
+      required: [periodId, items]
+      properties:
+        periodId: { type: integer, format: int32, minimum: 0 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ShareCandidate' }
+          description: Unpaged; sorted by name (case-insensitive), then id.
+
+    ShareCandidate:
+      type: object
+      required: [userId, name, email, deactivated, teams, directManagers, careerPath,
+        careerSpecialization, seniorityLevel, review, shareable, reason]
+      properties:
+        userId: { type: integer, format: int32, minimum: 0 }
+        name: { type: string }
+        email: { type: string }
+        deactivated:
+          type: boolean
+          description: True for a deactivated account (still listed — the pyramid rule).
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: The non-deleted teams the person is a member of, name-ascending.
+        directManagers:
+          type: array
+          items: { $ref: '#/components/schemas/UserRef' }
+          description: >-
+            The managers of those teams, minus the person themselves; the caller appears as
+            themselves, a manager outside the caller's chain is listed too.
+        careerPath:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: From the person's CURRENT career position; null when none recorded.
+        careerSpecialization:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        seniorityLevel:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: Always attached — every row is the caller's own chain.
+        review:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/ShareCandidateReview' } ]
+          description: The person's review in the requested period; null = none.
+        shareable:
+          type: boolean
+          description: True exactly when the caller can share the review (it exists and they read it in their own right).
+        reason:
+          type: string
+          nullable: true
+          enum: [NO_REVIEW, UNREADABLE_DRAFT]
+          description: Why the row is not shareable; null exactly when `shareable` is true.
+
+    ShareCandidateReview:
+      type: object
+      required: [id, status, managerId, managerName, attitudeRating, deliveryRating,
+        skillsRating, aptitudeRating, overallRating]
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: Null on the stub of another manager's DRAFT (never disclosed).
+        status:
+          type: string
+          enum: [DRAFT, CALIBRATION, PUBLISHED]
+        managerId:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: Null on the stub of another manager's DRAFT (only the author's name is disclosed).
+        managerName: { type: string }
+        attitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        deliveryRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        skillsRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        aptitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+        overallRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+
     PerformanceReviewPage:
       type: object
       required: [items, page, pageSize, total]
@@ -11233,6 +11372,13 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PulseTrendPoint' }
           description: Non-cancelled CLOSED cycles, oldest first.
+
+    UserRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        name: { type: string }
 
     TeamRef:
       type: object

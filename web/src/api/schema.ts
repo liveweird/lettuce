@@ -2662,6 +2662,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/performance-reviews/share-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The mass-share picker's dataset for one review period
+         * @description The data source of "Share reviews..." (v4.10.0): one row per non-deleted person in the
+         *     authenticated caller's **transitive management chain** (reports of reports included;
+         *     deactivated accounts included with `deactivated: true`), each with their teams, direct
+         *     managers, current career triple and the review the person has in the given period, plus
+         *     whether the caller can share it. Rows are sorted by name (case-insensitive), then id.
+         *
+         *     **Caller-relative, no role widening** (the `/career/pyramid` rule): any authenticated
+         *     caller with the PERFORMANCE_REVIEWS feature enabled may ask; a caller who manages nobody
+         *     gets an empty list (no `403`); HR and ADMIN see exactly their own chain, and the read is
+         *     not audit-logged — every row is the caller's own chain, so `seniorityLevel` is always
+         *     attached (the seniority-visibility rule is satisfied by construction).
+         *
+         *     **`shareable`** is the own-right rule of document sharing computed server-side: the
+         *     caller reads the review in their own right, the HR role not counting — i.e. they authored
+         *     it, or it has left DRAFT. A person with no review in the period has `review: null`,
+         *     `shareable: false`, `reason: NO_REVIEW`. Another chain manager's **DRAFT** is returned as a
+         *     **stub** — `review` carries `status` and the author's `managerName` ONLY (`id`, `managerId`
+         *     and every rating are `null`), `shareable: false`, `reason: UNREADABLE_DRAFT`. That the
+         *     draft exists and who is writing it is a deliberate, registered existence disclosure
+         *     (API-ERR-006: the create-time `409` already tells a chain manager a review exists — also
+         *     for deactivated reports, where no `409` applies); the ratings of a
+         *     readable review ride along exactly as in the managed list rows, never the summaries.
+         *
+         *     A missing, malformed or unknown `periodId` is `400` (a query-parameter reference, decided
+         *     before anything else).
+         *
+         *     **Unpaged** — bounded by the caller's chain, a plain `{ periodId, items }` wrapper
+         *     (API-STRUCT-004's unpaged exception, the `/career/pyramid` shape); the SPA filters and
+         *     pages it client-side.
+         */
+        get: operations["listPerformanceReviewShareCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/performance-reviews/{id}": {
         parameters: {
             query?: never;
@@ -6400,6 +6448,58 @@ export interface components {
             /** Format: int64 */
             lastModified: number;
         };
+        ShareCandidateList: {
+            /** Format: int32 */
+            periodId: number;
+            /** @description Unpaged; sorted by name (case-insensitive), then id. */
+            items: components["schemas"]["ShareCandidate"][];
+        };
+        ShareCandidate: {
+            /** Format: int32 */
+            userId: number;
+            name: string;
+            email: string;
+            /** @description True for a deactivated account (still listed — the pyramid rule). */
+            deactivated: boolean;
+            /** @description The non-deleted teams the person is a member of, name-ascending. */
+            teams: components["schemas"]["TeamRef"][];
+            /** @description The managers of those teams, minus the person themselves; the caller appears as themselves, a manager outside the caller's chain is listed too. */
+            directManagers: components["schemas"]["UserRef"][];
+            /** @description From the person's CURRENT career position; null when none recorded. */
+            careerPath: components["schemas"]["DictionaryEntry"] | null;
+            careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Always attached — every row is the caller's own chain. */
+            seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
+            /** @description The person's review in the requested period; null = none. */
+            review: components["schemas"]["ShareCandidateReview"] | null;
+            /** @description True exactly when the caller can share the review (it exists and they read it in their own right). */
+            shareable: boolean;
+            /**
+             * @description Why the row is not shareable; null exactly when `shareable` is true.
+             * @enum {string|null}
+             */
+            reason: "NO_REVIEW" | "UNREADABLE_DRAFT" | null;
+        };
+        ShareCandidateReview: {
+            /**
+             * Format: int32
+             * @description Null on the stub of another manager's DRAFT (never disclosed).
+             */
+            id: number | null;
+            /** @enum {string} */
+            status: "DRAFT" | "CALIBRATION" | "PUBLISHED";
+            /**
+             * Format: int32
+             * @description Null on the stub of another manager's DRAFT (only the author's name is disclosed).
+             */
+            managerId: number | null;
+            managerName: string;
+            attitudeRating: number | null;
+            deliveryRating: number | null;
+            skillsRating: number | null;
+            aptitudeRating: number | null;
+            overallRating: number | null;
+        };
         PerformanceReviewPage: {
             items: components["schemas"]["PerformanceReviewListItem"][];
             page: number;
@@ -7351,6 +7451,11 @@ export interface components {
             mode: components["schemas"]["PulseAggregationMode"];
             /** @description Non-cancelled CLOSED cycles, oldest first. */
             points: components["schemas"]["PulseTrendPoint"][];
+        };
+        UserRef: {
+            /** Format: int32 */
+            id: number;
+            name: string;
         };
         TeamRef: {
             /** Format: int32 */
@@ -11558,6 +11663,41 @@ export interface operations {
             };
             /** @description The subordinate already has a review for this period (the `instance` field points at it) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listPerformanceReviewShareCandidates: {
+        parameters: {
+            query: {
+                /** @description The review period to look the people's reviews up in. */
+                periodId: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareCandidateList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The PERFORMANCE_REVIEWS feature is disabled for the caller */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
