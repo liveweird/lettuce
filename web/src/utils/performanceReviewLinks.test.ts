@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  massShareLink,
   reviewCreateLink,
   reviewEditLink,
   reviewViewLink,
@@ -32,5 +33,9 @@ describe("performanceReviewLinks", () => {
     expect(userPerformanceReviewsLink(9, "Bob", "details", undefined, true)).toBe(
       "/users/9/performance-reviews?name=Bob&from=details&mode=audit",
     );
+  });
+
+  test("massShareLink carries the period id", () => {
+    expect(massShareLink(4)).toBe("/performance-reviews/mass-share?periodId=4");
   });
 });

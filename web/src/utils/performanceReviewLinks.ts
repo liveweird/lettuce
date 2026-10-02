@@ -35,3 +35,8 @@ export function userPerformanceReviewsLink(
   if (audit) url += `&mode=audit`;
   return url + drillDownOptsSearch(opts);
 }
+
+/** The mass-share page for one review period (the picker over the caller's whole reporting line). */
+export function massShareLink(periodId: number): string {
+  return `/performance-reviews/mass-share?periodId=${periodId}`;
+}
