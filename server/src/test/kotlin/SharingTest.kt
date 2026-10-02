@@ -44,6 +44,7 @@ import ch.nokillswit.reviews.PerformanceReviewStatus
 import ch.nokillswit.reviews.PerformanceReviewUpdateRequest
 import ch.nokillswit.sharing.ShareAccess
 import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.daysoff.DaysOffCalendarResponse
 import ch.nokillswit.sharing.ShareBatchItemStatus
 import ch.nokillswit.sharing.ShareBatchRequest
 import ch.nokillswit.sharing.ShareBatchResponse
@@ -2660,6 +2661,149 @@ class SharingTest {
             // The person may share WITH someone whose flag is off: the share exists, hidden from their list.
             assertEquals(HttpStatusCode.Created, w.person.client.shareCalendar(w.person.id, off.id).status)
             assertEquals(0, off.client.get("/api/v1/shares").body<SharePageResponse>().total)
+        }
+
+    private suspend fun HttpClient.calendarBatch(
+        personIds: List<UInt>,
+        shareeIds: List<UInt>,
+        expiresOn: String? = null,
+    ): HttpResponse = post("/api/v1/shares/batch") {
+        contentType(ContentType.Application.Json)
+        setBody(ShareBatchRequest(ShareableResourceType.DAYS_OFF_CALENDAR, personIds, shareeIds, expiresOn))
+    }
+
+    private suspend fun HttpClient.sharedCalendarPersons(): DaysOffCalendarResponse =
+        get("/api/v1/days-off/calendar?month=${java.time.YearMonth.now()}&scope=shared").body()
+
+    @Test
+    fun `days-off calendars - a real-adapter batch - chain and self CREATED, teammate or stranger FORBIDDEN, deleted NOT_FOUND`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val second = person("cal-second")
+            val gone = person("cal-gone")
+            val stranger = person("cal-stranger")
+            val peer = person("cal-peer")
+            val sharee = person("sharee")
+            TestServices.teams.create(Team("CalSquad2-${w.manager.id}", w.manager.id, listOf(second.id, gone.id)))
+            // The peer shares a team with M (calendar parity) but is no one in M's chain.
+            TestServices.teams.create(Team("CalPeers-${peer.id}", stranger.id, listOf(w.manager.id, peer.id)))
+            assertEquals(1, TestServices.users.delete(gone.id))
+            val until = serverToday().plusDays(20).toString()
+
+            val ids = listOf(w.person.id, second.id, peer.id, stranger.id, gone.id, w.manager.id)
+            val response = w.manager.client.calendarBatch(ids, listOf(sharee.id), until)
+            assertEquals(HttpStatusCode.OK, response.status)
+            val report = response.body<ShareBatchResponse>()
+            val byId = report.items.associate { it.resourceId to it.status }
+            assertEquals(
+                mapOf(
+                    w.person.id to ShareBatchItemStatus.CREATED,
+                    second.id to ShareBatchItemStatus.CREATED,
+                    peer.id to ShareBatchItemStatus.FORBIDDEN,
+                    stranger.id to ShareBatchItemStatus.FORBIDDEN,
+                    gone.id to ShareBatchItemStatus.NOT_FOUND,
+                    // The caller's own calendar is own right too.
+                    w.manager.id to ShareBatchItemStatus.CREATED,
+                ),
+                byId,
+            )
+            assertEquals(3, report.created)
+            assertEquals(0, report.alreadyShared)
+            assertEquals(2, report.forbidden)
+            assertEquals(1, report.notFound)
+            assertNotNull(report.batchId)
+
+            // The sharee reads exactly the three created ones through the shared scope, named after the sharer.
+            val shared = sharee.client.sharedCalendarPersons()
+            assertEquals(setOf(w.person.id, second.id, w.manager.id), shared.users.map { it.userId }.toSet())
+            assertTrue(shared.users.all { it.sharedBy == w.manager.name })
+
+            // ONE summary notice with the count and the shared-scope link — never a per-share notice.
+            val notices = sharee.client.notifications()
+            val summary = notices.single { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED }
+            assertEquals(mapOf("sharer" to w.manager.name, "count" to "3", "expiresOn" to until), summary.params)
+            assertEquals("/days-off?tab=calendar&scope=shared", summary.link)
+            assertTrue(notices.none { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARED })
+            assertTrue(w.manager.client.notifications().none { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED })
+
+            // A replay: every pair ALREADY_SHARED, no batch id, no second notice.
+            val replay = w.manager.client.calendarBatch(listOf(w.person.id, second.id, w.manager.id), listOf(sharee.id))
+                .body<ShareBatchResponse>()
+            assertEquals(3, replay.alreadyShared)
+            assertNull(replay.batchId)
+            assertEquals(
+                1,
+                sharee.client.notifications().count { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED },
+            )
+
+            // Whole-request outcomes: only forbidden -> 403, only missing -> 404.
+            assertEquals(HttpStatusCode.Forbidden, w.manager.client.calendarBatch(listOf(peer.id, stranger.id), listOf(sharee.id)).status)
+            assertEquals(HttpStatusCode.NotFound, w.manager.client.calendarBatch(listOf(gone.id), listOf(sharee.id)).status)
+        }
+
+    @Test
+    fun `days-off calendars - a batch by the person shares their own, a skip-level reaches the chain, a mere sharee cannot`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            val third = person("third")
+            // The person: own calendar only (a colleague's is FORBIDDEN for them).
+            val own = w.person.client.calendarBatch(listOf(w.person.id, w.teammate.id), listOf(sharee.id)).body<ShareBatchResponse>()
+            assertEquals(
+                mapOf(w.person.id to ShareBatchItemStatus.CREATED, w.teammate.id to ShareBatchItemStatus.FORBIDDEN),
+                own.items.associate { it.resourceId to it.status },
+            )
+            // The skip-level manager reaches the person, the teammate and the direct manager.
+            val grand = w.grand.client.calendarBatch(listOf(w.person.id, w.teammate.id, w.manager.id), listOf(third.id))
+                .body<ShareBatchResponse>()
+            assertEquals(3, grand.created)
+            // A sharee holds no own right: no re-sharing, in a batch either.
+            assertEquals(HttpStatusCode.Forbidden, third.client.calendarBatch(listOf(w.person.id), listOf(sharee.id)).status)
+            // The HR auditor alone is refused, like the single share.
+            val auditor = person("auditor", roles = setOf(UserRole.HR))
+            assertEquals(HttpStatusCode.Forbidden, auditor.client.calendarBatch(listOf(w.person.id), listOf(third.id)).status)
+        }
+
+    @Test
+    fun `days-off calendars - the per-pair daily cap counts a calendar batch as ONE notice, a capped sharee still gets the rows`() =
+        testApplication {
+            configureApp("sharing.notificationDailyCapPerPair" to "2")
+            startApplication()
+            val manager = person("cap-manager")
+            val reports = (0 until 6).map { person("cap-report") }
+            val sharee = person("sharee")
+            TestServices.teams.create(Team("CapSquad-${manager.id}", manager.id, reports.map { it.id }))
+            suspend fun notices() =
+                sharee.client.notifications().count { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED }
+            // Two people per batch: rows would exhaust a cap of 2 at once, notices do not.
+            for (chunk in reports.chunked(2).take(2)) {
+                assertEquals(2, manager.client.calendarBatch(chunk.map { it.id }, listOf(sharee.id)).body<ShareBatchResponse>().created)
+            }
+            assertEquals(2, notices())
+            // The third batch hits the cap: the shares are created, silently.
+            val third = reports.drop(4)
+            assertEquals(2, manager.client.calendarBatch(third.map { it.id }, listOf(sharee.id)).body<ShareBatchResponse>().created)
+            assertEquals(2, notices())
+            assertEquals(
+                reports.map { it.id }.toSet(),
+                sharee.client.sharedCalendarPersons().users.map { it.userId }.toSet(),
+            )
+        }
+
+    @Test
+    fun `days-off calendars - the batch bucket is enforced for the calendar kind and independent of the single-share bucket`() =
+        testApplication {
+            configureApp("sharing.batchRateLimitPerMinute" to "2")
+            startApplication()
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            repeat(2) {
+                assertEquals(HttpStatusCode.OK, w.manager.client.calendarBatch(listOf(w.person.id), listOf(sharee.id)).status)
+            }
+            assertEquals(HttpStatusCode.TooManyRequests, w.manager.client.calendarBatch(listOf(w.person.id), listOf(sharee.id)).status)
+            // The single-share bucket is untouched.
+            val other = person("other")
+            assertEquals(HttpStatusCode.Created, w.manager.client.shareCalendar(w.person.id, other.id).status)
         }
 
     /** `testApplication` with the container started; the body is the test. */

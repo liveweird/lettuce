@@ -39,7 +39,8 @@ import kotlin.test.assertTrue
 
 /**
  * `POST /api/v1/shares/batch` (v4.10.0, mass share) over the fake adapter registered under
- * `PERFORMANCE_REVIEW` (the only batchable kind): the evaluation order of the route KDoc, the
+ * `PERFORMANCE_REVIEW` (and, v4.11.0, one summary-notice case under `DAYS_OFF_CALENDAR`, the
+ * second batchable kind): the evaluation order of the route KDoc, the
  * itemized report, the replay, the one summary notification per sharee with the batch-aware cap,
  * the single `share.batch_created` audit event and the shared `shares` rate-limit bucket.
  */
@@ -50,13 +51,20 @@ class ShareBatchRoutesTest {
     private val password = "pw-123456789"
     private val review = ShareableResourceType.PERFORMANCE_REVIEW
 
-    private suspend fun ApplicationTestBuilder.startWithFake(vararg overrides: Pair<String, String>): FakeShareable {
+    private suspend fun ApplicationTestBuilder.startWithFake(vararg overrides: Pair<String, String>): FakeShareable =
+        startWithFakeOf(review, *overrides)
+
+    /** The stub registry; the returned fake is the one registered under [type] (the kind under test). */
+    private suspend fun ApplicationTestBuilder.startWithFakeOf(
+        type: ShareableResourceType,
+        vararg overrides: Pair<String, String>,
+    ): FakeShareable {
         val fakes = ShareableResourceType.entries.associateWith { FakeShareable(it) }
         // The production batch bucket is 10/min; most cases here call far more often — the bucket test overrides it.
         configureApp("sharing.batchRateLimitPerMinute" to "1000", *overrides)
         application { attributes.put(ShareRegistryKey, ShareRegistry { fakes.getValue(it) }) }
         startApplication()
-        return fakes.getValue(review)
+        return fakes.getValue(type)
     }
 
     private suspend fun ApplicationTestBuilder.person(
@@ -304,6 +312,37 @@ class ShareBatchRoutesTest {
             val open = first.client.notifications().filter { it.type == NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED }
                 .first { it.params["count"] == "1" }
             assertEquals(mapOf("sharer" to "author", "count" to "1"), open.params)
+        }
+
+    @Test
+    fun `a calendar batch mints ONE DAYS_OFF_CALENDARS_BATCH_SHARED notice per sharee, linking the shared scope`() =
+        testApplication {
+            val calendar = ShareableResourceType.DAYS_OFF_CALENDAR
+            val fake = startWithFakeOf(calendar)
+            val author = person("author")
+            val first = person("first")
+            val second = person("second")
+            val docs = List(3) { fake.add(author.id) }
+            val report = author.client.batch(docs, listOf(first.id, second.id), "2099-12-31", type = calendar)
+                .also { assertEquals(HttpStatusCode.OK, it.status) }.body<ShareBatchResponse>()
+            assertEquals(6, report.created)
+            val link = "/days-off?tab=calendar&scope=shared"
+            for (sharee in listOf(first, second)) {
+                val notices = sharee.client.notifications()
+                val summary = notices.single { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED }
+                assertEquals(mapOf("sharer" to "author", "count" to "3", "expiresOn" to "2099-12-31"), summary.params)
+                assertEquals(link, summary.link)
+                assertTrue(notices.none { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARED })
+                assertTrue(notices.none { it.type == NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED })
+            }
+            // Open-ended: no expiresOn param.
+            author.client.batch(listOf(fake.add(author.id)), listOf(first.id), type = calendar)
+            val open = first.client.notifications().filter { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED }
+                .first { it.params["count"] == "1" }
+            assertEquals(mapOf("sharer" to "author", "count" to "1"), open.params)
+            // A kind that is still not batchable is refused, calendars being the second batchable one.
+            val feedback = author.client.batch(docs, listOf(first.id), type = ShareableResourceType.FEEDBACK)
+            assertEquals(HttpStatusCode.BadRequest, feedback.status)
         }
 
     @Test
