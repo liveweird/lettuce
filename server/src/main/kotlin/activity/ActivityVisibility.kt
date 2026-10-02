@@ -184,7 +184,7 @@ internal object ActivityVisibility {
     }
 
     /**
-     * Chain visibility of a PERSON-scoped event (days-off, V88): the person the action concerns
+     * Chain visibility of a PERSON-scoped event (days-off V88, career positions V89): the person the action concerns
      * ([ownerColumn] — `owner_id`) is the viewer or in the viewer's transitive chain. No parent
      * document, no status rule, no soft-delete rule: the trail is a person-scoped record, so the
      * events of a since-deleted entry or correction are still listed. (A days-off entry is also

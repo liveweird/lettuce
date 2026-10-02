@@ -225,9 +225,6 @@ fun Application.configureDaysOffRoutes() {
                 toNotify.forEach { notificationService.create(it) }
                 val created = daysOffService.read(id)
                     .orVanished("Days-off entry", id)
-                // The activity-log event for EVERY create — a self-create too (`onBehalf=false`); the
-                // audit below stays an on-behalf-only security event.
-                eventService.create(daysOffEntryRecordedEvent(caller.userId, created))
                 if (targetId != null) {
                     // A manager writes to a subordinate's leave record — audited like the
                     // budget corrections (never any free text; there is none here anyway).
@@ -243,6 +240,9 @@ fun Application.configureDaysOffRoutes() {
                         "days" to created.days,
                     )
                 }
+                // The activity-log event for EVERY create — a self-create too (`onBehalf=false`); the
+                // audit above stays an on-behalf-only security event.
+                eventService.create(daysOffEntryRecordedEvent(caller.userId, created))
                 call.respond(HttpStatusCode.Created, created)
             }
             get<DaysOff.Id> { route ->
@@ -273,7 +273,6 @@ fun Application.configureDaysOffRoutes() {
                 val toNotify = daysOffService.delete(route.id, caller.userId)
                     ?: throw NotFoundException("Days-off entry not found")
                 toNotify.forEach { notificationService.create(it) }
-                eventService.create(daysOffEntryDeletedEvent(caller.userId, existing))
                 // Deleting — possibly someone else's — entry is audited like the on-behalf
                 // recording; never any free text (there is none here).
                 audit(
@@ -287,6 +286,7 @@ fun Application.configureDaysOffRoutes() {
                     "endDate" to existing.endDate,
                     "days" to existing.days,
                 )
+                eventService.create(daysOffEntryDeletedEvent(caller.userId, existing))
                 call.respond(HttpStatusCode.NoContent)
             }
             get<DaysOffCalendar> {
@@ -353,7 +353,6 @@ fun Application.configureDaysOffRoutes() {
                 notificationService.create(notification)
                 val created = daysOffService.readCorrection(id)
                     .orVanished("Days-off correction", id)
-                eventService.create(daysOffCorrectionCreatedEvent(caller.userId, created))
                 // A manager mutates a subordinate's paid-leave entitlement — audited like every
                 // other admin-ish mutation (v2.4.1; never the encrypted comment).
                 audit(
@@ -365,6 +364,7 @@ fun Application.configureDaysOffRoutes() {
                     "operation" to write.operation.name,
                     "days" to write.days,
                 )
+                eventService.create(daysOffCorrectionCreatedEvent(caller.userId, created))
                 call.respond(HttpStatusCode.Created, created)
             }
             put<DaysOffCorrections.Id> { route ->
@@ -381,7 +381,6 @@ fun Application.configureDaysOffRoutes() {
                 if (daysOffService.updateCorrection(route.id, write) == 0) {
                     throw NotFoundException("Days-off correction not found")
                 }
-                daysOffCorrectionUpdatedEvent(call.caller().userId, existing, write)?.let { eventService.create(it) }
                 audit(
                     "days_off_correction.updated",
                     "byUserId" to call.caller().userId.toLong(),
@@ -392,6 +391,7 @@ fun Application.configureDaysOffRoutes() {
                     "operationTo" to write.operation.name,
                     "daysTo" to write.days,
                 )
+                daysOffCorrectionUpdatedEvent(call.caller().userId, existing, write)?.let { eventService.create(it) }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<DaysOffCorrections.Id> { route ->
@@ -399,7 +399,6 @@ fun Application.configureDaysOffRoutes() {
                 if (daysOffService.deleteCorrection(route.id) == 0) {
                     throw NotFoundException("Days-off correction not found")
                 }
-                eventService.create(daysOffCorrectionDeletedEvent(call.caller().userId, existing))
                 audit(
                     "days_off_correction.deleted",
                     "byUserId" to call.caller().userId.toLong(),
@@ -409,6 +408,7 @@ fun Application.configureDaysOffRoutes() {
                     "operation" to existing.operation.name,
                     "days" to existing.days,
                 )
+                eventService.create(daysOffCorrectionDeletedEvent(call.caller().userId, existing))
                 call.respond(HttpStatusCode.NoContent)
             }
             get<DaysOffBudgets> {
@@ -487,11 +487,6 @@ fun Application.configureDaysOffRoutes() {
                             to = write.allowance,
                         ),
                     )
-                    eventService.create(
-                        daysOffAllowanceChangedEvent(
-                            caller.userId, write.userId, result.kind.id, result.kind.name, result.previous, write.allowance,
-                        ),
-                    )
                     val auditFields = mutableListOf<Pair<String, Any?>>(
                         "byUserId" to caller.userId.toLong(),
                         "targetUserId" to write.userId.toLong(),
@@ -500,6 +495,11 @@ fun Application.configureDaysOffRoutes() {
                     result.previous?.let { auditFields += "allowanceFrom" to it.toLong() }
                     auditFields += "allowanceTo" to write.allowance.toLong()
                     audit("days_off.allowance_changed", *auditFields.toTypedArray())
+                    eventService.create(
+                        daysOffAllowanceChangedEvent(
+                            caller.userId, write.userId, result.kind.id, result.kind.name, result.previous, write.allowance,
+                        ),
+                    )
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -518,11 +518,6 @@ fun Application.configureDaysOffRoutes() {
                 if (daysOffService.archivePool(route.id) == 0) {
                     throw NotFoundException("Days-off pool not found")
                 }
-                eventService.create(
-                    daysOffPoolArchivedEvent(
-                        caller.userId, existing.userId, route.id, existing.kind.id, existing.kind.name, existing.allowance,
-                    ),
-                )
                 // No notification (the correction edit/delete precedent — the budget rows are
                 // live); audited like the allowance change.
                 audit(
@@ -532,6 +527,11 @@ fun Application.configureDaysOffRoutes() {
                     "poolId" to route.id.toLong(),
                     "poolTypeId" to existing.kind.id.toLong(),
                     "allowance" to existing.allowance.toLong(),
+                )
+                eventService.create(
+                    daysOffPoolArchivedEvent(
+                        caller.userId, existing.userId, route.id, existing.kind.id, existing.kind.name, existing.allowance,
+                    ),
                 )
                 call.respond(HttpStatusCode.NoContent)
             }

@@ -27,6 +27,7 @@ import ch.nokillswit.teamkpis.TeamKpiService.TeamKpis
 import ch.nokillswit.teams.TeamService.Teams
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
+import ch.nokillswit.users.CareerPositionEventService.CareerPositionEvents
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService.Users
 import kotlinx.coroutines.flow.map
@@ -120,6 +121,7 @@ private val EVENT_SOURCES = listOf(
     EventSource(ActivityArea.SUCCESSION_PLAN, SuccessionPlanEvents, Plans),
     // Person-scoped (V88): owner_id is the person concerned, there is no parent document.
     EventSource(ActivityArea.DAYS_OFF, DaysOffEvents, parent = null),
+    EventSource(ActivityArea.CAREER_POSITION, CareerPositionEvents, parent = null),
 )
 
 /** How the hydration phase decides `readable` for a document. */
@@ -316,7 +318,8 @@ class ActivityService(
      * Left-folds the branches into one `UNION ALL`. Exposed has no one-branch set operation, so a
      * lone branch is paired with its own contradiction (`WHERE FALSE`): the same rows, one code
      * path. Every shareable area contributes an event branch plus the two share branches (never
-     * fewer than three), but the person-scoped DAYS_OFF area is ONE branch — `area=DAYS_OFF` takes
+     * fewer than three), but a person-scoped area (DAYS_OFF, CAREER_POSITION) is ONE branch — `area=DAYS_OFF`
+     * or `area=CAREER_POSITION` takes
      * this path today.
      */
     private fun unionOf(specs: List<(Boolean) -> Query>): SetOperation {
@@ -396,7 +399,7 @@ class ActivityService(
     }
 
     /**
-     * A person-scoped row (days-off): no document, so no `documentId`/`link`/`details` — the
+     * A person-scoped row (days-off, career positions): no document, so no `documentId`/`link`/`details` — the
      * self-describing params carry the facts, and the concerned person's id and LIVE name ride
      * `subjectUser*`. Never gated on readability: the trail is the actor's own record, and the
      * chain filter already restricted whose owners a chain viewer may see.

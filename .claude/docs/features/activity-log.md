@@ -2,7 +2,7 @@
 
 A chronological, per-person log of **what that person did** — `GET /api/v1/users/{id}/activity`
 (package `activity/`). Every feature already keeps a per-document history (the seven `*_events`
-tables, one `EventLogTable` shape; V88 adds an eighth, person-keyed one for days-off); nothing answered "what did this person do, in order". This
+tables, one `EventLogTable` shape; V88/V89 add person-keyed ones for days-off and career positions); nothing answered "what did this person do, in order". This
 doc is the authoritative design; it grows with each step (the last section says what is in force
 and what is still to come).
 
@@ -68,8 +68,8 @@ fields are always encoded as explicit nulls).
   tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
   a registered deviation from API-LIST-003 (see the rulebook's known-gaps register).
 - `area` = the seven `ShareableResourceType` names for document rows (so `link` is the sharing
-  adapter's `viewPath`), plus `DAYS_OFF` (person-scoped, step 4), `CAREER_POSITION`, `ACCOUNT` — declared up
-  front (the OpenAPI enum is append-only); the last two produce no rows until their steps.
+  adapter's `viewPath`), plus `DAYS_OFF` (person-scoped, step 4), `CAREER_POSITION` (person-scoped, step 5), `ACCOUNT` —
+  declared up front (the OpenAPI enum is append-only); only `ACCOUNT` produces no rows until its step.
 - **`params`** is the event's content-free map, the same one the document's History tab renders
   (localized client-side by dispatching `area` + `eventType` to the existing describers). The goal
   progress comment and every other encrypted column are **never read** by this service — the union
@@ -163,6 +163,20 @@ teammate grant (calendar parity for one entry) is deliberately not consulted. Th
 flag gates the area like every other. Parity is pinned by `ActivityVisibilityParityTest` against the
 real chain walk (`isInManagementChain`), since days-off has no sharing adapter to be the oracle.
 
+#### Career-position rows (step 5, V89 `career_position_events`)
+
+The same person-scoped shape as days-off, ungated by any feature flag (the career area has none):
+`CareerPositionEvents` is the ninth event table (`owner_id` = the person whose timeline was
+touched, `user_id` = the acting chain manager), the branch has no parent document, the row lives in
+the ACTOR's log and names the concerned person in `subjectUserId`/`subjectUserName`, and chain
+visibility is the same owner-in-chain rule (`ActivityVisibility.personScoped`, parity-tested against
+`isInManagementChain` together with days-off). Types `POSITION_CREATED` / `POSITION_UPDATED`
+(change-only deltas) / `POSITION_DELETED`; params carry dates, the entry ids and their display
+names FROZEN at mint time (see "Activity trail" in the career section of `dictionaries.md` for the
+decision, the seniority-privacy confirmation and what mints nothing — account deactivation's
+position-closing stamp). No `link`/`details`: the SPA derives `/users/:id/career` from
+`subjectUserId`.
+
 #### Tests
 
 `ActivityLogTest` (the access matrix, seven areas with labels, deleted/KPI-member
@@ -182,4 +196,5 @@ covered by `EventLogTest`.
   (hide, never redact), the chain branch of `requireActivityRead`, `ActivityVisibilityParityTest`.
 - **Step 3 (in force):** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only
   for documents they author). **Step 4 (in force):** the days-off trail (V88, forward-only; owner-in-chain visibility).
-  **Steps 5–6:** the career-position and sign-in trails (V89–V90, forward-only). **Steps 7–8:** the SPA page and the release.
+  **Step 5 (in force):** the career-position trail (V89, forward-only; owner-in-chain
+  visibility). **Step 6:** the sign-in trail (V90, forward-only). **Steps 7–8:** the SPA page and the release.

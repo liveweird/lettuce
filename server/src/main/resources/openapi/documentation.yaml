@@ -856,8 +856,11 @@ paths:
         row lives in the actor's log and names the person it concerned in `subjectUserId`/
         `subjectUserName`; they carry no document, `link` or `details` (their `params` are
         self-describing). A chain manager sees such a row when its subject is the manager or in the
-        manager's chain — also after the entry or correction was deleted. The career-position and
-        sign-in areas are declared in `ActivityArea` but produce no rows yet.
+        manager's chain — also after the entry or correction was deleted. `CAREER_POSITION` rows
+        (a chain manager recording, correcting or deleting a report's career position —
+        forward-only from v4.9.0; account deactivation's position-closing stamp mints nothing) are
+        person-scoped in the same way, ungated by any feature flag. The sign-in area is declared in
+        `ActivityArea` but produces no rows yet.
 
         Who may read: the user themselves, the HR auditor (audited as `hr.list`, resource
         `activity`), and a manager in the user's TRANSITIVE management chain — anyone else, ADMIN
@@ -10550,9 +10553,10 @@ components:
         The areas an activity row can belong to (v4.9.0). The first seven name a document kind
         (equal to `ShareableResourceType`, so the row's `link` is that kind's view path);
         `DAYS_OFF` (v4.9.0 — the person-scoped trail of days-off actions: entries recorded or
-        deleted, budget corrections, allowance changes, pool archivals), `CAREER_POSITION` and
-        `ACCOUNT` (sign-ins) are declared up front — the enum is append-only — and `CAREER_POSITION`
-        and `ACCOUNT` produce no rows until their trails exist.
+        deleted, budget corrections, allowance changes, pool archivals) and `CAREER_POSITION`
+        (v4.9.0 — career positions recorded, corrected or deleted by a chain manager) and `ACCOUNT`
+        (sign-ins) are declared up front — the enum is append-only — and `ACCOUNT` produces no rows
+        until its trail exists.
 
     ActivityEntry:
       type: object
@@ -10584,7 +10588,8 @@ components:
             `DAYS_OFF` rows (V88) carry one of seven types: `ENTRY_RECORDED` (every create, a
             self-create too), `ENTRY_DELETED`, `CORRECTION_CREATED`, `CORRECTION_UPDATED` (only when
             year, operation or days changed), `CORRECTION_DELETED`, `ALLOWANCE_CHANGED` (only on an
-            actual change) and `POOL_ARCHIVED`.
+            actual change) and `POOL_ARCHIVED`. `CAREER_POSITION` rows (V89) carry `POSITION_CREATED`,
+            `POSITION_UPDATED` (only when the start date or a ref changed) and `POSITION_DELETED`.
         params:
           type: object
           additionalProperties: { type: string }
@@ -10602,7 +10607,15 @@ components:
             poolName, operation, days}`; `CORRECTION_UPDATED` `{correctionId, poolTypeId, poolName,
             yearFrom, yearTo, operationFrom, operationTo, daysFrom, daysTo}`; `ALLOWANCE_CHANGED`
             `{poolTypeId, poolName, from?, to}`; `POOL_ARCHIVED` `{poolId, poolTypeId, poolName,
-            allowance}` — never the encrypted correction comment.
+            allowance}` — never the encrypted correction comment. `CAREER_POSITION` rows (strings,
+            frozen at the action): `POSITION_CREATED`/`POSITION_DELETED` `{positionId, startDate,
+            careerPath?, careerPathName?, careerSpecialization?, careerSpecializationName?,
+            seniorityLevel?, seniorityLevelName?}` (the entry ids plus their default-language
+            display names at that moment, each pair present only for a set ref); `POSITION_UPDATED`
+            `{positionId, startDate, startDateFrom?, startDateTo?}` plus, per CHANGED ref,
+            `<ref>From`/`<ref>FromName` (absent when it was unset) and `<ref>To`/`<ref>ToName`
+            (absent when cleared) with `<ref>` one of `careerPath`, `careerSpecialization`,
+            `seniorityLevel`.
         documentId:
           type: integer
           format: int32
@@ -10641,8 +10654,8 @@ components:
           minimum: 0
           nullable: true
           description: >-
-            For PERSON-scoped rows (`DAYS_OFF` — and later `CAREER_POSITION`): the person the action
-            concerned (whose leave or budget it touched) — the log's own user for a self-service
+            For PERSON-scoped rows (`DAYS_OFF`, `CAREER_POSITION`): the person the action
+            concerned (whose leave, budget or career timeline it touched) — the log's own user for a self-service
             action, otherwise someone else (the log holds the ACTOR's rows: a manager recording
             leave for a report has the row, naming the report here). Null for document rows.
         subjectUserName:

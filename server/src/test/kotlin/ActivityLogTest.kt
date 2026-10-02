@@ -56,6 +56,7 @@ import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.r2dbc.update
 import java.time.LocalDate
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -730,6 +731,58 @@ class ActivityLogTest {
         assertEquals(0L, hr.client.page(w.manager.id, "area=DAYS_OFF").total)
         assertTrue(hr.client.page(w.manager.id, "area=DAYS_OFF").items.isEmpty())
     }
+
+    // ——— career-position rows (person-scoped, V89) ———
+
+    private suspend fun HttpClient.recordPosition(userId: UInt, start: String, path: UInt, spec: UInt, level: UInt) =
+        post("/api/v1/users/$userId/career-positions") {
+            contentType(ContentType.Application.Json)
+            setBody(ch.nokillswit.users.CareerPositionWrite(start, path, spec, level))
+        }.also { assertEquals(HttpStatusCode.Created, it.status) }
+            .body<ch.nokillswit.users.CareerPositionResponse>()
+
+    private suspend fun careerRefs(marker: String): Triple<UInt, UInt, UInt> {
+        val (path) = TestDictionaries.append(ch.nokillswit.dictionaries.Dictionary.CAREER_PATH, "ActPath $marker")
+        val (spec) = TestDictionaries.append(ch.nokillswit.dictionaries.Dictionary.CAREER_SPECIALIZATION, "ActSpec $marker")
+        val (level) = TestDictionaries.append(ch.nokillswit.dictionaries.Dictionary.SENIORITY_LEVEL, "ActLevel $marker")
+        return Triple(path, spec, level)
+    }
+
+    @Test
+    fun `a manager recording a career position has the row in the MANAGER's log, naming the report, ungated`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val w = world()
+            val (path, spec, level) = careerRefs(UUID.randomUUID().toString().take(8))
+            val position = w.manager.client.recordPosition(w.employee.id, "2019-02-01", path, spec, level)
+
+            val row = w.manager.client.page(w.manager.id, "area=CAREER_POSITION&pageSize=100").items.single()
+            assertEquals("POSITION_CREATED", row.eventType)
+            assertEquals(w.employee.id, row.subjectUserId)
+            assertEquals(w.employee.name, row.subjectUserName)
+            assertEquals(position.id.toString(), row.params["positionId"])
+            assertTrue(row.params["seniorityLevelName"]!!.startsWith("ActLevel"))
+            assertNull(row.documentId)
+            assertNull(row.link)
+            assertNull(row.details)
+            // The report did not act: nothing in their own log. The skip-level manager and HR see the row.
+            assertEquals(0L, w.employee.client.page(w.employee.id, "area=CAREER_POSITION").total)
+            assertEquals(1L, w.grand.client.page(w.manager.id, "area=CAREER_POSITION").total)
+            val hr = person("hr", roles = setOf(UserRole.HR))
+            assertEquals(1L, hr.client.page(w.manager.id, "area=CAREER_POSITION").total)
+            // A peer is forbidden outright, an outsider-to-the-owner chain viewer loses the row once the owner leaves.
+            assertEquals(HttpStatusCode.Forbidden, person("peer").client.activity(w.manager.id).status)
+            TestServices.teams.delete(w.teamId)
+            assertEquals(0L, w.grand.client.page(w.manager.id, "area=CAREER_POSITION").total)
+            assertEquals(1L, w.manager.client.page(w.manager.id, "area=CAREER_POSITION").total)
+            // CAREER_POSITION is ungated: a viewer with every feature disabled still lists it.
+            val gated = person(
+                "gated", roles = setOf(UserRole.HR),
+                disabled = Feature.entries.filter { it !in OPT_IN_FEATURES }.toSet(),
+            )
+            assertEquals(1L, gated.client.page(w.manager.id, "area=CAREER_POSITION").total)
+            assertTrue(gated.client.page(w.manager.id, "pageSize=100").items.all { it.area == ActivityArea.CAREER_POSITION })
+        }
 
     @Test
     fun `a manager who left the chain is forbidden`() = testApplication {

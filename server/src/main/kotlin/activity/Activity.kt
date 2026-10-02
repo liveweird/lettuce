@@ -12,9 +12,9 @@ val ActivityServiceKey = AttributeKey<ActivityService>("ActivityService")
  * The areas an activity row can belong to (v4.9.0). The seven document areas carry the NAME of
  * their [ShareableResourceType] on purpose, so `area == resourceType` for document rows and the
  * row's `link` comes from the sharing adapter's `viewPath`. [DAYS_OFF] (V88, person-scoped),
- * [CAREER_POSITION] and [ACCOUNT] are declared from the start (the OpenAPI enum is append-only —
- * API-EVOL); [DAYS_OFF] produces rows, the other two none until their trails land (career V89,
- * sign-ins V90).
+ * [CAREER_POSITION] (V89) and [ACCOUNT] are declared from the start (the OpenAPI enum is append-only —
+ * API-EVOL); [DAYS_OFF] and [CAREER_POSITION] produce rows (person-scoped), [ACCOUNT] none until its
+ * trail lands (sign-ins, V90).
  */
 @Serializable
 enum class ActivityArea {
@@ -113,12 +113,12 @@ data class ActivityEntry(
     val area: ActivityArea,
     val eventType: String,
     val params: Map<String, String>,
-    // Null for the person-scoped areas (days-off today); always encoded (no default — the wire shape
+    // Null for the person-scoped areas (days-off, career positions); always encoded (no default — the wire shape
     // carries explicit nulls like the share list's).
     val documentId: UInt?,
     val link: String?,
     val details: Map<String, String>?,
-    // The person a PERSON-scoped row concerns (days-off today; career positions next) — their id and
+    // The person a PERSON-scoped row concerns (days-off, career positions) — their id and
     // LIVE display name; null for document rows. The row itself lives in the ACTOR's log.
     val subjectUserId: UInt?,
     val subjectUserName: String?,

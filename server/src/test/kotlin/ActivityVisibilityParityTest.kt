@@ -42,6 +42,7 @@ import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.isInManagementChain
+import ch.nokillswit.users.CareerPositionEventService.CareerPositionEvents
 import io.ktor.server.testing.testApplication
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
@@ -278,46 +279,45 @@ class ActivityVisibilityParityTest {
         }
 
     /**
-     * The person-scoped DAYS_OFF area has no document and no adapter, so its oracle is the chain rule
-     * itself: a chain viewer sees T's row about OWNER iff the owner is the viewer or in the viewer's
-     * transitive chain (`isInManagementChain(viewer, owner)` — the real walk, owner ≠ viewer excluded).
+     * The person-scoped areas (DAYS_OFF V88, CAREER_POSITION V89) have no document and no adapter, so
+     * their oracle is the chain rule itself: a chain viewer sees T's row about OWNER iff the owner is
+     * the viewer or in the viewer's transitive chain (`isInManagementChain(viewer, owner)` — the real
+     * walk, owner ≠ viewer excluded).
      */
     @Test
-    fun `days-off rows follow the owner-in-chain rule for every viewer and owner`() = testApplication {
+    fun `person-scoped rows follow the owner-in-chain rule for every viewer and owner`() = testApplication {
         usePostgresTestcontainer()
         val service = application.attributes[ActivityServiceKey]
         val o = org()
         val now = System.currentTimeMillis()
         val owners = o.viewers + o.t
+        val trails = mapOf(ActivityArea.DAYS_OFF to DaysOffEvents, ActivityArea.CAREER_POSITION to CareerPositionEvents)
         suspendTransaction(TestServices.database) {
-            for (owner in owners) event(DaysOffEvents, owner, o.t, now)
+            for (table in trails.values) for (owner in owners) event(table, owner, o.t, now)
         }
-        for (viewer in o.viewers) {
-            val rows = service.list(
-                o.t,
-                ActivityViewer(viewer, emptySet(), ActivityScope.CHAIN),
-                ActivityFilter(area = ActivityArea.DAYS_OFF),
-                PageRequest(1, 100, listOf(SortField("createdAt", descending = true))),
-            )
-            val seen = rows.items.map { it.subjectUserId!! }.toSet()
-            val expected = suspendTransaction(TestServices.database) {
-                owners.filter { owner -> owner == viewer || isInManagementChain(viewer, owner) }.toSet()
+        val firstPage = PageRequest(1, 100, listOf(SortField("createdAt", descending = true)))
+        for (area in trails.keys) {
+            for (viewer in o.viewers) {
+                val rows = service.list(
+                    o.t, ActivityViewer(viewer, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = area), firstPage,
+                )
+                val seen = rows.items.map { it.subjectUserId!! }.toSet()
+                val expected = suspendTransaction(TestServices.database) {
+                    owners.filter { owner -> owner == viewer || isInManagementChain(viewer, owner) }.toSet()
+                }
+                assertEquals(expected, seen, "$area viewer $viewer")
+                assertEquals(rows.total, rows.items.size.toLong())
             }
-            assertEquals(expected, seen, "viewer $viewer")
-            assertEquals(rows.total, rows.items.size.toLong())
+            // Non-vacuous: the skip-level manager sees several owners; an outsider only their own row.
+            val gmSees = service.list(
+                o.t, ActivityViewer(o.gm, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = area), firstPage,
+            )
+            assertTrue(gmSees.total >= 4, "$area")
+            val outsiderSees = service.list(
+                o.t, ActivityViewer(o.o, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = area), firstPage,
+            )
+            assertEquals(setOf(o.o), outsiderSees.items.map { it.subjectUserId }.toSet(), "$area")
         }
-        // Non-vacuous: the skip-level manager sees several owners (checked below); an outsider sees only
-        // their own row — the loop above already pins that through the oracle.
-        val gmSees = service.list(
-            o.t, ActivityViewer(o.gm, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = ActivityArea.DAYS_OFF),
-            PageRequest(1, 100, listOf(SortField("createdAt", descending = true))),
-        )
-        assertTrue(gmSees.total >= 4)
-        val outsiderSees = service.list(
-            o.t, ActivityViewer(o.o, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = ActivityArea.DAYS_OFF),
-            PageRequest(1, 100, listOf(SortField("createdAt", descending = true))),
-        )
-        assertEquals(setOf(o.o), outsiderSees.items.map { it.subjectUserId }.toSet())
     }
 
     /** documentId → "details present", for every row [viewer] gets from [target]'s log of [area]. */
