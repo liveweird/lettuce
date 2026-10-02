@@ -15,7 +15,7 @@ class CalendarPerson(val userId: UInt, val name: String)
  * PERSON's user id and [read] resolves the user: null for a soft-deleted one (the route answers 404),
  * a deactivated one stays shareable (historical data reads like an active user's). [guard] is the RAW
  * own-right rule [requireDaysOffCalendarRead] (the person themselves or a manager in their
- * transitive chain; HR-auditor access is the role-stripped no-op, teammates never qualify) — never a
+ * transitive chain; there is no HR branch and teammates never qualify) — never a
  * share-aware preamble, which is what keeps sharing non-transitive. The author, who sees and may
  * withdraw EVERY share of the calendar, is the person themselves (the impact-log owner precedent) —
  * a chain manager who did not share learns nothing about it. The label is the plaintext display
