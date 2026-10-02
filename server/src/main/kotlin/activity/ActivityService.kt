@@ -322,9 +322,8 @@ class ActivityService(
      * Left-folds the branches into one `UNION ALL`. Exposed has no one-branch set operation, so a
      * lone branch is paired with its own contradiction (`WHERE FALSE`): the same rows, one code
      * path. Every shareable area contributes an event branch plus the two share branches (never
-     * fewer than three), but a person-scoped area (DAYS_OFF, CAREER_POSITION) is ONE branch — `area=DAYS_OFF`
-     * or `area=CAREER_POSITION` takes
-     * this path today.
+     * fewer than three — DAYS_OFF too since v4.11.0, via the calendar's share rows), but CAREER_POSITION is
+     * ONE branch — `area=CAREER_POSITION` takes this path today.
      */
     private fun unionOf(specs: List<(Boolean) -> Query>): SetOperation {
         val branches = specs.map { it(true) } + if (specs.size == 1) listOf(specs.first()(false)) else emptyList()

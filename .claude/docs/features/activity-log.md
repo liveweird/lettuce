@@ -140,12 +140,25 @@ is the adapter's `viewPath`, always present on a share row.
 Visibility: self and HR (decision 2, `hr.list`-audited) see every share row; a CHAIN viewer sees a
 share row only when the viewer is the document's AUTHOR and the document is not soft-deleted
 (`ActivityVisibility.authoredShares` — the per-type SQL twin of each adapter's `isAuthor`: provider /
-stored `manager_id` / owner / the KPI team's current manager or the chain above) — the
+stored `manager_id` / owner / the KPI team's current manager or the chain above / **a days-off
+calendar's PERSON only** (v4.11.0 — a chain manager sees a calendar share row only when they ARE the
+person)) — the
 `GET /shares?view=document` rule, so the document's subject and a non-author manager never learn of
 a share. Share-granted reads grant nothing here. `ActivityVisibilityParityTest` checks the author
 predicate against `adapter.isAuthor` (with `read != null`) for every area.
 
 #### Days-off rows (step 4, V88 `days_off_events`)
+
+**Calendar share rows (v4.11.0).** The DAYS_OFF area also carries the SHARE rows of the days-off
+CALENDAR kind (`ShareableResourceType.DAYS_OFF_CALENDAR.activityArea = DAYS_OFF`, `ActivityArea.DAYS_OFF.shareType
+= DAYS_OFF_CALENDAR` — no new area): unlike the area's event rows, a share row has a `documentId` (the
+person's user id), a `link` (the sharee's destination — the SPA re-targets it for the sharer) and the
+`{person}` snapshot in `details`, and `hydrate` takes the share branch before the person-scoped one.
+Visibility is `authoredShares`, not `personScoped`: self and HR see every row, a chain viewer only when
+THEY are the calendar's person (the author), never a mere chain manager. `ActivityVisibility.readable(DAYS_OFF)`
+stays `Op.FALSE` — it is only applied to document areas' event rows, never reached for this area.
+`ActivityVisibilityParityTest` checks the share rows of this area against `adapter.isAuthor` (its
+event rows stay with the person-scoped test below).
 
 A PERSON-scoped area: the eighth event table is keyed on the person the action concerns
 (`owner_id`) with the actor in `user_id`, so the union branch filters `user_id = target` like every

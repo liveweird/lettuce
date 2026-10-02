@@ -64,7 +64,7 @@ enum class NotificationType {
     CAREER_POSITION_STARTED_TO_USER,
     // Document sharing (v4.8.0, sharing/ShareNotifications.kt): one SHARED + one SHARE_WITHDRAWN
     // type per shareable area, so the feature mapping, the preference grouping and the per-noun
-    // Polish wording stay precise (days-off is not shareable yet). The sharee hears when a
+    // Polish wording stay precise (days-off ENTRIES are not shareable; the calendar is, since v4.11.0). The sharee hears when a
     // share starts and when it is withdrawn; the sharer hears too when someone else (the
     // document's author) withdrew it.
     FEEDBACK_SHARED,
@@ -86,6 +86,12 @@ enum class NotificationType {
     // .claude/docs/features/succession-plans.md — the no-notifications posture's one exception).
     SUCCESSION_PLAN_SHARED,
     SUCCESSION_PLAN_SHARE_WITHDRAWN,
+    // v4.11.0, the person-scoped kind: a PERSON'S days-off calendar is shared (resource id = user
+    // id). Unlike succession these name the person (`{sharer, person}`); the batch type is the
+    // second summary notice (calendars), linking the sharee's "Shared with me" calendar scope.
+    DAYS_OFF_CALENDAR_SHARED,
+    DAYS_OFF_CALENDAR_SHARE_WITHDRAWN,
+    DAYS_OFF_CALENDARS_BATCH_SHARED,
     PASSWORD_CHANGED,
 }
 
@@ -148,6 +154,9 @@ val NotificationType.feature: Feature?
         NotificationType.DAYS_OFF_DELETED,
         NotificationType.DAYS_OFF_CORRECTED_TO_OWNER,
         NotificationType.DAYS_OFF_ALLOWANCE_CHANGED,
+        NotificationType.DAYS_OFF_CALENDAR_SHARED,
+        NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN,
+        NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED,
         -> Feature.DAYS_OFF
         NotificationType.PULSE_CYCLE_SCHEDULED,
         NotificationType.PULSE_CYCLE_OPENED,

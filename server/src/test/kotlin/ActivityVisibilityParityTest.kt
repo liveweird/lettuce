@@ -5,6 +5,7 @@ import ch.nokillswit.activity.ActivityFilter
 import ch.nokillswit.activity.ActivityScope
 import ch.nokillswit.activity.ActivityServiceKey
 import ch.nokillswit.activity.ActivityViewer
+import ch.nokillswit.activity.isPersonScoped
 import ch.nokillswit.activity.shareType
 import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ForbiddenException
@@ -222,7 +223,12 @@ class ActivityVisibilityParityTest {
             val service = application.attributes[ActivityServiceKey]
             val o = org()
             val now = System.currentTimeMillis()
-            val docs = seedFeedbacksAndMeetings(o, now) + seedGoalsKpisAndOwnerDocs(o, now) + seedReviews(o, now)
+            // DAYS_OFF_CALENDAR (v4.11.0): the "document" is a PERSON — one per org member plus a soft-deleted one;
+            // only its SHARE rows are checked (the area's event rows are person-scoped, covered below).
+            val gone = user("gone-person")
+            val calendarDocs = (o.viewers + o.t + gone).map { Doc(ActivityArea.DAYS_OFF, it) }
+            val docs = seedFeedbacksAndMeetings(o, now) + seedGoalsKpisAndOwnerDocs(o, now) + seedReviews(o, now) + calendarDocs
+            assertEquals(1, TestServices.users.delete(gone))
 
             // Exhaustiveness: the matrix covers EVERY shareable area (a new area without a matrix fails here).
             val shareable = ActivityArea.entries.filter { it.shareType != null }.toSet()
@@ -231,7 +237,7 @@ class ActivityVisibilityParityTest {
                 ch.nokillswit.sharing.ShareableResourceType.entries.toSet(),
                 shareable.map { it.shareType }.toSet(),
             )
-            seedEvents(o, docs, now)
+            seedEvents(o, docs.filter { !it.area.isPersonScoped }, now)
             seedShares(o, docs, now)
 
             val mismatches = mutableListOf<String>()
@@ -241,22 +247,25 @@ class ActivityVisibilityParityTest {
                 val areaDocs = docs.filter { it.area == area }
                 val adapter = registry.forType(area.shareType!!)
                 for (viewer in o.viewers) {
+                    val personScoped = area.isPersonScoped
                     val expected = areaDocs.associate { it.id to adapter.ownRight(viewer, it.id) }
                     // chain mode (viewer reads T's log): a row per readable document, none for the rest.
-                    val chainRows = listed(service, o.t, viewer, ActivityScope.CHAIN, area, shares = false)
+                    val chainRows =
+                        if (personScoped) emptyMap() else listed(service, o.t, viewer, ActivityScope.CHAIN, area, shares = false)
                     // share rows (T shared and withdrew every document): a chain viewer sees them only for
                     // documents they AUTHOR (adapter.isAuthor, document not deleted) — never as a mere reader.
                     val shareRows = listed(service, o.t, viewer, ActivityScope.CHAIN, area, shares = true)
                     // self mode (viewer reads their own log): every document is listed; details ⇔ readable.
-                    val selfRows = listed(service, viewer, viewer, ActivityScope.OWN_RIGHT, area)
+                    val selfRows = if (personScoped) emptyMap() else listed(service, viewer, viewer, ActivityScope.OWN_RIGHT, area)
                     for (doc in areaDocs) {
                         val ok = expected.getValue(doc.id)
-                        outcomes.merge(area to ok, 1, Int::plus)
+                        if (!personScoped) outcomes.merge(area to ok, 1, Int::plus)
                         val authored = adapter.authors(viewer, doc.id)
                         authorOutcomes.merge(area to authored, 1, Int::plus)
                         if ((doc.id in shareRows) != authored) {
                             mismatches += "SHARE $area doc=${doc.id} viewer=$viewer author=$authored listed=${doc.id in shareRows}"
                         }
+                        if (personScoped) continue
                         if ((doc.id in chainRows) != ok) {
                             mismatches += "CHAIN $area doc=${doc.id} viewer=$viewer oracle=$ok listed=${doc.id in chainRows}"
                         }
@@ -271,8 +280,10 @@ class ActivityVisibilityParityTest {
             assertTrue(mismatches.isEmpty(), "predicate/guard disagreements:\n" + mismatches.take(40).joinToString("\n"))
             // Non-vacuous: every area saw both readable and unreadable documents.
             for (area in shareable) {
-                assertTrue((outcomes[area to true] ?: 0) > 0, "$area never readable in the matrix")
-                assertTrue((outcomes[area to false] ?: 0) > 0, "$area never hidden in the matrix")
+                if (!area.isPersonScoped) {
+                    assertTrue((outcomes[area to true] ?: 0) > 0, "$area never readable in the matrix")
+                    assertTrue((outcomes[area to false] ?: 0) > 0, "$area never hidden in the matrix")
+                }
                 assertTrue((authorOutcomes[area to true] ?: 0) > 0, "$area never authored in the matrix")
                 assertTrue((authorOutcomes[area to false] ?: 0) > 0, "$area never non-authored in the matrix")
             }

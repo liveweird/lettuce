@@ -90,6 +90,9 @@ val NotificationType.lockedOn: Boolean
         NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN,
         NotificationType.SUCCESSION_PLAN_SHARED,
         NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN,
+        NotificationType.DAYS_OFF_CALENDAR_SHARED,
+        NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN,
+        NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED,
         -> false
     }
 

@@ -118,6 +118,10 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   IMPACT_ENTRY_SHARE_WITHDRAWN: "impactEntryShareWithdrawn",
   SUCCESSION_PLAN_SHARED: "successionPlanShared",
   SUCCESSION_PLAN_SHARE_WITHDRAWN: "successionPlanShareWithdrawn",
+  // v4.11.0 — a person's days-off calendar: the notice names the person (`person`), `self: "own"` = the sharer shared their own.
+  DAYS_OFF_CALENDAR_SHARED: "daysOffCalendarShared",
+  DAYS_OFF_CALENDAR_SHARE_WITHDRAWN: "daysOffCalendarShareWithdrawn",
+  DAYS_OFF_CALENDARS_BATCH_SHARED: "daysOffCalendarsBatchShared",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -176,6 +180,16 @@ const SHARE_WITHDRAWN_SPEC: ParamFormatSpec = {
   },
 };
 
+// The days-off calendar copies (v4.11.0) add `self: "own"` (the sharer shared their own calendar):
+// "own" and "until" combine for SHARED (`own_until`), "own" is its own variant of the withdrawn copy.
+const CALENDAR_SHARED_SPEC: ParamFormatSpec = {
+  dateParams: ["expiresOn"],
+  contextFn: (p) => [p.self === "own" ? "own" : null, p.expiresOn != null ? "until" : null].filter(Boolean).join("_") || undefined,
+};
+const CALENDAR_WITHDRAWN_SPEC: ParamFormatSpec = {
+  contextFn: (p) => (p.self === "own" ? "own" : SHARE_WITHDRAWN_SPEC.contextFn?.(p)),
+};
+
 const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   feedbackShared: SHARED_SPEC,
   feedbackShareWithdrawn: SHARE_WITHDRAWN_SPEC,
@@ -192,6 +206,9 @@ const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   impactEntryShareWithdrawn: SHARE_WITHDRAWN_SPEC,
   successionPlanShared: SHARED_SPEC,
   successionPlanShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  daysOffCalendarShared: CALENDAR_SHARED_SPEC,
+  daysOffCalendarShareWithdrawn: CALENDAR_WITHDRAWN_SPEC,
+  daysOffCalendarsBatchShared: BATCH_SHARED_SPEC,
   teamKpiValueRecorded: KPI_VALUE_SPEC,
   teamKpiValueCorrected: KPI_VALUE_SPEC,
   teamKpiValueRemoved: KPI_VALUE_SPEC,
@@ -312,6 +329,9 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   IMPACT_ENTRY_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
   SUCCESSION_PLAN_SHARED: { icon: IconShare, color: "blue" },
   SUCCESSION_PLAN_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  DAYS_OFF_CALENDAR_SHARED: { icon: IconShare, color: "blue" },
+  DAYS_OFF_CALENDAR_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  DAYS_OFF_CALENDARS_BATCH_SHARED: { icon: IconShare, color: "blue" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

@@ -40,6 +40,8 @@ val ShareableResourceType.activityArea: ActivityArea
         ShareableResourceType.PERFORMANCE_REVIEW -> ActivityArea.PERFORMANCE_REVIEW
         ShareableResourceType.IMPACT_LOG_ENTRY -> ActivityArea.IMPACT_LOG_ENTRY
         ShareableResourceType.SUCCESSION_PLAN -> ActivityArea.SUCCESSION_PLAN
+        // v4.11.0: a calendar share row rides the person-scoped DAYS_OFF area (no new area).
+        ShareableResourceType.DAYS_OFF_CALENDAR -> ActivityArea.DAYS_OFF
     }
 
 /**
@@ -52,7 +54,11 @@ val ShareableResourceType.activityArea: ActivityArea
 val ActivityArea.isPersonScoped: Boolean
     get() = this == ActivityArea.DAYS_OFF || this == ActivityArea.CAREER_POSITION
 
-/** The sharing type of a document area; null for the person-scoped areas. */
+/**
+ * The sharing type of a document area; null for the areas with nothing shareable. DAYS_OFF is
+ * person-scoped for its EVENT rows yet carries the calendar's SHARE rows (v4.11.0) — the
+ * `document_id` of such a share row is the person's user id, like the event rows' owner id.
+ */
 val ActivityArea.shareType: ShareableResourceType?
     get() = when (this) {
         ActivityArea.FEEDBACK -> ShareableResourceType.FEEDBACK
@@ -62,7 +68,8 @@ val ActivityArea.shareType: ShareableResourceType?
         ActivityArea.PERFORMANCE_REVIEW -> ShareableResourceType.PERFORMANCE_REVIEW
         ActivityArea.IMPACT_LOG_ENTRY -> ShareableResourceType.IMPACT_LOG_ENTRY
         ActivityArea.SUCCESSION_PLAN -> ShareableResourceType.SUCCESSION_PLAN
-        ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> null
+        ActivityArea.DAYS_OFF -> ShareableResourceType.DAYS_OFF_CALENDAR
+        ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> null
     }
 
 /**

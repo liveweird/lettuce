@@ -324,11 +324,19 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
     NotificationType.TEAM_KPI_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_TEAM_KPI, p)
     NotificationType.PERFORMANCE_REVIEW_SHARED -> sharedSentence(SHARE_NOUN_PERFORMANCE_REVIEW, p)
     NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_PERFORMANCE_REVIEW, p)
-    NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED -> batchSharedSentence(p)
+    NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED ->
+        batchSharedSentence(p, en = "performance reviews", pl = "oceny okresowe")
     NotificationType.IMPACT_ENTRY_SHARED -> sharedSentence(SHARE_NOUN_IMPACT_ENTRY, p)
     NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_IMPACT_ENTRY, p)
     NotificationType.SUCCESSION_PLAN_SHARED -> sharedSentence(SHARE_NOUN_SUCCESSION_PLAN, p)
     NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_SUCCESSION_PLAN, p)
+    NotificationType.DAYS_OFF_CALENDAR_SHARED -> sharedSentence(calendarShareNoun(p), p)
+    NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN -> withdrawnSentence(calendarShareNoun(p), p)
+    NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED -> batchSharedSentence(
+        p,
+        en = "days-off calendars",
+        pl = "kalendarze dni wolnych",
+    )
     NotificationType.PASSWORD_CHANGED -> when (p["self"]) {
         // The reset flow's own email (with the new password) IS the notice — no duplicate.
         "reset" -> null
@@ -383,6 +391,26 @@ private val SHARE_NOUN_SUCCESSION_PLAN = ShareNoun(
     plWhich = "który",
 )
 
+/**
+ * The days-off calendar noun (v4.11.0), built from the notice's params because it names a PERSON:
+ * `person` is the calendar's owner, and `self == "own"` means the sharer shared their own calendar
+ * ("their" / Polish "swój"). The Polish forms keep "osoby {person}" so the sentence still names whose
+ * calendar it is. [ShareNoun.plGenShared] agrees with the masculine "kalendarza".
+ */
+private fun calendarShareNoun(p: Map<String, String>): ShareNoun = if (p["self"] == "own") {
+    ShareNoun(
+        en = "their days-off calendar", plAcc = "swój kalendarz dni wolnych", plGen = "swojego kalendarza dni wolnych",
+        plGenShared = "udostępnionego",
+    )
+} else {
+    ShareNoun(
+        en = "${p.v("person")}'s days-off calendar",
+        plAcc = "kalendarz dni wolnych osoby ${p.v("person")}",
+        plGen = "kalendarza dni wolnych osoby ${p.v("person")}",
+        plGenShared = "udostępnionego",
+    )
+}
+
 /** `*_SHARED` — params `{sharer}` plus the raw ISO `expiresOn` when the share has an end date. */
 private fun sharedSentence(noun: ShareNoun, p: Map<String, String>): LocalizedText {
     val until = p["expiresOn"]
@@ -393,16 +421,17 @@ private fun sharedSentence(noun: ShareNoun, p: Map<String, String>): LocalizedTe
 }
 
 /**
- * `PERFORMANCE_REVIEWS_BATCH_SHARED` (v4.10.0) — params `{sharer, count}` plus the raw ISO
- * `expiresOn` when the batch has an end date. Count-neutral wording ("in total") so the Polish copy
- * needs no numeral declension.
+ * `PERFORMANCE_REVIEWS_BATCH_SHARED` (v4.10.0) / `DAYS_OFF_CALENDARS_BATCH_SHARED` (v4.11.0) — params
+ * `{sharer, count}` plus the raw ISO `expiresOn` when the batch has an end date; [en]/[pl] are the
+ * plural noun of the kind. Count-neutral wording ("in total") so the Polish copy needs no numeral
+ * declension.
  */
-private fun batchSharedSentence(p: Map<String, String>): LocalizedText {
+private fun batchSharedSentence(p: Map<String, String>, en: String, pl: String): LocalizedText {
     val until = p["expiresOn"]
     return LocalizedText(
-        en = "${p.v("sharer")} shared performance reviews with you (${p.v("count")} in total)." +
+        en = "${p.v("sharer")} shared $en with you (${p.v("count")} in total)." +
             (until?.let { " Access lasts until $it." } ?: ""),
-        pl = "${p.v("sharer")} udostępnił/a Ci oceny okresowe (łącznie: ${p.v("count")})." +
+        pl = "${p.v("sharer")} udostępnił/a Ci $pl (łącznie: ${p.v("count")})." +
             (until?.let { " Dostęp obowiązuje do $it." } ?: ""),
     )
 }

@@ -459,6 +459,47 @@ class GuardsTest {
         assertFailsWith<ForbiddenException> { ch.nokillswit.authz.requireImpactEntryWrite(hr, entry) }
     }
 
+    @Test
+    fun `days-off calendar reads admit the person, the chain and the audited HR - teammates, ADMIN and strangers are shut out`() {
+        runBlocking {
+            val person = subject.userId
+            // The person passes without the chain walk; HR passes BEFORE the lambda (no DB hit).
+            ch.nokillswit.authz.requireDaysOffCalendarRead(subject, person) { error("the person must not walk the chain") }
+            ch.nokillswit.authz.requireDaysOffCalendarRead(hr, person) { error("HR must not walk the chain") }
+            // Direct and skip-level managers both reduce to "the chain walk says yes".
+            ch.nokillswit.authz.requireDaysOffCalendarRead(stranger, person) { true }
+            // A teammate (calendar parity for the ENTRIES) is no chain member: the walk says no -> 403, no teammate branch.
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireDaysOffCalendarRead(stranger, person) { false }
+            }
+            // ADMIN deliberately gets nothing (the narrowed-ADMIN rule).
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireDaysOffCalendarRead(admin, person) { false }
+            }
+            // The role-stripped HR principal (what ShareAccess evaluates for a sharer) loses the auditor branch.
+            ch.nokillswit.authz.requireDaysOffCalendarRead(hr.copy(roles = emptySet()), person) { true }
+            assertFailsWith<ForbiddenException> {
+                ch.nokillswit.authz.requireDaysOffCalendarRead(hr.copy(roles = emptySet()), person) { false }
+            }
+        }
+    }
+
+    @Test
+    fun `an HR read of a days-off calendar is audited as hr_read with the daysOffCalendar resource, a stripped one is not`() {
+        val capture = LogCapture("ch.nokillswit.audit")
+        try {
+            runBlocking {
+                ch.nokillswit.authz.requireDaysOffCalendarRead(hr, subject.userId) { error("no walk") }
+                ch.nokillswit.authz.requireDaysOffCalendarRead(hr.copy(roles = emptySet()), subject.userId) { true }
+            }
+            val reads = capture.events.filter { it.hasKeyValue("resource", "daysOffCalendar") }
+            assertTrue(reads.size == 1, "exactly the audited HR read emits hr.read, not the role-stripped evaluation")
+            assertTrue(reads.single().keyValuePairs.any { it.key == "resourceId" && it.value.toString() == subject.userId.toString() })
+        } finally {
+            capture.detach()
+        }
+    }
+
     // ── succession plans ───────────────────────────────────────────────────────
 
     private fun successionPlan(ownerId: UInt, seatUserId: UInt) = ch.nokillswit.succession.SuccessionPlanResponse(

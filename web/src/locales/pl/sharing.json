@@ -77,7 +77,8 @@
     "PERFORMANCE_REVIEW": "Ocena okresowa",
     "TEAM_KPI": "KPI zespołu",
     "IMPACT_LOG_ENTRY": "Wpis w dzienniku wpływu",
-    "SUCCESSION_PLAN": "Plan sukcesji"
+    "SUCCESSION_PLAN": "Plan sukcesji",
+    "DAYS_OFF_CALENDAR": "Kalendarz dni wolnych"
   },
   "doc": {
     "unavailable": "Już niedostępny",
@@ -88,7 +89,8 @@
     "TEAM_KPI": "{{title}} ({{team}})",
     "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
     "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
-    "SUCCESSION_PLAN": "{{person}} (właściciel/ka: {{owner}})"
+    "SUCCESSION_PLAN": "{{person}} (właściciel/ka: {{owner}})",
+    "DAYS_OFF_CALENDAR": "Kalendarz dni wolnych osoby {{person}}"
   },
   "batch": {
     "title": "Udostępnij oceny okresowe",

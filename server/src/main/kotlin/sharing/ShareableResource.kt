@@ -38,7 +38,8 @@ interface ShareableResource<D : Any, G> {
     /**
      * Is [userId] the document's author — the person who sees and may withdraw EVERY share of it
      * (feedback: the provider; 1:1/goal/review: the stored manager; impact log/succession: the
-     * owner; team KPI: whoever passes the manage predicate, which needs the chain walk — hence suspend).
+     * owner; days-off calendar: the person themselves; team KPI: whoever passes the manage predicate, which
+     * needs the chain walk — hence suspend).
      */
     suspend fun isAuthor(userId: UInt, doc: D): Boolean
 

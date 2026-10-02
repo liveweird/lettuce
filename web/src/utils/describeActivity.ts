@@ -28,8 +28,11 @@ export type ActivityContext = {
   careerLabel?: (kind: CareerRef, id: string) => string | undefined;
 };
 
-/** True for the seven areas that name a document kind (the rows that carry a document label). */
-export function isDocumentArea(area: ActivityArea): area is ShareableResourceType {
+/**
+ * True for the seven areas that name a document kind (the rows that carry a document label). The
+ * days-off calendar kind is not an area of its own — its share rows ride the DAYS_OFF area.
+ */
+export function isDocumentArea(area: ActivityArea): area is Extract<ShareableResourceType, ActivityArea> {
   return (SHARE_TYPES as readonly string[]).includes(area);
 }
 

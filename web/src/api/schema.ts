@@ -557,7 +557,11 @@ export interface paths {
          *     row lives in the actor's log and names the person it concerned in `subjectUserId`/
          *     `subjectUserName`; they carry no document, `link` or `details` (their `params` are
          *     self-describing). A chain manager sees such a row when its subject is the manager or in the
-         *     manager's chain — also after the entry or correction was deleted. `CAREER_POSITION` rows
+         *     manager's chain — also after the entry or correction was deleted. The share rows of a person's
+         *     days-off CALENDAR (v4.11.0) ride this area but are the exception: they carry `documentId` (the
+         *     person's user id), a `link` and the `{person}` snapshot, and a chain manager sees one only when
+         *     the calendar's person is the manager themselves (the person is the calendar's author).
+         *     `CAREER_POSITION` rows
          *     (a chain manager recording, correcting or deleting a report's career position —
          *     forward-only from v4.9.0; account deactivation's position-closing stamp mints nothing) are
          *     person-scoped in the same way, ungated by any feature flag. `ACCOUNT` rows are the user's own
@@ -4226,6 +4230,13 @@ export interface paths {
          *     without the HR role; it never grants any write. The sharee is notified (the area's
          *     `*_SHARED` notification) even when their feature flag for the area is off — the share is
          *     then inert and hidden from their list until the flag is back on.
+         *
+         *     For `resourceType: DAYS_OFF_CALENDAR` (v4.11.0) the `resourceId` is a PERSON's user id —
+         *     the document read is that user (`404` for an unknown or soft-deleted user; a deactivated
+         *     one is shareable) and the own-right rule is: the person themselves or a manager in their
+         *     transitive management chain (`403` for teammates, ADMIN-as-such and the HR auditor without
+         *     a chain relationship). The person is the calendar's author: they see and may withdraw
+         *     every share of it. The sharee's notice names the person.
          */
         post: operations["createShare"];
         delete?: never;
@@ -4248,7 +4259,8 @@ export interface paths {
          * @description Mass share (v4.10.0): shares up to 200 documents of ONE kind with up to 20 people in a
          *     single call — one `document_shares` row per (document, person), each an ordinary share
          *     (withdrawn, listed and lapsing exactly like a share made through `POST /api/v1/shares`).
-         *     Only `PERFORMANCE_REVIEW` is batchable today; every other `resourceType` is `400`. The call
+         *     `PERFORMANCE_REVIEW` and (v4.11.0) `DAYS_OFF_CALENDAR` — whose `resourceIds` are the
+         *     persons' user ids — are batchable; every other `resourceType` is `400`. The call
          *     counts as ONE request against its OWN per-caller rate limit (default 10/min, independent
          *     of the bucket `POST /api/v1/shares` and the withdraw action share — `429` beyond it).
          *
@@ -4271,8 +4283,9 @@ export interface paths {
          *     report whenever at least one document was shareable.
          *
          *     Each sharee who received at least one NEW share gets exactly ONE summary notification
-         *     (`PERFORMANCE_REVIEWS_BATCH_SHARED`, with the number of reviews shared with them) — never the per-share
-         *     notice. A batch counts as ONE notice against the per-(sharer, sharee) daily notification
+         *     (`PERFORMANCE_REVIEWS_BATCH_SHARED` / `DAYS_OFF_CALENDARS_BATCH_SHARED`, with the number of
+         *     reviews or calendars shared with them; the calendar notice links to the sharee's "Shared
+         *     with me" calendar scope) — never the per-share notice. A batch counts as ONE notice against the per-(sharer, sharee) daily notification
          *     cap; a sharee whose cap is exhausted still gets the shares, silently. The call is audited
          *     as a single `share.batch_created` event.
          */
@@ -6867,7 +6880,7 @@ export interface components {
          * @description Notification kind — see `NotificationResponse.type` for what each carries and `NotificationPreferenceItem` for the per-type on/off switches (v4.0.0).
          * @enum {string}
          */
-        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEWS_BATCH_SHARED" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "PASSWORD_CHANGED";
+        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEWS_BATCH_SHARED" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDAR_SHARED" | "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDARS_BATCH_SHARED" | "PASSWORD_CHANGED";
         NotificationResponse: {
             /** Format: int32 */
             id: number;
@@ -6912,6 +6925,13 @@ export interface components {
              *     the document's author — withdrew their share) additionally carries `self: "sharer"`.
              *     The `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN` kinds are
              *     content-free and carry `{sharer}` only (plus the `self` carrier on the sharer's copy).
+             *     The `DAYS_OFF_CALENDAR_SHARED` / `DAYS_OFF_CALENDAR_SHARE_WITHDRAWN` kinds (v4.11.0 — a
+             *     person's days-off calendar) additionally carry `person`, the calendar owner's display
+             *     name, and `self: "own"` on the sharee's copy when the sharer IS that person (the
+             *     sharer's own withdrawal copy keeps `self: "sharer"`); the shared notice links to the
+             *     sharee's "Shared with me" calendar scope. `DAYS_OFF_CALENDARS_BATCH_SHARED` (the mass-share
+             *     summary for calendars) carries `{sharer,count}` plus `expiresOn` when bound and links to
+             *     `/days-off?tab=calendar&scope=shared`.
              */
             params: {
                 [key: string]: string;
@@ -6932,10 +6952,10 @@ export interface components {
             total: number;
         };
         /**
-         * @description The kinds of document that can be shared (v4.8.0). Days-off entries and pulse surveys are not shareable. Every kind listed here has its feature's adapter (compile-time complete).
+         * @description The kinds of document that can be shared (v4.8.0). A person's days-off CALENDAR is shareable since v4.11.0 (`DAYS_OFF_CALENDAR` — its `resourceId` is the PERSON's user id, the person themselves or a manager in their transitive chain may share it, and the person is its author); days-off entries and pulse surveys are not shareable. Every kind listed here has its feature's adapter (compile-time complete).
          * @enum {string}
          */
-        ShareableResourceType: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN";
+        ShareableResourceType: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF_CALENDAR";
         /**
          * @description Derived, never stored: `WITHDRAWN` (terminal) beats `EXPIRED` (the end date passed — a share works through the end of its `expiresOn` day) beats `ACTIVE`.
          * @enum {string}
@@ -7045,7 +7065,7 @@ export interface components {
              *     `resourceType`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
              *     GOAL `{title,subordinate}`; PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
              *     TEAM_KPI `{title,team}`; IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`;
-             *     SUCCESSION_PLAN `{person,owner}`.
+             *     SUCCESSION_PLAN `{person,owner}`; DAYS_OFF_CALENDAR `{person}`.
              */
             details?: {
                 [key: string]: string;
@@ -7128,10 +7148,10 @@ export interface components {
             };
             /**
              * Format: int32
-             * @description The document the event belongs to; null for the person-scoped areas.
+             * @description The document the event belongs to; null for the person-scoped areas' event rows (a days-off calendar SHARE row carries the person's user id).
              */
             documentId: number | null;
-            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (only possible for event rows of the user's own log — a chain manager's rows are filtered instead; share rows always carry it, and opening it for a deleted or no-longer-readable document answers the document's own 404/403) — and always null for the person-scoped areas. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
+            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (only possible for event rows of the user's own log — a chain manager's rows are filtered instead; share rows always carry it, and opening it for a deleted or no-longer-readable document answers the document's own 404/403) — and always null for the person-scoped areas' event rows. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
             link: string | null;
             /**
              * @description Content-free facts about the document for the client to localize. For event rows: read
@@ -7144,7 +7164,8 @@ export interface components {
              *     per `area`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
              *     GOAL `{title,subordinate}`; TEAM_KPI `{title,team,type}`;
              *     PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
-             *     IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`; SUCCESSION_PLAN `{person,owner}`.
+             *     IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`; SUCCESSION_PLAN `{person,owner}`;
+             *     DAYS_OFF `{person}` (calendar share rows only — event rows carry none).
              */
             details: {
                 [key: string]: string;
