@@ -3001,8 +3001,9 @@ export interface paths {
          *     so bars render continuously), plus the month's public holidays. Deleted entries never
          *     appear (v3.9.0 — no approval lifecycle left to filter on).
          *
-         *     Scopes — the first two are caller-relative (any authenticated caller may use either;
-         *     an empty scope is an empty user list), the third is the HR auditor's:
+         *     Scopes — `member`, `managed` and `shared` are caller-relative (any authenticated caller
+         *     with DAYS_OFF enabled may use them; an empty scope is an empty user list), `org` is the
+         *     HR auditor's:
          *     - `scope=member` (the default): everyone sharing a non-deleted team with the caller,
          *       the caller included (a team-less caller sees just themselves).
          *     - `scope=managed`: the caller's direct reports — or, with `includeIndirect=true`
@@ -3015,6 +3016,20 @@ export interface paths {
          *       on an org of any size — a month nobody is off in answers with an empty user list. It
          *       also keeps the paid-pool names (the v3.2.1 teammate redaction is a `member`-scope
          *       rule; HR reads the pool on the entry GET and in the auditor list anyway).
+         *     - `scope=shared` (v4.11.0, "Shared with me"): the people whose days-off calendar was
+         *       shared with the caller (document sharing, resource type `DAYS_OFF_CALENDAR`) and whose
+         *       sharer can **still** open it — the standard lapse rule, re-evaluated on every read: the
+         *       share is active (neither withdrawn nor past its end date), the sharer is a live user
+         *       (not deleted, not deactivated) with the days-off feature enabled, and the sharer is the
+         *       person or holds them in their transitive management chain (the HR role never counts
+         *       for a sharer); a deleted person never appears, a deactivated one does. The share is
+         *       live, so future entries show. **Teammate parity**: every row's entries carry
+         *       `poolName: null` — the absence is shared, the category of leave never, not even when the
+         *       person shared their own calendar — and the scope exposes no budgets, corrections or
+         *       cancel reasons; `GET /days-off/{id}` stays own-right only. No role gate (a caller with
+         *       no shares gets an empty `users` list); `teams` are the person's own teams; `sharedBy`
+         *       names the sharer (the oldest passing share when several people shared the same
+         *       calendar). `includeIndirect` and `teamId` are `400` with this scope.
          *
          *     Every user row carries `teams` — the teams via which the person is in the requested
          *     scope (the caller's subtree teams they belong to on `managed`, the teams shared with
@@ -6699,10 +6714,25 @@ export interface components {
              * @description The teams via which the person is in the requested scope (v3.13.0): on
              *     `scope=managed` the caller's subtree teams they belong to (direct reports: the
              *     caller's own teams; with `includeIndirect` also teams managed further down), on
-             *     `scope=member` the teams shared with the caller. Non-deleted, name-ascending;
+             *     `scope=member` the teams shared with the caller, on `scope=org` and `scope=shared`
+             *     the person's own teams. Non-deleted, name-ascending;
              *     may be empty (the caller's own row in the member scope, for instance).
              */
             teams: components["schemas"]["TeamRef"][];
+            /**
+             * @description `scope=shared` only (v4.11.0): the display name of the sharer whose share puts this
+             *     person on the caller's calendar (the OLDEST passing share when several people shared
+             *     the same calendar); null on every other scope.
+             */
+            sharedBy: string | null;
+            /**
+             * @description Whether the caller may share THIS person's calendar in their own right (v4.11.0 —
+             *     the person themselves or a manager in their transitive chain): true for the
+             *     caller's own row on `scope=member` and for every `scope=managed` row except a
+             *     soft-deleted report (`userDeleted`, whose share would be a `404`), false on `org`
+             *     and `shared`. Server-computed; clients render the Share action off it.
+             */
+            canShareCalendar: boolean;
             /** @description The user's marked days inside the month, date-ascending; may be empty. */
             entries: components["schemas"]["DaysOffCalendarEntry"][];
         };
@@ -12094,8 +12124,8 @@ export interface operations {
             query: {
                 /** @description The calendar month, strict zero-padded ISO `YYYY-MM` (`400` otherwise). */
                 month: string;
-                /** @description Whose days off to show — teammates (member), direct reports (managed), or the whole organization (org, HR only). */
-                scope?: "member" | "managed" | "org";
+                /** @description Whose days off to show — teammates (member), direct reports (managed), the whole organization (org, HR only) or the calendars shared with the caller (shared). */
+                scope?: "member" | "managed" | "org" | "shared";
                 /** @description Only valid with `scope=org` (else `400`): narrows the auditor calendar to the members of one team. */
                 teamId?: number;
                 /**

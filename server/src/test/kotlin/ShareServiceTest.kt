@@ -236,6 +236,40 @@ class ShareServiceTest {
     }
 
     @Test
+    fun `activeSharesWithMe lists the sharee's active shares of one type, oldest first, with the sharer names`(): Unit = runBlocking {
+        val s = service()
+        val calendar = ShareableResourceType.DAYS_OFF_CALENDAR
+        val sharee = user("with-me-sharee")
+        val bystander = user("with-me-bystander")
+        val first = TestUsers.seed(uniqueEmail("with-me-first"), "pw-123456789", name = "First Sharer", roles = emptySet())
+        val second = TestUsers.seed(uniqueEmail("with-me-second"), "pw-123456789", name = "Second Sharer", roles = emptySet())
+        val expired = user("with-me-expired")
+        val withdrawn = user("with-me-withdrawn")
+        val personA = TestShareDocuments.nextId()
+        val personB = TestShareDocuments.nextId()
+        s.createdId(first, sharee, type = calendar, resourceId = personA)
+        s.createdId(second, sharee, type = calendar, resourceId = personB, expiresOn = today.toString()) // inclusive through today
+        s.createdId(expired, sharee, type = calendar, resourceId = personA, expiresOn = today.minusDays(1).toString())
+        val gone = s.createdId(withdrawn, sharee, type = calendar, resourceId = personA)
+        s.withdraw(gone, withdrawn)
+        s.createdId(first, sharee, type = ShareableResourceType.GOAL, resourceId = personA) // another kind
+        s.createdId(first, bystander, type = calendar, resourceId = personB) // another sharee
+        // A second share of the same person by another sharer is its own pair (the caller resolves "oldest passing").
+        s.createdId(second, sharee, type = calendar, resourceId = personA)
+
+        val shares = s.activeSharesWithMe(calendar, sharee)
+        assertEquals(
+            listOf(
+                Triple(personA, first, "First Sharer"),
+                Triple(personB, second, "Second Sharer"),
+                Triple(personA, second, "Second Sharer"),
+            ),
+            shares.map { Triple(it.resourceId, it.sharerId, it.sharerName) },
+        )
+        assertEquals(emptyList(), s.activeSharesWithMe(ShareableResourceType.FEEDBACK, sharee))
+    }
+
+    @Test
     fun `withMe hides withdrawn rows and the types of disabled features, in rows and total`(): Unit = runBlocking {
         val s = service()
         val sharee = user()

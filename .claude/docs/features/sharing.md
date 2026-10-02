@@ -65,6 +65,13 @@ decisions (user-confirmed unless marked as a technical default):
   `authz.denied` audit is unchanged); shares that no longer pass → `403` with the detail "The person
   who shared this no longer has access to it". A throwing chain walk is a `500`, never a denial
   (pinned by `ShareAccessTest` + `SharingTest`).
+- **The one set-at-a-time exception (v4.11.0):** the days-off calendar's `scope=shared` lists MANY
+  people in one read, so it does not run `readOrShared` per person — `DaysOffService.sharedCalendarReaders`
+  evaluates the caller's active shares set-wise (sharer live + not deactivated + DAYS_OFF enabled, person
+  not deleted, sharer = the person or has them in their transitive chain: ONE chain walk per distinct live
+  sharer, oldest passing share wins) and is **parity-tested against `readOrShared` through the real adapter**
+  (`DaysOffCalendarSharedScopeTest`) — a drift on any matrixed condition fails that test. Every row is at teammate parity
+  (`poolName` null). See "Calendar" in `.claude/docs/features/days-off.md`.
 - `ShareAccess.holdsOwnRight(principal, type, guard)` = the guard with the roles stripped. It backs
   `canShare` (a detail-DTO flag: the share button's gate) and the `POST /shares` precondition.
 - Each feature has ONE read preamble that the document's GET sub-routes funnel through (feedback and

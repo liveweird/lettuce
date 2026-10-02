@@ -26,6 +26,8 @@ import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.notifications.NotificationServiceKey
+import ch.nokillswit.sharing.ShareServiceKey
+import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserServiceKey
 import io.ktor.http.HttpHeaders
@@ -122,6 +124,7 @@ fun Application.configureDaysOffRoutes() {
     val daysOffService = attributes[DaysOffServiceKey]
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
+    val shareService = attributes[ShareServiceKey]
     // The per-person action trail (V88) behind the activity log — appended after each service commit.
     val eventService = attributes[DaysOffEventServiceKey]
 
@@ -295,14 +298,17 @@ fun Application.configureDaysOffRoutes() {
                 val month = params.optionalString("month")
                     ?: throw BadRequestException("month is required (YYYY-MM)")
                 parseDaysOffMonth(month)
-                // member/managed are intrinsically caller-relative (an empty managed scope is
-                // just an empty user list), so any authenticated caller may ask for either; org
-                // (v3.25.0) is the HR auditor's, guarded below.
+                // member/managed/shared are intrinsically caller-relative (an empty managed or
+                // shared scope is just an empty user list), so any authenticated caller may ask
+                // for any of them; org (v3.25.0) is the HR auditor's, guarded below. The order,
+                // for the record: shape 400s -> the org role gate -> (shared only) the caller's
+                // active-share pre-read -> the calendar.
                 val scope = when (val raw = params.optionalString("scope") ?: "member") {
                     "member" -> DaysOffCalendarScope.MEMBER
                     "managed" -> DaysOffCalendarScope.MANAGED
                     "org" -> DaysOffCalendarScope.ORG
-                    else -> throw BadRequestException("Unknown scope: $raw (allowed: member, managed, org)")
+                    "shared" -> DaysOffCalendarScope.SHARED
+                    else -> throw BadRequestException("Unknown scope: $raw (allowed: member, managed, org, shared)")
                 }
                 val teamId = params.optionalUInt("teamId")
                 // The shape checks, BEFORE the role gate (the registered list-shape rule): teamId
@@ -321,9 +327,18 @@ fun Application.configureDaysOffRoutes() {
                 if (scope == DaysOffCalendarScope.ORG) {
                     requireAuditScopeListAccess(caller, "daysOffCalendar", teamId)
                 }
+                // "Shared with me" (v4.11.0): the caller's active calendar shares are READ here (the
+                // share-aware read-preamble idiom — authorization input, not data enrichment);
+                // the service then evaluates, set-at-a-time, which of them still pass for their
+                // sharer (the `ShareAccess.readOrShared` twin).
+                val sharedWithMe = if (scope == DaysOffCalendarScope.SHARED) {
+                    shareService.activeSharesWithMe(ShareableResourceType.DAYS_OFF_CALENDAR, caller.userId)
+                } else {
+                    emptyList()
+                }
                 call.respond(
                     HttpStatusCode.OK,
-                    daysOffService.calendar(scope, caller.userId, month, includeIndirect, teamId),
+                    daysOffService.calendar(scope, caller.userId, month, includeIndirect, teamId, sharedWithMe),
                 )
             }
             // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────

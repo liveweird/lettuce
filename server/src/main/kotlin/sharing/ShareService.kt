@@ -51,6 +51,9 @@ data class ShareListFilter(
 
 data class ShareListResult(val items: List<ShareRecord>, val total: Long)
 
+/** One ACTIVE share as the read side needs it: whose document ([resourceId]), shared by whom. */
+data class ActiveShare(val resourceId: UInt, val sharerId: UInt, val sharerName: String)
+
 sealed interface ShareCreateOutcome {
     /** [notify] = the sharee-facing SHARED notice is within the per-pair daily cap (see `notificationCap`). */
     data class Created(val id: UInt, val notify: Boolean) : ShareCreateOutcome
@@ -376,6 +379,38 @@ class ShareService(
                 .map { it[DocumentShares.sharerId].value }
                 .toList()
                 .distinct()
+        }
+    }
+
+    /**
+     * Every ACTIVE share of [type] that [shareeId] holds, oldest share first (id ascending — the
+     * [activeSharersFor] order, so "the first passing sharer" means the same thing in both), with
+     * the sharer's display name resolved. The set-at-a-time companion of [activeSharersFor] for
+     * a read that lists many documents at once (the days-off calendar's `scope=shared`); it
+     * filters ONLY on share state (withdrawn/expired/unknown stored type) — whether each
+     * sharer can still open each document is the caller's evaluation to make.
+     */
+    suspend fun activeSharesWithMe(type: ShareableResourceType, shareeId: UInt): List<ActiveShare> {
+        val todayIso = today().toString()
+        return suspendTransaction(database) {
+            DocumentShares
+                .join(sharerUsers, JoinType.INNER, onColumn = DocumentShares.sharerId, otherColumn = sharerUsers[UserService.Users.id])
+                .select(DocumentShares.resourceId, DocumentShares.sharerId, sharerUsers[UserService.Users.name])
+                .where {
+                    knownType() and
+                        (DocumentShares.resourceType eq type.name) and
+                        (DocumentShares.shareeId eq shareeId) and
+                        activeOp(todayIso)
+                }
+                .orderBy(DocumentShares.id to SortOrder.ASC)
+                .map {
+                    ActiveShare(
+                        resourceId = it[DocumentShares.resourceId],
+                        sharerId = it[DocumentShares.sharerId].value,
+                        sharerName = it[sharerUsers[UserService.Users.name]],
+                    )
+                }
+                .toList()
         }
     }
 

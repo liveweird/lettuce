@@ -14,13 +14,15 @@ const DATA: DaysOffCalendarResponse = {
       userName: "Alice Example",
       userDeleted: false,
       teams: [{ id: 1, name: "AAA" }],
+      sharedBy: null,
+      canShareCalendar: false,
       entries: [
         { requestId: 3, date: "2026-01-05", type: "PAID", poolName: "Paid days off", half: true },
         { requestId: 3, date: "2026-01-07", type: "PAID", poolName: "Paid days off", half: false },
         { requestId: 4, date: "2026-01-12", type: "UNPAID", poolName: null, half: false },
       ],
     },
-    { userId: 8, userName: "Bob Empty", userDeleted: false, teams: [], entries: [] },
+    { userId: 8, userName: "Bob Empty", userDeleted: false, teams: [], sharedBy: null, canShareCalendar: false, entries: [] },
   ],
 };
 

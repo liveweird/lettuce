@@ -184,6 +184,15 @@ data class DaysOffCalendarUser(
     // empty. Always computed (unlike the managed-only DaysOffListItem/DaysOffBudget teams).
     val teams: List<TeamRef>,
     val entries: List<DaysOffCalendarEntry>,
+    // The display name of the sharer whose share put this person on the `scope=shared`
+    // calendar (v4.11.0 — the OLDEST passing sharer when several share the same person);
+    // null on every other scope. Always encoded (the calendar rows carry every field).
+    val sharedBy: String?,
+    // Server-computed capability (v4.11.0, the canDelete/canCorrect precedent): may the caller
+    // share THIS person's calendar in their own right — the caller's own row on scope=member,
+    // every scope=managed row (the caller's subtree by construction), never org/shared. The
+    // SPA's row Share action renders off it, never off a URL param.
+    val canShareCalendar: Boolean,
 )
 
 /**

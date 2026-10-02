@@ -8,6 +8,7 @@ import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationType
+import ch.nokillswit.sharing.ActiveShare
 import ch.nokillswit.teams.TeamRef
 import ch.nokillswit.teams.directManagerIds
 import ch.nokillswit.teams.directSubordinateIds
@@ -18,6 +19,7 @@ import ch.nokillswit.teams.membersOf
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.teamRefsByUserIds
 import ch.nokillswit.teams.teamsManagedBy
+import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.userNameOf
 import io.ktor.server.plugins.BadRequestException
@@ -37,7 +39,7 @@ val DaysOffServiceKey = AttributeKey<DaysOffService>("DaysOffService")
 
 enum class DaysOffListView { OWN, MANAGED, USER }
 
-enum class DaysOffCalendarScope { MEMBER, MANAGED, ORG }
+enum class DaysOffCalendarScope { MEMBER, MANAGED, ORG, SHARED }
 
 data class DaysOffListFilter(
     val userName: String? = null,
@@ -444,6 +446,15 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * managed further down the subtree); on MEMBER the teams shared with the caller; on ORG the
      * person's OWN teams (there is no caller-relative team set to report against an org-wide
      * view).
+     *
+     * SHARED (v4.11.0, "Shared with me") lists the people whose calendar was shared with the
+     * caller and whose sharer can STILL open it — [sharedWithMe] is the caller's active
+     * `DAYS_OFF_CALENDAR` shares (the route pre-reads them: authz, not enrichment), evaluated here
+     * set-at-a-time by [sharedCalendarReaders] as the twin of `ShareAccess.readOrShared` (pinned by
+     * `DaysOffCalendarSharedScopeTest`). Like ORG its `teams` are the person's OWN teams, and every
+     * row's `poolName` is redacted (teammate parity: the absence is shared, the category of leave
+     * never — even when the sharer is the person); `sharedBy` names the sharer; a soft-deleted
+     * person never appears, a deactivated one does (historical data reads like an active user's).
      */
     suspend fun calendar(
         scope: DaysOffCalendarScope,
@@ -451,6 +462,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         month: String,
         includeIndirect: Boolean = false,
         teamId: UInt? = null,
+        sharedWithMe: List<ActiveShare> = emptyList(),
     ): DaysOffCalendarResponse = suspendTransaction(database) {
         // The subtree is only walked for the widened managed scope — reused for both the user
         // set and the scope-teams' managerIds below.
@@ -461,7 +473,12 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         }
         val monthStart = "$month-01"
         val monthEnd = YearMonth.parse(month).atEndOfMonth().toString()
+        // SHARED only: person → the sharer who grants it (the oldest passing share). Computed in
+        // THIS transaction, before the user set, and drained fully before the next query.
+        val sharedBy: Map<UInt, String> =
+            if (scope == DaysOffCalendarScope.SHARED) sharedCalendarReaders(sharedWithMe) else emptyMap()
         val userIds: Set<UInt> = when (scope) {
+            DaysOffCalendarScope.SHARED -> sharedBy.keys
             DaysOffCalendarScope.MEMBER -> teamMemberPeers(callerUserId) + callerUserId
             DaysOffCalendarScope.MANAGED -> if (includeIndirect) subtree else directSubordinateIds(callerUserId)
             DaysOffCalendarScope.ORG -> orgEntryOwnerIds(monthStart, monthEnd, teamId)
@@ -469,7 +486,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         val teamsByUser: Map<UInt, List<TeamRef>> = when (scope) {
             DaysOffCalendarScope.MEMBER -> teamRefsByUserIds(memberTeamIds(callerUserId), userIds)
             DaysOffCalendarScope.MANAGED -> teamRefsByUserIds(teamsManagedBy(subtree + callerUserId), userIds)
-            DaysOffCalendarScope.ORG -> teamRefsByUserIds(ownTeamIds(userIds), userIds)
+            DaysOffCalendarScope.ORG, DaysOffCalendarScope.SHARED ->
+                teamRefsByUserIds(ownTeamIds(userIds), userIds)
         }
         val users = if (userIds.isEmpty()) {
             emptyList()
@@ -509,7 +527,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     // rows are deliberately never redacted (v3.25.0) — that rule protects
                     // teammate-to-teammate visibility, and HR already reads the pool on the
                     // entry GET and in the auditor list, so there is nothing to hide from them.
-                    val redact = scope == DaysOffCalendarScope.MEMBER && row[Requests.userId].value != callerUserId
+                    val redact = scope == DaysOffCalendarScope.SHARED ||
+                        (scope == DaysOffCalendarScope.MEMBER && row[Requests.userId].value != callerUserId)
                     expandEntries(row, monthStart, monthEnd, redactPool = redact)
                 }
                 .mapValues { (_, lists) -> lists.flatten().sortedBy { it.date } }
@@ -539,6 +558,13 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
                     userDeleted = deleted,
                     teams = teamsByUser[id] ?: emptyList(),
                     entries = entriesByUser[id] ?: emptyList(),
+                    sharedBy = sharedBy[id],
+                    canShareCalendar = when (scope) {
+                        DaysOffCalendarScope.MEMBER -> id == callerUserId
+                        // A soft-deleted report stays listed but POST /shares would 404 for them.
+                        DaysOffCalendarScope.MANAGED -> !deleted
+                        DaysOffCalendarScope.ORG, DaysOffCalendarScope.SHARED -> false
+                    },
                 )
             },
         )
@@ -1056,6 +1082,63 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * they are a member anywhere; empty for a team-less user). Runs in the caller's transaction. */
     private suspend fun teamMemberPeers(userId: UInt): Set<UInt> =
         membersOf(memberTeamIds(userId))
+
+    /**
+     * The `scope=shared` evaluation (v4.11.0): person → display name of the sharer who grants
+     * their calendar, from the caller's active shares [shares] (oldest first). It is the
+     * SET-AT-A-TIME twin of `ShareAccess.readOrShared` over `requireDaysOffCalendarRead` with a
+     * role-stripped sharer principal — a pair (person, sharer) passes iff the sharer is a live
+     * user (not soft-deleted, not deactivated) with the DAYS_OFF feature enabled, the person is
+     * not soft-deleted, and the sharer IS the person or has the person in their transitive
+     * chain. ONE chain walk per distinct live sharer (never per person or per share), a handful
+     * of `inList` queries in all; the oldest passing share wins per person (`bestShared`'s
+     * first-pass rule). Every flow is drained before the next query runs (the reviews list's
+     * deadlock note). Runs in the caller's transaction.
+     */
+    private suspend fun sharedCalendarReaders(shares: List<ActiveShare>): Map<UInt, String> {
+        if (shares.isEmpty()) return emptyMap()
+        val sharerIds = shares.map { it.sharerId }.toSet()
+        val liveSharers = UserService.Users
+            .select(UserService.Users.id)
+            .where {
+                (UserService.Users.id inList sharerIds) and
+                    (UserService.Users.markedAsDeleted eq false) and
+                    (UserService.Users.deactivated eq false)
+            }
+            .map { it[UserService.Users.id].value }
+            .toList()
+            .toSet()
+        val daysOffDisabled = UserService.UserDisabledFeatures
+            .select(UserService.UserDisabledFeatures.userId)
+            .where {
+                (UserService.UserDisabledFeatures.userId inList sharerIds) and
+                    (UserService.UserDisabledFeatures.feature eq Feature.DAYS_OFF.name)
+            }
+            .map { it[UserService.UserDisabledFeatures.userId].value }
+            .toList()
+            .toSet()
+        val readers = liveSharers - daysOffDisabled
+        val livePersons = UserService.Users
+            .select(UserService.Users.id)
+            .where {
+                (UserService.Users.id inList shares.map { it.resourceId }.toSet()) and
+                    (UserService.Users.markedAsDeleted eq false)
+            }
+            .map { it[UserService.Users.id].value }
+            .toList()
+            .toSet()
+        // A sharer's subtree is only needed for a pair about SOMEONE ELSE's calendar.
+        val subtrees = mutableMapOf<UInt, Set<UInt>>()
+        val grantedBy = linkedMapOf<UInt, String>()
+        for (share in shares) {
+            val person = share.resourceId
+            if (share.sharerId !in readers || person !in livePersons || person in grantedBy) continue
+            val passes = person == share.sharerId ||
+                person in subtrees.getOrPut(share.sharerId) { transitiveSubordinateIds(share.sharerId) }
+            if (passes) grantedBy[person] = share.sharerName
+        }
+        return grantedBy
+    }
 
     /**
      * The ORG calendar scope's user set (v3.25.0): the distinct owners of ACTIVE entries
