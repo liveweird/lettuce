@@ -560,8 +560,15 @@ export interface paths {
          *     manager's chain — also after the entry or correction was deleted. `CAREER_POSITION` rows
          *     (a chain manager recording, correcting or deleting a report's career position —
          *     forward-only from v4.9.0; account deactivation's position-closing stamp mints nothing) are
-         *     person-scoped in the same way, ungated by any feature flag. The sign-in area is declared in
-         *     `ActivityArea` but produces no rows yet.
+         *     person-scoped in the same way, ungated by any feature flag. `ACCOUNT` rows are the user's own
+         *     sign-in history (forward-only from v4.9.0, ungated, no IP and no user agent — never failed
+         *     attempts, lockouts, refreshes or password events; `SIGNED_OUT` only when the sign-out reaches
+         *     the server with a live access token, so a sign-in without a later sign-out is normal): the
+         *     log's own user is both actor and
+         *     subject, so they carry no `subjectUser*`, document, link or details; a chain manager
+         *     and HR see them like `users.lastLoginAt` (self, chain, HR). The sign-in history is the one
+         *     trail that is PURGED: rows older than the deployment's retention (90 days by default, 0 =
+         *     forever) are deleted.
          *
          *     Who may read: the user themselves, the HR auditor (audited as `hr.list`, resource
          *     `activity`), and a manager in the user's TRANSITIVE management chain — anyone else, ADMIN
@@ -6858,7 +6865,7 @@ export interface components {
             total: number;
         };
         /**
-         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF` (v4.9.0 — the person-scoped trail of days-off actions: entries recorded or deleted, budget corrections, allowance changes, pool archivals) and `CAREER_POSITION` (v4.9.0 — career positions recorded, corrected or deleted by a chain manager) and `ACCOUNT` (sign-ins) are declared up front — the enum is append-only — and `ACCOUNT` produces no rows until its trail exists.
+         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF` (v4.9.0 — the person-scoped trail of days-off actions: entries recorded or deleted, budget corrections, allowance changes, pool archivals) and `CAREER_POSITION` (v4.9.0 — career positions recorded, corrected or deleted by a chain manager) and `ACCOUNT` (v4.9.0 — the account's own completed sign-ins and explicit sign-outs) are declared up front — the enum is append-only — and every value now produces rows.
          * @enum {string}
          */
         ActivityArea: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF" | "CAREER_POSITION" | "ACCOUNT";
@@ -6889,7 +6896,9 @@ export interface components {
              *     self-create too), `ENTRY_DELETED`, `CORRECTION_CREATED`, `CORRECTION_UPDATED` (only when
              *     year, operation or days changed), `CORRECTION_DELETED`, `ALLOWANCE_CHANGED` (only on an
              *     actual change) and `POOL_ARCHIVED`. `CAREER_POSITION` rows (V89) carry `POSITION_CREATED`,
-             *     `POSITION_UPDATED` (only when the start date or a ref changed) and `POSITION_DELETED`.
+             *     `POSITION_UPDATED` (only when the start date or a ref changed) and `POSITION_DELETED`. `ACCOUNT`
+             *     rows (V90) carry `SIGNED_IN` (a completed sign-in; param `mfa` = "true" when the second factor
+             *     was used, else "false") and `SIGNED_OUT` (an explicit sign-out; no params).
              */
             eventType: string;
             /**
@@ -6914,7 +6923,8 @@ export interface components {
              *     `{positionId, startDate, startDateFrom?, startDateTo?}` plus, per CHANGED ref,
              *     `<ref>From`/`<ref>FromName` (absent when it was unset) and `<ref>To`/`<ref>ToName`
              *     (absent when cleared) with `<ref>` one of `careerPath`, `careerSpecialization`,
-             *     `seniorityLevel`.
+             *     `seniorityLevel`. `ACCOUNT` rows: `SIGNED_IN` `{mfa}` (`"true"` when the second factor
+             *     completed the sign-in, else `"false"`), `SIGNED_OUT` `{}`.
              */
             params: {
                 [key: string]: string;

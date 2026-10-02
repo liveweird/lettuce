@@ -13,8 +13,8 @@ val ActivityServiceKey = AttributeKey<ActivityService>("ActivityService")
  * their [ShareableResourceType] on purpose, so `area == resourceType` for document rows and the
  * row's `link` comes from the sharing adapter's `viewPath`. [DAYS_OFF] (V88, person-scoped),
  * [CAREER_POSITION] (V89) and [ACCOUNT] are declared from the start (the OpenAPI enum is append-only —
- * API-EVOL); [DAYS_OFF] and [CAREER_POSITION] produce rows (person-scoped), [ACCOUNT] none until its
- * trail lands (sign-ins, V90).
+ * API-EVOL); [DAYS_OFF] and [CAREER_POSITION] produce rows (person-scoped), [ACCOUNT] the account's own
+ * sign-in history (V90 — owner = actor, retention-purged, no subject person).
  */
 @Serializable
 enum class ActivityArea {

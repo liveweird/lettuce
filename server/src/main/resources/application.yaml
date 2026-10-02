@@ -244,6 +244,17 @@ notifications:
   # as feedbacks.expirySweepIntervalSeconds above. 0 = every mint (the test suite pins this).
   purgeIntervalSeconds: "$NOTIFICATION_PURGE_INTERVAL_SECONDS:3600"
 
+activity:
+  # v4.9.0/V90: the sign-in trail (`account_events` — SIGNED_IN/SIGNED_OUT, no IP) behind the activity
+  # log's ACCOUNT area. AccountEventService hard-deletes a row older than this many days on its write
+  # path — the registered exception to the append-only trails (the notifications precedent). 0 keeps
+  # the history forever. Boot-validated 0..3650 in infra/db/Database.kt.
+  accountRetentionDays: "$ACTIVITY_ACCOUNT_RETENTION_DAYS:90"
+  # Bounds how often the purge actually runs a DELETE (per app instance), the same gate shape as
+  # notifications.purgeIntervalSeconds above. 0 = every sign-in/out (the test suite pins this).
+  # Boot-validated 0..86400.
+  accountPurgeIntervalSeconds: "$ACTIVITY_ACCOUNT_PURGE_INTERVAL_SECONDS:3600"
+
 postgres:
   jdbcUrl: "$POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/lettuce"
   r2dbcUrl: "$POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/lettuce"

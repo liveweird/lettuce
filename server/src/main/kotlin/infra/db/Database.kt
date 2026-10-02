@@ -1,5 +1,7 @@
 package ch.nokillswit.infra.db
 
+import ch.nokillswit.activity.AccountEventService
+import ch.nokillswit.activity.AccountEventServiceKey
 import ch.nokillswit.activity.ActivityService
 import ch.nokillswit.activity.ActivityServiceKey
 import ch.nokillswit.alerts.AlertService
@@ -235,6 +237,22 @@ private fun Application.connectPooled(): R2dbcDatabase {
     return R2dbcDatabase.connect(connectionFactory = pool, databaseConfig = databaseConfig)
 }
 
+/**
+ * The sign-in trail's service (v4.9.0, V90) — retention and purge interval range-checked like every
+ * duration (0 = keep forever / purge on every write); AuthRoutes records SIGNED_IN/SIGNED_OUT
+ * through it, best-effort.
+ */
+private fun Application.accountEventService(database: R2dbcDatabase): AccountEventService {
+    val retentionMillis =
+        requireConfigLong(environment.config, "activity.accountRetentionDays", min = 0, max = MAX_RETENTION_DAYS) *
+            24 * 60 * 60 * 1000
+    val purgeIntervalMillis = requireConfigLong(
+        environment.config, "activity.accountPurgeIntervalSeconds", min = 0, max = MAX_SWEEP_INTERVAL_SECONDS,
+    ) * 1000
+    // The purge rides the Application scope (fire-and-forget, off the login request path).
+    return AccountEventService(database, retentionMillis, purgeIntervalMillis, scope = this)
+}
+
 suspend fun Application.configureDatabase() {
     val database = connectPooled()
     attributes.put(R2dbcDatabaseKey, database)
@@ -325,6 +343,7 @@ suspend fun Application.configureDatabase() {
             notificationPurgeIntervalMillis,
         ),
     )
+    attributes.put(AccountEventServiceKey, accountEventService(database))
     // Document sharing (v4.8.0, V86). Each shareable feature's adapter is built here, next to the
     // services it wraps — one per ShareableResourceType, enforced by the compiler (see below).
     val shareService = ShareService(database)

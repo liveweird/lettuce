@@ -68,8 +68,8 @@ fields are always encoded as explicit nulls).
   tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
   a registered deviation from API-LIST-003 (see the rulebook's known-gaps register).
 - `area` = the seven `ShareableResourceType` names for document rows (so `link` is the sharing
-  adapter's `viewPath`), plus `DAYS_OFF` (person-scoped, step 4), `CAREER_POSITION` (person-scoped, step 5), `ACCOUNT` —
-  declared up front (the OpenAPI enum is append-only); only `ACCOUNT` produces no rows until its step.
+  adapter's `viewPath`), plus `DAYS_OFF` (person-scoped, step 4), `CAREER_POSITION` (person-scoped, step 5), `ACCOUNT` (step 6) —
+  declared up front (the OpenAPI enum is append-only); every value now produces rows.
 - **`params`** is the event's content-free map, the same one the document's History tab renders
   (localized client-side by dispatching `area` + `eventType` to the existing describers). The goal
   progress comment and every other encrypted column are **never read** by this service — the union
@@ -177,6 +177,27 @@ decision, the seniority-privacy confirmation and what mints nothing — account 
 position-closing stamp). No `link`/`details`: the SPA derives `/users/:id/career` from
 `subjectUserId`.
 
+#### Sign-in rows (step 6, V90 `account_events`)
+
+`ACCOUNT` is the account's own sign-in history: `SIGNED_IN {mfa}` where `users.last_login_at` is
+stamped (the non-MFA login success and the MFA code exchange — never refresh, the MFA challenge, a
+failure, a lockout or a deactivated 403) and `SIGNED_OUT` on `/logout`; **no IP, no user agent**
+(`AccountEventService`, `activity/`). Owner = actor = the log's own user, so the row carries no
+`documentId`/`link`/`details` and no `subjectUser*` (self-evident), and `EventSource(ACCOUNT,
+parent = null)` reuses the person-scoped chain predicate (`owner_id` in the viewer's chain ∪ self —
+the guard has already required the target in the chain). Ungated by any feature flag. Audience =
+the `lastLoginAt` audience: self, chain, HR. **Best-effort**: the write and its purge never fail a
+login/logout, and the retention purge is launched fire-and-forget on the Application scope (off the
+request path; service-level tests run it inline through `scope = null`). `SIGNED_OUT` is recorded only
+when the sign-out reaches the server with a live access token (an idle/expired session's is not), so a
+`SIGNED_IN` without a `SIGNED_OUT` is normal. **Retention (decision 3):** the one PURGED trail — rows older than
+`activity.accountRetentionDays` (default 90, 0 = forever) are hard-deleted on the write path,
+throttled by `activity.accountPurgeIntervalSeconds` (default 3600, 0 = every write), both
+boot-validated (`SecurityConfigTest`); registered as a soft-delete exception in `persistence.md`
+and detailed in "Sign-in history" in `security.md`. Note for tests: every test person's setup
+login (`authedClient`) now mints a `SIGNED_IN` row, so assertions about "authored nothing" or an
+area set exclude `ACCOUNT` (`ActivityLogTest.docAreas`).
+
 #### Tests
 
 `ActivityLogTest` (the access matrix, seven areas with labels, deleted/KPI-member
@@ -197,4 +218,4 @@ covered by `EventLogTest`.
 - **Step 3 (in force):** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only
   for documents they author). **Step 4 (in force):** the days-off trail (V88, forward-only; owner-in-chain visibility).
   **Step 5 (in force):** the career-position trail (V89, forward-only; owner-in-chain
-  visibility). **Step 6:** the sign-in trail (V90, forward-only). **Steps 7–8:** the SPA page and the release.
+  visibility). **Step 6 (in force):** the sign-in trail (V90, forward-only, retention-purged). **Steps 7–8:** the SPA page and the release.

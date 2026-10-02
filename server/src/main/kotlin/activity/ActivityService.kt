@@ -1,5 +1,6 @@
 package ch.nokillswit.activity
 
+import ch.nokillswit.activity.AccountEventService.AccountEvents
 import ch.nokillswit.daysoff.DaysOffEventService.DaysOffEvents
 import ch.nokillswit.feedbacks.FeedbackEventService.FeedbackEvents
 import ch.nokillswit.feedbacks.FeedbackService.FeedbackSubjects
@@ -122,6 +123,9 @@ private val EVENT_SOURCES = listOf(
     // Person-scoped (V88): owner_id is the person concerned, there is no parent document.
     EventSource(ActivityArea.DAYS_OFF, DaysOffEvents, parent = null),
     EventSource(ActivityArea.CAREER_POSITION, CareerPositionEvents, parent = null),
+    // The sign-in trail (V90): the owner IS the actor (the account itself) — chain viewers filter on it like
+    // the other person-scoped areas, and the guard has already required the target in their chain.
+    EventSource(ActivityArea.ACCOUNT, AccountEvents, parent = null),
 )
 
 /** How the hydration phase decides `readable` for a document. */
@@ -371,7 +375,9 @@ class ActivityService(
         }
         val (shareRows, eventRows) = rows.partition { it.source != SOURCE_EVENT }
         // Person-scoped event rows carry the concerned person's id in `documentId`.
-        val (personRows, documentRows) = eventRows.partition { it.area.isPersonScoped }
+        val (personRows, otherRows) = eventRows.partition { it.area.isPersonScoped }
+        // Sign-in rows (ACCOUNT) are self-evident and carry nothing but the event itself.
+        val (_, documentRows) = otherRows.partition { it.area == ActivityArea.ACCOUNT }
         val persons = personNames(personRows.map { it.documentId }.toSet())
         val facts = documentRows.groupBy({ it.area }, { it.documentId }).mapValues { (area, ids) ->
             factsFor(area, ids.toSet(), readability)
@@ -381,6 +387,7 @@ class ActivityService(
             // (Event ids and share ids are separate sequences — only a SHARE row may take this branch.)
             if (row.source != SOURCE_EVENT) shares[row.eventId]?.let { return@map shareEntry(row, it) }
             if (row.area.isPersonScoped) return@map personEntry(row, persons[row.documentId])
+            if (row.area == ActivityArea.ACCOUNT) return@map accountEntry(row)
             val fact = facts[row.area]?.get(row.documentId)
             val visible = fact?.readable ?: (readability is Readability.Everything)
             ActivityEntry(
@@ -415,6 +422,24 @@ class ActivityService(
         details = null,
         subjectUserId = row.documentId,
         subjectUserName = personName,
+    )
+
+    /**
+     * A sign-in/sign-out row (`ACCOUNT`): the log's own user is both actor and owner, so there is no
+     * `documentId`/`link`/`details` and no `subjectUser*` either — `eventType` (`SIGNED_IN`,
+     * `SIGNED_OUT`) and `params` (`{mfa}`) are the whole row.
+     */
+    private fun accountEntry(row: UnionRow) = ActivityEntry(
+        id = "${row.area.name}:${row.source}:${row.eventId}",
+        createdAt = row.createdAt,
+        area = row.area,
+        eventType = row.eventType,
+        params = decodeParams(row.params),
+        documentId = null,
+        link = null,
+        details = null,
+        subjectUserId = null,
+        subjectUserName = null,
     )
 
     private suspend fun personNames(ids: Set<UInt>): Map<UInt, String> =

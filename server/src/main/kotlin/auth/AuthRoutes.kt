@@ -1,5 +1,7 @@
 package ch.nokillswit.auth
 
+import ch.nokillswit.activity.AccountEventServiceKey
+import ch.nokillswit.activity.AccountEventType
 import ch.nokillswit.audit.audit
 import ch.nokillswit.authz.ForbiddenException
 import ch.nokillswit.authz.TooManyRequestsException
@@ -150,6 +152,9 @@ fun Application.configureAuthRoutes() {
     // For the password-changed notification on reset (published by configureDatabase).
     val notificationService = attributes[NotificationServiceKey]
     val mailer = mailer()
+    // Read per request, not captured: the sign-in history is best-effort (it never fails a login) and a
+    // test replaces the service with a failing one to prove exactly that.
+    fun accountEvents() = attributes[AccountEventServiceKey]
 
     // Per-account lockout, complementing the per-IP RateLimit below (which rotating hosts
     // sidestep): N consecutive failures for one email → locked for the configured window.
@@ -424,6 +429,8 @@ fun Application.configureAuthRoutes() {
                 // A login COMPLETES here (V78, v3.9.1) — never at the MFA challenge/password
                 // step above, and never on a silent /refresh.
                 userService.updateLastLoginAt(userId)
+                // The activity-log sign-in event, same completion point (best-effort — never fails the login).
+                accountEvents().record(userId, AccountEventType.SIGNED_IN, mapOf("mfa" to "false"))
                 call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
             }
         }
@@ -462,6 +469,7 @@ fun Application.configureAuthRoutes() {
                         // The MFA login COMPLETES here (V78, v3.9.1) — the password step above
                         // only issued a challenge, not a completed login.
                         userService.updateLastLoginAt(userId)
+                        accountEvents().record(userId, AccountEventType.SIGNED_IN, mapOf("mfa" to "true"))
                         call.respond(jwtConfig.authResponse(userId, user.email, user.roles, user.disabledFeatures, user.language))
                     }
                 }
@@ -569,6 +577,11 @@ fun Application.configureAuthRoutes() {
                     "userId" to principal.payload.getClaim("userId").asLong(),
                     "email" to principal.payload.getClaim("email").asString(),
                 )
+                // The activity-log sign-out event (best-effort — never fails the logout).
+                // Null-safe: a token without the claim must not 500 AFTER the revoke above.
+                principal.payload.getClaim("userId").asLong()?.toUInt()?.let {
+                    accountEvents().record(it, AccountEventType.SIGNED_OUT)
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
         }

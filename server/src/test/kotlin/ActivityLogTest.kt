@@ -42,6 +42,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -242,7 +243,7 @@ class ActivityLogTest {
                 ActivityArea.FEEDBACK, ActivityArea.ONE_ON_ONE, ActivityArea.GOAL, ActivityArea.TEAM_KPI,
                 ActivityArea.PERFORMANCE_REVIEW, ActivityArea.IMPACT_LOG_ENTRY, ActivityArea.SUCCESSION_PLAN,
             ),
-            page.items.map { it.area }.toSet(),
+            page.items.docAreas(),
         )
         assertTotalOrder(page.items)
         assertTrue(page.items.all { it.id.matches(Regex("[A-Z_]+:EVENT:\\d+")) }, "synthetic ids: ${page.items.map { it.id }}")
@@ -282,8 +283,10 @@ class ActivityLogTest {
         // Nothing of the documents' private content rides the log.
         val everything = page.items.joinToString { it.params.toString() + it.details.toString() }
         assertFalse("private" in everything, "content must never appear: $everything")
-        // The employee authored nothing: an empty (not forbidden) log of their own.
-        assertEquals(0L, w.employee.client.page(w.employee.id).total)
+        // The employee authored nothing but signed in once (the setup login): a log of exactly that row.
+        val employeeLog = w.employee.client.page(w.employee.id)
+        assertEquals(1L, employeeLog.total)
+        assertTrue(employeeLog.items.all { it.area == ActivityArea.ACCOUNT && it.eventType == "SIGNED_IN" })
     }
 
     @Test
@@ -339,6 +342,11 @@ class ActivityLogTest {
 
     private fun List<ActivityEntry>.areas() = map { it.area }.toSet()
 
+    /** The areas minus ACCOUNT: every test person's setup login mints a SIGNED_IN row (V90). */
+    private fun List<ActivityEntry>.docAreas() = areas() - ActivityArea.ACCOUNT
+
+    private fun List<ActivityEntry>.withoutAccount() = filter { it.area != ActivityArea.ACCOUNT }
+
     private val documentAreas = setOf(
         ActivityArea.FEEDBACK, ActivityArea.ONE_ON_ONE, ActivityArea.GOAL, ActivityArea.TEAM_KPI,
         ActivityArea.PERFORMANCE_REVIEW, ActivityArea.IMPACT_LOG_ENTRY, ActivityArea.SUCCESSION_PLAN,
@@ -358,10 +366,10 @@ class ActivityLogTest {
                     ActivityArea.ONE_ON_ONE, ActivityArea.TEAM_KPI, ActivityArea.IMPACT_LOG_ENTRY,
                     ActivityArea.SUCCESSION_PLAN,
                 ),
-                before.items.areas(),
+                before.items.docAreas(),
             )
             assertEquals(before.items.size.toLong(), before.total, "hidden rows must not be counted")
-            assertTrue(before.items.all { it.details != null && it.link != null })
+            assertTrue(before.items.withoutAccount().all { it.details != null && it.link != null })
             // The direct report is not above M: M's own log is hers alone, and E cannot read it.
             assertEquals(HttpStatusCode.Forbidden, w.employee.client.activity(w.manager.id).status)
 
@@ -370,7 +378,7 @@ class ActivityLogTest {
             assertEquals(HttpStatusCode.NoContent, w.manager.client.post("/api/v1/feedbacks/${w.feedbackId}/send").status)
             setReviewStatus(w.reviewId, ch.nokillswit.reviews.PerformanceReviewStatus.CALIBRATION)
             val after = w.grand.client.page(w.manager.id, "pageSize=100")
-            assertEquals(documentAreas, after.items.areas())
+            assertEquals(documentAreas, after.items.docAreas())
             assertEquals(after.items.size.toLong(), after.total)
             assertTrue(after.total > before.total)
             assertTrue(after.items.any { it.area == ActivityArea.GOAL && it.eventType == "CREATED" })
@@ -499,7 +507,7 @@ class ActivityLogTest {
             try {
                 val page = hrGrand.page(w.manager.id, "pageSize=100")
                 // A pure chain viewer would not see the DRAFT goal/review/feedback; the HR grant does.
-                assertEquals(documentAreas, page.items.areas())
+                assertEquals(documentAreas, page.items.docAreas())
                 val event = appender.events.last { it.message == "hr.list" && it.hasKeyValue("resource", "activity") }
                 assertEquals(w.grand.id.toLong(), event.keyValuePairs.first { it.key == "byUserId" }.value)
                 assertEquals(w.manager.id.toLong(), event.keyValuePairs.first { it.key == "targetUserId" }.value)
@@ -548,7 +556,9 @@ class ActivityLogTest {
         assertTrue(order.indexOf(withdrawn.id) < order.indexOf(created.id))
         assertTotalOrder(w.manager.client.page(w.manager.id, "pageSize=100").items)
         // The sharee's own log has nothing (actor-only).
-        assertEquals(0L, sharee.client.page(sharee.id).total)
+        val shareeLog = sharee.client.page(sharee.id)
+        assertEquals(1L, shareeLog.total)
+        assertTrue(shareeLog.items.all { it.area == ActivityArea.ACCOUNT })
 
         // A lower bound between the creation and the withdrawal keeps the withdrawal row only, which is
         // dated the share's withdrawal moment (not its creation).
@@ -781,7 +791,55 @@ class ActivityLogTest {
                 disabled = Feature.entries.filter { it !in OPT_IN_FEATURES }.toSet(),
             )
             assertEquals(1L, gated.client.page(w.manager.id, "area=CAREER_POSITION").total)
-            assertTrue(gated.client.page(w.manager.id, "pageSize=100").items.all { it.area == ActivityArea.CAREER_POSITION })
+            assertTrue(
+                gated.client.page(w.manager.id, "pageSize=100").items
+                    .all { it.area == ActivityArea.CAREER_POSITION || it.area == ActivityArea.ACCOUNT },
+            )
+        }
+
+    // ——— sign-in rows (ACCOUNT, V90) ———
+
+    @Test
+    fun `sign-ins and sign-outs are rows of the account's own log, visible to self, chain and HR, ungated`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val w = world() // every person's setup login minted a SIGNED_IN row
+            val tokens = jsonClient().post("/api/v1/login") {
+                contentType(ContentType.Application.Json)
+                setBody(ch.nokillswit.auth.LoginRequest(w.employee.email, password))
+            }.body<ch.nokillswit.auth.LoginResponse>()
+            // Log out THIS session only (its own bearer) — the person's setup client stays valid for reading.
+            assertEquals(
+                HttpStatusCode.NoContent,
+                jsonClient().post("/api/v1/logout") {
+                    header(io.ktor.http.HttpHeaders.Authorization, "Bearer ${tokens.token}")
+                }.status,
+            )
+
+            val own = w.employee.client.page(w.employee.id, "area=ACCOUNT&pageSize=100").items
+            assertEquals(listOf("SIGNED_OUT", "SIGNED_IN", "SIGNED_IN"), own.map { it.eventType })
+            own.forEach {
+                assertEquals(ActivityArea.ACCOUNT, it.area)
+                assertNull(it.documentId)
+                assertNull(it.link)
+                assertNull(it.details)
+                assertNull(it.subjectUserId)
+                assertTrue(it.id.matches(Regex("ACCOUNT:EVENT:\\d+")))
+            }
+            assertEquals(mapOf("mfa" to "false"), own.first { it.eventType == "SIGNED_IN" }.params)
+            assertTrue(own.first { it.eventType == "SIGNED_OUT" }.params.isEmpty())
+            // The manager and the skip-level manager (chain) and HR see the report's sign-ins; a peer is 403.
+            assertEquals(3L, w.manager.client.page(w.employee.id, "area=ACCOUNT").total)
+            assertEquals(3L, w.grand.client.page(w.employee.id, "area=ACCOUNT").total)
+            val hr = person("hr", roles = setOf(UserRole.HR))
+            assertEquals(3L, hr.client.page(w.employee.id, "area=ACCOUNT").total)
+            assertEquals(HttpStatusCode.Forbidden, person("peer").client.activity(w.employee.id).status)
+            // Ungated: a viewer with every feature disabled still lists them.
+            val gated = person(
+                "gated", roles = setOf(UserRole.HR),
+                disabled = Feature.entries.filter { it !in OPT_IN_FEATURES }.toSet(),
+            )
+            assertEquals(3L, gated.client.page(w.employee.id, "area=ACCOUNT").total)
         }
 
     @Test
@@ -804,7 +862,7 @@ class ActivityLogTest {
         try {
             val page = hr.client.page(w.manager.id, "pageSize=100")
             assertTrue(page.items.isNotEmpty())
-            assertTrue(page.items.all { it.details != null && it.link != null })
+            assertTrue(page.items.withoutAccount().all { it.details != null && it.link != null })
             val event = appender.events.last {
                 it.message == "hr.list" && it.hasKeyValue("resource", "activity")
             }
@@ -915,12 +973,13 @@ class ActivityLogTest {
             val page = hr.client.page(actor.id, "pageSize=100")
             assertEquals(
                 listOf("FEEDBACK:EVENT:$f1", "GOAL:EVENT:$g2", "GOAL:EVENT:$g1", "GOAL:EVENT:$earlier"),
-                page.items.map { it.id },
+                page.items.withoutAccount().map { it.id },
             )
 
             // Inclusive bounds on both sides.
             assertEquals(3L, hr.client.page(actor.id, "createdAt[gte]=$t").total)
-            assertEquals(1L, hr.client.page(actor.id, "createdAt[lte]=${t - 1000}").total)
+            // (the actor's setup login — a sign-in row stamped "now" — also precedes t - 1000)
+            assertEquals(2L, hr.client.page(actor.id, "createdAt[lte]=${t - 1000}").total)
             assertEquals(4L, hr.client.page(actor.id, "createdAt[gte]=${t - 1000}&createdAt[lte]=$t").total)
             assertEquals(0L, hr.client.page(actor.id, "createdAt[gte]=${t + 1}").total)
             // area filter: only that branch.
