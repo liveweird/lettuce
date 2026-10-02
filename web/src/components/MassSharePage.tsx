@@ -12,6 +12,7 @@ import {
   deselectMatching,
   EMPTY_MASS_SHARE_FILTERS,
   filterMassShareRows,
+  kindContext,
   managerOptions,
   MASS_SHARE_SORT_FIELDS,
   MASS_SHARE_UNSET,
@@ -21,6 +22,7 @@ import {
   submittableRows,
   teamOptions,
   type MassShareFilters,
+  type MassShareKind,
   type MassShareRow,
   type MassShareSortField,
 } from "../utils/massShare";
@@ -28,7 +30,7 @@ import { pickLocalized } from "../utils/localized";
 import { loadErrorMessage } from "../utils/saveError";
 import EmptyState from "./EmptyState";
 import ListToolbar from "./ListToolbar";
-import MassShareDialog, { type MassShareKind } from "./MassShareDialog";
+import MassShareDialog from "./MassShareDialog";
 import MetaStrip, { type MetaStripItem } from "./MetaStrip";
 import PageHeader from "./PageHeader";
 import PaginationBar from "./PaginationBar";
@@ -128,7 +130,7 @@ export default function MassSharePage({
 }: MassSharePageProps) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
-  const context = kind === "reviews" ? undefined : kind;
+  const context = kindContext(kind);
 
   const [query, setQuery] = useStoredState(`${settingsKey}.filter.name`, "", isString);
   const [teamNames, setTeamNames] = useStoredState<string[]>(`${settingsKey}.filter.teams`, [], isStringArray);

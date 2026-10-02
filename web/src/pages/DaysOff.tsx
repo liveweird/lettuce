@@ -30,7 +30,7 @@ import { useIsManager } from "../hooks/useIsManager";
 import { isNumberOrNull, isOneOf, useStoredState } from "../hooks/useStoredState";
 import { useCurrentPath } from "../hooks/useCurrentPath";
 import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime";
-import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
+import { daysOffCreateLink, daysOffListLink, daysOffMassShareLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
 import { loadErrorMessage } from "../utils/saveError";
 import EmptyCtaLink from "../components/EmptyCtaLink";
@@ -364,6 +364,15 @@ export default function DaysOff() {
                 {/* Requests | Budgets (v3.4.0) plus the Reports scope (v3.13.0), right-aligned
                     together so the Select's label doesn't misalign the segmented control. */}
                 <Group gap="sm" align="flex-end">
+                  {/* The calendars mass-share entry (v4.11.0) — managers only, like the tab itself. */}
+                  <Button
+                    component={RouterLink}
+                    to={daysOffMassShareLink()}
+                    variant="default"
+                    leftSection={<IconShare size={16} />}
+                  >
+                    {t("daysOff.teamShareButton")}
+                  </Button>
                   {/* A flex item shrinks the Select to its intrinsic width and clips the
                       longest option; the Box gives it the room the FilterPanel grid gives
                       the same control elsewhere. */}

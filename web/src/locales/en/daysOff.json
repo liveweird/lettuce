@@ -216,5 +216,10 @@
     "toastDeleted": "Correction deleted"
   },
   "managedTitle": "Days off of {{who}}",
-  "managedHint": "The days-off entries of {{who}} plus their yearly budget and corrections."
+  "managedHint": "The days-off entries of {{who}} plus their yearly budget and corrections.",
+  "teamShareButton": "Share calendars…",
+  "massShare": {
+    "title": "Share days-off calendars",
+    "description": "Pick people from your reporting line and share their days-off calendars with others, in one go. The people you share with see when they are off — dates and paid/unpaid only."
+  }
 }

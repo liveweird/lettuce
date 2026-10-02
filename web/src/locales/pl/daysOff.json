@@ -218,5 +218,10 @@
     "toastDeleted": "Korekta usunięta"
   },
   "managedTitle": "Dni wolne — {{who}}",
-  "managedHint": "Wpisy dni wolnych {{who}} oraz roczny budżet i korekty."
+  "managedHint": "Wpisy dni wolnych {{who}} oraz roczny budżet i korekty.",
+  "teamShareButton": "Udostępnij kalendarze…",
+  "massShare": {
+    "title": "Udostępnij kalendarze dni wolnych",
+    "description": "Wybierz osoby ze swojej linii raportowania i udostępnij ich kalendarze dni wolnych innym osobom, za jednym razem. Osoby, którym udostępnisz kalendarze, zobaczą, kiedy ktoś ma wolne — tylko daty oraz informację, czy dzień jest płatny, czy bezpłatny."
+  }
 }

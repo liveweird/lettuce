@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
+import type { DaysOffShareCandidate } from "../api/daysoff";
 import type { ShareCandidate } from "../api/reviews";
 import type { ShareBatchItem } from "../api/shares";
 import {
+  buildCalendarShareRows,
   buildReviewShareRows,
   deselectMatching,
   EMPTY_MASS_SHARE_FILTERS,
+  kindContext,
   filterMassShareRows,
   managerOptions,
   MASS_SHARE_SORT_FIELDS,
@@ -359,5 +362,51 @@ describe("summarizeBatchResult", () => {
         .alreadyShared,
     ).toEqual([{ resourceId: 20, person: "Mia Miller", sharees: ["#77"] }]);
     expect(summarizeBatchResult([], rows, names)).toEqual({ created: 0, alreadyShared: [], failed: [] });
+  });
+});
+
+describe("calendar share rows and the kind context (v4.11.0)", () => {
+  const calCand = (userId: number, name: string, o: Partial<DaysOffShareCandidate> = {}): DaysOffShareCandidate => ({
+    userId,
+    name,
+    email: `${name.toLowerCase().replace(/\s/g, ".")}@x.test`,
+    deactivated: false,
+    teams: [],
+    directManagers: [],
+    careerPath: null,
+    careerSpecialization: null,
+    seniorityLevel: null,
+    ...o,
+  });
+
+  test("every candidate is a shareable row whose resource id is the PERSON's user id, name-sorted", () => {
+    const rows = buildCalendarShareRows(
+      [
+        calCand(9, "Zed", { deactivated: true }),
+        calCand(3, "Amy", { teams: [{ id: 1, name: "Alpha" }], directManagers: [{ id: 1, name: "Me" }, { id: 2, name: "Bo" }] }),
+      ],
+      1,
+      "You",
+    );
+    expect(rows.map((r) => r.person.name)).toEqual(["Amy", "Zed"]);
+    expect(rows.map((r) => r.resourceId)).toEqual([3, 9]);
+    expect(rows.every((r) => r.shareable && r.reason == null && r.review == null)).toBe(true);
+    expect(rows[0].teamNames).toEqual(["Alpha"]);
+    // The caller reads as the supplied label, others by name.
+    expect(rows[0].managerLabel).toBe("You, Bo");
+    // A deactivated person stays shareable (the server lists them for the Inactive badge).
+    expect(rows[1].person.deactivated).toBe(true);
+    expect(rowStatus(rows[1])).toBe("NO_REVIEW");
+  });
+
+  test("the selection helpers take the person ids as resource ids", () => {
+    const rows = buildCalendarShareRows([calCand(3, "Amy"), calCand(4, "Bob")], null, "You");
+    expect(selectedResourceIds(rows, new Set([4, 3]))).toEqual([3, 4]);
+    expect(submittableRows(rows, new Set([3])).map((r) => r.person.name)).toEqual(["Amy"]);
+  });
+
+  test("kindContext: reviews read the base keys, calendars their own variants", () => {
+    expect(kindContext("reviews")).toBeUndefined();
+    expect(kindContext("calendars")).toBe("calendars");
   });
 });

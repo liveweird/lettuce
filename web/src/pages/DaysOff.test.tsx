@@ -537,6 +537,26 @@ describe("DaysOff page", () => {
       });
     });
 
+    test("the team tab's Share calendars… button links to the mass-share page for managers only", async () => {
+      setupMocks({ managed: 1 });
+      renderDaysOff("/days-off?tab=team");
+      expect(await screen.findByRole("link", { name: "Share calendars…" })).toHaveAttribute("href", "/days-off/mass-share");
+    });
+
+    test("a non-manager has no team tab and so no Share calendars… button anywhere", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=team");
+      await screen.findByRole("table", { name: "Team days-off calendar" });
+      expect(screen.queryByRole("link", { name: "Share calendars…" })).toBeNull();
+    });
+
+    test("the Share calendars… button lives on the team tab only, not on the calendar tab", async () => {
+      setupMocks({ managed: 1 });
+      renderDaysOff("/days-off?tab=calendar");
+      await screen.findByRole("tab", { name: "My team" });
+      expect(screen.queryByRole("link", { name: "Share calendars…" })).toBeNull();
+    });
+
     test("leaving the Calendar tab drops the calendar deep-link params from the URL", async () => {
       setupMocks({ managed: 0 });
       renderWithProviders(

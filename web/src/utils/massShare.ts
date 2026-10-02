@@ -8,9 +8,18 @@
 // reviewsDashboard.ts shape).
 
 import type { ShareBatchItem } from "../api/shares";
+import type { DaysOffShareCandidate } from "../api/daysoff";
 import type { ShareCandidate } from "../api/reviews";
 import type { LocalizedEntry } from "./localized";
 import { foldDiacritics } from "./text";
+
+/** The kinds the mass-share page and dialog word themselves for (an i18next context over their texts). */
+export type MassShareKind = "reviews" | "calendars";
+
+/** Reviews read the base keys; every other kind carries its own `_<kind>` variants. */
+export function kindContext(kind: MassShareKind): MassShareKind | undefined {
+  return kind === "reviews" ? undefined : kind;
+}
 
 /** The person fields every kind's candidate read carries. */
 type MassSharePerson = Pick<
@@ -91,6 +100,31 @@ export function buildReviewShareRows(
       shareable: candidate.shareable,
       reason: candidate.reason ?? null,
       review: candidate.review ?? null,
+      teamNames: candidate.teams.map((team) => team.name),
+      managerLabel: candidate.directManagers
+        .map((m) => (m.id === currentUserId ? youLabel : m.name))
+        .join(", "),
+    }))
+    .sort((a, b) => a.person.name.localeCompare(b.person.name));
+}
+
+/**
+ * The days-off share candidates as rows (name-sorted). Every row is the caller's own chain, so
+ * every row is shareable by construction (the batch route re-runs the real guard anyway); the
+ * resource id is the PERSON's user id — a calendar is shared per person — and there is no review.
+ */
+export function buildCalendarShareRows(
+  candidates: readonly DaysOffShareCandidate[],
+  currentUserId: number | null,
+  youLabel: string,
+): MassShareRow[] {
+  return candidates
+    .map((candidate) => ({
+      person: candidate,
+      resourceId: candidate.userId,
+      shareable: true,
+      reason: null,
+      review: null,
       teamNames: candidate.teams.map((team) => team.name),
       managerLabel: candidate.directManagers
         .map((m) => (m.id === currentUserId ? youLabel : m.name))

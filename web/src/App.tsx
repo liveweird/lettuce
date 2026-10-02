@@ -105,6 +105,7 @@ const CreatePerformanceReview = lazy(() => import("./pages/CreatePerformanceRevi
 const EditPerformanceReview = lazy(() => import("./pages/EditPerformanceReview"));
 const ViewPerformanceReview = lazy(() => import("./pages/ViewPerformanceReview"));
 const MassSharePerformanceReviews = lazy(() => import("./pages/MassSharePerformanceReviews"));
+const MassShareDaysOffCalendars = lazy(() => import("./pages/MassShareDaysOffCalendars"));
 const ReviewPeriods = lazy(() => import("./pages/ReviewPeriods"));
 const DaysOff = lazy(() => import("./pages/DaysOff"));
 const CreateDaysOff = lazy(() => import("./pages/CreateDaysOff"));
@@ -517,6 +518,7 @@ export const appRoutes = createRoutesFromElements(
             <Route path="pulse-cycles" element={<PulseCycles />} />
             <Route path="days-off" element={<DaysOff />} />
             <Route path="days-off/new" element={<CreateDaysOff />} />
+            <Route path="days-off/mass-share" element={<MassShareDaysOffCalendars />} />
             <Route path="users/:userId/days-off" element={<UserDaysOff />} />
             <Route path="users/:userId/career" element={<UserCareer />} />
             <Route path="public-holidays" element={<PublicHolidays />} />

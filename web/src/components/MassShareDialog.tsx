@@ -15,9 +15,11 @@ import {
 import { useAllUsers } from "../hooks/useAllUsers";
 import { todayIsoDate } from "../utils/datetime";
 import {
+  kindContext,
   selectedResourceIds,
   submittableRows,
   summarizeBatchResult,
+  type MassShareKind,
   type MassShareRow,
 } from "../utils/massShare";
 import { invalidateShares } from "../utils/shareQueries";
@@ -25,14 +27,6 @@ import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import DateField from "./DateField";
 import SharePeoplePicker from "./SharePeoplePicker";
-
-/** The kinds the dialog words itself for; each is an i18next context over the `sharing.batch.*` texts. */
-export type MassShareKind = "reviews" | "calendars";
-
-/** Reviews read from the base keys; every other kind carries its own `_<kind>` variants. */
-function kindContext(kind: MassShareKind): MassShareKind | undefined {
-  return kind === "reviews" ? undefined : kind;
-}
 
 // The warning names at most this many people before collapsing into "and N more".
 const MAX_WARNED_NAMES = 5;

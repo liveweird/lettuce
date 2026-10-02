@@ -148,6 +148,25 @@ describe("App shell", () => {
       expect(screen.queryByRole("link", { name: /share reviews|share performance reviews/i })).toBeNull();
     });
 
+    test("the days-off calendars mass-share page is a routed screen too, and not a nav leaf (v4.11.0)", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      renderApp("/days-off/mass-share");
+      expect(await screen.findByRole("heading", { level: 2, name: "Share days-off calendars" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /share (days-off )?calendars/i })).toBeNull();
+    });
+
+    test("the calendars mass-share page honours the DAYS_OFF page guard (sent to the dashboard)", async () => {
+      localStorage.setItem(USER_ID_KEY, "7");
+      localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["DAYS_OFF"]));
+      try {
+        renderApp("/days-off/mass-share");
+        expect(await screen.findByRole("heading", { level: 2, name: "Dashboard" })).toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "Share days-off calendars" })).toBeNull();
+      } finally {
+        localStorage.removeItem("lettuce.auth.disabledFeatures");
+      }
+    });
+
     test("a malformed mass-share link falls back to the team's performance tab", async () => {
       renderApp("/performance-reviews/mass-share");
       expect(await screen.findByRole("heading", { level: 2, name: "Performance" })).toBeInTheDocument();

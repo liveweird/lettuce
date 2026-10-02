@@ -223,3 +223,16 @@ export async function createPublicHoliday(body: PublicHolidayCreateBody): Promis
 export async function deletePublicHoliday(id: number): Promise<void> {
   await voidRequest(`/api/v1/public-holidays/${id}`, { method: "DELETE" });
 }
+
+export type DaysOffShareCandidate =
+  paths["/api/v1/days-off/share-candidates"]["get"]["responses"]["200"]["content"]["application/json"]["items"][number];
+
+/**
+ * The calendar mass-share picker's data (v4.11.0): everyone in the caller's transitive reporting
+ * line with their teams, direct managers and career triple. Unpaged, strictly caller-relative —
+ * a caller who manages nobody gets `[]`; every row is the caller's own chain, so every row is
+ * shareable.
+ */
+export async function listDaysOffShareCandidates(): Promise<DaysOffShareCandidate[]> {
+  return (await jsonRequest<{ items: DaysOffShareCandidate[] }>("/api/v1/days-off/share-candidates")).items;
+}
