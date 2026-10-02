@@ -1470,6 +1470,39 @@ class SharingTest {
         }
 
     @Test
+    fun `reviews - batch own-right edges - an HR auditor and a mere sharee are refused, the subordinate only once PUBLISHED`() =
+        runBlockingApp {
+            // ONE world (one review period — the shared timeline is scarce): PUBLISHED first.
+            val w = reviewWorld()
+            val hr = person("hr-auditor", roles = setOf(UserRole.HR))
+            val sharee = person("sharee")
+            val target = person("target")
+            suspend fun HttpClient.batch(vararg ids: UInt) = post("/api/v1/shares/batch") {
+                contentType(ContentType.Application.Json)
+                setBody(ShareBatchRequest(ShareableResourceType.PERFORMANCE_REVIEW, ids.toList(), listOf(target.id)))
+            }
+            val missing = TestShareDocuments.nextId()
+
+            // (a) An HR-only auditor reads every review but holds no own right: the whole call is 403 ...
+            assertEquals(HttpStatusCode.OK, hr.client.review(w.review.id).status)
+            assertEquals(HttpStatusCode.Forbidden, hr.client.batch(w.review.id).status)
+            // (b) ... and so is a reader who got in through a share only (no re-sharing), also when the
+            // other item does not exist (FORBIDDEN + NOT_FOUND is still 403, never a 404).
+            w.manager.client.shareReviewId(w.review.id, sharee.id)
+            assertEquals(HttpStatusCode.OK, sharee.client.review(w.review.id).status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.batch(w.review.id).status)
+            assertEquals(HttpStatusCode.Forbidden, sharee.client.batch(w.review.id, missing).status)
+
+            // (c) The subordinate reads — so may batch-share — their own review only once PUBLISHED.
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "unpublish").status)
+            assertEquals(HttpStatusCode.Forbidden, w.subordinate.client.batch(w.review.id).status)
+            assertEquals(HttpStatusCode.NoContent, w.manager.client.reviewAction(w.review.id, "publish").status)
+            val published = w.subordinate.client.batch(w.review.id)
+            assertEquals(HttpStatusCode.OK, published.status)
+            assertEquals(listOf(ShareBatchItemStatus.CREATED), published.body<ShareBatchResponse>().items.map { it.status })
+        }
+
+    @Test
     fun `reviews - accepted consequence - an own-right reader may share a pre-publication review with the subordinate`() =
         runBlockingApp {
             // (a) The manager shares a DRAFT with the reviewed subordinate, who cannot read it in their own right.

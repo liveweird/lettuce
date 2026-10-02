@@ -52,7 +52,8 @@ class ShareBatchRoutesTest {
 
     private suspend fun ApplicationTestBuilder.startWithFake(vararg overrides: Pair<String, String>): FakeShareable {
         val fakes = ShareableResourceType.entries.associateWith { FakeShareable(it) }
-        configureApp(*overrides)
+        // The production batch bucket is 10/min; most cases here call far more often — the bucket test overrides it.
+        configureApp("sharing.batchRateLimitPerMinute" to "1000", *overrides)
         application { attributes.put(ShareRegistryKey, ShareRegistry { fakes.getValue(it) }) }
         startApplication()
         return fakes.getValue(review)
@@ -405,21 +406,32 @@ class ShareBatchRoutesTest {
     }
 
     @Test
-    fun `the batch draws on the same per-caller bucket as the single share and the withdraw`() = testApplication {
-        startWithFake("sharing.rateLimitPerMinute" to "4")
-        val busy = person("busy")
-        val other = person("other")
-        val missing = TestShareDocuments.nextId()
-        repeat(2) { assertEquals(HttpStatusCode.NotFound, busy.client.batch(listOf(missing), listOf(other.id)).status) }
-        assertEquals(HttpStatusCode.NotFound, busy.client.post("/api/v1/shares/4000000/withdraw").status)
-        assertEquals(HttpStatusCode.NotFound, busy.client.post("/api/v1/shares") {
-            contentType(ContentType.Application.Json)
-            setBody(ShareRequest(review, missing, other.id, null))
-        }.status)
-        assertEquals(HttpStatusCode.TooManyRequests, busy.client.batch(listOf(missing), listOf(other.id)).status)
-        // Keyed per caller: someone else still gets through.
-        assertEquals(HttpStatusCode.NotFound, other.client.batch(listOf(missing), listOf(busy.id)).status)
-    }
+    fun `the batch has its OWN per-caller bucket - it never spends the single-share tokens and vice versa`() =
+        testApplication {
+            // Distinct limits so a mix-up between the two buckets cannot pass by accident.
+            startWithFake("sharing.rateLimitPerMinute" to "4", "sharing.batchRateLimitPerMinute" to "3")
+            val busy = person("busy")
+            val other = person("other")
+            val missing = TestShareDocuments.nextId()
+            suspend fun single() = busy.client.post("/api/v1/shares") {
+                contentType(ContentType.Application.Json)
+                setBody(ShareRequest(review, missing, other.id, null))
+            }.status
+            // The batch bucket (3) is enforced on its own ...
+            repeat(3) { assertEquals(HttpStatusCode.NotFound, busy.client.batch(listOf(missing), listOf(other.id)).status) }
+            assertEquals(HttpStatusCode.TooManyRequests, busy.client.batch(listOf(missing), listOf(other.id)).status)
+            // ... and spent none of the single/withdraw bucket (4): four calls pass, the fifth 429s.
+            repeat(3) { assertEquals(HttpStatusCode.NotFound, single()) }
+            assertEquals(HttpStatusCode.NotFound, busy.client.post("/api/v1/shares/4000000/withdraw").status)
+            assertEquals(HttpStatusCode.TooManyRequests, single())
+            // Keyed per caller: someone else's batch still gets through.
+            assertEquals(HttpStatusCode.NotFound, other.client.batch(listOf(missing), listOf(busy.id)).status)
+            // A fresh caller who exhausts the single bucket is not blocked from the batch.
+            val singleOnly = person("single-only")
+            repeat(4) { assertEquals(HttpStatusCode.NotFound, singleOnly.client.post("/api/v1/shares/4000000/withdraw").status) }
+            assertEquals(HttpStatusCode.TooManyRequests, singleOnly.client.post("/api/v1/shares/4000000/withdraw").status)
+            assertEquals(HttpStatusCode.NotFound, singleOnly.client.batch(listOf(missing), listOf(other.id)).status)
+        }
 
     @Test
     fun `an HR user who is a reader in their own right can batch-share, a mere HR auditor cannot`() = testApplication {

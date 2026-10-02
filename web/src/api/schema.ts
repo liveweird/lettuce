@@ -4249,8 +4249,8 @@ export interface paths {
          *     single call — one `document_shares` row per (document, person), each an ordinary share
          *     (withdrawn, listed and lapsing exactly like a share made through `POST /api/v1/shares`).
          *     Only `PERFORMANCE_REVIEW` is batchable today; every other `resourceType` is `400`. The call
-         *     counts as ONE request against the per-caller share rate limit (default 60/min, shared
-         *     with `POST /api/v1/shares` and the withdraw action — `429` beyond it).
+         *     counts as ONE request against its OWN per-caller rate limit (default 10/min, independent
+         *     of the bucket `POST /api/v1/shares` and the withdraw action share — `429` beyond it).
          *
          *     Evaluated in this order: a malformed body is the one `400` that precedes the gates →
          *     the caller's feature flag for the area (`403`) → the kind must be batchable (`400`) → the

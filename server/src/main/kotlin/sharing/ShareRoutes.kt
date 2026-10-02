@@ -38,6 +38,12 @@ import kotlinx.serialization.Serializable
 /** The per-caller RateLimit bucket name — registered in auth/AuthRoutes.kt's single install. */
 const val SHARES_RATE_LIMIT = "shares"
 
+/**
+ * The mass share's OWN per-caller bucket (a separate, much smaller limit): one batch call fans
+ * out up to 20 summary notices (+ email + Teams), so it must not ride the single-share bucket.
+ */
+const val SHARES_BATCH_RATE_LIMIT = "shares-batch"
+
 @Serializable
 @Resource("/api/v1/shares")
 class Shares {
@@ -317,7 +323,13 @@ fun Application.configureShareRoutes() {
                 requireSharerOrAuthor(caller, record)
                 call.respond(HttpStatusCode.OK, record.toWire())
             }
-            // Mutations share one per-caller bucket (keyed on userId, see auth/AuthRoutes.kt).
+            // The mass share has its own per-caller bucket (burst fan-out, see SHARES_BATCH_RATE_LIMIT).
+            rateLimit(RateLimitName(SHARES_BATCH_RATE_LIMIT)) {
+                post<Shares.Batch> {
+                    call.respond(HttpStatusCode.OK, shareBatch(call.caller(), call.receive<ShareBatchRequest>()))
+                }
+            }
+            // The single-share mutations share one per-caller bucket (keyed on userId, see auth/AuthRoutes.kt).
             rateLimit(RateLimitName(SHARES_RATE_LIMIT)) {
                 post<Shares> {
                     val caller = call.caller()
@@ -378,9 +390,6 @@ fun Application.configureShareRoutes() {
                     }
                     call.response.header(HttpHeaders.Location, call.application.href(Shares.Id(id = id)))
                     call.respond(HttpStatusCode.Created, record.toWire())
-                }
-                post<Shares.Batch> {
-                    call.respond(HttpStatusCode.OK, shareBatch(call.caller(), call.receive<ShareBatchRequest>()))
                 }
                 post<Shares.Id.Withdraw> { route ->
                     val caller = call.caller()

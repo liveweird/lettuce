@@ -151,8 +151,11 @@ on the wire — it lets the flood cap count a batch as one notice and joins the 
   already-expired shares) still count — the cap is slightly stricter than "notices actually sent",
   the safe direction.
 - **Rate limit**: the `shares` RateLimit bucket, **per caller** (keyed on the JWT principal's
-  `userId`), covers `POST /shares`, `POST /shares/batch` and `POST /shares/{id}/withdraw` — `sharing.rateLimitPerMinute`
-  (`$SHARING_RATE_LIMIT_PER_MINUTE`, default 60, boot-validated `1..100000`), registered in
+  `userId`), covers `POST /shares` and `POST /shares/{id}/withdraw` — `sharing.rateLimitPerMinute`
+  (`$SHARING_RATE_LIMIT_PER_MINUTE`, default 60, boot-validated `1..100000`); **`POST /shares/batch` has its
+  own `shares-batch` bucket** (v4.10.0, same keying and validation) — `sharing.batchRateLimitPerMinute`
+  (`$SHARING_BATCH_RATE_LIMIT_PER_MINUTE`, default 10): one batch fans out up to 20 summary notices (+ email +
+  Teams), so it neither rides nor spends the single-share tokens. Both are registered in
   `AuthRoutes`' single `install(RateLimit)` — which is why `configureShareRoutes` runs AFTER
   `configureAuthRoutes`. `429` is declared on all three operations. Reads are not throttled.
 
@@ -179,7 +182,7 @@ rule, the Shared screen and the activity log all work unchanged) stamped with th
   feature flag `403` → non-batchable kind `400` → list shape `400` (sizes/duplicates, schema-declared, before any
   document is read) → per document in request order: adapter read, then `holdsOwnRight` (missing =
   `NOT_FOUND` item, unreadable = `FORBIDDEN` item — the single POST's read-before-guard existence idiom,
-  ids only, never content) → **no shareable document at all = the whole-request `403`** ("You can't share any of
+  ids only, never content — up to 200 ids per call) → **no shareable document at all = the whole-request `403`** ("You can't share any of
   these documents in your own right", at least one `FORBIDDEN`) **or `404`** ("None of the documents exist"),
   BEFORE any semantic 400, so a caller with no right learns nothing about them → semantic `400`s after the
   guard: `expiresOn` (strict, not before the server's today), every sharee exists, is active and is **not the
@@ -206,7 +209,7 @@ rule, the Shared screen and the activity log all work unchanged) stamped with th
   batch rows (the `batch_id` joins the rows to the event). A whole-request `403` is the ordinary `authz.denied`;
   a `404`/`400` emits no batch event. A replay that created nothing is still audited (`created=0`, `batchId`
   null).
-- **Rate limit**: one call = one token of the per-caller `shares` bucket.
+- **Rate limit**: one call = one token of the per-caller `shares-batch` bucket (default 10/min, its own — see the rate-limit bullet above); the SPA's >200-document chunks run sequentially.
 - **Candidates (the picker's data source)**: `GET /api/v1/performance-reviews/share-candidates?periodId=`
   (reviews package — see "Mass share" in `.claude/docs/features/performance-reviews.md`): every person in the
   caller's transitive chain with the period's review and the server-computed `shareable`/`reason`

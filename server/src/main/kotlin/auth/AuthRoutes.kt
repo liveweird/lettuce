@@ -16,6 +16,7 @@ import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.mail.mailer
 import ch.nokillswit.infra.mail.respondMailUnavailable
 import ch.nokillswit.integration.INTEGRATION_RATE_LIMIT
+import ch.nokillswit.sharing.SHARES_BATCH_RATE_LIMIT
 import ch.nokillswit.sharing.SHARES_RATE_LIMIT
 import ch.nokillswit.integration.apiKeyHash
 import ch.nokillswit.integration.integrationBearerToken
@@ -59,6 +60,7 @@ private const val PASSWORD_RESET_RATE_LIMIT = "password-reset"
 private const val MFA_RATE_LIMIT = "mfa"
 private const val DEFAULT_INTEGRATION_RATE_LIMIT = 120
 private const val DEFAULT_SHARES_RATE_LIMIT = 60
+private const val DEFAULT_SHARES_BATCH_RATE_LIMIT = 10
 
 @Serializable
 data class LoginRequest(val email: String, val password: String)
@@ -307,6 +309,9 @@ fun Application.configureAuthRoutes() {
         ?: DEFAULT_INTEGRATION_RATE_LIMIT
     val sharesLimit = optionalConfigInt(environment.config, "sharing.rateLimitPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE)
         ?: DEFAULT_SHARES_RATE_LIMIT
+    val sharesBatchLimit = optionalConfigInt(
+        environment.config, "sharing.batchRateLimitPerMinute", min = 1, max = MAX_RATE_LIMIT_PER_MINUTE,
+    ) ?: DEFAULT_SHARES_BATCH_RATE_LIMIT
 
     // Throttle login to blunt password brute-forcing, and refresh to blunt token abuse: a token
     // bucket per client host.
@@ -342,12 +347,22 @@ fun Application.configureAuthRoutes() {
                     ?: call.request.origin.remoteHost
             }
         }
-        // Document sharing's mutations (v4.8.0 — POST /shares and POST /shares/{id}/withdraw): a
+        // Document sharing's single mutations (v4.8.0 — POST /shares and POST /shares/{id}/withdraw): a
         // per-CALLER bucket, since both routes are authenticated and a share fans out a
         // notification (and an email) per call. Keyed on the verified principal's userId; an
         // unauthenticated request never reaches the handler, and shares the per-host bucket here.
         register(RateLimitName(SHARES_RATE_LIMIT)) {
             rateLimiter(limit = sharesLimit, refillPeriod = 60.seconds)
+            requestKey { call ->
+                call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asLong()
+                    ?: call.request.origin.remoteHost
+            }
+        }
+        // The mass share's own per-caller bucket (v4.10.0 — POST /shares/batch): one call fans out up
+        // to 20 summary notices (+ email + Teams), so it gets a far smaller limit than the single
+        // share and never consumes its tokens. Same keying as "shares".
+        register(RateLimitName(SHARES_BATCH_RATE_LIMIT)) {
+            rateLimiter(limit = sharesBatchLimit, refillPeriod = 60.seconds)
             requestKey { call ->
                 call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asLong()
                     ?: call.request.origin.remoteHost
