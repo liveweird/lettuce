@@ -1,4 +1,4 @@
-### Activity log (v4.9.0, V87 — step 1 of the series)
+### Activity log (v4.9.0, V87 — a multi-step series)
 
 A chronological, per-person log of **what that person did** — `GET /api/v1/users/{id}/activity`
 (package `activity/`). Every feature already keeps a per-document history (the seven `*_events`
@@ -12,7 +12,8 @@ and what is still to come).
   actor-attributed. "What happened to me" is the notifications bell, not this log. (A later
   step's days-off entry a manager records for a report therefore shows in the MANAGER's log.)
   System-originated events (`user_id NULL`, V80) are nobody's activity.
-- **Access = self / the HR auditor / (later) the transitive chain.** ADMIN gets nothing special.
+- **Access = self / the HR auditor / a manager in the target's transitive chain** (the chain viewer
+  sees only the entries whose document they can read themselves). ADMIN gets nothing special.
   No new feature flag; the VIEWER's disabled areas are left out.
 - **HR sees the target's share rows** (a later step; the endpoint is `hr.list`-audited and the
   succession-plan precedent already grants HR audit reads).
@@ -58,7 +59,8 @@ fields are always encoded as explicit nulls).
 - **`id` is a synthetic string** `<AREA>:<SOURCE>:<eventId>` (SOURCE `EVENT` here; the share
   sources arrive in step 3). A union row has no scalar id; the string is the stable unique key.
 - **Order is total: `createdAt DESC, area, source, eventId DESC`** — the id's own components. The
-  only sortable field is `createdAt` (default `-createdAt`; ascending reverses the WHOLE key — the tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
+  only sortable field is `createdAt` (default `-createdAt`; ascending reverses the WHOLE key — the
+  tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
   a registered deviation from API-LIST-003 (see the rulebook's known-gaps register).
 - `area` = the seven `ShareableResourceType` names for document rows (so `link` is the sharing
   adapter's `viewPath`), plus `DAYS_OFF`, `CAREER_POSITION`, `ACCOUNT` — declared up front (the
@@ -76,8 +78,8 @@ fields are always encoded as explicit nulls).
 
 #### Access and visibility
 
-`requireActivityRead` (`authz/Guards.kt`): **self → HR → 403** (the chain branch is added in step
-2). Route order: shape 400s → unknown/soft-deleted target 404 (a deactivated target stays
+`requireActivityRead` (`authz/Guards.kt`): **self → HR → transitive chain → 403**. Route order:
+shape 400s → unknown/soft-deleted target 404 (a deactivated target stays
 readable) → guard. HR is audited as `hr.list` resource `activity` with `targetUserId` (+ `area`
 when pinned); HR reading their OWN log is self access and is not audited.
 
@@ -88,28 +90,47 @@ when pinned); HR reading their OWN log is self access and is not audited.
   sharing "own right" definition), selected as a `CASE` boolean in the label query of the ≤100 page
   rows. The viewer's transitive subordinate set is computed once per request and bound as one
   array. A soft-deleted document is never readable.
+- **Chain mode** (a manager in the target's transitive chain): a row is listed ONLY if the document
+  is one the viewer can currently read in their OWN right — the same `ActivityVisibility`
+  predicate, applied as the WHERE of each union branch (the branch joins the parent document, and
+  `teams` for KPIs), so hidden rows are never listed or counted and `total` is exact (hide, never
+  redact: the viewer must not learn that the report touched a document they cannot open). The
+  viewer's own party roles count (a document the viewer authored is theirs), skip-level managers
+  follow the transitive chain, DRAFT goals/reviews and undelivered feedback stay private to their
+  author pair, KPIs follow the current-manager derivation (the manager and the chain above at any
+  status, live members past DRAFT), journal entries and succession plans follow the OWNER's chain.
+  The chain set is computed once per request and bound as one array. **Deliberately excluded:**
+  share-granted reads (shares are never a list scope) and the days-off teammate grant (calendar
+  parity for one entry is no reason to list a colleague's actions).
 - **HR mode** (HR on anyone, and HR on themselves) shows every row with labels and links (a deleted
   document's link answers 404, the share-list precedent).
 - **The viewer's disabled areas** are not added to the union, so `total` stays honest; an `area`
   filter naming one answers an empty page (never 400). Uniform for every role, HR included.
 - **Guard authors:** any change to a document read guard must update the matching predicate in
-  `ActivityVisibility.kt` — the guard is the oracle (step 2 adds the parity test that enforces it).
+  `ActivityVisibility.kt` — the guard is the oracle and `ActivityVisibilityParityTest` enforces it:
+  for every shareable area it runs the SQL predicate (end to end through the service, chain mode
+  AND self mode) against `adapter.read(id) != null && guard(role-stripped viewer, doc)` over a
+  seeded matrix (statuses × party / chain / skip-level / team member / outsider / requester
+  visibility / multi-recipient feedback / soft-deleted documents and teams), and fails on any
+  disagreement; a new `ShareableResourceType` without a matrix fails its exhaustiveness check.
 
 #### Tests
 
 `ActivityLogTest` (the access matrix, seven areas with labels, deleted/KPI-member
-readability, HR + audit, ADMIN/peer 403, 404/deactivated, paging totals, the order/tiebreak with
+readability, the chain section — skip-level goal/feedback/review/KPI/impact/succession visibility,
+hidden rows not counted, an ex-chain manager 403, HR + audit, ADMIN/peer 403, 404/deactivated,
+paging totals, the order/tiebreak with
 injected equal timestamps, filters and bounds, disabled areas, shape-400-before-gate),
-`ActivityUnionPinTest`, the `hr.list` case in `AuditTest`; the shared `EventLog` mechanics stay
+`ActivityVisibilityParityTest`, `ActivityUnionPinTest`, the `hr.list` case in `AuditTest`; the
+shared `EventLog` mechanics stay
 covered by `EventLogTest`.
 
 #### Status — what is in force and what is next
 
-- **Step 1 (this commit):** V87 indexes, the union read model for the seven document trails, the
-  self + HR endpoint, the OpenAPI path/schemas, the guard, the self `readable` projection.
-- **Step 2:** chain-viewer visibility — `ActivityVisibility` applied as the WHERE of each branch
-  (hide, never redact), the `ActivityVisibilityParityTest` guard-vs-SQL oracle, the chain branch of
-  `requireActivityRead` (until then a chain manager is 403).
+- **Step 1:** V87 indexes, the union read model for the seven document trails, the self + HR
+  endpoint, the OpenAPI path/schemas, the guard, the self `readable` projection.
+- **Step 2 (in force):** chain-viewer visibility — `ActivityVisibility` as the WHERE of each branch
+  (hide, never redact), the chain branch of `requireActivityRead`, `ActivityVisibilityParityTest`.
 - **Step 3:** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only for
   documents they author). **Steps 4–6:** the days-off, career-position and sign-in trails
   (V88–V90, forward-only). **Steps 7–8:** the SPA page and the release.

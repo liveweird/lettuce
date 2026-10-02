@@ -22,6 +22,7 @@ import ch.nokillswit.succession.SuccessionPlanService.Plans
 import ch.nokillswit.teamkpis.TeamKpiEventService.TeamKpiEvents
 import ch.nokillswit.teamkpis.TeamKpiService.TeamKpis
 import ch.nokillswit.teams.TeamService.Teams
+import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.UserService.Users
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
+import org.jetbrains.exposed.v1.core.dao.id.IdTable
 import org.jetbrains.exposed.v1.r2dbc.Query
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.SetOperation
@@ -46,9 +48,16 @@ import org.jetbrains.exposed.v1.r2dbc.unionAll
  * - [EVERYTHING] — the HR auditor (and HR reading their own log): every row, labels and links
  *   always present (a deleted document's link answers 404 — the share-list precedent).
  *
- * Step 2 adds the chain-viewer scope (rows hidden, never redacted, by SQL predicate).
+ * - [CHAIN] — a manager in the target's transitive management chain: a row is listed ONLY when the
+ *   document is one the viewer can currently read in their OWN right (hide, never redact — a
+ *   hidden row is not counted either, so `total` is exact). The predicate is the document's
+ *   `ActivityVisibility` builder applied as the WHERE of each union branch (the branch joins the
+ *   parent document); hydrated rows therefore always carry their labels and link. Share-granted
+ *   reads and the days-off teammate grant are deliberately NOT consulted: a share is a
+ *   single-document read, not a list scope, and a teammate's calendar parity is not a reason to
+ *   list a colleague's actions.
  */
-enum class ActivityScope { OWN_RIGHT, EVERYTHING }
+enum class ActivityScope { OWN_RIGHT, EVERYTHING, CHAIN }
 
 /** The viewer: who they are (for the own-right projection), their disabled areas, and their scope. */
 data class ActivityViewer(val userId: UInt, val disabledFeatures: Set<Feature>, val scope: ActivityScope)
@@ -68,18 +77,34 @@ private const val SOURCE_EVENT = "EVENT"
 private val actorLabelUsers = Users.alias("act_user_a")
 private val partnerLabelUsers = Users.alias("act_user_b")
 
-/** One `*_events` table feeding the union, with the area its rows belong to. */
-private class EventSource(val area: ActivityArea, val table: EventLogTable)
+/**
+ * One `*_events` table feeding the union, with the area its rows belong to and the [parent]
+ * document table the chain-mode predicate reads (team KPIs additionally join `teams`: the KPI's
+ * current manager is `teams.manager_id`, never stored on the KPI).
+ */
+private class EventSource(val area: ActivityArea, val table: EventLogTable, val parent: IdTable<UInt>) {
+    fun joinedToParent(): ColumnSet {
+        val withParent = table.join(parent, JoinType.INNER, onColumn = table.ownerId, otherColumn = parent.id)
+        return if (area == ActivityArea.TEAM_KPI) {
+            withParent.join(Teams, JoinType.INNER, onColumn = TeamKpis.teamId, otherColumn = Teams.id)
+        } else {
+            withParent
+        }
+    }
+}
+
+/** The chain viewer's own-right filter: [viewer] and their transitive subordinates ([chain]). */
+private class ChainFilter(val viewer: UInt, val chain: Set<UInt>)
 
 /** The seven document event trails — the rows of this step. Order is irrelevant (the union is sorted). */
 private val EVENT_SOURCES = listOf(
-    EventSource(ActivityArea.FEEDBACK, FeedbackEvents),
-    EventSource(ActivityArea.ONE_ON_ONE, OneOnOneEvents),
-    EventSource(ActivityArea.GOAL, GoalEvents),
-    EventSource(ActivityArea.TEAM_KPI, TeamKpiEvents),
-    EventSource(ActivityArea.PERFORMANCE_REVIEW, ReviewEvents),
-    EventSource(ActivityArea.IMPACT_LOG_ENTRY, ImpactLogEvents),
-    EventSource(ActivityArea.SUCCESSION_PLAN, SuccessionPlanEvents),
+    EventSource(ActivityArea.FEEDBACK, FeedbackEvents, Feedbacks),
+    EventSource(ActivityArea.ONE_ON_ONE, OneOnOneEvents, Meetings),
+    EventSource(ActivityArea.GOAL, GoalEvents, Goals),
+    EventSource(ActivityArea.TEAM_KPI, TeamKpiEvents, TeamKpis),
+    EventSource(ActivityArea.PERFORMANCE_REVIEW, ReviewEvents, Reviews),
+    EventSource(ActivityArea.IMPACT_LOG_ENTRY, ImpactLogEvents, Entries),
+    EventSource(ActivityArea.SUCCESSION_PLAN, SuccessionPlanEvents, Plans),
 )
 
 /** How the hydration phase decides `readable` for a document. */
@@ -121,6 +146,10 @@ class ActivityService(
     private val database: R2dbcDatabase,
     private val registry: ShareRegistry,
 ) {
+    /** True iff [managerId] is in [userId]'s transitive management chain (the chain-viewer gate). */
+    suspend fun managesUser(managerId: UInt, userId: UInt): Boolean =
+        suspendTransaction(database) { isInManagementChain(managerId, userId) }
+
     suspend fun list(
         targetUserId: UInt,
         viewer: ActivityViewer,
@@ -132,8 +161,15 @@ class ActivityService(
         }
         if (sources.isEmpty()) return ActivityListResult(emptyList(), 0)
         return suspendTransaction(database) {
-            val projection = Projection(branch(sources.first(), targetUserId, filter))
-            val union = unionOf(sources, targetUserId, filter)
+            // Chain mode: the viewer's transitive subordinates, computed ONCE and bound as one array
+            // per predicate use (never a placeholder per id).
+            val chainFilter = if (viewer.scope == ActivityScope.CHAIN) {
+                ChainFilter(viewer.userId, transitiveSubordinateIds(viewer.userId))
+            } else {
+                null
+            }
+            val projection = Projection(branch(sources.first(), targetUserId, filter, chainFilter))
+            val union = unionOf(sources, targetUserId, filter, chainFilter)
             val total = union.count()
             // The tiebreak flips WITH the createdAt direction, so ascending is the exact reverse of
             // the default order (the whole composite key reverses, not just its first component).
@@ -157,9 +193,16 @@ class ActivityService(
     }
 
     /** One `*_events` table → the 7-column tuple, restricted to the actor and the time window. */
-    private fun branch(source: EventSource, targetUserId: UInt, filter: ActivityFilter, matching: Boolean = true): Query {
+    private fun branch(
+        source: EventSource,
+        targetUserId: UInt,
+        filter: ActivityFilter,
+        chainFilter: ChainFilter?,
+        matching: Boolean = true,
+    ): Query {
         val table = source.table
-        return table.select(
+        val from: ColumnSet = if (chainFilter == null) table else source.joinedToParent()
+        return from.select(
             stringLiteral(source.area.name).alias("area"),
             stringLiteral(SOURCE_EVENT).alias("source"),
             table.id.alias("event_id"),
@@ -171,6 +214,9 @@ class ActivityService(
             var op: Op<Boolean> = if (matching) table.userId eq targetUserId else Op.FALSE
             filter.createdAtGte?.let { op = op and (table.timestamp greaterEq it) }
             filter.createdAtLte?.let { op = op and (table.timestamp lessEq it) }
+            if (chainFilter != null) {
+                op = op and ActivityVisibility.readable(source.area, chainFilter.viewer, chainFilter.chain)
+            }
             op
         }
     }
@@ -180,9 +226,18 @@ class ActivityService(
      * single source (an `area` filter, or every other area disabled for the viewer) is paired with
      * its own contradiction (`WHERE FALSE`) — the same rows, one code path.
      */
-    private fun unionOf(sources: List<EventSource>, targetUserId: UInt, filter: ActivityFilter): SetOperation {
-        val branches = sources.map { branch(it, targetUserId, filter) } +
-            if (sources.size == 1) listOf(branch(sources.first(), targetUserId, filter, matching = false)) else emptyList()
+    private fun unionOf(
+        sources: List<EventSource>,
+        targetUserId: UInt,
+        filter: ActivityFilter,
+        chainFilter: ChainFilter?,
+    ): SetOperation {
+        val branches = sources.map { branch(it, targetUserId, filter, chainFilter) } +
+            if (sources.size == 1) {
+                listOf(branch(sources.first(), targetUserId, filter, chainFilter, matching = false))
+            } else {
+                emptyList()
+            }
         return branches.drop(2).fold<Query, SetOperation>(branches[0].unionAll(branches[1])) { acc, next ->
             acc.unionAll(next)
         }
@@ -218,7 +273,8 @@ class ActivityService(
     private suspend fun hydrate(rows: List<UnionRow>, viewer: ActivityViewer): List<ActivityEntry> {
         if (rows.isEmpty()) return emptyList()
         val readability = when (viewer.scope) {
-            ActivityScope.EVERYTHING -> Readability.Everything
+            // Chain rows were already filtered in SQL: every surviving row is readable by the viewer.
+            ActivityScope.EVERYTHING, ActivityScope.CHAIN -> Readability.Everything
             // Computed once per request, in this transaction: the viewer's transitive subordinates.
             ActivityScope.OWN_RIGHT -> Readability.OwnRight(viewer.userId, transitiveSubordinateIds(viewer.userId))
         }

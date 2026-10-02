@@ -30,8 +30,8 @@ private val ACTIVITY_SORTABLE = setOf("createdAt")
 /**
  * The per-user activity log (v4.9.0, `.claude/docs/features/activity-log.md`) — a person-anchored
  * sub-resource (API-RES-006, the career-positions precedent), caller-relative only through the
- * guard: the person themselves, the HR auditor (audited `hr.list`), and — from step 2 — a manager
- * in the person's transitive chain. Order: the shape 400s (paging, `sort`, `area`, the
+ * guard: the person themselves, the HR auditor (audited `hr.list`), and a manager in the person's
+ * transitive chain (who sees only the entries whose document they can read themselves). Order: the shape 400s (paging, `sort`, `area`, the
  * `createdAt` bounds) → unknown/soft-deleted target 404 (a deactivated one stays readable) →
  * the guard 403. The shape 400s deliberately run BEFORE the role gate (the registered L4
  * exception in `.claude/docs/authorization.md`), so the parameter vocabulary is no role oracle.
@@ -53,11 +53,14 @@ fun Application.configureActivityRoutes() {
                     throw BadRequestException("createdAt[gte] must not be after createdAt[lte]")
                 }
                 if (userService.read(route.id) == null) throw NotFoundException("User not found")
-                val grant = requireActivityRead(caller, route.id, area?.name)
+                val grant = requireActivityRead(caller, route.id, area?.name) {
+                    activityService.managesUser(caller.userId, route.id)
+                }
                 val scope = when (grant) {
                     // HR reading their OWN log is self access, yet needs no projection — HR reads everything.
                     ActivityReadGrant.SELF -> if (caller.isHr()) ActivityScope.EVERYTHING else ActivityScope.OWN_RIGHT
                     ActivityReadGrant.HR -> ActivityScope.EVERYTHING
+                    ActivityReadGrant.CHAIN -> ActivityScope.CHAIN
                 }
                 val result = activityService.list(
                     route.id,

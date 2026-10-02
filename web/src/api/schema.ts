@@ -552,8 +552,13 @@ export interface paths {
          *     text, comment or rating value ever appears. The days-off, career-position and sign-in areas
          *     are declared in `ActivityArea` but produce no rows yet.
          *
-         *     Who may read: the user themselves, and the HR auditor (audited as `hr.list`, resource
-         *     `activity`) — anyone else, ADMIN included, is `403`. A missing or soft-deleted user is `404`
+         *     Who may read: the user themselves, the HR auditor (audited as `hr.list`, resource
+         *     `activity`), and a manager in the user's TRANSITIVE management chain — anyone else, ADMIN
+         *     included, is `403`. A chain manager sees ONLY the entries whose document they can currently
+         *     read in their OWN right (party roles, chain and status rules — e.g. a report's DRAFT goal or
+         *     review, or a feedback not delivered into the manager's chain, never appears; share-granted
+         *     reads and teammate calendar grants do not count). Hidden entries are not listed and not
+         *     counted: `total` is exact for the viewer. A missing or soft-deleted user is `404`
          *     BEFORE the guard (user existence is no secret given the open users list); a deactivated
          *     user stays readable. The VIEWER's feature flags apply: an area the viewer has disabled is
          *     left out of the rows AND of `total`, and an `area` filter naming one answers an empty page
@@ -562,7 +567,8 @@ export interface paths {
          *     For the user's own log every row is listed, but `link` and `details` are null when the user
          *     can no longer read the document in their own right (deleted, or no longer visible to them):
          *     the fact that they acted is theirs, the document's current title is not. The HR auditor
-         *     always receives both (a deleted document's `link` then answers `404`).
+         *     always receives both (a deleted document's `link` then answers `404`); a chain manager's
+         *     rows always carry both (they are only listed when readable).
          *
          *     Supports offset pagination, sorting and filtering.
          *
@@ -6868,7 +6874,7 @@ export interface components {
              * @description The document the event belongs to; null for the person-scoped areas.
              */
             documentId: number | null;
-            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (the user's own log) — and always null for the person-scoped areas. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
+            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (only possible in the user's own log — a chain manager's rows are filtered instead) — and always null for the person-scoped areas. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
             link: string | null;
             /**
              * @description Content-free facts about the document for the client to localize, read at request time
@@ -8333,7 +8339,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description Caller is neither the user nor HR */
+            /** @description Caller is neither the user, nor in their management chain, nor HR */
             403: {
                 headers: {
                     [name: string]: unknown;

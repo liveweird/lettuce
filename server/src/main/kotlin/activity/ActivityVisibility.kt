@@ -32,8 +32,12 @@ import org.jetbrains.exposed.v1.r2dbc.select
  * parameter per use (`= ANY(?)`, never one placeholder per id — a large subtree must not approach
  * PostgreSQL's 65,535-bind cap). "Viewer manages X" == "X ∈ chain".
  *
- * Step 1 uses these to PROJECT a `readable` boolean for the self viewer's own rows; step 2 applies
- * the same builders as the WHERE of each union branch for chain viewers (hide, never redact).
+ * Two uses of the same builders: the SELF viewer gets them PROJECTED as a `readable` boolean on
+ * their own rows (every row listed, `details`/`link` nulled when false), a CHAIN viewer gets them as
+ * the WHERE of each union branch (hide, never redact — `total` stays exact). The parent document
+ * table (joined to `teams` for KPIs) must be in the FROM of whichever query applies them.
+ * `ActivityVisibilityParityTest` pins each builder against the real guard through the sharing
+ * adapters, for both uses.
  * Every builder includes "not soft-deleted" — a deleted document is never readable in own right.
  */
 internal object ActivityVisibility {
