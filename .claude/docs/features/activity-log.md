@@ -46,7 +46,7 @@ migration.
   `WHERE FALSE` twin — same rows, one code path. Every shareable area contributes an event branch
   plus the two share branches (never fewer than three), but the person-scoped DAYS_OFF area is a
   single branch: `area=DAYS_OFF` exercises the twin today (the viewer's DAYS_OFF flag off, or an
-  area with no branch yet — career, sign-ins — answers an empty page without a query).
+  area the viewer has disabled, answers an empty page without a query; every area now has a branch).
 - **V87 indexes.** `(user_id, created_at)` on each of the seven event tables turns every branch
   into one index range scan (`user_id` is nullable since V80 — a NULL actor is never in the
   range), plus the partial `document_shares(withdrawn_by, withdrawn_at)` index for the share-withdrawal
@@ -85,7 +85,9 @@ fields are always encoded as explicit nulls).
 `requireActivityRead` (`authz/Guards.kt`): **self → HR → transitive chain → 403**. Route order:
 shape 400s → unknown/soft-deleted target 404 (a deactivated target stays
 readable) → guard. HR is audited as `hr.list` resource `activity` with `targetUserId` (+ `area`
-when pinned); HR reading their OWN log is self access and is not audited.
+when pinned); HR reading their OWN log is self access and is not audited — and, **since the
+security audit (LOW-1), it is also NOT an HR-privileged read**: the HR role gets no wider view of its
+own log than anyone (an earlier design handed HR the full view there; reversed).
 
 - **Self mode** lists EVERY own row, but `details` and `link` are null when the self viewer can no
   longer read the document in their own right: the fact that they acted is theirs, the document's
@@ -106,8 +108,8 @@ when pinned); HR reading their OWN log is self access and is not audited.
   The chain set is computed once per request and bound as one array. **Deliberately excluded:**
   share-granted reads (shares are never a list scope) and the days-off teammate grant (calendar
   parity for one entry is no reason to list a colleague's actions).
-- **HR mode** (HR on anyone, and HR on themselves) shows every row with labels and links (a deleted
-  document's link answers 404, the share-list precedent).
+- **HR mode** (HR on ANOTHER person's log, audited) shows every row with labels and links (a deleted
+  document's link answers 404, the share-list precedent). HR on their OWN log is plain self mode.
 - **The viewer's disabled areas** are not added to the union, so `total` stays honest; an `area`
   filter naming one answers an empty page (never 400). Uniform for every role, HR included.
 - **Guard authors:** any change to a document read guard must update the matching predicate in

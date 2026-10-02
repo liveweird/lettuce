@@ -884,6 +884,57 @@ class ActivityLogTest {
         }
     }
 
+    private fun ch.qos.logback.classic.spi.ILoggingEvent.targetsUser(id: UInt) =
+        keyValuePairs.any { it.key == "targetUserId" && it.value == id.toLong() }
+
+    @Test
+    fun `an HR user's OWN log is plain self mode - labels withheld where the document is no longer readable`() =
+        testApplication {
+            usePostgresTestcontainer()
+            // HR who also manages E: authors a goal for E, then deletes it. The HR ROLE must not widen their own log.
+            val w = world()
+            val hrManager = person("hrm", roles = setOf(UserRole.HR))
+            val report = person("hrm-report")
+            TestServices.teams.create(Team("HrSquad-${hrManager.id}", hrManager.id, listOf(report.id)))
+            val goal = hrManager.client.post("/api/v1/goals") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    GoalCreateRequest(
+                        subordinateId = report.id, title = "HR own goal", description = "d", type = GoalType.NUMBER,
+                        targetValue = 1.0, dueDate = LocalDate.now().plusDays(30).toString(),
+                    ),
+                )
+            }.body<GoalResponse>()
+            assertEquals(HttpStatusCode.NoContent, hrManager.client.delete("/api/v1/goals/${goal.id}").status)
+
+            val appender = LogCapture("ch.nokillswit.audit")
+            try {
+                val own = hrManager.client.page(hrManager.id, "area=GOAL&pageSize=100").items
+                assertTrue(own.isNotEmpty())
+                own.forEach {
+                    assertNull(it.details, "HR gets no wider view of its OWN log")
+                    assertNull(it.link)
+                }
+                // Self access emits no hr.list; ANOTHER HR user reading the same log sees the labels and is audited.
+                assertEquals(
+                    0,
+                    appender.events.count {
+                        it.message == "hr.list" && it.targetsUser(hrManager.id)
+                    },
+                )
+                val auditor = person("auditor", roles = setOf(UserRole.HR))
+                val audited = auditor.client.page(hrManager.id, "area=GOAL&pageSize=100").items
+                assertEquals(own.map { it.id }, audited.map { it.id })
+                audited.forEach { assertEquals("HR own goal", it.details?.get("title")) }
+                assertTrue(
+                    appender.events.any { it.message == "hr.list" && it.targetsUser(hrManager.id) },
+                )
+            } finally {
+                appender.detach()
+            }
+            assertNotNull(w)
+        }
+
     @Test
     fun `peers, ADMIN and a subordinate are forbidden, a chain manager is not`() = testApplication {
         usePostgresTestcontainer()

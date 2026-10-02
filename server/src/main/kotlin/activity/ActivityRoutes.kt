@@ -3,7 +3,6 @@ package ch.nokillswit.activity
 import ch.nokillswit.authz.ActivityReadGrant
 import ch.nokillswit.authz.NotFoundException
 import ch.nokillswit.authz.caller
-import ch.nokillswit.authz.isHr
 import ch.nokillswit.authz.requireActivityRead
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
@@ -57,8 +56,10 @@ fun Application.configureActivityRoutes() {
                     activityService.managesUser(caller.userId, route.id)
                 }
                 val scope = when (grant) {
-                    // HR reading their OWN log is self access, yet needs no projection — HR reads everything.
-                    ActivityReadGrant.SELF -> if (caller.isHr()) ActivityScope.EVERYTHING else ActivityScope.OWN_RIGHT
+                    // Self is self for EVERY role: an HR user's OWN log is projected like anyone's (details/link
+                    // null where they cannot read the document in their own right) — handing HR the full
+                    // view of their own log would be an unaudited HR-privileged read (security audit, LOW-1).
+                    ActivityReadGrant.SELF -> ActivityScope.OWN_RIGHT
                     ActivityReadGrant.HR -> ActivityScope.EVERYTHING
                     ActivityReadGrant.CHAIN -> ActivityScope.CHAIN
                 }

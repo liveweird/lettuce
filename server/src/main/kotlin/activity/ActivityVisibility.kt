@@ -53,7 +53,7 @@ internal object ActivityVisibility {
         ActivityArea.PERFORMANCE_REVIEW -> review(viewer, chain)
         ActivityArea.IMPACT_LOG_ENTRY -> impactEntry(viewer, chain)
         ActivityArea.SUCCESSION_PLAN -> successionPlan(viewer, chain)
-        // The person-scoped areas have no document to read; their rules arrive with their steps.
+        // The person-scoped areas have no document to read (their chain rule is `personScoped`).
         ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> Op.FALSE
     }
 

@@ -50,7 +50,7 @@ import org.jetbrains.exposed.v1.r2dbc.unionAll
  * - [OWN_RIGHT] — the self viewer: EVERY row of their own log is listed, but `details`/`link` are
  *   null when they can no longer read the document in their own right (the fact that they acted
  *   is theirs; the document's current title is not).
- * - [EVERYTHING] — the HR auditor (and HR reading their own log): every row, labels and links
+ * - [EVERYTHING] — the HR auditor reading ANOTHER person's log: every row, labels and links
  *   always present (a deleted document's link answers 404 — the share-list precedent).
  *
  * - [CHAIN] — a manager in the target's transitive management chain: an EVENT row is listed ONLY
@@ -111,7 +111,7 @@ private class EventSource(val area: ActivityArea, val table: EventLogTable, val 
 /** The chain viewer's own-right filter: [viewer] and their transitive subordinates ([chain]). */
 private class ChainFilter(val viewer: UInt, val chain: Set<UInt>)
 
-/** The event trails feeding the union: the seven document ones plus the person-keyed days-off one. */
+/** The event trails feeding the union: the seven document ones plus the person-keyed days-off, career-position and sign-in ones. */
 private val EVENT_SOURCES = listOf(
     EventSource(ActivityArea.FEEDBACK, FeedbackEvents, Feedbacks),
     EventSource(ActivityArea.ONE_ON_ONE, OneOnOneEvents, Meetings),
@@ -161,9 +161,9 @@ private class UnionRow(
 /**
  * The per-user activity log (v4.9.0): a chronological "what did this person do" read model built
  * at QUERY TIME as a `UNION ALL` over the seven per-document `*_events` tables and the person-keyed
- * `days_off_events` (one branch each) and the two `document_shares` sources (shares the person
- * created / withdrew), filtered on the ACTING
- * user — no new table, no dual write, nothing to drift (`.claude/docs/features/activity-log.md`).
+ * `days_off_events`, `career_position_events` and `account_events` (one branch each) and the two
+ * `document_shares` sources (shares the person created / withdrew), filtered on the ACTING user —
+ * no new table, no dual write, nothing to drift (`.claude/docs/features/activity-log.md`).
  *
  * Two phases inside ONE transaction (so `total` and the rows agree — API-LIST-002): the ordered,
  * paged union of 7-column tuples (cheap — the V87 `(user_id, created_at)` indexes make each branch
@@ -513,7 +513,7 @@ class ActivityService(
             ActivityArea.PERFORMANCE_REVIEW -> reviewFacts(ids, readability)
             ActivityArea.IMPACT_LOG_ENTRY -> impactFacts(ids, readability)
             ActivityArea.SUCCESSION_PLAN -> successionFacts(ids, readability)
-            // Person-scoped (days-off) rows are never hydrated per document; the others have no branch yet.
+            // Person-scoped (days-off, career) and sign-in rows are never hydrated per document.
             ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> emptyMap()
         }
 
