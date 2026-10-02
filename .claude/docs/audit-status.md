@@ -69,7 +69,7 @@ This evidence does not establish production readiness. In particular:
   proves state written via one app instance is visible via another over the shared
   database. What remains per-pod is the per-IP `RateLimit` token bucket (login/refresh/
   password-reset/mfa/integration) — a narrower, already-bounded surface (documented in
-  `security.md`) that a rotating-host attacker can sidestep regardless of replica count,
+  `security-details.md`) that a rotating-host attacker can sidestep regardless of replica count,
   so splitting it across pods does not change the threat model the way the auth-state
   stores did. Rolling-deployment overlap on the existing single-replica deployment is
   addressed: `k8s/templates/app-deployment.yaml` sets `strategy: type: Recreate`, so the
