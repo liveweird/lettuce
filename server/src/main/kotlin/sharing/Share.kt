@@ -63,6 +63,23 @@ val ShareableResourceType.withdrawnNotification: NotificationType
     }
 
 /**
+ * The summary notification a mass share (v4.10.0) mints ONCE per sharee per batch, or null when the
+ * kind is not batchable (only performance reviews are in v4.10.0). Exhaustive `when`, so a future
+ * batchable kind must pick its type.
+ */
+val ShareableResourceType.batchSharedNotification: NotificationType?
+    get() = when (this) {
+        ShareableResourceType.PERFORMANCE_REVIEW -> NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED
+        ShareableResourceType.FEEDBACK,
+        ShareableResourceType.ONE_ON_ONE,
+        ShareableResourceType.GOAL,
+        ShareableResourceType.TEAM_KPI,
+        ShareableResourceType.IMPACT_LOG_ENTRY,
+        ShareableResourceType.SUCCESSION_PLAN,
+        -> null
+    }
+
+/**
  * The per-(sharer, sharee) notification flood cap, per rolling 24 hours: once a sharer has already
  * caused this many share notifications (SHARED + WITHDRAWN, counted from `document_shares`
  * `created_at`/`withdrawn_at` — no extra table; since V91 a mass share's rows count as ONE notice

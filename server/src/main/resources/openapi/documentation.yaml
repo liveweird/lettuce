@@ -10358,6 +10358,7 @@ components:
         - TEAM_KPI_SHARE_WITHDRAWN
         - PERFORMANCE_REVIEW_SHARED
         - PERFORMANCE_REVIEW_SHARE_WITHDRAWN
+        - PERFORMANCE_REVIEWS_BATCH_SHARED
         - IMPACT_ENTRY_SHARED
         - IMPACT_ENTRY_SHARE_WITHDRAWN
         - SUCCESSION_PLAN_SHARED
@@ -10408,7 +10409,9 @@ components:
             The IMPACT_ENTRY_* kinds carry `{author,periodStart,periodEnd}` — the journal
             owner's name and the entry's raw ISO period bounds (never section text).
             The `*_SHARED` kinds (v4.8.0, document sharing) carry `{sharer}` plus the raw ISO
-            `expiresOn` when the share has an end date; the `*_SHARE_WITHDRAWN` kinds carry
+            `expiresOn` when the share has an end date; `PERFORMANCE_REVIEWS_BATCH_SHARED` (v4.10.0,
+            the mass-share summary — one per sharee per batch) carries `{sharer,count}` plus
+            `expiresOn` when bound and links to `/shares`; the `*_SHARE_WITHDRAWN` kinds carry
             `{sharer,sharee,actor}`, and the sharer's own copy (minted only when someone else —
             the document's author — withdrew their share) additionally carries `self: "sharer"`.
             The `SUCCESSION_PLAN_SHARED` / `SUCCESSION_PLAN_SHARE_WITHDRAWN` kinds are

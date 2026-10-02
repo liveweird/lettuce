@@ -112,6 +112,8 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   TEAM_KPI_SHARE_WITHDRAWN: "teamKpiShareWithdrawn",
   PERFORMANCE_REVIEW_SHARED: "performanceReviewShared",
   PERFORMANCE_REVIEW_SHARE_WITHDRAWN: "performanceReviewShareWithdrawn",
+  // Mass share (v4.10.0): one summary notice per batch, count-aware wording.
+  PERFORMANCE_REVIEWS_BATCH_SHARED: "performanceReviewsBatchShared",
   IMPACT_ENTRY_SHARED: "impactEntryShared",
   IMPACT_ENTRY_SHARE_WITHDRAWN: "impactEntryShareWithdrawn",
   SUCCESSION_PLAN_SHARED: "successionPlanShared",
@@ -136,6 +138,9 @@ type ParamFormatSpec = {
    *  combination of params rather than one param's value (the share notifications). Wins over
    *  `contextParam`; `undefined` = the base wording. */
   contextFn?: (params: Record<string, string | undefined>) => string | undefined;
+  /** The param holding an integer the wording pluralizes on — wire params are strings, so it is
+   *  coerced to a NUMBER and passed as i18next's `count` (plural selection needs a number). */
+  countParam?: string;
 };
 
 // The team-KPI data-point kinds are the only ones carrying numeric values; the rest localize
@@ -161,6 +166,9 @@ const SHARED_SPEC: ParamFormatSpec = {
   dateParams: ["expiresOn"],
   contextFn: (p) => (p.expiresOn != null ? "until" : undefined),
 };
+// The mass-share summary (v4.10.0): `{sharer, count}` + the raw ISO `expiresOn` when bound — the
+// same "until" variant as SHARED_SPEC, plus `count` for the plural forms.
+const BATCH_SHARED_SPEC: ParamFormatSpec = { ...SHARED_SPEC, countParam: "count" };
 const SHARE_WITHDRAWN_SPEC: ParamFormatSpec = {
   contextFn: (p) => {
     if (p.self === "sharer") return p.actor != null && p.sharee != null ? "sharer" : "owner";
@@ -179,6 +187,7 @@ const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   teamKpiShareWithdrawn: SHARE_WITHDRAWN_SPEC,
   performanceReviewShared: SHARED_SPEC,
   performanceReviewShareWithdrawn: SHARE_WITHDRAWN_SPEC,
+  performanceReviewsBatchShared: BATCH_SHARED_SPEC,
   impactEntryShared: SHARED_SPEC,
   impactEntryShareWithdrawn: SHARE_WITHDRAWN_SPEC,
   successionPlanShared: SHARED_SPEC,
@@ -226,6 +235,19 @@ function describeNotification(n: NotificationItem, t: TFunction, locale: string)
     if (params[k] != null) params[k] = formatIsoMonth(params[k]!, locale);
   }
   const context = spec.contextFn ? spec.contextFn(params) : params[spec.contextParam ?? "self"];
+  // i18next pluralizes only on a NON-string `count`, so the wire's string count must never ride
+  // along raw: it is dropped from the options and, when it parses, re-added as a number. A missing
+  // or garbled count therefore resolves the count-neutral base key (never a raw key or "NaN").
+  if (spec.countParam != null) {
+    const raw = params[spec.countParam];
+    delete params[spec.countParam];
+    const count = raw != null && raw.trim() !== "" ? Number(raw) : Number.NaN;
+    return t(dynamicKey(`notifications.event.${key}`), {
+      ...params,
+      context,
+      ...(Number.isFinite(count) ? { count } : {}),
+    });
+  }
   return t(dynamicKey(`notifications.event.${key}`), { ...params, context });
 }
 
@@ -285,6 +307,7 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   TEAM_KPI_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
   PERFORMANCE_REVIEW_SHARED: { icon: IconShare, color: "blue" },
   PERFORMANCE_REVIEW_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
+  PERFORMANCE_REVIEWS_BATCH_SHARED: { icon: IconShare, color: "blue" },
   IMPACT_ENTRY_SHARED: { icon: IconShare, color: "blue" },
   IMPACT_ENTRY_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
   SUCCESSION_PLAN_SHARED: { icon: IconShare, color: "blue" },

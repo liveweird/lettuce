@@ -324,6 +324,7 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
     NotificationType.TEAM_KPI_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_TEAM_KPI, p)
     NotificationType.PERFORMANCE_REVIEW_SHARED -> sharedSentence(SHARE_NOUN_PERFORMANCE_REVIEW, p)
     NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_PERFORMANCE_REVIEW, p)
+    NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED -> batchSharedSentence(p)
     NotificationType.IMPACT_ENTRY_SHARED -> sharedSentence(SHARE_NOUN_IMPACT_ENTRY, p)
     NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN -> withdrawnSentence(SHARE_NOUN_IMPACT_ENTRY, p)
     NotificationType.SUCCESSION_PLAN_SHARED -> sharedSentence(SHARE_NOUN_SUCCESSION_PLAN, p)
@@ -388,6 +389,21 @@ private fun sharedSentence(noun: ShareNoun, p: Map<String, String>): LocalizedTe
     return LocalizedText(
         en = "${p.v("sharer")} shared ${noun.en} with you." + (until?.let { " Access lasts until $it." } ?: ""),
         pl = "${p.v("sharer")} udostępnił/a Ci ${noun.plAcc}." + (until?.let { " Dostęp obowiązuje do $it." } ?: ""),
+    )
+}
+
+/**
+ * `PERFORMANCE_REVIEWS_BATCH_SHARED` (v4.10.0) — params `{sharer, count}` plus the raw ISO
+ * `expiresOn` when the batch has an end date. Count-neutral wording ("in total") so the Polish copy
+ * needs no numeral declension.
+ */
+private fun batchSharedSentence(p: Map<String, String>): LocalizedText {
+    val until = p["expiresOn"]
+    return LocalizedText(
+        en = "${p.v("sharer")} shared performance reviews with you (${p.v("count")} in total)." +
+            (until?.let { " Access lasts until $it." } ?: ""),
+        pl = "${p.v("sharer")} udostępnił/a Ci oceny okresowe (łącznie: ${p.v("count")})." +
+            (until?.let { " Dostęp obowiązuje do $it." } ?: ""),
     )
 }
 

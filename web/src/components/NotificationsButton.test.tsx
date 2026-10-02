@@ -822,4 +822,69 @@ describe("NotificationsButton — document sharing wording (v4.8.0)", () => {
       }
     },
   );
+  test("the mass-share summary is count-aware (1 vs 3, with and without an end date) and opens the Shared screen", async () => {
+    const rows: Item[] = [
+      note(61, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "1" }, "/shares"),
+      note(62, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "3" }, "/shares"),
+      note(63, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "3", expiresOn: "2026-12-31" }, "/shares"),
+      note(64, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "1", expiresOn: "2026-12-31" }, "/shares"),
+    ];
+    setupMocks(mockFetch, rows, 4);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />);
+    await user.click(await screen.findByRole("button", { name: /unread/i }));
+
+    expect(await screen.findByText("Sue Sharer shared 1 performance review with you.")).toBeInTheDocument();
+    expect(screen.getByText("Sue Sharer shared 3 performance reviews with you.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Sue Sharer shared 3 performance reviews with you. Access lasts until Dec 31, 2026."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Sue Sharer shared 1 performance review with you. Access lasts until Dec 31, 2026."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Go to notification 62" }));
+    expect(screen.getByTestId("path")).toHaveTextContent("/shares");
+  });
+
+  test.each(["en", "pl"] as const)(
+    "a mass-share summary with a missing or garbled count renders the count-neutral base wording (%s)",
+    async (lang) => {
+      await i18n.changeLanguage(lang);
+      const rows: Item[] = [
+        note(81, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer" }, "/shares"),
+        note(82, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "abc" }, "/shares"),
+        note(83, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", expiresOn: "2026-12-31" }, "/shares"),
+      ];
+      setupMocks(mockFetch, rows, 3);
+      renderWithProviders(<Harness />);
+      await userEvent.setup().click(await screen.findByRole("button", { name: /\(|unread/i }));
+
+      const items = await screen.findAllByRole("listitem");
+      expect(items).toHaveLength(3);
+      const texts = items.map((i) => i.textContent ?? "");
+      const base = lang === "en" ? "Sue Sharer shared performance reviews with you." : "Sue Sharer udostępnił/a Ci oceny okresowe.";
+      expect(texts.filter((x) => x.includes(base))).toHaveLength(3);
+      for (const x of texts) expect(x, x).not.toMatch(/notifications\.event|NaN|abc|performanceReviewsBatchShared/);
+      expect(texts.some((x) => /2026|Dec 31|gru/.test(x))).toBe(true);
+    },
+  );
+
+  test("the Polish mass-share summary picks the right plural form for 1, 2 and 5 (inclusive slash form)", async () => {
+    await i18n.changeLanguage("pl");
+    const rows: Item[] = [
+      note(71, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "1" }, "/shares"),
+      note(72, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "2" }, "/shares"),
+      note(73, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "5" }, "/shares"),
+      note(74, "PERFORMANCE_REVIEWS_BATCH_SHARED", { sharer: "Sue Sharer", count: "5", expiresOn: "2026-12-31" }, "/shares"),
+    ];
+    setupMocks(mockFetch, rows, 4);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /\(/ }));
+
+    expect(await screen.findByText("Sue Sharer udostępnił/a Ci 1 ocenę okresową.")).toBeInTheDocument();
+    expect(screen.getByText("Sue Sharer udostępnił/a Ci 2 oceny okresowe.")).toBeInTheDocument();
+    expect(screen.getByText("Sue Sharer udostępnił/a Ci 5 ocen okresowych.")).toBeInTheDocument();
+    expect(screen.getByText(/Sue Sharer udostępnił\/a Ci 5 ocen okresowych\. Dostęp obowiązuje do /)).toBeInTheDocument();
+  });
 });

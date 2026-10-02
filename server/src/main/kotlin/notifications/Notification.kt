@@ -77,6 +77,9 @@ enum class NotificationType {
     TEAM_KPI_SHARE_WITHDRAWN,
     PERFORMANCE_REVIEW_SHARED,
     PERFORMANCE_REVIEW_SHARE_WITHDRAWN,
+    // Mass share (v4.10.0): ONE summary notice per sharee per batch — the per-share
+    // PERFORMANCE_REVIEW_SHARED never fires for a batch's rows.
+    PERFORMANCE_REVIEWS_BATCH_SHARED,
     IMPACT_ENTRY_SHARED,
     IMPACT_ENTRY_SHARE_WITHDRAWN,
     // Content-free by decision: names only the sharer and the kind of document (see
@@ -139,6 +142,7 @@ val NotificationType.feature: Feature?
         NotificationType.PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE,
         NotificationType.PERFORMANCE_REVIEW_SHARED,
         NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN,
+        NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED,
         -> Feature.PERFORMANCE_REVIEWS
         NotificationType.DAYS_OFF_CREATED,
         NotificationType.DAYS_OFF_DELETED,
