@@ -140,6 +140,33 @@ describe("ReviewsDashboard tab", () => {
     expect(reviewsCall).toContain("includeIndirect=true");
   });
 
+  test("a manager gets the Share reviews entry for the selected period (v4.10.0)", async () => {
+    setupMocks();
+    renderTab();
+
+    const share = await screen.findByRole("link", { name: "Share reviews…" });
+    expect(share).toHaveAttribute("href", "/performance-reviews/mass-share?periodId=5");
+  });
+
+  test("the Share reviews entry follows the picked period", async () => {
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.period", JSON.stringify("4"));
+    setupMocks();
+    renderTab();
+
+    expect(await screen.findByRole("link", { name: "Share reviews…" })).toHaveAttribute(
+      "href",
+      "/performance-reviews/mass-share?periodId=4",
+    );
+  });
+
+  test("no Share reviews entry while there is no period to share", async () => {
+    setupMocks({ periods: [] });
+    renderTab();
+
+    await screen.findByText(/There are no review periods yet/);
+    expect(screen.queryByRole("link", { name: "Share reviews…" })).toBeNull();
+  });
+
   test("a stored period choice is restored over the latest-period default", async () => {
     // The Select persists like the filters (v1.33.4); pin the restore path so it never
     // regresses to always-latest. useStoredState stores JSON under the viewSettings prefix.
@@ -506,6 +533,8 @@ describe("ReviewsDashboard tab", () => {
     expect(screen.queryByText("Gone Deactivated")).toBeNull();
     // Read-only: no create action, even for the report-less row.
     expect(screen.queryByRole("link", { name: /New performance review/ })).toBeNull();
+    // An auditor-only reader shares nothing: the mass-share entry is hidden on this scope.
+    expect(screen.queryByRole("link", { name: "Share reviews…" })).toBeNull();
     const reviewsCall = mockFetch.mock.calls
       .map((c) => String(c[0]))
       .find((u) => u.includes("/api/v1/performance-reviews?"));
@@ -556,6 +585,7 @@ describe("ReviewsDashboard tab", () => {
     // Default is direct, exactly like a non-HR manager — never auto-switched to auditor.
     await waitFor(() => expect(reportsSelect).toHaveValue("Direct reports only"));
     expect(reportsSelect).not.toBeDisabled();
+    expect(screen.getByRole("link", { name: "Share reviews…" })).toBeInTheDocument();
 
     // All three options are offered, and picking "Everyone (auditor)" is honoured like any
     // other choice.
@@ -565,6 +595,8 @@ describe("ReviewsDashboard tab", () => {
     fireEvent.click(screen.getByRole("option", { name: "Everyone (auditor)" }));
     await waitFor(() => expect(reportsSelect).toHaveValue("Everyone (auditor)"));
     await waitFor(() => expect(reviewCalls().at(-1)).toContain("view=all"));
+    // The auditor scope hides the mass-share entry; direct scope showed it.
+    expect(screen.queryByRole("link", { name: "Share reviews…" })).toBeNull();
   });
 
   test("the auditor scope option is offered only to HR", async () => {

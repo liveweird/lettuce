@@ -15,6 +15,7 @@ import {
   rowStatus,
   selectAllMatching,
   selectedReviewIds,
+  submittableRows,
   sortMassShareRows,
   subtreeUserIds,
   summarizeBatchResult,
@@ -299,6 +300,14 @@ describe("selection helpers", () => {
     expect(selectedReviewIds(rows, new Set([5, 2, 4, 6]))).toEqual([20, 50]);
   });
 
+  test("submittableRows are exactly the selected rows selectedReviewIds submits", () => {
+    const selected = new Set([5, 2, 4, 6]);
+    const submitted = submittableRows(rows, selected);
+    expect(submitted.map((r) => r.candidate.userId)).toEqual([2, 5]);
+    expect(submitted.map((r) => r.candidate.review?.id)).toEqual(selectedReviewIds(rows, selected));
+    expect(submittableRows(rows, new Set())).toEqual([]);
+  });
+
   test("retainUnsettled keeps failed and unanswered people, drops created and already-shared ones", () => {
     const items: ShareBatchItem[] = [
       { resourceId: 20, shareeId: 8, status: "CREATED", shareId: 1 },
@@ -334,12 +343,12 @@ describe("summarizeBatchResult", () => {
     expect(summarizeBatchResult(items, rows, names)).toEqual({
       created: 2,
       alreadyShared: [
-        { person: "Mia Miller", sharees: ["Bob"] },
-        { person: "Ned Nest", sharees: ["Bob", "Cy"] },
+        { resourceId: 20, person: "Mia Miller", sharees: ["Bob"] },
+        { resourceId: 30, person: "Ned Nest", sharees: ["Bob", "Cy"] },
       ],
       failed: [
-        { person: "#888", reason: "NOT_FOUND" },
-        { person: "#999", reason: "FORBIDDEN" },
+        { resourceId: 888, person: "#888", reason: "NOT_FOUND" },
+        { resourceId: 999, person: "#999", reason: "FORBIDDEN" },
       ],
     });
   });
@@ -348,7 +357,7 @@ describe("summarizeBatchResult", () => {
     expect(
       summarizeBatchResult([{ resourceId: 20, shareeId: 77, status: "ALREADY_SHARED", shareId: 1 }], rows, names)
         .alreadyShared,
-    ).toEqual([{ person: "Mia Miller", sharees: ["#77"] }]);
+    ).toEqual([{ resourceId: 20, person: "Mia Miller", sharees: ["#77"] }]);
     expect(summarizeBatchResult([], rows, names)).toEqual({ created: 0, alreadyShared: [], failed: [] });
   });
 });

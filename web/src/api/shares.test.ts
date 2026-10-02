@@ -10,6 +10,7 @@ import {
   listAllDocumentShares,
   listShares,
   MAX_BATCH_SHARE_RESOURCES,
+  MAX_BATCH_SHARE_SHAREES,
   withdrawShare,
 } from "./shares";
 import { documentSharesKey, invalidateShares } from "../utils/shareQueries";
@@ -137,6 +138,7 @@ describe("batch share wrappers", () => {
     const ids = Array.from({ length: 450 }, (_, i) => i + 1);
     expect(chunkIds(ids).map((c) => c.length)).toEqual([200, 200, 50]);
     expect(MAX_BATCH_SHARE_RESOURCES).toBe(200);
+    expect(MAX_BATCH_SHARE_SHAREES).toBe(20);
   });
 
   test("createShareBatch POSTs the body to /shares/batch", async () => {

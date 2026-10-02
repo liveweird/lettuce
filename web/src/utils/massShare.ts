@@ -240,18 +240,20 @@ export function deselectMatching(
   return next;
 }
 
+/** The selected rows a submission would actually include (shareable, with a review id), in row order. */
+export function submittableRows(
+  rows: readonly MassShareRow[],
+  selected: ReadonlySet<number>,
+): MassShareRow[] {
+  return rows.filter((row) => selected.has(row.candidate.userId) && shareableReviewId(row) != null);
+}
+
 /** The review ids to submit for the selected people, in row order; unshareable people never yield one. */
 export function selectedReviewIds(
   rows: readonly MassShareRow[],
   selected: ReadonlySet<number>,
 ): number[] {
-  const ids: number[] = [];
-  for (const row of rows) {
-    if (!selected.has(row.candidate.userId)) continue;
-    const id = shareableReviewId(row);
-    if (id != null) ids.push(id);
-  }
-  return ids;
+  return submittableRows(rows, selected).map((row) => shareableReviewId(row) as number);
 }
 
 /**
@@ -282,9 +284,9 @@ export type BatchSummary = {
   /** CREATED pairs. */
   created: number;
   /** Per person whose review was already shared (the existing share kept, its end date included). */
-  alreadyShared: { person: string; sharees: string[] }[];
+  alreadyShared: { resourceId: number; person: string; sharees: string[] }[];
   /** Per person the server refused or no longer found. */
-  failed: { person: string; reason: "FORBIDDEN" | "NOT_FOUND" }[];
+  failed: { resourceId: number; person: string; reason: "FORBIDDEN" | "NOT_FOUND" }[];
 };
 
 /** Groups a merged batch report into the result panel's lines (people by name, sharees in report order). */
@@ -311,14 +313,14 @@ export function summarizeBatchResult(
       sharees.push((shareeId != null ? shareeNames.get(shareeId) : undefined) ?? `#${shareeId}`);
       already.set(item.resourceId, sharees);
     } else {
-      failed.push({ person: person(item.resourceId), reason: item.status });
+      failed.push({ resourceId: item.resourceId, person: person(item.resourceId), reason: item.status });
     }
   }
   const byPerson = (a: { person: string }, b: { person: string }) => a.person.localeCompare(b.person);
   return {
     created,
     alreadyShared: [...already.entries()]
-      .map(([resourceId, sharees]) => ({ person: person(resourceId), sharees }))
+      .map(([resourceId, sharees]) => ({ resourceId, person: person(resourceId), sharees }))
       .sort(byPerson),
     failed: failed.sort(byPerson),
   };

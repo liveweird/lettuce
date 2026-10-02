@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { isOneOfOrNull, isString, useStoredState } from "./useStoredState";
+import { isOneOfOrNull, isString, isStringArray, useStoredState } from "./useStoredState";
 
 const KEY = "lettuce.viewSettings.test.value";
 
@@ -31,6 +31,14 @@ describe("useStoredState", () => {
       useStoredState<string | null>("test.value", null, isOneOfOrNull(["A", "B"])),
     );
     expect(result.current[0]).toBeNull();
+  });
+
+  test("isStringArray accepts string lists only", () => {
+    expect(isStringArray([])).toBe(true);
+    expect(isStringArray(["a", "b"])).toBe(true);
+    expect(isStringArray(["a", 1])).toBe(false);
+    expect(isStringArray("a")).toBe(false);
+    expect(isStringArray(null)).toBe(false);
   });
 
   test("survives corrupt JSON in storage", () => {

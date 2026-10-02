@@ -202,7 +202,7 @@ rule, the Shared screen and the activity log all work unchanged) stamped with th
   nothing for a sharee whose pairs were all duplicates or whose cap is exhausted (their shares still exist,
   silently); **never** the per-share `PERFORMANCE_REVIEW_SHARED`. The cap counts a batch as ONE notice
   (`COUNT(DISTINCT COALESCE(batch_id, id::text))`), so a batch of 30 does not exhaust a cap of 20; withdrawals
-  stay per share and per notice.
+  stay per share and per notice. Each ≤200-document chunk the SPA sends is a separate server batch, so a recipient gets one summary notice per chunk (the dialog hints at it only when a selection exceeds 200).
 - **Audit**: ONE `share.batch_created` event per call (`byUserId`, `batchId`, `resourceType`, `resourceIds`,
   `shareeIds`, `created`/`alreadyShared`/`forbidden`/`notFound`, `forbiddenResourceIds`/`notFoundResourceIds`,
   `expiresOn`, `notifiedShareeIds`; comma-joined id lists, `""` = none) and **no per-share `share.created`** for

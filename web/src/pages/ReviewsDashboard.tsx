@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Box,
+  Button,
   Group,
   SegmentedControl,
   Select,
@@ -18,9 +19,11 @@ import {
   IconLayoutGrid,
   IconPencil,
   IconPlus,
+  IconShare,
   IconTable,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { canAudit, getUserId } from "../api/session";
 import { listAllTeamMembers } from "../api/teams";
@@ -42,7 +45,7 @@ import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
 import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
-import { reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
+import { massShareLink, reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
 import { pickLocalized } from "../utils/localized";
 import { usersToPersonCards } from "../utils/teamRows";
@@ -249,42 +252,56 @@ export default function ReviewsDashboard() {
           // must ride wrapperProps or it would land on the input, not the label+input pair.
           wrapperProps={{ "data-tour": "performance-period" }}
         />
-        <SegmentedControl
-          value={view}
-          onChange={(v) => {
-            if (isOneOf(VIEW_MODES)(v)) setView(v);
-          }}
-          data-tour="performance-view"
-          data={[
-            {
-              value: "table",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconTable size={16} />
-                  <span>{t("performanceReview.dashboard.chart.viewTable")}</span>
-                </Group>
-              ),
-            },
-            {
-              value: "chart",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconChartBar size={16} />
-                  <span>{t("performanceReview.dashboard.chart.viewChart")}</span>
-                </Group>
-              ),
-            },
-            {
-              value: "quadrants",
-              label: (
-                <Group gap={6} wrap="nowrap">
-                  <IconLayoutGrid size={16} />
-                  <span>{t("performanceReview.dashboard.quadrants.view")}</span>
-                </Group>
-              ),
-            },
-          ]}
-        />
+        <Group gap="sm" align="center" wrap="wrap">
+          {/* The mass-share entry (v4.10.0): hidden on the HR auditor scope (an auditor-only
+              reader shares nothing) and until a period is resolved. */}
+          {periodId != null && !isAuditorScope && (
+            <Button
+              component={RouterLink}
+              to={massShareLink(Number(periodId))}
+              variant="default"
+              leftSection={<IconShare size={16} />}
+            >
+              {t("performanceReview.massShare.button")}
+            </Button>
+          )}
+          <SegmentedControl
+            value={view}
+            onChange={(v) => {
+              if (isOneOf(VIEW_MODES)(v)) setView(v);
+            }}
+            data-tour="performance-view"
+            data={[
+              {
+                value: "table",
+                label: (
+                  <Group gap={6} wrap="nowrap">
+                    <IconTable size={16} />
+                    <span>{t("performanceReview.dashboard.chart.viewTable")}</span>
+                  </Group>
+                ),
+              },
+              {
+                value: "chart",
+                label: (
+                  <Group gap={6} wrap="nowrap">
+                    <IconChartBar size={16} />
+                    <span>{t("performanceReview.dashboard.chart.viewChart")}</span>
+                  </Group>
+                ),
+              },
+              {
+                value: "quadrants",
+                label: (
+                  <Group gap={6} wrap="nowrap">
+                    <IconLayoutGrid size={16} />
+                    <span>{t("performanceReview.dashboard.quadrants.view")}</span>
+                  </Group>
+                ),
+              },
+            ]}
+          />
+        </Group>
       </Group>
 
       <FilterPanel activeFilterCount={activeFilterCount} storageKey={SETTINGS_KEY} tourId="performance-dashboard-filters">

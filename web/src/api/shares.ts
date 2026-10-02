@@ -85,6 +85,9 @@ export async function withdrawShare(id: number): Promise<void> {
 /** The server's per-call cap on documents in one batch (`MAX_BATCH_SHARE_RESOURCES`). */
 export const MAX_BATCH_SHARE_RESOURCES = 200;
 
+/** The server's per-call cap on recipients (`MAX_BATCH_SHARE_SHAREES`) — more is a 400 for the whole call. */
+export const MAX_BATCH_SHARE_SHAREES = 20;
+
 /** One batch call: many documents x many people, one request (the server's own rate-limit bucket). */
 export async function createShareBatch(body: ShareBatchRequest): Promise<ShareBatchResponse> {
   return jsonRequest<ShareBatchResponse>("/api/v1/shares/batch", {
