@@ -35,7 +35,7 @@ enum class UserRole { ADMIN, HR }
  * access" no longer implies "no rows anywhere" — and LOGIN-TIME semantics: it never gates routes
  * via requireFeatureEnabled; the login handler reads it straight off the DB record (never a JWT —
  * there is none yet) and, when enabled, demands the emailed second factor (see
- * "Email MFA" in `.claude/docs/security.md`).
+ * "Email MFA" in `.claude/docs/security-details.md`).
  *
  * [TEAMS_NOTIFICATIONS] (v4.5.0) is the MFA idiom applied to the third notification channel:
  * INVERTED DEFAULT (seeded by V85, inserted by [ch.nokillswit.users.UserService.create] for new
