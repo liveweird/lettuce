@@ -10,6 +10,7 @@ import ch.nokillswit.notifications.Notification
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.sharing.ActiveShare
 import ch.nokillswit.teams.TeamRef
+import ch.nokillswit.teams.chainRoster
 import ch.nokillswit.teams.directManagerIds
 import ch.nokillswit.teams.directSubordinateIds
 import ch.nokillswit.teams.isInManagementChain
@@ -423,6 +424,32 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             rows
         }
         DaysOffListResult(items = items, total = total)
+    }
+
+    /**
+     * The calendar mass-share picker's dataset (v4.11.0): every non-deleted person in
+     * [callerId]'s TRANSITIVE chain (deactivated INCLUDED with their flag — D10, the pyramid
+     * rule), name-ascending then id, with their teams, direct managers and current career
+     * triple — the shared `chainRoster` (teams/ChainRoster.kt) that also backs the reviews
+     * share candidates. Strictly caller-relative — a non-manager gets an empty list, no
+     * HR/ADMIN widening, nothing audited — and unpaged (bounded by the chain). ONE transaction.
+     */
+    suspend fun shareCandidates(callerId: UInt): DaysOffShareCandidateList = suspendTransaction(database) {
+        DaysOffShareCandidateList(
+            chainRoster(callerId).map {
+                DaysOffShareCandidate(
+                    userId = it.userId,
+                    name = it.name,
+                    email = it.email,
+                    deactivated = it.deactivated,
+                    teams = it.teams,
+                    directManagers = it.directManagers,
+                    careerPath = it.careerPath,
+                    careerSpecialization = it.careerSpecialization,
+                    seniorityLevel = it.seniorityLevel,
+                )
+            },
+        )
     }
 
     /**

@@ -4742,6 +4742,44 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/days-off/share-candidates:
+    get:
+      tags: [days-off]
+      operationId: listDaysOffShareCandidates
+      summary: The calendar mass-share picker's dataset
+      description: |
+        The data source of "Share calendars..." (v4.11.0): one row per non-deleted person in the
+        authenticated caller's **transitive management chain** (reports of reports included;
+        deactivated accounts included with `deactivated: true`), each with their teams, direct
+        managers and current career triple. Rows are sorted by name (case-insensitive), then id.
+        Every chain person's calendar is shareable in the caller's own right, so there is no
+        per-row `shareable` flag (the batch share route re-runs the real guard regardless), and
+        nothing about absences rides along.
+
+        **Caller-relative, no role widening** (the `/career/pyramid` rule): any authenticated
+        caller with the DAYS_OFF feature enabled may ask; a caller who manages nobody gets an
+        empty list (no `403`); HR and ADMIN see exactly their own chain, and the read is not
+        audit-logged — every row is the caller's own chain, so `seniorityLevel` is always
+        attached (the seniority-visibility rule is satisfied by construction). There are no
+        query parameters.
+
+        **Unpaged** — bounded by the caller's chain, a plain `{ items }` wrapper (API-STRUCT-004's
+        unpaged exception, the `/career/pyramid` shape); the SPA filters and pages it client-side.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DaysOffShareCandidateList'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The DAYS_OFF feature is disabled for the caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/days-off/budgets:
     get:
       tags: [days-off]
@@ -10028,6 +10066,48 @@ components:
         skillsRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
         aptitudeRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
         overallRating: { type: integer, nullable: true, minimum: 1, maximum: 6 }
+
+    DaysOffShareCandidateList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/DaysOffShareCandidate' }
+          description: Unpaged; sorted by name (case-insensitive), then id.
+
+    DaysOffShareCandidate:
+      type: object
+      required: [userId, name, email, deactivated, teams, directManagers, careerPath,
+        careerSpecialization, seniorityLevel]
+      properties:
+        userId: { type: integer, format: int32, minimum: 0 }
+        name: { type: string }
+        email: { type: string }
+        deactivated:
+          type: boolean
+          description: True for a deactivated account (still listed — the pyramid rule).
+        teams:
+          type: array
+          items: { $ref: '#/components/schemas/TeamRef' }
+          description: The non-deleted teams the person is a member of, name-ascending.
+        directManagers:
+          type: array
+          items: { $ref: '#/components/schemas/UserRef' }
+          description: >-
+            The managers of those teams, minus the person themselves; the caller appears as
+            themselves, a manager outside the caller's chain is listed too.
+        careerPath:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: From the person's CURRENT career position; null when none recorded.
+        careerSpecialization:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+        seniorityLevel:
+          nullable: true
+          allOf: [ { $ref: '#/components/schemas/DictionaryEntry' } ]
+          description: Always attached — every row is the caller's own chain.
 
     PerformanceReviewPage:
       type: object

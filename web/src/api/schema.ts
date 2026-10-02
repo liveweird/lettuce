@@ -3047,6 +3047,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/days-off/share-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The calendar mass-share picker's dataset
+         * @description The data source of "Share calendars..." (v4.11.0): one row per non-deleted person in the
+         *     authenticated caller's **transitive management chain** (reports of reports included;
+         *     deactivated accounts included with `deactivated: true`), each with their teams, direct
+         *     managers and current career triple. Rows are sorted by name (case-insensitive), then id.
+         *     Every chain person's calendar is shareable in the caller's own right, so there is no
+         *     per-row `shareable` flag (the batch share route re-runs the real guard regardless), and
+         *     nothing about absences rides along.
+         *
+         *     **Caller-relative, no role widening** (the `/career/pyramid` rule): any authenticated
+         *     caller with the DAYS_OFF feature enabled may ask; a caller who manages nobody gets an
+         *     empty list (no `403`); HR and ADMIN see exactly their own chain, and the read is not
+         *     audit-logged — every row is the caller's own chain, so `seniorityLevel` is always
+         *     attached (the seniority-visibility rule is satisfied by construction). There are no
+         *     query parameters.
+         *
+         *     **Unpaged** — bounded by the caller's chain, a plain `{ items }` wrapper (API-STRUCT-004's
+         *     unpaged exception, the `/career/pyramid` shape); the SPA filters and pages it client-side.
+         */
+        get: operations["listDaysOffShareCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/days-off/budgets": {
         parameters: {
             query?: never;
@@ -6527,6 +6563,27 @@ export interface components {
             skillsRating: number | null;
             aptitudeRating: number | null;
             overallRating: number | null;
+        };
+        DaysOffShareCandidateList: {
+            /** @description Unpaged; sorted by name (case-insensitive), then id. */
+            items: components["schemas"]["DaysOffShareCandidate"][];
+        };
+        DaysOffShareCandidate: {
+            /** Format: int32 */
+            userId: number;
+            name: string;
+            email: string;
+            /** @description True for a deactivated account (still listed — the pyramid rule). */
+            deactivated: boolean;
+            /** @description The non-deleted teams the person is a member of, name-ascending. */
+            teams: components["schemas"]["TeamRef"][];
+            /** @description The managers of those teams, minus the person themselves; the caller appears as themselves, a manager outside the caller's chain is listed too. */
+            directManagers: components["schemas"]["UserRef"][];
+            /** @description From the person's CURRENT career position; null when none recorded. */
+            careerPath: components["schemas"]["DictionaryEntry"] | null;
+            careerSpecialization: components["schemas"]["DictionaryEntry"] | null;
+            /** @description Always attached — every row is the caller's own chain. */
+            seniorityLevel: components["schemas"]["DictionaryEntry"] | null;
         };
         PerformanceReviewPage: {
             items: components["schemas"]["PerformanceReviewListItem"][];
@@ -12153,6 +12210,37 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listDaysOffShareCandidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaysOffShareCandidateList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description The DAYS_OFF feature is disabled for the caller */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

@@ -68,6 +68,10 @@ class DaysOffCalendar
 class DaysOffBudgets
 
 @Serializable
+@Resource("/api/v1/days-off/share-candidates")
+class DaysOffShareCandidates
+
+@Serializable
 @Resource("/api/v1/days-off/allowance")
 class DaysOffAllowance
 
@@ -340,6 +344,15 @@ fun Application.configureDaysOffRoutes() {
                     HttpStatusCode.OK,
                     daysOffService.calendar(scope, caller.userId, month, includeIndirect, teamId, sharedWithMe),
                 )
+            }
+            // The calendar mass-share picker (v4.11.0). Strictly caller-relative (the
+            // /career/pyramid rule): any authenticated caller with DAYS_OFF enabled; a caller who
+            // manages nobody gets `items: []` (no 403); NO role widening (HR/ADMIN see exactly
+            // their own chain) and NOT audited — every row is the caller's own chain. The feature
+            // 403 (daysOffCaller) comes first; there are no query parameters.
+            get<DaysOffShareCandidates> {
+                val caller = call.daysOffCaller()
+                call.respond(HttpStatusCode.OK, daysOffService.shareCandidates(caller.userId))
             }
             // ── Budget corrections (v1.43.0) ────────────────────────────────────────────────
             get<DaysOffCorrections> {
