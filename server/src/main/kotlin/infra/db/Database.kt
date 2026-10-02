@@ -1,9 +1,15 @@
 package ch.nokillswit.infra.db
 
+import ch.nokillswit.activity.AccountEventService
+import ch.nokillswit.activity.AccountEventServiceKey
+import ch.nokillswit.activity.ActivityService
+import ch.nokillswit.activity.ActivityServiceKey
 import ch.nokillswit.alerts.AlertService
 import ch.nokillswit.alerts.AlertServiceKey
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.TokenBlocklistServiceKey
+import ch.nokillswit.daysoff.DaysOffEventService
+import ch.nokillswit.daysoff.DaysOffEventServiceKey
 import ch.nokillswit.daysoff.DaysOffService
 import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.daysoff.PublicHolidayService
@@ -79,6 +85,8 @@ import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.templates.TemplateService
 import ch.nokillswit.templates.TemplateServiceKey
+import ch.nokillswit.users.CareerPositionEventService
+import ch.nokillswit.users.CareerPositionEventServiceKey
 import ch.nokillswit.users.CareerPositionService
 import ch.nokillswit.users.CareerPositionServiceKey
 import ch.nokillswit.users.UserService
@@ -229,12 +237,29 @@ private fun Application.connectPooled(): R2dbcDatabase {
     return R2dbcDatabase.connect(connectionFactory = pool, databaseConfig = databaseConfig)
 }
 
+/**
+ * The sign-in trail's service (v4.9.0, V90) — retention and purge interval range-checked like every
+ * duration (0 = keep forever / purge on every write); AuthRoutes records SIGNED_IN/SIGNED_OUT
+ * through it, best-effort.
+ */
+private fun Application.accountEventService(database: R2dbcDatabase): AccountEventService {
+    val retentionMillis =
+        requireConfigLong(environment.config, "activity.accountRetentionDays", min = 0, max = MAX_RETENTION_DAYS) *
+            24 * 60 * 60 * 1000
+    val purgeIntervalMillis = requireConfigLong(
+        environment.config, "activity.accountPurgeIntervalSeconds", min = 0, max = MAX_SWEEP_INTERVAL_SECONDS,
+    ) * 1000
+    // The purge rides the Application scope (fire-and-forget, off the login request path).
+    return AccountEventService(database, retentionMillis, purgeIntervalMillis, scope = this)
+}
+
 suspend fun Application.configureDatabase() {
     val database = connectPooled()
     attributes.put(R2dbcDatabaseKey, database)
     val userService = UserService(database)
     attributes.put(UserServiceKey, userService)
     attributes.put(CareerPositionServiceKey, CareerPositionService(database))
+    attributes.put(CareerPositionEventServiceKey, CareerPositionEventService(database))
     attributes.put(TeamServiceKey, TeamService(database))
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
     // Range-checked like every duration (v4.5.2); 0 = every call, the test suite's setting.
@@ -260,6 +285,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(PerformanceReviewEventServiceKey, PerformanceReviewEventService(database))
     attributes.put(PublicHolidayServiceKey, PublicHolidayService(database))
     attributes.put(DaysOffServiceKey, DaysOffService(database, attributes[FieldCipherKey]))
+    attributes.put(DaysOffEventServiceKey, DaysOffEventService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(DictionaryServiceKey, DictionaryService(database))
     attributes.put(AppSettingsServiceKey, AppSettingsService(database))
@@ -317,12 +343,13 @@ suspend fun Application.configureDatabase() {
             notificationPurgeIntervalMillis,
         ),
     )
+    attributes.put(AccountEventServiceKey, accountEventService(database))
     // Document sharing (v4.8.0, V86). Each shareable feature's adapter is built here, next to the
     // services it wraps — one per ShareableResourceType, enforced by the compiler (see below).
     val shareService = ShareService(database)
     attributes.put(ShareServiceKey, shareService)
-    attributes.put(
-        ShareRegistryKey,
+    // Built as a local so the activity log (v4.9.0) can take it for the view path of its rows.
+    val shareRegistry =
         // Complete by construction: no `else` — a new ShareableResourceType without an adapter
         // fails to compile here.
         ShareRegistry { type ->
@@ -335,8 +362,12 @@ suspend fun Application.configureDatabase() {
                 ShareableResourceType.IMPACT_LOG_ENTRY -> ImpactLogShareable(impactLogService)
                 ShareableResourceType.SUCCESSION_PLAN -> SuccessionShareable(successionPlanService)
             }
-        },
-    )
+        }
+    attributes.put(ShareRegistryKey, shareRegistry)
+    // The per-user activity log (v4.9.0): a query-time UNION over the *_events tables
+    // (the seven document trails + days-off, wired above) and document_shares; it needs the share
+    // registry only for each document's view path.
+    attributes.put(ActivityServiceKey, ActivityService(database, shareRegistry))
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))
     attributes.put(AlertServiceKey, AlertService(database))
     attributes.put(TokenBlocklistServiceKey, TokenBlocklistService(database))

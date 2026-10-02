@@ -286,6 +286,11 @@ class SecurityConfigTest {
             "notifications.retentionDays" to "3651",
             "notifications.retentionDays" to "thirty",
             "notifications.purgeIntervalSeconds" to "-1",
+            "activity.accountRetentionDays" to "-1",
+            "activity.accountRetentionDays" to "3651",
+            "activity.accountRetentionDays" to "ninety",
+            "activity.accountPurgeIntervalSeconds" to "-1",
+            "activity.accountPurgeIntervalSeconds" to "86401",
             "feedbacks.expirySweepIntervalSeconds" to "86401",
             "security.rateLimit.loginPerMinute" to "0",
             "integration.rateLimitPerMinute" to "-5",
@@ -309,6 +314,9 @@ class SecurityConfigTest {
             // 0 disables the purge; 0 intervals run on every call (the suite's own setting).
             "notifications.retentionDays" to "0",
             "notifications.purgeIntervalSeconds" to "0",
+            // The sign-in history: 0 keeps it forever, 0 interval purges on every write, 3650 is the top edge.
+            "activity.accountRetentionDays" to "0",
+            "activity.accountPurgeIntervalSeconds" to "0",
             "feedbacks.expirySweepIntervalSeconds" to "0",
             "security.rateLimit.loginPerMinute" to "100000",
             "integration.rateLimitPerMinute" to "1",

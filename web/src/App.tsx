@@ -157,6 +157,8 @@ const Alerts = lazy(() => import("./pages/Alerts"));
 const Dictionary = lazy(() => import("./pages/Dictionary"));
 const Changelog = lazy(() => import("./pages/Changelog"));
 const Shares = lazy(() => import("./pages/Shares"));
+const ActivityLog = lazy(() => import("./pages/ActivityLog"));
+const UserActivity = lazy(() => import("./pages/UserActivity"));
 const CreateAlert = lazy(() => import("./pages/CreateAlert"));
 const EditAlert = lazy(() => import("./pages/EditAlert"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -527,6 +529,8 @@ export const appRoutes = createRoutesFromElements(
             <Route path="alerts/new" element={<CreateAlert />} />
             <Route path="alerts/:id/edit" element={<EditAlert />} />
             <Route path="shares" element={<Shares />} />
+            <Route path="activity" element={<ActivityLog />} />
+            <Route path="users/:userId/activity" element={<UserActivity />} />
             <Route path="changelog" element={<Changelog />} />
             {/* The authenticated catch-all — an unmatched URL renders inside the shell. */}
             <Route path="*" element={<NotFound />} />

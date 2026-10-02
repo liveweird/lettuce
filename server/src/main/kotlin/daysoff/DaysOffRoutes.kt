@@ -122,6 +122,8 @@ fun Application.configureDaysOffRoutes() {
     val daysOffService = attributes[DaysOffServiceKey]
     val notificationService = attributes[NotificationServiceKey]
     val userService = attributes[UserServiceKey]
+    // The per-person action trail (V88) behind the activity log — appended after each service commit.
+    val eventService = attributes[DaysOffEventServiceKey]
 
     // The corrections write preamble (the teamkpis writeGuarded* idiom): resolves the row
     // (missing → NotFoundException) and enforces the manage right against the ROW's user —
@@ -238,6 +240,9 @@ fun Application.configureDaysOffRoutes() {
                         "days" to created.days,
                     )
                 }
+                // The activity-log event for EVERY create — a self-create too (`onBehalf=false`); the
+                // audit above stays an on-behalf-only security event.
+                eventService.create(daysOffEntryRecordedEvent(caller.userId, created))
                 call.respond(HttpStatusCode.Created, created)
             }
             get<DaysOff.Id> { route ->
@@ -281,6 +286,7 @@ fun Application.configureDaysOffRoutes() {
                     "endDate" to existing.endDate,
                     "days" to existing.days,
                 )
+                eventService.create(daysOffEntryDeletedEvent(caller.userId, existing))
                 call.respond(HttpStatusCode.NoContent)
             }
             get<DaysOffCalendar> {
@@ -358,6 +364,7 @@ fun Application.configureDaysOffRoutes() {
                     "operation" to write.operation.name,
                     "days" to write.days,
                 )
+                eventService.create(daysOffCorrectionCreatedEvent(caller.userId, created))
                 call.respond(HttpStatusCode.Created, created)
             }
             put<DaysOffCorrections.Id> { route ->
@@ -384,6 +391,7 @@ fun Application.configureDaysOffRoutes() {
                     "operationTo" to write.operation.name,
                     "daysTo" to write.days,
                 )
+                daysOffCorrectionUpdatedEvent(call.caller().userId, existing, write)?.let { eventService.create(it) }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<DaysOffCorrections.Id> { route ->
@@ -400,6 +408,7 @@ fun Application.configureDaysOffRoutes() {
                     "operation" to existing.operation.name,
                     "days" to existing.days,
                 )
+                eventService.create(daysOffCorrectionDeletedEvent(call.caller().userId, existing))
                 call.respond(HttpStatusCode.NoContent)
             }
             get<DaysOffBudgets> {
@@ -486,6 +495,11 @@ fun Application.configureDaysOffRoutes() {
                     result.previous?.let { auditFields += "allowanceFrom" to it.toLong() }
                     auditFields += "allowanceTo" to write.allowance.toLong()
                     audit("days_off.allowance_changed", *auditFields.toTypedArray())
+                    eventService.create(
+                        daysOffAllowanceChangedEvent(
+                            caller.userId, write.userId, result.kind.id, result.kind.name, result.previous, write.allowance,
+                        ),
+                    )
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -513,6 +527,11 @@ fun Application.configureDaysOffRoutes() {
                     "poolId" to route.id.toLong(),
                     "poolTypeId" to existing.kind.id.toLong(),
                     "allowance" to existing.allowance.toLong(),
+                )
+                eventService.create(
+                    daysOffPoolArchivedEvent(
+                        caller.userId, existing.userId, route.id, existing.kind.id, existing.kind.name, existing.allowance,
+                    ),
                 )
                 call.respond(HttpStatusCode.NoContent)
             }

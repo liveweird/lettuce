@@ -214,6 +214,7 @@ export default function UserDetails() {
               successionPlanId: openPlanByUserId.get(person.userId)?.id,
               show: {
                 career: true,
+                activity: true,
                 succession: openPlanByUserId.has(person.userId),
                 provide: true,
                 ask: true,
@@ -246,9 +247,9 @@ export default function UserDetails() {
     {
       labels: "users",
       audit: true,
-      show: { feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true },
+      show: { activity: true, feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true },
     },
-    ["feedbacks", "oneOnOnes", "goals", "reviews", "daysOff", "impactLog", "succession"],
+    ["activity", "feedbacks", "oneOnOnes", "goals", "reviews", "daysOff", "impactLog", "succession"],
   );
 
   return (
@@ -316,8 +317,8 @@ export default function UserDetails() {
               // The HR auditor entry point: read-only drill-downs into EVERYTHING this person
               // is a party to (both directions, every status), regardless of the viewer's own
               // relationship to them. Server-side this is view=user; HR usage is audit-logged.
-              // Feature flags bind HR too (v1.53.0) — a disabled feature drops its drill-down,
-              // and with all five disabled the whole block goes.
+              // Feature flags bind HR too (v1.53.0) — a disabled feature drops its drill-down.
+              // The activity log is ungated (v4.9.0), so for HR the block never disappears.
               <Paper withBorder p="md" radius="md">
                 <Stack gap="xs">
                   <Text size="sm" fw={500}>
@@ -334,7 +335,7 @@ export default function UserDetails() {
                       drillFrom="details"
                       drillBack={backHere}
                       audit
-                      show={{ feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true }}
+                      show={{ activity: true, feedbacks: true, oneOnOnes: true, goals: true, reviews: true, daysOff: true, impactLog: true, succession: true }}
                     />
                   </Group>
                 </Stack>

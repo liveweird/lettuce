@@ -268,6 +268,8 @@ export default function TeamMembersTable({
                       // Career timeline reads are self/chain/HR-only since v2.25.0: managed
                       // rows are the caller's chain; peers only for auditors.
                       career: view === "managed" || canAudit(),
+                      // The activity log follows the same reads (self/chain/HR) as the timeline.
+                      activity: view === "managed" || canAudit(),
                       // v2.47.0: only when the viewer OWNS an open plan for this person.
                       succession: view === "managed" && openPlanByUserId.has(m.userId),
                       provide: true,

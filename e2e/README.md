@@ -99,6 +99,7 @@ its scenario file and its line below in the same commit** — this list is the c
 scenario file is the design.
 
 - [`accessibility.spec.ts`](scenarios/accessibility.md) — axe WCAG A/AA smoke: login + 27 authed pages (incl. the kudos/feedback/days-off create forms, `/feature-flags`, the v2.36.0 impact-log pair, the v2.42.0 succession pair, the v3.0.0 `/integration-clients`, and the v3.2.0 `/days-off-pools` registry) + the two v3.3.0 chrome states (the open notifications panel, the collapsed icon rail); no waived rules since the v3.3.0 colour pass.
+- [`activity-log.spec.ts`](scenarios/activity-log.md) — the per-person activity log (v4.9.0) on a throwaway employee/manager/peer/HR cast: the employee's own "My activity" (sign-in + draft feedback), the manager's view of the report's log from the subordinates card (sign-in listed, the undelivered draft hidden), the HR auditor's view from the Audit section (everything), the manager seeing the feedback rows once it is sent (subject of a delivered feedback), and a peer getting no Activity button and the permission message at the URL.
 - [`alerts.spec.ts`](scenarios/alerts.md) — admin broadcast alert: banner, hide/re-show, deactivate, delete (own serial phase).
 - [`auth.spec.ts`](scenarios/auth.md) — login / logout / invalid credentials.
 - [`back-navigation.spec.ts`](scenarios/back-navigation.md) — the v4.6.0 return navigation: a dashboard team badge returns to its tab, a team opened from the org chart keeps its origin through a roster person and the per-person feedback list, the team KPI list keeps the My teams origin of its team page, and a create screen's Cancel returns to where it was opened from (read-only, no non-GET request).
@@ -147,7 +148,7 @@ scenario file is the design.
 - [`team-kpis.spec.ts`](scenarios/team-kpis.md) — the team-KPI lifecycle, data points + graph, member notifications, the v2.26.0 member data entry (add row live, lifecycle withheld), the v2.41.0 target direction (at-most flip, "≤" target render, per-value Vs-target deltas).
 - [`teams.spec.ts`](scenarios/teams.md) — team CRUD, roster edits, admin-only manager reassignment.
 - [`templates.spec.ts`](scenarios/templates.md) — template CRUD + Insert into the feedback editor.
-- [`tour.spec.ts`](scenarios/tour.md) — the guided tour's landmark order as manager (23 steps) and admin (22 steps), menu-only, no navigation (v3.23.0).
+- [`tour.spec.ts`](scenarios/tour.md) — the guided tour's landmark order as manager (24 steps) and admin (23 steps), menu-only, no navigation (v3.23.0).
 - [`user-career.spec.ts`](scenarios/user-career.md) — the career-position timeline, the v2.39.0 past-insert backfill (taken-date + date-neighbor sameness notes), Career page + Team pyramid + time slider, dictionary rename propagation, the v2.25.0 self/chain/HR read privacy (no career link on manager cards; direct URL refused).
 - [`user-details.spec.ts`](scenarios/user-details.md) — the read-only user-details card in every relationship flavor + the Teams membership view.
 - [`user-edit.spec.ts`](scenarios/user-edit.md) — admin creates (password reveal) and renames a user.

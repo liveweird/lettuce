@@ -1083,3 +1083,44 @@ describe("TeamMembersTable pinned to a team", () => {
     expect(localStorage.getItem("lettuce.viewSettings.teamMembers.managed.filter.name")).toBeNull();
   });
 });
+
+// A separate describe: the main one is at the lint's per-function line cap.
+describe("TeamMembersTable activity-log link (v4.9.0)", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "[]");
+    localStorage.setItem(USER_ID_KEY, "7");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("managed cards link each report's Activity log; peers never get one, an HR viewer does (v4.9.0)", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="managed" emptyMessage="No team members" />);
+    const link = await screen.findByRole("link", { name: "Activity log of Bob Brown" });
+    expect(link).toHaveAttribute("href", "/users/11/activity?name=Bob%20Brown&from=subordinates");
+
+    cleanup();
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+    await screen.findByText("Bob Brown");
+    expect(screen.queryByRole("link", { name: /activity log of/i })).toBeNull();
+
+    cleanup();
+    localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+    // HR is audited server-side whatever the URL says, so the link asks for the auditor flavor.
+    expect(await screen.findByRole("link", { name: "Activity log of Bob Brown" })).toHaveAttribute(
+      "href",
+      "/users/11/activity?name=Bob%20Brown&from=peers&mode=audit",
+    );
+  });
+});

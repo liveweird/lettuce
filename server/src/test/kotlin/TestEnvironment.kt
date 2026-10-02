@@ -64,6 +64,8 @@ fun TestApplicationBuilder.configureApp(vararg overrides: Pair<String, String>) 
                 // Same idiom as above for the v3.12.0 notification purge (retention stays the
                 // 30-day default) — the gate test overrides this explicitly.
                 "notifications.purgeIntervalSeconds" to "0",
+                // Same idiom for the v4.9.0 sign-in history purge (retention stays the 90-day default).
+                "activity.accountPurgeIntervalSeconds" to "0",
                 *overrides,
             )
         )

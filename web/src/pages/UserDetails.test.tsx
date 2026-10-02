@@ -161,6 +161,8 @@ describe("UserDetails page", () => {
       "href",
       `/feedback/new?subjectId=5&back=${encodeURIComponent("/users/5/details?name=Bob&from=users")}`,
     );
+    // The activity log is the chain's (and HR's) to read: a manager card for a plain viewer has none.
+    expect(screen.queryByRole("link", { name: "Activity log of Bob" })).toBeNull();
     // No subordinate-only affordances on a manager card — and with no New 1:1 the 1:1 group
     // stays a single plain button (asserted a link above), never a dropdown.
     expect(screen.queryByRole("link", { name: /new 1:1/i })).not.toBeInTheDocument();
@@ -194,6 +196,11 @@ describe("UserDetails page", () => {
     expect(screen.getByRole("link", { name: "Career progression of Bob" })).toHaveAttribute(
       "href",
       `/users/5/career?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
+    );
+    // The Profile section's activity-log drill-down (v4.9.0) sits beside it, manages=1 too.
+    expect(screen.getByRole("link", { name: "Activity log of Bob" })).toHaveAttribute(
+      "href",
+      `/users/5/activity?name=Bob&from=details&back=${BACK_HERE}&manages=1`,
     );
     // The Performance section's journal drill-down (v2.38.0) — manages=1 is what routes the
     // drill-down page onto its managed (non-audit) branch.
@@ -392,6 +399,11 @@ describe("UserDetails page", () => {
       "href",
       `/users/5/impact-log?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
     );
+    // The activity log (v4.9.0) is an audit drill-down too — mode=audit, the audited read.
+    expect(screen.getByRole("link", { name: "Audit the activity log of Bob" })).toHaveAttribute(
+      "href",
+      `/users/5/activity?name=Bob&from=details&mode=audit&back=${BACK_HERE}`,
+    );
     // canAudit() shows the last-login row on ANY card, unrelated included (v3.9.1) — the
     // mock carries no lastLoginAt, so it renders "never" like an unset seniority would.
     expect(screen.getByText("Last login")).toBeInTheDocument();
@@ -416,7 +428,7 @@ describe("UserDetails page", () => {
     }
   });
 
-  test("an auditor with every feature disabled gets no Audit block at all (v1.53.0)", async () => {
+  test("an auditor with every feature disabled keeps only the ungated Activity drill-down in the Audit block (v1.53.0, v4.9.0)", async () => {
     localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
     localStorage.setItem(
       "lettuce.auth.disabledFeatures",
@@ -436,8 +448,10 @@ describe("UserDetails page", () => {
       renderDetails();
 
       expect(await screen.findByText("bob@example.com")).toBeInTheDocument();
-      expect(screen.queryByText("Audit")).toBeNull();
-      expect(screen.queryByRole("link", { name: /^audit /i })).toBeNull();
+      // Every feature-gated drill-down is gone; the activity log (ungated) is what remains.
+      expect(screen.getByText("Audit")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Audit the activity log of Bob" })).toBeInTheDocument();
+      expect(screen.getAllByRole("link", { name: /^audit /i })).toHaveLength(1);
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }

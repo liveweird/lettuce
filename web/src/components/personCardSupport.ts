@@ -7,6 +7,7 @@ import { hasFeature, type Feature } from "../api/session";
 
 export type ButtonKey =
   | "career"
+  | "activity"
   | "provide"
   | "ask"
   | "request"
@@ -27,6 +28,8 @@ export type LabelPair = { aria: ParseKeys; text: ParseKeys };
 // `null` (career, v2.15.0) = the ungated users area — the button never gates on a flag.
 export const FEATURE_OF: Record<ButtonKey, Feature | null> = {
   career: null,
+  // The activity log (v4.9.0) is ungated too — the server drops the viewer's disabled areas.
+  activity: null,
   provide: "FEEDBACKS",
   ask: "FEEDBACKS",
   request: "FEEDBACKS",
@@ -48,6 +51,8 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     // The career-progression drill-down (v2.15.0) — readable for everyone, so every flavor
     // carries it in its Profile section.
     career: { aria: "users.careerProgressionFor", text: "users.careerProgression" },
+    // v4.9.0: the person's activity log — shown wherever `career` is (self/chain/HR reads).
+    activity: { aria: "users.activityFor", text: "users.activity" },
     provide: { aria: "users.provideFeedbackTo", text: "users.provideFeedback" },
     ask: { aria: "users.askForFeedbackFrom", text: "users.askForFeedback" },
     // The drill-down texts are "… list" (v1.51.0) — under this flavor they sit inside (or next
@@ -58,6 +63,7 @@ export const PERSON_CARD_ACTION_LABELS: Record<
   },
   teams: {
     career: { aria: "teams.careerProgressionForAria", text: "teams.careerProgression" },
+    activity: { aria: "teams.activityForAria", text: "teams.activity" },
     provide: { aria: "teams.provideFeedbackToAria", text: "teams.provideFeedback" },
     ask: { aria: "teams.askForFeedbackAria", text: "teams.askForFeedback" },
     request: { aria: "teams.requestFeedbackAboutAria", text: "teams.requestFeedbackFor" },
@@ -76,6 +82,8 @@ export const PERSON_CARD_ACTION_LABELS: Record<
     succession: { aria: "teams.successionPlanForAria", text: "teams.successionPlan" },
   },
   audit: {
+    // v4.9.0: the whole activity log of the person (hr.list-audited server-side).
+    activity: { aria: "users.audit.activityAria", text: "users.activity" },
     feedbacks: { aria: "users.audit.feedbacksAria", text: "users.feedbacks" },
     oneOnOnes: { aria: "users.audit.oneOnOnesAria", text: "users.oneOnOnes" },
     goals: { aria: "users.audit.goalsAria", text: "users.goals" },
@@ -129,7 +137,7 @@ export const ACTION_GROUPS: readonly ActionGroup[] = [
 // their labeled sections via the `only` prop. The fixed button order splits cleanly at the
 // section boundaries (career | …goals | reviews | daysOff), so the overall button order
 // across a card is unchanged from the flat-footer era.
-export const PROFILE_ACTIONS: readonly ButtonKey[] = ["career", "succession"];
+export const PROFILE_ACTIONS: readonly ButtonKey[] = ["career", "activity", "succession"];
 export const OPERATIONAL_ACTIONS: readonly ButtonKey[] = [
   "provide",
   "ask",

@@ -531,6 +531,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The user's activity log
+         * @description A chronological log of what the user DID (v4.9.0): one row per history event they authored
+         *     on a document — feedbacks, 1:1 meetings, goals, team KPIs, performance reviews, impact-log
+         *     entries and succession plans — plus the document shares they created (`SHARE_CREATED`)
+         *     and withdrew (`SHARE_WITHDRAWN`, see `ActivityEntry`) — newest first. The log is a
+         *     query-time union over those features' per-document event trails, the share registry and
+         *     the days-off trail, filtered on the ACTING user (a row lives in the log of
+         *     the person who acted, never in the log of the person it concerned); it starts at the event
+         *     trails' own beginnings. System-originated events (no human actor) belong to nobody. Event
+         *     `params` are the same content-free maps the documents' own History tabs render; no document
+         *     text, comment or rating value ever appears. Days-off actions (`DAYS_OFF`, forward-only from
+         *     v4.9.0: entries recorded — by the owner or on their behalf — and deleted, budget corrections,
+         *     allowance changes, pool archivals; never the ADMIN registries) are PERSON-scoped rows: the
+         *     row lives in the actor's log and names the person it concerned in `subjectUserId`/
+         *     `subjectUserName`; they carry no document, `link` or `details` (their `params` are
+         *     self-describing). A chain manager sees such a row when its subject is the manager or in the
+         *     manager's chain — also after the entry or correction was deleted. `CAREER_POSITION` rows
+         *     (a chain manager recording, correcting or deleting a report's career position —
+         *     forward-only from v4.9.0; account deactivation's position-closing stamp mints nothing) are
+         *     person-scoped in the same way, ungated by any feature flag. `ACCOUNT` rows are the user's own
+         *     sign-in history (forward-only from v4.9.0, ungated, no IP and no user agent — never failed
+         *     attempts, lockouts, refreshes or password events; `SIGNED_OUT` only when the sign-out reaches
+         *     the server with a live access token, so a sign-in without a later sign-out is normal): the
+         *     log's own user is both actor and
+         *     subject, so they carry no `subjectUser*`, document, link or details; a chain manager
+         *     and HR see them like `users.lastLoginAt` (self, chain, HR). The sign-in history is the one
+         *     trail that is PURGED: rows older than the deployment's retention (90 days by default, 0 =
+         *     forever) are deleted.
+         *
+         *     Who may read: the user themselves, the HR auditor (audited as `hr.list`, resource
+         *     `activity`), and a manager in the user's TRANSITIVE management chain — anyone else, ADMIN
+         *     included, is `403`. A chain manager sees ONLY the entries whose document they can currently
+         *     read in their OWN right (party roles, chain and status rules — e.g. a report's DRAFT goal or
+         *     review, or a feedback not delivered into the manager's chain, never appears; share-granted
+         *     reads and teammate calendar grants do not count) — and the share rows of the user's log
+         *     only for documents that manager AUTHORS (the document's author sees every share of it; the
+         *     document's subject or any other reader never learns of one). HR sees all share rows.
+         *     Hidden entries are not listed and not counted: `total` is exact for the viewer. A missing or soft-deleted user is `404`
+         *     BEFORE the guard (user existence is no secret given the open users list); a deactivated
+         *     user stays readable. The VIEWER's feature flags apply: an area the viewer has disabled is
+         *     left out of the rows AND of `total`, and an `area` filter naming one answers an empty page
+         *     (never `400`).
+         *
+         *     For the user's own log every row is listed, but `link` and `details` are null when the user
+         *     can no longer read the document in their own right (deleted, or no longer visible to them):
+         *     the fact that they acted is theirs, the document's current title is not. The HR auditor
+         *     always receives both (a deleted document's `link` then answers `404`); a chain manager's
+         *     rows always carry both (they are only listed when readable).
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `createdAt` only. Default sort is `-createdAt`. A union row has no scalar
+         *       `id`, so the deterministic tiebreaker is the synthetic `id`'s own components — `area`
+         *       ascending, `source` ascending, then the event's id descending — a total order (a
+         *       registered deviation from API-LIST-003).
+         *     - Filters (optional, whitelisted): `area` — equality, enum by name; `createdAt[gte]` /
+         *       `createdAt[lte]` — inclusive epoch-millisecond bounds (`400` when the lower bound is after
+         *       the upper one).
+         *
+         *     Malformed query parameters (unknown sort field or area, a non-numeric bound, out-of-range
+         *     page/pageSize) respond with `400` before the user lookup and the role gate.
+         */
+        get: operations["listUserActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/career-positions": {
         parameters: {
             query?: never;
@@ -6783,6 +6864,112 @@ export interface components {
              */
             total: number;
         };
+        /**
+         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF` (v4.9.0 — the person-scoped trail of days-off actions: entries recorded or deleted, budget corrections, allowance changes, pool archivals) and `CAREER_POSITION` (v4.9.0 — career positions recorded, corrected or deleted by a chain manager) and `ACCOUNT` (v4.9.0 — the account's own completed sign-ins and explicit sign-outs) are declared up front — the enum is append-only — and every value now produces rows.
+         * @enum {string}
+         */
+        ActivityArea: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF" | "CAREER_POSITION" | "ACCOUNT";
+        ActivityEntry: {
+            /**
+             * @description Synthetic, unique, stable: `<AREA>:<SOURCE>:<id>` — SOURCE is `EVENT` for a row of a
+             *     document's event trail (id = the event's id), `SHARE` for a share the user created and
+             *     `SHARE_WITHDRAWAL` for one they withdrew (id = the share's id; one share can therefore
+             *     appear as two rows, possibly in two different people's logs). A union row has no scalar id; the log is ordered by this
+             *     id's components (`createdAt` descending, then `area`, `source` ascending and the event
+             *     id descending), a total order.
+             */
+            id: string;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds of the event. Server-managed.
+             */
+            createdAt: number;
+            area: components["schemas"]["ActivityArea"];
+            /**
+             * @description The event's type name, as in the document's own history (`CREATED`, `PROGRESS_UPDATED`, …)
+             *     — an open set the client localizes by `area` + `eventType`. Share rows (v4.9.0) carry the
+             *     two values `SHARE_CREATED` (the user shared the document — dated the share's creation,
+             *     actor = the sharer) and `SHARE_WITHDRAWN` (the user withdrew a share — dated the
+             *     withdrawal, actor = the WITHDRAWER, which may be the document's author rather than the
+             *     sharer: the row then lives in the author's log). Share rows ride the document's `area`.
+             *     `DAYS_OFF` rows (V88) carry one of seven types: `ENTRY_RECORDED` (every create, a
+             *     self-create too), `ENTRY_DELETED`, `CORRECTION_CREATED`, `CORRECTION_UPDATED` (only when
+             *     year, operation or days changed), `CORRECTION_DELETED`, `ALLOWANCE_CHANGED` (only on an
+             *     actual change) and `POOL_ARCHIVED`. `CAREER_POSITION` rows (V89) carry `POSITION_CREATED`,
+             *     `POSITION_UPDATED` (only when the start date or a ref changed) and `POSITION_DELETED`. `ACCOUNT`
+             *     rows (V90) carry `SIGNED_IN` (a completed sign-in; param `mfa` = "true" when the second factor
+             *     was used, else "false") and `SIGNED_OUT` (an explicit sign-out; no params).
+             */
+            eventType: string;
+            /**
+             * @description The event's content-free parameter map (positions, dates, numbers, enum names, party
+             *     names where that area's history carries them) — never document text, comments or
+             *     rating values. Share rows: `{sharee, expiresOn?}` — `sharee` is the recipient's LIVE
+             *     display name, `expiresOn` the share's inclusive end date when set — and, on a
+             *     `SHARE_WITHDRAWN` row withdrawn by someone other than the sharer, `byAuthor: "true"` plus
+             *     `sharer` (the sharer's live display name). `DAYS_OFF` rows (all values strings, frozen at
+             *     the action; `poolName` is the pool kind's name at that moment, beside its id):
+             *     `ENTRY_RECORDED`/`ENTRY_DELETED` `{requestId, type, poolTypeId?, poolName?, startDate,
+             *     endDate, days, onBehalf}` (pool keys only for a PAID entry; `onBehalf` = the actor is not
+             *     the owner); `CORRECTION_CREATED`/`CORRECTION_DELETED` `{correctionId, year, poolTypeId,
+             *     poolName, operation, days}`; `CORRECTION_UPDATED` `{correctionId, poolTypeId, poolName,
+             *     yearFrom, yearTo, operationFrom, operationTo, daysFrom, daysTo}`; `ALLOWANCE_CHANGED`
+             *     `{poolTypeId, poolName, from?, to}`; `POOL_ARCHIVED` `{poolId, poolTypeId, poolName,
+             *     allowance}` — never the encrypted correction comment. `CAREER_POSITION` rows (strings,
+             *     frozen at the action): `POSITION_CREATED`/`POSITION_DELETED` `{positionId, startDate,
+             *     careerPath?, careerPathName?, careerSpecialization?, careerSpecializationName?,
+             *     seniorityLevel?, seniorityLevelName?}` (the entry ids plus their default-language
+             *     display names at that moment, each pair present only for a set ref); `POSITION_UPDATED`
+             *     `{positionId, startDate, startDateFrom?, startDateTo?}` plus, per CHANGED ref,
+             *     `<ref>From`/`<ref>FromName` (absent when it was unset) and `<ref>To`/`<ref>ToName`
+             *     (absent when cleared) with `<ref>` one of `careerPath`, `careerSpecialization`,
+             *     `seniorityLevel`. `ACCOUNT` rows: `SIGNED_IN` `{mfa}` (`"true"` when the second factor
+             *     completed the sign-in, else `"false"`), `SIGNED_OUT` `{}`.
+             */
+            params: {
+                [key: string]: string;
+            };
+            /**
+             * Format: int32
+             * @description The document the event belongs to; null for the person-scoped areas.
+             */
+            documentId: number | null;
+            /** @description In-app path of the document's view screen, derived from `area` and `documentId`. Null when the viewer cannot currently read the document in their own right (only possible for event rows of the user's own log — a chain manager's rows are filtered instead; share rows always carry it, and opening it for a deleted or no-longer-readable document answers the document's own 404/403) — and always null for the person-scoped areas. The HR auditor always receives it, even for a deleted document (opening it then answers `404`). */
+            link: string | null;
+            /**
+             * @description Content-free facts about the document for the client to localize. For event rows: read
+             *     at request time from plaintext title/party columns (never decrypted content, never a
+             *     status) — the document's CURRENT labels, and therefore null under the same condition as
+             *     `link`. For share rows: the share's STORED creation-time snapshot — the keys of
+             *     `ShareResponse.details`, which for TEAM_KPI are `{title,team}` WITHOUT `type` (never
+             *     refreshed; null only for a share stored without one) — always delivered together with
+             *     a `link`. Keys
+             *     per `area`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
+             *     GOAL `{title,subordinate}`; TEAM_KPI `{title,team,type}`;
+             *     PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
+             *     IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`; SUCCESSION_PLAN `{person,owner}`.
+             */
+            details: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Format: int32
+             * @description For PERSON-scoped rows (`DAYS_OFF`, `CAREER_POSITION`): the person the action concerned (whose leave, budget or career timeline it touched) — the log's own user for a self-service action, otherwise someone else (the log holds the ACTOR's rows: a manager recording leave for a report has the row, naming the report here). Null for document rows.
+             */
+            subjectUserId: number | null;
+            /** @description The concerned person's LIVE display name; null exactly when `subjectUserId` is. */
+            subjectUserName: string | null;
+        };
+        ActivityPage: {
+            items: components["schemas"]["ActivityEntry"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
+        };
         DashboardSummary: {
             /**
              * Format: int64
@@ -7398,7 +7585,8 @@ export interface components {
          * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
          *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
          *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-         *     always appended as a deterministic tiebreaker.
+         *     always appended as a deterministic tiebreaker — except where an operation documents a
+         *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
          */
         Sort: string;
         /**
@@ -7620,7 +7808,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the user's name (e.g. `zolw` matches `Żółw`). */
@@ -8180,6 +8369,60 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
+    listUserActivity: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Equality filter on the row's area. */
+                area?: components["schemas"]["ActivityArea"];
+                /** @description Lower bound (inclusive) on the event moment, epoch milliseconds. */
+                "createdAt[gte]"?: number;
+                /** @description Upper bound (inclusive) on the event moment, epoch milliseconds. */
+                "createdAt[lte]"?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the user's activity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is neither the user, nor in their management chain, nor HR */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
     listUserCareerPositions: {
         parameters: {
             query?: never;
@@ -8387,7 +8630,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the team's name. */
@@ -8480,7 +8724,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /**
@@ -8723,7 +8968,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of feedbacks to list — caller-relative, except the HR auditor view `user` and the org-wide `kudos` wall. */
@@ -9155,7 +9401,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of 1:1 meetings to list — caller-relative, except the HR auditor view `user`. */
@@ -9443,7 +9690,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of goals to list — caller-relative, except the HR auditor view `user`. */
@@ -9875,7 +10123,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of journals to list — caller-relative, except the HR auditor view `user`. */
@@ -10090,7 +10339,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of plans to list — caller-relative, except the HR auditor view `user`. */
@@ -10508,7 +10758,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of team KPIs to list. `own`/`managed` are caller-relative; `all` is the HR auditor view (403 for anyone else). */
@@ -11102,7 +11353,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of reviews to list — caller-relative, except the HR auditor views `user` and `all`. */
@@ -11475,7 +11727,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of requests to list — caller-relative, except the HR auditor view `user`. */
@@ -12166,7 +12419,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the template name. */
@@ -12922,7 +13176,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Case- and accent-insensitive substring match against the alert title. */
@@ -13305,7 +13560,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Restrict to seen (`true`) or unseen (`false`) notifications. */
@@ -13496,7 +13752,8 @@ export interface operations {
                  * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
                  *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
                  *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
-                 *     always appended as a deterministic tiebreaker.
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
                 /** @description Which slice of shares to list — see the operation description. */

@@ -96,6 +96,8 @@ fun Application.configureCareerPositionRoutes() {
     val userService = attributes[UserServiceKey]
     val careerPositionService = attributes[CareerPositionServiceKey]
     val notificationService = attributes[NotificationServiceKey]
+    // The per-person action trail (V89) behind the activity log — appended after each service commit.
+    val eventService = attributes[CareerPositionEventServiceKey]
 
     // The corrections writeGuarded* idiom for the row-addressed mutations: resolve the row
     // (NotFoundException when missing, soft-deleted, or belonging to a different user than the
@@ -209,6 +211,15 @@ fun Application.configureCareerPositionRoutes() {
                 write.careerSpecializationId?.let { auditFields += "careerSpecializationId" to it.toLong() }
                 write.seniorityLevelId?.let { auditFields += "seniorityLevelId" to it.toLong() }
                 audit("career_position.created", *auditFields.toTypedArray())
+                // The activity-log event right after the commit, notification and audit — before the
+                // response body is derived (a vanished row must not cost the event). The written refs
+                // are resolved on their own: the frozen display names.
+                eventService.create(
+                    careerPositionCreatedEvent(
+                        caller.userId, route.id, id, write,
+                        userService.resolveEntryRefs(write.careerPathId, write.careerSpecializationId, write.seniorityLevelId),
+                    ),
+                )
                 // Derive the body's endDate against the FULL timeline: a backfilled position
                 // (v2.39.0) ends the day before its next neighbor starts — a single-row
                 // derivation would wrongly report it open-ended.
@@ -252,6 +263,12 @@ fun Application.configureCareerPositionRoutes() {
                 delta("careerSpecialization", existing.careerSpecializationId, write.careerSpecializationId)
                 delta("seniorityLevel", existing.seniorityLevelId, write.seniorityLevelId)
                 audit("career_position.updated", *auditFields.toTypedArray())
+                // Change-only: a no-op PUT mints no activity event (ids resolve soft-deleted entries too).
+                val entries = userService.resolveEntryRefs(
+                    existing.careerPathId, existing.careerSpecializationId, existing.seniorityLevelId,
+                    write.careerPathId, write.careerSpecializationId, write.seniorityLevelId,
+                )
+                careerPositionUpdatedEvent(call.caller().userId, existing, write, entries)?.let { eventService.create(it) }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<UserCareerPositions.Position> { route ->
@@ -266,6 +283,10 @@ fun Application.configureCareerPositionRoutes() {
                     "positionId" to route.positionId.toLong(),
                     "startDate" to existing.startDate,
                 )
+                val entries = userService.resolveEntryRefs(
+                    existing.careerPathId, existing.careerSpecializationId, existing.seniorityLevelId,
+                )
+                eventService.create(careerPositionDeletedEvent(call.caller().userId, existing, entries))
                 call.respond(HttpStatusCode.NoContent)
             }
         }

@@ -171,7 +171,7 @@
   "lastOneOnOne": "Ostatnie 1:1",
   "lastLogin": "Ostatnie logowanie",
   "lastReview": "Ostatnia ocena",
-  "successionReviewed": "Przegl\u0105d sukcesji",
+  "successionReviewed": "Przegląd sukcesji",
   "lastFeedback": "Ostatni feedback",
   "feedbackFromMe": "Feedback ode mnie",
   "feedbackFromThem": "Feedback od tej osoby",
@@ -184,14 +184,15 @@
   "removeRole": "Usuń rolę {{role}}",
   "audit": {
     "title": "Audyt",
-    "hint": "Audytorski dostęp tylko do odczytu do wszystkiego, czego stroną jest {{name}} — feedbacków, spotkań 1:1, celów, ocen okresowych, dni wolnych, dziennika wpływu i planów sukcesji. Ten dostęp jest rejestrowany.",
+    "hint": "Audytorski dostęp tylko do odczytu do wszystkiego, czego stroną jest {{name}} — feedbacków, spotkań 1:1, celów, ocen okresowych, dni wolnych, dziennika wpływu i planów sukcesji — oraz do dziennika aktywności tej osoby. Ten dostęp jest rejestrowany.",
     "feedbacksAria": "Audytuj feedbacki: {{name}}",
     "oneOnOnesAria": "Audytuj spotkania 1:1: {{name}}",
     "goalsAria": "Audytuj cele: {{name}}",
     "performanceReviewsAria": "Audytuj oceny okresowe: {{name}}",
     "daysOffAria": "Audytuj dni wolne: {{name}}",
     "impactLogAria": "Audytuj dziennik wpływu {{name}}",
-    "successionAria": "Plany sukcesji dotyczące {{name}} (audyt)"
+    "successionAria": "Plany sukcesji dotyczące {{name}} (audyt)",
+    "activityAria": "Audyt aktywności: {{name}}"
   },
   "section": {
     "profile": "Profil",
@@ -209,6 +210,8 @@
   },
   "careerProgression": "Historia kariery",
   "careerProgressionFor": "Historia kariery: {{name}}",
+  "activity": "Aktywność",
+  "activityFor": "Aktywność: {{name}}",
   "career": {
     "title": "Historia kariery — {{who}}",
     "hint": "Wszystkie stanowiska, na których {{who}} pracował/a: ścieżka kariery, specjalizacja i poziom, wraz z datami rozpoczęcia i zakończenia.",

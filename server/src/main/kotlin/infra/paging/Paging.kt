@@ -3,8 +3,10 @@ package ch.nokillswit.infra.paging
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.BadRequestException
 import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.r2dbc.Query
+import org.jetbrains.exposed.v1.r2dbc.SetOperation
 
 const val DEFAULT_PAGE_SIZE = 20
 const val MAX_PAGE_SIZE = 100
@@ -63,6 +65,31 @@ fun Query.applyPaging(req: PageRequest, columns: Map<String, Column<*>>): Query 
         column to if (sf.descending) SortOrder.DESC else SortOrder.ASC
     }
     return orderBy(*order.toTypedArray())
+        .limit(req.pageSize)
+        .offset(((req.page - 1).toLong()) * req.pageSize)
+}
+
+/**
+ * The set-operation (`UNION ALL`) sibling of [applyPaging], for the activity log: orders by the
+ * requested sort fields over the union's OUTPUT [columns] (expression aliases — the pin test
+ * `ActivityUnionPinTest` proves Exposed renders `ORDER BY` against them), then by the caller's
+ * composite [tiebreak], then `limit`/`offset`. A union row has no scalar `id`, so [parsePaging]'s
+ * auto-appended `id` tiebreaker entry is skipped here when [columns] maps no `id` — the composite
+ * [tiebreak] (the synthetic row id's components) takes its place and keeps the order total.
+ */
+fun SetOperation.applyPaging(
+    req: PageRequest,
+    columns: Map<String, Expression<*>>,
+    tiebreak: List<Pair<Expression<*>, SortOrder>>,
+): SetOperation {
+    val requested = req.sort
+        .filter { it.name != "id" || it.name in columns }
+        .map { sf ->
+            val column = columns[sf.name]
+                ?: error("Sort field '${sf.name}' has no mapped column (paging helper invariant violated)")
+            column to if (sf.descending) SortOrder.DESC else SortOrder.ASC
+        }
+    return orderBy(*(requested + tiebreak).toTypedArray())
         .limit(req.pageSize)
         .offset(((req.page - 1).toLong()) * req.pageSize)
 }

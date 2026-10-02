@@ -169,6 +169,29 @@ describe("ManagersTable", () => {
     expect(link).toHaveAttribute("href", "/users/1/career?name=Manager%20One&from=managers");
   });
 
+  test("the Activity log link is auditor-only on manager cards, like the career timeline (v4.9.0)", async () => {
+    const page = () =>
+      jsonResponse(200, {
+        items: [{ userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" }],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      });
+    mockFetch.mockResolvedValue(page());
+    const first = renderWithProviders(<ManagersTable />);
+    await screen.findByText("Manager One");
+    expect(screen.queryByRole("link", { name: "Activity log of Manager One" })).toBeNull();
+    first.unmount();
+
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    mockFetch.mockResolvedValue(page());
+    renderWithProviders(<ManagersTable />);
+    expect(await screen.findByRole("link", { name: "Activity log of Manager One" })).toHaveAttribute(
+      "href",
+      "/users/1/activity?name=Manager%20One&from=managers&mode=audit",
+    );
+  });
+
   test("a manager of two of my teams gets one card with both team badges", async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, {

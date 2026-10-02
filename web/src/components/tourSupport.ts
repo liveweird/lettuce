@@ -76,6 +76,8 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="nav-days-off"]', contentKey: "tour.steps.daysOff", placement: "right", feature: "DAYS_OFF" },
   // Document sharing (v4.8.0) — feature-UNGATED like its nav leaf (the page filters per kind).
   { target: '[data-tour="nav-shares"]', contentKey: "tour.steps.shares", placement: "right" },
+  // The personal activity log (v4.9.0) — feature-UNGATED like its nav leaf.
+  { target: '[data-tour="nav-activity"]', contentKey: "tour.steps.activity", placement: "right" },
   { target: '[data-tour="nav-team-kpis"]', contentKey: "tour.steps.teamKpis", placement: "right", feature: "TEAM_KPIS" },
   { target: '[data-tour="nav-performance"]', contentKey: "tour.steps.performance", placement: "right", feature: "PERFORMANCE_REVIEWS" },
   { target: '[data-tour="nav-pulse"]', contentKey: "tour.steps.pulse", placement: "right", feature: "PULSE_SURVEYS" },

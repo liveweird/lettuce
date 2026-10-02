@@ -31,10 +31,19 @@ describe("resolveNav", () => {
     const everyFeatureOff = resolveNav({ isAdmin: false, isManager: false, hasFeature: () => false }, 1);
     const myWork = everyFeatureOff.sections.find((s) => s.id === "myWork");
     // Even with every feature disabled the section survives on the Career + Shared leaves.
-    expect(myWork?.entries.map((e) => ("to" in e ? e.to : e.label))).toEqual(["/career", "/shares"]);
+    expect(myWork?.entries.map((e) => ("to" in e ? e.to : e.label))).toEqual(["/career", "/shares", "/activity"]);
     const shares = myWork?.entries.find((e) => "to" in e && e.to === "/shares");
     expect(shares && "tourId" in shares ? shares.tourId : null).toBe("nav-shares");
     expect(everyFeatureOff.leafTos).toContain("/shares");
+  });
+
+  test("the My activity leaf follows Shared in My work, is feature-UNGATED and carries its tour anchor (v4.9.0)", () => {
+    const everyFeatureOff = resolveNav({ isAdmin: false, isManager: false, hasFeature: () => false }, 1);
+    const myWork = everyFeatureOff.sections.find((s) => s.id === "myWork");
+    expect(myWork?.entries.map((e) => ("to" in e ? e.to : e.label))).toEqual(["/career", "/shares", "/activity"]);
+    const activity = myWork?.entries.find((e) => "to" in e && e.to === "/activity");
+    expect(activity && "tourId" in activity ? activity.tourId : null).toBe("nav-activity");
+    expect(everyFeatureOff.leafTos).toContain("/activity");
   });
 
   test("a section left without a visible entry disappears", () => {

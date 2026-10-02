@@ -69,6 +69,7 @@ export default function ManagersTable() {
                     // history is not their report's to browse, so only auditors keep the link.
                     show: {
                       career: canAudit(),
+                      activity: canAudit(),
                       provide: true,
                       ask: true,
                       feedbacks: true,

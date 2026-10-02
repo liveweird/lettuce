@@ -89,7 +89,9 @@
   "daysOff": "Days off",
   "daysOffForAria": "Days off of {{name}}",
   "careerProgression": "Career progression",
+  "activity": "Activity",
   "successionPlan": "Succession plan",
   "successionPlanForAria": "Succession plan for {{name}}",
-  "careerProgressionForAria": "Career progression of {{name}}"
+  "careerProgressionForAria": "Career progression of {{name}}",
+  "activityForAria": "Activity log of {{name}}"
 }
