@@ -244,4 +244,4 @@ and fallback keys makes encrypted content unrecoverable.
 Proxy trust is explicit: set `HTTP_BEHIND_PROXY` and `HTTP_PROXY_HOPS` to match the actual trusted
 proxy chain; do not trust arbitrary forwarded headers. The Kubernetes HTTP probes send
 `X-Forwarded-Proto: https` because production HTTPS enforcement also applies to health checks.
-Read `.claude/docs/security.md` before changing proxy handling, probes, or HTTPS/header policy.
+Read `.claude/docs/security.md` and `.claude/docs/security-details.md` (the proxy/CORS contract) before changing proxy handling, probes, or HTTPS/header policy.
