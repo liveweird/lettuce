@@ -84,7 +84,10 @@ document just stops resolving), `sharer_id`/`sharee_id` (FK `RESTRICT`, `CHECK (
 sharee_id)`), `expires_on` (nullable strict-ISO `VARCHAR(10)`, **inclusive** — the share works
 through the end of that day), `created_at`, `withdrawn_at`/`withdrawn_by` (paired CHECK — a
 **terminal stamp, rows are never deleted**: the `integration_clients.revoked_at` precedent, a
-registered soft-delete exception), and `details`.
+registered soft-delete exception), `details`, and — since V91 (v4.10.0) — `batch_id`
+(nullable UUID string stamped on every row one mass share creates; NULL for a single share; never
+on the wire — it lets the flood cap count a batch as one notice and joins the rows to their
+`share.batch_created` audit event).
 
 - **Status is derived, never stored**: `WITHDRAWN` beats `EXPIRED` beats `ACTIVE`. **Silent
   expiry**: no sweep, no notification; an expired share stays listed as `EXPIRED`. Everything
@@ -137,7 +140,7 @@ registered soft-delete exception), and `details`.
   `SHARE_NOTIFICATION_DAILY_CAP_PER_PAIR` (20, `sharing/Share.kt`; override `sharing.notificationDailyCapPerPair`
   / `$SHARING_NOTIFICATION_DAILY_CAP_PER_PAIR`, boot-validated 1..1000) share notifications
   (SHARED + WITHDRAWN) to that sharee in a rolling 24 h — counted from `document_shares`
-  `created_at`/`withdrawn_at` for the pair, no extra table — further shares and withdrawals between
+  `created_at`/`withdrawn_at` for the pair, no extra table; since V91 (v4.10.0) the rows of one batch share a `batch_id` and count as ONE notice, `COUNT(DISTINCT COALESCE(batch_id, id::text))` — further shares and withdrawals between
   them STILL HAPPEN but mint no notification, and the audit event carries `notified=false`
   (`share.created`/`share.withdrawn`; a withdrawal of an already-expired share is also
   `notified=false`). The count is taken before the operation, so the cap-th notice is the last minted.

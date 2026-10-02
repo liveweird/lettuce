@@ -65,7 +65,8 @@ val ShareableResourceType.withdrawnNotification: NotificationType
 /**
  * The per-(sharer, sharee) notification flood cap, per rolling 24 hours: once a sharer has already
  * caused this many share notifications (SHARED + WITHDRAWN, counted from `document_shares`
- * `created_at`/`withdrawn_at` — no extra table) to one sharee in that window, further shares and
+ * `created_at`/`withdrawn_at` — no extra table; since V91 a mass share's rows count as ONE notice
+ * via their shared `batch_id`) to one sharee in that window, further shares and
  * withdrawals between the pair still happen but mint NO notification (audited `notified=false`).
  * This is the DEFAULT of `sharing.notificationDailyCapPerPair` (`$SHARING_NOTIFICATION_DAILY_CAP_PER_PAIR`,
  * boot-validated 1..1000) — the per-caller rate limit bounds the rate, this bounds what one victim

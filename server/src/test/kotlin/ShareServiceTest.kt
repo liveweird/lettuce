@@ -2,6 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.SortField
+import ch.nokillswit.sharing.ShareBatchOutcome
 import ch.nokillswit.sharing.ShareCreateOutcome
 import ch.nokillswit.sharing.ShareListFilter
 import ch.nokillswit.sharing.ShareListView
@@ -16,7 +17,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.r2dbc.insert
+import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -335,5 +340,180 @@ class ShareServiceTest {
                 }
             }
         }
+    }
+
+    // ---- Mass share (v4.10.0, V91 batch_id) ----
+
+    private suspend fun batchIdsOf(sharer: UInt): Map<UInt, String?> =
+        suspendTransaction(TestServices.database) {
+            ShareService.DocumentShares.selectAll()
+                .where { ShareService.DocumentShares.sharerId eq sharer }
+                .map { it[ShareService.DocumentShares.id].value to it[ShareService.DocumentShares.batchId] }
+                .toList()
+                .toMap()
+        }
+
+    private suspend fun ShareService.batch(
+        sharer: UInt,
+        docs: List<UInt>,
+        sharees: List<UInt>,
+        cap: Int = Int.MAX_VALUE,
+        expiresOn: String? = null,
+        details: Map<UInt, Map<String, String>> = emptyMap(),
+    ): ShareBatchOutcome =
+        createBatch(ShareableResourceType.PERFORMANCE_REVIEW, docs, sharer, sharees, expiresOn, details, cap)
+
+    private fun docs(n: Int): List<UInt> = List(n) { TestShareDocuments.nextId() }
+
+    @Test
+    fun `a mixed batch creates new pairs under one batch id and reports active pairs as duplicates`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user("sharer")
+        val a = user("a")
+        val b = user("b")
+        val (d1, d2, d3) = docs(3)
+        val type = ShareableResourceType.PERFORMANCE_REVIEW
+        // Pre-existing: d1->a ACTIVE (the duplicate), d2->a EXPIRED, d2->b WITHDRAWN: neither may block.
+        val active = (s.create(type, d1, sharer, a, null) as ShareCreateOutcome.Created).id
+        val expired = (s.create(type, d2, sharer, a, today.toString()) as ShareCreateOutcome.Created).id
+        val withdrawn = (s.create(type, d2, sharer, b, null) as ShareCreateOutcome.Created).id
+        s.withdraw(withdrawn, sharer)
+        today = today.plusDays(1)
+
+        val outcome = s.batch(sharer, listOf(d1, d2, d3), listOf(a, b), expiresOn = "2027-03-01")
+
+        assertEquals(listOf(d1 to a), outcome.duplicates.map { it.resourceId to it.shareeId })
+        assertEquals(active, outcome.duplicates.single().existingId)
+        assertEquals(
+            listOf(d1 to b, d2 to a, d2 to b, d3 to a, d3 to b),
+            outcome.created.map { it.resourceId to it.shareeId },
+        )
+        val ids = outcome.created.map { it.id }
+        assertEquals(5, ids.toSet().size)
+        assertTrue(ids.none { it == active || it == expired || it == withdrawn })
+
+        // Every created row carries the batch's id (and the ONE end date); the pre-existing singles stay NULL.
+        val stored = batchIdsOf(sharer)
+        assertTrue(ids.all { stored[it] == outcome.batchId })
+        assertEquals(listOf(null, null, null), listOf(active, expired, withdrawn).map { stored[it] })
+        assertEquals(36, outcome.batchId.length)
+        ids.forEach {
+            val row = s.read(it)!!
+            assertEquals(ShareStatus.ACTIVE, row.status)
+            assertEquals("2027-03-01", row.expiresOn)
+        }
+        assertEquals(setOf(a, b), outcome.notifiedSharees)
+
+        // A replay is idempotent in effect: every pair is a duplicate pointing at the first run's rows.
+        val replay = s.batch(sharer, listOf(d1, d2, d3), listOf(a, b))
+        assertEquals(emptyList(), replay.created)
+        assertEquals(6, replay.duplicates.size)
+        assertEquals(emptySet(), replay.notifiedSharees)
+        assertEquals(
+            ids.toSet() + active,
+            replay.duplicates.map { it.existingId }.toSet(),
+        )
+        assertEquals(1 + 2 + 5, batchIdsOf(sharer).size, "the replay inserted nothing")
+    }
+
+    @Test
+    fun `the details snapshot is stored per document, absent documents store none`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user()
+        val sharee = user()
+        val (d1, d2) = docs(2)
+        val snap = mapOf("subordinate" to "Sam", "startMonth" to "2026-01")
+        val outcome = s.batch(sharer, listOf(d1, d2), listOf(sharee), details = mapOf(d1 to snap))
+        val byDoc = outcome.created.associate { it.resourceId to s.read(it.id)!! }
+        assertEquals(snap, byDoc.getValue(d1).details)
+        assertNull(byDoc.getValue(d2).details)
+    }
+
+    @Test
+    fun `an empty batch does nothing`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user()
+        val outcome = s.batch(sharer, emptyList(), listOf(user()))
+        assertEquals(emptyList(), outcome.created)
+        assertEquals(emptyList(), outcome.duplicates)
+        assertEquals(emptySet(), outcome.notifiedSharees)
+        assertEquals(emptyMap(), batchIdsOf(sharer))
+    }
+
+    @Test
+    fun `the daily notice cap counts a whole batch as ONE notice`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user()
+        val sharee = user()
+        // 25 rows to one person is still a single summary notice, so a single share afterwards is
+        // within a cap of 20 (with row counting it would already be at 25 and silent).
+        val big = s.batch(sharer, docs(25), listOf(sharee), cap = 20)
+        assertEquals(25, big.created.size)
+        assertEquals(setOf(sharee), big.notifiedSharees)
+        val single = s.create(ShareableResourceType.GOAL, doc, sharer, sharee, null, null, notificationCap = 20)
+        assertTrue((single as ShareCreateOutcome.Created).notify)
+
+        // Notices so far: the batch + the single = 2. A SECOND batch still notifies under cap 3
+        // (it adds one notice, not 25), and the next one is then silent (3 notices = the cap).
+        assertEquals(setOf(sharee), s.batch(sharer, docs(25), listOf(sharee), cap = 3).notifiedSharees)
+        assertEquals(emptySet(), s.batch(sharer, docs(25), listOf(sharee), cap = 3).notifiedSharees)
+    }
+
+    @Test
+    fun `cap 2 - batch then single then single, the third notice is silent`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user()
+        val sharee = user()
+        val other = user()
+        assertEquals(setOf(sharee, other), s.batch(sharer, docs(10), listOf(sharee, other), cap = 2).notifiedSharees)
+        val first = s.create(ShareableResourceType.GOAL, doc, sharer, sharee, null, null, notificationCap = 2)
+        val second = s.create(ShareableResourceType.GOAL, otherDoc, sharer, sharee, null, null, notificationCap = 2)
+        assertTrue((first as ShareCreateOutcome.Created).notify)
+        assertEquals(false, (second as ShareCreateOutcome.Created).notify)
+    }
+
+    @Test
+    fun `the cap is per sharee - a batch to two people decides each independently`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user()
+        val saturated = user()
+        val fresh = user()
+        val type = ShareableResourceType.GOAL
+        repeat(2) { s.create(type, TestShareDocuments.nextId(), sharer, saturated, null, null, 2) }
+        val outcome = s.batch(sharer, docs(3), listOf(saturated, fresh), cap = 2)
+        assertEquals(6, outcome.created.size, "the cap never blocks a share, only its notice")
+        assertEquals(setOf(fresh), outcome.notifiedSharees)
+    }
+
+    @Test
+    fun `withdrawals still count per row, so a batch of three then three withdrawals exhausts cap 3 at the third`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user()
+        val sharee = user()
+        val batch = s.batch(sharer, docs(3), listOf(sharee), cap = 3)
+        assertEquals(setOf(sharee), batch.notifiedSharees)
+        val outcomes = batch.created.map { s.withdraw(it.id, sharer, notificationCap = 3) as ShareWithdrawOutcome.Withdrawn }
+        // counts before each withdrawal: 1 (the batch), 2, 3 -> the third is at the cap.
+        assertEquals(listOf(true, true, false), outcomes.map { it.notify })
+    }
+
+    @Test
+    fun `N concurrent identical batches yield exactly one set of rows`(): Unit = runBlocking {
+        val s = service()
+        val sharer = user()
+        val sharees = listOf(user(), user())
+        val documents = docs(4)
+        val outcomes = coroutineScope {
+            List(6) { async(Dispatchers.IO) { s.batch(sharer, documents, sharees) } }.awaitAll()
+        }
+        assertEquals(8, outcomes.sumOf { it.created.size })
+        assertEquals(1, outcomes.count { it.created.isNotEmpty() })
+        val winner = outcomes.single { it.created.isNotEmpty() }
+        val losers = outcomes.filter { it.created.isEmpty() }
+        assertTrue(losers.all { it.duplicates.size == 8 && it.notifiedSharees.isEmpty() })
+        assertTrue(losers.all { l -> l.duplicates.map { it.existingId }.toSet() == winner.created.map { it.id }.toSet() })
+        assertEquals(8, batchIdsOf(sharer).size)
+        assertEquals(setOf(winner.batchId), batchIdsOf(sharer).values.toSet())
+        assertEquals(sharees.toSet(), winner.notifiedSharees)
     }
 }
