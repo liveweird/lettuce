@@ -38,7 +38,8 @@
     "PERFORMANCE_REVIEW": "a performance review",
     "IMPACT_LOG_ENTRY": "an impact log entry",
     "SUCCESSION_PLAN": "a succession plan",
-    "DAYS_OFF": "a days-off calendar"
+    "DAYS_OFF": "a days-off calendar",
+    "DAYS_OFF_named": "{{person}}'s days-off calendar"
   },
   "shareNounOf": {
     "FEEDBACK": "feedback",
@@ -48,7 +49,8 @@
     "PERFORMANCE_REVIEW": "a performance review",
     "IMPACT_LOG_ENTRY": "an impact log entry",
     "SUCCESSION_PLAN": "a succession plan",
-    "DAYS_OFF": "a days-off calendar"
+    "DAYS_OFF": "a days-off calendar",
+    "DAYS_OFF_named": "{{person}}'s days-off calendar"
   },
   "kind": {
     "paid": "paid, \"{{pool}}\" pool",

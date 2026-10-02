@@ -12,14 +12,39 @@ function LocationProbe() {
   return <div data-testid="location">{location.pathname}</div>;
 }
 
+function SearchProbe() {
+  const location = useLocation();
+  return <div data-testid="search">{location.search}</div>;
+}
+
 type FetchMock = ReturnType<typeof vi.fn>;
 
 const CALENDAR = {
   month: "2026-08",
   holidays: [],
   users: [
-    { userId: 5, userName: "Me Myself", userDeleted: false, teams: [], entries: [] },
-    { userId: 6, userName: "Mate Person", userDeleted: false, teams: [{ id: 1, name: "AAA" }], entries: [] },
+    { userId: 5, userName: "Me Myself", userDeleted: false, teams: [], sharedBy: null, canShareCalendar: false, entries: [] },
+    {
+      userId: 6, userName: "Mate Person", userDeleted: false, teams: [{ id: 1, name: "AAA" }],
+      sharedBy: null, canShareCalendar: false, entries: [],
+    },
+  ],
+};
+
+// What `scope=shared` answers (v4.11.0): the people shared with the caller, each naming the sharer.
+const SHARED_CALENDAR = {
+  month: "2026-08",
+  holidays: [],
+  users: [
+    {
+      userId: 21, userName: "Pat Person", userDeleted: false, teams: [{ id: 3, name: "CCC" }],
+      sharedBy: "Mia Manager", canShareCalendar: false,
+      entries: [{ requestId: 9, date: "2026-08-04", type: "PAID", poolName: null, half: false }],
+    },
+    {
+      userId: 22, userName: "Quinn Person", userDeleted: false, teams: [],
+      sharedBy: "Mia Manager", canShareCalendar: false, entries: [],
+    },
   ],
 };
 
@@ -58,7 +83,9 @@ describe("DaysOff page", () => {
   function setupMocks({
     managed = 0,
     orgTeams = [] as typeof ORG_TEAMS,
-  }: { managed?: number; orgTeams?: typeof ORG_TEAMS } = {}) {
+    calendar = CALENDAR as unknown,
+    sharedCalendar = SHARED_CALENDAR as unknown,
+  }: { managed?: number; orgTeams?: typeof ORG_TEAMS; calendar?: unknown; sharedCalendar?: unknown } = {}) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
       if (u.includes("/api/v1/teams?")) {
@@ -71,7 +98,13 @@ describe("DaysOff page", () => {
         );
       }
       if (u.includes("/api/v1/days-off/calendar")) {
-        return Promise.resolve(jsonResponse(200, CALENDAR));
+        return Promise.resolve(jsonResponse(200, u.includes("scope=shared") ? sharedCalendar : calendar));
+      }
+      if (u.startsWith("/api/v1/shares?")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }));
+      }
+      if (u.startsWith("/api/v1/users?")) {
+        return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }));
       }
       if (u.includes("/api/v1/days-off/budgets")) {
         return Promise.resolve(jsonResponse(200, { items: [BUDGET] }));
@@ -95,14 +128,17 @@ describe("DaysOff page", () => {
     localStorage.clear();
   });
 
-  test("defaults to the calendar tab and hides the team tab and scope picker for non-managers", async () => {
+  test("defaults to the calendar tab and hides the team tab for non-managers, who still get the scope picker (v4.11.0)", async () => {
     setupMocks({ managed: 0 });
     renderDaysOff("/days-off");
 
     expect(await screen.findByRole("table", { name: "Team days-off calendar" })).toBeInTheDocument();
     expect(screen.getByText("Mate Person")).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "My team" })).toBeNull();
-    expect(screen.queryAllByLabelText("Whose calendar")).toHaveLength(0);
+    // "Shared with me" is a scope every caller has, so the picker renders for a non-manager too —
+    // offering only the member scope and the shared one.
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["My teams", "Shared with me"]);
     // The tabs carry the data-tour anchors the guided tour targets for its subsection steps.
     expect(screen.getByRole("tab", { name: "Calendar" })).toHaveAttribute(
       "data-tour",
@@ -141,7 +177,12 @@ describe("DaysOff page", () => {
     await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
     await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
     const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
-    expect(options).toEqual(["My teams", "My direct reports", "All my reports (including indirect)"]);
+    expect(options).toEqual([
+      "My teams",
+      "Shared with me",
+      "My direct reports",
+      "All my reports (including indirect)",
+    ]);
   });
 
   test("choosing the widened calendar scope requests includeIndirect; direct reports doesn't (v3.13.0)", async () => {
@@ -179,15 +220,18 @@ describe("DaysOff page", () => {
     await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
     await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
     const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
-    expect(options).toEqual(["My teams", "All teams (auditor)"]);
+    expect(options).toEqual(["My teams", "Shared with me", "All teams (auditor)"]);
   });
 
-  test("the org calendar scope is not offered to a plain user", async () => {
+  test("neither the org nor a reports calendar scope is offered to a plain user", async () => {
     setupMocks({ managed: 0 });
     renderDaysOff("/days-off");
 
     await screen.findByRole("table", { name: "Team days-off calendar" });
-    expect(screen.queryAllByLabelText("Whose calendar")).toHaveLength(0);
+    await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).not.toContain("All teams (auditor)");
+    expect(options).not.toContain("My direct reports");
   });
 
   test("the org calendar scope is not offered to a non-HR manager", async () => {
@@ -356,6 +400,157 @@ describe("DaysOff page", () => {
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }
+  });
+
+  describe("the Shared with me scope and calendar sharing (v4.11.0)", () => {
+    const calendarUrls = () =>
+      mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/v1/days-off/calendar"));
+
+    test("?scope=shared opens the shared scope: no includeIndirect, 'Shared by' cue, teams, and the stored pick untouched", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=calendar&scope=shared");
+
+      expect(await screen.findByText("Pat Person")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Whose calendar" })).toHaveValue("Shared with me");
+      expect(calendarUrls().every((u) => u.includes("scope=shared") && !u.includes("includeIndirect"))).toBe(true);
+      // Both rows name the sharer; teams show on the shared scope too.
+      expect(screen.getAllByText("Shared by Mia Manager")).toHaveLength(2);
+      expect(screen.getByText("CCC")).toBeInTheDocument();
+      // The deep link is an explicit override — it never rewrites the remembered pick.
+      expect(localStorage.getItem("lettuce.viewSettings.daysOff.calendar.scope")).toBeNull();
+      // Teammate parity: the paid cell says "Paid", never a pool name.
+      expect(screen.getByTitle("Pat Person — 2026-08-04: Paid (1 day)")).toBeInTheDocument();
+    });
+
+    test("?user= highlights and marks that person's row", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=calendar&scope=shared&user=22");
+
+      await screen.findByText("Quinn Person");
+      const current = document.querySelectorAll('[aria-current="true"]');
+      expect(current).toHaveLength(1);
+      expect(current[0]).toHaveTextContent("Quinn Person");
+      expect(screen.getByRole("rowheader", { name: /Pat Person/ })).not.toHaveAttribute("aria-current");
+    });
+
+    test("a malformed ?user= highlights nothing", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=calendar&scope=shared&user=abc");
+      await screen.findByText("Pat Person");
+      expect(document.querySelector('[aria-current="true"]')).toBeNull();
+    });
+
+    test("picking Shared with me sends scope=shared, remembers the pick and drops the deep-link params", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=calendar");
+      await screen.findByRole("table", { name: "Team days-off calendar" });
+
+      await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+      await userEvent.click(screen.getByRole("option", { name: "Shared with me" }));
+
+      expect(await screen.findByText("Pat Person")).toBeInTheDocument();
+      expect(calendarUrls().some((u) => u.includes("scope=shared"))).toBe(true);
+      expect(localStorage.getItem("lettuce.viewSettings.daysOff.calendar.scope")).toBe(JSON.stringify("shared"));
+    });
+
+    test("leaving the shared scope via the Select overrides a ?scope=shared deep link", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=calendar&scope=shared");
+      await screen.findByText("Pat Person");
+
+      await userEvent.click(screen.getAllByLabelText("Whose calendar")[0]);
+      await userEvent.click(screen.getByRole("option", { name: "My teams" }));
+
+      expect(await screen.findByText("Mate Person")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Whose calendar" })).toHaveValue("My teams");
+    });
+
+    test("an empty shared scope says nobody shared a calendar with the caller", async () => {
+      setupMocks({ managed: 0, sharedCalendar: { month: "2026-08", holidays: [], users: [] } });
+      renderDaysOff("/days-off?tab=calendar&scope=shared");
+      expect(await screen.findByText("Nobody has shared their days-off calendar with you.")).toBeInTheDocument();
+      expect(screen.queryByRole("table", { name: "Team days-off calendar" })).toBeNull();
+    });
+
+    test("a ?scope= the caller may not use (reports scope for a non-manager) is ignored", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=calendar&scope=managed");
+      await screen.findByRole("table", { name: "Team days-off calendar" });
+      expect(screen.getByRole("combobox", { name: "Whose calendar" })).toHaveValue("My teams");
+      expect(calendarUrls().every((u) => u.includes("scope=member"))).toBe(true);
+    });
+
+    test("the row Share icon renders exactly on rows the server flags canShareCalendar, naming the person", async () => {
+      setupMocks({
+        managed: 1,
+        calendar: {
+          ...CALENDAR,
+          users: [
+            { ...CALENDAR.users[0], canShareCalendar: true },
+            { ...CALENDAR.users[1], canShareCalendar: false },
+            { userId: 8, userName: "Rae Report", userDeleted: false, teams: [], sharedBy: null, canShareCalendar: true, entries: [] },
+          ],
+        },
+      });
+      renderDaysOff("/days-off?tab=calendar");
+
+      // The caller's own row (userId 5) and a report's row carry it; the teammate row does not.
+      expect(await screen.findByRole("button", { name: "Share my days-off calendar" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Share the days-off calendar of Rae Report" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Share the days-off calendar of Mate Person/ })).toBeNull();
+      expect(screen.getAllByRole("button", { name: /^Share (my|the) days-off calendar/ })).toHaveLength(2);
+      // The icon does not leak into the row header's accessible name (the person's name only).
+      expect(screen.getByRole("rowheader", { name: "Rae Report" })).toBeInTheDocument();
+    });
+
+    test("no Share icon on the shared scope (canShareCalendar is false there)", async () => {
+      setupMocks({ managed: 0 });
+      renderDaysOff("/days-off?tab=calendar&scope=shared");
+      await screen.findByText("Pat Person");
+      expect(screen.queryByRole("button", { name: /^Share (my|the) days-off calendar/ })).toBeNull();
+    });
+
+    test("the row Share icon opens one dialog for the picked person: calendar wording, document view of that person", async () => {
+      setupMocks({
+        managed: 1,
+        calendar: {
+          ...CALENDAR,
+          users: [
+            { userId: 8, userName: "Rae Report", userDeleted: false, teams: [], sharedBy: null, canShareCalendar: true, entries: [] },
+          ],
+        },
+      });
+      renderDaysOff("/days-off?tab=calendar");
+
+      await userEvent.click(await screen.findByRole("button", { name: "Share the days-off calendar of Rae Report" }));
+
+      expect(await screen.findByRole("dialog", { name: "Share this calendar" })).toBeInTheDocument();
+      expect(screen.getByText(/People you share this calendar with can see when this person is off/)).toBeInTheDocument();
+      expect(screen.queryByText("Share this document")).toBeNull();
+      await waitFor(() => {
+        const call = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.startsWith("/api/v1/shares?"));
+        expect(call).toBeDefined();
+        const params = new URL(call!, "http://x").searchParams;
+        expect(params.get("view")).toBe("document");
+        expect(params.get("resourceType")).toBe("DAYS_OFF_CALENDAR");
+        expect(params.get("resourceId")).toBe("8");
+      });
+    });
+
+    test("leaving the Calendar tab drops the calendar deep-link params from the URL", async () => {
+      setupMocks({ managed: 0 });
+      renderWithProviders(
+        <TourContext.Provider value={{ startTour: () => {}, startTutorial: () => {}, launchTutorial: () => {} }}>
+          <DaysOff />
+          <SearchProbe />
+        </TourContext.Provider>,
+        { route: "/days-off?tab=calendar&scope=shared&user=21" },
+      );
+      await screen.findByText("Pat Person");
+
+      await userEvent.click(screen.getByRole("tab", { name: "My days off" }));
+      expect(screen.getByTestId("search")).toHaveTextContent("?tab=requests");
+    });
   });
 
   test("the tutorial launcher starts the days-off tutorial via useTour", async () => {

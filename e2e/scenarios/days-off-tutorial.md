@@ -37,14 +37,15 @@
    - *Expected*: their own days-off total, re-read from the API, is unchanged — nothing was
      recorded or deleted while looking around.
 
-## Scenario: the days-off tutorial shows a non-manager 8 steps without the manager steps
+## Scenario: the days-off tutorial shows a non-manager 9 steps without the manager steps
 
 1. AAA One — a non-manager — signs in; the alert banner is collapsed first. They open the Days
    off page and note their current own days-off total via the API. They click "How days off
    work", then "Next" through every step until "Done".
-   - *Expected*: exactly 8 steps — the four manager-only steps (the calendar scope, My team, the
-     Entries/Budgets toggle, and recording on a report's behalf) are absent, and no step's text
-     mentions "Whose calendar switches", "My team lists", or "on a report's behalf".
+   - *Expected*: exactly 9 steps — the three manager-only steps (My team, the Entries/Budgets
+     toggle, and recording on a report's behalf) are absent, and no step's text mentions "My team
+     lists" or "on a report's behalf". The calendar-scope step ("Whose calendar switches") is
+     present for everyone since v4.11.0 and names the "Shared with me" scope.
 2. The tutorial finishes with "Done".
    - *Expected*: they land back on Days off, on the requests tab (`/days-off?tab=requests`).
    - *Expected*: their own days-off total, re-read from the API, is unchanged.

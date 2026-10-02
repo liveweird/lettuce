@@ -36,6 +36,16 @@ export function isDocumentArea(area: ActivityArea): area is Extract<ShareableRes
   return (SHARE_TYPES as readonly string[]).includes(area);
 }
 
+/**
+ * The document kind a row carries a label/link for: the seven document areas' rows, plus a
+ * days-off CALENDAR share row (v4.11.0 — area DAYS_OFF, eventType SHARE_*; the area's own event
+ * rows are person-scoped and carry no document). Null for every other row.
+ */
+export function activityDocumentKind(entry: ActivityEntry): ShareableResourceType | null {
+  if (isDocumentArea(entry.area)) return entry.area;
+  return entry.area === "DAYS_OFF" && entry.eventType.startsWith("SHARE_") ? "DAYS_OFF_CALENDAR" : null;
+}
+
 // Server values are raw Double strings ("2.0", "1.5"); format per locale, pass anything odd through.
 function num(raw: string | undefined, locale: string): string {
   const parsed = Number(raw);
@@ -65,18 +75,22 @@ function shareSentence(entry: ActivityEntry, c: ActivityContext): string {
   const { t, locale } = c;
   const p = entry.params;
   const area = entry.area as ShareableResourceType;
-  const nounKey = dynamicKey(`activity.shareNoun.${area}`);
-  const nounOfKey = dynamicKey(`activity.shareNounOf.${area}`);
+  // A days-off calendar share names the person whose calendar it is (the stored snapshot's
+  // `person`) — "Shared Pat's days-off calendar with Ben" — falling back to the generic noun.
+  const person = entry.area === "DAYS_OFF" ? entry.details?.person : undefined;
+  const suffix = person != null ? "_named" : "";
+  const nounKey = dynamicKey(`activity.shareNoun.${area}${suffix}`);
+  const nounOfKey = dynamicKey(`activity.shareNounOf.${area}${suffix}`);
   if (entry.eventType === "SHARE_CREATED") {
     return t("activity.event.shareCreated", {
-      noun: t(nounKey),
+      noun: t(nounKey, { person }),
       sharee: p.sharee ?? "",
       date: date(p.expiresOn, locale),
       context: p.expiresOn ? "until" : undefined,
     });
   }
   return t("activity.event.shareWithdrawn", {
-    noun: t(nounOfKey),
+    noun: t(nounOfKey, { person }),
     sharee: p.sharee ?? "",
     sharer: p.sharer ?? "",
     context: p.byAuthor === "true" ? "byAuthor" : undefined,

@@ -14,6 +14,7 @@ import {
 } from "../api/shares";
 import { useAllUsers } from "../hooks/useAllUsers";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";
+import { shareKindContext } from "../utils/shareKinds";
 import { documentSharesKey, invalidateShares } from "../utils/shareQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
@@ -26,7 +27,12 @@ import SharePeoplePicker from "./SharePeoplePicker";
 type Failure = { shareeId: number; name: string; reason: string; retryable: boolean };
 
 /** One create/withdraw failure → a readable reason (the shared saveErrorMessage chain + the 429). */
-function failureReason(err: unknown, t: TFunction, kind: "create" | "withdraw"): string {
+function failureReason(
+  err: unknown,
+  t: TFunction,
+  kind: "create" | "withdraw",
+  context: "calendar" | undefined,
+): string {
   if (err instanceof ApiError && err.status === 429) return t("sharing.error.rateLimited");
   return kind === "create"
     ? saveErrorMessage(err, t, {
@@ -36,13 +42,13 @@ function failureReason(err: unknown, t: TFunction, kind: "create" | "withdraw"):
         invalid: "sharing.error.invalid",
         failedStatus: "sharing.error.failedStatus",
         failed: "sharing.error.failed",
-      })
+      }, context)
     : saveErrorMessage(err, t, {
         forbidden: "sharing.error.withdrawForbidden",
         notFound: "sharing.error.notFound",
         conflict: "sharing.error.withdrawConflict",
         failed: "sharing.error.withdrawFailed",
-      });
+      }, context);
 }
 
 type Docs = { resourceType: ShareableResourceType; resourceId: number };
@@ -82,7 +88,7 @@ function ShareForm({
         failed.push({
           shareeId,
           name: userPool?.find((u) => u.id === shareeId)?.name ?? `#${shareeId}`,
-          reason: failureReason(err, t, "create"),
+          reason: failureReason(err, t, "create", shareKindContext(resourceType)),
           // A duplicate has nothing to retry — the person already holds an active share.
           retryable: !(err instanceof ApiError && err.status === 409),
         });
@@ -94,7 +100,7 @@ function ShareForm({
     setSelected(failed.filter((f) => f.retryable).map((f) => String(f.shareeId)));
     if (failed.length === 0) setUntil("");
     await invalidateShares(queryClient, resourceType, resourceId);
-    if (created > 0) showSuccessToast(t("sharing.toast.shared"));
+    if (created > 0) showSuccessToast(t("sharing.toast.shared", { context: shareKindContext(resourceType) }));
   }
 
   return (
@@ -158,7 +164,7 @@ function CurrentShares({
       await withdrawShare(target.id);
       showSuccessToast(t("sharing.toast.withdrawn"));
     } catch (err) {
-      setWithdrawError(failureReason(err, t, "withdraw"));
+      setWithdrawError(failureReason(err, t, "withdraw", shareKindContext(resourceType)));
     } finally {
       // Also after a failure: a 409/404/403 means the list was stale (already withdrawn, gone).
       await invalidateShares(queryClient, resourceType, resourceId);
@@ -226,7 +232,7 @@ function CurrentShares({
         opened={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         title={t("sharing.withdrawTitle")}
-        message={t("sharing.withdrawBody", { name: target?.shareeName ?? "" })}
+        message={t("sharing.withdrawBody", { name: target?.shareeName ?? "", context: shareKindContext(resourceType) })}
         cancelLabel={t("common.action.cancel")}
         confirmLabel={t("sharing.withdraw")}
         loading={withdrawing}
@@ -256,7 +262,7 @@ function ShareDialogBody({ resourceType, resourceId }: Docs) {
   return (
     <Stack gap="md">
       <Text size="sm" c="dimmed">
-        {t("sharing.intro")}
+        {t("sharing.intro", { context: shareKindContext(resourceType) })}
       </Text>
       <ShareForm resourceType={resourceType} resourceId={resourceId} excludedIds={excludedIds} />
       <Divider />
@@ -284,7 +290,7 @@ export default function ShareDialog({
 }: Docs & { opened: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   return (
-    <Modal opened={opened} onClose={onClose} title={t("sharing.dialogTitle")} size="lg" centered>
+    <Modal opened={opened} onClose={onClose} title={t("sharing.dialogTitle", { context: shareKindContext(resourceType) })} size="lg" centered>
       <ShareDialogBody resourceType={resourceType} resourceId={resourceId} />
     </Modal>
   );

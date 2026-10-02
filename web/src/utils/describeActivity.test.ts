@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import type { TFunction } from "i18next";
 import i18n from "../i18n";
 import type { ActivityArea, ActivityEntry } from "../api/activity";
-import { describeActivity, isDocumentArea, type ActivityContext } from "./describeActivity";
+import { activityDocumentKind, describeActivity, isDocumentArea, type ActivityContext } from "./describeActivity";
 
 const entry = (
   area: ActivityArea,
@@ -137,6 +137,13 @@ for (const area of SHARE_AREAS) {
   CASES.push([area, "SHARE_WITHDRAWN", { sharee: "Ben Bystander", byAuthor: "true", sharer: "Sue Sharer" }]);
 }
 
+// The days-off area also carries calendar SHARE rows (v4.11.0) — a different row kind from its
+// person-scoped event rows, worded with the generic noun when the snapshot is missing.
+CASES.push(["DAYS_OFF", "SHARE_CREATED", { sharee: "Ben Bystander" }]);
+CASES.push(["DAYS_OFF", "SHARE_CREATED", { sharee: "Ben Bystander", expiresOn: "2026-12-31" }]);
+CASES.push(["DAYS_OFF", "SHARE_WITHDRAWN", { sharee: "Ben Bystander" }]);
+CASES.push(["DAYS_OFF", "SHARE_WITHDRAWN", { sharee: "Ben Bystander", byAuthor: "true", sharer: "Sue Sharer" }]);
+
 describe("describeActivity", () => {
   afterEach(async () => {
     await i18n.changeLanguage("en");
@@ -208,6 +215,47 @@ describe("describeActivity", () => {
     expect(describeActivity(entry("PERFORMANCE_REVIEW", "SHARE_WITHDRAWN", { sharee: "Ben" }), pl)).toBe(
       "Wycofał/a udostępnienie oceny okresowej osobie Ben",
     );
+  });
+
+  test("a days-off calendar share names the person from the stored snapshot, falling back to the generic noun (v4.11.0)", () => {
+    const en = ctxFor("en");
+    const pl = ctxFor("pl");
+    const details = { person: "Pat Person" };
+    expect(describeActivity(entry("DAYS_OFF", "SHARE_CREATED", { sharee: "Ben" }, { details }), en)).toBe(
+      "Shared Pat Person's days-off calendar with Ben",
+    );
+    expect(
+      describeActivity(entry("DAYS_OFF", "SHARE_CREATED", { sharee: "Ben", expiresOn: "2026-12-31" }, { details }), en),
+    ).toBe("Shared Pat Person's days-off calendar with Ben until Dec 31, 2026");
+    expect(describeActivity(entry("DAYS_OFF", "SHARE_WITHDRAWN", { sharee: "Ben" }, { details }), en)).toBe(
+      "Withdrew the share of Pat Person's days-off calendar with Ben",
+    );
+    expect(
+      describeActivity(
+        entry("DAYS_OFF", "SHARE_WITHDRAWN", { sharee: "Ben", byAuthor: "true", sharer: "Sue" }, { details }),
+        en,
+      ),
+    ).toBe("Withdrew Sue's share of Pat Person's days-off calendar with Ben");
+    // No snapshot: the generic noun, never a half-filled "{{person}}".
+    expect(describeActivity(entry("DAYS_OFF", "SHARE_CREATED", { sharee: "Ben" }), en)).toBe(
+      "Shared a days-off calendar with Ben",
+    );
+    // Polish: accusative on create, genitive on withdrawal.
+    expect(describeActivity(entry("DAYS_OFF", "SHARE_CREATED", { sharee: "Ben" }, { details }), pl)).toBe(
+      "Udostępnił/a kalendarz dni wolnych osoby Pat Person osobie Ben",
+    );
+    expect(describeActivity(entry("DAYS_OFF", "SHARE_WITHDRAWN", { sharee: "Ben" }, { details }), pl)).toBe(
+      "Wycofał/a udostępnienie kalendarza dni wolnych osoby Pat Person osobie Ben",
+    );
+  });
+
+  test("activityDocumentKind: the seven document areas, plus a days-off SHARE row — never the area's event rows", () => {
+    expect(activityDocumentKind(entry("GOAL", "PROGRESS_UPDATED"))).toBe("GOAL");
+    expect(activityDocumentKind(entry("DAYS_OFF", "SHARE_CREATED"))).toBe("DAYS_OFF_CALENDAR");
+    expect(activityDocumentKind(entry("DAYS_OFF", "SHARE_WITHDRAWN"))).toBe("DAYS_OFF_CALENDAR");
+    expect(activityDocumentKind(entry("DAYS_OFF", "ENTRY_RECORDED"))).toBeNull();
+    expect(activityDocumentKind(entry("CAREER_POSITION", "POSITION_CREATED"))).toBeNull();
+    expect(activityDocumentKind(entry("ACCOUNT", "SIGNED_IN"))).toBeNull();
   });
 
   test("days-off sentences carry the frozen pool name, dates and signed corrections", () => {

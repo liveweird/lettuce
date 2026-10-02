@@ -140,6 +140,45 @@ describe("ActivityLog page", () => {
     expect(screen.getAllByText("No longer available")).toHaveLength(1);
   });
 
+  test("a days-off calendar share row names the person, links to their details page (own calendar: own days off), and the area's event rows stay unlabelled (v4.11.0)", async () => {
+    mockApi({
+      items: [
+        row("DAYS_OFF:SHARE:11", "DAYS_OFF", "SHARE_CREATED", { sharee: "Ben Bystander", expiresOn: "2026-12-31" }, {
+          documentId: 21,
+          link: "/days-off?tab=calendar&scope=shared&user=21",
+          details: { person: "Pat Person" },
+        }),
+        row("DAYS_OFF:SHARE_WITHDRAWAL:12", "DAYS_OFF", "SHARE_WITHDRAWN", { sharee: "Cy Sharee" }, {
+          documentId: 7,
+          link: "/days-off?tab=calendar&scope=shared&user=7",
+          details: { person: "Me" },
+        }),
+        row("DAYS_OFF:EVENT:4", "DAYS_OFF", "ENTRY_RECORDED", {
+          type: "UNPAID", startDate: "2026-08-03", endDate: "2026-08-07", days: "5.0", onBehalf: "false",
+        }),
+      ],
+    });
+    renderPage();
+
+    expect(
+      await screen.findByText("Shared Pat Person's days-off calendar with Ben Bystander until Dec 31, 2026"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Withdrew the share of Me's days-off calendar with Cy Sharee")).toBeInTheDocument();
+    const back = encodeURIComponent("/activity");
+    // The label is the snapshot's; the link opens the person, never the sharee's "Shared with me" scope.
+    expect(screen.getByRole("link", { name: "Days-off calendar of Pat Person" })).toHaveAttribute(
+      "href",
+      `/users/21/details?name=Pat+Person&back=${back}`,
+    );
+    expect(screen.getByRole("link", { name: "Days-off calendar of Me" })).toHaveAttribute(
+      "href",
+      `/days-off?tab=calendar&back=${back}`,
+    );
+    // The ordinary days-off event row carries no document label or link.
+    expect(screen.getAllByRole("link")).toHaveLength(2);
+    expect(screen.queryByText("No longer available")).toBeNull();
+  });
+
   test("person-scoped rows name the person concerned when it is not the log's owner (career links to their career page)", async () => {
     mockApi();
     renderPage();

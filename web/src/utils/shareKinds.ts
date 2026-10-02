@@ -2,6 +2,8 @@ import type { TFunction } from "i18next";
 import type { Feature } from "../api/session";
 import type { ShareableResourceType, ShareResponse } from "../api/shares";
 import { formatIsoDate, formatIsoDateRange, formatMonthRange } from "./datetime";
+import { daysOffListLink } from "./daysOffLinks";
+import { userDetailsLink } from "./userLinks";
 
 /** The eight shareable kinds (v4.11.0 added the days-off calendar), in the order the type filter lists them. */
 export const SHARE_TYPES: readonly ShareableResourceType[] = [
@@ -89,4 +91,39 @@ export function documentLabel(
 /** The localized document label of a share row — the server sends facts, never text. */
 export function shareDocumentLabel(share: ShareResponse, t: TFunction, locale: string): string {
   return documentLabel(share.resourceType, share.details, t, locale);
+}
+
+/**
+ * The i18next context that words the sharing dialog and the withdraw confirm for the kind: a
+ * days-off calendar (v4.11.0) says "calendar" instead of the generic "document"; every other kind
+ * reads the base keys.
+ */
+export function shareKindContext(resourceType: ShareableResourceType): "calendar" | undefined {
+  return resourceType === "DAYS_OFF_CALENDAR" ? "calendar" : undefined;
+}
+
+/** The facts of a share (or an activity share row) the Open target is derived from. */
+type ShareOpenTarget = {
+  resourceType: ShareableResourceType;
+  resourceId: number;
+  /** The server-derived path — the SHAREE's destination. */
+  link: string;
+  details?: Record<string, string> | null;
+  /** Absent on an activity row (the log never names the sharee's id). */
+  shareeId?: number | null;
+};
+
+/**
+ * Where a share's Open action goes for THIS viewer. The server's `link` is the sharee's
+ * destination — for every kind but a days-off calendar that is also the right target for the
+ * sharer, the author and the HR auditor. A calendar's link is the sharee's "Shared with me" scope,
+ * which holds nothing for them (the scope lists calendars shared WITH the viewer), so a viewer
+ * who is not the sharee is sent to the person's details page instead (every authenticated user
+ * may open it, and it carries the manager/HR days-off drill-down) — or, when the calendar is the
+ * viewer's own, to the Calendar tab of their own days off. The caller appends `back=` (`shareOpenLink`).
+ */
+export function shareOpenPath(target: ShareOpenTarget, viewerId: number | null): string {
+  if (target.resourceType !== "DAYS_OFF_CALENDAR" || target.shareeId === viewerId) return target.link;
+  if (target.resourceId === viewerId) return daysOffListLink("calendar");
+  return userDetailsLink(target.resourceId, target.details?.person);
 }

@@ -70,15 +70,17 @@ export async function deleteDaysOff(id: number): Promise<void> {
 
 export type DaysOffCalendarResponse =
   paths["/api/v1/days-off/calendar"]["get"]["responses"]["200"]["content"]["application/json"];
-type DaysOffCalendarUser = DaysOffCalendarResponse["users"][number];
+export type DaysOffCalendarUser = DaysOffCalendarResponse["users"][number];
 export type DaysOffCalendarEntry = DaysOffCalendarUser["entries"][number];
-export type DaysOffCalendarScope = "member" | "managed" | "org";
+export type DaysOffCalendarScope = "member" | "managed" | "org" | "shared";
 
 /** The month's leave-planner payload (unpaged): the scope's users with their marked days
  * plus the month's public holidays. `includeIndirect` (v3.13.0) widens `scope=managed` from
  * direct reports to the caller's whole transitive management chain — omit-when-false, invalid
  * with `scope=member`. `scope=org` (v3.25.0) is the HR auditor's org-wide scope — `teamId`
- * narrows it to one team, sent only with that scope. */
+ * narrows it to one team, sent only with that scope. `scope=shared` (v4.11.0, "Shared with me") lists
+ * the people whose calendar was shared with the caller — no parameters of its own, rows carry
+ * `sharedBy`. */
 export async function getDaysOffCalendar(
   month: string,
   scope: DaysOffCalendarScope,

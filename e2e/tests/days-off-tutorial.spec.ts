@@ -84,7 +84,7 @@ test("the days-off tutorial walks a manager through 12 read-only steps and retur
   expect(await ownDaysOffTotal(page, request)).toBe(ownBefore);
 });
 
-test("the days-off tutorial shows a non-manager 8 steps without the manager steps", async ({ page, request }) => {
+test("the days-off tutorial shows a non-manager 9 steps without the manager steps", async ({ page, request }) => {
   await login(page, AAA_ONE);
   await collapseAlertsBanner(page);
   await page.goto("/days-off");
@@ -93,9 +93,11 @@ test("the days-off tutorial shows a non-manager 8 steps without the manager step
 
   const seen = await walkTutorial(page);
 
-  expect(seen).toHaveLength(8);
+  expect(seen).toHaveLength(9);
+  // The calendar-scope step is for everyone since v4.11.0 ("Shared with me" is a scope every
+  // caller has) — it names that scope.
+  expect(seen.some((text) => text.includes("Whose calendar switches") && text.includes("Shared with me"))).toBe(true);
   for (const text of seen) {
-    expect(text).not.toContain("Whose calendar switches");
     expect(text).not.toContain("My team lists");
     expect(text).not.toContain("on a report's behalf");
   }

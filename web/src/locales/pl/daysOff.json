@@ -82,6 +82,7 @@
     "nextMonth": "Następny miesiąc",
     "scope": "Czyj kalendarz",
     "scope_member": "Moje zespoły",
+    "scope_shared": "Udostępnione mi",
     "scope_managed": "Moi bezpośredni podwładni",
     "scope_managedAll": "Wszyscy moi podwładni (także pośredni)",
     "scope_org": "Wszystkie zespoły (audytor)",
@@ -90,6 +91,9 @@
     "loadError": "Nie udało się wczytać kalendarza",
     "empty": "Nie ma kogo pokazać — nie należysz do żadnego zespołu.",
     "emptyOrg": "Nikt nie ma wolnego w tym miesiącu.",
+    "emptyShared": "Nikt nie udostępnił Ci żadnego kalendarza dni wolnych.",
+    "shareAria": "Udostępnij kalendarz dni wolnych osoby {{name}}",
+    "shareOwnAria": "Udostępnij mój kalendarz dni wolnych",
     "legendWeekend": "Weekend",
     "legendHoliday": "Święto",
     "today": "Dzisiaj"
