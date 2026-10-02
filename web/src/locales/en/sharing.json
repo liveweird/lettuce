@@ -124,5 +124,37 @@
       "failedStatus": "Sharing failed (HTTP {{status}})."
     },
     "backToForm": "Change and try again"
+  },
+  "massShare": {
+    "meta": {
+      "selected": "Selected",
+      "shareable": "Shareable",
+      "people": "People"
+    },
+    "peopleOf": "{{count}} of {{total}}",
+    "you": "You",
+    "searchLabel": "Search people",
+    "searchClear": "Clear the search",
+    "selectAllMatching": "Select all matching ({{count}})",
+    "clearSelection": "Clear selection",
+    "shareN_one": "Share {{count}} review…",
+    "shareN_other": "Share {{count}} reviews…",
+    "hiddenSelected_one": "{{count}} selected person is hidden by the current filters.",
+    "hiddenSelected_other": "{{count}} selected people are hidden by the current filters.",
+    "col": {
+      "managers": "Direct manager"
+    },
+    "selectAllOnPage": "Select all on this page",
+    "selectAria": "Select {{name}}",
+    "unavailableAria": "{{name}} can't be selected: {{reason}}",
+    "empty": "No people match the filters.",
+    "noReports": "Nobody is in your reporting line, so there is nothing to share.",
+    "loadError": "Couldn't load the people in your reporting line.",
+    "rowsPerPage": "People per page",
+    "facet": {
+      "teams": "Teams",
+      "manager": "Direct manager and everyone under them",
+      "managerHint": "Keeps everyone below the chosen manager, at any level, but not the manager themselves."
+    }
   }
 }

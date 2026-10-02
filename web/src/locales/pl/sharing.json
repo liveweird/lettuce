@@ -132,5 +132,41 @@
       "failedStatus": "Nie udało się udostępnić (HTTP {{status}})."
     },
     "backToForm": "Zmień i spróbuj ponownie"
+  },
+  "massShare": {
+    "meta": {
+      "selected": "Zaznaczone",
+      "shareable": "Do udostępnienia",
+      "people": "Osoby"
+    },
+    "peopleOf": "{{count}} z {{total}}",
+    "you": "Ty",
+    "searchLabel": "Szukaj osób",
+    "searchClear": "Wyczyść wyszukiwanie",
+    "selectAllMatching": "Zaznacz wszystkie pasujące ({{count}})",
+    "clearSelection": "Wyczyść zaznaczenie",
+    "shareN_one": "Udostępnij {{count}} ocenę…",
+    "shareN_few": "Udostępnij {{count}} oceny…",
+    "shareN_many": "Udostępnij {{count}} ocen…",
+    "shareN_other": "Udostępnij {{count}} oceny…",
+    "hiddenSelected_one": "Bieżące filtry ukrywają {{count}} zaznaczoną osobę.",
+    "hiddenSelected_few": "Bieżące filtry ukrywają {{count}} zaznaczone osoby.",
+    "hiddenSelected_many": "Bieżące filtry ukrywają {{count}} zaznaczonych osób.",
+    "hiddenSelected_other": "Bieżące filtry ukrywają {{count}} zaznaczonej osoby.",
+    "col": {
+      "managers": "Bezpośredni/a przełożony/a"
+    },
+    "selectAllOnPage": "Zaznacz wszystkich na tej stronie",
+    "selectAria": "Zaznacz: {{name}}",
+    "unavailableAria": "Nie można zaznaczyć: {{name}} — {{reason}}",
+    "empty": "Żadna osoba nie pasuje do filtrów.",
+    "noReports": "W Twojej linii raportowania nikogo nie ma, więc nie ma czego udostępniać.",
+    "loadError": "Nie udało się wczytać osób z Twojej linii raportowania.",
+    "rowsPerPage": "Osób na stronę",
+    "facet": {
+      "teams": "Zespoły",
+      "manager": "Bezpośredni/a przełożony/a i wszyscy pod nim/nią",
+      "managerHint": "Zostawia wszystkie osoby podlegające wybranej osobie przełożonej, na każdym poziomie, ale bez niej samej."
+    }
   }
 }

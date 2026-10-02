@@ -176,43 +176,15 @@
     "button": "Share reviews…",
     "title": "Share performance reviews",
     "description": "Pick people from your reporting line and share their reviews for one period with others, in one go. You can share only reviews you can open yourself.",
-    "meta": {
-      "selected": "Selected",
-      "shareable": "Shareable",
-      "people": "People"
-    },
-    "peopleOf": "{{count}} of {{total}}",
-    "you": "You",
-    "searchLabel": "Search people",
-    "searchClear": "Clear the search",
     "facet": {
-      "teams": "Teams",
-      "manager": "Direct manager and everyone under them",
-      "managerHint": "Keeps everyone below the chosen manager, at any level, but not the manager themselves.",
       "status": "Review status",
       "minOverall": "Overall rating at least"
     },
     "statusNoReview": "No review",
-    "selectAllMatching": "Select all matching ({{count}})",
-    "clearSelection": "Clear selection",
-    "shareN_one": "Share {{count}} review…",
-    "shareN_other": "Share {{count}} reviews…",
-    "hiddenSelected_one": "{{count}} selected person is hidden by the current filters.",
-    "hiddenSelected_other": "{{count}} selected people are hidden by the current filters.",
-    "col": {
-      "managers": "Direct manager"
-    },
-    "selectAllOnPage": "Select all on this page",
-    "selectAria": "Select {{name}}",
-    "unavailableAria": "{{name}} can't be selected: {{reason}}",
     "reason": {
       "noReview": "No review in this period",
       "draftBy": "Draft by {{name}}"
     },
-    "empty": "No people match the filters.",
-    "noReports": "Nobody is in your reporting line, so there is nothing to share.",
-    "loadError": "Couldn't load the people in your reporting line.",
-    "rowsPerPage": "People per page",
     "backLabel": "Team's performance"
   }
 }

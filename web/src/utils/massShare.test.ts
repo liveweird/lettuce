@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { ShareCandidate } from "../api/reviews";
 import type { ShareBatchItem } from "../api/shares";
 import {
-  buildMassShareRows,
+  buildReviewShareRows,
   deselectMatching,
   EMPTY_MASS_SHARE_FILTERS,
   filterMassShareRows,
@@ -14,7 +14,7 @@ import {
   retainUnsettled,
   rowStatus,
   selectAllMatching,
-  selectedReviewIds,
+  selectedResourceIds,
   submittableRows,
   sortMassShareRows,
   subtreeUserIds,
@@ -92,7 +92,7 @@ const mgr = (id: number, name: string) => ({ id, name });
 // Caller (id 1) manages Mia (2, team Alpha); Mia manages Ned (3) and Oz (4); Ned manages Pam (5).
 // Quinn (6) reports to a dotted-line outsider Rex (90) and to the caller.
 function dataset(): MassShareRow[] {
-  return buildMassShareRows(
+  return buildReviewShareRows(
     [
       cand(5, "Pam Pine", { teams: [{ id: 2, name: "Beta" }], directManagers: [mgr(3, "Ned Nest")], ...rated(5, 2) }),
       cand(2, "Mia Miller", {
@@ -122,7 +122,7 @@ function dataset(): MassShareRow[] {
   );
 }
 
-const ids = (rows: MassShareRow[]) => rows.map((r) => r.candidate.userId);
+const ids = (rows: MassShareRow[]) => rows.map((r) => r.person.userId);
 const f = (o: Partial<MassShareFilters>): MassShareFilters => ({ ...EMPTY_MASS_SHARE_FILTERS, ...o });
 
 describe("massShare rows", () => {
@@ -137,7 +137,7 @@ describe("massShare rows", () => {
 
   test("rowStatus and reasonKey classify a review, no review and another manager's draft", () => {
     const rows = dataset();
-    const by = (id: number) => rows.find((r) => r.candidate.userId === id)!;
+    const by = (id: number) => rows.find((r) => r.person.userId === id)!;
     expect(rowStatus(by(3))).toBe("CALIBRATION");
     expect(rowStatus(by(4))).toBe("NO_REVIEW");
     expect(rowStatus(by(6))).toBe("DRAFT");
@@ -162,7 +162,7 @@ describe("subtreeUserIds", () => {
   });
 
   test("survives a management cycle without looping and never lists the root", () => {
-    const rows = buildMassShareRows(
+    const rows = buildReviewShareRows(
       [
         cand(2, "A", { directManagers: [mgr(3, "B")] }),
         cand(3, "B", { directManagers: [mgr(2, "A")] }),
@@ -248,7 +248,7 @@ describe("sortMassShareRows", () => {
 
   test("name and team sort per locale in both directions, no team sinks last", () => {
     expect(ids(sortMassShareRows(rows, "name", "desc", "en"))).toEqual([5, 4, 3, 2, 6]);
-    const noTeam = buildMassShareRows([cand(7, "Zed"), cand(8, "Amy", { teams: [{ id: 1, name: "Alpha" }] })], ME, "You");
+    const noTeam = buildReviewShareRows([cand(7, "Zed"), cand(8, "Amy", { teams: [{ id: 1, name: "Alpha" }] })], ME, "You");
     expect(ids(sortMassShareRows(noTeam, "team", "asc"))).toEqual([8, 7]);
     expect(ids(sortMassShareRows(noTeam, "team", "desc"))).toEqual([8, 7]);
   });
@@ -296,15 +296,15 @@ describe("selection helpers", () => {
     expect([...deselectMatching(new Set([2, 3, 5]), filtered)]).toEqual([2]);
   });
 
-  test("selectedReviewIds returns review ids in row order, never for unshareable people", () => {
-    expect(selectedReviewIds(rows, new Set([5, 2, 4, 6]))).toEqual([20, 50]);
+  test("selectedResourceIds returns review ids in row order, never for unshareable people", () => {
+    expect(selectedResourceIds(rows, new Set([5, 2, 4, 6]))).toEqual([20, 50]);
   });
 
-  test("submittableRows are exactly the selected rows selectedReviewIds submits", () => {
+  test("submittableRows are exactly the selected rows selectedResourceIds submits", () => {
     const selected = new Set([5, 2, 4, 6]);
     const submitted = submittableRows(rows, selected);
-    expect(submitted.map((r) => r.candidate.userId)).toEqual([2, 5]);
-    expect(submitted.map((r) => r.candidate.review?.id)).toEqual(selectedReviewIds(rows, selected));
+    expect(submitted.map((r) => r.person.userId)).toEqual([2, 5]);
+    expect(submitted.map((r) => r.resourceId)).toEqual(selectedResourceIds(rows, selected));
     expect(submittableRows(rows, new Set())).toEqual([]);
   });
 
@@ -317,7 +317,7 @@ describe("selection helpers", () => {
       { resourceId: 50, status: "NOT_FOUND" },
     ];
     // Person 2 (review 20) and 3 (review 30) settled; 5 (review 50) failed; none answered for 7.
-    const extra = buildMassShareRows([cand(7, "Unsent")], ME, "You");
+    const extra = buildReviewShareRows([cand(7, "Unsent")], ME, "You");
     const next = retainUnsettled(new Set([2, 3, 5, 7]), [...rows, ...extra], items);
     expect([...next].sort()).toEqual([5, 7]);
   });
