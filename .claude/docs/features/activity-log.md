@@ -2,15 +2,15 @@
 
 A chronological, per-person log of **what that person did** — `GET /api/v1/users/{id}/activity`
 (package `activity/`). Every feature already keeps a per-document history (the seven `*_events`
-tables, one `EventLogTable` shape); nothing answered "what did this person do, in order". This
+tables, one `EventLogTable` shape; V88 adds an eighth, person-keyed one for days-off); nothing answered "what did this person do, in order". This
 doc is the authoritative design; it grows with each step (the last section says what is in force
 and what is still to come).
 
 #### Decisions (user-locked 2026-10-02)
 
 - **Actor only.** A row lives in the log of the person who ACTED — the event tables are
-  actor-attributed. "What happened to me" is the notifications bell, not this log. (A later
-  step's days-off entry a manager records for a report therefore shows in the MANAGER's log.)
+  actor-attributed. "What happened to me" is the notifications bell, not this log. (A days-off entry a manager records
+  for a report therefore shows in the MANAGER's log.)
   System-originated events (`user_id NULL`, V80) are nobody's activity.
 - **Access = self / the HR auditor / a manager in the target's transitive chain** (the chain viewer
   sees only the entries whose document they can read themselves). ADMIN gets nothing special.
@@ -18,8 +18,9 @@ and what is still to come).
 - **HR sees the target's share rows** (the endpoint is `hr.list`-audited and the succession-plan
   precedent already grants HR audit reads).
 - **Forward-only history.** New persisted trails start at their deploy; nothing before it can be
-  reconstructed (the OTel audit stream is not a store). Step 1 needs none — the seven event tables
-  are the history.
+  reconstructed (the OTel audit stream is not a store). Steps 1–3 need none — the seven event tables
+  and `document_shares` are the history; the days-off trail (step 4, V88) is the first new persisted
+  trail.
 
 #### Query architecture — a query-time `UNION ALL`, no table
 
@@ -43,10 +44,10 @@ migration.
   `CREATE VIEW` over the same SELECTs queried through a plain `Table`; nothing above the service
   would change.
 - **One branch.** Exposed has no one-branch set operation, so a lone branch is paired with its own
-  `WHERE FALSE` twin — same rows, one code path. Today every shareable area contributes an event
-  branch plus the two share branches (never fewer than three); the twin guards the day a
-  non-shareable area (days-off, career) is the only source. No source at all (a disabled or
-  not-yet-producing area) answers an empty page without a query.
+  `WHERE FALSE` twin — same rows, one code path. Every shareable area contributes an event branch
+  plus the two share branches (never fewer than three), but the person-scoped DAYS_OFF area is a
+  single branch: `area=DAYS_OFF` exercises the twin today (the viewer's DAYS_OFF flag off, or an
+  area with no branch yet — career, sign-ins — answers an empty page without a query).
 - **V87 indexes.** `(user_id, created_at)` on each of the seven event tables turns every branch
   into one index range scan (`user_id` is nullable since V80 — a NULL actor is never in the
   range), plus the partial `document_shares(withdrawn_by, withdrawn_at)` index for the share-withdrawal
@@ -55,7 +56,8 @@ migration.
 
 #### Entry shape and order
 
-`ActivityEntry { id, createdAt, area, eventType, params, documentId, link, details }` (nullable
+`ActivityEntry { id, createdAt, area, eventType, params, documentId, link, details, subjectUserId,
+subjectUserName }` (the last two name the person a person-scoped row concerned; nullable
 fields are always encoded as explicit nulls).
 
 - **`id` is a synthetic string** `<AREA>:<SOURCE>:<id>` (SOURCE `EVENT`,
@@ -66,8 +68,8 @@ fields are always encoded as explicit nulls).
   tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
   a registered deviation from API-LIST-003 (see the rulebook's known-gaps register).
 - `area` = the seven `ShareableResourceType` names for document rows (so `link` is the sharing
-  adapter's `viewPath`), plus `DAYS_OFF`, `CAREER_POSITION`, `ACCOUNT` — declared up front (the
-  OpenAPI enum is append-only) but producing no rows until their steps.
+  adapter's `viewPath`), plus `DAYS_OFF` (person-scoped, step 4), `CAREER_POSITION`, `ACCOUNT` — declared up
+  front (the OpenAPI enum is append-only); the last two produce no rows until their steps.
 - **`params`** is the event's content-free map, the same one the document's History tab renders
   (localized client-side by dispatching `area` + `eventType` to the existing describers). The goal
   progress comment and every other encrypted column are **never read** by this service — the union
@@ -142,6 +144,25 @@ stored `manager_id` / owner / the KPI team's current manager or the chain above)
 a share. Share-granted reads grant nothing here. `ActivityVisibilityParityTest` checks the author
 predicate against `adapter.isAuthor` (with `read != null`) for every area.
 
+#### Days-off rows (step 4, V88 `days_off_events`)
+
+A PERSON-scoped area: the eighth event table is keyed on the person the action concerns
+(`owner_id`) with the actor in `user_id`, so the union branch filters `user_id = target` like every
+other and the log row lives in the ACTOR's log — a manager recording leave for a report has the row,
+naming the report; an employee's self-create is in their own log. The branch has no parent document:
+the union's `document_id` column carries the concerned person's id, which the entry exposes as
+`subjectUserId` (+ the LIVE name in `subjectUserName`); `documentId`, `link` and `details` are null
+(the frozen facts — dates, type, pool id, days, `onBehalf` — are in the self-describing `params`;
+days-off has no per-entry page). Pool-kind and holiday registry actions (ADMIN) are out of scope.
+
+Visibility: self and HR see every row; a CHAIN viewer sees a row iff the person concerned is the
+viewer or in the viewer's transitive chain (`ActivityVisibility.personScoped`, the owner-in-chain
+rule) — **no status or soft-delete rule**: the trail is a person-scoped record, so a since-deleted
+entry's or correction's events stay listed for the chain (`ENTRY_DELETED` is the point). The days-off
+teammate grant (calendar parity for one entry) is deliberately not consulted. The viewer's DAYS_OFF
+flag gates the area like every other. Parity is pinned by `ActivityVisibilityParityTest` against the
+real chain walk (`isInManagementChain`), since days-off has no sharing adapter to be the oracle.
+
 #### Tests
 
 `ActivityLogTest` (the access matrix, seven areas with labels, deleted/KPI-member
@@ -160,5 +181,5 @@ covered by `EventLogTest`.
 - **Step 2 (in force):** chain-viewer visibility — `ActivityVisibility` as the WHERE of each branch
   (hide, never redact), the chain branch of `requireActivityRead`, `ActivityVisibilityParityTest`.
 - **Step 3 (in force):** share rows (`document_shares` created/withdrawn; HR sees them, chain viewers only
-  for documents they author). **Steps 4–6:** the days-off, career-position and sign-in trails
-  (V88–V90, forward-only). **Steps 7–8:** the SPA page and the release.
+  for documents they author). **Step 4 (in force):** the days-off trail (V88, forward-only; owner-in-chain visibility).
+  **Steps 5–6:** the career-position and sign-in trails (V89–V90, forward-only). **Steps 7–8:** the SPA page and the release.

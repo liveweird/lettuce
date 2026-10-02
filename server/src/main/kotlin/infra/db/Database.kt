@@ -6,6 +6,8 @@ import ch.nokillswit.alerts.AlertService
 import ch.nokillswit.alerts.AlertServiceKey
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.TokenBlocklistServiceKey
+import ch.nokillswit.daysoff.DaysOffEventService
+import ch.nokillswit.daysoff.DaysOffEventServiceKey
 import ch.nokillswit.daysoff.DaysOffService
 import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.daysoff.PublicHolidayService
@@ -262,6 +264,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(PerformanceReviewEventServiceKey, PerformanceReviewEventService(database))
     attributes.put(PublicHolidayServiceKey, PublicHolidayService(database))
     attributes.put(DaysOffServiceKey, DaysOffService(database, attributes[FieldCipherKey]))
+    attributes.put(DaysOffEventServiceKey, DaysOffEventService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(DictionaryServiceKey, DictionaryService(database))
     attributes.put(AppSettingsServiceKey, AppSettingsService(database))
@@ -339,8 +342,9 @@ suspend fun Application.configureDatabase() {
             }
         }
     attributes.put(ShareRegistryKey, shareRegistry)
-    // The per-user activity log (v4.9.0): a query-time UNION over the seven *_events tables; it
-    // needs the share registry only for each document's view path.
+    // The per-user activity log (v4.9.0): a query-time UNION over the *_events tables
+    // (the seven document trails + days-off, wired above) and document_shares; it needs the share
+    // registry only for each document's view path.
     attributes.put(ActivityServiceKey, ActivityService(database, shareRegistry))
     attributes.put(ShareAccessKey, ShareAccess(shareService, userService))
     attributes.put(AlertServiceKey, AlertService(database))

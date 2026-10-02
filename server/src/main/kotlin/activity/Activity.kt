@@ -11,10 +11,10 @@ val ActivityServiceKey = AttributeKey<ActivityService>("ActivityService")
 /**
  * The areas an activity row can belong to (v4.9.0). The seven document areas carry the NAME of
  * their [ShareableResourceType] on purpose, so `area == resourceType` for document rows and the
- * row's `link` comes from the sharing adapter's `viewPath`. [DAYS_OFF], [CAREER_POSITION] and
- * [ACCOUNT] are declared from the start (the OpenAPI enum is append-only — API-EVOL) but produce
- * no row until their steps land: the days-off and career trails (V88/V89) and the sign-in trail
- * (V90).
+ * row's `link` comes from the sharing adapter's `viewPath`. [DAYS_OFF] (V88, person-scoped),
+ * [CAREER_POSITION] and [ACCOUNT] are declared from the start (the OpenAPI enum is append-only —
+ * API-EVOL); [DAYS_OFF] produces rows, the other two none until their trails land (career V89,
+ * sign-ins V90).
  */
 @Serializable
 enum class ActivityArea {
@@ -41,6 +41,16 @@ val ShareableResourceType.activityArea: ActivityArea
         ShareableResourceType.IMPACT_LOG_ENTRY -> ActivityArea.IMPACT_LOG_ENTRY
         ShareableResourceType.SUCCESSION_PLAN -> ActivityArea.SUCCESSION_PLAN
     }
+
+/**
+ * Areas whose events are keyed on a PERSON (the one whose leave/career was touched), not on a
+ * document: the union's `document_id` column then carries that person's id, the entry has no
+ * `documentId`/`link`/`details`, and chain visibility is "the owner is the viewer or in the
+ * viewer's chain" — the trail is a person-scoped record, so a soft-deleted entry's events are
+ * still listed (`ENTRY_DELETED` is the point).
+ */
+val ActivityArea.isPersonScoped: Boolean
+    get() = this == ActivityArea.DAYS_OFF || this == ActivityArea.CAREER_POSITION
 
 /** The sharing type of a document area; null for the person-scoped areas. */
 val ActivityArea.shareType: ShareableResourceType?
@@ -82,7 +92,9 @@ val ActivityArea.feature: Feature?
  * deviation from API-LIST-003, see the known-gaps register).
  *
  * [params] is the content-free map the client localizes: an event row's is the same one the
- * document's own History tab renders; a share row's is `{sharee, expiresOn?}` (+ `byAuthor`,
+ * document's own History tab renders (a person-scoped row's — e.g. DAYS_OFF `ENTRY_RECORDED
+ * {requestId, type, poolTypeId?, startDate, endDate, days, onBehalf}` — is self-describing: the
+ * frozen facts of the action, so such a row needs no `details`); a share row's is `{sharee, expiresOn?}` (+ `byAuthor`,
  * `sharer` on a withdrawal by someone other than the sharer), the names LIVE. [eventType] of a share
  * row is `SHARE_CREATED` / `SHARE_WITHDRAWN`.
  *
@@ -101,11 +113,15 @@ data class ActivityEntry(
     val area: ActivityArea,
     val eventType: String,
     val params: Map<String, String>,
-    // Null for the person-scoped areas (later steps); always encoded (no default — the wire shape
+    // Null for the person-scoped areas (days-off today); always encoded (no default — the wire shape
     // carries explicit nulls like the share list's).
     val documentId: UInt?,
     val link: String?,
     val details: Map<String, String>?,
+    // The person a PERSON-scoped row concerns (days-off today; career positions next) — their id and
+    // LIVE display name; null for document rows. The row itself lives in the ACTOR's log.
+    val subjectUserId: UInt?,
+    val subjectUserName: String?,
 )
 
 typealias ActivityPage = PageResponse<ActivityEntry>

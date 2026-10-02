@@ -3,6 +3,9 @@ package ch.nokillswit
 import ch.nokillswit.activity.ActivityArea
 import ch.nokillswit.activity.ActivityEntry
 import ch.nokillswit.activity.ActivityPage
+import ch.nokillswit.daysoff.DaysOffCreateRequest
+import ch.nokillswit.daysoff.DaysOffResponse
+import ch.nokillswit.daysoff.DaysOffType
 import ch.nokillswit.feedbacks.FeedbackCreateRequest
 import ch.nokillswit.feedbacks.FeedbackEventService.FeedbackEvents
 import ch.nokillswit.feedbacks.FeedbackResponse
@@ -641,6 +644,91 @@ class ActivityLogTest {
         assertTrue(hrRows.items.none { it.area == ActivityArea.GOAL })
         assertEquals(1, hrRows.items.shareRows().size, "only the impact-log share remains")
         assertEquals(0L, noGoals.client.page(w.manager.id, "area=GOAL").total)
+    }
+
+    // ——— days-off rows (person-scoped, V88) ———
+
+    private suspend fun HttpClient.recordLeave(date: String, forUser: UInt? = null): DaysOffResponse =
+        post("/api/v1/days-off") {
+            contentType(ContentType.Application.Json)
+            setBody(DaysOffCreateRequest(DaysOffType.UNPAID, date, date, userId = forUser))
+        }.also { assertEquals(HttpStatusCode.Created, it.status) }.body()
+
+    /** A Monday of 2085 (weekends cost nothing — a zero-cost entry is a 400). */
+    private fun monday(month: Int): String =
+        LocalDate.of(2085, month, 1)
+            .with(java.time.temporal.TemporalAdjusters.firstInMonth(java.time.DayOfWeek.MONDAY))
+            .toString()
+
+    private fun List<ActivityEntry>.leaveRows() = filter { it.area == ActivityArea.DAYS_OFF }
+
+    @Test
+    fun `a manager recording leave for a report has the row in the MANAGER's log, naming the report`() = testApplication {
+        usePostgresTestcontainer()
+        val w = world()
+        val entry = w.manager.client.recordLeave(monday(3), forUser = w.employee.id)
+        val own = w.employee.client.recordLeave(monday(4))
+
+        val managerRows = w.manager.client.page(w.manager.id, "area=DAYS_OFF&pageSize=100").items
+        val row = managerRows.single()
+        assertEquals("ENTRY_RECORDED", row.eventType)
+        assertEquals(w.employee.id, row.subjectUserId)
+        assertEquals(w.employee.name, row.subjectUserName)
+        assertEquals("true", row.params["onBehalf"])
+        assertEquals(entry.id.toString(), row.params["requestId"])
+        assertEquals(monday(3), row.params["startDate"])
+        // Person-scoped: no document, link or label — the params are self-describing.
+        assertNull(row.documentId)
+        assertNull(row.link)
+        assertNull(row.details)
+        // The employee's own log holds only their self-create (the actor's record), flagged not on behalf.
+        val employeeRow = w.employee.client.page(w.employee.id, "area=DAYS_OFF").items.single()
+        assertEquals("false", employeeRow.params["onBehalf"])
+        assertEquals(own.id.toString(), employeeRow.params["requestId"])
+        assertEquals(w.employee.id, employeeRow.subjectUserId)
+        // The skip-level manager sees the manager's recording: its owner is in GM's chain.
+        assertEquals(1, w.grand.client.page(w.manager.id, "area=DAYS_OFF").items.size)
+        assertTotalOrder(w.manager.client.page(w.manager.id, "pageSize=100").items)
+        // HR sees it too (and the pager totals agree).
+        val hr = person("hr", roles = setOf(UserRole.HR))
+        assertEquals(1L, hr.client.page(w.manager.id, "area=DAYS_OFF").total)
+    }
+
+    @Test
+    fun `a chain viewer sees leave rows only for owners in their chain, soft-deleted entries included`() = testApplication {
+        usePostgresTestcontainer()
+        val w = world()
+        val gone = person("moved")
+        val squad2 = TestServices.teams.create(Team("Squad2-${w.manager.id}", w.manager.id, listOf(gone.id)))
+        val goneEntry = w.manager.client.recordLeave(monday(5), forUser = gone.id)
+        val kept = w.manager.client.recordLeave(monday(6), forUser = w.employee.id)
+        // A deleted entry's events stay listed — the deletion is the point.
+        assertEquals(HttpStatusCode.NoContent, w.manager.client.delete("/api/v1/days-off/${goneEntry.id}").status)
+        assertEquals(HttpStatusCode.NoContent, w.manager.client.delete("/api/v1/days-off/${kept.id}").status)
+        val afterDelete = w.grand.client.page(w.manager.id, "area=DAYS_OFF&pageSize=100").items
+        assertEquals(4, afterDelete.size)
+        assertEquals(setOf("ENTRY_RECORDED", "ENTRY_DELETED"), afterDelete.map { it.eventType }.toSet())
+        assertTotalOrder(afterDelete)
+
+        // The first entry's owner leaves M's team (and so GM's subtree): GM no longer sees that person's
+        // rows; M (self mode) still sees every one.
+        TestServices.teams.delete(squad2)
+        val viaGrand = w.grand.client.page(w.manager.id, "area=DAYS_OFF&pageSize=100")
+        assertEquals(2L, viaGrand.total)
+        assertEquals(setOf(w.employee.id), viaGrand.items.map { it.subjectUserId }.toSet())
+        assertEquals(4L, w.manager.client.page(w.manager.id, "area=DAYS_OFF").total)
+    }
+
+    @Test
+    fun `a viewer with DAYS_OFF disabled sees no leave rows and a pinned DAYS_OFF area is an empty page`() = testApplication {
+        usePostgresTestcontainer()
+        val w = world()
+        w.manager.client.recordLeave(monday(8), forUser = w.employee.id)
+        val hr = person("hr", roles = setOf(UserRole.HR), disabled = setOf(Feature.DAYS_OFF))
+        val page = hr.client.page(w.manager.id, "pageSize=100")
+        assertTrue(page.items.leaveRows().isEmpty())
+        assertEquals(0L, hr.client.page(w.manager.id, "area=DAYS_OFF").total)
+        assertTrue(hr.client.page(w.manager.id, "area=DAYS_OFF").items.isEmpty())
     }
 
     @Test

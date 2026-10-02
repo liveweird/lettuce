@@ -1,5 +1,6 @@
 package ch.nokillswit.activity
 
+import ch.nokillswit.daysoff.DaysOffEventService.DaysOffEvents
 import ch.nokillswit.feedbacks.FeedbackEventService.FeedbackEvents
 import ch.nokillswit.feedbacks.FeedbackService.FeedbackSubjects
 import ch.nokillswit.feedbacks.FeedbackService.Feedbacks
@@ -92,8 +93,10 @@ private val partnerLabelUsers = Users.alias("act_user_b")
  * document table the chain-mode predicate reads (team KPIs additionally join `teams`: the KPI's
  * current manager is `teams.manager_id`, never stored on the KPI).
  */
-private class EventSource(val area: ActivityArea, val table: EventLogTable, val parent: IdTable<UInt>) {
+private class EventSource(val area: ActivityArea, val table: EventLogTable, val parent: IdTable<UInt>?) {
+    /** The table joined to its parent document — only for document areas (a person-scoped one has none). */
     fun joinedToParent(): ColumnSet {
+        val parent = checkNotNull(parent) { "$area is person-scoped: no parent document" }
         val withParent = table.join(parent, JoinType.INNER, onColumn = table.ownerId, otherColumn = parent.id)
         return if (area == ActivityArea.TEAM_KPI) {
             withParent.join(Teams, JoinType.INNER, onColumn = TeamKpis.teamId, otherColumn = Teams.id)
@@ -106,7 +109,7 @@ private class EventSource(val area: ActivityArea, val table: EventLogTable, val 
 /** The chain viewer's own-right filter: [viewer] and their transitive subordinates ([chain]). */
 private class ChainFilter(val viewer: UInt, val chain: Set<UInt>)
 
-/** The seven document event trails — the rows of this step. Order is irrelevant (the union is sorted). */
+/** The event trails feeding the union: the seven document ones plus the person-keyed days-off one. */
 private val EVENT_SOURCES = listOf(
     EventSource(ActivityArea.FEEDBACK, FeedbackEvents, Feedbacks),
     EventSource(ActivityArea.ONE_ON_ONE, OneOnOneEvents, Meetings),
@@ -115,6 +118,8 @@ private val EVENT_SOURCES = listOf(
     EventSource(ActivityArea.PERFORMANCE_REVIEW, ReviewEvents, Reviews),
     EventSource(ActivityArea.IMPACT_LOG_ENTRY, ImpactLogEvents, Entries),
     EventSource(ActivityArea.SUCCESSION_PLAN, SuccessionPlanEvents, Plans),
+    // Person-scoped (V88): owner_id is the person concerned, there is no parent document.
+    EventSource(ActivityArea.DAYS_OFF, DaysOffEvents, parent = null),
 )
 
 /** How the hydration phase decides `readable` for a document. */
@@ -149,8 +154,9 @@ private class UnionRow(
 
 /**
  * The per-user activity log (v4.9.0): a chronological "what did this person do" read model built
- * at QUERY TIME as a `UNION ALL` over the seven per-document `*_events` tables (one branch each) and
- * the two `document_shares` sources (shares the person created / withdrew), filtered on the ACTING
+ * at QUERY TIME as a `UNION ALL` over the seven per-document `*_events` tables and the person-keyed
+ * `days_off_events` (one branch each) and the two `document_shares` sources (shares the person
+ * created / withdrew), filtered on the ACTING
  * user — no new table, no dual write, nothing to drift (`.claude/docs/features/activity-log.md`).
  *
  * Two phases inside ONE transaction (so `total` and the rows agree — API-LIST-002): the ordered,
@@ -241,7 +247,7 @@ class ActivityService(
         matching: Boolean = true,
     ): Query {
         val table = source.table
-        val from: ColumnSet = if (chainFilter == null) table else source.joinedToParent()
+        val from: ColumnSet = if (chainFilter == null || source.parent == null) table else source.joinedToParent()
         return from.select(
             stringLiteral(source.area.name).alias("area"),
             stringLiteral(SOURCE_EVENT).alias("source"),
@@ -255,7 +261,11 @@ class ActivityService(
             filter.createdAtGte?.let { op = op and (table.timestamp greaterEq it) }
             filter.createdAtLte?.let { op = op and (table.timestamp lessEq it) }
             if (chainFilter != null) {
-                op = op and ActivityVisibility.readable(source.area, chainFilter.viewer, chainFilter.chain)
+                op = op and if (source.parent == null) {
+                    ActivityVisibility.personScoped(table.ownerId, chainFilter.viewer, chainFilter.chain)
+                } else {
+                    ActivityVisibility.readable(source.area, chainFilter.viewer, chainFilter.chain)
+                }
             }
             op
         }
@@ -305,9 +315,9 @@ class ActivityService(
     /**
      * Left-folds the branches into one `UNION ALL`. Exposed has no one-branch set operation, so a
      * lone branch is paired with its own contradiction (`WHERE FALSE`): the same rows, one code
-     * path. Today every shareable area contributes an event branch plus the two share branches
-     * (never fewer than three), so this guards the day a non-shareable area (days-off, career) can
-     * be the ONLY source — `area=DAYS_OFF`.
+     * path. Every shareable area contributes an event branch plus the two share branches (never
+     * fewer than three), but the person-scoped DAYS_OFF area is ONE branch — `area=DAYS_OFF` takes
+     * this path today.
      */
     private fun unionOf(specs: List<(Boolean) -> Query>): SetOperation {
         val branches = specs.map { it(true) } + if (specs.size == 1) listOf(specs.first()(false)) else emptyList()
@@ -357,13 +367,17 @@ class ActivityService(
             ActivityScope.OWN_RIGHT -> Readability.OwnRight(viewer.userId, transitiveSubordinateIds(viewer.userId))
         }
         val (shareRows, eventRows) = rows.partition { it.source != SOURCE_EVENT }
-        val facts = eventRows.groupBy({ it.area }, { it.documentId }).mapValues { (area, ids) ->
+        // Person-scoped event rows carry the concerned person's id in `documentId`.
+        val (personRows, documentRows) = eventRows.partition { it.area.isPersonScoped }
+        val persons = personNames(personRows.map { it.documentId }.toSet())
+        val facts = documentRows.groupBy({ it.area }, { it.documentId }).mapValues { (area, ids) ->
             factsFor(area, ids.toSet(), readability)
         }
         val shares = shareFacts(shareRows.map { it.eventId }.toSet())
         return rows.map { row ->
             // (Event ids and share ids are separate sequences — only a SHARE row may take this branch.)
             if (row.source != SOURCE_EVENT) shares[row.eventId]?.let { return@map shareEntry(row, it) }
+            if (row.area.isPersonScoped) return@map personEntry(row, persons[row.documentId])
             val fact = facts[row.area]?.get(row.documentId)
             val visible = fact?.readable ?: (readability is Readability.Everything)
             ActivityEntry(
@@ -375,9 +389,41 @@ class ActivityService(
                 documentId = row.documentId,
                 link = if (visible) row.area.shareType?.let { registry.forType(it).viewPath(row.documentId) } else null,
                 details = if (visible) fact?.details else null,
+                subjectUserId = null,
+                subjectUserName = null,
             )
         }
     }
+
+    /**
+     * A person-scoped row (days-off): no document, so no `documentId`/`link`/`details` — the
+     * self-describing params carry the facts, and the concerned person's id and LIVE name ride
+     * `subjectUser*`. Never gated on readability: the trail is the actor's own record, and the
+     * chain filter already restricted whose owners a chain viewer may see.
+     */
+    private fun personEntry(row: UnionRow, personName: String?) = ActivityEntry(
+        id = "${row.area.name}:${row.source}:${row.eventId}",
+        createdAt = row.createdAt,
+        area = row.area,
+        eventType = row.eventType,
+        params = decodeParams(row.params),
+        documentId = null,
+        link = null,
+        details = null,
+        subjectUserId = row.documentId,
+        subjectUserName = personName,
+    )
+
+    private suspend fun personNames(ids: Set<UInt>): Map<UInt, String> =
+        if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            Users.select(Users.id, Users.name)
+                .where { Users.id inList ids }
+                .map { it[Users.id].value to it[Users.name] }
+                .toList()
+                .toMap()
+        }
 
     /** One share row of the log: params resolved from the share, `details` the STORED snapshot, link always. */
     private fun shareEntry(row: UnionRow, share: ShareFacts): ActivityEntry {
@@ -400,6 +446,8 @@ class ActivityService(
             documentId = row.documentId,
             link = row.area.shareType?.let { registry.forType(it).viewPath(row.documentId) },
             details = share.details,
+            subjectUserId = null,
+            subjectUserName = null,
         )
     }
 
@@ -437,7 +485,7 @@ class ActivityService(
             ActivityArea.PERFORMANCE_REVIEW -> reviewFacts(ids, readability)
             ActivityArea.IMPACT_LOG_ENTRY -> impactFacts(ids, readability)
             ActivityArea.SUCCESSION_PLAN -> successionFacts(ids, readability)
-            // No branch of the union produces these yet (their steps add them).
+            // Person-scoped (days-off) rows are never hydrated per document; the others have no branch yet.
             ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> emptyMap()
         }
 

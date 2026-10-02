@@ -16,9 +16,10 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 /**
- * The shared shape of the seven per-record audit-event tables (feedback/1:1/goal/team-KPI/
- * performance-review/impact-log/succession-plan `*_events` — all V15/V70 clones): an FK to the
- * owning record, the acting user, a creation timestamp, and a structured (type + JSON params)
+ * The shared shape of the eight audit-event tables — the seven per-record ones (feedback/1:1/goal/
+ * team-KPI/performance-review/impact-log/succession-plan `*_events`, all V15/V70 clones) plus the
+ * person-keyed days-off trail (V88 `days_off_events`, v4.9.0, whose owner FK is the PERSON the
+ * action concerns): an FK to the owning record, the acting user, a creation timestamp, and a structured (type + JSON params)
  * event the SPA localizes. Feature packages declare
  * `object XEvents : EventLogTable("x_events", "x_id", XTable)` and keep their typed create/list
  * wrappers; the mechanics live once in [EventLog].

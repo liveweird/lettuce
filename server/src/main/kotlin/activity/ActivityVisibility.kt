@@ -183,6 +183,17 @@ internal object ActivityVisibility {
         }.reduce { acc, op -> acc or op }
     }
 
+    /**
+     * Chain visibility of a PERSON-scoped event (days-off, V88): the person the action concerns
+     * ([ownerColumn] — `owner_id`) is the viewer or in the viewer's transitive chain. No parent
+     * document, no status rule, no soft-delete rule: the trail is a person-scoped record, so the
+     * events of a since-deleted entry or correction are still listed. (A days-off entry is also
+     * readable by teammates and HR in the live product — the teammate grant is calendar parity for
+     * one entry and is deliberately not a reason to list a colleague's actions; HR is not chain mode.)
+     */
+    fun personScoped(ownerColumn: Column<EntityID<UInt>>, viewer: UInt, chain: Collection<UInt>): Op<Boolean> =
+        (ownerColumn eq viewer) or ownerColumn.anyOf(chain)
+
     /** The feedback's recipient set (anchor column OR the join table — `FeedbackService.subjectIn`). */
     private fun isRecipient(users: Collection<UInt>): Op<Boolean> =
         (Feedbacks.subjectId inList users) or

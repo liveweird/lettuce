@@ -546,12 +546,19 @@ export interface paths {
          *     on a document — feedbacks, 1:1 meetings, goals, team KPIs, performance reviews, impact-log
          *     entries and succession plans — plus the document shares they created (`SHARE_CREATED`)
          *     and withdrew (`SHARE_WITHDRAWN`, see `ActivityEntry`) — newest first. The log is a
-         *     query-time union over those features' per-document event trails and the share registry, filtered on the ACTING user (a row lives in the log of
+         *     query-time union over those features' per-document event trails, the share registry and
+         *     the days-off trail, filtered on the ACTING user (a row lives in the log of
          *     the person who acted, never in the log of the person it concerned); it starts at the event
          *     trails' own beginnings. System-originated events (no human actor) belong to nobody. Event
          *     `params` are the same content-free maps the documents' own History tabs render; no document
-         *     text, comment or rating value ever appears. The days-off, career-position and sign-in areas
-         *     are declared in `ActivityArea` but produce no rows yet.
+         *     text, comment or rating value ever appears. Days-off actions (`DAYS_OFF`, forward-only from
+         *     v4.9.0: entries recorded — by the owner or on their behalf — and deleted, budget corrections,
+         *     allowance changes, pool archivals; never the ADMIN registries) are PERSON-scoped rows: the
+         *     row lives in the actor's log and names the person it concerned in `subjectUserId`/
+         *     `subjectUserName`; they carry no document, `link` or `details` (their `params` are
+         *     self-describing). A chain manager sees such a row when its subject is the manager or in the
+         *     manager's chain — also after the entry or correction was deleted. The career-position and
+         *     sign-in areas are declared in `ActivityArea` but produce no rows yet.
          *
          *     Who may read: the user themselves, the HR auditor (audited as `hr.list`, resource
          *     `activity`), and a manager in the user's TRANSITIVE management chain — anyone else, ADMIN
@@ -6848,7 +6855,7 @@ export interface components {
             total: number;
         };
         /**
-         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF`, `CAREER_POSITION` and `ACCOUNT` (sign-ins) are declared up front — the enum is append-only — and produce no rows until their trails exist.
+         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF` (v4.9.0 — the person-scoped trail of days-off actions: entries recorded or deleted, budget corrections, allowance changes, pool archivals), `CAREER_POSITION` and `ACCOUNT` (sign-ins) are declared up front — the enum is append-only — and `CAREER_POSITION` and `ACCOUNT` produce no rows until their trails exist.
          * @enum {string}
          */
         ActivityArea: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF" | "CAREER_POSITION" | "ACCOUNT";
@@ -6875,6 +6882,10 @@ export interface components {
              *     actor = the sharer) and `SHARE_WITHDRAWN` (the user withdrew a share — dated the
              *     withdrawal, actor = the WITHDRAWER, which may be the document's author rather than the
              *     sharer: the row then lives in the author's log). Share rows ride the document's `area`.
+             *     `DAYS_OFF` rows (V88) carry one of seven types: `ENTRY_RECORDED` (every create, a
+             *     self-create too), `ENTRY_DELETED`, `CORRECTION_CREATED`, `CORRECTION_UPDATED` (only when
+             *     year, operation or days changed), `CORRECTION_DELETED`, `ALLOWANCE_CHANGED` (only on an
+             *     actual change) and `POOL_ARCHIVED`.
              */
             eventType: string;
             /**
@@ -6883,7 +6894,15 @@ export interface components {
              *     rating values. Share rows: `{sharee, expiresOn?}` — `sharee` is the recipient's LIVE
              *     display name, `expiresOn` the share's inclusive end date when set — and, on a
              *     `SHARE_WITHDRAWN` row withdrawn by someone other than the sharer, `byAuthor: "true"` plus
-             *     `sharer` (the sharer's live display name).
+             *     `sharer` (the sharer's live display name). `DAYS_OFF` rows (all values strings, frozen at
+             *     the action; `poolName` is the pool kind's name at that moment, beside its id):
+             *     `ENTRY_RECORDED`/`ENTRY_DELETED` `{requestId, type, poolTypeId?, poolName?, startDate,
+             *     endDate, days, onBehalf}` (pool keys only for a PAID entry; `onBehalf` = the actor is not
+             *     the owner); `CORRECTION_CREATED`/`CORRECTION_DELETED` `{correctionId, year, poolTypeId,
+             *     poolName, operation, days}`; `CORRECTION_UPDATED` `{correctionId, poolTypeId, poolName,
+             *     yearFrom, yearTo, operationFrom, operationTo, daysFrom, daysTo}`; `ALLOWANCE_CHANGED`
+             *     `{poolTypeId, poolName, from?, to}`; `POOL_ARCHIVED` `{poolId, poolTypeId, poolName,
+             *     allowance}` — never the encrypted correction comment.
              */
             params: {
                 [key: string]: string;
@@ -6911,6 +6930,13 @@ export interface components {
             details: {
                 [key: string]: string;
             } | null;
+            /**
+             * Format: int32
+             * @description For PERSON-scoped rows (`DAYS_OFF` — and later `CAREER_POSITION`): the person the action concerned (whose leave or budget it touched) — the log's own user for a self-service action, otherwise someone else (the log holds the ACTOR's rows: a manager recording leave for a report has the row, naming the report here). Null for document rows.
+             */
+            subjectUserId: number | null;
+            /** @description The concerned person's LIVE display name; null exactly when `subjectUserId` is. */
+            subjectUserName: string | null;
         };
         ActivityPage: {
             items: components["schemas"]["ActivityEntry"][];

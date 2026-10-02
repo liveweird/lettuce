@@ -8,6 +8,7 @@ import ch.nokillswit.activity.ActivityViewer
 import ch.nokillswit.activity.shareType
 import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.daysoff.DaysOffEventService.DaysOffEvents
 import ch.nokillswit.feedbacks.FeedbackEventService.FeedbackEvents
 import ch.nokillswit.feedbacks.FeedbackService.FeedbackSubjects
 import ch.nokillswit.feedbacks.FeedbackService.Feedbacks
@@ -40,6 +41,7 @@ import ch.nokillswit.teamkpis.TeamKpiService.TeamKpis
 import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.isInManagementChain
 import io.ktor.server.testing.testApplication
 import org.jetbrains.exposed.v1.r2dbc.insert
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
@@ -274,6 +276,49 @@ class ActivityVisibilityParityTest {
                 assertTrue((authorOutcomes[area to false] ?: 0) > 0, "$area never non-authored in the matrix")
             }
         }
+
+    /**
+     * The person-scoped DAYS_OFF area has no document and no adapter, so its oracle is the chain rule
+     * itself: a chain viewer sees T's row about OWNER iff the owner is the viewer or in the viewer's
+     * transitive chain (`isInManagementChain(viewer, owner)` — the real walk, owner ≠ viewer excluded).
+     */
+    @Test
+    fun `days-off rows follow the owner-in-chain rule for every viewer and owner`() = testApplication {
+        usePostgresTestcontainer()
+        val service = application.attributes[ActivityServiceKey]
+        val o = org()
+        val now = System.currentTimeMillis()
+        val owners = o.viewers + o.t
+        suspendTransaction(TestServices.database) {
+            for (owner in owners) event(DaysOffEvents, owner, o.t, now)
+        }
+        for (viewer in o.viewers) {
+            val rows = service.list(
+                o.t,
+                ActivityViewer(viewer, emptySet(), ActivityScope.CHAIN),
+                ActivityFilter(area = ActivityArea.DAYS_OFF),
+                PageRequest(1, 100, listOf(SortField("createdAt", descending = true))),
+            )
+            val seen = rows.items.map { it.subjectUserId!! }.toSet()
+            val expected = suspendTransaction(TestServices.database) {
+                owners.filter { owner -> owner == viewer || isInManagementChain(viewer, owner) }.toSet()
+            }
+            assertEquals(expected, seen, "viewer $viewer")
+            assertEquals(rows.total, rows.items.size.toLong())
+        }
+        // Non-vacuous: the skip-level manager sees several owners (checked below); an outsider sees only
+        // their own row — the loop above already pins that through the oracle.
+        val gmSees = service.list(
+            o.t, ActivityViewer(o.gm, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = ActivityArea.DAYS_OFF),
+            PageRequest(1, 100, listOf(SortField("createdAt", descending = true))),
+        )
+        assertTrue(gmSees.total >= 4)
+        val outsiderSees = service.list(
+            o.t, ActivityViewer(o.o, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = ActivityArea.DAYS_OFF),
+            PageRequest(1, 100, listOf(SortField("createdAt", descending = true))),
+        )
+        assertEquals(setOf(o.o), outsiderSees.items.map { it.subjectUserId }.toSet())
+    }
 
     /** documentId → "details present", for every row [viewer] gets from [target]'s log of [area]. */
     private suspend fun listed(
