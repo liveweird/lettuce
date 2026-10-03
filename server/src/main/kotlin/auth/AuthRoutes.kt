@@ -565,6 +565,9 @@ fun Application.configureAuthRoutes() {
                 }
                 audit("password_reset.requested", "email" to email)
                 val app = call.application
+                // Application scope, NOT the call: the (variable-cost) lookup + mail work must stay off the
+                // request's coroutine context, so it neither delays the uniform 202 nor lands in the request's
+                // DB metrics — the Server-Timing header is additionally never sent on anonymous responses.
                 app.launch { processPasswordReset(app, mailer, email) }
                 call.respond(HttpStatusCode.Accepted)
             }

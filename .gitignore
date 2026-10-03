@@ -66,3 +66,7 @@ docker-compose.override.yaml
 
 # Python operator verification helpers
 __pycache__/
+
+# Performance measurement (perf/): raw run output and database snapshots stay local; baselines are committed.
+perf/results/
+perf/snapshots/

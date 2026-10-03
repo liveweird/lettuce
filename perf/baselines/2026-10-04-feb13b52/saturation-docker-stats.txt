@@ -1,0 +1,14 @@
+lettuce-perf-app cpu=149.41% mem=367.3MiB / 512MiB lettuce-perf-postgres cpu=0.61% mem=371.1MiB / 1GiB 
+lettuce-perf-app cpu=203.12% mem=367.6MiB / 512MiB lettuce-perf-postgres cpu=42.67% mem=373.1MiB / 1GiB 
+lettuce-perf-app cpu=199.57% mem=367.9MiB / 512MiB lettuce-perf-postgres cpu=46.10% mem=372.9MiB / 1GiB 
+lettuce-perf-app cpu=200.59% mem=355MiB / 512MiB lettuce-perf-postgres cpu=44.40% mem=369.8MiB / 1GiB 
+lettuce-perf-app cpu=198.89% mem=365.8MiB / 512MiB lettuce-perf-postgres cpu=40.16% mem=370.3MiB / 1GiB 
+lettuce-perf-app cpu=199.33% mem=365.1MiB / 512MiB lettuce-perf-postgres cpu=42.24% mem=369.7MiB / 1GiB 
+lettuce-perf-app cpu=202.26% mem=365.2MiB / 512MiB lettuce-perf-postgres cpu=42.62% mem=370.6MiB / 1GiB 
+lettuce-perf-app cpu=196.35% mem=364.7MiB / 512MiB lettuce-perf-postgres cpu=41.59% mem=374MiB / 1GiB 
+lettuce-perf-app cpu=198.86% mem=367.8MiB / 512MiB lettuce-perf-postgres cpu=45.00% mem=370.5MiB / 1GiB 
+lettuce-perf-app cpu=202.65% mem=368.3MiB / 512MiB lettuce-perf-postgres cpu=42.28% mem=370.5MiB / 1GiB 
+lettuce-perf-app cpu=197.99% mem=368MiB / 512MiB lettuce-perf-postgres cpu=39.97% mem=371.1MiB / 1GiB 
+lettuce-perf-app cpu=0.16% mem=366.5MiB / 512MiB lettuce-perf-postgres cpu=0.00% mem=368MiB / 1GiB 
+lettuce-perf-app cpu=0.18% mem=366.5MiB / 512MiB lettuce-perf-postgres cpu=1.84% mem=369.4MiB / 1GiB 
+lettuce-perf-app cpu=25.96% mem=366.7MiB / 512MiB lettuce-perf-postgres cpu=0.00% mem=368.6MiB / 1GiB 

@@ -11,6 +11,9 @@ ktor:
       - ch.nokillswit.plugins.HttpKt.configureHttp
       - ch.nokillswit.plugins.SecurityHeadersKt.configureSecurityHeaders
       - ch.nokillswit.plugins.MonitoringKt.configureMonitoring
+      # Per-request DB metrics (Server-Timing + the slow-request log). Right after Monitoring, before
+      # any module that touches the database — it wraps the whole call pipeline in the metrics element.
+      - ch.nokillswit.plugins.RequestTimingKt.configureRequestTiming
       # Health endpoints (/healthz liveness, /readyz readiness) — the readiness handler reads the
       # DB at request time, so this module's boot position relative to configureDatabase is immaterial.
       - ch.nokillswit.plugins.HealthKt.configureHealth
@@ -152,6 +155,17 @@ http:
   # served in development, hidden in production. Set "true" to expose them in a
   # trusted production environment, "false" to hide them even in development.
   exposeOpenApi: "$HTTP_EXPOSE_OPENAPI:"
+
+perf:
+  # Per-request DB metrics (plugins/RequestTiming.kt, "Per-request DB metrics" in
+  # .claude/docs/observability.md). serverTiming: the `Server-Timing` response header
+  # (`db;dur=…;desc="stmt=N tx=M", app;dur=…` — durations and counts only). Blank (default) = follow the
+  # mode: sent in development, hidden in production; set "true" to expose it on a trusted production
+  # deployment for a measurement window, "false" to hide it even in development.
+  serverTiming: "$PERF_SERVER_TIMING:"
+  # A request taking at least this many milliseconds logs ONE INFO line on `ch.nokillswit.perf`
+  # (always on, independent of the header). Boot-validated 1..600000.
+  slowRequestMs: "$PERF_SLOW_REQUEST_MS:1000"
 
 web:
   # When set, the server serves the built React SPA from this directory (static

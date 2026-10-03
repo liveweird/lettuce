@@ -165,6 +165,26 @@ tasks.withType<Test> {
     systemProperty("openapi.conformance", System.getProperty("openapi.conformance", "fail"))
 }
 
+// The perf dataset generator (server/src/test/kotlin/perf/, `.claude/docs/performance.md`): runs from the
+// TEST source set — it needs the services' table objects, the internal DEV_DATA_ENCRYPTION_KEY and
+// the pure notification/event builders, and the test runtime classpath is already locked, so no new
+// configuration (and no lockfile churn). Never part of `check`. Settings arrive as -Pperf.<name>=…
+// (r2dbcUrl, jdbcUrl, user, password, key, anchor, seed, scale, out, force, allowTarget); defaults target the
+// perf compose stack (127.0.0.1:15432); the target guard refuses the dev stack's port and any non-loopback
+// host. PERF_SEED_PASSWORD / PERF_SEED_KEY in the environment win over -P (keep secrets off command lines).
+val perfSeed by tasks.registering(JavaExec::class) {
+    group = "other"
+    description = "Seeds the perf database with the deterministic M1 capacity dataset (perf/run.sh seed)."
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "ch.nokillswit.perf.SeedMainKt"
+    workingDir = rootProject.projectDir
+    jvmArgs("-Xmx1g")
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    listOf("r2dbcUrl", "jdbcUrl", "user", "password", "key", "anchor", "seed", "scale", "out", "force", "allowTarget").forEach { name ->
+        providers.gradleProperty("perf.$name").orNull?.let { systemProperty("perf.$name", it) }
+    }
+}
+
 // Fails the build when a dependency FAMILY that must move as one resolves to several versions on
 // the server runtime classpath — the mixed Netty 4.1/4.2 set Ktor + reactor-netty produced, the
 // OpenTelemetry incubator drifting from the SDK, kotlin-reflect lagging the stdlib (all 2026-09-04;

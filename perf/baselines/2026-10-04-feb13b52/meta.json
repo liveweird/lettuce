@@ -1,0 +1,65 @@
+{
+  "baseline": "reviews-team-view",
+  "measuredOn": "2026-10-04",
+  "appCommit": "feb13b52",
+  "appCommitNote": "perf/m1-first-numbers at the per-request metrics commit; the perf tooling commits on top (run.sh snapshot/restore/pgss/k6, the k6 scenario, docs) change no server code, so the app under test is feb13b52 exactly",
+  "datasetVersion": 1,
+  "dataset": {
+    "anchor": "2026-10-01",
+    "seed": 1,
+    "scale": 1.0,
+    "slice": "M1 (users, teams, careers, review periods, reviews, 1:1s, goals, feedbacks, notifications)",
+    "snapshot": "perf/snapshots/lettuce-perf-v1-2026-10-01-s1-x1.0.dump (193 MB, git-ignored); every run starts from perf/run.sh restore",
+    "databaseSizeAfterRestore": "508 MB",
+    "generationSeconds": 247,
+    "seedCommandSeconds": 267,
+    "restoreSeconds": 5,
+    "appBootSeconds": 1.08,
+    "rows": "perf/results/seed-1.json (users 522, teams 84, performance_reviews 5100, one_on_one_meetings 132600, notes 397800, action items 429868, goals 30600, feedbacks 30660, notifications 34132)"
+  },
+  "machine": {
+    "arch": "arm64",
+    "cpu": "Apple M5 Max (18 cores, 128 GB host)",
+    "macOS": "27.0.1",
+    "containerRuntime": "OrbStack 2.2.3, Docker server 29.4.0",
+    "vm": "18 CPUs, 16 GB (shared by every container, including k6)"
+  },
+  "limits": {
+    "app": "cpus 2, mem_limit 512m",
+    "postgres": "cpus 2, mem_limit 1g (postgres:18.4-alpine3.24)",
+    "k6": "no limit (grafana/k6:2.3.0, digest-pinned in perf/run.sh)"
+  },
+  "jvm": {
+    "variant": "shipped flags (C1-only)",
+    "flags": "-XX:+UseSerialGC -Xmx256m -XX:TieredStopAtLevel=1",
+    "javaOpts": "(empty)",
+    "runtime": "Temurin 21.0.12+8"
+  },
+  "app": {
+    "mode": "development (KTOR_DEVELOPMENT=true)",
+    "perfServerTiming": true,
+    "pool": "postgres.pool.maxSize 20 (shipped default, unchanged)",
+    "jwtAccessExpiresInSeconds": 7200
+  },
+  "postgres": {
+    "extensions": "pg_stat_statements (track=all, max=10000), auto_explain",
+    "autoExplain": "log_min_duration=50ms, log_analyze=on, log_buffers=on, log_timing=off, log_format=json",
+    "trackIoTiming": true,
+    "observerOverheadNote": "auto_explain.log_analyze=on instruments EVERY statement (row counting + buffer usage; per-node timing is off via log_timing=off) and pg_stat_statements + track_io_timing add a little per call, so absolute database milliseconds are inflated slightly; statement and transaction counts are exact and unaffected. No statement of any window exceeded 50 ms (max_exec 7.2 ms), so every auto_explain file was empty (not committed)."
+  },
+  "scenario": {
+    "name": "reviews-team-view",
+    "script": "perf/k6/reviews-team-view.js",
+    "personas": ["ceo-all", "ceo-direct", "director-all", "lead", "lead-2", "hr"],
+    "mixPersonas": ["ceo-all", "director-all", "lead", "lead-2", "hr"],
+    "noIC": "an IC never sees the Team's-performance tab (Performance.tsx showManagedTab = isManager || auditor); ICs belong to the M2 scenarios",
+    "coldLoad": "every iteration is a cold screen load (no client cache)",
+    "warmup": "3 iterations over every persona, not recorded (after a run.sh restore)",
+    "oneVu": "1 VU x 3 iterations per persona, pgss window around each run",
+    "fiftyVu": "mixed 3m, ceo-all 2m, director-all 1m, lead 1m, hr 1m; closed loop, no think time (a saturation run, not a realistic mix)",
+    "extra": "saturation-docker-stats.txt: a 60 s mixed 50-VU run sampled with docker stats every 4 s (CPU of app and postgres)",
+    "completeRuns": "2nd complete run (the 1st, with an IC persona in the mix, was superseded); summaries carry no setup_data or bearer tokens (a grep for the JWT prefix over perf/baselines is empty)"
+  },
+  "k6Image": "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34",
+  "caveat": "OrbStack on one laptop is not production: compare milliseconds relatively, statement/transaction counts exactly. Baselines compare only within one datasetVersion."
+}
