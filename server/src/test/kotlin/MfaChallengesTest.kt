@@ -33,6 +33,16 @@ class MfaChallengesTest {
     private fun store(ttlMillis: Long = 300_000, maxAttempts: Int = 5, maxPendingChallenges: Int = 100) =
         MfaChallenges(TestServices.database, ttlMillis, maxAttempts, maxPendingChallenges) { now }
 
+    /**
+     * A fresh account id per call: the `mfa_challenges` table is shared, container-wide state
+     * (V81) that survives every test in the JVM, so a fixed literal id would let one test's
+     * pending challenges count toward another's cap (see "DB-backed auth state" in
+     * `.claude/docs/testing.md`). The table has no FK, but a real seeded user is the one
+     * source of ids that can never collide.
+     */
+    private suspend fun freshUserId(): UInt =
+        TestUsers.seed(uniqueEmail("mfa-store"), "pw", roles = emptySet())
+
     /** Unwraps a successful [MfaChallenges.issue] — fails loudly if the cap throttled it. */
     private suspend fun MfaChallenges.issued(userId: UInt): MfaChallenges.IssuedChallenge =
         (issue(userId) as MfaChallenges.IssueOutcome.Issued).challenge
@@ -40,14 +50,15 @@ class MfaChallengesTest {
     @Test
     fun `a correct code succeeds exactly once - the challenge is single-use`(): Unit = runBlocking {
         val s = store()
-        val issued = s.issued(42u)
+        val userId = freshUserId()
+        val issued = s.issued(userId)
         assertEquals(6, issued.code.length)
         assertTrue(issued.code.all { it.isDigit() })
         assertEquals(now + 300_000, issued.expiresAt)
 
         val outcome = s.verify(issued.challengeId, issued.code)
         assertIs<MfaChallenges.Outcome.Success>(outcome)
-        assertEquals(42u, outcome.userId)
+        assertEquals(userId, outcome.userId)
 
         // Replay of the consumed challenge is indistinguishable from an unknown one.
         val replay = s.verify(issued.challengeId, issued.code)
@@ -58,7 +69,7 @@ class MfaChallengesTest {
     @Test
     fun `an expired challenge fails and is dropped`(): Unit = runBlocking {
         val s = store(ttlMillis = 60_000)
-        val issued = s.issued(7u)
+        val issued = s.issued(freshUserId())
         now += 60_000
         val outcome = s.verify(issued.challengeId, issued.code)
         assertIs<MfaChallenges.Outcome.Failure>(outcome)
@@ -75,7 +86,7 @@ class MfaChallengesTest {
         // cap ≠ 3 on purpose (see the concurrent-wrong-guesses case): a cap of 3 could not tell the
         // store's setting from Exposed's Transaction.maxAttempts default that shadowed it.
         val s = store(maxAttempts = 2)
-        val issued = s.issued(7u)
+        val issued = s.issued(freshUserId())
         assertEquals("wrong_code", (s.verify(issued.challengeId, "x") as MfaChallenges.Outcome.Failure).reason)
         assertEquals(
             "too_many_attempts",
@@ -99,8 +110,9 @@ class MfaChallengesTest {
     @Test
     fun `challenge ids are unique and opaque`(): Unit = runBlocking {
         val s = store()
-        val a = s.issued(1u)
-        val b = s.issued(1u)
+        val user = freshUserId()
+        val a = s.issued(user)
+        val b = s.issued(user)
         assertNotEquals(a.challengeId, b.challengeId)
         assertEquals(32, a.challengeId.length)
         // Both stay independently verifiable (repeated logins may coexist within the TTL).
@@ -111,10 +123,10 @@ class MfaChallengesTest {
     @Test
     fun `issuing prunes challenges that have already expired`(): Unit = runBlocking {
         val s = store(ttlMillis = 1_000)
-        val stale = (1..3).map { s.issued(it.toUInt()) }
+        val stale = (1..3).map { s.issued(freshUserId()) }
         now += 2_000
         // The next issue triggers the prune; every stale entry is now gone from the table.
-        val fresh = s.issued(99u)
+        val fresh = s.issued(freshUserId())
         val remaining = suspendTransaction(TestServices.database) {
             MfaChallenges.Challenges.selectAll()
                 .where { MfaChallenges.Challenges.id inList stale.map { it.challengeId } }
@@ -131,7 +143,7 @@ class MfaChallengesTest {
     @Test
     fun `N concurrent correct guesses consume the challenge exactly once`(): Unit = runBlocking {
         val s = store(maxAttempts = 5)
-        val issued = s.issued(42u)
+        val issued = s.issued(freshUserId())
         val outcomes = coroutineScope {
             List(8) { async(Dispatchers.IO) { s.verify(issued.challengeId, issued.code) } }.awaitAll()
         }
@@ -148,7 +160,7 @@ class MfaChallengesTest {
         val cap = 4
         val n = 8
         val s = store(maxAttempts = cap)
-        val issued = s.issued(7u)
+        val issued = s.issued(freshUserId())
         val outcomes = coroutineScope {
             List(n) { async(Dispatchers.IO) { s.verify(issued.challengeId, "wrong") } }.awaitAll()
         }
@@ -170,7 +182,7 @@ class MfaChallengesTest {
             // Regression pin for the shadowing bug (v3.11.0 until v3.12.2) (Transaction.maxAttempts = 3 won
             // over the store's property, so every challenge silently allowed 3 guesses).
             val s = store(maxAttempts = 1)
-            val issued = s.issued(7u)
+            val issued = s.issued(freshUserId())
             assertEquals("too_many_attempts", (s.verify(issued.challengeId, "wrong") as MfaChallenges.Outcome.Failure).reason)
             assertEquals("unknown_challenge", (s.verify(issued.challengeId, issued.code) as MfaChallenges.Outcome.Failure).reason)
         }
@@ -178,7 +190,7 @@ class MfaChallengesTest {
     @Test
     fun `a final wrong guess can beat a concurrent correct code under a cap of one`(): Unit = runBlocking {
         val s = store(maxAttempts = 1)
-        val issued = s.issued(7u)
+        val issued = s.issued(freshUserId())
         val outcomes = coroutineScope {
             listOf(
                 async(Dispatchers.IO) { s.verify(issued.challengeId, "wrong") },
@@ -205,32 +217,35 @@ class MfaChallengesTest {
     @Test
     fun `the (cap+1)-th issue is throttled while cap live challenges exist`(): Unit = runBlocking {
         val s = store(maxPendingChallenges = 3)
-        repeat(3) { assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(11u)) }
-        assertEquals(MfaChallenges.IssueOutcome.Throttled, s.issue(11u))
+        val user = freshUserId()
+        repeat(3) { assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(user)) }
+        assertEquals(MfaChallenges.IssueOutcome.Throttled, s.issue(user))
         // Another account is unaffected — the cap is per-account.
-        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(12u))
+        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(freshUserId()))
     }
 
     @Test
     fun `an expired challenge does not count toward the pending-challenge cap`(): Unit = runBlocking {
         val s = store(ttlMillis = 60_000, maxPendingChallenges = 2)
-        repeat(2) { assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(21u)) }
-        assertEquals(MfaChallenges.IssueOutcome.Throttled, s.issue(21u))
+        val user = freshUserId()
+        repeat(2) { assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(user)) }
+        assertEquals(MfaChallenges.IssueOutcome.Throttled, s.issue(user))
         // The two live challenges expire; the next issue prunes them before counting, so it
         // is no longer throttled.
         now += 60_000
-        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(21u))
+        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(user))
     }
 
     @Test
     fun `a consumed challenge frees a pending-challenge slot`(): Unit = runBlocking {
         val s = store(maxPendingChallenges = 2)
-        val first = s.issued(31u)
-        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(31u))
-        assertEquals(MfaChallenges.IssueOutcome.Throttled, s.issue(31u))
+        val user = freshUserId()
+        val first = s.issued(user)
+        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(user))
+        assertEquals(MfaChallenges.IssueOutcome.Throttled, s.issue(user))
         // Successfully verifying (consuming) one challenge frees its slot.
         assertIs<MfaChallenges.Outcome.Success>(s.verify(first.challengeId, first.code))
-        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(31u))
+        assertIs<MfaChallenges.IssueOutcome.Issued>(s.issue(user))
     }
 
     @Test
@@ -244,12 +259,13 @@ class MfaChallengesTest {
             val cap = 3
             val n = 10
             val s = store(maxPendingChallenges = cap)
+            val user = freshUserId()
             val gate = CompletableDeferred<Unit>()
             val outcomes = coroutineScope {
                 val jobs = List(n) {
                     async(Dispatchers.IO) {
                         gate.await()
-                        s.issue(41u)
+                        s.issue(user)
                     }
                 }
                 gate.complete(Unit)
@@ -260,7 +276,7 @@ class MfaChallengesTest {
 
             val liveRows = suspendTransaction(TestServices.database) {
                 MfaChallenges.Challenges.selectAll()
-                    .where { MfaChallenges.Challenges.userId eq 41L }
+                    .where { MfaChallenges.Challenges.userId eq user.toLong() }
                     .toList()
             }
             assertEquals(cap, liveRows.size, "exactly $cap live rows should exist for the account")

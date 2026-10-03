@@ -1,7 +1,7 @@
 // The "How performance reviews work" tutorial (v3.17.0) — a short, role-filtered walkthrough
 // over the Performance area's own chrome. It only navigates and spotlights stable chrome (tabs,
 // header buttons, form controls, dashboard toggles); it never opens a real review and needs no
-// data to exist. See "Feature tutorials" in web/CLAUDE.md for the recipe this follows.
+// data to exist. See web/docs/tutorials.md for the recipe this follows.
 import { Stack, Text } from "@mantine/core";
 import ReviewLifecycle from "../components/ReviewLifecycle";
 import type { TourStepDef } from "../components/tourSupport";

@@ -145,19 +145,42 @@ class LogCapture(loggerName: String) {
     fun detach() = logger.detachAppender(appender)
 
     suspend fun awaitEvent(
+        timeoutMs: Long = 5_000,
         predicate: (ch.qos.logback.classic.spi.ILoggingEvent) -> Boolean,
     ): ch.qos.logback.classic.spi.ILoggingEvent? {
-        repeat(100) {
+        val deadline = System.nanoTime() + timeoutMs * 1_000_000
+        while (true) {
             events.firstOrNull(predicate)?.let { return it }
+            if (System.nanoTime() >= deadline) return null
             kotlinx.coroutines.delay(50)
         }
-        return null
     }
+
+    /** Every captured event as `message {key=value, ...}` lines — for failure messages. */
+    fun describeEvents(): String =
+        if (events.isEmpty()) {
+            "<no events captured>"
+        } else {
+            events.joinToString("\n") { e ->
+                "${e.message} {${e.keyValuePairs?.joinToString(", ") { "${it.key}=${it.value}" }.orEmpty()}}"
+            }
+        }
+
+    /** [awaitEvent], but a timeout fails with [what] plus every captured event, so a flaky
+     *  miss shows what the logger actually saw instead of a bare "expected non-null". */
+    suspend fun requireEvent(
+        what: String,
+        timeoutMs: Long = 5_000,
+        predicate: (ch.qos.logback.classic.spi.ILoggingEvent) -> Boolean,
+    ): ch.qos.logback.classic.spi.ILoggingEvent =
+        awaitEvent(timeoutMs, predicate)
+            ?: kotlin.test.fail("$what - not captured within ${timeoutMs}ms. Captured events:\n${describeEvents()}")
 }
 
-/** audit() fields travel as SLF4J key/values, not in the message text. */
+/** audit() fields travel as SLF4J key/values, not in the message text; values are compared
+ *  stringified (ids travel as Long, dates as String — the `hasCycleId` idiom). */
 fun ch.qos.logback.classic.spi.ILoggingEvent.hasKeyValue(key: String, value: String) =
-    keyValuePairs?.any { it.key == key && it.value == value } == true
+    keyValuePairs?.any { it.key == key && it.value.toString() == value } == true
 
 private val sharedTestDatabase: R2dbcDatabase by lazy {
     // Guarantees the schema exists even when no testApplication has booted yet in this JVM
@@ -405,9 +428,12 @@ object TestServices {
 // shared container, like the dictionaries. Tests must never hand-pick absolute months: always
 // append after the current latest via this helper, and treat the returned period as theirs.
 object TestReviewPeriods {
-    /** Appends the next adjacent period ([months] long) and returns it. The first ever period
-     *  starts at a fixed epoch far in the past, so the timeline never depends on wall time. */
-    suspend fun append(months: Int = 6): ch.nokillswit.reviews.ReviewPeriod {
+    /** Appends the next adjacent period ([months] long, default ONE month — the timeline is
+     *  global and append-only, so its future-safe runway is spent by every month appended; pass
+     *  more only when the test needs a period spanning several months) and returns it. The
+     *  first ever period starts at a fixed epoch far in the past, so the timeline never depends
+     *  on wall time. `ReviewPeriodTest`'s runway canary guards the remaining budget. */
+    suspend fun append(months: Int = 1): ch.nokillswit.reviews.ReviewPeriod {
         val latest = TestServices.reviewPeriods.list().lastOrNull()
         val start = if (latest == null) {
             java.time.YearMonth.of(2000, 1)

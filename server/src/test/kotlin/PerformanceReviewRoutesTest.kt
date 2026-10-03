@@ -96,7 +96,8 @@ class PerformanceReviewRoutesTest {
             // Service-level with an injected currentMonth (the goals `today` idiom): a genuinely
             // future period would need appending the SHARED gapless timeline past real "now",
             // poisoning every later test's creates — so the clock moves instead of the timeline.
-            val period = TestReviewPeriods.append()
+            // Two months: the test needs a month inside the period AFTER its first one.
+            val period = TestReviewPeriods.append(months = 2)
             val request = { subordinateId: UInt ->
                 PerformanceReviewCreateRequest(subordinateId = subordinateId, periodId = period.id)
             }

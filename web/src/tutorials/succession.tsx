@@ -3,7 +3,7 @@
 // header buttons, form controls, dashboard cards); it never opens a real plan and needs no data
 // to exist. The Review screen and the nomination editor need a real plan to open, so nominations,
 // the review flow and the access model stay body (concept) steps — the shared closing step
-// re-spotlights My plans. See "Feature tutorials" in web/CLAUDE.md for the recipe this follows.
+// re-spotlights My plans. See web/docs/tutorials.md for the recipe this follows.
 import type { TourStepDef } from "../components/tourSupport";
 import type { TutorialDef } from "./types";
 import { successionPlanCreateLink } from "../utils/successionLinks";

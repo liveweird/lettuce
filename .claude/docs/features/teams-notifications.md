@@ -130,6 +130,17 @@ Done by the Microsoft 365 / Entra administrator, once per tenant:
   token endpoint can never re-post the secret elsewhere.
 - The message text is the same content class as the email mirror: party names, titles and dates,
   never feedback/goal/review content.
+- **Accepted risk — a self-chosen email decides the Teams recipient (decision 2026-10-03, checkup
+  #38).** A user with `TEAMS_NOTIFICATIONS` on can change their own login email
+  (`PUT /api/v1/users/{self}`, `requireSelfOrAdmin`) to any Entra mailbox that no active Lettuce
+  account holds; the sender then resolves the Teams recipient from that CURRENT email
+  (`NotificationTeamsSender.kt:129-143`, `resolveAndCache` at `:205-221`, the Graph lookup in
+  `TeamsMessenger.resolveUser`, `:207-239`), so the user's own notices arrive as direct messages
+  from the trusted bot at that third party. It is a nuisance only: nothing beyond the user's own
+  notices is exposed — the free-text names they carry (e.g. `{sharer}`) are other users' display
+  names the user already sees, and the content class is the email mirror's (names, titles, dates).
+  The email change is audited (`user.updated` with `emailFrom`/`emailTo`). Not mitigated in code;
+  revisit if the message class ever widens beyond names, titles and dates.
 
 #### Rolling back past V85
 

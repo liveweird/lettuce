@@ -14,6 +14,10 @@ Do not run builds with `--dependency-verification lenient` or `off`, and do not 
 patterns or configuration exclusions. A missing checksum or a checksum mismatch is a build failure
 that must be investigated.
 
+npm ranges are different: `web/package.json` and `e2e/package.json` deliberately use `^`/`~`
+ranges, because the committed `package-lock.json` plus `npm ci` (never `npm install`) in CI govern
+what is actually installed — an update is a lockfile change, reviewed like any other diff.
+
 This process deliberately does not cover GitHub Actions dependencies — those are SHA-pinned in the
 workflow files and bumped via `.github/dependabot.yml`; see "Automatic CI gates" in
 `.claude/docs/testing.md`.

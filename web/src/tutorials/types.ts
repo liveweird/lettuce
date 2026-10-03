@@ -4,8 +4,8 @@
 import type { Feature } from "../api/session";
 import type { TourStepDef } from "../components/tourSupport";
 
-/** One entry per shipped tutorial. Add the next feature's id here (see web/CLAUDE.md's
- *  "Feature tutorials" recipe). */
+/** One entry per shipped tutorial. Add the next feature's id here (see the recipe in
+ *  web/docs/tutorials.md). */
 export type TutorialId =
   | "feedbacks"
   | "goals"

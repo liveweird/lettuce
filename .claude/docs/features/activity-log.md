@@ -43,10 +43,13 @@ migration.
   `CREATE VIEW` over the same SELECTs queried through a plain `Table`; nothing above the service
   would change.
 - **One branch.** Exposed has no one-branch set operation, so a lone branch is paired with its own
-  `WHERE FALSE` twin — same rows, one code path. Every shareable area contributes an event branch
-  plus the two share branches (never fewer than three), but the person-scoped DAYS_OFF area is a
-  single branch: `area=DAYS_OFF` exercises the twin today (the viewer's DAYS_OFF flag off, or an
-  area the viewer has disabled, answers an empty page without a query; every area now has a branch).
+  `WHERE FALSE` twin — same rows, one code path. Of the eleven areas, the seven document areas and
+  DAYS_OFF contribute an event branch plus the two share branches (created/withdrawn — never fewer
+  than three; DAYS_OFF carries the calendar's share rows since v4.11.0), the share-only
+  PULSE_TEAM_RESULTS area (v4.12.0, pulse has no event trail) contributes exactly two (the share
+  branches), and CAREER_POSITION and ACCOUNT are a single branch each: `area=CAREER_POSITION` /
+  `area=ACCOUNT` exercise the twin today (an area the viewer has disabled answers an empty page
+  without a query; every area has a branch).
 - **V87 indexes.** `(user_id, created_at)` on each of the seven event tables turns every branch
   into one index range scan (`user_id` is nullable since V80 — a NULL actor is never in the
   range), plus the partial `document_shares(withdrawn_by, withdrawn_at)` index for the share-withdrawal
@@ -66,8 +69,11 @@ fields are always encoded as explicit nulls).
   only sortable field is `createdAt` (default `-createdAt`; ascending reverses the WHOLE key — the
   tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
   a registered deviation from API-LIST-003 (see the rulebook's known-gaps register).
-- `area` = the seven `ShareableResourceType` names for document rows (so `link` is the sharing
-  adapter's `viewPath`), plus `DAYS_OFF` (person-scoped, step 4), `CAREER_POSITION` (person-scoped, step 5), `ACCOUNT` (step 6) —
+- `area` = eleven values: the seven document `ShareableResourceType` names (so `link` is the sharing
+  adapter's `viewPath`), `PULSE_TEAM_RESULTS` (v4.12.0 — share rows only, no event trail), plus
+  `DAYS_OFF` (person-scoped, step 4; it also carries the `DAYS_OFF_CALENDAR` share rows, v4.11.0 — the
+  nine `ShareableResourceType` names project onto areas through the exhaustive `activityArea` `when`,
+  so there is no `DAYS_OFF_CALENDAR` area), `CAREER_POSITION` (person-scoped, step 5), `ACCOUNT` (step 6) —
   declared up front (the OpenAPI enum is append-only); every value now produces rows.
 - **`params`** is the event's content-free map, the same one the document's History tab renders
   (localized client-side by dispatching `area` + `eventType` to the existing describers). The goal
@@ -240,7 +246,7 @@ HR viewer of someone else's log always gets the auditor title/hint and the audit
 the card links carry `mode=audit`). The page asserts no relationship itself: the server's
 `403` (a peer opening the URL) renders "You don't have permission to view this activity log." Wording
 is client-side and subject-free (`utils/describeActivity.ts`, dispatching to the per-area
-describers in `utils/<area>EventText.ts`); see "Activity log" in `web/CLAUDE.md`. e2e:
+describers in `utils/<area>EventText.ts`); see `web/docs/activity-log.md`. e2e:
 `activity-log.spec.ts` (throwaway cast: own log, manager sees the sign-in but not the undelivered
 draft, HR sees all, the rows appear for the manager once the feedback is sent, a peer is refused).
 

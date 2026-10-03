@@ -1,7 +1,7 @@
 // The "How feedback works" tutorial (v3.14.0) — a short, role-filtered walkthrough over the
 // Feedback area's own chrome. It only navigates and spotlights stable chrome (tabs, header
 // buttons, form controls, nav links); it never opens a real feedback and needs no data to
-// exist. See "Feature tutorials" in web/CLAUDE.md for the recipe this follows.
+// exist. See web/docs/tutorials.md for the recipe this follows.
 import { Stack, Text } from "@mantine/core";
 import FeedbackLifecycle from "../components/FeedbackLifecycle";
 import type { TourStepDef } from "../components/tourSupport";
