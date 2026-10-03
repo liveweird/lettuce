@@ -98,13 +98,17 @@ export function shareDocumentLabel(share: ShareResponse, t: TFunction, locale: s
   return documentLabel(share.resourceType, share.details, t, locale);
 }
 
+/** The i18next contexts that word the sharing dialog for a kind (undefined = the base "document" keys). */
+export type ShareKindContext = "calendar" | "pulse" | undefined;
+
 /**
  * The i18next context that words the sharing dialog and the withdraw confirm for the kind: a
- * days-off calendar (v4.11.0) says "calendar" instead of the generic "document"; every other kind
- * reads the base keys.
+ * days-off calendar (v4.11.0) says "calendar" and a team's pulse results (v4.12.0) "pulse results"
+ * instead of the generic "document"; every other kind reads the base keys.
  */
-export function shareKindContext(resourceType: ShareableResourceType): "calendar" | undefined {
-  return resourceType === "DAYS_OFF_CALENDAR" ? "calendar" : undefined;
+export function shareKindContext(resourceType: ShareableResourceType): ShareKindContext {
+  if (resourceType === "DAYS_OFF_CALENDAR") return "calendar";
+  return resourceType === "PULSE_TEAM_RESULTS" ? "pulse" : undefined;
 }
 
 /** The facts of a share (or an activity share row) the Open target is derived from. */

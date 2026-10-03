@@ -76,10 +76,12 @@
     "member": "Teams I belong to",
     "managed": "Teams I manage",
     "all": "All teams",
+    "shared": "Shared with me",
     "aria": "View",
     "noMemberTeams": "You are not a member of any team.",
     "noManagedTeams": "You don't manage any teams.",
-    "noAllTeams": "There are no teams in the organization yet."
+    "noAllTeams": "There are no teams in the organization yet.",
+    "noSharedTeams": "Nobody has shared pulse results with you."
   },
   "calc": {
     "direct": "Direct members only",
@@ -126,7 +128,8 @@
     "trendPending": "The trend appears after two closed cycles.",
     "commentsTitle": "Comments",
     "commentsAnonymized": "Shown anonymized and in random order.",
-    "loadError": "Could not load the results."
+    "loadError": "Could not load the results.",
+    "sharedUnavailable": "The person who shared this with you can't see this cycle's results."
   },
   "trend": {
     "metricAria": "Trend metric",

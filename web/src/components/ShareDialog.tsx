@@ -14,7 +14,7 @@ import {
 } from "../api/shares";
 import { useAllUsers } from "../hooks/useAllUsers";
 import { formatIsoDate, todayIsoDate } from "../utils/datetime";
-import { shareKindContext } from "../utils/shareKinds";
+import { shareKindContext, type ShareKindContext } from "../utils/shareKinds";
 import { documentSharesKey, invalidateShares } from "../utils/shareQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
@@ -31,7 +31,7 @@ function failureReason(
   err: unknown,
   t: TFunction,
   kind: "create" | "withdraw",
-  context: "calendar" | undefined,
+  context: ShareKindContext,
 ): string {
   if (err instanceof ApiError && err.status === 429) return t("sharing.error.rateLimited");
   return kind === "create"

@@ -27,9 +27,10 @@ describe("shareKinds — the days-off calendar kind (v4.11.0)", () => {
     expect(documentLabel("DAYS_OFF_CALENDAR", null, tFor("en"), "en")).toBe("No longer available");
   });
 
-  test("only the calendar words the dialog as a calendar", () => {
+  test("only the calendar and the pulse results word the dialog for themselves", () => {
     expect(shareKindContext("DAYS_OFF_CALENDAR")).toBe("calendar");
-    for (const type of SHARE_TYPES.filter((type) => type !== "DAYS_OFF_CALENDAR")) {
+    expect(shareKindContext("PULSE_TEAM_RESULTS")).toBe("pulse");
+    for (const type of SHARE_TYPES.filter((type) => type !== "DAYS_OFF_CALENDAR" && type !== "PULSE_TEAM_RESULTS")) {
       expect(shareKindContext(type), type).toBeUndefined();
     }
   });

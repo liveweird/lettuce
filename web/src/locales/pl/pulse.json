@@ -76,10 +76,12 @@
     "member": "Zespoły, do których należę",
     "managed": "Zespoły, którymi zarządzam",
     "all": "Wszystkie zespoły",
+    "shared": "Udostępnione mi",
     "aria": "Widok",
     "noMemberTeams": "Nie należysz do żadnego zespołu.",
     "noManagedTeams": "Nie zarządzasz żadnym zespołem.",
-    "noAllTeams": "W organizacji nie ma jeszcze żadnych zespołów."
+    "noAllTeams": "W organizacji nie ma jeszcze żadnych zespołów.",
+    "noSharedTeams": "Nikt nie udostępnił Ci wyników ankiety pulsu."
   },
   "calc": {
     "direct": "Tylko bezpośredni członkowie",
@@ -126,7 +128,8 @@
     "trendPending": "Trend pojawi się po dwóch zamkniętych cyklach.",
     "commentsTitle": "Komentarze",
     "commentsAnonymized": "Wyświetlane anonimowo i w losowej kolejności.",
-    "loadError": "Nie udało się wczytać wyników."
+    "loadError": "Nie udało się wczytać wyników.",
+    "sharedUnavailable": "Osoba, która Ci to udostępniła, nie widzi wyników tego cyklu."
   },
   "trend": {
     "metricAria": "Metryka trendu",
