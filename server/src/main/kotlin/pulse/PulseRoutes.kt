@@ -144,6 +144,9 @@ private suspend fun trendPoints(
     }
 }
 
+/** The 403 detail when a share would hand the comments to someone who answered the survey in the scope. */
+private const val INSIDER_COMMENTS_DETAIL = "Comments aren't shared with people who answered this survey for the team"
+
 fun Application.configurePulseRoutes() {
     val cycleService = attributes[PulseCycleServiceKey]
     val responseService = attributes[PulseResponseServiceKey]
@@ -191,18 +194,27 @@ fun Application.configurePulseRoutes() {
                 teamService.requireResultsVisible(it, teamId)
             }
 
+    // The insider rule (v4.12.0, user decision after the security audit): comments keep today's anonymity —
+    // nobody who answered the survey inside the requested scope ever reads them. A share must not open that
+    // door, so a caller who RESPONDED in the cycle within the scope (team + mode) is refused the comments
+    // THROUGH A SHARE (own-right monitors and HR are unchanged). Outsiders and non-responding members are not.
+    suspend fun isRespondentInScope(userId: UInt, cycleId: UInt, teamId: UInt, mode: PulseAggregationMode): Boolean {
+        val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
+        return userId in responseService.respondedUserIds(cycleId, scope)
+    }
+
     // `canReadComments`: would `GET …/comments` succeed for this caller — it RUNS the comments guard
     // itself (own right, then every active share of the team's results re-evaluated on its sharer), so
     // it can never disagree with the route; the HR auditor short-circuits first (the probe must not
     // emit `hr.read`). The ForbiddenException is caught here, before StatusPages, so no `authz.denied`
     // event is written for the probe.
-    suspend fun canReadComments(caller: CallerPrincipal, cycleId: UInt, teamId: UInt): Boolean =
+    suspend fun canReadComments(caller: CallerPrincipal, cycleId: UInt, teamId: UInt, mode: PulseAggregationMode): Boolean =
         caller.isHr() ||
             try {
-                shareAccess.readOrShared(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
+                val via = shareAccess.readOrShared(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
                     requirePulseMonitorAccess(principal, cycleId, teamId) { teamService.managedTeamTreeIds(principal.userId) }
                 }
-                true
+                !(via is ReadVia.Shared && isRespondentInScope(caller.userId, cycleId, teamId, mode))
             } catch (_: ForbiddenException) {
                 false
             }
@@ -500,7 +512,7 @@ fun Application.configurePulseRoutes() {
                     ).copy(
                         canShare = canShareResults(caller, via, teamId),
                         sharedBy = (via as? ReadVia.Shared)?.sharerName,
-                        canReadComments = canReadComments(caller, cycle.id, teamId),
+                        canReadComments = canReadComments(caller, cycle.id, teamId, mode),
                     ),
                 )
             }
@@ -519,7 +531,7 @@ fun Application.configurePulseRoutes() {
                 // plain member never reads comments, and no fill gate applies (a monitoring
                 // right, not a results view). Or (v4.12.0) an active share, evaluated on the
                 // SHARER: a member-sharer has no monitoring right to pass on (the lapse 403).
-                shareAccess.readOrShared(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
+                val via = shareAccess.readOrShared(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
                     requirePulseMonitorAccess(
                         principal,
                         cycleId = cycle.id,
@@ -528,7 +540,13 @@ fun Application.configurePulseRoutes() {
                     )
                 }
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
-                val responseCount = responseService.respondedUserIds(cycle.id, scope).size
+                val responded = responseService.respondedUserIds(cycle.id, scope)
+                // The insider rule: a share never hands the comments to someone who answered in this scope
+                // (the same single scope + responded read as the count below — no second walk, no race).
+                if (via is ReadVia.Shared && caller.userId in responded) {
+                    throw ForbiddenException(INSIDER_COMMENTS_DETAIL)
+                }
+                val responseCount = responded.size
                 if (responseCount < MIN_PULSE_RESPONSES) {
                     call.respond(
                         HttpStatusCode.OK,

@@ -3025,6 +3025,25 @@ class SharingTest {
         }
 
     @Test
+    fun `pulse results - view=document answers 404 for a soft-deleted team, and an author with the PULSE_SURVEYS flag off is refused`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            w.x.client.sharePulseId(w.teamId, sharee.id)
+            // A chain-manager author whose OWN flag is off: the document list is gated first.
+            val offManager = person("pulse-off-manager", disabled = setOf(Feature.PULSE_SURVEYS))
+            TestServices.teams.addMember(w.departmentId, offManager.id)
+            TestServices.teams.create(Team("PulseOffTop-${offManager.id}", offManager.id, listOf(w.grand.id)))
+            assertEquals(HttpStatusCode.Forbidden, offManager.client.pulseDocumentShares(w.teamId).status)
+            assertEquals(HttpStatusCode.OK, w.grand.client.pulseDocumentShares(w.teamId).status)
+
+            assertEquals(1, TestServices.teams.delete(w.teamId))
+            for (who in listOf(w.manager, w.grand)) {
+                assertEquals(HttpStatusCode.NotFound, who.client.pulseDocumentShares(w.teamId).status, who.name)
+            }
+        }
+
+    @Test
     fun `pulse results - the visible tree is the team, the teams below it and the manager's own department, never a parent`() =
         runBlockingApp {
             val w = pulseWorld()

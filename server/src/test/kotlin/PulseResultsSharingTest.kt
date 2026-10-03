@@ -247,24 +247,10 @@ class PulseResultsSharingTest {
         }
 
     @Test
-    fun `canReadComments runs the comments guard - a member with a manager's share, and two sharers where only the newer monitors`() =
+    fun `canReadComments runs the comments guard - two sharers where only the newer one monitors`() =
         testApplication {
             usePostgresTestcontainer()
             val w = world()
-            // Case A: X reads C1 in his own right (a member, filled it) and holds M's share → the comments route
-            // answers 200 through M, and the flag says so.
-            share(w, w.m, w.x)
-            val a = w.x.client.results(w.c1, w.teamId).body<PulseTeamResults>()
-            assertNull(a.sharedBy)
-            assertTrue(a.canReadComments)
-            val aComments = w.x.client.comments(w.c1, w.teamId)
-            assertEquals(HttpStatusCode.OK, aComments.status)
-            assertEquals(setOf("x says hi", "y says hi"), aComments.body<PulseCommentsResponse>().items.toSet())
-            // …and for the cycle X sat out, the results come through M's share: canShare stays true (X is a member).
-            val c2 = w.x.client.results(w.c2, w.teamId).body<PulseTeamResults>()
-            assertEquals(w.m.name, c2.sharedBy)
-            assertTrue(c2.canShare)
-            assertTrue(c2.canReadComments)
             // Case B: the sharee holds an OLDER member share (X) and a NEWER manager share (M). The results of C1
             // come through X (first passing), yet comments are readable through M.
             val sharee = member("ps-sharee")
@@ -281,6 +267,101 @@ class PulseResultsSharingTest {
             assertFalse(onlyX.client.results(w.c1, w.teamId).body<PulseTeamResults>().canReadComments)
             assertEquals(HttpStatusCode.Forbidden, onlyX.client.comments(w.c1, w.teamId).status)
         }
+
+    private val insiderDetail = "Comments aren't shared with people who answered this survey for the team"
+
+    @Test
+    fun `the insider rule - a share never hands the comments to someone who answered in the scope, the probe agrees`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val w = world()
+            // U (answered both cycles, monitors T through M) is the sharer: every cycle passes his gates.
+            share(w, w.u, w.x)
+            share(w, w.u, w.w)
+            // The audit's scenario: X answered C1 inside T. U's share still yields the results, never the comments.
+            val capture = LogCapture("ch.nokillswit.audit")
+            val a = try {
+                w.x.client.results(w.c1, w.teamId).body<PulseTeamResults>().also {
+                    // The probe that said "no" wrote neither an hr.* nor an authz.denied event.
+                    assertTrue(capture.events.none { e -> e.message == "authz.denied" || e.message.startsWith("hr.") })
+                }
+            } finally {
+                capture.detach()
+            }
+            assertNull(a.sharedBy, "X reads C1 in his own right")
+            assertFalse(a.canReadComments)
+            val denied = w.x.client.comments(w.c1, w.teamId)
+            assertEquals(HttpStatusCode.Forbidden, denied.status)
+            assertEquals(insiderDetail, denied.detail())
+            // W did NOT answer C1 (a silent participant, still a member of T): results through the share, comments 200.
+            val wResults = w.w.client.results(w.c1, w.teamId)
+            assertEquals(HttpStatusCode.OK, wResults.status)
+            assertEquals(w.u.name, wResults.body<PulseTeamResults>().sharedBy)
+            assertTrue(w.w.client.results(w.c1, w.teamId).body<PulseTeamResults>().canReadComments)
+            val wComments = w.w.client.comments(w.c1, w.teamId)
+            assertEquals(HttpStatusCode.OK, wComments.status)
+            assertEquals(setOf("x says hi", "y says hi"), wComments.body<PulseCommentsResponse>().items.toSet())
+            // …but in C2 W answered: refused there in the same shape, and the probe agrees (results stay 200).
+            val c2 = w.w.client.results(w.c2, w.teamId)
+            assertEquals(HttpStatusCode.OK, c2.status)
+            assertFalse(c2.body<PulseTeamResults>().canReadComments)
+            assertEquals(insiderDetail, w.w.client.comments(w.c2, w.teamId).detail())
+            // X sat out C2: results and comments both flow through U's share.
+            val xC2 = w.x.client.results(w.c2, w.teamId).body<PulseTeamResults>()
+            assertEquals(w.u.name, xC2.sharedBy)
+            assertTrue(xC2.canReadComments)
+            // …and a member reading through a share can still SHARE the team (POST /shares would accept it).
+            assertTrue(xC2.canShare)
+            assertEquals(HttpStatusCode.OK, w.x.client.comments(w.c2, w.teamId).status)
+            // An outsider sharee (never in the scope) still gets the comments when the sharer could.
+            val outsider = member("ps-sharee")
+            share(w, w.u, outsider)
+            assertTrue(outsider.client.results(w.c1, w.teamId).body<PulseTeamResults>().canReadComments)
+            assertEquals(HttpStatusCode.OK, outsider.client.comments(w.c1, w.teamId).status)
+            // Own-right monitors are unchanged (even holding a share): M reads C2's comments, U reads both.
+            share(w, w.u, w.m)
+            assertEquals(HttpStatusCode.OK, w.m.client.comments(w.c2, w.teamId).status)
+            assertTrue(w.m.client.results(w.c2, w.teamId).body<PulseTeamResults>().canReadComments)
+            assertEquals(HttpStatusCode.OK, w.u.client.comments(w.c1, w.teamId).status)
+        }
+
+    @Test
+    fun `the insider rule follows the requested scope - direct versus subtree membership`() = testApplication {
+        usePostgresTestcontainer()
+        TestPulse.sweepNonTerminal()
+        val m = member("ps-s-manager")
+        val a = member("ps-s-a")
+        val b = member("ps-s-b")
+        val c = member("ps-s-c")
+        // D = {A, B, C} under M; A manages sub-team S = {P, Q, R}, so P, Q, R are in D's SUBTREE only.
+        val d = TestServices.teams.create(Team("PS-D-${UUID.randomUUID()}", m.id, listOf(a.id, b.id, c.id)))
+        val p = member("ps-s-p")
+        val q = member("ps-s-q")
+        val r = member("ps-s-r")
+        TestServices.teams.create(Team("PS-S-${UUID.randomUUID()}", a.id, listOf(p.id, q.id, r.id)))
+        val cycle = TestPulse.closedCycleWith(
+            respondents = mapOf(
+                a.id to answers(10, "a"), b.id to answers(9, "b"), c.id to answers(8, "c"),
+                p.id to answers(7, "p"), q.id to answers(6), r.id to answers(5),
+                m.id to answers(4),
+            ),
+            closedAt = TestPulse.closedAtAfterAll(),
+        )
+        val shares = application.attributes[ShareServiceKey]
+        // P answered, sits in the sub-team only. M shares D with P.
+        shares.create(ShareableResourceType.PULSE_TEAM_RESULTS, d, m.id, p.id, null)
+        suspend fun comments(mode: String) = p.client.get("$cyclesUrl/${cycle.id}/comments") {
+            parameter("teamId", d)
+            parameter("mode", mode)
+        }
+        // P is in the scope only in subtree mode; P cannot read D's RESULTS own-right either way except as a sharee,
+        // so the share yields the results in both modes — the comments follow the scope.
+        assertEquals(HttpStatusCode.OK, p.client.results(cycle.id, d, "direct").status)
+        assertEquals(HttpStatusCode.OK, comments("direct").status)
+        assertTrue(p.client.results(cycle.id, d, "direct").body<PulseTeamResults>().canReadComments)
+        assertEquals(HttpStatusCode.Forbidden, comments("subtree").status)
+        assertFalse(p.client.results(cycle.id, d, "subtree").body<PulseTeamResults>().canReadComments)
+    }
 
     @Test
     fun `the capability probe writes no audit noise - no hr read and no denial event`() = testApplication {

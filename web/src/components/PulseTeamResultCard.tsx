@@ -137,7 +137,8 @@ export default function PulseTeamResultCard({
     enabled: !commentsOnly,
   });
   // "Would GET comments succeed": a monitor, or the server-computed flag (HR, or a share whose
-  // sharer monitors the team).
+  // sharer monitors the team) — which is false for an INSIDER (someone who answered this cycle in
+  // the scope): a share never opens the comments to them.
   const showComments = canMonitor || data?.canReadComments === true;
   const trend = useQuery({
     queryKey: ["pulseTrend", teamId, mode],

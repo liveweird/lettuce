@@ -5,7 +5,7 @@
   "dialogTitle_calendar": "Udostępnij ten kalendarz",
   "intro_calendar": "Osoby, którym udostępnisz ten kalendarz, zobaczą, kiedy ta osoba ma wolne — tylko daty oraz informację, czy dzień jest płatny, czy bezpłatny, bez rodzaju urlopu, budżetu i powodów — ale niczego nie zmienią. Udostępnienie działa tylko dopóki Ty możesz widzieć ten kalendarz.",
   "dialogTitle_pulse": "Udostępnij te wyniki ankiety pulsu",
-  "intro_pulse": "Osoby, którym udostępnisz wyniki ankiety pulsu tego zespołu, zobaczą dokładnie to, co Ty — zagregowane wyniki zespołu, trend oraz, jeśli możesz je czytać, zanonimizowane komentarze. Nigdy nie zobaczą, kto co odpowiedział, ani niczego, czego Ty sam/a nie widzisz. Udostępnienie działa tylko dopóki Ty widzisz wyniki tego zespołu. Osoby, którym udostępnisz wyniki, mogą rozpoznać, w których cyklach ankiety brałeś/aś udział.",
+  "intro_pulse": "Osoby, którym udostępnisz wyniki ankiety pulsu tego zespołu, zobaczą dokładnie to, co Ty — zagregowane wyniki zespołu, trend oraz, jeśli możesz je czytać, zanonimizowane komentarze — z wyjątkiem komentarzy, których nigdy nie zobaczy osoba, która w danym cyklu odpowiadała w ankiecie tego zespołu. Nigdy nie zobaczą, kto co odpowiedział, ani niczego, czego Ty sam/a nie widzisz. Udostępnienie działa tylko dopóki Ty widzisz wyniki tego zespołu. Osoby, którym udostępnisz wyniki, mogą rozpoznać, w których cyklach ankiety brałeś/aś udział.",
   "shareWith": "Udostępnij osobom",
   "pickPeople": "Wybierz osoby",
   "noPeople": "Brak dostępnych osób",

@@ -3787,7 +3787,13 @@ export interface paths {
          *     `409` unless CLOSED. Fewer than 3 responses in the scope → withheld
          *     (`insufficientResponses: true`, empty items). Through a share (v4.12.0) the same
          *     monitoring rule is evaluated on the SHARER: a manager-sharer passes the comments on, a
-         *     member-sharer has none to pass on (`403` with the share-lapse detail).
+         *     member-sharer has none to pass on (`403` with the share-lapse detail). **Insider rule:**
+         *     a share never opens the comments to someone who ANSWERED this cycle's survey and is a
+         *     current member of the requested scope (the team's current members, or with
+         *     `mode=subtree` its whole subtree) — that caller gets `403` ("Comments aren't shared
+         *     with people who answered this survey for the team") while the aggregates stay readable;
+         *     outsiders and members who did not answer still get them when the sharer could. Own-right
+         *     reads (monitors, HR) are unchanged.
          */
         get: operations["getPulseComments"];
         put?: never;
@@ -7548,7 +7554,7 @@ export interface components {
             canShare: boolean;
             /** @description The sharer's display name when the caller is reading through a share; null for a read in the caller's own right. Server-resolved, read-only. */
             sharedBy?: string | null;
-            /** @description Whether `GET …/comments` for this cycle and team would succeed for the caller (the HR auditor, a manager monitoring the team, or — through ANY of their active shares — a sharer who monitors it), so the client never makes a request that could only be a `403`. Computed by running the comments guard itself. Server-computed, read-only. */
+            /** @description Whether `GET …/comments` for this cycle and team would succeed for the caller (the HR auditor, a manager monitoring the team, or — through ANY of their active shares — a sharer who monitors it, unless the caller answered this cycle's survey and is a current member of the requested scope (per `mode`): a share never opens the comments to such an insider), so the client never makes a request that could only be a `403`. Computed by running the comments guard itself. Server-computed, read-only. */
             canReadComments: boolean;
         };
         PulseCommentsResponse: {
