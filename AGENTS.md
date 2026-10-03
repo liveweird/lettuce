@@ -62,7 +62,7 @@ runs after auth and its feature-service dependencies, immediately before the fin
 - `./gradlew detekt`: run the zero-findings Kotlin static-analysis gate; it also rides
   `check`/`build`.
 - `./gradlew :server:checkDependencyAlignment`: check runtime Netty, OpenTelemetry (including
-  alpha/incubator), and Kotlin stdlib/reflect alignment; also part of `check`. Keep dependency
+  alpha/incubator), Kotlin stdlib/reflect, Jackson and the Reactor BOM pairing alignment; also part of `check`. Keep dependency
   pins in `gradle/libs.versions.toml` aligned with the constraints in `server/build.gradle.kts`.
 - `./gradlew :server:run`: start Ktor/Netty on port 8080.
 - `./gradlew test` or `./gradlew :server:test`: run Kotlin tests; Docker is required for
@@ -212,8 +212,8 @@ instead of asserting global counts.
 
 Every `/api/` interaction made through the shared backend test clients is checked against OpenAPI.
 Prefer `jsonClient()`/`authedClient()` so tests do not bypass conformance validation. `check`
-enforces Kover floors of 90% lines and 69% branches. Frontend coverage floors in
-`web/vite.config.ts` are 93% lines, 91% statements, 88% functions, and 84% branches. Any test-local
+enforces Kover floors of 92% lines and 71% branches. Frontend coverage floors in
+`web/vite.config.ts` are 94% lines, 92% statements, 89% functions, and 87% branches. Any test-local
 Mantine provider must set `env="test"` so popovers and selects work under happy-dom.
 
 GraphQL's separate gates are `IntegrationGraphQlTest` and the Docker-free

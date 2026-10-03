@@ -102,6 +102,19 @@ services:
     # Ceiling for the tuned JVM (SerialGC + -Xmx256m + C1, baked into bin/server): ~270 MiB RSS
     # under light load, so 512 MiB leaves comfortable headroom and bounds the container.
     mem_limit: 512m
+    # Liveness for `docker compose ps` / `docker inspect` (checkup #38 A1): /healthz is process-alive
+    # only, never touches the DB (so a PostgreSQL blip does not flip the app unhealthy — /readyz is the
+    # DB-aware one). curl ships in the eclipse-temurin JRE runtime image. The shipped image carries NO
+    # Dockerfile HEALTHCHECK on purpose: it runs in production mode, where plain HTTP gets the HTTPS
+    # redirect unless the deployment sits behind a proxy that sets X-Forwarded-Proto (see the k8s probes),
+    # so a baked-in probe would report every direct `docker run` unhealthy. This compose file is dev mode
+    # (KTOR_DEVELOPMENT above), where no redirect applies. start_period covers JVM boot + Flyway.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
 volumes:
   postgres-data:

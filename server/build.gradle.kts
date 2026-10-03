@@ -12,8 +12,9 @@ buildscript {
                 version { strictly("3.20.0") }
             }
             // Advisory floors for the same plugin's Jib/Shadow integrations (build-time only):
-            // jackson 2.21.1 (CVE-2026-68497 and the 2.21.x RCE pair) and plexus-utils 4.0.2
-            // (CVE-2025-67030, directory traversal in extractFile). Literals, not the catalog: the
+            // jackson 2.22.3 (floor first set at 2.21.1 for CVE-2026-68497 and the 2.21.x RCE pair)
+            // and plexus-utils 4.0.3 (floor first set at 4.0.2 for CVE-2025-67030, directory
+            // traversal in extractFile). Literals, not the catalog: the
             // buildscript block is evaluated before `libs` exists. Keep jackson in step with the
             // `jackson-bom` catalog line.
             classpath("com.fasterxml.jackson.core:jackson-databind:2.22.3")
@@ -69,12 +70,12 @@ kover {
     reports {
         verify {
             rule {
-                // Line-coverage floor (actual ~98.1%, 2026-08-01).
-                minBound(90)
-                // Branch-coverage floor (actual ~72.0%, 2026-08-01; the gap to 100% is dominated by
+                // Line-coverage floor (actual ~98.3%, 2026-10-03).
+                minBound(92)
+                // Branch-coverage floor (actual ~74.1%, 2026-10-03; the gap to 100% is dominated by
                 // kotlinx-serialization synthetic branches in @Serializable data classes). NOTE:
                 // `check` runs only koverVerify — run `:server:koverXmlReport` for fresh actuals.
-                minBound(69, coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH)
+                minBound(71, coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH)
             }
         }
     }
@@ -212,6 +213,21 @@ val checkDependencyAlignment by tasks.registering {
             "kotlin stdlib/reflect" to Pair(
                 { g: String, n: String -> g == "org.jetbrains.kotlin" && (n == "kotlin-stdlib" || n == "kotlin-reflect") },
                 { v: String -> v },
+            ),
+            // Jackson (checkup #38 G2). jackson-annotations is released per MINOR only since 2.20
+            // ("2.22", no patch level) while core/databind/datatype carry patches ("2.22.3"), so one
+            // exact-version family would always trip. Two checks instead: every module on the SAME
+            // major.minor line (what actually breaks at runtime — a databind 2.21 over a core 2.22), and
+            // every module except annotations on the SAME patch version (what the jackson-bom pins) —
+            // compared on major.minor.patch, so a databind-only micro-patch (2.22.3.1 beside core
+            // 2.22.3, Jackson's CVE-fix idiom) still reads as aligned.
+            "jackson (major.minor line)" to Pair(
+                { g: String, _: String -> g.startsWith("com.fasterxml.jackson") },
+                { v: String -> v.split('.').take(2).joinToString(".") },
+            ),
+            "jackson (patch, annotations excluded)" to Pair(
+                { g: String, n: String -> g.startsWith("com.fasterxml.jackson") && n != "jackson-annotations" },
+                { v: String -> v.split('.').take(3).joinToString(".") },
             ),
         )
         val drift = families.mapNotNull { (label, spec) ->

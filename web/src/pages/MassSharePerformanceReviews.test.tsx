@@ -218,7 +218,13 @@ describe("MassSharePerformanceReviews", () => {
     ).toBeDisabled();
     expect(screen.getAllByText("No review in this period").length).toBeGreaterThan(0);
     expect(screen.getByText("Draft by Olga Other")).toBeInTheDocument();
-    expect(screen.getByText("Inactive")).toBeInTheDocument();
+    // The inactive marker is the shared StatusPill (never a hand-rolled badge) ...
+    expect(screen.getByText("Inactive").closest("[data-status-pill]")).not.toBeNull();
+    // ... and the team badges link to the team's details view (the TeamBadges idiom).
+    expect(screen.getByRole("link", { name: "Team details for BBB" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/teams\/2\/details/),
+    );
     // Direct manager column reads "You" for the caller.
     expect(screen.getAllByText("You").length).toBeGreaterThan(0);
     // The strip: nothing selected, 4 of 6 people shareable.

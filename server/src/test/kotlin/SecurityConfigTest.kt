@@ -298,6 +298,10 @@ class SecurityConfigTest {
             "sharing.batchRateLimitPerMinute" to "0",
             "sharing.batchRateLimitPerMinute" to "100001",
             "sharing.batchRateLimitPerMinute" to "many",
+            // The SMTP port was a bare toInt() (checkup #38 R7): 0 / above 65535 / non-numeric all refuse.
+            "mail.smtp.port" to "0",
+            "mail.smtp.port" to "65536",
+            "mail.smtp.port" to "smtp",
         )
         for ((key, value) in cases) {
             testApplication {
@@ -326,6 +330,7 @@ class SecurityConfigTest {
             "integration.rateLimitPerMinute" to "1",
             "sharing.rateLimitPerMinute" to "100000",
             "sharing.batchRateLimitPerMinute" to "100000",
+            "mail.smtp.port" to "65535",
         )
         startApplication()
         assertEquals(HttpStatusCode.Unauthorized, jsonClient().get("/api/v1/notifications").status)

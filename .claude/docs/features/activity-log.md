@@ -214,7 +214,9 @@ when the sign-out reaches the server with a live access token (an idle/expired s
 `SIGNED_IN` without a `SIGNED_OUT` is normal. **Retention (decision 3):** the one PURGED trail — rows older than
 `activity.accountRetentionDays` (default 90, 0 = forever) are hard-deleted on the write path,
 throttled by `activity.accountPurgeIntervalSeconds` (default 3600, 0 = every write), both
-boot-validated (`SecurityConfigTest`); registered as a soft-delete exception in `persistence.md`
+boot-validated (`SecurityConfigTest`); the DELETE runs in bounded batches (`purgeBatchSize`, default
+5000 rows per short transaction, looping until a batch deletes nothing — v4.12.1, so a large backlog
+never hits `statement_timeout`; `AccountEventTest` pins it with a batch size of 2); registered as a soft-delete exception in `persistence.md`
 and detailed in "Sign-in history" in `security.md`. Note for tests: every test person's setup
 login (`authedClient`) now mints a `SIGNED_IN` row, so assertions about "authored nothing" or an
 area set exclude `ACCOUNT` (`ActivityLogTest.docAreas`).
