@@ -33,7 +33,7 @@ export const SHARE_FEATURE: Record<ShareableResourceType, Feature> = {
 
 // The `details` snapshot keys each kind must carry for its label (the server contract —
 // content-free, plaintext title/party columns only, taken once when the share was created).
-const REQUIRED_KEYS: Record<ShareableResourceType, readonly string[]> = {
+export const REQUIRED_KEYS: Record<ShareableResourceType, readonly string[]> = {
   FEEDBACK: ["provider", "subjects"],
   ONE_ON_ONE: ["manager", "subordinate", "meetingDate"],
   GOAL: ["title", "subordinate"],

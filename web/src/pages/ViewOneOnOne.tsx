@@ -31,7 +31,7 @@ import SharedByBanner from "../components/SharedByBanner";
 import StatusPill from "../components/StatusPill";
 import { formatIsoDate } from "../utils/datetime";
 import { isShareLapse } from "../utils/shareLapse";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 
 /**
  * Read-only 1:1 meeting document for the subordinate, admins, and chain managers (the v3.5.0
@@ -42,7 +42,7 @@ export default function ViewOneOnOne() {
   const { t, i18n } = useTranslation();
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const from = searchParams.get("from") ?? "own";
+  const from = readFromParam(searchParams) ?? "own";
   const backOverride = safeBackParam(searchParams);
   // `from` mirrors the originating tab (own/managed/team); unknown values fall back to own.
   // The drill-down flows pass an explicit `back` override instead, which always wins.

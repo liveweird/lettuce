@@ -65,6 +65,17 @@ export function safeCancelParam(searchParams: URLSearchParams): string | null {
   return inAppPath(searchParams.get("cancel"));
 }
 
+/**
+ * The raw `?from=` origin key (checkup #38 R8) — the single reader behind every page that words
+ * its Back/Cancel by where the user came from. Unlike `back`/`cancel` it is never a path: it is an
+ * opaque key (`own`, `team`, `details`, …) each page checks against its own whitelist of origins
+ * and falls back to its default for anything else, so there is nothing to sanitize here — it is
+ * never rendered or navigated to as-is. Null when absent.
+ */
+export function readFromParam(searchParams: URLSearchParams): string | null {
+  return searchParams.get("from");
+}
+
 // Reduce a notification link to its in-app relative path so navigation preserves
 // this app's protocol/host/port. An absolute or cross-origin URL is stripped to
 // path + query + hash; a relative value is returned (root-normalized).

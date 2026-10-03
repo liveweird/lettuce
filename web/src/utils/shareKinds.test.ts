@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "vitest";
 import type { TFunction } from "i18next";
+// A Vite `?raw` import rather than node:fs, so the app tsconfig never needs Node types.
+import specText from "../../../server/src/main/resources/openapi/documentation.yaml?raw";
 import i18n from "../i18n";
-import { SHARE_FEATURE, SHARE_TYPES, documentLabel, shareKindContext, shareOpenPath } from "./shareKinds";
+import { REQUIRED_KEYS, SHARE_FEATURE, SHARE_TYPES, documentLabel, shareKindContext, shareOpenPath } from "./shareKinds";
 
 const tFor = (lang: "en" | "pl") => i18n.getFixedT(lang) as unknown as TFunction;
 
@@ -106,5 +108,39 @@ describe("shareOpenPath — the Open target per viewer (D7)", () => {
     expect(shareOpenPath({ resourceType: "SUCCESSION_PLAN", resourceId: 3, link: "/succession/3/review" }, null)).toBe(
       "/succession/3/review",
     );
+  });
+});
+
+describe("REQUIRED_KEYS vs the OpenAPI contract (checkup #38 S6)", () => {
+  // The `details` description of ShareResponse is the shared oracle: the server pins the same text
+  // against its snapshot builders, this pins the client's label requirements against it.
+  const keysByType = (): Map<string, string[]> => {
+    const start = specText.indexOf("    ShareResponse:");
+    const marker = specText.indexOf("Keys per\n            `resourceType`:", start);
+    expect(marker).toBeGreaterThan(start);
+    const end = specText.indexOf("\n\n", marker);
+    const block = specText.slice(marker, end);
+    const found = new Map<string, string[]>();
+    // "Keys per `resourceType`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{…}`; …" — entries
+    // after the colon are `;`-separated, each "TYPE `{key,key}`".
+    const entries = block.slice(block.indexOf(":") + 1).replaceAll(/\s+/g, " ").split(";");
+    for (const entry of entries) {
+      const open = entry.indexOf("`{");
+      const close = entry.indexOf("}`");
+      if (open < 0 || close < open) continue;
+      found.set(
+        entry.slice(0, open).trim(),
+        entry.slice(open + 2, close).split(",").map((k) => k.trim()),
+      );
+    }
+    return found;
+  };
+
+  test("every share type's required keys equal the spec's per-type key list", () => {
+    const documented = keysByType();
+    expect([...documented.keys()].sort()).toEqual([...SHARE_TYPES].sort());
+    for (const type of SHARE_TYPES) {
+      expect(REQUIRED_KEYS[type], type).toEqual(documented.get(type));
+    }
   });
 });

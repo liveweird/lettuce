@@ -10,7 +10,7 @@ import { teamDetailsLink } from "../utils/teamLinks";
 import TeamKpiTable from "./TeamKpiTable";
 import { loadErrorMessage } from "../utils/saveError";
 import { backLabelKey } from "../utils/backLink";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 
 const DEFAULT_BACK_TO = "/?tab=myTeams";
 
@@ -27,7 +27,7 @@ export default function TeamKpis() {
   const { t } = useTranslation();
   const params = useParams<{ teamId: string }>();
   const [searchParams] = useSearchParams();
-  const fromTeam = searchParams.get("from") === "team";
+  const fromTeam = readFromParam(searchParams) === "team";
   // The exact in-app URL this page should return to (v4.6.0) — wins the destination; the
   // `from=team` label keeps naming the team, else the label follows the destination.
   const backOverride = safeBackParam(searchParams);

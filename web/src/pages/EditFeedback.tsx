@@ -26,7 +26,7 @@ import { clampVisibility, visibilityValuesFor } from "../utils/feedbackVisibilit
 import { saveErrorMessage } from "../utils/saveError";
 import { showSuccessToast } from "../utils/toast";
 import { invalidateFeedback } from "../utils/feedbackQueries";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 
 const PROVIDED = "/feedback?tab=provided";
 
@@ -40,7 +40,7 @@ export default function EditFeedback() {
   // otherwise return to whichever tab the editor was opened from (team tab for managers).
   const backTo =
     safeBackParam(searchParams) ??
-    (searchParams.get("from") === "team" ? "/feedback?tab=team" : PROVIDED);
+    (readFromParam(searchParams) === "team" ? "/feedback?tab=team" : PROVIDED);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<FeedbackStatus | null>(null);
   const [deleting, setDeleting] = useState(false);

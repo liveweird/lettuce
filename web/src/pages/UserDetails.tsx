@@ -18,7 +18,7 @@ import { groupTeamRows, type PersonCard as PersonCardData } from "../utils/teamR
 import { userDetailsLink } from "../utils/userLinks";
 import { loadErrorMessage } from "../utils/saveError";
 import { resolveBackLink } from "../utils/backLink";
-import { safeBackParam, boundedReturnPath } from "../utils/url";
+import { safeBackParam, boundedReturnPath, readFromParam } from "../utils/url";
 
 // Matches the dashboard card grids' v1.34.0 cap (2 per row) so the single details card
 // renders at the same width as its dashboard counterparts.
@@ -110,7 +110,7 @@ export default function UserDetails() {
   // The members origin needs its teamId to link back to that roster; teams is the teams list's
   // manager chip; org is the org-chart canvas; career is the Career page's Team pyramid tab
   // (v2.16.0). Anything else degrades to the users list.
-  const fromParam = search.get("from");
+  const fromParam = readFromParam(search);
   const originKey: "users" | "members" | "teams" | "org" | "career" =
     fromParam === "members" && teamId != null
       ? "members"
