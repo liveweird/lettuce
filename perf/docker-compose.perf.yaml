@@ -1,0 +1,115 @@
+# The performance-measurement stack (.claude/docs/performance.md, perf/README.md): the normal
+# stack, re-sized and re-instrumented for repeatable measurement. Port of Flow's
+# docker-compose.perf.yaml.
+#
+# ALWAYS run it as its own compose PROJECT so it can never touch the dev stack's containers or
+# volumes (`postgres-data` becomes `lettuce-perf_postgres-data`) — `perf/run.sh` hardcodes this:
+#   docker compose -p lettuce-perf -f docker-compose.yaml -f perf/docker-compose.perf.yaml up --build -d
+#
+# Distinct container names and loopback ports (app 18080, postgres 15432) so it runs beside the dev stack. Sizing mirrors production (the app's 512m
+# container = k8s/templates/app-deployment.yaml, postgres 1g) rather than the demo's limits.
+services:
+  postgres:
+    container_name: lettuce-perf-postgres
+    restart: "no"
+    # Same image digest as docker-compose.yaml (inherited — never restated here). The command
+    # replaces the image default CMD; the flags are the observability the measurement needs:
+    # pg_stat_statements (what ran, how often, how long), auto_explain (plans of slow
+    # statements, JSON in the log), track_io_timing (buffer read time in both).
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements,auto_explain
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - pg_stat_statements.max=10000
+      - -c
+      - track_io_timing=on
+      - -c
+      - auto_explain.log_min_duration=50ms
+      - -c
+      - auto_explain.log_analyze=on
+      - -c
+      - auto_explain.log_buffers=on
+      - -c
+      - auto_explain.log_format=json
+      # log_timing=off: per-node timing instrumentation is the dominant auto_explain observer overhead and
+      # distorts absolute milliseconds (statement counts are unaffected); plans keep their row counts,
+      # buffers and the statement's total duration, which is what the plan reading needs.
+      - -c
+      - auto_explain.log_timing=off
+      # Bind parameters carry emails/plaintext ids; the slow-statement log must not echo them.
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - log_min_duration_statement=250ms
+    ports: !override
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      # Runs on a FRESH perf volume only (docker-entrypoint-initdb.d); `unaccent` stays Flyway's (V43).
+      - ./perf/pg/init:/docker-entrypoint-initdb.d:ro
+    mem_limit: 1g
+    cpus: 2
+
+  # ISOLATION: the perf stack talks to nobody. The mail catcher and the Teams stub are not started at all
+  # (profile "never" — `up` skips them; the app has no depends_on on either), and the app's transports are
+  # `disabled` below, so nothing is even sent to a local catcher. Ports are reset so that someone who
+  # force-starts a profiled service cannot collide with the dev stack's 8025/8089.
+  mailpit:
+    container_name: lettuce-perf-mailpit
+    profiles: ["never"]
+    ports: !reset []
+
+  teams-stub:
+    container_name: lettuce-perf-teams-stub
+    profiles: ["never"]
+    ports: !reset []
+
+  app:
+    container_name: lettuce-perf-app
+    restart: "no"
+    environment:
+      # The application.yaml dev key, NOT the compose demo key: the dataset generator encrypts with
+      # the same constant (DEV_DATA_ENCRYPTION_KEY, infra/crypto/Crypto.kt), and a different key
+      # here would make every read of the seeded data fail with AEADBadTagException.
+      DATA_ENCRYPTION_KEY: 650180357f3898db23d295f5bd7ce2ee52bfd280aefb562e75a3a64e8b3b80f3
+      # k6 runs outlast the 900 s default access token; measurement-neutral.
+      JWT_ACCESS_EXPIRES_IN_SECONDS: "7200"
+      # Development mode (inherited from the base file, decision D3) with the header ON explicitly.
+      PERF_SERVER_TIMING: "true"
+      # The base file turns the integration API on for the demo; nothing on the perf path uses it.
+      INTEGRATION_ENABLED: "false"
+      MAIL_APP_URL: http://localhost:18080
+      # No outbound mail, no Teams messages: `disabled` is accepted in development mode (the transports return
+      # a null sender; the notification mirrors then skip their recipient lookups — off the request path).
+      MAIL_TRANSPORT: disabled
+      TEAMS_TRANSPORT: disabled
+      # Inherited demo wiring removed (an unset variable falls back to the application.yaml default): no SMTP
+      # host, no fake Teams credentials, no stub base URLs.
+      SMTP_HOST: !reset null
+      SMTP_PORT: !reset null
+      SMTP_STARTTLS: !reset null
+      MAIL_FROM: !reset null
+      TEAMS_TENANT_ID: !reset null
+      TEAMS_APP_ID: !reset null
+      TEAMS_APP_SECRET: !reset null
+      TEAMS_LOGIN_BASE_URL: !reset null
+      TEAMS_GRAPH_BASE_URL: !reset null
+      TEAMS_SERVICE_URL: !reset null
+      # EMPTY by default = the SHIPPED JVM flags (SerialGC, -Xmx256m, C1-only — server/build.gradle.kts).
+      # The launcher appends JAVA_OPTS, so e.g. PERF_JAVA_OPTS="-XX:TieredStopAtLevel=4" turns C2 on.
+      JAVA_OPTS: "${PERF_JAVA_OPTS:-}"
+    ports: !override
+      - "127.0.0.1:18080:8080"
+    volumes:
+      # JFR recordings and other in-container profiler output (perf/run.sh creates the directory).
+      - ./perf/results/jfr:/perf-out
+    mem_limit: 512m
+    cpus: 2
+
+volumes:
+  postgres-data:

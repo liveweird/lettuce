@@ -8,10 +8,11 @@ trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/source/.git/refs/heads/build" \
     "$fixture/source/core/build" "$fixture/source/server/build" \
     "$fixture/source/web/node_modules" "$fixture/source/web/dist" \
-    "$fixture/source/.gradle"
+    "$fixture/source/.gradle" \
+    "$fixture/source/perf/results" "$fixture/source/perf/snapshots" "$fixture/source/perf/baselines"
 cp "$repo_root/.dockerignore" "$fixture/source/.dockerignore"
 printf 'synthetic-ref\n' > "$fixture/source/.git/refs/heads/build/probe"
-for excluded in core/build server/build web/node_modules web/dist .gradle; do
+for excluded in core/build server/build web/node_modules web/dist .gradle perf/results perf/snapshots; do
     printf 'excluded\n' > "$fixture/source/$excluded/probe"
 done
 # The built-in frontend and scratch stage need no registry pulls or application build.
@@ -23,7 +24,7 @@ if ! docker build --progress=plain --output "type=local,dest=$fixture/result" \
 fi
 
 test -f "$fixture/result/context/.git/refs/heads/build/probe"
-for excluded in core/build server/build web/node_modules web/dist .gradle; do
+for excluded in core/build server/build web/node_modules web/dist .gradle perf/results perf/snapshots; do
     if test -e "$fixture/result/context/$excluded"; then
         printf 'Build context unexpectedly contains %s\n' "$excluded" >&2
         exit 1

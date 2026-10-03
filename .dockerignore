@@ -4,6 +4,10 @@
 web/node_modules/
 web/dist/
 
+# Perf harness output (perf/run.sh): raw k6/JFR results and database snapshots can be GBs
+perf/results/
+perf/snapshots/
+
 # IDE / local cruft (.git stays IN the context — the SPA build stage reads the
 # commit sha/timestamp from it for the version stamp)
 **/.idea/
