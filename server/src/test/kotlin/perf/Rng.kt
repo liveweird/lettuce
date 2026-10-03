@@ -21,6 +21,9 @@ class Rng(seed: Long, stream: String) {
 
     fun <T> pick(items: List<T>): T = items[random.nextInt(items.size)]
 
+    /** [items] in a random order (deterministic for the stream's state). */
+    fun <T> shuffled(items: List<T>): List<T> = items.shuffled(random)
+
     /** A rough bell curve: the mean of three uniform draws, scaled to [mean] ± ~[spread], clamped. */
     fun bell(mean: Double, spread: Double, min: Int, max: Int): Int {
         val unit = (random.nextDouble() + random.nextDouble() + random.nextDouble()) / 3.0 - 0.5

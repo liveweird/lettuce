@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * snapshots, baselines and `perf/results/seed-<version>.json` are keyed on it, so two numbers are
  * only comparable when their dataset version matches.
  */
-const val DATASET_VERSION = 1
+const val DATASET_VERSION = 2
 
 /** The one shared sign-in password of every generated account (one bcrypt hash, computed once). */
 const val PERF_PASSWORD = "perf-pass-2026"
@@ -45,9 +45,10 @@ data class SeedConfig(
 )
 
 /**
- * The capacity slice (M1): 1 CEO → [directors] directors → [leads] leads → [ics] ICs over
+ * The capacity spec: 1 CEO → [directors] directors → [leads] leads → [ics] ICs over
  * [months] months of history. At `scale = 1.0`: 511 users, 81 teams, 260 weekly 1:1s per
- * manager–report pair, 60 monthly goals/feedbacks per person, 10 half-year review periods.
+ * manager–report pair, 60 monthly goals/feedbacks/impact entries per person, 10 half-year review
+ * periods, 130 fortnightly pulse cycles, 4 KPIs per team, 5 days-off entries per person-year.
  */
 class SeedSpec(private val scale: Double) {
     private fun scaled(base: Int, min: Int) = max(min, (base * scale).roundToInt())
@@ -58,6 +59,9 @@ class SeedSpec(private val scale: Double) {
     val ics = scaled(430, leads)
     val months = scaled(60, 3)
     val weeks = scaled(260, 8)
+
+    /** One pulse cycle every two weeks over the history (130 at scale 1.0). */
+    val pulseCycles = max(3, (130.0 * months / 60).roundToInt())
 
     /** Action items still unresolved when the next meeting is created (they carry over). */
     val actionItemUnresolvedRate = 0.075

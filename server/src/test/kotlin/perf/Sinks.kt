@@ -109,3 +109,17 @@ class IdCounter(start: UInt) {
         next = start
     }
 }
+
+/**
+ * One `*_events` stream: the sink plus its explicit-id counter (initialised by [init] from the table's
+ * current maximum), so a seeder adds events with `events.add(owner, actor, at, type, params)`.
+ */
+class EventStream(db: R2dbcDatabase, private val table: EventLogTable) {
+    val sink: RowSink<EventRow> = eventSink(db, table)
+    private val ids = IdCounter(0u)
+
+    suspend fun init(db: R2dbcDatabase) = ids.reset(nextFreeId(db, table))
+
+    fun add(ownerId: UInt, actorId: UInt?, at: Long, type: String, params: Map<String, String>, comment: String? = null) =
+        sink.add(EventRow(ids.take(), ownerId, actorId, at, type, params, comment))
+}
