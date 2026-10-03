@@ -15,7 +15,7 @@ import {
 import { listShares, type ShareResponse } from "../api/shares";
 import EmptyState from "../components/EmptyState";
 import PulseTeamResultCard from "../components/PulseTeamResultCard";
-import { useStoredState, isOneOf } from "../hooks/useStoredState";
+import { useStoredState, isOneOf, readStoredJson } from "../hooks/useStoredState";
 import { closedCycleOptions } from "../utils/pulseResults";
 import { isShareLapse } from "../utils/shareLapse";
 
@@ -40,7 +40,9 @@ type SharedTeam = { id: number; name: string; sharedBy: string };
  * calendar's `scope=` idiom — never rewriting the stored pick); a bare `?team=` picks the first
  * view holding the team; then the stored pick, with a stored "all" never applying to a non-auditor
  * (a role downgrade, or a stale cross-device value). A caller with no own/managed teams lands on
- * the org-wide auditor scope (HR) or, failing that, on the shared view when something is shared.
+ * the org-wide auditor scope (HR) or, failing that, on the shared view when something is shared —
+ * the latter only while the view pick is still the untouched default (`viewPicked` false), so a
+ * user who deliberately picked "Teams I belong to" keeps its empty state.
  */
 function resolveView(input: {
   requestedView: string | null;
@@ -50,8 +52,9 @@ function resolveView(input: {
   idsOf: Record<ResultsView, ReadonlySet<number>>;
   noOwnTeams: boolean;
   hasShared: boolean;
+  viewPicked: boolean;
 }): ResultsView {
-  const { requestedView, teamParam, storedView, auditor, idsOf, noOwnTeams, hasShared } = input;
+  const { requestedView, teamParam, storedView, auditor, idsOf, noOwnTeams, hasShared, viewPicked } = input;
   const available = VIEWS.filter((v) => v !== "all" || auditor);
   const requested = available.find((v) => v === requestedView);
   if (requested != null) return requested;
@@ -62,7 +65,7 @@ function resolveView(input: {
   const safe: ResultsView = storedView === "all" && !auditor ? "member" : storedView;
   if (safe === "member" && noOwnTeams) {
     if (auditor) return "all";
-    if (hasShared) return "shared";
+    if (hasShared && !viewPicked) return "shared";
   }
   return safe;
 }
@@ -120,6 +123,9 @@ export default function PulseResults() {
   const shares = useQuery({
     queryKey: ["shares", "withMe", "pulseTeamResults"],
     queryFn: () => listShares({ view: "withMe", resourceType: "PULSE_TEAM_RESULTS", status: "ACTIVE", pageSize: 100 }),
+    // No retries: this list only decorates the own views, so a 5xx must not hold the page on its
+    // skeleton for the retry backoff.
+    retry: false,
   });
 
   const options = closedCycleOptions(cycles.data ?? [], locale, t);
@@ -151,6 +157,8 @@ export default function PulseResults() {
     },
     noOwnTeams,
     hasShared: sharedTeams.length > 0,
+    // Read at render (like isAdmin()): setView writes storage, so a pick flips it on the next render.
+    viewPicked: readStoredJson("pulse.results.view") !== undefined,
   });
   const availableViews = VIEWS.filter((v) => v !== "all" || auditor);
 
@@ -159,7 +167,11 @@ export default function PulseResults() {
   const wireMode: PulseAggregationMode = view !== "member" && calc === "indirect" ? "subtree" : "direct";
   // The fill-gate probe (own views only): the first team the caller has no active share on, so a
   // 200 is an own-right read and a plain 403 is the gate. It shares its query key with that team's
-  // card, so no extra request. Waits for the shares list so it never picks a shared team.
+  // card, so no extra request. Waits for the shares list so it never picks a shared team. If the list
+  // FAILED, nothing is known to be shared and the first team is probed: that stays safe because only
+  // a plain 403 is acted on (it exists only when the team has no active share, so it IS the caller's
+  // gate), while a 200 or a lapse 403 just leaves the page ungated — every card shows only what its
+  // own request returned.
   const probeTeam = view === "shared" ? undefined : viewTeams.find((team) => !sharedIds.has(team.id));
   const probe = useQuery({
     queryKey: ["pulseResults", selectedCycle, probeTeam?.id, wireMode],

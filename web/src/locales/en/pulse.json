@@ -126,10 +126,11 @@
     "noResultsYet": "No closed pulse cycles yet.",
     "trendTitle": "eNPS trend",
     "trendPending": "The trend appears after two closed cycles.",
+    "trendUnavailable": "The trend is unavailable right now.",
     "commentsTitle": "Comments",
     "commentsAnonymized": "Shown anonymized and in random order.",
     "loadError": "Could not load the results.",
-    "sharedUnavailable": "The person who shared this with you can't see this cycle's results."
+    "sharedUnavailable": "The person who shared these results no longer has access to this cycle's results."
   },
   "trend": {
     "metricAria": "Trend metric",

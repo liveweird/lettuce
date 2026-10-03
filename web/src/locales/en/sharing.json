@@ -5,7 +5,7 @@
   "dialogTitle_calendar": "Share this calendar",
   "intro_calendar": "People you share this calendar with can see when this person is off — dates and paid/unpaid only, never the kind of leave, the budget or the reasons — but never change anything. A share works only while you can see the calendar yourself.",
   "dialogTitle_pulse": "Share these pulse results",
-  "intro_pulse": "People you share this team's pulse results with see exactly what you see — the team's aggregated scores, the trend and, if you can read them, the anonymized comments. Never who answered what, and never anything you can't see yourself. A share works only while you can see the team's results yourself.",
+  "intro_pulse": "People you share this team's pulse results with see exactly what you see — the team's aggregated scores, the trend and, if you can read them, the anonymized comments. Never who answered what, and never anything you can't see yourself. A share works only while you can see the team's results yourself. People you share with can tell which survey cycles you took part in.",
   "shareWith": "Share with",
   "pickPeople": "Pick people",
   "noPeople": "No people available",

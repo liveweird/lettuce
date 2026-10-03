@@ -302,7 +302,7 @@ export default function PulseTeamResultCard({
               </Suspense>
             ) : (
               <Text size="sm" c="dimmed">
-                {t("pulse.results.trendPending")}
+                {t(trend.isError ? "pulse.results.trendUnavailable" : "pulse.results.trendPending")}
               </Text>
             )}
           </>

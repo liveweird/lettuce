@@ -593,7 +593,7 @@ describe("PulseResults — sharing (v4.12.0)", () => {
     });
     renderWithProviders(<PulseResults />, { route: "/pulse?tab=results&view=shared" });
     expect(
-      await screen.findByText("The person who shared this with you can't see this cycle's results."),
+      await screen.findByText("The person who shared these results no longer has access to this cycle's results."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Results are available for closed cycles you took part in.")).toBeNull();
     expect(screen.queryByText("Could not load the results.")).toBeNull();
@@ -652,7 +652,7 @@ describe("PulseResults — sharing (v4.12.0)", () => {
     });
     renderWithProviders(<PulseResults />);
     expect(
-      await screen.findByText("The person who shared this with you can't see this cycle's results."),
+      await screen.findByText("The person who shared these results no longer has access to this cycle's results."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Results are available for closed cycles you took part in.")).toBeNull();
     expect(resultCalls()).toHaveLength(1);
@@ -665,7 +665,7 @@ describe("PulseResults — sharing (v4.12.0)", () => {
       results: { 21: { status: 403, body: { title: "no", status: 403, detail: LAPSE } } },
     });
     renderWithProviders(<PulseResults />);
-    await screen.findByText("The person who shared this with you can't see this cycle's results.");
+    await screen.findByText("The person who shared these results no longer has access to this cycle's results.");
     expect(screen.queryByText("eNPS trend")).toBeNull();
   });
 
@@ -749,7 +749,87 @@ describe("PulseResults — sharing (v4.12.0)", () => {
     });
     renderWithProviders(<PulseResults />, { route: "/pulse?tab=results&view=shared" });
     expect(await screen.findByRole("radio", { name: "Udostępnione mi" })).toBeInTheDocument();
-    expect(await screen.findByText("Osoba, która Ci to udostępniła, nie widzi wyników tego cyklu.")).toBeInTheDocument();
+    expect(await screen.findByText("Osoba, która udostępniła te wyniki, nie ma już dostępu do wyników tego cyklu.")).toBeInTheDocument();
     expect(screen.getByText("Udostępnił/a: Ann Sharer")).toBeInTheDocument();
+  });
+
+  test("an explicit pick of 'Teams I belong to' keeps its empty state; only the untouched default redirects to shared", async () => {
+    setup({ shares: [pulseShare(1, 21, "BBB", "Ann Sharer")] });
+    const user = userEvent.setup();
+    renderWithProviders(<PulseResults />);
+    // Untouched default: lands on the shared view.
+    expect(await screen.findByRole("heading", { name: "BBB" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Teams I belong to" }));
+    expect(await screen.findByText("You are not a member of any team.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "BBB" })).toBeNull();
+    expect(screen.getByRole("radio", { name: "Teams I belong to" })).toBeChecked();
+  });
+
+  test("a stored 'member' pick (an explicit choice made earlier) is not redirected to shared either", async () => {
+    localStorage.setItem("lettuce.viewSettings.pulse.results.view", JSON.stringify("member"));
+    setup({ shares: [pulseShare(1, 21, "BBB", "Ann Sharer")] });
+    renderWithProviders(<PulseResults />);
+    expect(await screen.findByText("You are not a member of any team.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "BBB" })).toBeNull();
+  });
+
+  test("a failed shares list does not stall the page, and a sat-out caller still gets the gated state from the plain 403", async () => {
+    setup({ member: [{ id: 11, name: "AAA" }], sharesStatus: 500, results: { 11: { status: 403 } } });
+    renderWithProviders(<PulseResults />);
+    expect(await screen.findByText("Results are available for closed cycles you took part in.")).toBeInTheDocument();
+    // One shares request only — no retry backoff holding the skeleton.
+    expect(mockFetch.mock.calls.filter(([url]) => String(url).startsWith("/api/v1/shares"))).toHaveLength(1);
+  });
+
+  test("with the shares list failed, a readable team shows its numbers and a lapse 403 is not mistaken for the gate", async () => {
+    setup({
+      member: [
+        { id: 11, name: "AAA" },
+        { id: 12, name: "BBB" },
+      ],
+      sharesStatus: 500,
+      results: { 11: { status: 403, body: { title: "no", status: 403, detail: LAPSE } } },
+    });
+    renderWithProviders(<PulseResults />);
+    // The probe lands on team 11 (nothing known to be shared): its lapse never gates the page.
+    expect(
+      await screen.findByText("The person who shared these results no longer has access to this cycle's results."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Results are available for closed cycles you took part in.")).toBeNull();
+    expect(await screen.findByRole("heading", { name: "BBB" })).toBeInTheDocument();
+    expect(await screen.findAllByText("+33")).toHaveLength(1);
+  });
+
+  test("a failed trend says it is unavailable, not that it appears after two cycles", async () => {
+    setup({ member: [{ id: 11, name: "AAA" }] });
+    const base = mockFetch.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>;
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      String(url).includes("/trend")
+        ? Promise.resolve(jsonResponse(500, { title: "x", status: 500 }))
+        : base(url, init),
+    );
+    renderWithProviders(<PulseResults />);
+    expect(await screen.findByText("The trend is unavailable right now.")).toBeInTheDocument();
+    expect(screen.queryByText("The trend appears after two closed cycles.")).toBeNull();
+  });
+
+  test("a 403 from comments on a share-granted card renders nothing alarming", async () => {
+    setup({
+      member: [],
+      shares: [pulseShare(1, 21, "BBB", "Ann Sharer")],
+      results: { 21: { status: 200, body: { sharedBy: "Ann Sharer", canReadComments: true } } },
+    });
+    const base = mockFetch.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>;
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      String(url).includes("/comments?")
+        ? Promise.resolve(jsonResponse(403, { title: "no", status: 403, detail: "Not available" }))
+        : base(url, init),
+    );
+    renderWithProviders(<PulseResults />);
+    await screen.findByText("Shared by Ann Sharer");
+    await waitFor(() => expect(commentCalls()).toHaveLength(1));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("Comments")).toBeNull();
   });
 });
