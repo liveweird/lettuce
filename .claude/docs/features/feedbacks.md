@@ -84,7 +84,7 @@ A feedback is shareable (`feedbacks/FeedbackShareable.kt`, registered in `config
 
 ### Feedback list views (`GET /api/v1/feedbacks?view=…`)
 
-`FeedbackService.list` (`feedbacks/FeedbackService.kt`) scopes rows by `view` + the caller; the shared paging/filter helpers then apply on top. The caller-relative view scopes (the HR auditor `view=user` is documented in `.claude/docs/authorization.md`):
+`FeedbackService.list` (`feedbacks/FeedbackService.kt`) scopes rows by `view` + the caller; the shared paging/filter helpers then apply on top (`status` is a repeated-key `IN` set since v4.13.0 — any of several statuses; the other filters stay scalar). The caller-relative view scopes (the HR auditor `view=user` is documented in `.claude/docs/authorization.md`):
 
 - **`received`** (the subject's inbox): the caller is one of the recipients (`isSubject(caller)` — anchor OR join, v3.1.0), scoped **exactly like `canReadFeedback`** so every listed row is also openable — *caller is the requester* and visibility ∈ {`PROVIDER_REQUESTER`,`PROVIDER_REQUESTER_SUBJECT`} (any status); OR *plain subject* (no requester, or someone else's) and visibility ∈ {`PROVIDER_SUBJECT`,`PROVIDER_REQUESTER_SUBJECT`} and status ∈ {`SENT`,`WITHDRAWN`}; OR `PUBLIC` + `SENT` (either role).
 - **`provided`**: `providerId == caller` (every status/visibility).

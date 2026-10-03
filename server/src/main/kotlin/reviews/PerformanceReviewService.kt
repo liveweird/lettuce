@@ -35,7 +35,8 @@ data class PerformanceReviewListFilter(
     val managerId: UInt? = null,
     val subordinateId: UInt? = null,
     val periodId: UInt? = null,
-    val status: PerformanceReviewStatus? = null,
+    /** Repeated-key `IN` (API-LIST-004): rows at ANY of these statuses. */
+    val statuses: Set<PerformanceReviewStatus>? = null,
     val createdAtGte: Long? = null,
     val lastModifiedGte: Long? = null,
 )
@@ -663,7 +664,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
         filter.managerId?.let { op = op and (Reviews.managerId eq it) }
         filter.subordinateId?.let { op = op and (Reviews.subordinateId eq it) }
         filter.periodId?.let { op = op and (Reviews.periodId eq it) }
-        filter.status?.let { op = op and (Reviews.status eq it) }
+        filter.statuses?.let { op = op and (Reviews.status inList it) }
         filter.createdAtGte?.let { op = op and (Reviews.createdAt greaterEq it) }
         filter.lastModifiedGte?.let { op = op and (Reviews.lastModified greaterEq it) }
         return op

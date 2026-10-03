@@ -23,10 +23,11 @@ type TeamKpiListQuery = {
   sort?: string;
   title?: string;
   teamName?: string;
-  status?: TeamKpiStatus;
+  /** Any of these statuses (repeated key, v4.13.0). */
+  status?: TeamKpiStatus[];
   type?: TeamKpiType;
-  /** Exact team match — the per-team drill-down. */
-  teamId?: number;
+  /** Any of these teams (repeated key, v4.13.0) — also the per-team drill-down's single pin. */
+  teamId?: number | number[];
   createdAtGte?: number;
   /** view=managed only (v2.26.0): widen to the caller's transitive management subtree. */
   includeIndirect?: boolean;

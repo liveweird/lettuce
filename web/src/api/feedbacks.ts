@@ -27,7 +27,8 @@ type FeedbackListQuery = {
   providerId?: number;
   subjectId?: number;
   visibility?: FeedbackVisibility;
-  status?: FeedbackStatus;
+  /** Any of these statuses (repeated key, v4.13.0). */
+  status?: FeedbackStatus[];
   lastModifiedGte?: number;
   /** Only valid with view=team: widen the subject scope from direct reports to the whole management chain. */
   includeIndirect?: boolean;

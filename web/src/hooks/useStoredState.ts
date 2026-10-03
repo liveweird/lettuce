@@ -59,10 +59,6 @@ export const isStringArray = (v: unknown): v is string[] =>
 /** Validator for plain boolean state (e.g. the FilterPanel open flag). */
 export const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 
-/** Validator for nullable string state (e.g. id-as-string Select filters). */
-export const isStringOrNull = (v: unknown): v is string | null =>
-  v === null || typeof v === "string";
-
 /** Validator for nullable number state (e.g. id Select filters). */
 export const isNumberOrNull = (v: unknown): v is number | null =>
   v === null || typeof v === "number";
@@ -75,4 +71,9 @@ export function isOneOf<T extends string>(values: readonly T[]) {
 /** Validator factory for nullable single-select state: null or one of the allowed values. */
 export function isOneOfOrNull<T extends string>(values: readonly T[]) {
   return (v: unknown): v is T | null => v === null || values.includes(v as T);
+}
+
+/** Validator factory for a stored list whose every element passes `guard` (the multi-value filters). */
+export function isArrayOf<T>(guard: (v: unknown) => v is T) {
+  return (v: unknown): v is T[] => Array.isArray(v) && v.every(guard);
 }

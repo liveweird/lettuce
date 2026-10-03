@@ -88,7 +88,7 @@ fun Application.configureDashboardRoutes() {
                 val pendingRequests = feedbackService.list(
                     FeedbackListView.PROVIDED,
                     caller.userId,
-                    FeedbackListFilter(status = FeedbackStatus.REQUESTED),
+                    FeedbackListFilter(statuses = setOf(FeedbackStatus.REQUESTED)),
                     COUNT_ONLY,
                 ).total
                 // By the actual SENT moment (audit-trail event; pre-V15 fallback lastModified),
@@ -108,7 +108,7 @@ fun Application.configureDashboardRoutes() {
                 val activeGoals = goalService.list(
                     GoalListView.OWN,
                     caller.userId,
-                    GoalListFilter(status = GoalStatus.ACTIVE),
+                    GoalListFilter(statuses = setOf(GoalStatus.ACTIVE)),
                     COUNT_ONLY,
                 ).total
                 val directReports = teamService.directReportCount(caller.userId)

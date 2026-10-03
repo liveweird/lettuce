@@ -232,9 +232,15 @@ describe("Shares page", () => {
     expect(screen.queryByRole("option", { name: "Withdrawn" })).toBeNull();
     fireEvent.click(await screen.findByRole("option", { name: "Active" }));
     await waitFor(() => expect(listUrls(calls).some((u) => u.includes("status=ACTIVE"))).toBe(true));
+    // Multi-value (v4.13.0): a second status repeats the key.
+    fireEvent.click(await screen.findByRole("option", { name: "Expired" }));
+    await waitFor(() => expect(listUrls(calls).some((u) => u.includes("status=ACTIVE&status=EXPIRED"))).toBe(true));
 
     expect(localStorage.getItem("lettuce.viewSettings.shares.withMe.filter.type")).toContain("GOAL");
-    expect(localStorage.getItem("lettuce.viewSettings.shares.withMe.filter.status")).toContain("ACTIVE");
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.shares.withMe.filter.statuses") ?? "null")).toEqual([
+      "ACTIVE",
+      "EXPIRED",
+    ]);
     // The other tab's settings are its own.
     expect(localStorage.getItem("lettuce.viewSettings.shares.byMe.filter.type")).toBeNull();
   });

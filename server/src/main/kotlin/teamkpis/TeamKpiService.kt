@@ -31,10 +31,12 @@ enum class TeamKpiListView { OWN, MANAGED, ALL }
 
 data class TeamKpiListFilter(
     val teamName: String? = null,
-    val teamId: UInt? = null,
+    /** Repeated-key `IN` (API-LIST-004): KPIs of ANY of these teams. */
+    val teamIds: Set<UInt>? = null,
     val title: String? = null,
     val type: TeamKpiType? = null,
-    val status: TeamKpiStatus? = null,
+    /** Repeated-key `IN` (API-LIST-004): rows at ANY of these statuses. */
+    val statuses: Set<TeamKpiStatus>? = null,
     val createdAtGte: Long? = null,
     val lastModifiedGte: Long? = null,
 )
@@ -443,8 +445,8 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
             // The HR auditor view (v3.24.0): every team's KPIs, org-wide, every status
             // (DRAFTs included), soft-deleted teams included too — the same reach as MANAGED,
             // minus the caller-relative scoping. The route guards this view HR-only
-            // (requireAuditScopeListAccess); the teamId filter still composes on top for a
-            // one-team drill-down.
+            // (requireAuditScopeListAccess); the teamIds filter still composes on top for a
+            // per-team drill-down.
             TeamKpiListView.ALL -> Op.TRUE
         }
         val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
@@ -622,12 +624,12 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
         filter.teamName?.takeIf { it.isNotBlank() }?.let {
             op = op and (TeamService.Teams.name.containsNormalized(it))
         }
-        filter.teamId?.let { op = op and (TeamKpis.teamId eq it) }
+        filter.teamIds?.let { op = op and (TeamKpis.teamId inList it) }
         filter.title?.takeIf { it.isNotBlank() }?.let {
             op = op and (TeamKpis.title.containsNormalized(it))
         }
         filter.type?.let { op = op and (TeamKpis.type eq it) }
-        filter.status?.let { op = op and (TeamKpis.status eq it) }
+        filter.statuses?.let { op = op and (TeamKpis.status inList it) }
         filter.createdAtGte?.let { op = op and (TeamKpis.createdAt greaterEq it) }
         filter.lastModifiedGte?.let { op = op and (TeamKpis.lastModified greaterEq it) }
         return op

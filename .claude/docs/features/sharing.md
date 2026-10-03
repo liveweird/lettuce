@@ -142,7 +142,7 @@ on the wire — it lets the flood cap count a batch as one notice and joins the 
   off), the author while they can still read the document in their own right; repeat → `409`.
   Withdrawing an already-expired share stamps it silently.
 - `GET` list (`parsePaging`/`applyPaging`, `SharePage`): `view=withMe|byMe|document` (default
-  `withMe`), `resourceType`/`status` equality filters, `resourceId` only with — and required by —
+  `withMe`), `resourceType` equality and `status` (repeated-key `IN` since v4.13.0 — any of several derived statuses) filters, `resourceId` only with — and required by —
   `view=document` (which also requires `resourceType`), sort `id|createdAt|expiresOn`, default
   `-createdAt`. Shape `400`s precede the gate (the registered list-ordering rule). `withMe` hides
   WITHDRAWN rows and the types of areas the caller has disabled — both in SQL, so `total` stays

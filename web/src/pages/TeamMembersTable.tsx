@@ -18,11 +18,13 @@ import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
 import PersonCardBody from "../components/PersonCardStats";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
+import { isKnownTeam, useKnownPicks } from "../hooks/useKnownPicks";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOf, isString, isStringOrNull, useStoredState } from "../hooks/useStoredState";
+import { isOneOf, isString, isStringArray, useStoredState } from "../hooks/useStoredState";
 import { groupTeamRows } from "../utils/teamRows";
 import { loadErrorMessage } from "../utils/saveError";
 
@@ -61,11 +63,20 @@ export default function TeamMembersTable({
   const settingsKey = settingsKeyProp ?? `teamMembers.${view}`;
   const [nameFilter, setNameFilter] = useStoredState(`${settingsKey}.filter.name`, "", isString);
   const [emailFilter, setEmailFilter] = useStoredState(`${settingsKey}.filter.email`, "", isString);
-  const [teamFilter, setTeamFilter] = useStoredState<string | null>(
-    `${settingsKey}.filter.team`,
-    null,
-    isStringOrNull,
+  // Multi-value (v4.13.0): a NEW key — the legacy scalar `.filter.team` is orphaned. Team ids
+  // are stored as strings (the option values).
+  const [storedTeams, setTeamFilter] = useStoredState<string[]>(
+    `${settingsKey}.filter.teams`,
+    [],
+    isStringArray,
   );
+  const { data: teams } = useQuery({
+    queryKey: ["teams", "all"],
+    queryFn: () => listAllTeams(),
+    enabled: !pinned, // only feeds the team Select, which a pinned grid never mounts
+  });
+  // A deleted team's stored id is dropped once the teams have loaded (until then it stands).
+  const teamFilter = useKnownPicks(storedTeams, teams, isKnownTeam);
   // "My subordinates" only: direct reports (the default) vs. the whole management chain.
   const [reportsScope, setReportsScope] = useStoredState<"direct" | "all">(
     `${settingsKey}.filter.reportsScope`,
@@ -77,11 +88,11 @@ export default function TeamMembersTable({
   // (stats, 1:1s, goals) stay available without the Reports filter.
   const scopeIsDirect = pinned || reportsScope === "direct";
   // The pinned team is not a user-cleared filter, so it never counts.
-  const effectiveTeamId = teamId ?? (teamFilter ? Number(teamFilter) : undefined);
+  const effectiveTeamId = teamId ?? (teamFilter.length > 0 ? teamFilter.map(Number) : undefined);
   const activeFilterCount =
     (nameFilter.trim() ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0) +
-    (!pinned && teamFilter ? 1 : 0) +
+    (!pinned && teamFilter.length > 0 ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
@@ -90,15 +101,10 @@ export default function TeamMembersTable({
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "name",
-      [debouncedName, debouncedEmail, effectiveTeamId, includeIndirect],
+      [debouncedName, debouncedEmail, teamId, teamFilter, includeIndirect],
       { key: settingsKey, sortFields: SORT_FIELDS },
     );
 
-  const { data: teams } = useQuery({
-    queryKey: ["teams", "all"],
-    queryFn: () => listAllTeams(),
-    enabled: !pinned, // only feeds the team Select, which a pinned grid never mounts
-  });
   const teamOptions = (teams ?? []).map((team) => ({ value: String(team.id), label: team.name }));
 
   const { data, isLoading, isError, error } = useQuery({
@@ -170,15 +176,12 @@ export default function TeamMembersTable({
             clearLabel={t("teams.clearEmailFilter")}
           />
           {!pinned && (
-            <Select
+            <FilterMultiSelect
               label={t("teams.team")}
-              placeholder={t("common.state.any")}
               data={teamOptions}
               value={teamFilter}
               onChange={setTeamFilter}
-              clearable
               clearButtonProps={{ "aria-label": t("teams.clearTeamFilter") }}
-              searchable
             />
           )}
           {view === "managed" && !pinned && (

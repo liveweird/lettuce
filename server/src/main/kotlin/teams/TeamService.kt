@@ -41,7 +41,8 @@ enum class TeamMemberListView { MEMBER, MANAGED, MANAGERS }
 data class TeamMemberListFilter(
     val name: String? = null,
     val email: String? = null,
-    val teamId: UInt? = null,
+    /** Repeated-key `IN` (API-LIST-004): rows of ANY of these teams. */
+    val teamIds: Set<UInt>? = null,
 )
 
 data class TeamMemberListResult(
@@ -435,8 +436,8 @@ class TeamService(val database: R2dbcDatabase) {
         filter.email?.takeIf { it.isNotBlank() }?.let {
             op = op and (UserService.Users.email.containsNormalized(it))
         }
-        filter.teamId?.let {
-            op = op and (Teams.id eq it)
+        filter.teamIds?.let {
+            op = op and (Teams.id inList it)
         }
         return op
     }

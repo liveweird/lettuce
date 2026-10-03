@@ -11,6 +11,7 @@ import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.config.optionalConfigInt
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalEnumSet
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
@@ -174,7 +175,7 @@ internal class ShareHandlers(private val application: Application) {
             defaultSort = listOf(SortField("createdAt", descending = true)),
         )
         val resourceType = params.optionalEnum<ShareableResourceType>("resourceType")
-        val status = params.optionalEnum<ShareStatus>("status")
+        val statuses = params.optionalEnumSet<ShareStatus>("status")
         val resourceId = params.uintOnlyForView("resourceId", view, ShareListView.DOCUMENT)
         if (view == ShareListView.DOCUMENT && resourceType == null) {
             throw BadRequestException("resourceType is required for view=document")
@@ -190,7 +191,7 @@ internal class ShareHandlers(private val application: Application) {
                 userId = caller.userId,
                 resourceType = resourceType,
                 resourceId = resourceId,
-                status = status,
+                statuses = statuses,
                 disabledFeatures = caller.disabledFeatures,
                 documentSharerScope = sharerScope,
             ),

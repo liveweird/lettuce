@@ -17,6 +17,7 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.optionalUIntSet
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.reviews.LatestReviewStats
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
@@ -153,7 +154,7 @@ fun Application.configureTeamRoutes() {
                 val filter = TeamMemberListFilter(
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
-                    teamId = params.optionalUInt("teamId"),
+                    teamIds = params.optionalUIntSet("teamId"),
                 )
                 val result = teamService.listMembers(
                     view,

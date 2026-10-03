@@ -8,6 +8,7 @@ import {
   createUserViaUi,
   gotoUserRow,
   openFilters,
+  pickMultiSelectOptions,
   pickSelectOption,
   uniqueText,
 } from "./helpers";
@@ -127,7 +128,8 @@ test("bulk toggle by team: filter to a fresh team, disable Goals for all members
   await openFilters(page);
   await page.getByRole("combobox", { name: "Feature" }).click();
   await page.getByRole("option", { name: "Goals" }).click();
-  await pickSelectOption(page, "Team", teamName);
+  // The Team filter is a MultiSelect since v4.13.0 (any-of): pick, then Escape closes the dropdown.
+  await pickMultiSelectOptions(page, "Team", [teamName]);
 
   const switchA = page.getByRole("switch", { name: `Toggle Goals for ${userA.name}` });
   const switchB = page.getByRole("switch", { name: `Toggle Goals for ${userB.name}` });

@@ -20,6 +20,7 @@ import ConfirmActionModal from "../components/ConfirmActionModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import GoalCloseModal from "../components/GoalCloseModal";
 import GoalStatusBadge from "../components/GoalStatusBadge";
@@ -29,7 +30,7 @@ import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { isArrayOf, isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { createdWindowCutoff, createdWindowOptions, formatIsoDate, type CreatedWindow } from "../utils/datetime";
 import { goalSaveErrorMessage } from "../utils/goalForm";
 import { goalEditLink, goalViewLink } from "../utils/goalLinks";
@@ -162,8 +163,9 @@ export default function GoalTable({
   const [createdWindow, setCreatedWindow] = useStoredState<CreatedWindow>(
     `${storeKey}.filter.createdWindow`, "all", isOneOf(CREATED_WINDOWS),
   );
-  const [statusFilter, setStatusFilter] = useStoredState<GoalStatus | null>(
-    `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
+  // Multi-value (v4.13.0): a NEW key — the legacy scalar `.filter.status` is orphaned.
+  const [statusFilter, setStatusFilter] = useStoredState<GoalStatus[]>(
+    `${storeKey}.filter.statuses`, [], isArrayOf(isOneOf(STATUS_VALUES)),
   );
   const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
     `${storeKey}.filter.reportsScope`, "direct", isOneOf(REPORTS_SCOPES),
@@ -173,7 +175,7 @@ export default function GoalTable({
     (titleFilter.trim() ? 1 : 0) +
     visibleColumns.filter((c) => personFilters[c.field].value.trim()).length +
     (createdWindow !== "all" ? 1 : 0) +
-    (statusFilter ? 1 : 0) +
+    (statusFilter.length > 0 ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
@@ -216,7 +218,7 @@ export default function GoalTable({
         title: debouncedTitle || undefined,
         managerName: (managerVisible && debouncedManager) || undefined,
         subordinateName: (subordinateVisible && debouncedSubordinate) || undefined,
-        status: statusFilter ?? undefined,
+        status: statusFilter,
         managerId,
         subordinateId,
         createdAtGte: createdWindowCutoff(createdWindow),
@@ -278,16 +280,12 @@ export default function GoalTable({
           allowDeselect={false}
           w={180}
         />
-        <Select
+        <FilterMultiSelect<GoalStatus>
           label={t("common.field.status")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`goal.status.${s}`) })),
-          ]}
-          value={statusFilter ?? ""}
-          onChange={(v) => setStatusFilter((v as GoalStatus) || null)}
-          allowDeselect={false}
-          w={160}
+          data={STATUS_VALUES.map((s) => ({ value: s, label: t(`goal.status.${s}`) }))}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          w={200}
         />
         {withReportsScope && <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />}
       </FilterPanel>

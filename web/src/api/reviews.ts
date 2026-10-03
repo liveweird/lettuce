@@ -44,7 +44,8 @@ type PerformanceReviewListQuery = {
   sort?: string;
   managerName?: string;
   subordinateName?: string;
-  status?: PerformanceReviewStatus;
+  /** Any of these statuses (repeated key, v4.13.0). */
+  status?: PerformanceReviewStatus[];
   managerId?: number;
   subordinateId?: number;
   /** Exact period match — the per-period dashboard/table filter. */

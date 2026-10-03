@@ -42,7 +42,8 @@ data class ShareListFilter(
     val resourceType: ShareableResourceType? = null,
     /** Required with [ShareListView.DOCUMENT], rejected elsewhere (the route validates the shape). */
     val resourceId: UInt? = null,
-    val status: ShareStatus? = null,
+    /** Repeated-key `IN` (API-LIST-004): rows in ANY of these derived statuses. */
+    val statuses: Set<ShareStatus>? = null,
     /** The caller's disabled features: `withMe` hides types of those areas, in SQL, so `total` stays honest. */
     val disabledFeatures: Set<Feature> = emptySet(),
     /** `document` view only: null = every row (the author), an id = only that sharer's rows. */
@@ -448,7 +449,7 @@ class ShareService(
         }
         filter.resourceType?.let { op = op and (DocumentShares.resourceType eq it.name) }
         filter.resourceId?.let { op = op and (DocumentShares.resourceId eq it) }
-        filter.status?.let { op = op and statusOp(it, todayIso) }
+        filter.statuses?.let { statuses -> op = op and statuses.map { statusOp(it, todayIso) }.reduce { a, b -> a or b } }
         return op
     }
 

@@ -38,7 +38,8 @@ data class UserListFilter(
     val email: String? = null,
     /** Has-role filter: only users holding this additional role. */
     val role: UserRole? = null,
-    val teamId: UInt? = null,
+    /** Repeated-key `IN` (API-LIST-004): members of ANY of these teams. */
+    val teamIds: Set<UInt>? = null,
     /** Strict-boolean status filter: only deactivated (true) or only active (false) accounts. */
     val deactivated: Boolean? = null,
     /**
@@ -510,10 +511,10 @@ class UserService(val database: R2dbcDatabase) {
             val holders = UserRoles.select(UserRoles.userId).where { UserRoles.role eq it.name }
             op = op and (Users.id inSubQuery holders)
         }
-        filter.teamId?.let {
+        filter.teamIds?.let {
             val memberUserIds = TeamService.TeamMembers
                 .select(TeamService.TeamMembers.userId)
-                .where { TeamService.TeamMembers.teamId eq it }
+                .where { TeamService.TeamMembers.teamId inList it }
             op = op and (Users.id inSubQuery memberUserIds)
         }
         filter.deactivated?.let {

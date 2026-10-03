@@ -628,6 +628,45 @@ class UserRoutesTest {
     }
 
     @Test
+    fun `GET users with a repeated teamId returns the union of both teams' members`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val callerEmail = uniqueEmail("admin-$tag")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN), name = "Admin-$tag")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr-$tag"), password = "pw-123456789", name = "Mgr-$tag")
+        val memberA = TestUsers.seed(email = uniqueEmail("a-$tag"), password = "pw-123456789", name = "MemberA-$tag")
+        val memberB = TestUsers.seed(email = uniqueEmail("b-$tag"), password = "pw-123456789", name = "MemberB-$tag")
+        val memberC = TestUsers.seed(email = uniqueEmail("c-$tag"), password = "pw-123456789", name = "MemberC-$tag")
+        val client = authedClient(callerEmail, "pw-123456789")
+        suspend fun createTeam(suffix: String, members: List<UInt>) = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "team-$suffix-$tag", managerId = managerId, memberIds = members))
+        }.body<TeamResponse>()
+        val one = createTeam("1", listOf(memberA))
+        val two = createTeam("2", listOf(memberB, memberA))
+        createTeam("3", listOf(memberC))
+
+        // Two teams: a person in both appears once (membership test, not a join).
+        val both = client.get("/api/v1/users?email=$tag&teamId=${one.id}&teamId=${two.id}").body<UserPageResponse>()
+        assertEquals(2L, both.total)
+        assertEquals(setOf(memberA, memberB), both.items.map { it.id }.toSet())
+        // One value behaves as before; blank repeats are dropped; a duplicate value is harmless.
+        assertEquals(1L, client.get("/api/v1/users?email=$tag&teamId=${one.id}").body<UserPageResponse>().total)
+        assertEquals(
+            1L,
+            client.get("/api/v1/users?email=$tag&teamId=${one.id}&teamId=&teamId=${one.id}").body<UserPageResponse>().total,
+        )
+        // One bad value spoils the request; so does a 101st distinct value.
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users?teamId=${one.id}&teamId=abc").status)
+        val tooMany = (1..101).joinToString("&") { "teamId=$it" }
+        val capped = client.get("/api/v1/users?$tooMany")
+        assertEquals(HttpStatusCode.BadRequest, capped.status)
+        assertEquals("Parameter 'teamId' accepts at most 100 values", capped.body<ProblemDetail>().detail)
+        // Every other parameter still rejects repetition (API-LIST-004).
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users?name=a&name=b").status)
+    }
+
+    @Test
     fun `users list rows carry member-of team refs, name-ascending, excluding deleted teams`() = testApplication {
         usePostgresTestcontainer()
         val tag = UUID.randomUUID().toString().substring(0, 8)

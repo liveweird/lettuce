@@ -12,6 +12,7 @@
   "type": {
     "label": "Type",
     "PAID": "Paid",
+    "allPaid": "All paid",
     "UNPAID": "Unpaid"
   },
   "person": "Person",

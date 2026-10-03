@@ -724,6 +724,10 @@ class PerformanceReviewRoutesTest {
             assertTrue(review.id !in subordinate.ids("view=own"))
             assertTrue(review.id !in grand.ids("view=team"))
             assertTrue(review.id !in grand.ids("view=managed&includeIndirect=true"))
+            // A status SET containing DRAFT doesn't leak the chain-below manager's DRAFT either.
+            assertTrue(
+                review.id !in grand.ids("view=managed&includeIndirect=true&status=DRAFT&status=CALIBRATION"),
+            )
 
             // CALIBRATION: the chain lists it; the subordinate still does not.
             manager.post("$url/submit")
@@ -791,6 +795,25 @@ class PerformanceReviewRoutesTest {
         assertEquals(
             listOf(first.id, second.id).sorted(),
             rows("view=managed&subordinateId=${pair.subordinateId}&status=DRAFT").map { it.id }.sorted(),
+        )
+        // A repeated status is an IN set (API-LIST-004): both rows are DRAFT, so any set that
+        // contains DRAFT lists them and one without it lists neither.
+        assertEquals(
+            listOf(first.id, second.id).sorted(),
+            rows("view=managed&subordinateId=${pair.subordinateId}&status=DRAFT&status=PUBLISHED").map { it.id }.sorted(),
+        )
+        assertEquals(
+            emptyList(),
+            rows("view=managed&subordinateId=${pair.subordinateId}&status=CALIBRATION&status=PUBLISHED").map { it.id },
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.get("/api/v1/performance-reviews?view=managed&status=DRAFT&status=BOGUS").status,
+        )
+        // periodId stays single-valued.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            manager.get("/api/v1/performance-reviews?view=managed&periodId=${firstPeriod.id}&periodId=${secondPeriod.id}").status,
         )
         assertTrue(rows("view=managed&subordinateName=ordinate").map { it.id }.containsAll(listOf(first.id, second.id)))
         assertEquals(emptyList(), rows("view=managed&subordinateName=zzz-nobody").map { it.id })

@@ -8,6 +8,7 @@ import { IconUsers } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmActionModal from "../components/ConfirmActionModal";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import EmptyState from "../components/EmptyState";
 import TableLoadingRow from "../components/TableLoadingRow";
 import ListToolbar from "../components/ListToolbar";
@@ -17,9 +18,10 @@ import PersonaChip from "../components/PersonaChip";
 import SortHeader from "../components/SortHeader";
 import TeamBadges from "../components/TeamBadges";
 import { useCurrentPath } from "../hooks/useCurrentPath";
+import { isKnownTeam, useKnownPicks } from "../hooks/useKnownPicks";
 import { useBulkFeatureUpdate } from "../hooks/useBulkFeatureUpdate";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isNumberOrNull, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { isOneOf, isOneOfOrNull, isString, isStringArray, useStoredState } from "../hooks/useStoredState";
 import { FEATURES, getUserId, isAdmin, type Feature } from "../api/session";
 import { listUsers, updateUserFeatures, type UserPage } from "../api/users";
 import { listAllTeams } from "../api/teams";
@@ -58,17 +60,22 @@ export default function FeatureFlags() {
     null,
     isOneOfOrNull(["enabled", "disabled"]),
   );
-  const [teamFilter, setTeamFilter] = useStoredState<number | null>(
-    `${SETTINGS_KEY}.filter.team`,
-    null,
-    isNumberOrNull,
+  // Multi-value (v4.13.0): a NEW key — the legacy scalar `.filter.team` is orphaned. Team ids
+  // are stored as strings (the option values); a user matches when in ANY selected team.
+  const [storedTeams, setTeamFilter] = useStoredState<string[]>(
+    `${SETTINGS_KEY}.filter.teams`,
+    [],
+    isStringArray,
   );
+  const teams = useQuery({ queryKey: ["teams", "all"], queryFn: () => listAllTeams(), enabled: isAdmin() });
+  // A deleted team's stored id is dropped once the teams have loaded (until then it stands).
+  const teamFilter = useKnownPicks(storedTeams, teams.data, isKnownTeam);
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
   const [emailFilter, setEmailFilter] = useStoredState(`${SETTINGS_KEY}.filter.email`, "", isString);
   // The name filter is the toolbar's quick search (v3.4.0), so it stays out of the count.
   const activeFilterCount =
     (stateFilter ? 1 : 0) +
-    (teamFilter != null ? 1 : 0) +
+    (teamFilter.length > 0 ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
@@ -83,8 +90,6 @@ export default function FeatureFlags() {
       sortFields: SORT_FIELDS,
     });
 
-  const teams = useQuery({ queryKey: ["teams", "all"], queryFn: () => listAllTeams(), enabled: isAdmin() });
-
   const listQuery = (p: number, size: number) =>
     listUsers({
       page: p,
@@ -92,7 +97,7 @@ export default function FeatureFlags() {
       sort: sortParam,
       name: debouncedName || undefined,
       email: debouncedEmail || undefined,
-      teamId: teamFilter ?? undefined,
+      teamId: teamFilter.length > 0 ? teamFilter.map(Number) : undefined,
       feature: stateFilter == null ? undefined : feature,
       featureEnabled: stateFilter == null ? undefined : stateFilter === "enabled",
     });
@@ -232,7 +237,7 @@ export default function FeatureFlags() {
           storageKey: SETTINGS_KEY,
           onClear: () => {
             setStateFilter(null);
-            setTeamFilter(null);
+            setTeamFilter([]);
             setEmailFilter("");
           },
           children: (
@@ -257,13 +262,10 @@ export default function FeatureFlags() {
                   { value: "disabled", label: t("users.featureFlags.stateDisabled") },
                 ]}
               />
-              <Select
+              <FilterMultiSelect
                 label={t("users.featureFlags.teamLabel")}
-                value={teamFilter == null ? null : String(teamFilter)}
-                onChange={(v) => setTeamFilter(v == null ? null : Number(v))}
-                clearable
-                searchable
-                placeholder={t("common.state.any")}
+                value={teamFilter}
+                onChange={setTeamFilter}
                 data={(teams.data ?? []).map((team) => ({ value: String(team.id), label: team.name }))}
               />
               <ClearableTextInput

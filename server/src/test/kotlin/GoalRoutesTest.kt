@@ -1383,6 +1383,10 @@ class GoalRoutesTest {
         val widened = grand.get("/api/v1/goals?view=managed&includeIndirect=true").body<GoalPageResponse>()
         assertEquals(setOf(ownDraft.id, midActive.id), widened.items.map { it.id }.toSet())
         assertFalse(widened.items.any { it.id == midDraft.id })
+        // A status SET containing DRAFT doesn't leak the chain manager's DRAFT either.
+        val widenedMixed = grand.get("/api/v1/goals?view=managed&includeIndirect=true&status=DRAFT&status=ACTIVE")
+            .body<GoalPageResponse>()
+        assertEquals(setOf(ownDraft.id, midActive.id), widenedMixed.items.map { it.id }.toSet())
         // ...and every listed row is openable.
         assertEquals(HttpStatusCode.OK, grand.get("/api/v1/goals/${midActive.id}").status)
 
@@ -1447,6 +1451,20 @@ class GoalRoutesTest {
         )
         assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/goals?view=nope").status)
         assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/goals?status=SHINY").status)
+
+        // A repeated status is an IN set (API-LIST-004): the plan is back in DRAFT, the number
+        // goal is ACTIVE — DRAFT+ACTIVE lists both, ACTIVE+ARCHIVED only the number goal.
+        assertEquals(
+            setOf(plan.id, number.id),
+            page("title=$marker&status=DRAFT&status=ACTIVE").items.map { it.id }.toSet(),
+        )
+        assertEquals(
+            listOf(number.id),
+            page("title=$marker&status=ACTIVE&status=ARCHIVED").items.map { it.id },
+        )
+        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/goals?status=ACTIVE&status=SHINY").status)
+        // type stays single-valued.
+        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/goals?type=PLAN&type=NUMBER").status)
     }
 
     @Test

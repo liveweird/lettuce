@@ -131,8 +131,8 @@ test("a provider shares a feedback, the sharee reads it read-only, and withdrawi
   await login(page, sharee.email, sharee.password);
   await page.goto("/shares");
   await openFilters(page);
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Active", exact: true }).click();
+  // The Status filter is a MultiSelect since v4.13.0 (any-of): pick, then Escape closes the dropdown.
+  await pickMultiSelectOptions(page, "Status", ["Active"]);
   await expect(page.getByText("No shares match these filters.")).toBeVisible();
   await expect(rowByTitle(page, `From ${provider.name}`)).toHaveCount(0);
   await page.goto(`/feedback/${feedbackId}/view`);

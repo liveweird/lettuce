@@ -1,4 +1,5 @@
 import { Alert, Select, Stack, Text } from "@mantine/core";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconChartLine, IconEye, IconPencil } from "@tabler/icons-react";
@@ -6,6 +7,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
+import { listAllTeams } from "../api/teams";
 import { listTeamKpis, type TeamKpiListView, type TeamKpiStatus } from "../api/teamkpis";
 import ClearableTextInput from "../components/ClearableTextInput";
 import DateCell from "../components/DateCell";
@@ -18,8 +20,9 @@ import TeamKpiStatusBadge from "../components/TeamKpiStatusBadge";
 import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
+import { isKnownTeam, useKnownPicks } from "../hooks/useKnownPicks";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { isArrayOf, isOneOf, isString, isStringArray, useStoredState } from "../hooks/useStoredState";
 import { createdWindowCutoff, createdWindowOptions, type CreatedWindow } from "../utils/datetime";
 import { formatGoalValue, formatTargetValue } from "../utils/goalValues";
 import { teamKpiEditLink, teamKpiViewLink } from "../utils/teamKpiLinks";
@@ -80,12 +83,23 @@ export default function TeamKpiTable({
 
   const storeKey = settingsKey ?? `teamKpis.${view}`;
   const [titleFilter, setTitleFilter] = useStoredState(`${storeKey}.filter.title`, "", isString);
-  const [teamFilter, setTeamFilter] = useStoredState(`${storeKey}.filter.team`, "", isString);
+  // Multi-value filters (v4.13.0) live under NEW keys: the legacy scalar `.filter.status` and
+  // the old free-text `.filter.team` are orphaned, never parsed. Team ids are stored as strings.
+  const [storedTeams, setTeamFilter] = useStoredState<string[]>(`${storeKey}.filter.teams`, [], isStringArray);
+  // The Team picker's options — the FeatureFlags/TeamMembers all-teams pool; a pinned drill-down
+  // never mounts the picker, so it skips the fetch.
+  const { data: teams } = useQuery({
+    queryKey: ["teams", "all"],
+    queryFn: () => listAllTeams(),
+    enabled: teamColumnVisible,
+  });
+  // A deleted team's stored id is dropped once the teams have loaded (until then it stands).
+  const teamFilter = useKnownPicks(storedTeams, teams, isKnownTeam);
   const [createdWindow, setCreatedWindow] = useStoredState<CreatedWindow>(
     `${storeKey}.filter.createdWindow`, "all", isOneOf(CREATED_WINDOWS),
   );
-  const [statusFilter, setStatusFilter] = useStoredState<TeamKpiStatus | null>(
-    `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
+  const [statusFilter, setStatusFilter] = useStoredState<TeamKpiStatus[]>(
+    `${storeKey}.filter.statuses`, [], isArrayOf(isOneOf(STATUS_VALUES)),
   );
   // The direct-vs-subtree scope (v2.26.0, the GoalTable withReportsScope idiom).
   const [reportsScope, setReportsScope] = useStoredState<(typeof REPORTS_SCOPES)[number]>(
@@ -94,18 +108,17 @@ export default function TeamKpiTable({
   const includeIndirect = withReportsScope && reportsScope === "all";
   const activeFilterCount =
     (titleFilter.trim() ? 1 : 0) +
-    (teamColumnVisible && teamFilter.trim() ? 1 : 0) +
+    (teamColumnVisible && teamFilter.length > 0 ? 1 : 0) +
     (createdWindow !== "all" ? 1 : 0) +
-    (statusFilter ? 1 : 0) +
+    (statusFilter.length > 0 ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
   const [debouncedTitle] = useDebouncedValue(titleFilter, 300);
-  const [debouncedTeam] = useDebouncedValue(teamFilter, 300);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "createdAt",
-      [debouncedTitle, debouncedTeam, createdWindow, statusFilter, includeIndirect],
+      [debouncedTitle, teamFilter, createdWindow, statusFilter, includeIndirect],
       { key: storeKey, sortFields },
       "desc", // newest KPIs first (the server's default order)
     );
@@ -119,7 +132,7 @@ export default function TeamKpiTable({
       pageSize,
       sortParam,
       debouncedTitle,
-      debouncedTeam,
+      teamFilter,
       createdWindow,
       statusFilter,
       includeIndirect,
@@ -131,14 +144,15 @@ export default function TeamKpiTable({
         pageSize,
         sort: sortParam,
         title: debouncedTitle || undefined,
-        teamName: (teamColumnVisible && debouncedTeam) || undefined,
-        status: statusFilter ?? undefined,
-        teamId,
+        status: statusFilter,
+        teamId: teamId ?? (teamFilter.length > 0 ? teamFilter.map(Number) : undefined),
         createdAtGte: createdWindowCutoff(createdWindow),
         includeIndirect: includeIndirect || undefined,
       }),
     placeholderData: keepPreviousData,
   });
+
+  const teamOptions = (teams ?? []).map((team) => ({ value: String(team.id), label: team.name }));
 
   const total = data?.total ?? 0;
 
@@ -158,11 +172,11 @@ export default function TeamKpiTable({
           clearLabel={t("teamKpi.clearTitleFilter")}
         />
         {teamColumnVisible && (
-          <ClearableTextInput
+          <FilterMultiSelect
             label={t("teamKpi.team")}
+            data={teamOptions}
             value={teamFilter}
             onChange={setTeamFilter}
-            clearLabel={t("teamKpi.clearTeamFilter")}
           />
         )}
         <Select
@@ -173,16 +187,12 @@ export default function TeamKpiTable({
           allowDeselect={false}
           w={180}
         />
-        <Select
+        <FilterMultiSelect<TeamKpiStatus>
           label={t("common.field.status")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`teamKpi.status.${s}`) })),
-          ]}
-          value={statusFilter ?? ""}
-          onChange={(v) => setStatusFilter((v as TeamKpiStatus) || null)}
-          allowDeselect={false}
-          w={160}
+          data={STATUS_VALUES.map((s) => ({ value: s, label: t(`teamKpi.status.${s}`) }))}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          w={200}
         />
       </FilterPanel>
 

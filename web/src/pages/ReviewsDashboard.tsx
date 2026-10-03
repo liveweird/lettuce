@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import {
   Alert,
   Badge,
@@ -28,8 +28,9 @@ import { useTranslation } from "react-i18next";
 import { canAudit, getUserId } from "../api/session";
 import { listAllTeamMembers } from "../api/teams";
 import { listAllUsers } from "../api/users";
-import { listAllPerformanceReviews } from "../api/reviews";
+import { listAllPerformanceReviews, type PerformanceReviewListItem } from "../api/reviews";
 import EmptyState from "../components/EmptyState";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
@@ -39,12 +40,12 @@ import { RatingCells } from "../components/RatingBadge";
 import ReviewQuadrants from "../components/ReviewQuadrants";
 import ReportsScopeSelect, { type AuditorReportsScope } from "../components/ReportsScopeSelect";
 import { useIsManagerStatus } from "../hooks/useIsManager";
+import { useKnownDictionaryPicks, useKnownPicks } from "../hooks/useKnownPicks";
 import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
-import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
-import { isOneOf, isString, useStoredState } from "../hooks/useStoredState";
+import { isOneOf, isString, isStringArray, useStoredState } from "../hooks/useStoredState";
 import { massShareLink, reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
 import { pickLocalized } from "../utils/localized";
@@ -62,6 +63,25 @@ import {
 } from "../utils/reviewsDashboard";
 
 const SETTINGS_KEY = "dashboardReviews";
+
+// useKnownPicks predicate over the roster's team names (module-level: it is a memo dependency).
+/** The joined roster rows + their team options, memoized so the options keep a stable identity
+ * (the known-picks filter and the page-reset deps ride it). */
+function useDashboardRows(
+  isAuditorScope: boolean,
+  auditUsers: Parameters<typeof usersToPersonCards>[0] | undefined,
+  members: Parameters<typeof buildReviewsDashboardRows>[0] | undefined,
+  reviews: PerformanceReviewListItem[] | undefined,
+) {
+  return useMemo(() => {
+    const allRows = isAuditorScope
+      ? joinReviewsDashboardRows(usersToPersonCards(auditUsers ?? []), reviews ?? [])
+      : buildReviewsDashboardRows(members ?? [], reviews ?? []);
+    return { allRows, teamOptions: teamNameOptions(allRows) };
+  }, [isAuditorScope, auditUsers, members, reviews]);
+}
+
+const isKnownName = (names: readonly string[], pick: string) => names.includes(pick);
 // "auditor" (v4.3.0) = the HR-only org-wide scope over GET ?view=all — offered only to
 // canAudit() callers (the PulseResults safeView idiom below handles a role downgrade / a
 // stale cross-device value).
@@ -118,26 +138,35 @@ export default function ReviewsDashboard() {
     `${SETTINGS_KEY}.view`, "table", isOneOf(VIEW_MODES),
   );
   const [storedPeriod, setStoredPeriod] = useStoredState(`${SETTINGS_KEY}.period`, "", isString);
-  const [teamFilter, setTeamFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.team`, EMPTY_REVIEWS_DASHBOARD_FILTERS.teamName, isString,
+  // Multi-value filters (v4.13.0) live under NEW keys — the legacy scalar keys are orphaned.
+  const [storedTeams, setTeamFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.teams`, EMPTY_REVIEWS_DASHBOARD_FILTERS.teamNames, isStringArray,
   );
-  const [pathFilter, setPathFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.careerPath`, EMPTY_REVIEWS_DASHBOARD_FILTERS.careerPathId, isString,
+  const [storedPaths, setPathFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.careerPaths`, EMPTY_REVIEWS_DASHBOARD_FILTERS.careerPathIds, isStringArray,
   );
-  const [specFilter, setSpecFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.careerSpecialization`,
-    EMPTY_REVIEWS_DASHBOARD_FILTERS.careerSpecializationId,
-    isString,
+  const [storedSpecs, setSpecFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.careerSpecializations`,
+    EMPTY_REVIEWS_DASHBOARD_FILTERS.careerSpecializationIds,
+    isStringArray,
   );
-  const [seniorityFilter, setSeniorityFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.seniorityLevel`,
-    EMPTY_REVIEWS_DASHBOARD_FILTERS.seniorityLevelId,
-    isString,
+  const [storedSeniority, setSeniorityFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.seniorityLevels`,
+    EMPTY_REVIEWS_DASHBOARD_FILTERS.seniorityLevelIds,
+    isStringArray,
   );
 
-  const { options: pathOptions } = useDictionaryOptions("career-paths");
-  const { options: specOptions } = useDictionaryOptions("career-specializations");
-  const { options: seniorityOptions } = useDictionaryOptions("seniority-levels");
+  // Stored picks whose dictionary entry is gone are dropped once the options have loaded (until
+  // then they stand — see useKnownPicks).
+  const { options: pathOptions, picks: pathFilter } = useKnownDictionaryPicks("career-paths", storedPaths);
+  const { options: specOptions, picks: specFilter } = useKnownDictionaryPicks(
+    "career-specializations",
+    storedSpecs,
+  );
+  const { options: seniorityOptions, picks: seniorityFilter } = useKnownDictionaryPicks(
+    "seniority-levels",
+    storedSeniority,
+  );
 
   const {
     periods,
@@ -153,13 +182,6 @@ export default function ReviewsDashboard() {
     storedPeriod && periodOptions.some((o) => o.value === storedPeriod)
       ? storedPeriod
       : (periodOptions.find((o) => o.current)?.value ?? periodOptions[0]?.value ?? null);
-
-  const { page, setPage, pageSize, setPageSize, sortField, sortDir, toggleSort } =
-    usePagedSort<ReviewsDashboardSortField>(
-      "name",
-      [periodId, reportsScope, teamFilter, pathFilter, specFilter, seniorityFilter],
-      { key: SETTINGS_KEY, sortFields: REVIEWS_DASHBOARD_SORT_FIELDS },
-    );
 
   const { data: members, isLoading: membersLoading, isError: membersError } = useQuery({
     queryKey: ["teamMembers", "reviewsDashboard", includeIndirect],
@@ -193,21 +215,29 @@ export default function ReviewsDashboard() {
     refetchOnWindowFocus: false,
   });
 
+  const { allRows, teamOptions } = useDashboardRows(isAuditorScope, auditUsers, members, reviews);
+  const rosterSettled = isAuditorScope ? !(auditUsersLoading || auditUsersError) : !(membersLoading || membersError);
+  const teamFilter = useKnownPicks(storedTeams, rosterSettled ? teamOptions : undefined, isKnownName);
+
+  const { page, setPage, pageSize, setPageSize, sortField, sortDir, toggleSort } =
+    usePagedSort<ReviewsDashboardSortField>(
+      "name",
+      [periodId, reportsScope, teamFilter, pathFilter, specFilter, seniorityFilter],
+      { key: SETTINGS_KEY, sortFields: REVIEWS_DASHBOARD_SORT_FIELDS },
+    );
+
   const filters: ReviewsDashboardFilters = {
-    teamName: teamFilter,
-    careerPathId: pathFilter,
-    careerSpecializationId: specFilter,
-    seniorityLevelId: seniorityFilter,
+    teamNames: teamFilter,
+    careerPathIds: pathFilter,
+    careerSpecializationIds: specFilter,
+    seniorityLevelIds: seniorityFilter,
   };
   const activeFilterCount =
-    (teamFilter ? 1 : 0) +
-    (pathFilter ? 1 : 0) +
-    (specFilter ? 1 : 0) +
-    (seniorityFilter ? 1 : 0) +
+    (teamFilter.length > 0 ? 1 : 0) +
+    (pathFilter.length > 0 ? 1 : 0) +
+    (specFilter.length > 0 ? 1 : 0) +
+    (seniorityFilter.length > 0 ? 1 : 0) +
     (includeIndirect ? 1 : 0);
-  const allRows = isAuditorScope
-    ? joinReviewsDashboardRows(usersToPersonCards(auditUsers ?? []), reviews ?? [])
-    : buildReviewsDashboardRows(members ?? [], reviews ?? []);
   const filteredRows = sortReviewsDashboardRows(
     filterReviewsDashboardRows(allRows, filters),
     sortField,
@@ -216,7 +246,6 @@ export default function ReviewsDashboard() {
   );
   const total = filteredRows.length;
   const rows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
-  const teamOptions = teamNameOptions(allRows);
 
   const isLoading =
     periodsLoading ||
@@ -318,37 +347,29 @@ export default function ReviewsDashboard() {
             onChange={setReportsScope}
           />
         )}
-        <Select
+        <FilterMultiSelect
           label={t("performanceReview.dashboard.team")}
-          data={[{ value: "", label: t("common.state.all") }, ...teamOptions.map((n) => ({ value: n, label: n }))]}
+          data={teamOptions.map((n) => ({ value: n, label: n }))}
           value={teamFilter}
-          onChange={(v) => setTeamFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          onChange={setTeamFilter}
         />
-        <Select
+        <FilterMultiSelect
           label={t("common.field.careerPath")}
-          data={[{ value: "", label: t("common.state.all") }, ...pathOptions]}
+          data={pathOptions}
           value={pathFilter}
-          onChange={(v) => setPathFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          onChange={setPathFilter}
         />
-        <Select
+        <FilterMultiSelect
           label={t("performanceReview.dashboard.specialty")}
-          data={[{ value: "", label: t("common.state.all") }, ...specOptions]}
+          data={specOptions}
           value={specFilter}
-          onChange={(v) => setSpecFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          onChange={setSpecFilter}
         />
-        <Select
+        <FilterMultiSelect
           label={t("common.field.seniorityLevel")}
-          data={[{ value: "", label: t("common.state.all") }, ...seniorityOptions]}
+          data={seniorityOptions}
           value={seniorityFilter}
-          onChange={(v) => setSeniorityFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          onChange={setSeniorityFilter}
         />
       </FilterPanel>
 

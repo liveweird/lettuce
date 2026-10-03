@@ -197,8 +197,8 @@ test("a manager shares two team reviews in one go, the sharee reads them read-on
   await login(page, sharee.email, sharee.password);
   await page.goto("/shares");
   await openFilters(page);
-  await page.getByRole("combobox", { name: "Status" }).click();
-  await page.getByRole("option", { name: "Active", exact: true }).click();
+  // The Shared screen's Status filter is a MultiSelect since v4.13.0 (any-of).
+  await pickMultiSelectOptions(page, "Status", ["Active"]);
   await expect(rowByTitle(page, `${report2.name}, `)).toBeVisible();
   await expect(rowByTitle(page, `${report1.name}, `)).toHaveCount(0);
 });

@@ -211,8 +211,13 @@ an unknown value in a whitelisted field → `400`. An unknown query parameter **
 break old clients); "unknown fields → 400" governs values of recognized filter fields, not
 the parameter namespace (clarified 2026-08-22, MT-003). Repeating a key is **reserved** to
 mean `IN` (`?status=DRAFT&status=SENT`) — implement per-endpoint when a UI needs it, and
-document it; until an endpoint does, a **repeated scalar key MUST be a `400`** (never silent
-first-value-wins — enforced centrally in the shared param helpers since v2.35.0).
+document it; every key an endpoint does NOT document as `IN` stays a scalar, and a **repeated
+scalar key MUST be a `400`** (never silent first-value-wins — enforced centrally in the shared
+param helpers since v2.35.0). **Declaration recipe (v4.13.0):** the parameter's schema is
+`type: array` over the value's own enum/integer schema, with `style: form`, `explode: true`
+and the description sentence "Repeat the key to match any of several values."; the server
+drops blank values, de-duplicates, and answers `400` beyond **100 distinct non-blank values** per key
+(`maxItems: 100` in the schema) — an `IN` list is bounded input (API-SEC).
 Range/operator filters use bracket suffixes, only where an endpoint needs them:
 `field[gte]`, `field[gt]`, `field[lte]`, `field[lt]` for ordered types. **MUST NOT** add
 `[like]`, `[ne]`, or `[in]` (use repetition for `IN`) — keep the operator surface tiny.
@@ -616,8 +621,8 @@ gap"**, not as findings.
   per-endpoint?
 - **API-LIST-003/004/005 / API-NAME-004** — Sort whitelist rejecting unknown fields with
   `400`; unknown values of recognized filter fields `400` (unknown parameter NAMES are
-  deliberately ignored — see API-LIST-004); repeated scalar keys `400` until an endpoint
-  implements documented `IN`; `id` tiebreaker; strict boolean/enum parsing; documented
+  deliberately ignored — see API-LIST-004); repeated scalar keys `400` unless the endpoint
+  documents `IN` (array schema, `form`/`explode`, 100-value cap); `id` tiebreaker; strict boolean/enum parsing; documented
   `q`/substring params?
 - **API-NAME-001** — camelCase members everywhere?
 - **API-DATA-001/002/003** — Epoch-millis instants + padded ISO dates; exact numerics as

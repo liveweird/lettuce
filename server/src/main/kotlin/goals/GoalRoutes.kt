@@ -13,6 +13,7 @@ import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalEnumSet
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalString
@@ -207,7 +208,7 @@ fun Application.configureGoalRoutes() {
                     subordinateId = params.optionalUInt("subordinateId"),
                     title = params.optionalString("title"),
                     type = params.optionalEnum<GoalType>("type"),
-                    status = params.optionalEnum<GoalStatus>("status"),
+                    statuses = params.optionalEnumSet<GoalStatus>("status"),
                     createdAtGte = params.optionalLong("createdAt[gte]"),
                     lastModifiedGte = params.optionalLong("lastModified[gte]"),
                 )

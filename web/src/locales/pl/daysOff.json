@@ -12,6 +12,7 @@
   "type": {
     "label": "Rodzaj",
     "PAID": "Płatne",
+    "allPaid": "Wszystkie płatne",
     "UNPAID": "Bezpłatne"
   },
   "person": "Osoba",

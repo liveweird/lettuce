@@ -264,6 +264,39 @@ describe("FeatureFlags page", () => {
     await waitFor(() => {
       expect(lastListUrl().searchParams.get("teamId")).toBe("6");
     });
+    // Multi-value (v4.13.0): a second team repeats the key (members of ANY selected team).
+    await user.click(await screen.findByRole("option", { name: "AAA" }));
+    await waitFor(() => {
+      expect(lastListUrl().searchParams.getAll("teamId")).toEqual(["6", "5"]);
+    });
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.featureFlags.filter.teams") ?? "null")).toEqual([
+      "6",
+      "5",
+    ]);
+  });
+
+  test("a deleted team's stored id is dropped once the teams load (no crash, not sent, no pill)", async () => {
+    localStorage.setItem("lettuce.viewSettings.featureFlags.filter.teams", JSON.stringify(["6", "99"]));
+    // Panel restored open: the pills render on mount, before the teams request resolves.
+    localStorage.setItem("lettuce.viewSettings.featureFlags.filtersOpen", "true");
+    mockApi();
+    renderFeatureFlags();
+    await screen.findByRole("switch", { name: "Toggle Feedbacks for Alice" });
+
+    // Before the teams arrive the stored ids stand; afterwards only the live team is sent.
+    await waitFor(() => {
+      expect(lastListUrl().searchParams.getAll("teamId")).toEqual(["6"]);
+    });
+    expect(await screen.findByRole("button", { name: "Remove BBB" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove 99" })).toBeNull();
+  });
+
+  test("a legacy scalar team filter under the old key is ignored", async () => {
+    localStorage.setItem("lettuce.viewSettings.featureFlags.filter.team", "6");
+    mockApi();
+    renderFeatureFlags();
+    await screen.findByRole("switch", { name: "Toggle Feedbacks for Alice" });
+    expect(lastListUrl().searchParams.has("teamId")).toBe(false);
   });
 
   test("bulk disable confirms with the affected count and PUTs only rows not already disabled", async () => {

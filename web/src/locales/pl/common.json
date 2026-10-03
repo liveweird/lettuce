@@ -67,7 +67,8 @@
     "contains": "zawiera…",
     "title": "Filtry",
     "clear": "Wyczyść filtry",
-    "search": "Szukaj…"
+    "search": "Szukaj…",
+    "removeValue": "Usuń: {{value}}"
   },
   "reportsScope": {
     "label": "Podwładni",

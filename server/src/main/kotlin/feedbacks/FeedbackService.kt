@@ -39,7 +39,8 @@ data class FeedbackListFilter(
     val providerId: UInt? = null,
     val subjectId: UInt? = null,
     val visibility: FeedbackVisibility? = null,
-    val status: FeedbackStatus? = null,
+    /** Repeated-key `IN` (API-LIST-004): rows at ANY of these statuses. */
+    val statuses: Set<FeedbackStatus>? = null,
     val lastModifiedGte: Long? = null,
 )
 
@@ -910,7 +911,7 @@ class FeedbackService(
         filter.providerId?.let { op = op and (Feedbacks.providerId eq it) }
         filter.subjectId?.let { op = op and isSubject(it) }
         filter.visibility?.let { op = op and (Feedbacks.visibility eq it) }
-        filter.status?.let { op = op and (Feedbacks.status eq it) }
+        filter.statuses?.let { op = op and (Feedbacks.status inList it) }
         filter.lastModifiedGte?.let { op = op and (Feedbacks.lastModified greaterEq it) }
         return op
     }

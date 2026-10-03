@@ -67,26 +67,48 @@ describe("reviewsDashboard", () => {
     );
     expect(filterReviewsDashboardRows(rows, EMPTY_REVIEWS_DASHBOARD_FILTERS)).toHaveLength(2);
     expect(
-      filterReviewsDashboardRows(rows, { ...EMPTY_REVIEWS_DASHBOARD_FILTERS, teamName: "BBB" })
+      filterReviewsDashboardRows(rows, { ...EMPTY_REVIEWS_DASHBOARD_FILTERS, teamNames: ["BBB"] })
         .map((r) => r.person.name),
     ).toEqual(["Zoe"]);
     expect(
-      filterReviewsDashboardRows(rows, { ...EMPTY_REVIEWS_DASHBOARD_FILTERS, careerPathId: "11" })
+      filterReviewsDashboardRows(rows, { ...EMPTY_REVIEWS_DASHBOARD_FILTERS, careerPathIds: ["11"] })
         .map((r) => r.person.name),
     ).toEqual(["Ann"]);
     // An unset career value never matches a concrete filter.
     expect(
       filterReviewsDashboardRows(rows, {
         ...EMPTY_REVIEWS_DASHBOARD_FILTERS,
-        careerSpecializationId: "21",
+        careerSpecializationIds: ["21"],
       }),
     ).toEqual([]);
     expect(
       filterReviewsDashboardRows(rows, {
         ...EMPTY_REVIEWS_DASHBOARD_FILTERS,
-        seniorityLevelId: "31",
+        seniorityLevelIds: ["31"],
       }).map((r) => r.person.name),
     ).toEqual(["Zoe"]);
+  });
+
+  test("a multi-value filter is OR within itself and AND across filters (v4.13.0)", () => {
+    const rows = buildReviewsDashboardRows(
+      [
+        member(1, "Ann", "AAA", { careerPath: { id: 11, values: { en: "Eng" } } }),
+        member(2, "Bob", "BBB", { careerPath: { id: 12, values: { en: "Mgmt" } } }),
+        member(3, "Cat", "CCC", { careerPath: { id: 13, values: { en: "Ops" } } }),
+        member(4, "Dan", "AAA"),
+      ],
+      [],
+    );
+    const names = (filters: Partial<typeof EMPTY_REVIEWS_DASHBOARD_FILTERS>) =>
+      filterReviewsDashboardRows(rows, { ...EMPTY_REVIEWS_DASHBOARD_FILTERS, ...filters })
+        .map((r) => r.person.name);
+    // OR within one filter: either team, either path.
+    expect(names({ teamNames: ["AAA", "BBB"] })).toEqual(["Ann", "Bob", "Dan"]);
+    expect(names({ careerPathIds: ["11", "13"] })).toEqual(["Ann", "Cat"]);
+    // AND across filters: in team AAA AND on path 11 or 12.
+    expect(names({ teamNames: ["AAA"], careerPathIds: ["11", "12"] })).toEqual(["Ann"]);
+    // The empty array is "no filter", never "match nothing".
+    expect(names({ teamNames: [], careerPathIds: [] })).toEqual(["Ann", "Bob", "Cat", "Dan"]);
   });
 
   test("sorts strings per locale with unset values last", () => {

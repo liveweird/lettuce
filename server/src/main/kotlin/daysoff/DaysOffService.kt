@@ -45,9 +45,12 @@ enum class DaysOffCalendarScope { MEMBER, MANAGED, ORG, SHARED }
 data class DaysOffListFilter(
     val userName: String? = null,
     val userId: UInt? = null,
-    val type: DaysOffType? = null,
-    // The paid pool kind (v3.2.0) — an equality filter; composes with type=PAID trivially.
-    val poolTypeId: UInt? = null,
+    // Repeated-key `IN` (API-LIST-004): rows of ANY of these types; null = every type, except
+    // that a [poolTypeIds] without [types] implies {PAID} (see buildPredicate).
+    val types: Set<DaysOffType>? = null,
+    // The paid pool kinds (v3.2.0, a set since v4.13.0) — narrows ONLY the PAID branch: an
+    // UNPAID row never carries a pool, so it is never filtered out by this.
+    val poolTypeIds: Set<UInt>? = null,
     val startDateGte: String? = null,
     val startDateLte: String? = null,
 )
@@ -447,8 +450,8 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      *
      * ORG (v3.25.0, the HR auditor scope, route-guarded HR-only) deliberately does NOT follow
      * that "every scoped user appears" contract: [userIds] is instead only the people with at
-     * least one ACTIVE entry overlapping [month] (optionally intersected with [teamId]'s current
-     * roster) — an auditor scans absences, not a roster, and without paging an org-wide payload
+     * least one ACTIVE entry overlapping [month] (optionally intersected with the [teamIds]' current
+     * rosters, their union) — an auditor scans absences, not a roster, and without paging an org-wide payload
      * must stay bounded on any org size regardless of headcount; a month nobody is off in yields
      * an empty user list. ORG rows also keep their `poolName` (see [expandEntries] — the v3.2.1
      * teammate redaction is a MEMBER-only rule; HR already reads the pool on the entry GET and
@@ -474,7 +477,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
         callerUserId: UInt,
         month: String,
         includeIndirect: Boolean = false,
-        teamId: UInt? = null,
+        teamIds: Set<UInt>? = null,
         sharedWithMe: List<ActiveShare> = emptyList(),
     ): DaysOffCalendarResponse = suspendTransaction(database) {
         // The subtree is only walked for the widened managed scope — reused for both the user
@@ -494,7 +497,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             DaysOffCalendarScope.SHARED -> sharedBy.keys
             DaysOffCalendarScope.MEMBER -> teamMemberPeers(callerUserId) + callerUserId
             DaysOffCalendarScope.MANAGED -> if (includeIndirect) subtree else directSubordinateIds(callerUserId)
-            DaysOffCalendarScope.ORG -> orgEntryOwnerIds(monthStart, monthEnd, teamId)
+            DaysOffCalendarScope.ORG -> orgEntryOwnerIds(monthStart, monthEnd, teamIds)
         }
         val teamsByUser: Map<UInt, List<TeamRef>> = when (scope) {
             DaysOffCalendarScope.MEMBER -> teamRefsByUserIds(memberTeamIds(callerUserId), userIds)
@@ -1156,13 +1159,13 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
     /**
      * The ORG calendar scope's user set (v3.25.0): the distinct owners of ACTIVE entries
      * overlapping [monthStart]..[monthEnd] — never the whole roster (see [calendar]'s KDoc) —
-     * optionally intersected with [teamId]'s current roster. ONE narrow (id-only) query, so the
+     * optionally intersected with the union of the [teamIds]' current rosters. ONE narrow (id-only) query, so the
      * cost of finding the scope stays independent of the wider per-entry fetch [calendar] runs
-     * next for the actual rows. An empty [teamId] roster short-circuits without hitting
+     * next for the actual rows. An empty roster union short-circuits without hitting
      * `days_off_requests` at all.
      */
-    private suspend fun orgEntryOwnerIds(monthStart: String, monthEnd: String, teamId: UInt?): Set<UInt> {
-        val teamRoster = teamId?.let { membersOf(setOf(it)) }
+    private suspend fun orgEntryOwnerIds(monthStart: String, monthEnd: String, teamIds: Set<UInt>?): Set<UInt> {
+        val teamRoster = teamIds?.let { membersOf(it) }
         if (teamRoster != null && teamRoster.isEmpty()) return emptySet()
         var predicate: Op<Boolean> = active() and
             (Requests.startDate lessEq monthEnd) and (Requests.endDate greaterEq monthStart)
@@ -1290,8 +1293,19 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
             op = op and (ownerUsers[UserService.Users.name].containsNormalized(it))
         }
         filter.userId?.let { op = op and (Requests.userId eq it) }
-        filter.type?.let { op = op and (Requests.type eq it) }
-        filter.poolTypeId?.let { op = op and (Requests.poolTypeId eq it) }
+        // (type = UNPAID AND UNPAID in types) OR (type = PAID AND PAID in types AND
+        // (pools empty OR pool_type_id IN pools)); pools without types implies {PAID} (the
+        // pre-v4.13.0 single-value behaviour).
+        (filter.types ?: filter.poolTypeIds?.let { setOf(DaysOffType.PAID) })?.let { types ->
+            op = op and types.map { type ->
+                val ofType: Op<Boolean> = Requests.type eq type
+                if (type == DaysOffType.PAID && filter.poolTypeIds != null) {
+                    ofType and (Requests.poolTypeId inList filter.poolTypeIds)
+                } else {
+                    ofType
+                }
+            }.reduce { a, b -> a or b }
+        }
         filter.startDateGte?.let { op = op and (Requests.startDate greaterEq it) }
         filter.startDateLte?.let { op = op and (Requests.startDate lessEq it) }
         return op

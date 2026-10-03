@@ -24,7 +24,8 @@ type GoalListQuery = {
   title?: string;
   managerName?: string;
   subordinateName?: string;
-  status?: GoalStatus;
+  /** Any of these statuses (repeated key, v4.13.0). */
+  status?: GoalStatus[];
   type?: GoalType;
   managerId?: number;
   subordinateId?: number;

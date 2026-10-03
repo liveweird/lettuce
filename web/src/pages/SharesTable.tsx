@@ -8,6 +8,7 @@ import { listShares, withdrawShare, type ShareResponse, type ShareStatus } from 
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
@@ -19,7 +20,7 @@ import StatusPill from "../components/StatusPill";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { useCurrentPath } from "../hooks/useCurrentPath";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOfOrNull, useStoredState } from "../hooks/useStoredState";
+import { isArrayOf, isOneOf, isOneOfOrNull, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate } from "../utils/datetime";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { SHARE_FEATURE, SHARE_TYPES, shareDocumentLabel, shareKindContext, shareOpenPath } from "../utils/shareKinds";
@@ -56,10 +57,11 @@ export default function SharesTable({ view }: { view: SharesView }) {
 
   const statuses = STATUSES_OF[view];
   const typeOptions = SHARE_TYPES.filter((type) => hasFeature(SHARE_FEATURE[type]));
-  const [statusFilter, setStatusState] = useStoredState<ShareStatus | null>(
-    `${storeKey}.filter.status`,
-    null,
-    isOneOfOrNull(statuses),
+  // Multi-value (v4.13.0): a NEW key — the legacy scalar `.filter.status` is orphaned.
+  const [statusFilter, setStatusState] = useStoredState<ShareStatus[]>(
+    `${storeKey}.filter.statuses`,
+    [],
+    isArrayOf(isOneOf(statuses)),
   );
   const [typeFilter, setTypeState] = useStoredState<(typeof SHARE_TYPES)[number] | null>(
     `${storeKey}.filter.type`,
@@ -69,7 +71,7 @@ export default function SharesTable({ view }: { view: SharesView }) {
   // A stale withdraw failure belongs to the list it was raised on — a filter change drops it
   // (a tab switch remounts this component, which drops it too).
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
-  const setStatusFilter = (next: ShareStatus | null) => {
+  const setStatusFilter = (next: ShareStatus[]) => {
     setWithdrawError(null);
     setStatusState(next);
   };
@@ -77,7 +79,7 @@ export default function SharesTable({ view }: { view: SharesView }) {
     setWithdrawError(null);
     setTypeState(next);
   };
-  const activeFilterCount = (statusFilter ? 1 : 0) + (typeFilter ? 1 : 0);
+  const activeFilterCount = (statusFilter.length > 0 ? 1 : 0) + (typeFilter ? 1 : 0);
 
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
@@ -92,7 +94,7 @@ export default function SharesTable({ view }: { view: SharesView }) {
     queryFn: () =>
       listShares({
         view,
-        status: statusFilter ?? undefined,
+        status: statusFilter,
         resourceType: typeFilter ?? undefined,
         page,
         pageSize,
@@ -156,16 +158,12 @@ export default function SharesTable({ view }: { view: SharesView }) {
           allowDeselect={false}
           w={220}
         />
-        <Select
+        <FilterMultiSelect<ShareStatus>
           label={t("sharing.page.statusFilter")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            ...statuses.map((s) => ({ value: s, label: t(`sharing.status.${s}`) })),
-          ]}
-          value={statusFilter ?? ""}
-          onChange={(v) => setStatusFilter(statuses.find((s) => s === v) ?? null)}
-          allowDeselect={false}
-          w={180}
+          data={statuses.map((s) => ({ value: s, label: t(`sharing.status.${s}`) }))}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          w={240}
         />
       </FilterPanel>
 

@@ -329,6 +329,42 @@ class TeamMemberListTest {
     }
 
     @Test
+    fun `a repeated teamId returns the members of any of the teams, bad or excess values are 400`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val callerEmail = uniqueEmail("caller")
+        val callerId = TestUsers.seed(email = callerEmail, password = "pw", roles = emptySet())
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw")
+        val aliceId = TestUsers.seed(email = uniqueEmail("alice"), password = "pw", name = "Alice")
+        val bobId = TestUsers.seed(email = uniqueEmail("bob"), password = "pw", name = "Bob")
+        val carolId = TestUsers.seed(email = uniqueEmail("carol"), password = "pw", name = "Carol")
+
+        val admin = authedClient(adminEmail, "pw")
+        val platform = admin.createTeam("Platform", managerId, listOf(callerId, aliceId))
+        val support = admin.createTeam("Support", managerId, listOf(callerId, bobId))
+        val third = admin.createTeam("Third", managerId, listOf(callerId, carolId))
+
+        val caller = authedClient(callerEmail, "pw")
+        val union = caller.get("/api/v1/teams/members?teamId=${platform.id}&teamId=${support.id}")
+            .body<TeamMemberPageResponse>()
+        // The member view lists the caller's teammates, one row per (user, team).
+        assertEquals(setOf(aliceId, bobId), union.items.map { it.userId }.toSet())
+        assertEquals(setOf("Platform", "Support"), union.items.map { it.teamName }.toSet())
+        assertEquals(false, union.items.any { it.userId == carolId })
+        // One value as before.
+        val single = caller.get("/api/v1/teams/members?teamId=${third.id}").body<TeamMemberPageResponse>()
+        assertEquals(setOf(carolId), single.items.map { it.userId }.toSet())
+
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            caller.get("/api/v1/teams/members?teamId=${platform.id}&teamId=abc").status,
+        )
+        val tooMany = (1..101).joinToString("&") { "teamId=$it" }
+        assertEquals(HttpStatusCode.BadRequest, caller.get("/api/v1/teams/members?$tooMany").status)
+    }
+
+    @Test
     fun `sort by teamName descending`() = testApplication {
         usePostgresTestcontainer()
         val adminEmail = uniqueEmail("admin")

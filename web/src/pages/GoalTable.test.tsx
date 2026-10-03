@@ -249,10 +249,22 @@ describe("GoalTable", () => {
     await waitFor(() => {
       expect(mockFetch.mock.calls.some(([u]) => String(u).includes("status=ACTIVE"))).toBe(true);
     });
+    // The Status filter is multi-value (v4.13.0): a second pick repeats the key (the server's
+    // IN); the dropdown stays open after a pick.
+    fireEvent.click(await screen.findByRole("option", { name: "Draft" }));
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(([u]) => String(u).includes("status=ACTIVE&status=DRAFT")),
+      ).toBe(true);
+    });
 
-    // Filter state persists under the embedded settings key.
+    // Filter state persists under the embedded settings key (a NEW key for the array).
     expect(localStorage.getItem("lettuce.viewSettings.userGoals.filter.title")).toContain("cover");
-    expect(localStorage.getItem("lettuce.viewSettings.userGoals.filter.status")).toContain("ACTIVE");
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.userGoals.filter.statuses") ?? "null")).toEqual([
+      "ACTIVE",
+      "DRAFT",
+    ]);
+    expect(localStorage.getItem("lettuce.viewSettings.userGoals.filter.status")).toBeNull();
   });
 
   test("clicking a column header toggles the sort param", async () => {

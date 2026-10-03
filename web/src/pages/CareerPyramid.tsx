@@ -6,7 +6,6 @@ import {
   Group,
   Paper,
   SegmentedControl,
-  Select,
   Skeleton,
   Slider,
   Stack,
@@ -20,14 +19,15 @@ import { useTranslation } from "react-i18next";
 import { listCareerPyramid } from "../api/career";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonaChip from "../components/PersonaChip";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
-import { useDictionaryOptions } from "../hooks/useDictionaryOptions";
+import { useKnownDictionaryPicks } from "../hooks/useKnownPicks";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { useStoredState, isOneOf, isString } from "../hooks/useStoredState";
+import { useStoredState, isOneOf, isString, isStringArray } from "../hooks/useStoredState";
 import {
   CAREER_PYRAMID_SORT_FIELDS,
   EMPTY_CAREER_PYRAMID_FILTERS,
@@ -47,6 +47,8 @@ import { loadErrorMessage } from "../utils/saveError";
 const SETTINGS_KEY = "career.pyramid";
 const REPORTS_SCOPES = ["direct", "all"] as const;
 const VIEW_MODES = ["table", "chart"] as const;
+// Module-level: a memo dependency of useKnownDictionaryPicks.
+const KEEP_NOT_SET: readonly string[] = [NOT_SET];
 
 // The distribution chart is one of the four lazy @mantine/charts chunks (the TeamKpiChart
 // precedent) — recharts never touches the main bundle.
@@ -77,28 +79,38 @@ export default function CareerPyramid() {
   const includeIndirect = reportsScope === "all";
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
   const [debouncedName] = useDebouncedValue(nameFilter, 200);
-  const [pathFilter, setPathFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.careerPath`,
-    EMPTY_CAREER_PYRAMID_FILTERS.careerPathId,
-    isString,
+  // Multi-value filters (v4.13.0) live under NEW keys — the legacy scalar keys are orphaned.
+  const [storedPaths, setPathFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.careerPaths`,
+    EMPTY_CAREER_PYRAMID_FILTERS.careerPathIds,
+    isStringArray,
   );
-  const [specFilter, setSpecFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.careerSpecialization`,
-    EMPTY_CAREER_PYRAMID_FILTERS.careerSpecializationId,
-    isString,
+  const [storedSpecs, setSpecFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.careerSpecializations`,
+    EMPTY_CAREER_PYRAMID_FILTERS.careerSpecializationIds,
+    isStringArray,
   );
-  const [seniorityFilter, setSeniorityFilter] = useStoredState(
-    `${SETTINGS_KEY}.filter.seniorityLevel`,
-    EMPTY_CAREER_PYRAMID_FILTERS.seniorityLevelId,
-    isString,
+  const [storedSeniority, setSeniorityFilter] = useStoredState(
+    `${SETTINGS_KEY}.filter.seniorityLevels`,
+    EMPTY_CAREER_PYRAMID_FILTERS.seniorityLevelIds,
+    isStringArray,
   );
 
-  const { options: pathOptions } = useDictionaryOptions("career-paths");
-  const { options: specOptions } = useDictionaryOptions("career-specializations");
-  const { options: seniorityOptions } = useDictionaryOptions("seniority-levels");
+  // Stored picks whose dictionary entry is gone are dropped once the options have loaded (until
+  // then they stand); the "Not set" sentinel is always valid.
+  const { options: pathOptions, picks: pathFilter } = useKnownDictionaryPicks("career-paths", storedPaths, KEEP_NOT_SET);
+  const { options: specOptions, picks: specFilter } = useKnownDictionaryPicks(
+    "career-specializations",
+    storedSpecs,
+    KEEP_NOT_SET,
+  );
+  const { options: seniorityOptions, picks: seniorityFilter } = useKnownDictionaryPicks(
+    "seniority-levels",
+    storedSeniority,
+    KEEP_NOT_SET,
+  );
   // "Not set" is a first-class filter value: the pyramid exists to expose gaps too.
-  const withAllAndNotSet = (options: { value: string; label: string }[]) => [
-    { value: "", label: t("common.state.all") },
+  const withNotSet = (options: { value: string; label: string }[]) => [
     { value: NOT_SET, label: t("career.pyramid.notSet") },
     ...options,
   ];
@@ -123,15 +135,15 @@ export default function CareerPyramid() {
 
   const filters: CareerPyramidFilters = {
     name: debouncedName,
-    careerPathId: pathFilter,
-    careerSpecializationId: specFilter,
-    seniorityLevelId: seniorityFilter,
+    careerPathIds: pathFilter,
+    careerSpecializationIds: specFilter,
+    seniorityLevelIds: seniorityFilter,
   };
   const activeFilterCount =
     (debouncedName ? 1 : 0) +
-    (pathFilter ? 1 : 0) +
-    (specFilter ? 1 : 0) +
-    (seniorityFilter ? 1 : 0) +
+    (pathFilter.length > 0 ? 1 : 0) +
+    (specFilter.length > 0 ? 1 : 0) +
+    (seniorityFilter.length > 0 ? 1 : 0) +
     (includeIndirect ? 1 : 0);
   const allRows = buildCareerPyramidRows(data?.items ?? [], i18n.resolvedLanguage, asOf);
   const filteredRows = sortCareerPyramidRows(
@@ -209,29 +221,23 @@ export default function CareerPyramid() {
           onChange={setNameFilter}
           clearLabel={t("career.pyramid.clearNameFilter")}
         />
-        <Select
+        <FilterMultiSelect
           label={t("common.field.careerPath")}
-          data={withAllAndNotSet(pathOptions)}
+          data={withNotSet(pathOptions)}
           value={pathFilter}
-          onChange={(v) => setPathFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          onChange={setPathFilter}
         />
-        <Select
+        <FilterMultiSelect
           label={t("common.field.careerSpecialization")}
-          data={withAllAndNotSet(specOptions)}
+          data={withNotSet(specOptions)}
           value={specFilter}
-          onChange={(v) => setSpecFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          onChange={setSpecFilter}
         />
-        <Select
+        <FilterMultiSelect
           label={t("common.field.seniorityLevel")}
-          data={withAllAndNotSet(seniorityOptions)}
+          data={withNotSet(seniorityOptions)}
           value={seniorityFilter}
-          onChange={(v) => setSeniorityFilter(v ?? "")}
-          allowDeselect={false}
-          w={200}
+          onChange={setSeniorityFilter}
         />
       </FilterPanel>
 

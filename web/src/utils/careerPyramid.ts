@@ -91,26 +91,26 @@ export function buildCareerPyramidRows(
 /** The "Not set" filter/bucket sentinel (never collides with an entry id or display text). */
 export const NOT_SET = "__notSet__";
 
-// Entry-id strings, the ReviewsDashboard filter idiom ("" = all, NOT_SET = missing value);
-// the name is a substring, matched accent-insensitively like the server-side list filters.
+// Entry-id string lists, the ReviewsDashboard filter idiom (multi-value since v4.13.0: OR within
+// one filter, AND across, `[]` = no filter; NOT_SET is a selectable value = missing value); the
+// name is a substring, matched accent-insensitively like the server-side list filters.
 export type CareerPyramidFilters = {
   name: string;
-  careerPathId: string;
-  careerSpecializationId: string;
-  seniorityLevelId: string;
+  careerPathIds: string[];
+  careerSpecializationIds: string[];
+  seniorityLevelIds: string[];
 };
 
 export const EMPTY_CAREER_PYRAMID_FILTERS: CareerPyramidFilters = {
   name: "",
-  careerPathId: "",
-  careerSpecializationId: "",
-  seniorityLevelId: "",
+  careerPathIds: [],
+  careerSpecializationIds: [],
+  seniorityLevelIds: [],
 };
 
-function matchesEntry(entry: DictionaryEntry | null, filter: string): boolean {
-  if (filter === "") return true;
-  if (filter === NOT_SET) return entry == null;
-  return String(entry?.id ?? "") === filter;
+function matchesEntry(entry: DictionaryEntry | null, picks: string[]): boolean {
+  if (picks.length === 0) return true;
+  return picks.some((pick) => (pick === NOT_SET ? entry == null : String(entry?.id ?? "") === pick));
 }
 
 export function filterCareerPyramidRows(
@@ -121,9 +121,9 @@ export function filterCareerPyramidRows(
   return rows.filter(
     (r) =>
       (name === "" || foldDiacritics(r.name).includes(name)) &&
-      matchesEntry(r.careerPath, filters.careerPathId) &&
-      matchesEntry(r.careerSpecialization, filters.careerSpecializationId) &&
-      matchesEntry(r.seniorityLevel, filters.seniorityLevelId),
+      matchesEntry(r.careerPath, filters.careerPathIds) &&
+      matchesEntry(r.careerSpecialization, filters.careerSpecializationIds) &&
+      matchesEntry(r.seniorityLevel, filters.seniorityLevelIds),
   );
 }
 

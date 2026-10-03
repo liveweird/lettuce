@@ -273,6 +273,36 @@ describe("DaysOff page", () => {
         .find((u) => u.includes("/calendar") && u.includes("teamId=1"));
       expect(call).toBeDefined();
     });
+    // Multi-value (v4.13.0): a second team repeats the key — the calendar shows their union.
+    await userEvent.click(screen.getByRole("option", { name: "BBB" }));
+    await waitFor(() => {
+      const call = mockFetch.mock.calls
+        .map(([u]) => String(u))
+        .find((u) => u.includes("/calendar") && u.includes("teamId=1&teamId=2"));
+      expect(call).toBeDefined();
+    });
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.daysOff.calendar.orgTeams") ?? "null")).toEqual([
+      "1",
+      "2",
+    ]);
+  });
+
+  test("a deleted team's stored id is dropped from the org calendar once the teams load", async () => {
+    setupMocks({ managed: 0, orgTeams: ORG_TEAMS });
+    localStorage.setItem("lettuce.auth.roles", JSON.stringify(["HR"]));
+    localStorage.setItem("lettuce.viewSettings.daysOff.calendar.scope", JSON.stringify("org"));
+    localStorage.setItem("lettuce.viewSettings.daysOff.calendar.orgTeams", JSON.stringify(["2", "99"]));
+    renderDaysOff("/days-off");
+
+    // The pill for the unknown id renders from its raw value first (no crash), then settles.
+    expect(await screen.findByRole("button", { name: "Remove BBB" })).toBeInTheDocument();
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/calendar"));
+      const last = calls.at(-1) ?? "";
+      expect(last).toContain("teamId=2");
+      expect(last).not.toContain("teamId=99");
+    });
+    expect(screen.queryByRole("button", { name: "Remove 99" })).toBeNull();
   });
 
   test("a stored org calendar scope falls back to member for a non-auditor (v3.25.0)", async () => {

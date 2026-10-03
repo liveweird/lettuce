@@ -1124,3 +1124,56 @@ describe("TeamMembersTable activity-log link (v4.9.0)", () => {
     );
   });
 });
+
+// Its own block: the main describe above sits at the max-lines-per-function backstop.
+describe("TeamMembersTable team filter", () => {
+  let mockFetch: FetchMock;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    localStorage.setItem(TOKEN_KEY, "fake-token");
+    localStorage.setItem(ROLE_KEY, "[]");
+    localStorage.setItem(USER_ID_KEY, "7");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  test("the Team filter is multi-value: picks repeat teamId, under a new stored key (v4.13.0)", async () => {
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+    await screen.findByText("Alice Adams");
+
+    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Team" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Support" }));
+    await waitFor(() => expect(memberUrls(mockFetch).some((u) => u.includes("teamId=4"))).toBe(true));
+    await userEvent.click(screen.getByRole("option", { name: "Platform" }));
+    await waitFor(() =>
+      expect(memberUrls(mockFetch).some((u) => u.includes("teamId=4&teamId=3"))).toBe(true),
+    );
+    expect(
+      JSON.parse(localStorage.getItem("lettuce.viewSettings.teamMembers.member.filter.teams") ?? "null"),
+    ).toEqual(["4", "3"]);
+  });
+
+  test("a deleted team's stored id is dropped once the teams load (not sent, no pill)", async () => {
+    localStorage.setItem("lettuce.viewSettings.teamMembers.member.filter.teams", JSON.stringify(["4", "99"]));
+    localStorage.setItem("lettuce.viewSettings.teamMembers.member.filtersOpen", "true");
+    setupMocks(mockFetch);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    // The pill for the unknown id renders from its raw value first (no crash) ...
+    expect(await screen.findByRole("button", { name: "Remove Support" })).toBeInTheDocument();
+    // ... then the teams arrive: the request settles on the live team only.
+    await waitFor(() => {
+      const last = memberUrls(mockFetch).at(-1) ?? "";
+      expect(last).toContain("teamId=4");
+      expect(last).not.toContain("teamId=99");
+    });
+    expect(screen.queryByRole("button", { name: "Remove 99" })).toBeNull();
+  });
+});

@@ -67,7 +67,8 @@
     "contains": "contains…",
     "title": "Filters",
     "clear": "Clear filters",
-    "search": "Search…"
+    "search": "Search…",
+    "removeValue": "Remove {{value}}"
   },
   "reportsScope": {
     "label": "Reports",

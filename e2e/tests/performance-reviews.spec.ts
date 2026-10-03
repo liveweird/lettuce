@@ -7,6 +7,7 @@ import {
   notificationCard,
   openBell,
   openFilters,
+  pickMultiSelectOptions,
   pickSelectOption,
   uniqueText,
   ADMIN,
@@ -113,13 +114,13 @@ test("a performance review travels period → draft → calibration → publishe
   //    the default now, never the future one.
   await login(page, MANAGER_AAA);
   await page.goto("/performance?tab=managed");
-  // The Period and Team Selects are non-searchable (readonly inputs) — click + pick, not
-  // pickSelectOption (whose fill() would fail on a readonly combobox).
+  // The Period Select is non-searchable (a readonly input) — click + pick, not pickSelectOption
+  // (whose fill() would fail on a readonly combobox).
   await page.getByRole("combobox", { name: "Period" }).click();
   await page.getByRole("option", { name: currentPeriodLabel }).click();
   await openFilters(page);
-  await page.getByRole("combobox", { name: "Team" }).click();
-  await page.getByRole("option", { name: teamName }).click();
+  // The Team filter is a MultiSelect since v4.13.0 (any-of): pick, then Escape closes the dropdown.
+  await pickMultiSelectOptions(page, "Team", [teamName]);
   const annRow = page.getByRole("row").filter({ hasText: reviewee.name });
   await expect(annRow.getByText("No review yet")).toBeVisible();
   await annRow.getByRole("link", { name: `New performance review for ${reviewee.name}` }).click();

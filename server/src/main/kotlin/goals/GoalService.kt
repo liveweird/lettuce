@@ -36,7 +36,8 @@ data class GoalListFilter(
     val subordinateId: UInt? = null,
     val title: String? = null,
     val type: GoalType? = null,
-    val status: GoalStatus? = null,
+    /** Repeated-key `IN` (API-LIST-004): rows at ANY of these statuses. */
+    val statuses: Set<GoalStatus>? = null,
     val createdAtGte: Long? = null,
     val lastModifiedGte: Long? = null,
 )
@@ -621,7 +622,7 @@ class GoalService(val database: R2dbcDatabase, private val cipher: FieldCipher) 
             op = op and (Goals.title.containsNormalized(it))
         }
         filter.type?.let { op = op and (Goals.type eq it) }
-        filter.status?.let { op = op and (Goals.status eq it) }
+        filter.statuses?.let { op = op and (Goals.status inList it) }
         filter.createdAtGte?.let { op = op and (Goals.createdAt greaterEq it) }
         filter.lastModifiedGte?.let { op = op and (Goals.lastModified greaterEq it) }
         return op

@@ -8,9 +8,9 @@ import io.ktor.server.plugins.BadRequestException
 
 /**
  * The single value of [name], or null when absent. A repeated key is a 400: repetition is
- * reserved for per-endpoint documented `IN` semantics (API-LIST-004) — until an endpoint
- * implements that, silently using the first value would hide the caller's conflicting input
- * (2026-08-22 monkey-test round, MT-003).
+ * reserved for per-endpoint documented `IN` semantics (API-LIST-004, see [optionalSet]) —
+ * for every other parameter silently using the first value would hide the caller's
+ * conflicting input (2026-08-22 monkey-test round, MT-003).
  */
 fun Parameters.singleValue(name: String): String? {
     val all = getAll(name) ?: return null
@@ -41,6 +41,40 @@ fun Parameters.optionalBoolean(name: String): Boolean? =
  */
 inline fun <reified E : Enum<E>> Parameters.optionalEnum(name: String): E? =
     optionalString(name)?.let { raw ->
+        enumValues<E>().firstOrNull { it.name == raw } ?: throw BadRequestException(
+            "Unknown $name: $raw (allowed: ${enumValues<E>().joinToString { it.name }})",
+        )
+    }
+
+/**
+ * The most distinct values one repeated-key `IN` filter accepts (API-LIST-004, API-SEC): bounds
+ * the `IN (…)` list a request can make PostgreSQL plan. Beyond it the request is a 400.
+ */
+const val MAX_FILTER_VALUES = 100
+
+/**
+ * The distinct non-blank values of a repeated-key `IN` filter ([name] repeated = match any of
+ * the values, API-LIST-004), each run through [parse]; null when nothing is left, so "absent"
+ * stays "no filter". Blank values are dropped like the scalar helpers' (`?teamId=` = absent),
+ * duplicates collapse, and more than [MAX_FILTER_VALUES] distinct values is a 400. Only the
+ * endpoints that document the repeated key call this — every other parameter keeps
+ * [singleValue]'s repeated-key 400.
+ */
+fun <T : Any> Parameters.optionalSet(name: String, parse: (String) -> T): Set<T>? {
+    val values = getAll(name).orEmpty().filter { it.isNotBlank() }.mapTo(LinkedHashSet()) { parse(it) }
+    if (values.size > MAX_FILTER_VALUES) {
+        throw BadRequestException("Parameter '$name' accepts at most $MAX_FILTER_VALUES values")
+    }
+    return values.takeIf { it.isNotEmpty() }
+}
+
+/** Repeated-key `IN` of UInts ([optionalSet]); each value gets [optionalUInt]'s 400. */
+fun Parameters.optionalUIntSet(name: String): Set<UInt>? =
+    optionalSet(name) { it.toUIntOrNull() ?: throw BadRequestException("Invalid $name: $it") }
+
+/** Repeated-key `IN` of enum constants ([optionalSet]); each value gets [optionalEnum]'s 400. */
+inline fun <reified E : Enum<E>> Parameters.optionalEnumSet(name: String): Set<E>? =
+    optionalSet(name) { raw ->
         enumValues<E>().firstOrNull { it.name == raw } ?: throw BadRequestException(
             "Unknown $name: $raw (allowed: ${enumValues<E>().joinToString { it.name }})",
         )

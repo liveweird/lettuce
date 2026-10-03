@@ -17,10 +17,11 @@ import ch.nokillswit.authz.requireRelationship
 import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.paging.SortField
-import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalEnumSet
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.optionalUIntSet
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.infra.paging.uintOnlyForView
@@ -176,11 +177,20 @@ fun Application.configureDaysOffRoutes() {
                 // as a garbage string against the VARCHAR column instead of filtering.
                 val startDateGte = params.optionalString("startDate[gte]")?.also { parseDaysOffDate(it, "startDate[gte]") }
                 val startDateLte = params.optionalString("startDate[lte]")?.also { parseDaysOffDate(it, "startDate[lte]") }
+                // type/poolTypeId are repeated-key IN sets (API-LIST-004, v4.13.0); the pools
+                // narrow only the PAID branch, so naming pools while the type set excludes PAID
+                // is a contradiction — a shape 400 here (before the role gate), never a silent
+                // empty page.
+                val types = params.optionalEnumSet<DaysOffType>("type")
+                val poolTypeIds = params.optionalUIntSet("poolTypeId")
+                if (poolTypeIds != null && types != null && DaysOffType.PAID !in types) {
+                    throw BadRequestException("poolTypeId narrows paid entries; include type=PAID")
+                }
                 val filter = DaysOffListFilter(
                     userName = params.optionalString("userName"),
                     userId = if (view == DaysOffListView.USER) null else userId,
-                    type = params.optionalEnum<DaysOffType>("type"),
-                    poolTypeId = params.optionalUInt("poolTypeId"),
+                    types = types,
+                    poolTypeIds = poolTypeIds,
                     startDateGte = startDateGte,
                     startDateLte = startDateLte,
                 )
@@ -314,22 +324,22 @@ fun Application.configureDaysOffRoutes() {
                     "shared" -> DaysOffCalendarScope.SHARED
                     else -> throw BadRequestException("Unknown scope: $raw (allowed: member, managed, org, shared)")
                 }
-                val teamId = params.optionalUInt("teamId")
+                val teamIds = params.optionalUIntSet("teamId")
                 // The shape checks, BEFORE the role gate (the registered list-shape rule): teamId
                 // only narrows scope=org (the includeIndirect shape-rule wording), and
                 // includeIndirect (v3.13.0) only widens scope=managed from direct reports to the
                 // caller's whole transitive management chain — the budgets/list rule; 400 with
                 // any other scope.
-                if (teamId != null && scope != DaysOffCalendarScope.ORG) {
+                if (teamIds != null && scope != DaysOffCalendarScope.ORG) {
                     throw BadRequestException("teamId is only supported for scope=org")
                 }
                 val includeIndirect =
                     params.optionalIncludeIndirect(scope, listOf(DaysOffCalendarScope.MANAGED), viewParam = "scope")
                 // The org auditor scope (v3.25.0): HR only (403 for anyone else, ADMIN
                 // included — the team-KPI view=all rule), audit-logged as hr.list with the
-                // narrowing teamId riding along when present.
+                // narrowing teamId set (comma-joined) riding along when present.
                 if (scope == DaysOffCalendarScope.ORG) {
-                    requireAuditScopeListAccess(caller, "daysOffCalendar", teamId)
+                    requireAuditScopeListAccess(caller, "daysOffCalendar", teamIds)
                 }
                 // "Shared with me" (v4.11.0): the caller's active calendar shares are READ here (the
                 // share-aware read-preamble idiom — authorization input, not data enrichment);
@@ -342,7 +352,7 @@ fun Application.configureDaysOffRoutes() {
                 }
                 call.respond(
                     HttpStatusCode.OK,
-                    daysOffService.calendar(scope, caller.userId, month, includeIndirect, teamId, sharedWithMe),
+                    daysOffService.calendar(scope, caller.userId, month, includeIndirect, teamIds, sharedWithMe),
                 )
             }
             // The calendar mass-share picker (v4.11.0). Strictly caller-relative (the

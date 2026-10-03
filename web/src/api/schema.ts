@@ -8169,8 +8169,8 @@ export interface operations {
                 uniqueIdMissing?: boolean;
                 /** @description Only users holding this additional role. */
                 role?: "ADMIN" | "HR";
-                /** @description Filter to users who are members of the given team. */
-                teamId?: number;
+                /** @description Filter to users who are members of any of the given teams. Repeat the key to match any of several values. */
+                teamId?: number[];
                 /** @description Strict boolean — only deactivated (true) or only active (false) accounts. */
                 deactivated?: boolean;
                 /** @description Feature-flag state filter — must be paired with `featureEnabled` (400 otherwise). */
@@ -9101,8 +9101,8 @@ export interface operations {
                 name?: string;
                 /** @description Case- and accent-insensitive substring match against the member's email. */
                 email?: string;
-                /** @description Exact match against the team's id. */
-                teamId?: number;
+                /** @description Match members of any of the given teams (one row per member and team). Repeat the key to match any of several values. */
+                teamId?: number[];
             };
             header?: never;
             path?: never;
@@ -9344,8 +9344,8 @@ export interface operations {
                 subjectId?: number;
                 /** @description Exact match against the record's visibility. */
                 visibility?: "PROVIDER_SUBJECT" | "PROVIDER_REQUESTER" | "PROVIDER_REQUESTER_SUBJECT" | "PUBLIC";
-                /** @description Exact match against the record's status. */
-                status?: "REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED";
+                /** @description Match any of the given statuses. Repeat the key to match any of several values. */
+                status?: ("REQUESTED" | "DRAFT" | "SENT" | "WITHDRAWN" | "REJECTED")[];
                 /** @description Lower bound (inclusive) on `lastModified`, epoch milliseconds. Returns rows changed at or after this instant. */
                 "lastModified[gte]"?: number;
             };
@@ -10066,8 +10066,8 @@ export interface operations {
                 title?: string;
                 /** @description Exact goal-type match. */
                 type?: "PLAN" | "NUMBER" | "PERCENTAGE";
-                /** @description Exact status match. */
-                status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
+                /** @description Match any of the given statuses. Repeat the key to match any of several values. */
+                status?: ("DRAFT" | "ACTIVE" | "ARCHIVED")[];
                 /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
                 "createdAt[gte]"?: number;
                 /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
@@ -11119,14 +11119,14 @@ export interface operations {
                 includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Case- and accent-insensitive substring match against the team's name. */
                 teamName?: string;
-                /** @description Exact team-id match (the per-team drill-down). */
-                teamId?: number;
+                /** @description Match KPIs of any of the given teams (the per-team drill-down). Repeat the key to match any of several values. */
+                teamId?: number[];
                 /** @description Case- and accent-insensitive substring match against the KPI title. */
                 title?: string;
                 /** @description Exact KPI-type match. */
                 type?: "NUMBER" | "PERCENTAGE";
-                /** @description Exact status match. */
-                status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
+                /** @description Match any of the given statuses. Repeat the key to match any of several values. */
+                status?: ("DRAFT" | "ACTIVE" | "ARCHIVED")[];
                 /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
                 "createdAt[gte]"?: number;
                 /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
@@ -11727,8 +11727,8 @@ export interface operations {
                 subordinateId?: number;
                 /** @description Exact review-period match. */
                 periodId?: number;
-                /** @description Exact status match. */
-                status?: "DRAFT" | "CALIBRATION" | "PUBLISHED";
+                /** @description Match any of the given statuses. Repeat the key to match any of several values. */
+                status?: ("DRAFT" | "CALIBRATION" | "PUBLISHED")[];
                 /** @description Lower bound (inclusive) on the creation moment, epoch milliseconds. */
                 "createdAt[gte]"?: number;
                 /** @description Lower bound (inclusive) on the last-modified moment, epoch milliseconds. */
@@ -12122,10 +12122,10 @@ export interface operations {
                 userId?: number;
                 /** @description Case- and accent-insensitive substring match against the owner's name. */
                 userName?: string;
-                /** @description Exact type match. */
-                type?: "PAID" | "UNPAID";
-                /** @description Exact paid-pool-kind match (v3.2.0) — only PAID entries carry one, so the filter implies type=PAID (a non-integer value is 400). */
-                poolTypeId?: number;
+                /** @description Match entries of any of the given types. Repeat the key to match any of several values. Combined with `poolTypeId`, the pools narrow only the `PAID` branch: (UNPAID if listed) OR (PAID with any of the pools). */
+                type?: ("PAID" | "UNPAID")[];
+                /** @description Paid-pool-kind filter (v3.2.0, a set since v4.13.0) — it narrows ONLY the PAID entries (UNPAID entries carry no pool and are unaffected). Without `type` it implies `type=PAID`; with a `type` set that lacks `PAID` it answers `400` ("poolTypeId narrows paid entries; include type=PAID"). A non-integer value is `400`. Repeat the key to match any of several values. */
+                poolTypeId?: number[];
                 /** @description Lower bound (inclusive) on the start date, ISO YYYY-MM-DD. */
                 "startDate[gte]"?: string;
                 /** @description Upper bound (inclusive) on the start date, ISO YYYY-MM-DD. */
@@ -12220,8 +12220,8 @@ export interface operations {
                 month: string;
                 /** @description Whose days off to show — teammates (member), direct reports (managed), the whole organization (org, HR only) or the calendars shared with the caller (shared). */
                 scope?: "member" | "managed" | "org" | "shared";
-                /** @description Only valid with `scope=org` (else `400`): narrows the auditor calendar to the members of one team. */
-                teamId?: number;
+                /** @description Only valid with `scope=org` (else `400`): narrows the auditor calendar to the members of the given team(s) (their union). Repeat the key to match any of several values. */
+                teamId?: number[];
                 /**
                  * @description Widens the caller's managed scope from direct reports to the caller's whole transitive
                  *     management chain. Strict `true`/`false`. Where it applies (a view or scope, or a filter
@@ -14175,8 +14175,8 @@ export interface operations {
                 resourceType?: components["schemas"]["ShareableResourceType"];
                 /** @description The document's id. Accepted only with (and required by) `view=document`. */
                 resourceId?: number;
-                /** @description Equality filter on the derived share status. */
-                status?: components["schemas"]["ShareStatus"];
+                /** @description Filter on the derived share status (ACTIVE, EXPIRED or WITHDRAWN). Repeat the key to match any of several values. */
+                status?: components["schemas"]["ShareStatus"][];
             };
             header?: never;
             path?: never;
