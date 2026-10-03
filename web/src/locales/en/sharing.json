@@ -86,7 +86,8 @@
     "TEAM_KPI": "Team KPI",
     "IMPACT_LOG_ENTRY": "Impact log entry",
     "SUCCESSION_PLAN": "Succession plan",
-    "DAYS_OFF_CALENDAR": "Days-off calendar"
+    "DAYS_OFF_CALENDAR": "Days-off calendar",
+    "PULSE_TEAM_RESULTS": "Pulse survey results"
   },
   "doc": {
     "unavailable": "No longer available",
@@ -98,7 +99,8 @@
     "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
     "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
     "SUCCESSION_PLAN": "{{person}} (owner: {{owner}})",
-    "DAYS_OFF_CALENDAR": "Days-off calendar of {{person}}"
+    "DAYS_OFF_CALENDAR": "Days-off calendar of {{person}}",
+    "PULSE_TEAM_RESULTS": "Pulse survey results of {{team}}"
   },
   "batch": {
     "title": "Share performance reviews",

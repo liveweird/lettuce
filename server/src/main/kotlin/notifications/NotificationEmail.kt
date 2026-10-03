@@ -337,6 +337,8 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
         en = "days-off calendars",
         pl = "kalendarze dni wolnych",
     )
+    NotificationType.PULSE_RESULTS_SHARED -> sharedSentence(pulseShareNoun(p), p)
+    NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN -> withdrawnSentence(pulseShareNoun(p), p)
     NotificationType.PASSWORD_CHANGED -> when (p["self"]) {
         // The reset flow's own email (with the new password) IS the notice — no duplicate.
         "reset" -> null
@@ -410,6 +412,18 @@ private fun calendarShareNoun(p: Map<String, String>): ShareNoun = if (p["self"]
         plGenShared = "udostępnionego",
     )
 }
+
+/**
+ * The pulse-results noun (v4.12.0), built from the notice's params because it names a TEAM: `team` is
+ * the team whose survey results are shared. [ShareNoun.plGenShared] agrees with the plural
+ * "wyników".
+ */
+private fun pulseShareNoun(p: Map<String, String>): ShareNoun = ShareNoun(
+    en = "the pulse survey results of ${p.v("team")}",
+    plAcc = "wyniki ankiety pulsu zespołu ${p.v("team")}",
+    plGen = "wyników ankiety pulsu zespołu ${p.v("team")}",
+    plGenShared = "udostępnionych",
+)
 
 /** `*_SHARED` — params `{sharer}` plus the raw ISO `expiresOn` when the share has an end date. */
 private fun sharedSentence(noun: ShareNoun, p: Map<String, String>): LocalizedText {

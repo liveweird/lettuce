@@ -56,6 +56,7 @@ import ch.nokillswit.pulse.PulseCycleService
 import ch.nokillswit.pulse.PulseCycleServiceKey
 import ch.nokillswit.pulse.PulseResponseService
 import ch.nokillswit.pulse.PulseResponseServiceKey
+import ch.nokillswit.pulse.PulseTeamResultsShareable
 import ch.nokillswit.reviews.PerformanceReviewEventService
 import ch.nokillswit.reviews.PerformanceReviewEventServiceKey
 import ch.nokillswit.reviews.PerformanceReviewService
@@ -261,7 +262,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(UserServiceKey, userService)
     attributes.put(CareerPositionServiceKey, CareerPositionService(database))
     attributes.put(CareerPositionEventServiceKey, CareerPositionEventService(database))
-    attributes.put(TeamServiceKey, TeamService(database))
+    val teamService = TeamService(database).also { attributes.put(TeamServiceKey, it) }
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
     // Range-checked like every duration (v4.5.2); 0 = every call, the test suite's setting.
     val sweepIntervalMillis = requireConfigLong(
@@ -364,6 +365,7 @@ suspend fun Application.configureDatabase() {
                 ShareableResourceType.IMPACT_LOG_ENTRY -> ImpactLogShareable(impactLogService)
                 ShareableResourceType.SUCCESSION_PLAN -> SuccessionShareable(successionPlanService)
                 ShareableResourceType.DAYS_OFF_CALENDAR -> DaysOffCalendarShareable(userService, daysOffService)
+                ShareableResourceType.PULSE_TEAM_RESULTS -> PulseTeamResultsShareable(teamService)
             }
         }
     attributes.put(ShareRegistryKey, shareRegistry)

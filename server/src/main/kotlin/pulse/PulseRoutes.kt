@@ -13,7 +13,6 @@ import ch.nokillswit.authz.requireFeatureEnabled
 import ch.nokillswit.authz.requirePulseMonitorAccess
 import ch.nokillswit.authz.requirePulseMyResponse
 import ch.nokillswit.authz.requirePulseResultsAccess
-import ch.nokillswit.authz.requirePulseTrendAccess
 import ch.nokillswit.notifications.NotificationServiceKey
 import ch.nokillswit.settings.AppSettingsServiceKey
 import ch.nokillswit.teams.TeamServiceKey
@@ -513,11 +512,7 @@ fun Application.configurePulseRoutes() {
                     ?: throw NotFoundException("Team not found")
                 // Team scope as results (HR org-wide, audited); the fill gate instead applies
                 // point-wise below.
-                requirePulseTrendAccess(
-                    caller,
-                    teamId = teamId,
-                    visibleTeamIds = { teamService.visibleTeamTreeIds(caller.userId) },
-                )
+                teamService.requireResultsVisible(caller, teamId)
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
                 val respondedCycleIds = if (caller.isHr()) null else responseService.respondedCycleIds(caller.userId)
                 val points = trendPoints(cycleService.closedCyclesAsc(), scope, respondedCycleIds, responseService)

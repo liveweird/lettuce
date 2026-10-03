@@ -16,23 +16,28 @@ internal const val BATCH_SHARED_LINK = "/shares"
 internal const val SELF_OWN = "own"
 
 /**
- * The `self: "own"` carrier of a sharee-facing notice: present only for a kind that carries label
- * params ([notificationLabelKeys] non-empty — the calendar) when the sharer IS the subject person.
- * One definition for the create and the withdraw builders.
+ * The `self: "own"` carrier of a sharee-facing notice: present only for the days-off CALENDAR (the one
+ * kind whose subject is a person who can also be the sharer) when the sharer IS that person; every
+ * other kind ignores [sharerIsSubject] (pulse results name a team, never a person). One definition
+ * for the create and the withdraw builders.
  */
 private fun ownCarrier(type: ShareableResourceType, sharerIsSubject: Boolean): Map<String, String> =
-    if (sharerIsSubject && type.notificationLabelKeys.isNotEmpty()) mapOf("self" to SELF_OWN) else emptyMap()
+    if (type == ShareableResourceType.DAYS_OFF_CALENDAR && sharerIsSubject) {
+        mapOf("self" to SELF_OWN)
+    } else {
+        emptyMap()
+    }
 
 /**
  * The notification a new share mints for the SHARE'S RECIPIENT (the sharee): params `{sharer}`
  * plus the raw ISO `expiresOn` when the share has an end date (formatted client-side), link =
  * the document's view path. The succession copy is content-free by decision — it carries
  * `{sharer}` only (the type name already says "succession plan"; nothing about the seat or the
- * end date). A kind with [notificationLabelKeys] (the days-off calendar, v4.11.0) additionally
- * carries those adapter-label entries from [labelParams] — `person`, the plaintext display name —
- * plus `self: "own"` when [sharerIsSubject]; the seven document kinds carry none, so their params
- * stay byte-identical. Pure and DB-free like every `*Notifications.kt` builder; the route resolves
- * the sharer's name and persists the result.
+ * end date). A kind with [notificationLabelKeys] (the days-off calendar, v4.11.0: `person`; pulse
+ * results, v4.12.0: `team`) additionally carries those adapter-label entries from [labelParams] — the
+ * plaintext display name — plus, for the calendar only, `self: "own"` when [sharerIsSubject]; the seven
+ * document kinds carry none, so their params stay byte-identical. Pure and DB-free like every
+ * `*Notifications.kt` builder; the route resolves the sharer's name and persists the result.
  */
 internal fun shareCreatedNotification(
     type: ShareableResourceType,
@@ -82,8 +87,9 @@ internal fun batchSharedNotification(
  * SHARER carrying `self: "sharer"` (the `PASSWORD_CHANGED` context-carrier idiom) and a link to
  * their "Shared by me" list. The succession copies carry `{sharer}` only (+ the `self` carrier on
  * the sharer's copy) — they name nobody else. A kind with [notificationLabelKeys] (the days-off
- * calendar, v4.11.0) adds those entries of [labelParams] (the creation-time `details` snapshot) to
- * BOTH copies and `self: "own"` on the sharee's copy when [sharerIsSubject] (the sharer's copy only
+ * calendar, v4.11.0; pulse results, v4.12.0) adds those entries of [labelParams] (the creation-time
+ * `details` snapshot) to BOTH copies and, for the calendar only, `self: "own"` on the sharee's copy
+ * when [sharerIsSubject] (the sharer's copy only
  * exists when the sharer is not the author, and the author of a calendar is its person — so there
  * `sharerIsSubject` is never true and `self` stays `"sharer"`).
  */

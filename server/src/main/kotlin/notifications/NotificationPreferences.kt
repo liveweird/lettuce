@@ -93,6 +93,8 @@ val NotificationType.lockedOn: Boolean
         NotificationType.DAYS_OFF_CALENDAR_SHARED,
         NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN,
         NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED,
+        NotificationType.PULSE_RESULTS_SHARED,
+        NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN,
         -> false
     }
 

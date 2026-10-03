@@ -4288,6 +4288,13 @@ export interface paths {
          *     transitive management chain (`403` for teammates, ADMIN-as-such and the HR auditor without
          *     a chain relationship). The person is the calendar's author: they see and may withdraw
          *     every share of it. The sharee's notice names the person.
+         *
+         *     For `resourceType: PULSE_TEAM_RESULTS` (v4.12.0) the `resourceId` is a TEAM id — the
+         *     document read is that team (`404` for an unknown or soft-deleted team) and the own-right
+         *     rule is: the team is in the caller's visible result tree (a member of it, managing it, or
+         *     anywhere below either; `403` for the HR auditor or ADMIN without that relationship). The
+         *     team's current manager and the managers above them are the document's authors: they see and
+         *     may withdraw every share of the team's results. The sharee's notice names the team.
          */
         post: operations["createShare"];
         delete?: never;
@@ -6967,7 +6974,7 @@ export interface components {
          * @description Notification kind — see `NotificationResponse.type` for what each carries and `NotificationPreferenceItem` for the per-type on/off switches (v4.0.0).
          * @enum {string}
          */
-        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEWS_BATCH_SHARED" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDAR_SHARED" | "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDARS_BATCH_SHARED" | "PASSWORD_CHANGED";
+        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEWS_BATCH_SHARED" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDAR_SHARED" | "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDARS_BATCH_SHARED" | "PULSE_RESULTS_SHARED" | "PULSE_RESULTS_SHARE_WITHDRAWN" | "PASSWORD_CHANGED";
         NotificationResponse: {
             /** Format: int32 */
             id: number;
@@ -7018,7 +7025,10 @@ export interface components {
              *     sharer's own withdrawal copy keeps `self: "sharer"`); the shared notice links to the
              *     sharee's "Shared with me" calendar scope. `DAYS_OFF_CALENDARS_BATCH_SHARED` (the mass-share
              *     summary for calendars) carries `{sharer,count}` plus `expiresOn` when bound and links to
-             *     `/days-off?tab=calendar&scope=shared`.
+             *     `/days-off?tab=calendar&scope=shared`. The `PULSE_RESULTS_SHARED` /
+             *     `PULSE_RESULTS_SHARE_WITHDRAWN` kinds (v4.12.0 — a team's pulse survey results) additionally
+             *     carry `team`, the team's display name; the shared notice links to
+             *     `/pulse?tab=results&view=shared&team={teamId}` (the sharee's "Shared with me" results view).
              */
             params: {
                 [key: string]: string;
@@ -7039,10 +7049,10 @@ export interface components {
             total: number;
         };
         /**
-         * @description The kinds of document that can be shared (v4.8.0). A person's days-off CALENDAR is shareable since v4.11.0 (`DAYS_OFF_CALENDAR` — its `resourceId` is the PERSON's user id, the person themselves or a manager in their transitive chain may share it, and the person is its author); days-off entries and pulse surveys are not shareable. Every kind listed here has its feature's adapter (compile-time complete).
+         * @description The kinds of document that can be shared (v4.8.0). A person's days-off CALENDAR is shareable since v4.11.0 (`DAYS_OFF_CALENDAR` — its `resourceId` is the PERSON's user id, the person themselves or a manager in their transitive chain may share it, and the person is its author); a TEAM's pulse survey results are shareable since v4.12.0 (`PULSE_TEAM_RESULTS` — its `resourceId` is the TEAM id, the sharer must have the team in their own visible result tree (member of it, managing it, or anywhere below either), and the team's current manager plus the chain above them are its authors); days-off entries are not shareable. Every kind listed here has its feature's adapter (compile-time complete).
          * @enum {string}
          */
-        ShareableResourceType: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF_CALENDAR";
+        ShareableResourceType: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF_CALENDAR" | "PULSE_TEAM_RESULTS";
         /**
          * @description Derived, never stored: `WITHDRAWN` (terminal) beats `EXPIRED` (the end date passed — a share works through the end of its `expiresOn` day) beats `ACTIVE`.
          * @enum {string}
@@ -7152,7 +7162,7 @@ export interface components {
              *     `resourceType`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{manager,subordinate,meetingDate}`;
              *     GOAL `{title,subordinate}`; PERFORMANCE_REVIEW `{subordinate,startMonth,endMonth}`;
              *     TEAM_KPI `{title,team}`; IMPACT_LOG_ENTRY `{title,author,periodStart,periodEnd}`;
-             *     SUCCESSION_PLAN `{person,owner}`; DAYS_OFF_CALENDAR `{person}`.
+             *     SUCCESSION_PLAN `{person,owner}`; DAYS_OFF_CALENDAR `{person}`; PULSE_TEAM_RESULTS `{team}`.
              */
             details?: {
                 [key: string]: string;
@@ -7169,10 +7179,10 @@ export interface components {
             total: number;
         };
         /**
-         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF` (v4.9.0 — the person-scoped trail of days-off actions: entries recorded or deleted, budget corrections, allowance changes, pool archivals) and `CAREER_POSITION` (v4.9.0 — career positions recorded, corrected or deleted by a chain manager) and `ACCOUNT` (v4.9.0 — the account's own completed sign-ins and explicit sign-outs) are declared up front — the enum is append-only — and every value now produces rows.
+         * @description The areas an activity row can belong to (v4.9.0). The first seven name a document kind (equal to `ShareableResourceType`, so the row's `link` is that kind's view path); `DAYS_OFF` (v4.9.0 — the person-scoped trail of days-off actions: entries recorded or deleted, budget corrections, allowance changes, pool archivals) and `CAREER_POSITION` (v4.9.0 — career positions recorded, corrected or deleted by a chain manager) and `ACCOUNT` (v4.9.0 — the account's own completed sign-ins and explicit sign-outs) are declared up front — the enum is append-only — and every value now produces rows. `PULSE_TEAM_RESULTS` (v4.12.0) names a document kind too (a team's pulse results; pulse has no event trail, so it carries share rows only).
          * @enum {string}
          */
-        ActivityArea: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF" | "CAREER_POSITION" | "ACCOUNT";
+        ActivityArea: "FEEDBACK" | "ONE_ON_ONE" | "GOAL" | "TEAM_KPI" | "PERFORMANCE_REVIEW" | "IMPACT_LOG_ENTRY" | "SUCCESSION_PLAN" | "DAYS_OFF" | "CAREER_POSITION" | "ACCOUNT" | "PULSE_TEAM_RESULTS";
         ActivityEntry: {
             /**
              * @description Synthetic, unique, stable: `<AREA>:<SOURCE>:<id>` — SOURCE is `EVENT` for a row of a

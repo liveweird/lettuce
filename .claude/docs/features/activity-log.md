@@ -146,6 +146,7 @@ person)) — the
 `GET /shares?view=document` rule, so the document's subject and a non-author manager never learn of
 a share. Share-granted reads grant nothing here. `ActivityVisibilityParityTest` checks the author
 predicate against `adapter.isAuthor` (with `read != null`) for every area.
+**Pulse team results (v4.12.0)** have their own share-only area `ActivityArea.PULSE_TEAM_RESULTS` (= the type name; pulse has no event trail, so no `EventSource`, `readable` is `Op.FALSE`, `factsFor` empty): a share row carries the team id as `documentId` and `{team}` in `details`, and a chain viewer sees it only as the team's current manager or the chain above (the `authoredShares` twin of `TeamService.managesTeamOrChain`).
 
 #### Days-off rows (step 4, V88 `days_off_events`)
 

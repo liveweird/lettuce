@@ -227,7 +227,11 @@ class ActivityVisibilityParityTest {
             // only its SHARE rows are checked (the area's event rows are person-scoped, covered below).
             val gone = user("gone-person")
             val calendarDocs = (o.viewers + o.t + gone).map { Doc(ActivityArea.DAYS_OFF, it) }
-            val docs = seedFeedbacksAndMeetings(o, now) + seedGoalsKpisAndOwnerDocs(o, now) + seedReviews(o, now) + calendarDocs
+            // PULSE_TEAM_RESULTS (v4.12.0): the "document" is a TEAM — the same four teams the KPI matrix uses (the
+            // soft-deleted `old` one pins `read == null -> not author`); like the calendar, only its SHARE rows exist.
+            val pulseDocs = listOf(o.squad, o.leads, o.peers, o.old).map { Doc(ActivityArea.PULSE_TEAM_RESULTS, it) }
+            val docs = seedFeedbacksAndMeetings(o, now) + seedGoalsKpisAndOwnerDocs(o, now) + seedReviews(o, now) +
+                calendarDocs + pulseDocs
             assertEquals(1, TestServices.users.delete(gone))
 
             // Exhaustiveness: the matrix covers EVERY shareable area (a new area without a matrix fails here).
@@ -237,7 +241,7 @@ class ActivityVisibilityParityTest {
                 ch.nokillswit.sharing.ShareableResourceType.entries.toSet(),
                 shareable.map { it.shareType }.toSet(),
             )
-            seedEvents(o, docs.filter { !it.area.isPersonScoped }, now)
+            seedEvents(o, docs.filter { eventTables.containsKey(it.area) }, now)
             seedShares(o, docs, now)
 
             val mismatches = mutableListOf<String>()
@@ -247,7 +251,9 @@ class ActivityVisibilityParityTest {
                 val areaDocs = docs.filter { it.area == area }
                 val adapter = registry.forType(area.shareType!!)
                 for (viewer in o.viewers) {
-                    val personScoped = area.isPersonScoped
+                    // Areas with no per-document EVENT rows (person-scoped days-off/career, and the share-only pulse
+                    // area) are checked through their SHARE rows alone.
+                    val personScoped = !eventTables.containsKey(area)
                     val expected = areaDocs.associate { it.id to adapter.ownRight(viewer, it.id) }
                     // chain mode (viewer reads T's log): a row per readable document, none for the rest.
                     val chainRows =
@@ -259,7 +265,7 @@ class ActivityVisibilityParityTest {
                     val selfRows = if (personScoped) emptyMap() else listed(service, viewer, viewer, ActivityScope.OWN_RIGHT, area)
                     for (doc in areaDocs) {
                         val ok = expected.getValue(doc.id)
-                        if (!personScoped) outcomes.merge(area to ok, 1, Int::plus)
+                        if (!area.isPersonScoped) outcomes.merge(area to ok, 1, Int::plus)
                         val authored = adapter.authors(viewer, doc.id)
                         authorOutcomes.merge(area to authored, 1, Int::plus)
                         if ((doc.id in shareRows) != authored) {

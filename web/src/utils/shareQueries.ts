@@ -1,17 +1,21 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ShareableResourceType } from "../api/shares";
 
-// The react-query key of each shareable kind's single-document query (the view pages own them).
-const DOCUMENT_QUERY_KEY: Record<ShareableResourceType, string> = {
-  FEEDBACK: "feedback",
-  ONE_ON_ONE: "oneOnOne",
-  GOAL: "goal",
-  TEAM_KPI: "teamKpi",
-  PERFORMANCE_REVIEW: "performanceReview",
-  IMPACT_LOG_ENTRY: "impactEntry",
-  SUCCESSION_PLAN: "successionPlan",
+// The react-query key prefix of each shareable kind's document query (the view pages own them), built
+// from the share's resource id.
+const DOCUMENT_QUERY_KEY: Record<ShareableResourceType, (resourceId: number) => readonly unknown[]> = {
+  FEEDBACK: (id) => ["feedback", id],
+  ONE_ON_ONE: (id) => ["oneOnOne", id],
+  GOAL: (id) => ["goal", id],
+  TEAM_KPI: (id) => ["teamKpi", id],
+  PERFORMANCE_REVIEW: (id) => ["performanceReview", id],
+  IMPACT_LOG_ENTRY: (id) => ["impactEntry", id],
+  SUCCESSION_PLAN: (id) => ["successionPlan", id],
   // A calendar has no single-document query (its resource is a person; the Calendar tab owns the data).
-  DAYS_OFF_CALENDAR: "daysOffCalendar",
+  DAYS_OFF_CALENDAR: (id) => ["daysOffCalendar", id],
+  // The resource is a TEAM and its results cards are keyed ["pulseResults", cycleId, teamId, mode] — the
+  // cycle comes before the team, so the whole prefix is invalidated (cheap: the results tab only).
+  PULSE_TEAM_RESULTS: () => ["pulseResults"],
 };
 
 /** The "Current shares" list of ONE document — under the ["shares", …] prefix. */
@@ -33,7 +37,7 @@ export async function invalidateShares(
 ): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: ["shares"] });
   if (resourceType != null && resourceId != null) {
-    queryClient.invalidateQueries({ queryKey: [DOCUMENT_QUERY_KEY[resourceType], resourceId] });
+    queryClient.invalidateQueries({ queryKey: DOCUMENT_QUERY_KEY[resourceType](resourceId) });
   }
   queryClient.invalidateQueries({ queryKey: ["notifications"] });
 }

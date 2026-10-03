@@ -38,6 +38,7 @@ const AREAS: readonly ActivityArea[] = [
   "TEAM_KPI",
   "IMPACT_LOG_ENTRY",
   "SUCCESSION_PLAN",
+  "PULSE_TEAM_RESULTS",
   "DAYS_OFF",
   "CAREER_POSITION",
   "ACCOUNT",

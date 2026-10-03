@@ -1,5 +1,7 @@
 package ch.nokillswit.teams
 
+import ch.nokillswit.authz.CallerPrincipal
+import ch.nokillswit.authz.requirePulseTrendAccess
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
 import ch.nokillswit.infra.paging.SortField
@@ -90,6 +92,26 @@ class TeamService(val database: R2dbcDatabase) {
     /** Teams [userId] is currently a MEMBER of (see TeamTree.memberTeamIds; v2.12.0). */
     suspend fun membershipTeamIds(userId: UInt): Set<UInt> = suspendTransaction(database) {
         memberTeamIds(userId)
+    }
+
+    /**
+     * True iff [userId] manages the team [teamId] or sits in the chain above its manager (see
+     * TeamTree.managesTeamOrChain) — the pulse-results share AUTHOR rule, the team-KPI manage
+     * predicate's twin (v4.12.0).
+     */
+    suspend fun managesTeamOrChain(userId: UInt, teamId: UInt): Boolean = suspendTransaction(database) {
+        ch.nokillswit.teams.managesTeamOrChain(userId, teamId)
+    }
+
+    /**
+     * The team-visibility rule of a team's pulse results for [principal] — the ONE binding of
+     * `requirePulseTrendAccess` to [visibleTeamTreeIds], shared by the trend route and the
+     * results-sharing adapter (v4.12.0). Sharing always calls it with the HR role stripped, so its
+     * HR branch never fires from there; the per-cycle fill gate is NOT part of it (a content gate
+     * the results route applies per read). Throws `ForbiddenException` on a denial.
+     */
+    suspend fun requireResultsVisible(principal: CallerPrincipal, teamId: UInt) {
+        requirePulseTrendAccess(principal, teamId) { visibleTeamTreeIds(principal.userId) }
     }
 
     /** The users a team-scoped pulse aggregate draws from (see TeamTree.teamScopeUserIds). */

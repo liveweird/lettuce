@@ -11,6 +11,7 @@ import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.notifications.Notification
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.teams.isInManagementChain
+import ch.nokillswit.teams.managesTeamOrChain as managesTeamOrChainInTx
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.userNameOf
@@ -526,13 +527,7 @@ class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCiphe
      * uniform (no existence disclosure through the create probe).
      */
     suspend fun managesTeamOrChain(userId: UInt, teamId: UInt): Boolean = suspendTransaction(database) {
-        val teamManagerId = TeamService.Teams
-            .select(TeamService.Teams.managerId)
-            .where { (TeamService.Teams.id eq teamId) and (TeamService.Teams.markedAsDeleted eq false) }
-            .map { it[TeamService.Teams.managerId].value }
-            .singleOrNull()
-            ?: return@suspendTransaction false
-        teamManagerId == userId || isInManagementChain(userId, teamManagerId)
+        managesTeamOrChainInTx(userId, teamId)
     }
 
     /**

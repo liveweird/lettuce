@@ -840,6 +840,53 @@ describe("NotificationsButton — document sharing wording (v4.8.0)", () => {
     },
   );
 
+  test.each(["en", "pl"] as const)(
+    "the pulse results copies name the team and carry the until / author / sharer variants (%s)",
+    async (lang) => {
+      await i18n.changeLanguage(lang);
+      const link = "/pulse?tab=results&view=shared&team=5";
+      const rows: Item[] = [
+        note(301, "PULSE_RESULTS_SHARED", { sharer: "Sue Sharer", team: "AAA" }, link),
+        note(302, "PULSE_RESULTS_SHARED", { sharer: "Sue Sharer", team: "AAA", expiresOn: "2026-12-31" }, link),
+        note(303, "PULSE_RESULTS_SHARE_WITHDRAWN", { sharer: "Sue Sharer", sharee: "Me", actor: "Sue Sharer", team: "AAA" }, null),
+        note(304, "PULSE_RESULTS_SHARE_WITHDRAWN", { sharer: "Sue Sharer", sharee: "Me", actor: "Olga Author", team: "AAA" }, null),
+        note(
+          305,
+          "PULSE_RESULTS_SHARE_WITHDRAWN",
+          { sharer: "Sue Sharer", sharee: "Ben", actor: "Olga Author", team: "AAA", self: "sharer" },
+          "/shares?tab=byMe",
+        ),
+      ];
+      setupMocks(mockFetch, rows, rows.length);
+      renderWithProviders(<Harness />);
+      await userEvent.setup().click(await screen.findByRole("button", { name: /\(/ }));
+      const items = await screen.findAllByRole("listitem");
+      expect(items).toHaveLength(rows.length);
+      for (const item of items) {
+        const text = item.textContent ?? "";
+        expect(text, text).not.toMatch(/notifications\.event|PULSE_RESULTS|pulseResults|\{\{/);
+        expect(text).toContain("AAA");
+      }
+      const text = items.map((item) => item.textContent ?? "").join("\n");
+      if (lang === "en") {
+        expect(text).toContain("Sue Sharer shared the pulse survey results of AAA with you.");
+        expect(text).toContain("Sue Sharer shared the pulse survey results of AAA with you. Access lasts until Dec 31, 2026.");
+        expect(text).toContain("Sue Sharer stopped sharing the pulse survey results of AAA with you.");
+        expect(text).toContain(
+          "Olga Author withdrew your access to the pulse survey results of AAA that Sue Sharer had shared with you.",
+        );
+        expect(text).toContain("Olga Author withdrew your share of the pulse survey results of AAA with Ben.");
+      } else {
+        expect(text).toContain("Sue Sharer udostępnił/a Ci wyniki ankiety pulsu zespołu AAA.");
+        expect(text).toContain("Sue Sharer wycofał/a Twój dostęp do wyników ankiety pulsu zespołu AAA.");
+        expect(text).toContain(
+          "Olga Author wycofał/a Twój dostęp do wyników ankiety pulsu zespołu AAA udostępnionych Ci przez Sue Sharer.",
+        );
+        expect(text).toContain("Olga Author wycofał/a Twoje udostępnienie wyników ankiety pulsu zespołu AAA osobie Ben.");
+      }
+    },
+  );
+
   const SHARE_TYPES = [
     "FEEDBACK",
     "ONE_ON_ONE",

@@ -83,6 +83,22 @@ suspend fun teamsBelow(startTeamIds: Set<UInt>): Set<UInt> {
 }
 
 /**
+ * True iff [userId] manages the non-deleted team [teamId] directly OR sits in the chain above its
+ * current manager — the team-KPI manage predicate (v2.26.0) and the pulse-results share AUTHOR rule
+ * (v4.12.0). False for a missing/soft-deleted team. Runs in the caller's transaction.
+ */
+suspend fun managesTeamOrChain(userId: UInt, teamId: UInt): Boolean {
+    val teamManagerId = TeamService.Teams
+        .select(TeamService.Teams.managerId)
+        .where { (TeamService.Teams.id eq teamId) and (TeamService.Teams.markedAsDeleted eq false) }
+        .map { it[TeamService.Teams.managerId].value }
+        .toList()
+        .singleOrNull()
+        ?: return false
+    return teamManagerId == userId || isInManagementChain(userId, teamManagerId)
+}
+
+/**
  * The teams whose pulse RESULTS the [userId] may view: the teams they are a member of, the
  * teams they manage, and everything below either ("their team(s) and below — teams managed by
  * their peers, and so on"). Runs in the caller's transaction.

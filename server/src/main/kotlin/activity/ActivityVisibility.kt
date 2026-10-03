@@ -58,7 +58,9 @@ internal object ActivityVisibility {
         // DAYS_OFF stays here although it now carries calendar SHARE rows (v4.11.0): this builder is
         // only ever applied to document areas' event rows — a person-scoped area's event branch uses
         // `personScoped`, and its share rows are gated by `authoredShares` — so it is never reached.
-        ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> Op.FALSE
+        // PULSE_TEAM_RESULTS (v4.12.0) likewise carries only SHARE rows (`authoredShares`) — no event rows.
+        ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.PULSE_TEAM_RESULTS ->
+            Op.FALSE
     }
 
     /**
@@ -144,7 +146,8 @@ internal object ActivityVisibility {
      * whoever passes the manage predicate (the team's CURRENT manager `teams.manager_id`, or the
      * chain above them); days-off calendar → the PERSON themselves (the resource id is the user
      * id; a chain manager who did not share never learns of the share — only the person does, and
-     * only while they are not soft-deleted, the adapter's `read` rule). One `resource_type`-guarded
+     * only while they are not soft-deleted, the adapter's `read` rule); pulse team results → the team's
+     * current manager or anyone in the chain above them (the team-KPI predicate, over a non-deleted team). One `resource_type`-guarded
      * sub-select per type, OR-ed.
      */
     fun authoredShares(viewer: UInt, chain: Collection<UInt>): Op<Boolean> {
@@ -189,6 +192,14 @@ internal object ActivityVisibility {
                 ShareableResourceType.DAYS_OFF_CALENDAR -> ofType(
                     type,
                     Users.select(Users.id).where { (Users.id eq viewer) and (Users.markedAsDeleted eq false) },
+                )
+                // The SQL twin of `TeamService.managesTeamOrChain`: the non-deleted team's current
+                // manager is the viewer or in the viewer's chain (the same predicate as `kpiAuthored`).
+                ShareableResourceType.PULSE_TEAM_RESULTS -> ofType(
+                    type,
+                    Teams.select(Teams.id).where {
+                        (Teams.markedAsDeleted eq false) and ((Teams.managerId eq viewer) or Teams.managerId.anyOf(chain))
+                    },
                 )
             }
         }.reduce { acc, op -> acc or op }

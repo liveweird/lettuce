@@ -28,6 +28,9 @@ enum class ActivityArea {
     DAYS_OFF,
     CAREER_POSITION,
     ACCOUNT,
+
+    /** v4.12.0 — carries the SHARE rows of a team's pulse results only (pulse has no event trail). */
+    PULSE_TEAM_RESULTS,
 }
 
 /** The activity area of a shareable document type — an exhaustive `when`, never name matching. */
@@ -42,6 +45,7 @@ val ShareableResourceType.activityArea: ActivityArea
         ShareableResourceType.SUCCESSION_PLAN -> ActivityArea.SUCCESSION_PLAN
         // v4.11.0: a calendar share row rides the person-scoped DAYS_OFF area (no new area).
         ShareableResourceType.DAYS_OFF_CALENDAR -> ActivityArea.DAYS_OFF
+        ShareableResourceType.PULSE_TEAM_RESULTS -> ActivityArea.PULSE_TEAM_RESULTS
     }
 
 /**
@@ -69,6 +73,7 @@ val ActivityArea.shareType: ShareableResourceType?
         ActivityArea.IMPACT_LOG_ENTRY -> ShareableResourceType.IMPACT_LOG_ENTRY
         ActivityArea.SUCCESSION_PLAN -> ShareableResourceType.SUCCESSION_PLAN
         ActivityArea.DAYS_OFF -> ShareableResourceType.DAYS_OFF_CALENDAR
+        ActivityArea.PULSE_TEAM_RESULTS -> ShareableResourceType.PULSE_TEAM_RESULTS
         ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> null
     }
 
@@ -87,6 +92,7 @@ val ActivityArea.feature: Feature?
         ActivityArea.IMPACT_LOG_ENTRY -> Feature.IMPACT_LOG
         ActivityArea.SUCCESSION_PLAN -> Feature.SUCCESSION_PLANS
         ActivityArea.DAYS_OFF -> Feature.DAYS_OFF
+        ActivityArea.PULSE_TEAM_RESULTS -> Feature.PULSE_SURVEYS
         ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> null
     }
 

@@ -10,9 +10,9 @@ describe("shareKinds — the days-off calendar kind (v4.11.0)", () => {
     await i18n.changeLanguage("en");
   });
 
-  test("it is the eighth kind, last in the filter order, gated by DAYS_OFF", () => {
-    expect(SHARE_TYPES).toHaveLength(8);
-    expect(SHARE_TYPES.at(-1)).toBe("DAYS_OFF_CALENDAR");
+  test("it is the eighth kind (right before the pulse kind), gated by DAYS_OFF", () => {
+    expect(SHARE_TYPES).toHaveLength(9);
+    expect(SHARE_TYPES.at(-2)).toBe("DAYS_OFF_CALENDAR");
     expect(SHARE_FEATURE.DAYS_OFF_CALENDAR).toBe("DAYS_OFF");
   });
 
@@ -32,6 +32,27 @@ describe("shareKinds — the days-off calendar kind (v4.11.0)", () => {
     for (const type of SHARE_TYPES.filter((type) => type !== "DAYS_OFF_CALENDAR")) {
       expect(shareKindContext(type), type).toBeUndefined();
     }
+  });
+});
+
+describe("shareKinds — the pulse team results kind (v4.12.0)", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  test("it is the ninth kind, last in the filter order, gated by PULSE_SURVEYS", () => {
+    expect(SHARE_TYPES).toHaveLength(9);
+    expect(SHARE_TYPES.at(-1)).toBe("PULSE_TEAM_RESULTS");
+    expect(SHARE_FEATURE.PULSE_TEAM_RESULTS).toBe("PULSE_SURVEYS");
+  });
+
+  test("its label names the team from the snapshot, EN and PL; a missing team reads unavailable", () => {
+    expect(documentLabel("PULSE_TEAM_RESULTS", { team: "AAA" }, tFor("en"), "en")).toBe("Pulse survey results of AAA");
+    expect(documentLabel("PULSE_TEAM_RESULTS", { team: "AAA" }, tFor("pl"), "pl")).toBe(
+      "Wyniki ankiety pulsu zespołu AAA",
+    );
+    expect(documentLabel("PULSE_TEAM_RESULTS", {}, tFor("en"), "en")).toBe("No longer available");
+    expect(documentLabel("PULSE_TEAM_RESULTS", null, tFor("en"), "en")).toBe("No longer available");
   });
 });
 

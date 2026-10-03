@@ -5,7 +5,7 @@ import { formatIsoDate, formatIsoDateRange, formatMonthRange } from "./datetime"
 import { daysOffListLink } from "./daysOffLinks";
 import { userDetailsLink } from "./userLinks";
 
-/** The eight shareable kinds (v4.11.0 added the days-off calendar), in the order the type filter lists them. */
+/** The nine shareable kinds (v4.11.0 added the days-off calendar, v4.12.0 a team's pulse results), in the order the type filter lists them. */
 export const SHARE_TYPES: readonly ShareableResourceType[] = [
   "FEEDBACK",
   "ONE_ON_ONE",
@@ -15,6 +15,7 @@ export const SHARE_TYPES: readonly ShareableResourceType[] = [
   "IMPACT_LOG_ENTRY",
   "SUCCESSION_PLAN",
   "DAYS_OFF_CALENDAR",
+  "PULSE_TEAM_RESULTS",
 ];
 
 /** The per-user feature flag that gates each kind's screens (caller-only semantics). */
@@ -27,6 +28,7 @@ export const SHARE_FEATURE: Record<ShareableResourceType, Feature> = {
   IMPACT_LOG_ENTRY: "IMPACT_LOG",
   SUCCESSION_PLAN: "SUCCESSION_PLANS",
   DAYS_OFF_CALENDAR: "DAYS_OFF",
+  PULSE_TEAM_RESULTS: "PULSE_SURVEYS",
 };
 
 // The `details` snapshot keys each kind must carry for its label (the server contract —
@@ -40,6 +42,7 @@ const REQUIRED_KEYS: Record<ShareableResourceType, readonly string[]> = {
   IMPACT_LOG_ENTRY: ["title", "author", "periodStart", "periodEnd"],
   SUCCESSION_PLAN: ["person", "owner"],
   DAYS_OFF_CALENDAR: ["person"],
+  PULSE_TEAM_RESULTS: ["team"],
 };
 
 /**
@@ -85,6 +88,8 @@ export function documentLabel(
       return t("sharing.doc.SUCCESSION_PLAN", { person: d.person, owner: d.owner });
     case "DAYS_OFF_CALENDAR":
       return t("sharing.doc.DAYS_OFF_CALENDAR", { person: d.person });
+    case "PULSE_TEAM_RESULTS":
+      return t("sharing.doc.PULSE_TEAM_RESULTS", { team: d.team });
   }
 }
 

@@ -422,6 +422,46 @@ class NotificationEmailTest {
     }
 
     @Test
+    fun `the pulse results notices name the team in both languages (v4_12_0)`() {
+        val shared = mapOf("sharer" to "Xia Member", "team" to "AAA", "expiresOn" to "2026-12-31")
+        assertTrue(
+            "Xia Member shared the pulse survey results of AAA with you. Access lasts until 2026-12-31." in
+                body(NotificationType.PULSE_RESULTS_SHARED, shared, "en"),
+        )
+        assertTrue(
+            "Xia Member udostępnił/a Ci wyniki ankiety pulsu zespołu AAA. Dostęp obowiązuje do 2026-12-31." in
+                body(NotificationType.PULSE_RESULTS_SHARED, shared, "pl"),
+        )
+        val stopped = mapOf("sharer" to "Xia Member", "sharee" to "Sam", "actor" to "Xia Member", "team" to "AAA")
+        assertTrue(
+            "Xia Member stopped sharing the pulse survey results of AAA with you." in
+                body(NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN, stopped, "en"),
+        )
+        assertTrue(
+            "Xia Member wycofał/a Twój dostęp do wyników ankiety pulsu zespołu AAA." in
+                body(NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN, stopped, "pl"),
+        )
+        val byAuthor = stopped + ("actor" to "Mia Manager")
+        assertTrue(
+            "Mia Manager withdrew your access to the pulse survey results of AAA that Xia Member had shared with you." in
+                body(NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN, byAuthor, "en"),
+        )
+        assertTrue(
+            "Mia Manager wycofał/a Twój dostęp do wyników ankiety pulsu zespołu AAA udostępnionych Ci przez Xia Member." in
+                body(NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN, byAuthor, "pl"),
+        )
+        val sharerCopy = byAuthor + ("self" to "sharer")
+        assertTrue(
+            "Mia Manager withdrew your share of the pulse survey results of AAA with Sam." in
+                body(NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN, sharerCopy, "en"),
+        )
+        assertTrue(
+            "Mia Manager wycofał/a Twoje udostępnienie wyników ankiety pulsu zespołu AAA osobie Sam." in
+                body(NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN, sharerCopy, "pl"),
+        )
+    }
+
+    @Test
     fun `the succession share notice is content-free in both languages`() {
         val params = mapOf("sharer" to "Sia Sharer")
         assertTrue("Sia Sharer shared a succession plan with you." in body(NotificationType.SUCCESSION_PLAN_SHARED, params, "en"))

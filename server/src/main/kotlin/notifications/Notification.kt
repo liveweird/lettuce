@@ -10,7 +10,8 @@ import kotlinx.serialization.Serializable
  * goals/GoalNotifications.kt, teamkpis/TeamKpiNotifications.kt,
  * reviews/PerformanceReviewNotifications.kt, daysoff/DaysOffNotifications.kt,
  * pulse/PulseNotifications.kt, impactlog/ImpactLogNotifications.kt,
- * sharing/ShareNotifications.kt (the 14 `*_SHARED` / `*_SHARE_WITHDRAWN` types, v4.8.0),
+ * sharing/ShareNotifications.kt (one `*_SHARED` / `*_SHARE_WITHDRAWN` pair per shareable kind, v4.8.0, plus the
+ * mass-share summary types),
  * and the password-change paths (users/UserRoutes.kt,
  * auth/AuthRoutes.kt); the SPA renders each one in the viewer's language from
  * `notifications.event.*` keys.
@@ -92,6 +93,10 @@ enum class NotificationType {
     DAYS_OFF_CALENDAR_SHARED,
     DAYS_OFF_CALENDAR_SHARE_WITHDRAWN,
     DAYS_OFF_CALENDARS_BATCH_SHARED,
+    // v4.12.0, the team-scoped kind: a TEAM's pulse results are shared (resource id = team id).
+    // Names the team (`{sharer, team}`); not batchable, so no summary type.
+    PULSE_RESULTS_SHARED,
+    PULSE_RESULTS_SHARE_WITHDRAWN,
     PASSWORD_CHANGED,
 }
 
@@ -162,6 +167,8 @@ val NotificationType.feature: Feature?
         NotificationType.PULSE_CYCLE_OPENED,
         NotificationType.PULSE_RESULTS_AVAILABLE,
         NotificationType.PULSE_CYCLE_CANCELLED,
+        NotificationType.PULSE_RESULTS_SHARED,
+        NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN,
         -> Feature.PULSE_SURVEYS
         NotificationType.IMPACT_ENTRY_CREATED_TO_MANAGER,
         NotificationType.IMPACT_ENTRY_UPDATED_TO_MANAGER,
