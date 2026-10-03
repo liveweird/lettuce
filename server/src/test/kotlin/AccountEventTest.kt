@@ -35,6 +35,7 @@ import org.jetbrains.exposed.v1.r2dbc.selectAll
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -238,6 +239,40 @@ class AccountEventTest {
             gated.record(id, AccountEventType.SIGNED_OUT) // inside the interval: no purge
             assertEquals(7, rowsOf(id).size)
         }
+
+    @Test
+    fun `the purge deletes in bounded batches until nothing stale is left`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val id = TestUsers.seed(email = uniqueEmail("acct-purge-batch"), password = password, roles = emptySet())
+        suspend fun insertAt(at: Long) = suspendTransaction(TestServices.database) {
+            AccountEvents.insert {
+                it[ownerId] = id
+                it[userId] = id
+                it[timestamp] = at
+                it[eventType] = "SIGNED_IN"
+                it[params] = encodeParams(mapOf("mfa" to "false"))
+            }
+        }
+        val day = retentionMillis(1)
+        repeat(5) { insertAt(now - (10 + it) * day) } // stale at a 2-day retention
+        insertAt(now - day / 2) // fresh
+        assertEquals(6, rowsOf(id).size)
+
+        // Batch size 2 over 5 stale rows = three non-empty batches plus the empty one that ends the loop.
+        AccountEventService(TestServices.database, retentionMillis(2), 0, clock = { now }, purgeBatchSize = 2)
+            .record(id, AccountEventType.SIGNED_OUT)
+        val left = rowsOf(id)
+        // The 5 stale rows are gone; the fresh row and the SIGNED_OUT just recorded stay.
+        assertEquals(2, left.size)
+        assertTrue(left.all { it.at >= now - 2 * day })
+    }
+
+    @Test
+    fun `a non-positive purge batch size is refused`() {
+        assertFailsWith<IllegalArgumentException> {
+            AccountEventService(TestServices.database, purgeBatchSize = 0)
+        }
+    }
 
     @Test
     fun `the MFA pending-challenge cap (429), a deactivation between the steps and a revoked-token logout mint nothing`() =

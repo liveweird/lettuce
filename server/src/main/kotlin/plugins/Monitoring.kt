@@ -11,12 +11,15 @@ import io.ktor.server.response.*
 
 fun Application.configureMonitoring() {
     install(DropwizardMetrics) {
-        Slf4jReporter.forRegistry(registry)
+        val reporter = Slf4jReporter.forRegistry(registry)
             .outputTo(LoggerFactory.getLogger("metrics"))
             .convertRatesTo(TimeUnit.SECONDS)
             .convertDurationsTo(TimeUnit.MILLISECONDS)
             .build()
-            .start(10, TimeUnit.SECONDS)
+        reporter.start(10, TimeUnit.SECONDS)
+        // The reporter owns a scheduler thread: stop it with the application, or every
+        // testApplication boot (and any in-process restart) leaks one (checkup #38 A5).
+        this@configureMonitoring.monitor.subscribe(ApplicationStopped) { reporter.stop() }
     }
     install(CallId) {
         header(HttpHeaders.XRequestId)

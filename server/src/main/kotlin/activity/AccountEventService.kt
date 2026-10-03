@@ -7,9 +7,11 @@ import ch.nokillswit.users.UserService
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.deleteWhere
+import org.jetbrains.exposed.v1.r2dbc.select
 import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicLong
@@ -42,7 +44,11 @@ private val log = LoggerFactory.getLogger(AccountEventService::class.java)
  * are HARD-deleted on the write path after the insert commits, at most once per [purgeIntervalMillis]
  * per instance (`activity.accountPurgeIntervalSeconds`; 0 = every record, the test suite's setting)
  * through the same `compareAndSet` gate as the notification purge. Org-wide housekeeping: every
- * account's stale rows, not just the one just written.
+ * account's stale rows, not just the one just written. The DELETE runs in **bounded batches** of
+ * [purgeBatchSize] rows (default 5000, `id IN (SELECT id … WHERE created_at < cutoff ORDER BY id
+ * LIMIT n)`, one short transaction per batch, looping until a batch deletes nothing): after a long
+ * retention-0 period or an outage of the purge, one unbounded DELETE could outlast the 30 s
+ * `statement_timeout` and then fail forever, never shrinking the backlog (checkup #38 SEC2).
  */
 open class AccountEventService(
     val database: R2dbcDatabase,
@@ -52,9 +58,16 @@ open class AccountEventService(
     private val clock: () -> Long = System::currentTimeMillis,
     // The Application scope the purge is launched on; null = run it inline (see the class doc).
     private val scope: CoroutineScope? = null,
+    // Rows per purge DELETE statement; a test sets a tiny value to prove the loop (see the class doc).
+    private val purgeBatchSize: Int = DEFAULT_PURGE_BATCH_SIZE,
 ) {
     private companion object {
         const val DEFAULT_RETENTION_MILLIS = 90L * 24 * 60 * 60 * 1000
+        const val DEFAULT_PURGE_BATCH_SIZE = 5000
+    }
+
+    init {
+        require(purgeBatchSize >= 1) { "purgeBatchSize must be at least 1" }
     }
 
     object AccountEvents : EventLogTable("account_events", "owner_id", UserService.Users)
@@ -91,9 +104,19 @@ open class AccountEventService(
             val last = lastPurgeAtMillis.get()
             if (now - last < purgeIntervalMillis || !lastPurgeAtMillis.compareAndSet(last, now)) return
         }
-        val deleted = suspendTransaction(database) {
-            AccountEvents.deleteWhere { AccountEvents.timestamp less (now - retentionMillis) }
+        val cutoff = now - retentionMillis
+        var total = 0
+        while (true) {
+            val deleted = suspendTransaction(database) {
+                val batch = AccountEvents.select(AccountEvents.id)
+                    .where { AccountEvents.timestamp less cutoff }
+                    .orderBy(AccountEvents.id)
+                    .limit(purgeBatchSize)
+                AccountEvents.deleteWhere { AccountEvents.id inSubQuery batch }
+            }
+            if (deleted == 0) break
+            total += deleted
         }
-        if (deleted > 0) log.info("Purged {} stale account events", deleted)
+        if (total > 0) log.info("Purged {} stale account events", total)
     }
 }

@@ -11,7 +11,9 @@ export default function SharedByBanner({ name }: { name: string | null | undefin
   const { t } = useTranslation();
   if (name == null || name === "") return null;
   return (
-    <Alert color="blue" variant="light" icon={<IconShare size={16} />}>
+    // role="status" (a polite live region): Mantine's Alert defaults to role="alert" (assertive),
+    // which would interrupt a screen reader for what is plain informational text.
+    <Alert color="blue" variant="light" role="status" icon={<IconShare size={16} />}>
       {t("sharing.banner", { name })}
     </Alert>
   );

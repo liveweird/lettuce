@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
-import { Alert, Badge, Button, Checkbox, Group, MultiSelect, Stack, Text } from "@mantine/core";
+import { Alert, Button, Checkbox, Group, MultiSelect, Stack, Text } from "@mantine/core";
 import { IconShare, IconUsers } from "@tabler/icons-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -37,7 +37,9 @@ import PaginationBar from "./PaginationBar";
 import PersonCell from "./PersonCell";
 import ResponsiveTable from "./ResponsiveTable";
 import SortHeader from "./SortHeader";
+import StatusPill from "./StatusPill";
 import TableLoadingRow from "./TableLoadingRow";
+import TeamBadges from "./TeamBadges";
 
 /** A kind-specific column after the six person columns (the reviews' Status and Overall). */
 export type MassShareColumn = {
@@ -541,21 +543,11 @@ const MassShareTableRow = memo(function MassShareTableRow({
       <ResponsiveTable.Td label={personLabel}>
         <Group gap="xs" wrap="wrap">
           <PersonCell userId={p.userId} name={p.name} currentUserId={currentUserId} />
-          {p.deactivated && (
-            <Badge variant="light" color="gray">
-              {t("users.inactiveBadge")}
-            </Badge>
-          )}
+          {p.deactivated && <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>}
         </Group>
       </ResponsiveTable.Td>
       <ResponsiveTable.Td label={t("performanceReview.dashboard.team")}>
-        <Group gap={4}>
-          {row.teamNames.map((name) => (
-            <Badge key={name} variant="light" color="gray">
-              {name}
-            </Badge>
-          ))}
-        </Group>
+        <TeamBadges teams={p.teams} />
       </ResponsiveTable.Td>
       <ResponsiveTable.Td label={t("users.profile.path")}>
         <Text size="sm" c={p.careerPath ? undefined : "dimmed"}>

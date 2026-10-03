@@ -1,5 +1,6 @@
 package ch.nokillswit.infra.mail
 
+import ch.nokillswit.infra.config.requireConfigInt
 import ch.nokillswit.plugins.respondProblem
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
@@ -45,6 +46,10 @@ suspend fun ApplicationCall.respondMailUnavailable(feature: String) =
  */
 fun Application.configureMail() {
     val transport = environment.config.property("mail.transport").getString().trim().lowercase()
+    // Config-shape errors refuse startup in EVERY mode regardless of the selected transport (the
+    // `requireConfigInt` contract, the `configureTeams` precedent) — a malformed port is a
+    // deployment mistake, not something to discover at the first password-reset email.
+    val smtpPort = requireConfigInt(environment.config, "mail.smtp.port", min = 1, max = 65535)
     val mailer: Mailer? = when (transport) {
         "disabled" -> null
         "log" -> {
@@ -62,7 +67,7 @@ fun Application.configureMail() {
             }
             SmtpMailer(
                 host = host,
-                port = environment.config.property("mail.smtp.port").getString().toInt(),
+                port = smtpPort,
                 user = environment.config.property("mail.smtp.user").getString(),
                 password = environment.config.property("mail.smtp.password").getString(),
                 from = environment.config.property("mail.from").getString(),

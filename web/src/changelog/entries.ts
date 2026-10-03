@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.12.1",
+    date: "2026-10-03",
+    en: `Small fixes after a review of the sharing screens. The "Shared with you by ..." note is now announced politely by screen readers instead of interrupting them. On the mass-share lists, the "Inactive" marker now looks the same as everywhere else, and a person's team badges are links to the team page. Behind the scenes: the mail server port setting is now validated at startup, the sign-in history clean-up runs in small batches, and the app container reports its health in the local Docker setup.`,
+    pl: `Drobne poprawki po przeglądzie ekranów udostępniania. Informacja "... udostępnił/a Ci ten dokument" jest teraz odczytywana przez czytniki ekranu łagodnie, bez przerywania. Na listach masowego udostępniania znacznik "Nieaktywny" wygląda tak samo jak w pozostałych miejscach, a odznaki zespołów przy osobie są linkami do strony zespołu. Pod maską: ustawienie portu serwera poczty jest teraz sprawdzane przy starcie, czyszczenie historii logowań działa małymi partiami, a kontener aplikacji zgłasza swój stan w lokalnym środowisku Docker.`,
+  },
+  {
     version: "4.12.0",
     date: "2026-10-03",
     en: `Pulse survey results can now be shared, read-only. Each team card on the pulse "Results" tab has a "Share" button whenever you can see that team's results yourself, as a member or as a manager. People you share with find the team in the new "Shared with me" view, and the share stays up to date as new survey cycles close, until its end date or until it is withdrawn. They see at most what you see: a cycle you didn't take part in stays closed to them, small groups stay hidden as before, and comments pass on only if you can read them and never to someone who answered that survey for the team. Because of that, the people you share with can tell which cycles you took part in; the Share dialog says so. The team's manager and the managers above them see and can withdraw every share of their team's results.`,
