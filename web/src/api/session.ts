@@ -220,9 +220,11 @@ const DISABLED_FEATURES_KEY = "lettuce.auth.disabledFeatures";
 
 /**
  * The per-user-toggleable feature areas (v1.53.0), in the UI's display order.
- * MFA (v2.4.0) is the one inverted-default flag: every user starts with it DISABLED
- * (opt-in email MFA at login); it gates the login flow server-side, never any SPA surface —
- * no nav leaf, page guard, or card gating names it.
+ * MFA (v2.4.0) and TEAMS_NOTIFICATIONS (v4.5.0) are the two inverted-default (opt-in) flags
+ * (`OPT_IN_FEATURES`, users/User.kt): every user starts with them DISABLED (opt-in email MFA
+ * at login / opt-in Teams direct messages); MFA gates the login flow server-side and
+ * TEAMS_NOTIFICATIONS the Teams send, never any SPA nav leaf, page guard, or card — no such
+ * gating names either.
  */
 // Compile gate (the EMOJI_I18N idiom): keyed by the GENERATED schema union, so adding a
 // server-side Feature and regenerating schema.ts is a type error here until the flag is

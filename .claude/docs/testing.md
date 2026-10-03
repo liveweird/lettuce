@@ -57,21 +57,32 @@ read as real failures) — and never `docker compose down -v` against a long-liv
 1. `cd web && npm run gen:api` — regenerates `web/src/api/schema.ts` from the OpenAPI spec, then
    `git diff --exit-code -- web/src/api/schema.ts` (the local twin of the **API contract** CI job's
    clean-diff assertion — a spec change, even a description-only edit, can still change the
-   generated types; the CI job fails the same way if the committed file drifts).
+   generated types; the CI job fails the same way if the committed file drifts). The same job's
+   Spectral lint runs first, from the repo root:
+   `npx --yes @stoplight/spectral-cli@6.15.0 lint server/src/main/resources/openapi/documentation.yaml --ruleset api-guidelines/api-guidelines.spectral.yaml --fail-severity error`.
 2. The three Docker-free script gates the **Backend** CI job runs BEFORE gradle (they fail the
    job just as surely, so run them locally rather than discovering them in CI):
    `./scripts/test-render-app-deployment.sh` (release-image validation),
    `python3 -m unittest discover -s scripts -p 'test_*.py'` (the offline recovery schema
    comparator) and `./scripts/test-docker-build-context.sh` (the build context includes Git refs
-   for `build/*` branches and excludes generated output). Then
+   for `build/*` branches and excludes generated output). Then the seven-file precheck
+   `for f in gradle/verification-metadata.xml gradle.lockfile settings-gradle.lockfile buildscript-gradle.lockfile core/gradle.lockfile core/buildscript-gradle.lockfile server/gradle.lockfile server/buildscript-gradle.lockfile; do test -s "$f"; done`
+   (a missing or empty state file fails CI before gradle runs), then
    `./gradlew --dependency-verification strict check :server:installDist` (`--rerun` on
    `:server:test` if you need a clean, non-cached run), then
    `git diff --exit-code -- gradle.lockfile core/gradle.lockfile server/gradle.lockfile settings-gradle.lockfile buildscript-gradle.lockfile core/buildscript-gradle.lockfile server/buildscript-gradle.lockfile gradle/verification-metadata.xml`
    (the local twin of the **Backend** CI job's lock/checksum clean-diff check — see
    `.claude/docs/dependency-reproducibility.md` for an intentional dependency update instead of
    fighting this check).
-3. The full e2e suite (see "E2E scenarios" below and `e2e/README.md` for run recipes) — only after
-   1 and 2 are clean.
+3. The **Web** and **E2E source** CI jobs: `cd web && npm run build && npm run lint && npm run knip &&
+   npm run test:coverage`, then `cd e2e && npm run typecheck && npm run check:scenarios`.
+4. The **Dependency scan** twin (needs Docker; the job's script in `.github/workflows/quality.yml`
+   is authoritative, incl. its Python all-seven-lockfiles check): copy the seven lockfiles into a
+   temp dir keeping the `core/`/`server/` layout, then
+   `docker run --rm -v <locks>:/scan:ro -v <cache>:/cache -v <out>:/out ghcr.io/aquasecurity/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 fs --scanners vuln --include-dev-deps --format json --output /out/gradle-vulnerabilities.json --cache-dir /cache --no-progress /scan`
+   and fail on any HIGH/CRITICAL in the report.
+5. The full e2e suite (see "E2E scenarios" below and `e2e/README.md` for run recipes) — only after
+   1–4 are clean.
 
 `server/src/test/kotlin/ServerTest.kt` uses `io.ktor.server.testing.testApplication` and overrides the `postgres.*` config keys via `MapApplicationConfig` to point at a Testcontainers `PostgreSQLContainer` started lazily by `PostgresTestSupport`. Running tests requires a working Docker daemon (Docker Desktop, OrbStack, etc.). When adding tests, replicate the `environment { config = ApplicationConfig("application.yaml").mergeWith(MapApplicationConfig(...)) }` block so the app boots against the test container rather than a real database. The container runs **all** Flyway migrations, so the V6/V9/V14 seeds (admin, demo org, default templates) are present — plus, after the first development-mode boot, the v4.1.0 HR demo account `hr@lettuce.local` (bootstrap-seeded, not a migration; `TestSeedState.restoreSeedAccounts()` also creates it on demand and resets its roles to `{HR}`) — tests scope their assertions with unique prefixes/filters rather than asserting absolute counts. **DB-backed auth state (V81)**: `login_lockouts`/`password_reset_requests`/`mfa_challenges` also live in that same shared container and survive every `testApplication`/`TestApplication` boot within the JVM — key every row-producing call on `uniqueEmail(...)` (or a freshly issued challenge id), never a fixed literal; `TestSeedState.restoreSeedAccounts()` clears any lockout/throttle row left on a seed email (`admin@lettuce.local`, the demo accounts) **and any pending `mfa_challenges` row left on those accounts' user ids** (checkup #36/C7) so later tests reusing those seeds see pristine state.
 

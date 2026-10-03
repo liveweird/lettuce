@@ -1,7 +1,7 @@
 // The "How goals work" tutorial (v3.15.0) — a short, role-filtered walkthrough over the Goals
 // area's own chrome. It only navigates and spotlights stable chrome (tabs, header buttons, form
 // controls, dashboard cards); it never opens a real goal and needs no data to exist. See
-// "Feature tutorials" in web/CLAUDE.md for the recipe this follows.
+// web/docs/tutorials.md for the recipe this follows.
 import { Stack, Text } from "@mantine/core";
 import GoalLifecycle from "../components/GoalLifecycle";
 import type { TourStepDef } from "../components/tourSupport";

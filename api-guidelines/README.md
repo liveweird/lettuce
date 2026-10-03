@@ -81,7 +81,7 @@ chosen after weighing the alternatives:
 
 Rules the codebase does not yet satisfy (correlation-id echo, `Retry-After`, `ETag`/`304`,
 conditional writes (`If-Match`/`412`), `Idempotency-Key`, HTTP/2, SLA metadata, the 409
-`instance` URI on generic unique-violations, and the inline-vs-`$ref` error declarations)
+`instance` URI on generic unique-violations, the inline-vs-`$ref` error declarations, and the two unpaged mass-share `share-candidates` reads)
 are kept as rules with their non-conformance **accepted and registered** in the
 [known-gaps register](./API-GUIDELINES.md#appendix-known-gaps-register) — each with an
 adoption pointer. Closing a gap = implement + declare in the spec + remove the register row
