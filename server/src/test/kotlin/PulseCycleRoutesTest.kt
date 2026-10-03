@@ -367,13 +367,14 @@ class PulseCycleRoutesTest {
                 "pulse_cycle.scheduled", "pulse_cycle.updated", "pulse_cycle.opened",
                 "pulse_cycle.closed", "pulse_cycle.cancelled",
             ).forEach { event ->
-                assertNotNull(
-                    capture.awaitEvent { it.message == event && hasCycleId(it) },
-                    "missing audit event $event",
-                )
+                capture.requireEvent("audit event $event for cycle ${cycle.id}") {
+                    it.message == event && hasCycleId(it)
+                }
             }
             // The date-edit deltas ride the update event.
-            assertNotNull(capture.awaitEvent { it.message == "pulse_cycle.updated" && it.hasKeyValue("plannedOpenTo", "2099-01-02") })
+            capture.requireEvent("pulse_cycle.updated carrying plannedOpenTo=2099-01-02") {
+                it.message == "pulse_cycle.updated" && it.hasKeyValue("plannedOpenTo", "2099-01-02")
+            }
         } finally {
             capture.detach()
             TestPulse.sweepNonTerminal()
