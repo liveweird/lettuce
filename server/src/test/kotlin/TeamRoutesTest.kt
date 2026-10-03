@@ -589,7 +589,9 @@ class TeamRoutesTest {
 
         assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/$doomedId").status)
 
-        val page = admin.get("/api/v1/teams?name=team-").body<TeamPageResponse>()
+        // Filter on this run's tag: a bare "team-" prefix lists every team-named residue in the shared
+        // container, and this test's two rows can fall off the default first page.
+        val page = admin.get("/api/v1/teams?name=$tag").body<TeamPageResponse>()
         val itemsByName = page.items.associateBy { it.name }
         val doomedTeam = itemsByName["team-doomed-$tag"]
         val aliveTeam = itemsByName["team-alive-$tag"]
