@@ -64,7 +64,7 @@ test("a user turns off in-app for one type so a second actor's action mints no b
     ),
     page.getByRole("button", { name: "Save", exact: true }).click(),
   ]);
-  await expect(page.getByText("Notification preferences saved")).toBeVisible();
+  await expect(page.getByText("Notification preferences saved").last()).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
   await logout(page);
 
@@ -122,7 +122,7 @@ test("the master email switch round-trips from notification preferences, and an 
     ),
     page.getByRole("button", { name: "Save", exact: true }).click(),
   ]);
-  await expect(page.getByText("Notification preferences saved")).toBeVisible();
+  await expect(page.getByText("Notification preferences saved").last()).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
   await openUserMenu(page);
   await page.getByRole("menuitem", { name: "Notification preferences" }).click();
@@ -140,7 +140,7 @@ test("the master email switch round-trips from notification preferences, and an 
     ),
     page.getByRole("button", { name: "Save", exact: true }).click(),
   ]);
-  await expect(page.getByText("Notification preferences saved")).toBeVisible();
+  await expect(page.getByText("Notification preferences saved").last()).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
   await logout(page);
 
@@ -157,7 +157,7 @@ test("the master email switch round-trips from notification preferences, and an 
     ),
     page.getByRole("button", { name: "Save", exact: true }).click(),
   ]);
-  await expect(page.getByText("Notification preferences saved")).toBeVisible();
+  await expect(page.getByText("Notification preferences saved").last()).toBeVisible();
   await expect(page).toHaveURL(/\/users$/);
   await page.goto(`/users/${owner.id}/notification-preferences`);
   await expect(master).not.toBeChecked();

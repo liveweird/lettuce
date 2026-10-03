@@ -8,6 +8,7 @@ import ch.nokillswit.alerts.AlertService
 import ch.nokillswit.alerts.AlertServiceKey
 import ch.nokillswit.auth.TokenBlocklistService
 import ch.nokillswit.auth.TokenBlocklistServiceKey
+import ch.nokillswit.daysoff.DaysOffCalendarShareable
 import ch.nokillswit.daysoff.DaysOffEventService
 import ch.nokillswit.daysoff.DaysOffEventServiceKey
 import ch.nokillswit.daysoff.DaysOffService
@@ -284,7 +285,8 @@ suspend fun Application.configureDatabase() {
     attributes.put(PerformanceReviewServiceKey, performanceReviewService)
     attributes.put(PerformanceReviewEventServiceKey, PerformanceReviewEventService(database))
     attributes.put(PublicHolidayServiceKey, PublicHolidayService(database))
-    attributes.put(DaysOffServiceKey, DaysOffService(database, attributes[FieldCipherKey]))
+    val daysOffService = DaysOffService(database, attributes[FieldCipherKey])
+    attributes.put(DaysOffServiceKey, daysOffService)
     attributes.put(DaysOffEventServiceKey, DaysOffEventService(database))
     attributes.put(TemplateServiceKey, TemplateService(database))
     attributes.put(DictionaryServiceKey, DictionaryService(database))
@@ -361,6 +363,7 @@ suspend fun Application.configureDatabase() {
                 ShareableResourceType.PERFORMANCE_REVIEW -> PerformanceReviewShareable(performanceReviewService)
                 ShareableResourceType.IMPACT_LOG_ENTRY -> ImpactLogShareable(impactLogService)
                 ShareableResourceType.SUCCESSION_PLAN -> SuccessionShareable(successionPlanService)
+                ShareableResourceType.DAYS_OFF_CALENDAR -> DaysOffCalendarShareable(userService, daysOffService)
             }
         }
     attributes.put(ShareRegistryKey, shareRegistry)

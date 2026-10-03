@@ -10,6 +10,8 @@ const DOCUMENT_QUERY_KEY: Record<ShareableResourceType, string> = {
   PERFORMANCE_REVIEW: "performanceReview",
   IMPACT_LOG_ENTRY: "impactEntry",
   SUCCESSION_PLAN: "successionPlan",
+  // A calendar has no single-document query (its resource is a person; the Calendar tab owns the data).
+  DAYS_OFF_CALENDAR: "daysOffCalendar",
 };
 
 /** The "Current shares" list of ONE document — under the ["shares", …] prefix. */

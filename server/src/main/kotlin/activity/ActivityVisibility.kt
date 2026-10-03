@@ -17,6 +17,7 @@ import ch.nokillswit.teamkpis.TeamKpiService.TeamKpis
 import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.teams.TeamService.TeamMembers
 import ch.nokillswit.teams.TeamService.Teams
+import ch.nokillswit.users.UserService.Users
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.r2dbc.Query
@@ -54,6 +55,9 @@ internal object ActivityVisibility {
         ActivityArea.IMPACT_LOG_ENTRY -> impactEntry(viewer, chain)
         ActivityArea.SUCCESSION_PLAN -> successionPlan(viewer, chain)
         // The person-scoped areas have no document to read (their chain rule is `personScoped`).
+        // DAYS_OFF stays here although it now carries calendar SHARE rows (v4.11.0): this builder is
+        // only ever applied to document areas' event rows — a person-scoped area's event branch uses
+        // `personScoped`, and its share rows are gated by `authoredShares` — so it is never reached.
         ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> Op.FALSE
     }
 
@@ -138,7 +142,10 @@ internal object ActivityVisibility {
      * null for one). Mirrors each adapter's `isAuthor`: feedback → the provider; 1:1/goal/review →
      * the stored `manager_id`; impact log → the owner; succession plan → the plan's owner; team KPI →
      * whoever passes the manage predicate (the team's CURRENT manager `teams.manager_id`, or the
-     * chain above them). One `resource_type`-guarded sub-select per type, OR-ed.
+     * chain above them); days-off calendar → the PERSON themselves (the resource id is the user
+     * id; a chain manager who did not share never learns of the share — only the person does, and
+     * only while they are not soft-deleted, the adapter's `read` rule). One `resource_type`-guarded
+     * sub-select per type, OR-ed.
      */
     fun authoredShares(viewer: UInt, chain: Collection<UInt>): Op<Boolean> {
         fun ofType(type: ShareableResourceType, ids: Query): Op<Boolean> =
@@ -178,6 +185,10 @@ internal object ActivityVisibility {
                 ShareableResourceType.SUCCESSION_PLAN -> ofType(
                     type,
                     Plans.select(Plans.id).where { (Plans.managerId eq viewer) and (Plans.markedAsDeleted eq false) },
+                )
+                ShareableResourceType.DAYS_OFF_CALENDAR -> ofType(
+                    type,
+                    Users.select(Users.id).where { (Users.id eq viewer) and (Users.markedAsDeleted eq false) },
                 )
             }
         }.reduce { acc, op -> acc or op }

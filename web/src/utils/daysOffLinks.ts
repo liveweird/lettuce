@@ -8,6 +8,11 @@ export function daysOffListLink(tab: DaysOffTab): string {
   return `/days-off?tab=${tab}`;
 }
 
+/** The calendars mass-share picker (v4.11.0), reached from the team tab. */
+export function daysOffMassShareLink(): string {
+  return "/days-off/mass-share";
+}
+
 /** The create-request screen, optionally with a return target. `onBehalf` opens the
  * manager-side recording mode (v2.29.0): a direct-report picker + auto-accepted submit. */
 export function daysOffCreateLink(back?: string, onBehalf?: boolean, cancel?: string): string {

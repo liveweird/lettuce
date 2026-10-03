@@ -11,24 +11,26 @@ import {
   Select,
   Stack,
   Tabs,
-  Text
+  Text,
+  Tooltip
 } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconPlus, IconShare } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { canAudit, hasFeature } from "../api/session";
-import { getDaysOffCalendar, type DaysOffCalendarScope } from "../api/daysoff";
+import { canAudit, getUserId, hasFeature } from "../api/session";
+import { getDaysOffCalendar, type DaysOffCalendarScope, type DaysOffCalendarUser } from "../api/daysoff";
 import { listAllTeams } from "../api/teams";
 import DaysOffBudgetCard from "../components/DaysOffBudgetCard";
 import DaysOffBudgetsTable from "../components/DaysOffBudgetsTable";
 import DaysOffMonthGrid from "../components/DaysOffMonthGrid";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
+import ShareDialog from "../components/ShareDialog";
 import { useIsManager } from "../hooks/useIsManager";
 import { isNumberOrNull, isOneOf, useStoredState } from "../hooks/useStoredState";
 import { useCurrentPath } from "../hooks/useCurrentPath";
 import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime";
-import { daysOffCreateLink, daysOffListLink } from "../utils/daysOffLinks";
+import { daysOffCreateLink, daysOffListLink, daysOffMassShareLink } from "../utils/daysOffLinks";
 import DaysOffTable from "./DaysOffTable";
 import { loadErrorMessage } from "../utils/saveError";
 import EmptyCtaLink from "../components/EmptyCtaLink";
@@ -42,8 +44,18 @@ const TABS = ["calendar", "requests", "team"] as const;
 type DaysOffTab = (typeof TABS)[number];
 // The stored calendar scope pick: "managed" and "managedAll" both hit the API's scope=managed,
 // differing only in includeIndirect — a stored pre-v3.13.0 "managed" keeps working as the
-// direct-reports pick. "org" (v3.25.0, HR auditor only) hits the API's scope=org.
-const SCOPES = ["member", "managed", "managedAll", "org"] as const;
+// direct-reports pick. "org" (v3.25.0, HR auditor only) hits the API's scope=org. "shared"
+// (v4.11.0, "Shared with me" — offered to everyone) hits scope=shared: the people whose calendar
+// was shared with the caller.
+const SCOPES = ["member", "shared", "managed", "managedAll", "org"] as const;
+type CalendarScopePick = (typeof SCOPES)[number];
+const API_SCOPE: Record<CalendarScopePick, DaysOffCalendarScope> = {
+  member: "member",
+  shared: "shared",
+  managed: "managed",
+  managedAll: "managed",
+  org: "org",
+};
 
 function isDaysOffTab(value: string | null): value is DaysOffTab {
   return TABS.includes(value as DaysOffTab);
@@ -52,31 +64,72 @@ function isDaysOffTab(value: string | null): value is DaysOffTab {
 function CalendarTab({ isManager }: { isManager: boolean }) {
   const { t, i18n } = useTranslation();
   const auditor = canAudit();
+  const currentUserId = getUserId();
+  const [searchParams, setSearchParams] = useSearchParams();
   // The month is deliberately not persisted — a calendar visit starts at "now".
   const [month, setMonth] = useState(currentIsoMonth());
-  const [storedScope, setScope] = useStoredState<(typeof SCOPES)[number]>(
+  const [storedScope, setScope] = useStoredState<CalendarScopePick>(
     "daysOff.calendar.scope", "member", isOneOf(SCOPES),
   );
-  // A stored "org" scope must never apply to a non-auditor (a role downgrade, or a stale
-  // cross-device value) — fall back to the member scope, without rewriting storage (the
-  // PulseResults role-downgrade idiom); a stored managed/managedAll scope likewise degrades
-  // gracefully if the caller stops managing.
-  const safeScope: (typeof SCOPES)[number] =
-    storedScope === "org" && !auditor
-      ? "member"
-      : (storedScope === "managed" || storedScope === "managedAll") && !isManager
-        ? "member"
-        : storedScope;
+  // "Shared with me" is offered to everyone (v4.11.0); managed/managedAll need a managed team and
+  // "org" the HR auditor role.
   const availableScopes = SCOPES.filter((s) => {
     if (s === "org") return auditor;
     if (s === "managed" || s === "managedAll") return isManager;
     return true;
   });
+  // A stored "org" scope must never apply to a non-auditor (a role downgrade, or a stale
+  // cross-device value) — fall back to the member scope, without rewriting storage (the
+  // PulseResults role-downgrade idiom); a stored managed/managedAll scope likewise degrades
+  // gracefully if the caller stops managing. An explicit ?scope= (the notification / Shared-screen
+  // deep link, v4.11.0) wins over the stored pick when the caller may use it — the `dashboard.tab`
+  // idiom; picking in the Select drops it from the URL again.
+  const requestedScope = searchParams.get("scope");
+  const urlScope = availableScopes.find((s) => s === requestedScope);
+  const safeScope: CalendarScopePick = urlScope ?? (availableScopes.includes(storedScope) ? storedScope : "member");
+  // `?user=<id>` highlights (and scrolls to) one row of the grid — the sharer's link target.
+  const requestedUser = searchParams.get("user");
+  const highlightUserId = requestedUser != null && /^\d+$/.test(requestedUser) ? Number(requestedUser) : null;
 
-  const scope: DaysOffCalendarScope =
-    safeScope === "member" ? "member" : safeScope === "org" ? "org" : "managed";
+  const scope = API_SCOPE[safeScope];
   // v3.13.0: "managedAll" widens the managed scope to the caller's whole transitive chain.
   const includeIndirect = safeScope === "managedAll";
+
+  // The one Share dialog of the page (D6, v4.11.0): `opened` flips off on close while the target
+  // stays set, so the dialog can animate out over the same person.
+  const [shareFor, setShareFor] = useState<{ userId: number; opened: boolean } | null>(null);
+
+  function pickScope(next: CalendarScopePick) {
+    setScope(next);
+    setSearchParams(
+      (params) => {
+        params.delete("scope");
+        params.delete("user");
+        return params;
+      },
+      { replace: true },
+    );
+  }
+
+  function shareAction(user: DaysOffCalendarUser) {
+    if (!user.canShareCalendar) return null;
+    const own = user.userId === currentUserId;
+    const label = own
+      ? t("daysOff.calendar.shareOwnAria")
+      : t("daysOff.calendar.shareAria", { name: user.userName });
+    return (
+      <Tooltip label={t("sharing.button")} withArrow>
+        <ActionIcon
+          variant="subtle"
+          size="sm"
+          aria-label={label}
+          onClick={() => setShareFor({ userId: user.userId, opened: true })}
+        >
+          <IconShare size={14} />
+        </ActionIcon>
+      </Tooltip>
+    );
+  }
 
   // The org-scope team narrower (v3.25.0): every team, from the shared all-teams pool.
   const [storedOrgTeamId, setOrgTeamId] = useStoredState<number | null>(
@@ -128,40 +181,39 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
             <IconChevronRight size={16} />
           </ActionIcon>
         </Group>
-        {(isManager || auditor) && (
-          <Group gap="sm" align="flex-end" wrap="wrap">
+        {/* Offered to everyone since v4.11.0 — "Shared with me" is a scope every caller has. */}
+        <Group gap="sm" align="flex-end" wrap="wrap">
+          <Select
+            label={t("daysOff.calendar.scope")}
+            data={availableScopes.map((s) => ({ value: s, label: t(`daysOff.calendar.scope_${s}`) }))}
+            value={safeScope}
+            onChange={(v) => v && pickScope(v as CalendarScopePick)}
+            allowDeselect={false}
+            // Wide enough for the longest option in either language ("All my reports
+            // (including indirect)" / "Wszyscy moi podwładni (także pośredni)").
+            w={{ base: "100%", sm: 330 }}
+            // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour
+            // anchor must ride wrapperProps or it would land on the input, not the label+input
+            // pair the tutorial spotlights.
+            wrapperProps={{ "data-tour": "days-off-calendar-scope" }}
+          />
+          {scope === "org" && (
             <Select
-              label={t("daysOff.calendar.scope")}
-              data={availableScopes.map((s) => ({ value: s, label: t(`daysOff.calendar.scope_${s}`) }))}
-              value={safeScope}
-              onChange={(v) => v && setScope(v as (typeof SCOPES)[number])}
+              label={t("daysOff.calendar.orgTeamLabel")}
+              data={[
+                { value: "", label: t("daysOff.calendar.orgTeamAll") },
+                ...(teamsQuery.data ?? []).map((team) => ({ value: String(team.id), label: team.name })),
+              ]}
+              value={orgTeamId == null ? "" : String(orgTeamId)}
+              onChange={(v) => setOrgTeamId(v == null || v === "" ? null : Number(v))}
               allowDeselect={false}
-              // Wide enough for the longest option in either language ("All my reports
-              // (including indirect)" / "Wszyscy moi podwładni (także pośredni)").
-              w={{ base: "100%", sm: 330 }}
-              // Mantine 9.6 spreads unknown Select props onto the <input> — the guided-tour
-              // anchor must ride wrapperProps or it would land on the input, not the label+input
-              // pair the tutorial spotlights.
-              wrapperProps={{ "data-tour": "days-off-calendar-scope" }}
+              searchable
+              // A Select in a flex Group clips its longest option unless it gets an
+              // explicit width.
+              w={{ base: "100%", sm: 260 }}
             />
-            {scope === "org" && (
-              <Select
-                label={t("daysOff.calendar.orgTeamLabel")}
-                data={[
-                  { value: "", label: t("daysOff.calendar.orgTeamAll") },
-                  ...(teamsQuery.data ?? []).map((team) => ({ value: String(team.id), label: team.name })),
-                ]}
-                value={orgTeamId == null ? "" : String(orgTeamId)}
-                onChange={(v) => setOrgTeamId(v == null || v === "" ? null : Number(v))}
-                allowDeselect={false}
-                searchable
-                // A Select in a flex Group clips its longest option unless it gets an
-                // explicit width.
-                w={{ base: "100%", sm: 260 }}
-              />
-            )}
-          </Group>
-        )}
+          )}
+        </Group>
       </Group>
 
       {isError ? (
@@ -174,10 +226,29 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
         </Center>
       ) : data.users.length === 0 ? (
         <Text size="sm" c="dimmed">
-          {t(scope === "org" ? "daysOff.calendar.emptyOrg" : "daysOff.calendar.empty")}
+          {t(
+            scope === "org"
+              ? "daysOff.calendar.emptyOrg"
+              : scope === "shared"
+                ? "daysOff.calendar.emptyShared"
+                : "daysOff.calendar.empty",
+          )}
         </Text>
       ) : (
-        <DaysOffMonthGrid data={data} showTeams={scope === "managed" || scope === "org"} />
+        <DaysOffMonthGrid
+          data={data}
+          showTeams={scope !== "member"}
+          renderRowAction={shareAction}
+          highlightUserId={highlightUserId}
+        />
+      )}
+      {shareFor != null && (
+        <ShareDialog
+          opened={shareFor.opened}
+          onClose={() => setShareFor({ ...shareFor, opened: false })}
+          resourceType="DAYS_OFF_CALENDAR"
+          resourceId={shareFor.userId}
+        />
       )}
     </Stack>
   );
@@ -216,6 +287,9 @@ export default function DaysOff() {
     if (!isDaysOffTab(value)) return;
     setSearchParams((params) => {
       params.set("tab", value);
+      // The calendar's deep-link params (v4.11.0) belong to the Calendar tab only.
+      params.delete("scope");
+      params.delete("user");
       return params;
     });
   }
@@ -290,6 +364,15 @@ export default function DaysOff() {
                 {/* Requests | Budgets (v3.4.0) plus the Reports scope (v3.13.0), right-aligned
                     together so the Select's label doesn't misalign the segmented control. */}
                 <Group gap="sm" align="flex-end">
+                  {/* The calendars mass-share entry (v4.11.0) — managers only, like the tab itself. */}
+                  <Button
+                    component={RouterLink}
+                    to={daysOffMassShareLink()}
+                    variant="default"
+                    leftSection={<IconShare size={16} />}
+                  >
+                    {t("daysOff.teamShareButton")}
+                  </Button>
                   {/* A flex item shrinks the Select to its intrinsic width and clips the
                       longest option; the Box gives it the room the FilterPanel grid gives
                       the same control elsewhere. */}

@@ -22,7 +22,7 @@ import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate } from "../utils/datetime";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
-import { SHARE_FEATURE, SHARE_TYPES, shareDocumentLabel } from "../utils/shareKinds";
+import { SHARE_FEATURE, SHARE_TYPES, shareDocumentLabel, shareKindContext, shareOpenPath } from "../utils/shareKinds";
 import { shareOpenLink } from "../utils/shareLinks";
 import { invalidateShares } from "../utils/shareQueries";
 import { showSuccessToast } from "../utils/toast";
@@ -251,7 +251,7 @@ export default function SharesTable({ view }: { view: SharesView }) {
                               icon: <IconExternalLink size={16} />,
                               label: t("sharing.page.open"),
                               ariaLabel: t("sharing.page.openAria", { label }),
-                              to: shareOpenLink(share.link, here),
+                              to: shareOpenLink(shareOpenPath(share, currentUserId), here),
                             }
                           : undefined
                       }
@@ -309,7 +309,10 @@ export default function SharesTable({ view }: { view: SharesView }) {
         opened={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         title={t("sharing.withdrawTitle")}
-        message={t("sharing.withdrawBody", { name: target?.shareeName ?? "" })}
+        message={t("sharing.withdrawBody", {
+          name: target?.shareeName ?? "",
+          context: target ? shareKindContext(target.resourceType) : undefined,
+        })}
         cancelLabel={t("common.action.cancel")}
         confirmLabel={t("sharing.withdraw")}
         loading={withdrawing}

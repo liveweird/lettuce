@@ -2,6 +2,8 @@
   "button": "Udostępnij",
   "dialogTitle": "Udostępnij ten dokument",
   "intro": "Osoby, którym udostępnisz ten dokument, mogą go czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć ten dokument.",
+  "dialogTitle_calendar": "Udostępnij ten kalendarz",
+  "intro_calendar": "Osoby, którym udostępnisz ten kalendarz, zobaczą, kiedy ta osoba ma wolne — tylko daty oraz informację, czy dzień jest płatny, czy bezpłatny, bez rodzaju urlopu, budżetu i powodów — ale niczego nie zmienią. Udostępnienie działa tylko dopóki Ty możesz widzieć ten kalendarz.",
   "shareWith": "Udostępnij osobom",
   "pickPeople": "Wybierz osoby",
   "noPeople": "Brak dostępnych osób",
@@ -23,21 +25,27 @@
   "withdrawAria": "Wycofaj udostępnienie dla: {{name}}",
   "withdrawTitle": "Wycofać to udostępnienie?",
   "withdrawBody": "{{name}} nie będzie już mogł/a otworzyć tego dokumentu dzięki temu udostępnieniu. Nie możesz tego cofnąć.",
+  "withdrawBody_calendar": "{{name}} nie będzie już mogł/a zobaczyć tego kalendarza dzięki temu udostępnieniu. Nie możesz tego cofnąć.",
   "toast": {
     "shared": "Dokument udostępniony",
+    "shared_calendar": "Kalendarz udostępniony",
     "withdrawn": "Udostępnienie wycofane",
-    "batchShared": "Oceny udostępnione"
+    "batchShared": "Oceny udostępnione",
+    "batchShared_calendars": "Kalendarze udostępnione"
   },
   "failureItem": "Nie udało się udostępnić osobie {{name}}: {{reason}}",
   "banner": "{{name}} udostępnił/a Ci ten dokument",
   "lapsed": "Osoba, która udostępniła Ci ten dokument, nie ma już do niego dostępu, więc Twój dostęp wygasł.",
   "error": {
     "duplicate": "Ten dokument jest już udostępniony tej osobie.",
+    "duplicate_calendar": "Ten kalendarz jest już udostępniony tej osobie.",
     "invalid": "Serwer odrzucił żądanie. Sprawdź datę końcową.",
     "untilPast": "Data końcowa nie może być w przeszłości.",
     "rateLimited": "Udostępniasz zbyt szybko. Poczekaj chwilę i spróbuj ponownie.",
     "forbidden": "Nie możesz udostępnić tego dokumentu.",
+    "forbidden_calendar": "Nie możesz udostępnić tego kalendarza.",
     "notFound": "Ten dokument lub ta osoba już nie istnieje.",
+    "notFound_calendar": "Ten kalendarz lub ta osoba już nie istnieje.",
     "failed": "Nie udało się udostępnić. Spróbuj ponownie.",
     "failedStatus": "Nie udało się udostępnić (HTTP {{status}}).",
     "loadSharesFailed": "Nie udało się wczytać aktualnych udostępnień.",
@@ -77,7 +85,8 @@
     "PERFORMANCE_REVIEW": "Ocena okresowa",
     "TEAM_KPI": "KPI zespołu",
     "IMPACT_LOG_ENTRY": "Wpis w dzienniku wpływu",
-    "SUCCESSION_PLAN": "Plan sukcesji"
+    "SUCCESSION_PLAN": "Plan sukcesji",
+    "DAYS_OFF_CALENDAR": "Kalendarz dni wolnych"
   },
   "doc": {
     "unavailable": "Już niedostępny",
@@ -88,14 +97,20 @@
     "TEAM_KPI": "{{title}} ({{team}})",
     "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
     "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
-    "SUCCESSION_PLAN": "{{person}} (właściciel/ka: {{owner}})"
+    "SUCCESSION_PLAN": "{{person}} (właściciel/ka: {{owner}})",
+    "DAYS_OFF_CALENDAR": "Kalendarz dni wolnych osoby {{person}}"
   },
   "batch": {
     "title": "Udostępnij oceny okresowe",
+    "title_calendars": "Udostępnij kalendarze dni wolnych",
     "intro_one": "Udostępniasz {{count}} ocenę okresową. Osoby, którym ją udostępnisz, mogą ją czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć tę ocenę.",
     "intro_few": "Udostępniasz {{count}} oceny okresowe. Osoby, którym je udostępnisz, mogą je czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć daną ocenę.",
     "intro_many": "Udostępniasz {{count}} ocen okresowych. Osoby, którym je udostępnisz, mogą je czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć daną ocenę.",
     "intro_other": "Udostępniasz {{count}} oceny okresowej. Osoby, którym ją udostępnisz, mogą ją czytać, ale nigdy zmieniać. Udostępnienie działa tylko dopóki Ty możesz otworzyć tę ocenę.",
+    "intro_calendars_one": "Udostępniasz {{count}} kalendarz. Osoby, którym go udostępnisz, zobaczą, kiedy ta osoba ma wolne — tylko daty oraz informację, czy dzień jest płatny, czy bezpłatny, bez rodzaju urlopu, budżetu i powodów — ale niczego nie zmienią. Udostępnienie działa tylko dopóki Ty możesz widzieć ten kalendarz.",
+    "intro_calendars_few": "Udostępniasz {{count}} kalendarze. Osoby, którym je udostępnisz, zobaczą, kiedy te osoby mają wolne — tylko daty oraz informację, czy dzień jest płatny, czy bezpłatny, bez rodzaju urlopu, budżetu i powodów — ale niczego nie zmienią. Udostępnienie działa tylko dopóki Ty możesz widzieć dany kalendarz.",
+    "intro_calendars_many": "Udostępniasz {{count}} kalendarzy. Osoby, którym je udostępnisz, zobaczą, kiedy te osoby mają wolne — tylko daty oraz informację, czy dzień jest płatny, czy bezpłatny, bez rodzaju urlopu, budżetu i powodów — ale niczego nie zmienią. Udostępnienie działa tylko dopóki Ty możesz widzieć dany kalendarz.",
+    "intro_calendars_other": "Udostępniasz {{count}} kalendarza. Osoby, którym go udostępnisz, zobaczą, kiedy ta osoba ma wolne — tylko daty oraz informację, czy dzień jest płatny, czy bezpłatny, bez rodzaju urlopu, budżetu i powodów — ale niczego nie zmienią. Udostępnienie działa tylko dopóki Ty możesz widzieć ten kalendarz.",
     "maxPeople": "Maksymalnie {{max}} osób naraz.",
     "subjectWarning_one": "{{names}} jest jedną z osób, których ocenę udostępniasz. Ta osoba będzie mogła ją przeczytać, także oceny, które nie są jeszcze dla niej opublikowane.",
     "subjectWarning_few": "{{names}} są wśród osób, których oceny udostępniasz. Te osoby będą mogły przeczytać swoje oceny, także oceny, które nie są jeszcze dla nich opublikowane.",
@@ -103,6 +118,7 @@
     "subjectWarning_other": "{{names}} są wśród osób, których oceny udostępniasz. Te osoby będą mogły przeczytać swoje oceny, także oceny, które nie są jeszcze dla nich opublikowane.",
     "moreNames": "{{names}} i {{count}} więcej",
     "chunkHint": "Zaznaczenie liczące więcej niż {{max}} ocen jest wysyłane w {{batches}} paczkach, więc każdy odbiorca dostaje jedno powiadomienie na paczkę.",
+    "chunkHint_calendars": "Zaznaczenie liczące więcej niż {{max}} kalendarzy jest wysyłane w {{batches}} paczkach, więc każdy odbiorca dostaje jedno powiadomienie na paczkę.",
     "result": {
       "created": "Nowe udostępnienia: {{count}}",
       "nothing": "Nie ma nowych udostępnień.",
@@ -111,24 +127,76 @@
       "failedTitle": "Nie udało się udostępnić:",
       "failedLine_FORBIDDEN": "{{person}}: nie możesz udostępnić tej oceny.",
       "failedLine_NOT_FOUND": "{{person}}: ta ocena już nie istnieje.",
+      "failedLine_FORBIDDEN_calendars": "{{person}}: nie możesz udostępnić tego kalendarza.",
+      "failedLine_NOT_FOUND_calendars": "{{person}}: ten kalendarz już nie istnieje.",
       "title": "Wynik"
     },
     "partial_one": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} ocena.",
     "partial_few": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czekają jeszcze {{count}} oceny.",
     "partial_many": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} ocen.",
     "partial_other": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} oceny.",
+    "partial_calendars_one": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} kalendarz.",
+    "partial_calendars_few": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czekają jeszcze {{count}} kalendarze.",
+    "partial_calendars_many": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} kalendarzy.",
+    "partial_calendars_other": "Udostępnianie zatrzymało się wcześniej: {{reason}} Czeka jeszcze {{count}} kalendarza.",
     "retry_one": "Ponów dla pozostałej {{count}} oceny",
     "retry_few": "Ponów dla pozostałych {{count}} ocen",
     "retry_many": "Ponów dla pozostałych {{count}} ocen",
     "retry_other": "Ponów dla pozostałych {{count}} oceny",
+    "retry_calendars_one": "Ponów dla pozostałego {{count}} kalendarza",
+    "retry_calendars_few": "Ponów dla pozostałych {{count}} kalendarzy",
+    "retry_calendars_many": "Ponów dla pozostałych {{count}} kalendarzy",
+    "retry_calendars_other": "Ponów dla pozostałego {{count}} kalendarza",
     "error": {
       "forbidden": "Nie możesz udostępnić żadnej z tych ocen.",
       "notFound": "Żadna z tych ocen już nie istnieje.",
+      "forbidden_calendars": "Nie możesz udostępnić żadnego z tych kalendarzy.",
+      "notFound_calendars": "Żaden z tych kalendarzy już nie istnieje.",
       "invalid": "Serwer odrzucił żądanie. Sprawdź datę końcową i wybrane osoby.",
       "rateLimited": "Udostępniasz zbyt szybko. Spróbuj ponownie za minutę.",
       "failed": "Nie udało się udostępnić. Spróbuj ponownie.",
       "failedStatus": "Nie udało się udostępnić (HTTP {{status}})."
     },
     "backToForm": "Zmień i spróbuj ponownie"
+  },
+  "massShare": {
+    "meta": {
+      "selected": "Zaznaczone",
+      "shareable": "Do udostępnienia",
+      "people": "Osoby"
+    },
+    "peopleOf": "{{count}} z {{total}}",
+    "you": "Ty",
+    "searchLabel": "Szukaj osób",
+    "searchClear": "Wyczyść wyszukiwanie",
+    "selectAllMatching": "Zaznacz wszystkie pasujące ({{count}})",
+    "clearSelection": "Wyczyść zaznaczenie",
+    "shareN_one": "Udostępnij {{count}} ocenę…",
+    "shareN_few": "Udostępnij {{count}} oceny…",
+    "shareN_many": "Udostępnij {{count}} ocen…",
+    "shareN_other": "Udostępnij {{count}} oceny…",
+    "shareN_calendars_one": "Udostępnij {{count}} kalendarz…",
+    "shareN_calendars_few": "Udostępnij {{count}} kalendarze…",
+    "shareN_calendars_many": "Udostępnij {{count}} kalendarzy…",
+    "shareN_calendars_other": "Udostępnij {{count}} kalendarza…",
+    "hiddenSelected_one": "Bieżące filtry ukrywają {{count}} zaznaczoną osobę.",
+    "hiddenSelected_few": "Bieżące filtry ukrywają {{count}} zaznaczone osoby.",
+    "hiddenSelected_many": "Bieżące filtry ukrywają {{count}} zaznaczonych osób.",
+    "hiddenSelected_other": "Bieżące filtry ukrywają {{count}} zaznaczonej osoby.",
+    "col": {
+      "managers": "Bezpośredni/a przełożony/a"
+    },
+    "selectAllOnPage": "Zaznacz wszystkich na tej stronie",
+    "selectAria": "Zaznacz: {{name}}",
+    "unavailableAria": "Nie można zaznaczyć: {{name}} — {{reason}}",
+    "empty": "Żadna osoba nie pasuje do filtrów.",
+    "noReports": "W Twojej linii raportowania nikogo nie ma, więc nie ma czego udostępniać.",
+    "loadError": "Nie udało się wczytać osób z Twojej linii raportowania.",
+    "rowsPerPage": "Osób na stronę",
+    "facet": {
+      "teams": "Zespoły",
+      "manager": "Bezpośredni/a przełożony/a i wszyscy pod nim/nią",
+      "managerHint": "Zostawia wszystkie osoby podlegające wybranej osobie przełożonej, na każdym poziomie, ale bez niej samej."
+    }
   }
 }

@@ -467,6 +467,11 @@ class DaysOffRoutesTest {
         // Scope managed: the manager sees the team members (the manager is not a member here).
         val managed = m.get("/api/v1/days-off/calendar?month=2058-03&scope=managed").body<DaysOffCalendarResponse>()
         assertEquals(setOf(sId, tId), managed.users.map { it.userId }.toSet())
+        // The canShareCalendar capability (v4.11.0): every managed row is the caller's chain,
+        // so true; on the member scope only the caller's OWN row; sharedBy only exists on `shared`.
+        assertTrue(managed.users.all { it.canShareCalendar })
+        assertEquals(setOf(tId), march.users.filter { it.canShareCalendar }.map { it.userId }.toSet())
+        assertTrue((march.users + managed.users).all { it.sharedBy == null })
         assertTrue(m.get("/api/v1/days-off/calendar?month=2058-03").body<DaysOffCalendarResponse>()
             .users.none { it.userId == sId }) // member scope for a non-member manager
 
@@ -500,6 +505,11 @@ class DaysOffRoutesTest {
         val uId = TestUsers.seed(uniqueEmail("do-cal-ii-u"), "pw", name = "CalII Outsider", roles = emptySet())
         val teamZ = TestServices.teams.create(Team(name = "cal-ii-Z-${java.util.UUID.randomUUID()}", managerId = uId))
         TestServices.teams.addMember(teamZ, sId)
+        // D is a soft-deleted report on X: still listed on the managed scopes (userDeleted), but
+        // the Share action must not be offered for them (POST /shares answers 404).
+        val dId = TestUsers.seed(uniqueEmail("do-cal-ii-d"), "pw", name = "CalII Deleted", roles = emptySet())
+        TestServices.teams.addMember(teamX, dId)
+        TestServices.users.delete(dId)
         val g = authedClient(gEmail, "pw")
         val s = authedClient(sEmail, "pw")
 
@@ -514,11 +524,15 @@ class DaysOffRoutesTest {
         // the person sits in G's chain — S/T via X (managed by M, in the subtree), M via Y.
         val widened = g.get("/api/v1/days-off/calendar?month=$month&scope=managed&includeIndirect=true")
             .body<DaysOffCalendarResponse>()
-        assertEquals(setOf(mId, sId, tId), widened.users.map { it.userId }.toSet())
+        assertEquals(setOf(mId, sId, tId, dId), widened.users.map { it.userId }.toSet())
         assertEquals(listOf(teamX), widened.users.single { it.userId == sId }.teams.map { it.id })
         assertEquals(listOf(teamX), widened.users.single { it.userId == tId }.teams.map { it.id })
         assertEquals(listOf(teamY), widened.users.single { it.userId == mId }.teams.map { it.id })
         assertTrue(widened.users.flatMap { it.teams }.none { it.id == teamZ }, "out-of-chain team Z leaked")
+        // canShareCalendar on the widened managed rows: every live report, never the soft-deleted one.
+        assertTrue(widened.users.single { it.userId == dId }.userDeleted)
+        assertFalse(widened.users.single { it.userId == dId }.canShareCalendar)
+        assertTrue(widened.users.filter { it.userId != dId }.all { it.canShareCalendar })
 
         // Member scope (S's default view): rows name the caller's member teams the person
         // shares. S sits in X and Z, so S's own row names both; T shares only X with S.
@@ -583,6 +597,8 @@ class DaysOffRoutesTest {
         val org = hr.get("/api/v1/days-off/calendar?month=$month&scope=org").body<DaysOffCalendarResponse>()
         assertEquals(setOf(sId, wId), org.users.map { it.userId }.toSet())
         assertNotNull(org.users.single { it.userId == sId }.entries.single().poolName)
+        // No Share action on the auditor scope (HR's read is not an own right).
+        assertTrue(org.users.none { it.canShareCalendar } && org.users.all { it.sharedBy == null })
         // The org rows label each person with THEIR OWN teams (the caller-relative scopes label
         // them with the teams via which they are in the caller's scope — HR has none here, so a
         // caller-keyed derivation would silently yield empty lists).

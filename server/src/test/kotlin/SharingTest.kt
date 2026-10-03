@@ -2,6 +2,7 @@ package ch.nokillswit
 
 import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.authz.ForbiddenException
+import ch.nokillswit.daysoff.DaysOffCalendarShareable
 import ch.nokillswit.feedbacks.Feedback
 import ch.nokillswit.feedbacks.FeedbackContentUpdate
 import ch.nokillswit.feedbacks.FeedbackCreateRequest
@@ -42,6 +43,8 @@ import ch.nokillswit.reviews.PerformanceReviewResponse
 import ch.nokillswit.reviews.PerformanceReviewStatus
 import ch.nokillswit.reviews.PerformanceReviewUpdateRequest
 import ch.nokillswit.sharing.ShareAccess
+import ch.nokillswit.sharing.ShareAccessKey
+import ch.nokillswit.daysoff.DaysOffCalendarResponse
 import ch.nokillswit.sharing.ShareBatchItemStatus
 import ch.nokillswit.sharing.ShareBatchRequest
 import ch.nokillswit.sharing.ShareBatchResponse
@@ -2420,6 +2423,388 @@ class SharingTest {
         assertEquals(before, sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details)
         assertEquals("Original KPI title", before?.get("title"))
     }
+
+    // ── Days-off calendars ───────────────────────────────────────────────────────────────────
+    // The shared unit is a PERSON's calendar (the resource id is the person's user id). Own right =
+    // the person themselves or a manager in their transitive chain; teammates and the HR auditor
+    // alone cannot share; the person is the author (sees and withdraws every share of their calendar).
+
+    private class CalendarWorld(
+        val person: Person,
+        val manager: Person,
+        val grand: Person,
+        val teammate: Person,
+        val managerTeamId: UInt,
+    )
+
+    private suspend fun HttpClient.shareCalendar(personId: UInt, shareeId: UInt, expiresOn: String? = null): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.DAYS_OFF_CALENDAR, personId, shareeId, expiresOn))
+        }
+
+    private suspend fun HttpClient.shareCalendarId(personId: UInt, shareeId: UInt, expiresOn: String? = null): UInt {
+        val response = shareCalendar(personId, shareeId, expiresOn)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    private suspend fun HttpClient.calendarDocumentShares(personId: UInt): HttpResponse = get("/api/v1/shares") {
+        parameter("view", "document")
+        parameter("resourceType", "DAYS_OFF_CALENDAR")
+        parameter("resourceId", personId.toString())
+    }
+
+    /**
+     * P (the person) is on M's team (M = direct manager), M is on G's team (G = skip-level), T is P's
+     * teammate (shares the team, so sees P's absences by calendar parity, but may not share).
+     */
+    private suspend fun ApplicationTestBuilder.calendarWorld(personRoles: Set<UserRole> = emptySet()): CalendarWorld {
+        val person = person("cal-person", roles = personRoles)
+        val manager = person("cal-manager")
+        val grand = person("cal-grand")
+        val teammate = person("cal-mate")
+        val managerTeam = TestServices.teams.create(Team("CalSquad-${manager.id}", manager.id, listOf(person.id, teammate.id)))
+        TestServices.teams.create(Team("CalDept-${grand.id}", grand.id, listOf(manager.id)))
+        return CalendarWorld(person, manager, grand, teammate, managerTeam)
+    }
+
+    @Test
+    fun `days-off calendars - the person shares their own, a direct manager and a skip-level manager share a report's`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            val own = w.person.client.shareCalendar(w.person.id, sharee.id, expiresOn = serverToday().plusDays(30).toString())
+            assertEquals(HttpStatusCode.Created, own.status)
+            val ownShare = own.body<ShareResponse>()
+            assertEquals(ShareableResourceType.DAYS_OFF_CALENDAR, ownShare.resourceType)
+            assertEquals(w.person.id, ownShare.resourceId)
+            assertEquals(mapOf("person" to w.person.name), ownShare.details)
+            assertEquals("/days-off?tab=calendar&scope=shared&user=${w.person.id}", ownShare.link)
+
+            // M (direct) and G (skip-level) share the report's calendar; so does the person to a second sharee.
+            val other = person("sharee2")
+            assertEquals(HttpStatusCode.Created, w.manager.client.shareCalendar(w.person.id, other.id).status)
+            assertEquals(HttpStatusCode.Created, w.grand.client.shareCalendar(w.person.id, sharee.id).status)
+            // A manager shares their OWN calendar too (self is own right), but not the unrelated person's.
+            assertEquals(HttpStatusCode.Created, w.manager.client.shareCalendar(w.manager.id, sharee.id).status)
+            assertEquals(HttpStatusCode.Forbidden, w.manager.client.shareCalendar(w.grand.id, sharee.id).status)
+        }
+
+    @Test
+    fun `days-off calendars - a teammate, a stranger and an ADMIN without the relationship cannot share - the own-right reason`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            val stranger = person("stranger")
+            val admin = person("admin", roles = setOf(UserRole.ADMIN))
+            listOf(w.teammate, stranger, admin).forEach { who ->
+                val denied = who.client.shareCalendar(w.person.id, sharee.id)
+                assertEquals(HttpStatusCode.Forbidden, denied.status, who.name)
+                assertEquals("Only someone who can read this document in their own right may share it", denied.detail())
+            }
+            // The teammate lists no shares of the calendar either (not an own-right reader, not the author).
+            assertEquals(HttpStatusCode.Forbidden, w.teammate.client.calendarDocumentShares(w.person.id).status)
+        }
+
+    @Test
+    fun `days-off calendars - no re-sharing, no HR-auditor sharing, an HR user in the chain shares in their own right`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            val third = person("third")
+            val auditor = person("auditor", roles = setOf(UserRole.HR))
+            w.manager.client.shareCalendarId(w.person.id, sharee.id)
+
+            val reshare = sharee.client.shareCalendar(w.person.id, third.id)
+            assertEquals(HttpStatusCode.Forbidden, reshare.status)
+            assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+            // An HR auditor with no relationship has the read (audit) right only — not shareable. HR can RECEIVE a share.
+            assertEquals(HttpStatusCode.Forbidden, auditor.client.shareCalendar(w.person.id, third.id).status)
+            assertEquals(HttpStatusCode.Created, w.person.client.shareCalendar(w.person.id, auditor.id).status)
+
+            // An HR user who is also the person's manager holds the right as a manager.
+            val hrManager = person("hr-manager", roles = setOf(UserRole.HR))
+            val report = person("hr-report")
+            TestServices.teams.create(Team("HrSquad-${hrManager.id}", hrManager.id, listOf(report.id)))
+            assertEquals(HttpStatusCode.Created, hrManager.client.shareCalendar(report.id, third.id).status)
+        }
+
+    @Test
+    fun `days-off calendars - the person is the author - lists and withdraws a manager's share, a non-author chain manager cannot`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            val managerShare = w.manager.client.shareCalendarId(w.person.id, sharee.id)
+            val grandSharee = person("sharee2")
+            val grandShare = w.grand.client.shareCalendarId(w.person.id, grandSharee.id)
+
+            // The person sees BOTH shares of their calendar; a chain manager who is no author sees only their own.
+            val all = w.person.client.calendarDocumentShares(w.person.id).body<SharePageResponse>()
+            assertEquals(setOf(managerShare, grandShare), all.items.map { it.id }.toSet())
+            val managerView = w.manager.client.calendarDocumentShares(w.person.id).body<SharePageResponse>()
+            assertEquals(listOf(managerShare), managerView.items.map { it.id })
+
+            // G did not author the calendar: cannot read or withdraw M's share.
+            assertEquals(HttpStatusCode.Forbidden, w.grand.client.get("/api/v1/shares/$managerShare").status)
+            assertEquals(HttpStatusCode.Forbidden, w.grand.client.post("/api/v1/shares/$managerShare/withdraw").status)
+            // The person withdraws M's share: sharee and sharer are both told, the sharer's copy flagged.
+            assertEquals(HttpStatusCode.NoContent, w.person.client.post("/api/v1/shares/$managerShare/withdraw").status)
+            val toSharee = sharee.client.notifications().single { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN }
+            assertEquals(
+                mapOf(
+                    "sharer" to w.manager.name, "sharee" to sharee.name, "actor" to w.person.name, "person" to w.person.name,
+                ),
+                toSharee.params,
+            )
+            assertNull(toSharee.link)
+            val toSharer = w.manager.client.notifications().single { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN }
+            assertEquals("sharer", toSharer.params["self"])
+            assertEquals(w.person.name, toSharer.params["person"])
+            assertEquals("/shares?tab=byMe", toSharer.link)
+        }
+
+    @Test
+    fun `days-off calendars - own-right lapse - the manager leaves the chain, holdsOwnRight turns false and the share is told apart`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            w.manager.client.shareCalendarId(w.person.id, sharee.id)
+            val access = application.attributes[ShareAccessKey]
+            val adapter = DaysOffCalendarShareable(TestServices.users, TestDaysOff.service)
+            val principal = CallerPrincipal(userId = w.manager.id, email = w.manager.email, roles = emptySet())
+            suspend fun ownRight(): Boolean = access.holdsOwnRight(principal, ShareableResourceType.DAYS_OFF_CALENDAR) {
+                adapter.guard(it, checkNotNull(adapter.read(w.person.id)))
+            }
+            assertTrue(ownRight())
+            // Moving the person out of M's team ends M's own right (the lapse rule's input) ...
+            TestServices.teams.removeMember(w.managerTeamId, w.person.id)
+            assertFalse(ownRight())
+            // ... and M can no longer create a fresh share of that calendar, while the person's own right stands.
+            assertEquals(HttpStatusCode.Forbidden, w.manager.client.shareCalendar(w.person.id, person("late").id).status)
+            assertEquals(HttpStatusCode.Created, w.person.client.shareCalendar(w.person.id, person("late2").id).status)
+            // Back in the team: restored.
+            TestServices.teams.addMember(w.managerTeamId, w.person.id)
+            assertTrue(ownRight())
+        }
+
+    @Test
+    fun `days-off calendars - a deactivated person stays shareable, a soft-deleted one is 404`() = runBlockingApp {
+        val w = calendarWorld()
+        val sharee = person("sharee")
+        assertEquals(1, TestServices.users.setDeactivated(w.person.id, true))
+        assertEquals(HttpStatusCode.Created, w.manager.client.shareCalendar(w.person.id, sharee.id).status)
+
+        val gone = person("gone")
+        TestServices.teams.create(Team("GoneSquad-${w.manager.id}", w.manager.id, listOf(gone.id)))
+        assertEquals(1, TestServices.users.delete(gone.id))
+        val missing = w.manager.client.shareCalendar(gone.id, sharee.id)
+        assertEquals(HttpStatusCode.NotFound, missing.status)
+        assertEquals("Document not found", missing.detail())
+    }
+
+    @Test
+    fun `days-off calendars - the notifications name the person, carry own for a self-share, expiresOn and the sharee's scope link`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            val until = serverToday().plusDays(10).toString()
+            w.manager.client.shareCalendarId(w.person.id, sharee.id, expiresOn = until)
+            val viaManager = sharee.client.notifications().single { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARED }
+            assertEquals(
+                mapOf("sharer" to w.manager.name, "person" to w.person.name, "expiresOn" to until),
+                viaManager.params,
+            )
+            assertEquals("/days-off?tab=calendar&scope=shared&user=${w.person.id}", viaManager.link)
+
+            val second = person("sharee2")
+            w.person.client.shareCalendarId(w.person.id, second.id)
+            val own = second.client.notifications().single { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARED }
+            assertEquals(mapOf("sharer" to w.person.name, "person" to w.person.name, "self" to "own"), own.params)
+            assertEquals(viaManager.link, own.link)
+
+            // The person's own share, withdrawn by them: ONE copy, the sharee's, flagged own, no link.
+            val id = second.client.get("/api/v1/shares").body<SharePageResponse>().items.single().id
+            assertEquals(HttpStatusCode.NoContent, w.person.client.post("/api/v1/shares/$id/withdraw").status)
+            val withdrawn = second.client.notifications().single { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN }
+            assertEquals("own", withdrawn.params["self"])
+            assertEquals(w.person.name, withdrawn.params["person"])
+            assertNull(withdrawn.link)
+            assertTrue(w.person.client.notifications().none { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN })
+        }
+
+    @Test
+    fun `days-off calendars - the details snapshot survives a rename`() = runBlockingApp {
+        val w = calendarWorld()
+        val sharee = person("sharee")
+        w.manager.client.shareCalendarId(w.person.id, sharee.id)
+        val before = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details
+        assertEquals(mapOf("person" to w.person.name), before)
+        val existing = checkNotNull(TestServices.users.read(w.person.id))
+        assertEquals(1, TestServices.users.update(w.person.id, existing.copy(name = "Renamed ${w.person.id}")))
+        assertEquals(before, sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details)
+        // A fresh share after the rename snapshots the new name.
+        val late = person("late")
+        w.person.client.shareCalendarId(w.person.id, late.id)
+        assertEquals(
+            mapOf("person" to "Renamed ${w.person.id}"),
+            late.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details,
+        )
+    }
+
+    @Test
+    fun `days-off calendars - sharing needs the caller's DAYS_OFF flag, an inert share for a flag-off sharee still exists`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val off = person("flag-off", disabled = setOf(Feature.DAYS_OFF))
+            assertEquals(HttpStatusCode.Forbidden, off.client.shareCalendar(off.id, w.person.id).status)
+            // The person may share WITH someone whose flag is off: the share exists, hidden from their list.
+            assertEquals(HttpStatusCode.Created, w.person.client.shareCalendar(w.person.id, off.id).status)
+            assertEquals(0, off.client.get("/api/v1/shares").body<SharePageResponse>().total)
+        }
+
+    private suspend fun HttpClient.calendarBatch(
+        personIds: List<UInt>,
+        shareeIds: List<UInt>,
+        expiresOn: String? = null,
+    ): HttpResponse = post("/api/v1/shares/batch") {
+        contentType(ContentType.Application.Json)
+        setBody(ShareBatchRequest(ShareableResourceType.DAYS_OFF_CALENDAR, personIds, shareeIds, expiresOn))
+    }
+
+    private suspend fun HttpClient.sharedCalendarPersons(): DaysOffCalendarResponse =
+        get("/api/v1/days-off/calendar?month=${java.time.YearMonth.now()}&scope=shared").body()
+
+    @Test
+    fun `days-off calendars - a real-adapter batch - chain and self CREATED, teammate or stranger FORBIDDEN, deleted NOT_FOUND`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val second = person("cal-second")
+            val gone = person("cal-gone")
+            val stranger = person("cal-stranger")
+            val peer = person("cal-peer")
+            val sharee = person("sharee")
+            TestServices.teams.create(Team("CalSquad2-${w.manager.id}", w.manager.id, listOf(second.id, gone.id)))
+            // The peer shares a team with M (calendar parity) but is no one in M's chain.
+            TestServices.teams.create(Team("CalPeers-${peer.id}", stranger.id, listOf(w.manager.id, peer.id)))
+            assertEquals(1, TestServices.users.delete(gone.id))
+            val until = serverToday().plusDays(20).toString()
+
+            val ids = listOf(w.person.id, second.id, peer.id, stranger.id, gone.id, w.manager.id)
+            val response = w.manager.client.calendarBatch(ids, listOf(sharee.id), until)
+            assertEquals(HttpStatusCode.OK, response.status)
+            val report = response.body<ShareBatchResponse>()
+            val byId = report.items.associate { it.resourceId to it.status }
+            assertEquals(
+                mapOf(
+                    w.person.id to ShareBatchItemStatus.CREATED,
+                    second.id to ShareBatchItemStatus.CREATED,
+                    peer.id to ShareBatchItemStatus.FORBIDDEN,
+                    stranger.id to ShareBatchItemStatus.FORBIDDEN,
+                    gone.id to ShareBatchItemStatus.NOT_FOUND,
+                    // The caller's own calendar is own right too.
+                    w.manager.id to ShareBatchItemStatus.CREATED,
+                ),
+                byId,
+            )
+            assertEquals(3, report.created)
+            assertEquals(0, report.alreadyShared)
+            assertEquals(2, report.forbidden)
+            assertEquals(1, report.notFound)
+            assertNotNull(report.batchId)
+
+            // The sharee reads exactly the three created ones through the shared scope, named after the sharer.
+            val shared = sharee.client.sharedCalendarPersons()
+            assertEquals(setOf(w.person.id, second.id, w.manager.id), shared.users.map { it.userId }.toSet())
+            assertTrue(shared.users.all { it.sharedBy == w.manager.name })
+
+            // ONE summary notice with the count and the shared-scope link — never a per-share notice.
+            val notices = sharee.client.notifications()
+            val summary = notices.single { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED }
+            assertEquals(mapOf("sharer" to w.manager.name, "count" to "3", "expiresOn" to until), summary.params)
+            assertEquals("/days-off?tab=calendar&scope=shared", summary.link)
+            assertTrue(notices.none { it.type == NotificationType.DAYS_OFF_CALENDAR_SHARED })
+            assertTrue(w.manager.client.notifications().none { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED })
+
+            // A replay: every pair ALREADY_SHARED, no batch id, no second notice.
+            val replay = w.manager.client.calendarBatch(listOf(w.person.id, second.id, w.manager.id), listOf(sharee.id))
+                .body<ShareBatchResponse>()
+            assertEquals(3, replay.alreadyShared)
+            assertNull(replay.batchId)
+            assertEquals(
+                1,
+                sharee.client.notifications().count { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED },
+            )
+
+            // Whole-request outcomes: only forbidden -> 403, only missing -> 404.
+            assertEquals(HttpStatusCode.Forbidden, w.manager.client.calendarBatch(listOf(peer.id, stranger.id), listOf(sharee.id)).status)
+            assertEquals(HttpStatusCode.NotFound, w.manager.client.calendarBatch(listOf(gone.id), listOf(sharee.id)).status)
+        }
+
+    @Test
+    fun `days-off calendars - a batch by the person shares their own, a skip-level reaches the chain, a mere sharee cannot`() =
+        runBlockingApp {
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            val third = person("third")
+            // The person: own calendar only (a colleague's is FORBIDDEN for them).
+            val own = w.person.client.calendarBatch(listOf(w.person.id, w.teammate.id), listOf(sharee.id)).body<ShareBatchResponse>()
+            assertEquals(
+                mapOf(w.person.id to ShareBatchItemStatus.CREATED, w.teammate.id to ShareBatchItemStatus.FORBIDDEN),
+                own.items.associate { it.resourceId to it.status },
+            )
+            // The skip-level manager reaches the person, the teammate and the direct manager.
+            val grand = w.grand.client.calendarBatch(listOf(w.person.id, w.teammate.id, w.manager.id), listOf(third.id))
+                .body<ShareBatchResponse>()
+            assertEquals(3, grand.created)
+            // A sharee holds no own right: no re-sharing, in a batch either.
+            assertEquals(HttpStatusCode.Forbidden, third.client.calendarBatch(listOf(w.person.id), listOf(sharee.id)).status)
+            // The HR auditor alone is refused, like the single share.
+            val auditor = person("auditor", roles = setOf(UserRole.HR))
+            assertEquals(HttpStatusCode.Forbidden, auditor.client.calendarBatch(listOf(w.person.id), listOf(third.id)).status)
+        }
+
+    @Test
+    fun `days-off calendars - the per-pair daily cap counts a calendar batch as ONE notice, a capped sharee still gets the rows`() =
+        testApplication {
+            configureApp("sharing.notificationDailyCapPerPair" to "2")
+            startApplication()
+            val manager = person("cap-manager")
+            val reports = (0 until 6).map { person("cap-report") }
+            val sharee = person("sharee")
+            TestServices.teams.create(Team("CapSquad-${manager.id}", manager.id, reports.map { it.id }))
+            suspend fun notices() =
+                sharee.client.notifications().count { it.type == NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED }
+            // Two people per batch: rows would exhaust a cap of 2 at once, notices do not.
+            for (chunk in reports.chunked(2).take(2)) {
+                assertEquals(2, manager.client.calendarBatch(chunk.map { it.id }, listOf(sharee.id)).body<ShareBatchResponse>().created)
+            }
+            assertEquals(2, notices())
+            // The third batch hits the cap: the shares are created, silently.
+            val third = reports.drop(4)
+            assertEquals(2, manager.client.calendarBatch(third.map { it.id }, listOf(sharee.id)).body<ShareBatchResponse>().created)
+            assertEquals(2, notices())
+            assertEquals(
+                reports.map { it.id }.toSet(),
+                sharee.client.sharedCalendarPersons().users.map { it.userId }.toSet(),
+            )
+        }
+
+    @Test
+    fun `days-off calendars - the batch bucket is enforced for the calendar kind and independent of the single-share bucket`() =
+        testApplication {
+            configureApp("sharing.batchRateLimitPerMinute" to "2")
+            startApplication()
+            val w = calendarWorld()
+            val sharee = person("sharee")
+            repeat(2) {
+                assertEquals(HttpStatusCode.OK, w.manager.client.calendarBatch(listOf(w.person.id), listOf(sharee.id)).status)
+            }
+            assertEquals(HttpStatusCode.TooManyRequests, w.manager.client.calendarBatch(listOf(w.person.id), listOf(sharee.id)).status)
+            // The single-share bucket is untouched.
+            val other = person("other")
+            assertEquals(HttpStatusCode.Created, w.manager.client.shareCalendar(w.person.id, other.id).status)
+        }
 
     /** `testApplication` with the container started; the body is the test. */
     private fun runBlockingApp(block: suspend ApplicationTestBuilder.() -> Unit) = testApplication {

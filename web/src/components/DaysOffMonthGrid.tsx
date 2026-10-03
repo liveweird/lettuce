@@ -1,6 +1,7 @@
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Group, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
-import type { DaysOffCalendarEntry, DaysOffCalendarResponse } from "../api/daysoff";
+import type { DaysOffCalendarEntry, DaysOffCalendarResponse, DaysOffCalendarUser } from "../api/daysoff";
 import { getUserId } from "../api/session";
 import { todayIsoDate } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
@@ -52,13 +53,22 @@ function LegendItem({ swatch, label }: { swatch: string; label: string }) {
  * under a row's name, mirroring the person-picker subtitle idiom; never on the caller's own row.
  * Today's column (v4.7.0) is marked in its header (accent + aria-current) and with thin inset
  * edge lines down the column — never a fill, so an entry on today reads like any other day.
+ * The "Shared with me" scope (v4.11.0) adds a dimmed "Shared by {name}" line under a row whose
+ * `sharedBy` is set; `renderRowAction` is a slot right of the name for a per-row action (the page
+ * renders the server-gated Share icon through it — the grid knows nothing about sharing rules);
+ * `highlightUserId` marks one row (`aria-current="true"`, an accent bar on its name cell) and
+ * scrolls it into view — the notification / Shared-screen deep link's `user` param.
  */
 export default function DaysOffMonthGrid({
   data,
   showTeams = false,
+  renderRowAction,
+  highlightUserId,
 }: {
   data: DaysOffCalendarResponse;
   showTeams?: boolean;
+  renderRowAction?: (user: DaysOffCalendarUser) => ReactNode;
+  highlightUserId?: number | null;
 }) {
   const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
@@ -70,6 +80,13 @@ export default function DaysOffMonthGrid({
   const today = todayIsoDate();
   const showsToday = dates.includes(today);
   const todayClass = (iso: string, className: string) => (iso === today ? ` ${className}` : "");
+  const idPrefix = useId();
+  const highlightRef = useRef<HTMLTableRowElement>(null);
+  const hasHighlightedRow = highlightUserId != null && data.users.some((u) => u.userId === highlightUserId);
+  useEffect(() => {
+    // happy-dom (and very old browsers) lack scrollIntoView; the highlight itself still renders.
+    if (hasHighlightedRow) highlightRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [hasHighlightedRow, highlightUserId]);
   const weekdayInitial = (iso: string) =>
     new Intl.DateTimeFormat(i18n.language, { weekday: "narrow", timeZone: "UTC" }).format(
       new Date(`${iso}T00:00:00Z`),
@@ -118,19 +135,37 @@ export default function DaysOffMonthGrid({
             const isYou = user.userId === currentUserId;
             const name = isYou ? t("common.state.you") : user.userName;
             const teamNames = user.teams.map((team) => team.name);
+            const highlighted = user.userId === highlightUserId;
+            const rowAction = renderRowAction?.(user);
+            const nameId = `${idPrefix}-name-${user.userId}`;
             return (
-              <tr key={user.userId}>
-                <th className={classes.nameCell} scope="row">
-                  <Stack gap={0}>
-                    <Text size="sm" fw={500} c={user.userDeleted ? "dimmed" : undefined}>
-                      {name}
-                    </Text>
-                    {showTeams && !isYou && teamNames.length > 0 && (
-                      <Text size="xs" c="dimmed" lineClamp={1} title={teamNames.join(" · ")}>
-                        {teamNames.join(" · ")}
+              <tr key={user.userId} ref={highlighted ? highlightRef : undefined}>
+                <th
+                  className={`${classes.nameCell}${highlighted ? ` ${classes.highlightName}` : ""}`}
+                  scope="row"
+                  // The row header's accessible name is the person's name ONLY — not the team and
+                  // "Shared by" lines, nor the row action's own label that lives inside it.
+                  aria-labelledby={nameId}
+                  aria-current={highlighted ? "true" : undefined}
+                >
+                  <Group gap={4} wrap="nowrap" justify="space-between" align="flex-start">
+                    <Stack gap={0} style={{ minWidth: 0 }}>
+                      <Text id={nameId} size="sm" fw={500} c={user.userDeleted ? "dimmed" : undefined}>
+                        {name}
                       </Text>
-                    )}
-                  </Stack>
+                      {showTeams && !isYou && teamNames.length > 0 && (
+                        <Text size="xs" c="dimmed" lineClamp={1} title={teamNames.join(" · ")}>
+                          {teamNames.join(" · ")}
+                        </Text>
+                      )}
+                      {user.sharedBy != null && (
+                        <Text size="xs" c="dimmed" lineClamp={1}>
+                          {t("sharing.sharedBy", { name: user.sharedBy })}
+                        </Text>
+                      )}
+                    </Stack>
+                    {rowAction}
+                  </Group>
                 </th>
                 {dates.map((iso) => {
                   const entry = byDate.get(iso);

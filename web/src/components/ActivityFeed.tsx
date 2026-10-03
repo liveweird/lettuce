@@ -6,7 +6,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { listActivity, type ActivityArea, type ActivityEntry } from "../api/activity";
 import { ApiError } from "../api/http";
-import { hasFeature, type Feature } from "../api/session";
+import { getUserId, hasFeature, type Feature } from "../api/session";
 import CenteredLoader from "./CenteredLoader";
 import DateCell from "./DateCell";
 import DateField from "./DateField";
@@ -19,11 +19,11 @@ import { useCurrentPath } from "../hooks/useCurrentPath";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { isValidIsoDate } from "../utils/datetime";
-import { describeActivity, isDocumentArea, type ActivityContext } from "../utils/describeActivity";
+import { activityDocumentKind, describeActivity, isDocumentArea, type ActivityContext } from "../utils/describeActivity";
 import { dynamicKey } from "../utils/i18nKey";
 import { userCareerLink } from "../utils/careerLinks";
 import { loadErrorMessage } from "../utils/saveError";
-import { documentLabel, SHARE_FEATURE } from "../utils/shareKinds";
+import { documentLabel, SHARE_FEATURE, shareOpenPath } from "../utils/shareKinds";
 import { shareOpenLink } from "../utils/shareLinks";
 import { userDetailsLink } from "../utils/userLinks";
 
@@ -68,7 +68,7 @@ function ActivityRow({
 }) {
   const { t } = ctx;
   const sentence = describeActivity(entry, ctx);
-  const docType = isDocumentArea(entry.area) ? entry.area : null;
+  const docType = activityDocumentKind(entry);
   const label = docType != null && entry.details != null ? documentLabel(docType, entry.details, t, ctx.locale) : null;
   // The person a person-scoped row concerned, when it is someone other than the log's owner.
   const subjectName = entry.subjectUserName;
@@ -95,7 +95,16 @@ function ActivityRow({
           <Text size="sm">{sentence}</Text>
           {docType != null &&
             (entry.link != null ? (
-              <Anchor component={RouterLink} to={shareOpenLink(entry.link, here)} size="sm" style={{ overflowWrap: "break-word" }}>
+              <Anchor component={RouterLink} to={shareOpenLink(
+                  // A days-off calendar share row (v4.11.0) opens the PERSON, never the sharee's scope.
+                  entry.documentId == null
+                    ? entry.link
+                    : shareOpenPath(
+                        { resourceType: docType, resourceId: entry.documentId, link: entry.link, details: entry.details },
+                        getUserId(),
+                      ),
+                  here,
+                )} size="sm" style={{ overflowWrap: "break-word" }}>
                 {label ?? t("activity.openDocument")}
               </Anchor>
             ) : (

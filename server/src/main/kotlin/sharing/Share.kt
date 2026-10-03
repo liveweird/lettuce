@@ -11,8 +11,9 @@ import kotlinx.serialization.Serializable
 /**
  * The document kinds that can be shared read-only (v4.8.0). The enum NAME is what
  * `document_shares.resource_type` stores (no CHECK — the V27/V46 idiom, the enum is the
- * whitelist). Days-off entries are deliberately absent (no per-entry view screen yet — a
- * point-release follow-up); pulse surveys are out of scope. Each type owns one feature flag
+ * whitelist). Days-off ENTRIES are deliberately absent (no per-entry view screen); since v4.11.0 a
+ * PERSON'S days-off CALENDAR is shareable ([DAYS_OFF_CALENDAR] — its resource id is that person's
+ * user id); pulse surveys are out of scope. Each type owns one feature flag
  * ([feature], gating the sharer's AND the sharee's use of it) and one notification pair
  * ([sharedNotification]/[withdrawnNotification] — exhaustive `when`s, so a new type must pick).
  */
@@ -25,6 +26,9 @@ enum class ShareableResourceType {
     PERFORMANCE_REVIEW,
     IMPACT_LOG_ENTRY,
     SUCCESSION_PLAN,
+
+    /** v4.11.0 — the resource id is a PERSON's user id (the calendar of that person), not a document row. */
+    DAYS_OFF_CALENDAR,
 }
 
 val ShareableResourceType.feature: Feature
@@ -36,6 +40,7 @@ val ShareableResourceType.feature: Feature
         ShareableResourceType.PERFORMANCE_REVIEW -> Feature.PERFORMANCE_REVIEWS
         ShareableResourceType.IMPACT_LOG_ENTRY -> Feature.IMPACT_LOG
         ShareableResourceType.SUCCESSION_PLAN -> Feature.SUCCESSION_PLANS
+        ShareableResourceType.DAYS_OFF_CALENDAR -> Feature.DAYS_OFF
     }
 
 /** The notification minted for the sharee when a share of this kind of document starts. */
@@ -48,6 +53,7 @@ val ShareableResourceType.sharedNotification: NotificationType
         ShareableResourceType.PERFORMANCE_REVIEW -> NotificationType.PERFORMANCE_REVIEW_SHARED
         ShareableResourceType.IMPACT_LOG_ENTRY -> NotificationType.IMPACT_ENTRY_SHARED
         ShareableResourceType.SUCCESSION_PLAN -> NotificationType.SUCCESSION_PLAN_SHARED
+        ShareableResourceType.DAYS_OFF_CALENDAR -> NotificationType.DAYS_OFF_CALENDAR_SHARED
     }
 
 /** The notification minted when a share of this kind of document is withdrawn. */
@@ -60,16 +66,18 @@ val ShareableResourceType.withdrawnNotification: NotificationType
         ShareableResourceType.PERFORMANCE_REVIEW -> NotificationType.PERFORMANCE_REVIEW_SHARE_WITHDRAWN
         ShareableResourceType.IMPACT_LOG_ENTRY -> NotificationType.IMPACT_ENTRY_SHARE_WITHDRAWN
         ShareableResourceType.SUCCESSION_PLAN -> NotificationType.SUCCESSION_PLAN_SHARE_WITHDRAWN
+        ShareableResourceType.DAYS_OFF_CALENDAR -> NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN
     }
 
 /**
  * The summary notification a mass share (v4.10.0) mints ONCE per sharee per batch, or null when the
- * kind is not batchable (only performance reviews are in v4.10.0). Exhaustive `when`, so a future
- * batchable kind must pick its type.
+ * kind is not batchable (performance reviews since v4.10.0, days-off calendars since v4.11.0).
+ * Exhaustive `when`, so a future batchable kind must pick its type.
  */
 val ShareableResourceType.batchSharedNotification: NotificationType?
     get() = when (this) {
         ShareableResourceType.PERFORMANCE_REVIEW -> NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED
+        ShareableResourceType.DAYS_OFF_CALENDAR -> NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED
         ShareableResourceType.FEEDBACK,
         ShareableResourceType.ONE_ON_ONE,
         ShareableResourceType.GOAL,
@@ -77,6 +85,43 @@ val ShareableResourceType.batchSharedNotification: NotificationType?
         ShareableResourceType.IMPACT_LOG_ENTRY,
         ShareableResourceType.SUCCESSION_PLAN,
         -> null
+    }
+
+/**
+ * Where a mass share's summary notice sends the sharee (v4.11.0 — per kind): reviews keep the Shared
+ * screen, calendars open the sharee's own "Shared with me" calendar scope. Exhaustive `when`; the
+ * value is only read for batchable kinds ([batchSharedNotification] non-null).
+ */
+val ShareableResourceType.batchSharedLink: String
+    get() = when (this) {
+        ShareableResourceType.DAYS_OFF_CALENDAR -> "/days-off?tab=calendar&scope=shared"
+        ShareableResourceType.PERFORMANCE_REVIEW,
+        ShareableResourceType.FEEDBACK,
+        ShareableResourceType.ONE_ON_ONE,
+        ShareableResourceType.GOAL,
+        ShareableResourceType.TEAM_KPI,
+        ShareableResourceType.IMPACT_LOG_ENTRY,
+        ShareableResourceType.SUCCESSION_PLAN,
+        -> BATCH_SHARED_LINK
+    }
+
+/**
+ * The adapter-label keys (`ShareableResource.label`) a kind carries into its share NOTIFICATIONS
+ * (v4.11.0). The seven document kinds carry none — their notice params stay `{sharer}` (+`expiresOn`)
+ * exactly as before; a calendar notice must name WHOSE calendar (one scope lists many people), so it
+ * carries the plaintext display name `person` (the same disclosure class as the `details` snapshot).
+ */
+val ShareableResourceType.notificationLabelKeys: Set<String>
+    get() = when (this) {
+        ShareableResourceType.DAYS_OFF_CALENDAR -> setOf("person")
+        ShareableResourceType.FEEDBACK,
+        ShareableResourceType.ONE_ON_ONE,
+        ShareableResourceType.GOAL,
+        ShareableResourceType.TEAM_KPI,
+        ShareableResourceType.PERFORMANCE_REVIEW,
+        ShareableResourceType.IMPACT_LOG_ENTRY,
+        ShareableResourceType.SUCCESSION_PLAN,
+        -> emptySet()
     }
 
 /**

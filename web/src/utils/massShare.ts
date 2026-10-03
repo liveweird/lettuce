@@ -1,16 +1,55 @@
-// The mass-share picker's pure core: one row per person of the caller's reporting line (the
+// The mass-share picker's pure core: one row per person of the caller's reporting line (a
 // share-candidates read), the client-side facets, the sort, the selection helpers and the batch
-// result summary. All client-side — there is no server filtering over seniority/career/ratings
-// (ratings are encrypted at rest), and the dataset is bounded by the caller's own chain. Pure, so
-// every predicate is unit-testable without rendering (the reviewsDashboard.ts shape).
+// result summary. Kind-generic since v4.11.0: a row carries the id of the document to share
+// (`resourceId` — a review id today) next to the person, and the review-only facts (`review`,
+// `reason`) stay optional. All client-side — there is no server filtering over
+// seniority/career/ratings (ratings are encrypted at rest), and the dataset is bounded by the
+// caller's own chain. Pure, so every predicate is unit-testable without rendering (the
+// reviewsDashboard.ts shape).
 
 import type { ShareBatchItem } from "../api/shares";
+import type { DaysOffShareCandidate } from "../api/daysoff";
 import type { ShareCandidate } from "../api/reviews";
 import type { LocalizedEntry } from "./localized";
 import { foldDiacritics } from "./text";
 
+/** The kinds the mass-share page and dialog word themselves for (an i18next context over their texts). */
+export type MassShareKind = "reviews" | "calendars";
+
+/** Reviews read the base keys; every other kind carries its own `_<kind>` variants. */
+export function kindContext(kind: MassShareKind): MassShareKind | undefined {
+  return kind === "reviews" ? undefined : kind;
+}
+
+/** The person fields every kind's candidate read carries. */
+type MassSharePerson = Pick<
+  ShareCandidate,
+  | "userId"
+  | "name"
+  | "email"
+  | "deactivated"
+  | "teams"
+  | "directManagers"
+  | "careerPath"
+  | "careerSpecialization"
+  | "seniorityLevel"
+>;
+
+/** A review candidate's review facts (null = the person has none, or none the caller can read). */
+type ShareCandidateReview = NonNullable<ShareCandidate["review"]>;
+
+/** Why a review candidate cannot be shared (the server's vocabulary). */
+type MassShareReason = NonNullable<ShareCandidate["reason"]>;
+
 export type MassShareRow = {
-  candidate: ShareCandidate;
+  person: MassSharePerson;
+  /** The id sent to the batch route for this person (a review id) — null when there is nothing to share. */
+  resourceId: number | null;
+  shareable: boolean;
+  /** Review-only: why the row is not shareable. */
+  reason: MassShareReason | null;
+  /** Review-only: the review facts behind the status/overall columns and facets. */
+  review: ShareCandidateReview | null;
   /** The person's team names, name-ascending (the server order). */
   teamNames: string[];
   /** Direct managers joined for display; the caller reads as the supplied "You" label. */
@@ -48,35 +87,65 @@ export const EMPTY_MASS_SHARE_FILTERS: MassShareFilters = {
   minOverall: "",
 };
 
-export function buildMassShareRows(
+/** The review candidates as rows (name-sorted); a shareable row's resource id is its review's id. */
+export function buildReviewShareRows(
   candidates: readonly ShareCandidate[],
   currentUserId: number | null,
   youLabel: string,
 ): MassShareRow[] {
   return candidates
     .map((candidate) => ({
-      candidate,
+      person: candidate,
+      resourceId: candidate.shareable ? (candidate.review?.id ?? null) : null,
+      shareable: candidate.shareable,
+      reason: candidate.reason ?? null,
+      review: candidate.review ?? null,
       teamNames: candidate.teams.map((team) => team.name),
       managerLabel: candidate.directManagers
         .map((m) => (m.id === currentUserId ? youLabel : m.name))
         .join(", "),
     }))
-    .sort((a, b) => a.candidate.name.localeCompare(b.candidate.name));
+    .sort((a, b) => a.person.name.localeCompare(b.person.name));
+}
+
+/**
+ * The days-off share candidates as rows (name-sorted). Every row is the caller's own chain, so
+ * every row is shareable by construction (the batch route re-runs the real guard anyway); the
+ * resource id is the PERSON's user id — a calendar is shared per person — and there is no review.
+ */
+export function buildCalendarShareRows(
+  candidates: readonly DaysOffShareCandidate[],
+  currentUserId: number | null,
+  youLabel: string,
+): MassShareRow[] {
+  return candidates
+    .map((candidate) => ({
+      person: candidate,
+      resourceId: candidate.userId,
+      shareable: true,
+      reason: null,
+      review: null,
+      teamNames: candidate.teams.map((team) => team.name),
+      managerLabel: candidate.directManagers
+        .map((m) => (m.id === currentUserId ? youLabel : m.name))
+        .join(", "),
+    }))
+    .sort((a, b) => a.person.name.localeCompare(b.person.name));
 }
 
 /** The review's status, or "NO_REVIEW" — the status facet/sort/badge key of a row. */
 export function rowStatus(row: MassShareRow): MassShareStatus {
-  return row.candidate.review?.status ?? "NO_REVIEW";
+  return row.review?.status ?? "NO_REVIEW";
 }
 
-/** The review id to send — only a shareable row has one (a stub's id is null by contract). */
-function shareableReviewId(row: MassShareRow): number | null {
-  return row.candidate.shareable ? (row.candidate.review?.id ?? null) : null;
+/** The resource id to send — only a shareable row has one (a stub's id is null by contract). */
+function rowResourceId(row: MassShareRow): number | null {
+  return row.shareable ? row.resourceId : null;
 }
 
 /** Why a row cannot be selected: no review, or another manager's draft. Null when shareable. */
 export function reasonKey(row: MassShareRow): "noReview" | "draftBy" | null {
-  switch (row.candidate.reason) {
+  switch (row.reason) {
     case "NO_REVIEW":
       return "noReview";
     case "UNREADABLE_DRAFT":
@@ -97,11 +166,11 @@ export function subtreeUserIds(rows: readonly MassShareRow[], managerId: number)
   let grew = true;
   while (grew) {
     grew = false;
-    for (const { candidate } of rows) {
-      if (subtree.has(candidate.userId)) continue;
-      if (candidate.directManagers.some((m) => underSubtree.has(m.id))) {
-        subtree.add(candidate.userId);
-        underSubtree.add(candidate.userId);
+    for (const { person } of rows) {
+      if (subtree.has(person.userId)) continue;
+      if (person.directManagers.some((m) => underSubtree.has(m.id))) {
+        subtree.add(person.userId);
+        underSubtree.add(person.userId);
         grew = true;
       }
     }
@@ -132,7 +201,7 @@ export function filterMassShareRows(
   }
   const minOverall = filters.minOverall === "" ? null : Number(filters.minOverall);
   return rows.filter((row) => {
-    const c = row.candidate;
+    const c = row.person;
     if (query && !foldDiacritics(c.name).includes(query) && !foldDiacritics(c.email).includes(query)) {
       return false;
     }
@@ -145,7 +214,7 @@ export function filterMassShareRows(
     if (!entryMatches(c.seniorityLevel, filters.seniorityLevelIds)) return false;
     if (filters.statuses.length > 0 && !filters.statuses.includes(rowStatus(row))) return false;
     if (minOverall != null) {
-      const overall = c.review?.overallRating ?? null;
+      const overall = row.review?.overallRating ?? null;
       if (overall == null || overall < minOverall) return false;
     }
     return true;
@@ -167,8 +236,8 @@ export function managerOptions(
   youLabel: string,
 ): { value: string; label: string }[] {
   const byId = new Map<number, string>();
-  for (const { candidate } of rows) {
-    for (const m of candidate.directManagers) byId.set(m.id, m.name);
+  for (const { person } of rows) {
+    for (const m of person.directManagers) byId.set(m.id, m.name);
   }
   return [...byId.entries()]
     .map(([id, name]) => ({ id, label: id === currentUserId ? youLabel : name }))
@@ -202,12 +271,12 @@ export function sortMassShareRows(
 ): MassShareRow[] {
   const sign = dir === "desc" ? -1 : 1;
   const stringKey = (r: MassShareRow): string | null =>
-    field === "name" ? r.candidate.name : (r.teamNames[0] ?? null);
+    field === "name" ? r.person.name : (r.teamNames[0] ?? null);
   const numericKey: ((r: MassShareRow) => number | null) | null =
     field === "status"
       ? (r) => STATUS_RANK[rowStatus(r)]
       : field === "overall"
-        ? (r) => r.candidate.review?.overallRating ?? null
+        ? (r) => r.review?.overallRating ?? null
         : null;
   return [...rows].sort((a, b) => {
     const av = numericKey ? numericKey(a) : stringKey(a);
@@ -226,7 +295,7 @@ export function selectAllMatching(
   filteredRows: readonly MassShareRow[],
 ): Set<number> {
   const next = new Set(selected);
-  for (const row of filteredRows) if (row.candidate.shareable) next.add(row.candidate.userId);
+  for (const row of filteredRows) if (row.shareable) next.add(row.person.userId);
   return next;
 }
 
@@ -236,28 +305,28 @@ export function deselectMatching(
   filteredRows: readonly MassShareRow[],
 ): Set<number> {
   const next = new Set(selected);
-  for (const row of filteredRows) next.delete(row.candidate.userId);
+  for (const row of filteredRows) next.delete(row.person.userId);
   return next;
 }
 
-/** The selected rows a submission would actually include (shareable, with a review id), in row order. */
+/** The selected rows a submission would actually include (shareable, with a resource id), in row order. */
 export function submittableRows(
   rows: readonly MassShareRow[],
   selected: ReadonlySet<number>,
 ): MassShareRow[] {
-  return rows.filter((row) => selected.has(row.candidate.userId) && shareableReviewId(row) != null);
+  return rows.filter((row) => selected.has(row.person.userId) && rowResourceId(row) != null);
 }
 
-/** The review ids to submit for the selected people, in row order; unshareable people never yield one. */
-export function selectedReviewIds(
+/** The resource ids to submit for the selected people, in row order; unshareable people never yield one. */
+export function selectedResourceIds(
   rows: readonly MassShareRow[],
   selected: ReadonlySet<number>,
 ): number[] {
-  return submittableRows(rows, selected).map((row) => shareableReviewId(row) as number);
+  return submittableRows(rows, selected).map((row) => rowResourceId(row) as number);
 }
 
 /**
- * The selection after a run: people whose review was answered for every recipient (CREATED or
+ * The selection after a run: people whose document was answered for every recipient (CREATED or
  * ALREADY_SHARED — nothing left to retry) leave it; anyone with a FORBIDDEN/NOT_FOUND item, or not
  * answered at all (a chunk the server rejected), stays for a retry.
  */
@@ -274,8 +343,8 @@ export function retainUnsettled(
   }
   const next = new Set(selected);
   for (const row of rows) {
-    const id = shareableReviewId(row);
-    if (id != null && answered.has(id) && !failed.has(id)) next.delete(row.candidate.userId);
+    const id = rowResourceId(row);
+    if (id != null && answered.has(id) && !failed.has(id)) next.delete(row.person.userId);
   }
   return next;
 }
@@ -283,7 +352,7 @@ export function retainUnsettled(
 export type BatchSummary = {
   /** CREATED pairs. */
   created: number;
-  /** Per person whose review was already shared (the existing share kept, its end date included). */
+  /** Per person whose document was already shared (the existing share kept, its end date included). */
   alreadyShared: { resourceId: number; person: string; sharees: string[] }[];
   /** Per person the server refused or no longer found. */
   failed: { resourceId: number; person: string; reason: "FORBIDDEN" | "NOT_FOUND" }[];
@@ -297,8 +366,8 @@ export function summarizeBatchResult(
 ): BatchSummary {
   const personOf = new Map<number, string>();
   for (const row of rows) {
-    const id = shareableReviewId(row);
-    if (id != null) personOf.set(id, row.candidate.name);
+    const id = rowResourceId(row);
+    if (id != null) personOf.set(id, row.person.name);
   }
   const person = (resourceId: number) => personOf.get(resourceId) ?? `#${resourceId}`;
   const already = new Map<number, string[]>();

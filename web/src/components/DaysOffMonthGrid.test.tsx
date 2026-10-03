@@ -14,13 +14,15 @@ const DATA: DaysOffCalendarResponse = {
       userName: "Alice Example",
       userDeleted: false,
       teams: [{ id: 1, name: "AAA" }],
+      sharedBy: null,
+      canShareCalendar: false,
       entries: [
         { requestId: 3, date: "2026-01-05", type: "PAID", poolName: "Paid days off", half: true },
         { requestId: 3, date: "2026-01-07", type: "PAID", poolName: "Paid days off", half: false },
         { requestId: 4, date: "2026-01-12", type: "UNPAID", poolName: null, half: false },
       ],
     },
-    { userId: 8, userName: "Bob Empty", userDeleted: false, teams: [], entries: [] },
+    { userId: 8, userName: "Bob Empty", userDeleted: false, teams: [], sharedBy: null, canShareCalendar: false, entries: [] },
   ],
 };
 
@@ -87,6 +89,80 @@ describe("DaysOffMonthGrid", () => {
     renderWithProviders(<DaysOffMonthGrid data={DATA} />);
     expect(screen.getByText("Alice Example")).toBeInTheDocument();
     expect(screen.queryByText("AAA")).toBeNull();
+  });
+
+  describe("calendar sharing (v4.11.0)", () => {
+    const SHARED: DaysOffCalendarResponse = {
+      ...DATA,
+      users: [
+        { ...DATA.users[0], sharedBy: "Mia Manager" },
+        { ...DATA.users[1], sharedBy: null },
+      ],
+    };
+
+    test("a row with sharedBy names the sharer under the person; a row without carries no cue", () => {
+      renderWithProviders(<DaysOffMonthGrid data={SHARED} />);
+      expect(screen.getAllByText("Shared by Mia Manager")).toHaveLength(1);
+      expect(screen.getByRole("rowheader", { name: /Alice Example/ })).toHaveTextContent("Shared by Mia Manager");
+      expect(screen.getByRole("rowheader", { name: /Bob Empty/ })).not.toHaveTextContent("Shared by");
+    });
+
+    test("renderRowAction mounts its node in each person's name cell, given that row's user", () => {
+      renderWithProviders(
+        <DaysOffMonthGrid
+          data={DATA}
+          renderRowAction={(user) =>
+            user.userId === 7 ? <button type="button">{`Act on ${user.userName}`}</button> : null
+          }
+        />,
+      );
+      const alice = screen.getByRole("rowheader", { name: "Alice Example" });
+      expect(alice).toContainElement(screen.getByRole("button", { name: "Act on Alice Example" }));
+      expect(screen.getAllByRole("button", { name: /^Act on/ })).toHaveLength(1);
+    });
+
+    test("the row header's accessible name stays the person's name only — not the action, the team or the sharer", () => {
+      renderWithProviders(
+        <DaysOffMonthGrid
+          data={SHARED}
+          showTeams
+          renderRowAction={(user) => <button type="button">{`Share ${user.userName}'s calendar`}</button>}
+        />,
+      );
+      // Alice carries a team line, a "Shared by" line AND an action — exact-name match still holds.
+      expect(screen.getByRole("rowheader", { name: "Alice Example" })).toBeInTheDocument();
+      expect(screen.getByRole("rowheader", { name: "Bob Empty" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Share Alice Example's calendar" })).toBeInTheDocument();
+    });
+
+    test("highlightUserId marks exactly that row (aria-current + accent class) and scrolls it into view", () => {
+      const scroll = vi.fn();
+      Element.prototype.scrollIntoView = scroll;
+      try {
+        renderWithProviders(<DaysOffMonthGrid data={DATA} highlightUserId={8} />);
+        const bob = screen.getByRole("rowheader", { name: /Bob Empty/ });
+        expect(bob).toHaveAttribute("aria-current", "true");
+        expect(bob).toHaveClass(classes.highlightName);
+        expect(screen.getByRole("rowheader", { name: /Alice Example/ })).not.toHaveAttribute("aria-current");
+        expect(scroll).toHaveBeenCalledTimes(1);
+        expect(scroll.mock.contexts[0]).toBe(bob.closest("tr"));
+      } finally {
+        // Back to happy-dom's own (absent) implementation for the other tests.
+        delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      }
+    });
+
+    test("an unknown highlight id marks nothing and does not scroll", () => {
+      const scroll = vi.fn();
+      Element.prototype.scrollIntoView = scroll;
+      try {
+        renderWithProviders(<DaysOffMonthGrid data={DATA} highlightUserId={999} />);
+        expect(document.querySelector('[aria-current="true"]')).toBeNull();
+        expect(scroll).not.toHaveBeenCalled();
+      } finally {
+        delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      }
+    });
   });
 
   describe("today (v4.7.0)", () => {

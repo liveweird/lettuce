@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
+import type { DaysOffShareCandidate } from "../api/daysoff";
 import type { ShareCandidate } from "../api/reviews";
 import type { ShareBatchItem } from "../api/shares";
 import {
-  buildMassShareRows,
+  buildCalendarShareRows,
+  buildReviewShareRows,
   deselectMatching,
   EMPTY_MASS_SHARE_FILTERS,
+  kindContext,
   filterMassShareRows,
   managerOptions,
   MASS_SHARE_SORT_FIELDS,
@@ -14,7 +17,7 @@ import {
   retainUnsettled,
   rowStatus,
   selectAllMatching,
-  selectedReviewIds,
+  selectedResourceIds,
   submittableRows,
   sortMassShareRows,
   subtreeUserIds,
@@ -92,7 +95,7 @@ const mgr = (id: number, name: string) => ({ id, name });
 // Caller (id 1) manages Mia (2, team Alpha); Mia manages Ned (3) and Oz (4); Ned manages Pam (5).
 // Quinn (6) reports to a dotted-line outsider Rex (90) and to the caller.
 function dataset(): MassShareRow[] {
-  return buildMassShareRows(
+  return buildReviewShareRows(
     [
       cand(5, "Pam Pine", { teams: [{ id: 2, name: "Beta" }], directManagers: [mgr(3, "Ned Nest")], ...rated(5, 2) }),
       cand(2, "Mia Miller", {
@@ -122,7 +125,7 @@ function dataset(): MassShareRow[] {
   );
 }
 
-const ids = (rows: MassShareRow[]) => rows.map((r) => r.candidate.userId);
+const ids = (rows: MassShareRow[]) => rows.map((r) => r.person.userId);
 const f = (o: Partial<MassShareFilters>): MassShareFilters => ({ ...EMPTY_MASS_SHARE_FILTERS, ...o });
 
 describe("massShare rows", () => {
@@ -137,7 +140,7 @@ describe("massShare rows", () => {
 
   test("rowStatus and reasonKey classify a review, no review and another manager's draft", () => {
     const rows = dataset();
-    const by = (id: number) => rows.find((r) => r.candidate.userId === id)!;
+    const by = (id: number) => rows.find((r) => r.person.userId === id)!;
     expect(rowStatus(by(3))).toBe("CALIBRATION");
     expect(rowStatus(by(4))).toBe("NO_REVIEW");
     expect(rowStatus(by(6))).toBe("DRAFT");
@@ -162,7 +165,7 @@ describe("subtreeUserIds", () => {
   });
 
   test("survives a management cycle without looping and never lists the root", () => {
-    const rows = buildMassShareRows(
+    const rows = buildReviewShareRows(
       [
         cand(2, "A", { directManagers: [mgr(3, "B")] }),
         cand(3, "B", { directManagers: [mgr(2, "A")] }),
@@ -248,7 +251,7 @@ describe("sortMassShareRows", () => {
 
   test("name and team sort per locale in both directions, no team sinks last", () => {
     expect(ids(sortMassShareRows(rows, "name", "desc", "en"))).toEqual([5, 4, 3, 2, 6]);
-    const noTeam = buildMassShareRows([cand(7, "Zed"), cand(8, "Amy", { teams: [{ id: 1, name: "Alpha" }] })], ME, "You");
+    const noTeam = buildReviewShareRows([cand(7, "Zed"), cand(8, "Amy", { teams: [{ id: 1, name: "Alpha" }] })], ME, "You");
     expect(ids(sortMassShareRows(noTeam, "team", "asc"))).toEqual([8, 7]);
     expect(ids(sortMassShareRows(noTeam, "team", "desc"))).toEqual([8, 7]);
   });
@@ -296,15 +299,15 @@ describe("selection helpers", () => {
     expect([...deselectMatching(new Set([2, 3, 5]), filtered)]).toEqual([2]);
   });
 
-  test("selectedReviewIds returns review ids in row order, never for unshareable people", () => {
-    expect(selectedReviewIds(rows, new Set([5, 2, 4, 6]))).toEqual([20, 50]);
+  test("selectedResourceIds returns review ids in row order, never for unshareable people", () => {
+    expect(selectedResourceIds(rows, new Set([5, 2, 4, 6]))).toEqual([20, 50]);
   });
 
-  test("submittableRows are exactly the selected rows selectedReviewIds submits", () => {
+  test("submittableRows are exactly the selected rows selectedResourceIds submits", () => {
     const selected = new Set([5, 2, 4, 6]);
     const submitted = submittableRows(rows, selected);
-    expect(submitted.map((r) => r.candidate.userId)).toEqual([2, 5]);
-    expect(submitted.map((r) => r.candidate.review?.id)).toEqual(selectedReviewIds(rows, selected));
+    expect(submitted.map((r) => r.person.userId)).toEqual([2, 5]);
+    expect(submitted.map((r) => r.resourceId)).toEqual(selectedResourceIds(rows, selected));
     expect(submittableRows(rows, new Set())).toEqual([]);
   });
 
@@ -317,7 +320,7 @@ describe("selection helpers", () => {
       { resourceId: 50, status: "NOT_FOUND" },
     ];
     // Person 2 (review 20) and 3 (review 30) settled; 5 (review 50) failed; none answered for 7.
-    const extra = buildMassShareRows([cand(7, "Unsent")], ME, "You");
+    const extra = buildReviewShareRows([cand(7, "Unsent")], ME, "You");
     const next = retainUnsettled(new Set([2, 3, 5, 7]), [...rows, ...extra], items);
     expect([...next].sort()).toEqual([5, 7]);
   });
@@ -359,5 +362,51 @@ describe("summarizeBatchResult", () => {
         .alreadyShared,
     ).toEqual([{ resourceId: 20, person: "Mia Miller", sharees: ["#77"] }]);
     expect(summarizeBatchResult([], rows, names)).toEqual({ created: 0, alreadyShared: [], failed: [] });
+  });
+});
+
+describe("calendar share rows and the kind context (v4.11.0)", () => {
+  const calCand = (userId: number, name: string, o: Partial<DaysOffShareCandidate> = {}): DaysOffShareCandidate => ({
+    userId,
+    name,
+    email: `${name.toLowerCase().replace(/\s/g, ".")}@x.test`,
+    deactivated: false,
+    teams: [],
+    directManagers: [],
+    careerPath: null,
+    careerSpecialization: null,
+    seniorityLevel: null,
+    ...o,
+  });
+
+  test("every candidate is a shareable row whose resource id is the PERSON's user id, name-sorted", () => {
+    const rows = buildCalendarShareRows(
+      [
+        calCand(9, "Zed", { deactivated: true }),
+        calCand(3, "Amy", { teams: [{ id: 1, name: "Alpha" }], directManagers: [{ id: 1, name: "Me" }, { id: 2, name: "Bo" }] }),
+      ],
+      1,
+      "You",
+    );
+    expect(rows.map((r) => r.person.name)).toEqual(["Amy", "Zed"]);
+    expect(rows.map((r) => r.resourceId)).toEqual([3, 9]);
+    expect(rows.every((r) => r.shareable && r.reason == null && r.review == null)).toBe(true);
+    expect(rows[0].teamNames).toEqual(["Alpha"]);
+    // The caller reads as the supplied label, others by name.
+    expect(rows[0].managerLabel).toBe("You, Bo");
+    // A deactivated person stays shareable (the server lists them for the Inactive badge).
+    expect(rows[1].person.deactivated).toBe(true);
+    expect(rowStatus(rows[1])).toBe("NO_REVIEW");
+  });
+
+  test("the selection helpers take the person ids as resource ids", () => {
+    const rows = buildCalendarShareRows([calCand(3, "Amy"), calCand(4, "Bob")], null, "You");
+    expect(selectedResourceIds(rows, new Set([4, 3]))).toEqual([3, 4]);
+    expect(submittableRows(rows, new Set([3])).map((r) => r.person.name)).toEqual(["Amy"]);
+  });
+
+  test("kindContext: reviews read the base keys, calendars their own variants", () => {
+    expect(kindContext("reviews")).toBeUndefined();
+    expect(kindContext("calendars")).toBe("calendars");
   });
 });

@@ -1,0 +1,71 @@
+import { afterEach, describe, expect, test } from "vitest";
+import type { TFunction } from "i18next";
+import i18n from "../i18n";
+import { SHARE_FEATURE, SHARE_TYPES, documentLabel, shareKindContext, shareOpenPath } from "./shareKinds";
+
+const tFor = (lang: "en" | "pl") => i18n.getFixedT(lang) as unknown as TFunction;
+
+describe("shareKinds — the days-off calendar kind (v4.11.0)", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  test("it is the eighth kind, last in the filter order, gated by DAYS_OFF", () => {
+    expect(SHARE_TYPES).toHaveLength(8);
+    expect(SHARE_TYPES.at(-1)).toBe("DAYS_OFF_CALENDAR");
+    expect(SHARE_FEATURE.DAYS_OFF_CALENDAR).toBe("DAYS_OFF");
+  });
+
+  test("its label names the person from the snapshot, EN and PL; a missing person reads unavailable", () => {
+    expect(documentLabel("DAYS_OFF_CALENDAR", { person: "Pat Person" }, tFor("en"), "en")).toBe(
+      "Days-off calendar of Pat Person",
+    );
+    expect(documentLabel("DAYS_OFF_CALENDAR", { person: "Pat Person" }, tFor("pl"), "pl")).toBe(
+      "Kalendarz dni wolnych osoby Pat Person",
+    );
+    expect(documentLabel("DAYS_OFF_CALENDAR", {}, tFor("en"), "en")).toBe("No longer available");
+    expect(documentLabel("DAYS_OFF_CALENDAR", null, tFor("en"), "en")).toBe("No longer available");
+  });
+
+  test("only the calendar words the dialog as a calendar", () => {
+    expect(shareKindContext("DAYS_OFF_CALENDAR")).toBe("calendar");
+    for (const type of SHARE_TYPES.filter((type) => type !== "DAYS_OFF_CALENDAR")) {
+      expect(shareKindContext(type), type).toBeUndefined();
+    }
+  });
+});
+
+describe("shareOpenPath — the Open target per viewer (D7)", () => {
+  const SHAREE_LINK = "/days-off?tab=calendar&scope=shared&user=21";
+  const calendar = { resourceType: "DAYS_OFF_CALENDAR" as const, resourceId: 21, link: SHAREE_LINK, details: { person: "Pat Person" }, shareeId: 30 };
+
+  test("the sharee opens the server's link (their own 'Shared with me' scope, the person highlighted)", () => {
+    expect(shareOpenPath(calendar, 30)).toBe(SHAREE_LINK);
+  });
+
+  test("a sharer / author / HR viewer (not the sharee) is sent to the person's details page", () => {
+    expect(shareOpenPath(calendar, 7)).toBe("/users/21/details?name=Pat+Person");
+    expect(shareOpenPath({ ...calendar, details: null }, 7)).toBe("/users/21/details");
+  });
+
+  test("the person's own calendar opens the Calendar tab of their own days off", () => {
+    expect(shareOpenPath(calendar, 21)).toBe("/days-off?tab=calendar");
+  });
+
+  test("an activity row (no sharee id) always takes the non-sharee branch", () => {
+    const row = { resourceType: calendar.resourceType, resourceId: calendar.resourceId, link: calendar.link, details: calendar.details };
+    expect(shareOpenPath(row, 7)).toBe("/users/21/details?name=Pat+Person");
+    expect(shareOpenPath(row, 21)).toBe("/days-off?tab=calendar");
+  });
+
+  test("every other kind keeps the server link for everyone", () => {
+    for (const viewer of [30, 7, 21]) {
+      expect(
+        shareOpenPath({ resourceType: "GOAL", resourceId: 21, link: "/goals/21/view", shareeId: 30 }, viewer),
+      ).toBe("/goals/21/view");
+    }
+    expect(shareOpenPath({ resourceType: "SUCCESSION_PLAN", resourceId: 3, link: "/succession/3/review" }, null)).toBe(
+      "/succession/3/review",
+    );
+  });
+});

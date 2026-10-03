@@ -248,7 +248,9 @@ fun Application.configureShareRoutes() {
         if (notifiedSharees.isNotEmpty()) {
             notificationService.createAll(
                 notifiedSharees.map { shareeId ->
-                    batchSharedNotification(summaryType, shareeId, sharerName, createdPerSharee.getValue(shareeId), request.expiresOn)
+                    batchSharedNotification(
+                        summaryType, shareeId, sharerName, createdPerSharee.getValue(shareeId), request.expiresOn, type.batchSharedLink,
+                    )
                 },
             )
         }
@@ -347,10 +349,13 @@ fun Application.configureShareRoutes() {
                     if (request.shareeId == caller.userId) throw BadRequestException("A document cannot be shared with yourself")
                     userService.read(request.shareeId) ?: throw BadRequestException("Referenced user does not exist")
                     userService.requireNoDeactivatedUsers(listOf(request.shareeId))
+                    // The creation-time snapshot, computed once: stored as `details` AND (for a kind with
+                    // notificationLabelKeys — the calendar's `person`) carried into the notice.
+                    val label = document.label()
                     // The per-pair notification cap is decided inside the create's locked transaction.
                     val created = when (
                         val outcome = shareService.create(
-                            type, request.resourceId, caller.userId, request.shareeId, request.expiresOn, document.label(),
+                            type, request.resourceId, caller.userId, request.shareeId, request.expiresOn, label,
                             notificationCap = dailyCap,
                         )
                     ) {
@@ -385,6 +390,10 @@ fun Application.configureShareRoutes() {
                                 sharerName = record.sharerName,
                                 expiresOn = request.expiresOn,
                                 link = document.adapter.viewPath(request.resourceId),
+                                labelParams = label,
+                                // A calendar's resource id IS the person: sharing one's own calendar reads "their".
+                                sharerIsSubject = type == ShareableResourceType.DAYS_OFF_CALENDAR &&
+                                    request.resourceId == caller.userId,
                             ),
                         )
                     }
@@ -425,6 +434,10 @@ fun Application.configureShareRoutes() {
                                     shareeName = record.shareeName,
                                     actorId = caller.userId,
                                     actorName = outcome.record.withdrawnByName ?: record.sharerName,
+                                    // The creation-time snapshot (the calendar's `person`); a calendar's resource id is the person.
+                                    labelParams = record.details.orEmpty(),
+                                    sharerIsSubject = record.resourceType == ShareableResourceType.DAYS_OFF_CALENDAR &&
+                                        record.resourceId == record.sharerId,
                                 )
                                     .filter { outcome.notify || it.recipientId != record.shareeId }
                                     .forEach { notificationService.create(it) }

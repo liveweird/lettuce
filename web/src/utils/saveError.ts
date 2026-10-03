@@ -31,16 +31,18 @@ export function saveErrorMessage(
   err: unknown,
   t: TFunction,
   keys: SaveErrorKeys,
+  /** An i18next context applied to the mapped keys (kind-worded texts); `undefined` reads the base keys. */
+  context?: string,
 ): string {
   if (err instanceof ApiError) {
-    if (err.status === 403 && keys.forbidden) return t(keys.forbidden);
-    if (err.status === 404 && keys.notFound) return t(keys.notFound);
-    if (err.status === 409 && keys.conflict) return t(keys.conflict);
-    if (err.status === 400 && keys.invalid) return t(keys.invalid);
-    if (keys.failedStatus) return t(keys.failedStatus, { status: err.status });
+    if (err.status === 403 && keys.forbidden) return t(keys.forbidden, { context });
+    if (err.status === 404 && keys.notFound) return t(keys.notFound, { context });
+    if (err.status === 409 && keys.conflict) return t(keys.conflict, { context });
+    if (err.status === 400 && keys.invalid) return t(keys.invalid, { context });
+    if (keys.failedStatus) return t(keys.failedStatus, { status: err.status, context });
   }
   if (isTimeoutError(err)) return t("common.error.timeout");
-  return t(keys.failed);
+  return t(keys.failed, { context });
 }
 
 /**

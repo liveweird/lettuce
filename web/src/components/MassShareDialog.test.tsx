@@ -7,7 +7,7 @@ import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
 import type { ShareCandidate } from "../api/reviews";
 import type { ShareBatchItem } from "../api/shares";
-import { buildMassShareRows, type MassShareRow } from "../utils/massShare";
+import { buildReviewShareRows, type MassShareRow } from "../utils/massShare";
 import MassShareDialog from "./MassShareDialog";
 
 const TOKEN_KEY = "lettuce.auth.token";
@@ -62,7 +62,7 @@ function cand(userId: number, name: string, extra: Partial<ShareCandidate> = {})
   };
 }
 
-const ROWS = buildMassShareRows([cand(1, "Ann Alpha"), cand(2, "Ben Beta")], 7, "You");
+const ROWS = buildReviewShareRows([cand(1, "Ann Alpha"), cand(2, "Ben Beta")], 7, "You");
 
 type Call = { method: string; url: string; body?: { resourceIds: number[]; shareeIds: number[]; expiresOn?: string } };
 type Reply = (body: NonNullable<Call["body"]>, n: number) => Response | Promise<Response>;
@@ -137,8 +137,10 @@ function Harness({
     <MassShareDialog
       opened
       onClose={() => onClose?.()}
+      resourceType="PERFORMANCE_REVIEW"
+      kind="reviews"
       rows={current}
-      selected={selected ?? new Set(rows.map((r) => r.candidate.userId))}
+      selected={selected ?? new Set(rows.map((r) => r.person.userId))}
       onSettled={(items, rowsAtRun) => {
         onSettled?.(items, rowsAtRun);
         if (after) setCurrent(after);
@@ -187,7 +189,7 @@ describe("MassShareDialog", () => {
 
   test("the intro counts what will really be submitted: a selected unshareable person is not in it", () => {
     mockApi();
-    const rows = buildMassShareRows(
+    const rows = buildReviewShareRows(
       [cand(1, "Ann Alpha"), cand(2, "Ben Beta", { review: null, shareable: false, reason: "NO_REVIEW" })],
       7,
       "You",
@@ -342,7 +344,7 @@ describe("MassShareDialog", () => {
       }),
     );
     // After the run the parent hands in rows where Ann (review 10) is no longer shareable.
-    const refetched = buildMassShareRows(
+    const refetched = buildReviewShareRows(
       [cand(1, "Ann Alpha", { review: null, shareable: false, reason: "NO_REVIEW" }), cand(2, "Ben Beta")],
       7,
       "You",
@@ -356,12 +358,12 @@ describe("MassShareDialog", () => {
     expect(await screen.findByText("Ann Alpha: already shared with Rita Recipient")).toBeInTheDocument();
     expect(screen.queryByText(/#10/)).toBeNull();
     // The page was handed the PRE-run rows, not the refetched ones.
-    expect(onSettled.mock.calls[0][1].find((r: MassShareRow) => r.candidate.userId === 1).candidate.shareable).toBe(true);
+    expect(onSettled.mock.calls[0][1].find((r: MassShareRow) => r.person.userId === 1).shareable).toBe(true);
   });
 
   test("a selection above 200 hints at one notification per batch and sends sequential chunks", async () => {
     const people = Array.from({ length: 250 }, (_, i) => cand(1000 + i, `Person ${String(i).padStart(3, "0")}`));
-    const rows = buildMassShareRows(people, 7, "You");
+    const rows = buildReviewShareRows(people, 7, "You");
     const calls = mockApi();
     const userEv = userEvent.setup();
     renderWithProviders(<Harness rows={rows} />);
@@ -419,7 +421,7 @@ describe("MassShareDialog", () => {
 
   test("a rate limit on a later chunk keeps what was created and retries exactly the unsent rest", async () => {
     const people = Array.from({ length: 250 }, (_, i) => cand(1000 + i, `Person ${String(i).padStart(3, "0")}`));
-    const rows = buildMassShareRows(people, 7, "You");
+    const rows = buildReviewShareRows(people, 7, "You");
     const onSettled = vi.fn();
     const calls = mockApi((body, n) => (n === 2 ? problem(429, "slow") : allCreated(body)));
     const userEv = userEvent.setup();

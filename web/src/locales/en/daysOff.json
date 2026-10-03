@@ -80,6 +80,7 @@
     "nextMonth": "Next month",
     "scope": "Whose calendar",
     "scope_member": "My teams",
+    "scope_shared": "Shared with me",
     "scope_managed": "My direct reports",
     "scope_managedAll": "All my reports (including indirect)",
     "scope_org": "All teams (auditor)",
@@ -88,6 +89,9 @@
     "loadError": "Could not load the calendar",
     "empty": "Nobody to show — you are not a member of any team.",
     "emptyOrg": "No one is off this month.",
+    "emptyShared": "Nobody has shared their days-off calendar with you.",
+    "shareAria": "Share the days-off calendar of {{name}}",
+    "shareOwnAria": "Share my days-off calendar",
     "legendWeekend": "Weekend",
     "legendHoliday": "Public holiday",
     "today": "Today"
@@ -212,5 +216,10 @@
     "toastDeleted": "Correction deleted"
   },
   "managedTitle": "Days off of {{who}}",
-  "managedHint": "The days-off entries of {{who}} plus their yearly budget and corrections."
+  "managedHint": "The days-off entries of {{who}} plus their yearly budget and corrections.",
+  "teamShareButton": "Share calendars…",
+  "massShare": {
+    "title": "Share days-off calendars",
+    "description": "Pick people from your reporting line and share their days-off calendars with others, in one go. The people you share with see when they are off — dates and paid/unpaid only."
+  }
 }

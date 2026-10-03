@@ -320,4 +320,82 @@ describe("Shares page", () => {
     expect(within(alert.closest("[role=alert]") as HTMLElement).getByText(/Loading failed \(500\)\./)).toBeInTheDocument();
     expect(screen.queryByText("Nothing has been shared with you.")).toBeNull();
   });
+  describe("days-off calendar shares (v4.11.0)", () => {
+    const CAL_LINK = "/days-off?tab=calendar&scope=shared&user=21";
+    const calendarRow = (id: number, extra: Record<string, unknown> = {}) =>
+      row(id, "DAYS_OFF_CALENDAR", { person: "Pat Person" }, { resourceId: 21, link: CAL_LINK, ...extra });
+
+    test("Shared with me: labelled after the person, typed 'Days-off calendar', and Open lands on the shared scope with that person", async () => {
+      mockApi({ withMe: { items: [calendarRow(31)] } });
+      renderPage();
+
+      expect(await screen.findByText("Days-off calendar of Pat Person")).toBeInTheDocument();
+      expect(screen.getAllByText("Days-off calendar").length).toBeGreaterThan(0);
+      const open = screen.getByRole("link", { name: "Open the shared document: Days-off calendar of Pat Person" });
+      expect(open).toHaveAttribute("href", `${CAL_LINK}&back=${encodeURIComponent("/shares")}`);
+    });
+
+    test("Shared by me: Open goes to the person's details page (the sharee's scope holds nothing for the sharer)", async () => {
+      mockApi({
+        byMe: {
+          items: [
+            calendarRow(32, { sharerId: 7, sharerName: "Me", shareeId: 12, shareeName: "Ben Bystander" }),
+            // The sharer's OWN calendar: their own days off.
+            row(33, "DAYS_OFF_CALENDAR", { person: "Me" }, {
+              resourceId: 7, link: "/days-off?tab=calendar&scope=shared&user=7",
+              sharerId: 7, sharerName: "Me", shareeId: 13, shareeName: "Cy Expired",
+            }),
+          ],
+        },
+      });
+      renderPage("/shares?tab=byMe");
+
+      const back = encodeURIComponent("/shares?tab=byMe");
+      expect(await screen.findByRole("link", { name: "Open the shared document: Days-off calendar of Pat Person" })).toHaveAttribute(
+        "href",
+        `/users/21/details?name=Pat+Person&back=${back}`,
+      );
+      expect(screen.getByRole("link", { name: "Open the shared document: Days-off calendar of Me" })).toHaveAttribute(
+        "href",
+        `/days-off?tab=calendar&back=${back}`,
+      );
+    });
+
+    test("withdrawing a calendar share words the confirm for a calendar, not a document", async () => {
+      mockApi({
+        byMe: { items: [calendarRow(34, { sharerId: 7, sharerName: "Me", shareeId: 12, shareeName: "Ben Bystander" })] },
+      });
+      const user = userEvent.setup();
+      renderPage("/shares?tab=byMe");
+      await screen.findByText("Days-off calendar of Pat Person");
+
+      await user.click(screen.getByRole("button", { name: "More actions for Days-off calendar of Pat Person" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Withdraw the share with Ben Bystander" }));
+      expect(
+        screen.getByText("Ben Bystander will no longer be able to see this calendar through this share. This cannot be undone."),
+      ).toBeInTheDocument();
+    });
+
+    test("the type filter offers the calendar kind while DAYS_OFF is enabled", async () => {
+      mockApi();
+      const user = userEvent.setup();
+      renderPage();
+      await screen.findByText("Raise coverage (Sam Sub)");
+      await user.click(screen.getByRole("button", { name: /filters/i }));
+      fireEvent.click(screen.getByLabelText("Document type", { selector: "input" }));
+      expect(await screen.findByRole("option", { name: "Days-off calendar" })).toBeInTheDocument();
+    });
+
+    test("the type filter drops the calendar kind once the viewer disabled DAYS_OFF", async () => {
+      localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["DAYS_OFF"]));
+      mockApi();
+      const user = userEvent.setup();
+      renderPage();
+      await screen.findByText("Raise coverage (Sam Sub)");
+      await user.click(screen.getByRole("button", { name: /filters/i }));
+      fireEvent.click(screen.getByLabelText("Document type", { selector: "input" }));
+      expect(await screen.findByRole("option", { name: "Goal" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "Days-off calendar" })).toBeNull();
+    });
+  });
 });

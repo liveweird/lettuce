@@ -2,6 +2,8 @@
   "button": "Share",
   "dialogTitle": "Share this document",
   "intro": "People you share this document with can read it, but never change it. A share works only while you can open the document yourself.",
+  "dialogTitle_calendar": "Share this calendar",
+  "intro_calendar": "People you share this calendar with can see when this person is off — dates and paid/unpaid only, never the kind of leave, the budget or the reasons — but never change anything. A share works only while you can see the calendar yourself.",
   "shareWith": "Share with",
   "pickPeople": "Pick people",
   "noPeople": "No people available",
@@ -23,21 +25,27 @@
   "withdrawAria": "Withdraw the share with {{name}}",
   "withdrawTitle": "Withdraw this share?",
   "withdrawBody": "{{name}} will no longer be able to open this document through this share. This cannot be undone.",
+  "withdrawBody_calendar": "{{name}} will no longer be able to see this calendar through this share. This cannot be undone.",
   "toast": {
     "shared": "Document shared",
+    "shared_calendar": "Calendar shared",
     "withdrawn": "Share withdrawn",
-    "batchShared": "Reviews shared"
+    "batchShared": "Reviews shared",
+    "batchShared_calendars": "Calendars shared"
   },
   "failureItem": "Couldn't share with {{name}}: {{reason}}",
   "banner": "Shared with you by {{name}}",
   "lapsed": "The person who shared this document with you can no longer open it, so your access has ended.",
   "error": {
     "duplicate": "It is already shared with this person.",
+    "duplicate_calendar": "This calendar is already shared with this person.",
     "invalid": "The server rejected the request. Check the end date.",
     "untilPast": "The end date cannot be in the past.",
     "rateLimited": "You are sharing too fast. Wait a moment and try again.",
     "forbidden": "You can't share this document.",
+    "forbidden_calendar": "You can't share this calendar.",
     "notFound": "This document or person no longer exists.",
+    "notFound_calendar": "This calendar or person no longer exists.",
     "failed": "Sharing failed. Try again.",
     "failedStatus": "Sharing failed (HTTP {{status}}).",
     "loadSharesFailed": "Couldn't load the current shares.",
@@ -77,7 +85,8 @@
     "PERFORMANCE_REVIEW": "Performance review",
     "TEAM_KPI": "Team KPI",
     "IMPACT_LOG_ENTRY": "Impact log entry",
-    "SUCCESSION_PLAN": "Succession plan"
+    "SUCCESSION_PLAN": "Succession plan",
+    "DAYS_OFF_CALENDAR": "Days-off calendar"
   },
   "doc": {
     "unavailable": "No longer available",
@@ -88,17 +97,22 @@
     "TEAM_KPI": "{{title}} ({{team}})",
     "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
     "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
-    "SUCCESSION_PLAN": "{{person}} (owner: {{owner}})"
+    "SUCCESSION_PLAN": "{{person}} (owner: {{owner}})",
+    "DAYS_OFF_CALENDAR": "Days-off calendar of {{person}}"
   },
   "batch": {
     "title": "Share performance reviews",
+    "title_calendars": "Share days-off calendars",
     "intro_one": "You are sharing {{count}} performance review. People you share it with can read it, but never change it. A share works only while you can open the review yourself.",
     "intro_other": "You are sharing {{count}} performance reviews. People you share them with can read them, but never change them. A share works only while you can open the review yourself.",
+    "intro_calendars_one": "You are sharing {{count}} calendar. People you share it with can see when that person is off — dates and paid/unpaid only, never the kind of leave, the budget or the reasons — but never change anything. A share works only while you can see the calendar yourself.",
+    "intro_calendars_other": "You are sharing {{count}} calendars. People you share them with can see when those people are off — dates and paid/unpaid only, never the kind of leave, the budget or the reasons — but never change anything. A share works only while you can see the calendar yourself.",
     "maxPeople": "Up to {{max}} people at once.",
     "subjectWarning_one": "{{names}} is one of the people whose review you are sharing. They will be able to read it, including ratings that are not published to them yet.",
     "subjectWarning_other": "{{names}} are among the people whose reviews you are sharing. They will be able to read those reviews, including ratings that are not published to them yet.",
     "moreNames": "{{names}} and {{count}} more",
     "chunkHint": "A selection of more than {{max}} reviews goes out in {{batches}} batches, so each recipient gets one notification per batch.",
+    "chunkHint_calendars": "A selection of more than {{max}} calendars goes out in {{batches}} batches, so each recipient gets one notification per batch.",
     "result": {
       "created": "New shares: {{count}}",
       "nothing": "Nothing new was shared.",
@@ -107,20 +121,62 @@
       "failedTitle": "Not shared:",
       "failedLine_FORBIDDEN": "{{person}}: you can't share this review.",
       "failedLine_NOT_FOUND": "{{person}}: this review no longer exists.",
+      "failedLine_FORBIDDEN_calendars": "{{person}}: you can't share this calendar.",
+      "failedLine_NOT_FOUND_calendars": "{{person}}: this calendar no longer exists.",
       "title": "Result"
     },
     "partial_one": "Sharing stopped early: {{reason}} {{count}} review was not sent.",
     "partial_other": "Sharing stopped early: {{reason}} {{count}} reviews were not sent.",
+    "partial_calendars_one": "Sharing stopped early: {{reason}} {{count}} calendar was not sent.",
+    "partial_calendars_other": "Sharing stopped early: {{reason}} {{count}} calendars were not sent.",
     "retry_one": "Retry the remaining {{count}} review",
     "retry_other": "Retry the remaining {{count}} reviews",
+    "retry_calendars_one": "Retry the remaining {{count}} calendar",
+    "retry_calendars_other": "Retry the remaining {{count}} calendars",
     "error": {
       "forbidden": "You can't share any of these reviews.",
       "notFound": "None of these reviews exist any more.",
+      "forbidden_calendars": "You can't share any of these calendars.",
+      "notFound_calendars": "None of these calendars exist any more.",
       "invalid": "The server rejected the request. Check the end date and the people you picked.",
       "rateLimited": "You are sharing too fast. Try again in a minute.",
       "failed": "Sharing failed. Try again.",
       "failedStatus": "Sharing failed (HTTP {{status}})."
     },
     "backToForm": "Change and try again"
+  },
+  "massShare": {
+    "meta": {
+      "selected": "Selected",
+      "shareable": "Shareable",
+      "people": "People"
+    },
+    "peopleOf": "{{count}} of {{total}}",
+    "you": "You",
+    "searchLabel": "Search people",
+    "searchClear": "Clear the search",
+    "selectAllMatching": "Select all matching ({{count}})",
+    "clearSelection": "Clear selection",
+    "shareN_one": "Share {{count}} review…",
+    "shareN_other": "Share {{count}} reviews…",
+    "shareN_calendars_one": "Share {{count}} calendar…",
+    "shareN_calendars_other": "Share {{count}} calendars…",
+    "hiddenSelected_one": "{{count}} selected person is hidden by the current filters.",
+    "hiddenSelected_other": "{{count}} selected people are hidden by the current filters.",
+    "col": {
+      "managers": "Direct manager"
+    },
+    "selectAllOnPage": "Select all on this page",
+    "selectAria": "Select {{name}}",
+    "unavailableAria": "{{name}} can't be selected: {{reason}}",
+    "empty": "No people match the filters.",
+    "noReports": "Nobody is in your reporting line, so there is nothing to share.",
+    "loadError": "Couldn't load the people in your reporting line.",
+    "rowsPerPage": "People per page",
+    "facet": {
+      "teams": "Teams",
+      "manager": "Direct manager and everyone under them",
+      "managerHint": "Keeps everyone below the chosen manager, at any level, but not the manager themselves."
+    }
   }
 }

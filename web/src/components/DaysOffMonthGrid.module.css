@@ -118,3 +118,10 @@
 .todaySwatch {
   border-top: 3px solid var(--today-line);
 }
+
+/* The deep-linked row (v4.11.0, `?user=`): an accent bar and a light tint on the name cell only —
+   the day cells keep their weekend/holiday/today styling, so who is off stays as readable as ever. */
+.highlightName {
+  background: var(--mantine-primary-color-light);
+  box-shadow: inset 3px 0 0 var(--mantine-primary-color-filled);
+}

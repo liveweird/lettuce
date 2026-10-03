@@ -1,8 +1,10 @@
 package ch.nokillswit.daysoff
 
+import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
 import ch.nokillswit.infra.parseIsoDateStrict
 import ch.nokillswit.teams.TeamRef
+import ch.nokillswit.users.UserRef
 import io.ktor.server.plugins.BadRequestException
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -184,6 +186,15 @@ data class DaysOffCalendarUser(
     // empty. Always computed (unlike the managed-only DaysOffListItem/DaysOffBudget teams).
     val teams: List<TeamRef>,
     val entries: List<DaysOffCalendarEntry>,
+    // The display name of the sharer whose share put this person on the `scope=shared`
+    // calendar (v4.11.0 — the OLDEST passing sharer when several share the same person);
+    // null on every other scope. Always encoded (the calendar rows carry every field).
+    val sharedBy: String?,
+    // Server-computed capability (v4.11.0, the canDelete/canCorrect precedent): may the caller
+    // share THIS person's calendar in their own right — the caller's own row on scope=member,
+    // every scope=managed row (the caller's subtree by construction), never org/shared. The
+    // SPA's row Share action renders off it, never off a URL param.
+    val canShareCalendar: Boolean,
 )
 
 /**
@@ -197,6 +208,31 @@ data class DaysOffCalendarResponse(
     val holidays: List<PublicHolidayItem>,
     val users: List<DaysOffCalendarUser>,
 )
+
+/**
+ * One person in the caller's transitive chain, for the days-off calendar mass-share picker
+ * (v4.11.0 — the calendar counterpart of the reviews `ShareCandidate`, minus the review join:
+ * every chain person's calendar is shareable, the batch route re-runs the real guard anyway).
+ * [directManagers] are the managers of the person's teams minus the person themselves — the
+ * caller appears there as themselves. [seniorityLevel] is always attached: every row is the
+ * caller's own chain (the seniority-visibility rule). Nothing about absences rides here.
+ */
+@Serializable
+data class DaysOffShareCandidate(
+    val userId: UInt,
+    val name: String,
+    val email: String,
+    val deactivated: Boolean,
+    val teams: List<TeamRef>,
+    val directManagers: List<UserRef>,
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    val seniorityLevel: DictionaryEntry?,
+)
+
+/** Unpaged, caller-relative picker dataset — see [DaysOffService.shareCandidates]. */
+@Serializable
+data class DaysOffShareCandidateList(val items: List<DaysOffShareCandidate>)
 
 /**
  * One user's budget in ONE paid pool for one calendar year (v3.2.0 — one row per (user, pool

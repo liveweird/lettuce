@@ -121,6 +121,49 @@ describe("ShareDialog", () => {
     localStorage.clear();
   });
 
+  test("a document reads 'Share this document'; a days-off calendar words title, intro and withdraw confirm for a calendar (v4.11.0)", async () => {
+    mockApi({
+      shares: [
+        share(301, 12, "Ben Bystander", { resourceType: "DAYS_OFF_CALENDAR", resourceId: 21, link: "/days-off?tab=calendar&scope=shared&user=21", details: { person: "Pat" } }),
+      ],
+    });
+    const userEv = userEvent.setup();
+    const generic = renderDialog();
+    expect(await screen.findByRole("dialog", { name: "Share this document" })).toBeInTheDocument();
+    expect(screen.getByText(/People you share this document with can read it, but never change it/)).toBeInTheDocument();
+    generic.unmount();
+
+    renderWithProviders(
+      <ShareDialog opened onClose={() => undefined} resourceType="DAYS_OFF_CALENDAR" resourceId={21} />,
+    );
+    expect(await screen.findByRole("dialog", { name: "Share this calendar" })).toBeInTheDocument();
+    expect(screen.getByText(/can see when this person is off — dates and paid\/unpaid only/)).toBeInTheDocument();
+    expect(screen.queryByText(/never change it/)).toBeNull();
+
+    await userEv.click(await screen.findByRole("button", { name: "Withdraw the share with Ben Bystander" }));
+    expect(
+      screen.getByText("Ben Bystander will no longer be able to see this calendar through this share. This cannot be undone."),
+    ).toBeInTheDocument();
+  });
+
+  test("a calendar share's toast and failure reasons say calendar, not document", async () => {
+    const calls = mockApi({ shares: [], createReplies: { 12: problem(403, "no") } });
+    const toast = vi.spyOn(notifications, "show");
+    const userEv = userEvent.setup();
+    renderWithProviders(
+      <ShareDialog opened onClose={() => undefined} resourceType="DAYS_OFF_CALENDAR" resourceId={21} />,
+    );
+    await screen.findByText("Nothing is shared yet.");
+
+    await pick(userEv, /Ben Bystander/, /Ed Eligible/);
+    await userEv.click(screen.getByRole("button", { name: "Share" }));
+    await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(2));
+
+    expect(await screen.findByText("Couldn't share with Ben Bystander: You can't share this calendar.")).toBeInTheDocument();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ message: "Calendar shared" }));
+    expect(screen.queryByText(/document/i)).toBeNull();
+  });
+
   test("the picker excludes the caller, deactivated accounts and people with an ACTIVE share from the caller", async () => {
     mockApi();
     const userEv = userEvent.setup();

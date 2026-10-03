@@ -37,7 +37,9 @@
     "TEAM_KPI": "KPI zespołu",
     "PERFORMANCE_REVIEW": "ocenę okresową",
     "IMPACT_LOG_ENTRY": "wpis z dziennika wpływu",
-    "SUCCESSION_PLAN": "plan sukcesji"
+    "SUCCESSION_PLAN": "plan sukcesji",
+    "DAYS_OFF": "kalendarz dni wolnych",
+    "DAYS_OFF_named": "kalendarz dni wolnych osoby {{person}}"
   },
   "shareNounOf": {
     "FEEDBACK": "feedbacku",
@@ -46,7 +48,9 @@
     "TEAM_KPI": "KPI zespołu",
     "PERFORMANCE_REVIEW": "oceny okresowej",
     "IMPACT_LOG_ENTRY": "wpisu z dziennika wpływu",
-    "SUCCESSION_PLAN": "planu sukcesji"
+    "SUCCESSION_PLAN": "planu sukcesji",
+    "DAYS_OFF": "kalendarza dni wolnych",
+    "DAYS_OFF_named": "kalendarza dni wolnych osoby {{person}}"
   },
   "kind": {
     "paid": "płatne, pula „{{pool}}”",

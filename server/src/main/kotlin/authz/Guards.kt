@@ -656,6 +656,27 @@ suspend fun requireDaysOffCorrectionsRead(
     throw ForbiddenException("Caller may not read this user's budget corrections")
 }
 
+/**
+ * Reading a PERSON'S days-off calendar as a whole (v4.11.0 — the document-sharing adapter's
+ * [ch.nokillswit.sharing.ShareableResource.guard], and the one definition of "own right" for a
+ * calendar): the person themselves or any manager in the person's TRANSITIVE chain — the
+ * [requireDaysOffCorrectionsRead] shape minus its HR branch: every production call is the
+ * role-stripped share evaluation, so an auditor branch could never fire (HR reads whole calendars
+ * through `scope=org`, audited `hr.list`). **No teammate branch**:
+ * teammates see an absence by calendar parity but may not re-disclose a colleague's whole
+ * calendar. ADMIN-as-such gets nothing (the narrowed-ADMIN rule). The `scope=shared` calendar's
+ * set-at-a-time evaluation is this rule's twin, pinned against it by a parity test.
+ */
+suspend fun requireDaysOffCalendarRead(
+    caller: CallerPrincipal,
+    personId: UInt,
+    managesOwner: suspend () -> Boolean,
+) {
+    if (caller.userId == personId) return // the person — cheap rule first
+    if (managesOwner()) return // DB hit only if needed
+    throw ForbiddenException("Caller may not read this person's days-off calendar")
+}
+
 // ── Impact log ──────────────────────────────────────────────────────────────────────────────
 // Existence disclosure: like feedbacks, impact-log routes read BEFORE guarding (missing → 404,
 // existing-but-forbidden → 403), so an id probe can learn an entry exists — never its content

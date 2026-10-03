@@ -781,6 +781,65 @@ describe("NotificationsButton — document sharing wording (v4.8.0)", () => {
     expect(screen.queryByText(/Sam Seat|2026|Dec 31/)).toBeNull();
   });
 
+  test.each(["en", "pl"] as const)(
+    "the days-off calendar copies name the person, read their/swój for an own share and carry the until variants (%s)",
+    async (lang) => {
+      await i18n.changeLanguage(lang);
+      const link = "/days-off?tab=calendar&scope=shared&user=5";
+      const rows: Item[] = [
+        note(201, "DAYS_OFF_CALENDAR_SHARED", { sharer: "Mia Manager", person: "Pat Person" }, link),
+        note(202, "DAYS_OFF_CALENDAR_SHARED", { sharer: "Mia Manager", person: "Pat Person", expiresOn: "2026-12-31" }, link),
+        note(203, "DAYS_OFF_CALENDAR_SHARED", { sharer: "Pat Person", person: "Pat Person", self: "own" }, link),
+        note(204, "DAYS_OFF_CALENDAR_SHARED", { sharer: "Pat Person", person: "Pat Person", self: "own", expiresOn: "2026-12-31" }, link),
+        note(205, "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN", { sharer: "Mia Manager", sharee: "Me", actor: "Mia Manager", person: "Pat Person" }, null),
+        note(206, "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN", { sharer: "Mia Manager", sharee: "Me", actor: "Pat Person", person: "Pat Person" }, null),
+        note(
+          207,
+          "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN",
+          { sharer: "Mia Manager", sharee: "Ben", actor: "Pat Person", person: "Pat Person", self: "sharer" },
+          "/shares?tab=byMe",
+        ),
+        note(208, "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN", { sharer: "Pat Person", sharee: "Me", actor: "Pat Person", person: "Pat Person", self: "own" }, null),
+        note(209, "DAYS_OFF_CALENDARS_BATCH_SHARED", { sharer: "Mia Manager", count: "3" }, "/days-off?tab=calendar&scope=shared"),
+        note(210, "DAYS_OFF_CALENDARS_BATCH_SHARED", { sharer: "Mia Manager", count: "1", expiresOn: "2026-12-31" }, "/days-off?tab=calendar&scope=shared"),
+      ];
+      setupMocks(mockFetch, rows, rows.length);
+      renderWithProviders(<Harness />);
+      await userEvent.setup().click(await screen.findByRole("button", { name: /\(/ }));
+      const items = await screen.findAllByRole("listitem");
+      expect(items).toHaveLength(rows.length);
+      for (const item of items) {
+        const text = item.textContent ?? "";
+        expect(text, text).not.toMatch(/notifications\.event|DAYS_OFF|CalendarShare|Shared\b/);
+        expect(text).toMatch(/[.]/);
+      }
+      const text = items.map((item) => item.textContent ?? "").join("\n");
+      if (lang === "en") {
+        expect(text).toContain("Mia Manager shared Pat Person's days-off calendar with you.");
+        expect(text).toContain("Mia Manager shared Pat Person's days-off calendar with you. Access lasts until Dec 31, 2026.");
+        expect(text).toContain("Pat Person shared their days-off calendar with you.");
+        expect(text).toContain("Pat Person shared their days-off calendar with you. Access lasts until Dec 31, 2026.");
+        expect(text).toContain("Mia Manager stopped sharing Pat Person's days-off calendar with you.");
+        expect(text).toContain(
+          "Pat Person withdrew your access to the days-off calendar of Pat Person that Mia Manager had shared with you.",
+        );
+        expect(text).toContain("Pat Person withdrew your share of the days-off calendar of Pat Person with Ben.");
+        expect(text).toContain("Pat Person stopped sharing their days-off calendar with you.");
+        expect(text).toContain("Mia Manager shared 3 days-off calendars with you.");
+        expect(text).toContain("Mia Manager shared 1 days-off calendar with you. Access lasts until Dec 31, 2026.");
+      } else {
+        expect(text).toContain("Mia Manager udostępnił/a Ci kalendarz dni wolnych osoby Pat Person.");
+        expect(text).toContain("Pat Person udostępnił/a Ci swój kalendarz dni wolnych.");
+        expect(text).toContain("Mia Manager wycofał/a Twój dostęp do kalendarza dni wolnych osoby Pat Person.");
+        expect(text).toContain("Mia Manager udostępnił/a Ci 3 kalendarze dni wolnych.");
+      }
+      if (lang === "en") {
+        await userEvent.setup().click(screen.getByRole("button", { name: "Go to notification 209" }));
+        expect(screen.getByTestId("path")).toHaveTextContent("/days-off?tab=calendar&scope=shared");
+      }
+    },
+  );
+
   const SHARE_TYPES = [
     "FEEDBACK",
     "ONE_ON_ONE",

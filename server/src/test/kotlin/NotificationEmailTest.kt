@@ -353,6 +353,75 @@ class NotificationEmailTest {
     }
 
     @Test
+    fun `the days-off calendar notices name the person, own calendar reads their, in both languages (v4_11_0)`() {
+        val other = mapOf("sharer" to "Mia Manager", "person" to "Pat Person", "expiresOn" to "2026-12-31")
+        assertTrue(
+            "Mia Manager shared Pat Person's days-off calendar with you. Access lasts until 2026-12-31." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARED, other, "en"),
+        )
+        assertTrue(
+            "Mia Manager udostępnił/a Ci kalendarz dni wolnych osoby Pat Person. Dostęp obowiązuje do 2026-12-31." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARED, other, "pl"),
+        )
+        val own = mapOf("sharer" to "Pat Person", "person" to "Pat Person", "self" to "own")
+        assertTrue(
+            "Pat Person shared their days-off calendar with you." in body(NotificationType.DAYS_OFF_CALENDAR_SHARED, own, "en"),
+        )
+        assertTrue(
+            "Pat Person udostępnił/a Ci swój kalendarz dni wolnych." in body(NotificationType.DAYS_OFF_CALENDAR_SHARED, own, "pl"),
+        )
+        // Withdrawal: the sharer stopped / the person (author) withdrew / the sharer's own copy / own calendar.
+        val stopped = mapOf("sharer" to "Mia Manager", "sharee" to "Sam", "actor" to "Mia Manager", "person" to "Pat Person")
+        assertTrue(
+            "Mia Manager stopped sharing Pat Person's days-off calendar with you." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN, stopped, "en"),
+        )
+        assertTrue(
+            "Mia Manager wycofał/a Twój dostęp do kalendarza dni wolnych osoby Pat Person." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN, stopped, "pl"),
+        )
+        val byAuthor = stopped + ("actor" to "Pat Person")
+        assertTrue(
+            "Pat Person withdrew your access to Pat Person's days-off calendar that Mia Manager had shared with you." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN, byAuthor, "en"),
+        )
+        val sharerCopy = byAuthor + ("self" to "sharer")
+        assertTrue(
+            "Pat Person withdrew your share of Pat Person's days-off calendar with Sam." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN, sharerCopy, "en"),
+        )
+        assertTrue(
+            "Pat Person wycofał/a Twoje udostępnienie kalendarza dni wolnych osoby Pat Person osobie Sam." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN, sharerCopy, "pl"),
+        )
+        val ownStopped = mapOf(
+            "sharer" to "Pat Person", "sharee" to "Sam", "actor" to "Pat Person", "person" to "Pat Person", "self" to "own",
+        )
+        assertTrue(
+            "Pat Person stopped sharing their days-off calendar with you." in
+                body(NotificationType.DAYS_OFF_CALENDAR_SHARE_WITHDRAWN, ownStopped, "en"),
+        )
+        // The batch summary words the plural noun; the area subject is the days-off one.
+        val batch = mapOf("sharer" to "Mia Manager", "count" to "4")
+        assertTrue(
+            "Mia Manager shared days-off calendars with you (4 in total)." in
+                body(NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED, batch, "en"),
+        )
+        assertTrue(
+            "Mia Manager udostępnił/a Ci kalendarze dni wolnych (łącznie: 4)." in
+                body(NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED, batch, "pl"),
+        )
+        assertEquals(
+            "Lettuce: days off",
+            notificationEmailContent("R", NotificationType.DAYS_OFF_CALENDAR_SHARED, other, null, null, "en")!!.subject,
+        )
+        assertEquals(
+            "Lettuce: dni wolne",
+            notificationEmailContent("R", NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED, batch, null, null, "pl")!!.subject,
+        )
+    }
+
+    @Test
     fun `the succession share notice is content-free in both languages`() {
         val params = mapOf("sharer" to "Sia Sharer")
         assertTrue("Sia Sharer shared a succession plan with you." in body(NotificationType.SUCCESSION_PLAN_SHARED, params, "en"))

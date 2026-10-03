@@ -38,7 +38,7 @@
     "steps": {
       "intro": "Dni wolne to nieobecności, które zapisujesz sam/a — nikt ich nie zatwierdza. Płatne dni pochodzą z rocznego budżetu danej puli, a bezpłatne są nieograniczone; ten przewodnik tylko się rozgląda — nic nie zostanie zapisane, a możesz go odtworzyć w każdej chwili z przycisku \"Jak działają dni wolne\".",
       "calendar": "Kalendarz to planer urlopów: jeden wiersz na osobę w Twoich zespołach, płatne dni w kolorze morskim, bezpłatne w szarym, połówki dni wypełnione do połowy. Kolumny weekendów i świąt są wyróżnione tłem.",
-      "scope": "Czyj kalendarz przełącza między Twoimi zespołami, Twoimi bezpośrednimi podwładnymi a wszystkimi Twoimi podwładnymi, łącznie z pośrednimi. Przy zakresach podwładnych pod nazwiskiem każdej osoby widać jej zespół.",
+      "scope": "Czyj kalendarz przełącza między Twoimi zespołami a opcją „Udostępnione mi” — kalendarzami, które udostępnili Ci współpracownicy — a jeśli kierujesz ludźmi, także Twoimi bezpośrednimi podwładnymi i wszystkimi Twoimi podwładnymi, łącznie z pośrednimi. Przy zakresach podwładnych pod nazwiskiem każdej osoby widać jej zespół.",
       "month": "Zmieniaj miesiące strzałkami — kalendarz zawsze otwiera się na bieżącym miesiącu. Najedź na wyróżniony nagłówek kolumny, żeby zobaczyć, jakie to święto.",
       "requests": "Moje dni wolne pokazują każdy Twój wpis, od najnowszego. Nie ma tu nic do zatwierdzenia ani anulowania — Usuń to jedyna dostępna akcja, a usunięty wpis od razu zwalnia swoje dni.",
       "budget": "Twoje płatne dni wolne pokazują, dla każdej płatnej puli, pulę roczną, ile już wykorzystałeś/aś i ile zostało w tym roku. Niewykorzystane dni przechodzą na kolejny rok albo zerują się co stycznia — zależnie od rodzaju puli.",

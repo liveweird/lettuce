@@ -634,6 +634,50 @@ class ActivityLogTest {
     }
 
     @Test
+    fun `a days-off calendar share rides the DAYS_OFF area - snapshot, link, and only the person or HR see it beyond the sharer`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val w = world()
+            val sharee = person("sharee")
+            val second = person("sharee2")
+            val hr = person("hr", roles = setOf(UserRole.HR))
+            // M (E's manager) shares E's calendar; E shares their own.
+            val managerShare = w.manager.client.shareDocument(ShareableResourceType.DAYS_OFF_CALENDAR, w.employee.id, sharee.id)
+            val ownShare = w.employee.client.shareDocument(ShareableResourceType.DAYS_OFF_CALENDAR, w.employee.id, second.id)
+
+            val mine = w.manager.client.page(w.manager.id, "area=DAYS_OFF&pageSize=100").items.shareRows()
+            val row = mine.single()
+            assertEquals("DAYS_OFF:SHARE:${managerShare.id}", row.id)
+            assertEquals("SHARE_CREATED", row.eventType)
+            assertEquals(ActivityArea.DAYS_OFF, row.area)
+            assertEquals(w.employee.id, row.documentId, "the person's user id")
+            assertEquals("/days-off?tab=calendar&scope=shared&user=${w.employee.id}", row.link)
+            assertEquals(mapOf("person" to w.employee.name), row.details)
+            assertEquals(mapOf("sharee" to sharee.name), row.params)
+            assertEquals(managerShare.details, row.details, "the stored snapshot")
+
+            // The person sees their own share row in their own log, and the same row is not M's to see
+            // from the other side: M reading E's log gets NO share row (M did not author E's calendar).
+            val employeeOwn = w.employee.client.page(w.employee.id, "area=DAYS_OFF&pageSize=100").items.shareRows()
+            assertEquals(listOf("DAYS_OFF:SHARE:${ownShare.id}"), employeeOwn.map { it.id })
+            assertTrue(w.manager.client.page(w.employee.id, "area=DAYS_OFF&pageSize=100").items.shareRows().isEmpty())
+            // GM (above M, not the person) never learns of M's share of E's calendar.
+            assertTrue(w.grand.client.page(w.manager.id, "area=DAYS_OFF&pageSize=100").items.shareRows().isEmpty())
+            // HR sees every share row of both logs.
+            assertEquals(1, hr.client.page(w.manager.id, "area=DAYS_OFF&pageSize=100").items.shareRows().size)
+            assertEquals(1, hr.client.page(w.employee.id, "area=DAYS_OFF&pageSize=100").items.shareRows().size)
+
+            // The withdrawal by the person (the author) lands in THEIR log with byAuthor + the sharer, linking the details page later.
+            w.employee.client.withdrawShare(managerShare.id)
+            val withdrawal = w.employee.client.page(w.employee.id, "area=DAYS_OFF&pageSize=100").items.shareRows()
+                .single { it.eventType == "SHARE_WITHDRAWN" }
+            assertEquals(mapOf("sharee" to sharee.name, "byAuthor" to "true", "sharer" to w.manager.name), withdrawal.params)
+            assertEquals(w.employee.id, withdrawal.documentId)
+            // The unfiltered log and the totals stay a total order.
+            assertTotalOrder(w.manager.client.page(w.manager.id, "pageSize=100").items)
+        }
+
+    @Test
     fun `the viewer's disabled area hides that type's share rows, totals stay consistent over pages`() = testApplication {
         usePostgresTestcontainer()
         val w = world()

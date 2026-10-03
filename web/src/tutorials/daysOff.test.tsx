@@ -25,21 +25,22 @@ describe("DAYS_OFF_TUTORIAL step list", () => {
     localStorage.removeItem(DISABLED_FEATURES_KEY);
   });
 
-  test("8 steps for a non-manager, 12 for a manager — exactly the manager-gated targets widen it", () => {
+  test("9 steps for a non-manager, 12 for a manager — exactly the manager-gated targets widen it", () => {
     const t = (k: string) => k;
     const nonManager = buildSteps(DAYS_OFF_TUTORIAL.steps, t, false);
     const manager = buildSteps(DAYS_OFF_TUTORIAL.steps, t, true);
 
-    // The scope picker's step is managerOrHr since v3.25.0 (the HR auditor's org-wide scope
-    // lives in that Select) — for a plain manager vs. non-manager the split is unchanged.
+    // The calendar-scope step is for EVERYONE since v4.11.0 ("Shared with me" is a scope every
+    // caller has — it was managerOnly, then managerOrHr from v3.25.0); the three genuinely
+    // manager-only steps are the team tab, its Entries/Budgets toggle and the on-behalf record.
     const managerOnlyTargets = [
-      '[data-tour="days-off-calendar-scope"]',
       '[data-tour="days-off-team"]',
       '[data-tour="days-off-team-view"]',
       '[data-tour="days-off-record"]',
     ];
-    expect(nonManager).toHaveLength(8);
+    expect(nonManager).toHaveLength(9);
     expect(manager).toHaveLength(12);
+    expect(nonManager.some((s) => s.target === '[data-tour="days-off-calendar-scope"]')).toBe(true);
     for (const target of managerOnlyTargets) {
       expect(nonManager.some((s) => s.target === target), target).toBe(false);
       expect(manager.some((s) => s.target === target), target).toBe(true);
@@ -50,13 +51,11 @@ describe("DAYS_OFF_TUTORIAL step list", () => {
     expect(manager.filter((s) => s.target === "body")).toHaveLength(1);
   });
 
-  test("an HR auditor who manages nobody still gets the calendar-scope step (v3.25.0)", () => {
+  test("an HR auditor who manages nobody sees the same 9 steps as any non-manager", () => {
     const t = (k: string) => k;
     localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
     try {
       const auditor = buildSteps(DAYS_OFF_TUTORIAL.steps, t, false);
-      // The scope Select renders for managers AND auditors, so its step must too — the three
-      // genuinely manager-only steps (team tab, team view, record) stay out.
       expect(auditor).toHaveLength(9);
       expect(auditor.some((s) => s.target === '[data-tour="days-off-calendar-scope"]')).toBe(true);
       for (const target of ['[data-tour="days-off-team"]', '[data-tour="days-off-team-view"]', '[data-tour="days-off-record"]']) {
@@ -226,8 +225,8 @@ describe("days-off tutorial anchors exist on the real pages", () => {
     mockFetch.mockImplementation((url: string) => Promise.resolve(daysOffPageHandler(1)(String(url))));
     renderDaysOffHub("/days-off?tab=calendar");
 
-    // The scope Select mounts unconditionally for a manager — no need to wait for the
-    // (empty, in this mock) calendar grid itself. Mantine associates both the label and the
+    // The scope Select mounts unconditionally (for everyone since v4.11.0) — no need to wait
+    // for the (empty, in this mock) calendar grid itself. Mantine associates both the label and the
     // input with the text (the DaysOff.test.tsx idiom) — any match will do.
     await waitFor(() => expect(screen.getAllByLabelText("Whose calendar").length).toBeGreaterThan(0));
 
