@@ -207,6 +207,7 @@ class SharingTest {
         // The share list row carries the content-free snapshot and the view path.
         val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
         assertEquals(mapOf("provider" to provider.name, "subjects" to subject.name), row.details)
+        ShareDetailsSpec.assertMatches(ShareableResourceType.FEEDBACK, row.details)
         assertEquals("/feedback/$id/view", row.link)
         // The subject never sees the share list (reads in own right: only rows they created — none).
         val subjectView = subject.client.get("/api/v1/shares") {
@@ -728,6 +729,7 @@ class SharingTest {
             }
             val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
             assertEquals(mapOf("title" to "Original goal title", "subordinate" to w.subordinate.name), row.details)
+            ShareDetailsSpec.assertMatches(ShareableResourceType.GOAL, row.details)
             assertEquals("/goals/${w.goalId}/view", row.link)
         }
 
@@ -1003,6 +1005,7 @@ class SharingTest {
             mapOf("manager" to w.manager.name, "subordinate" to w.subordinate.name, "meetingDate" to "2026-07-01"),
             row.details,
         )
+        ShareDetailsSpec.assertMatches(ShareableResourceType.ONE_ON_ONE, row.details)
         assertEquals("/one-on-ones/${w.meeting.id}/view", row.link)
     }
 
@@ -1277,6 +1280,7 @@ class SharingTest {
                 ),
                 row.details,
             )
+            ShareDetailsSpec.assertMatches(ShareableResourceType.PERFORMANCE_REVIEW, row.details)
             assertEquals("/performance-reviews/${w.review.id}/view", row.link)
         }
 
@@ -1665,6 +1669,7 @@ class SharingTest {
             ),
             row.details,
         )
+        ShareDetailsSpec.assertMatches(ShareableResourceType.IMPACT_LOG_ENTRY, row.details)
         assertEquals("/impact-log/${w.entry.id}/view", row.link)
     }
 
@@ -1903,6 +1908,7 @@ class SharingTest {
             val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
             // The snapshot is the seat's person and the owner ONLY.
             assertEquals(mapOf("person" to w.seat.name, "owner" to w.owner.name), row.details)
+            ShareDetailsSpec.assertMatches(ShareableResourceType.SUCCESSION_PLAN, row.details)
             assertEquals("/succession/${w.plan.id}/view", row.link)
         }
 
@@ -2209,6 +2215,7 @@ class SharingTest {
 
             val row = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single()
             assertEquals(mapOf("title" to "Original KPI title", "team" to w.teamName), row.details)
+            ShareDetailsSpec.assertMatches(ShareableResourceType.TEAM_KPI, row.details)
             assertEquals("/team-kpis/${w.kpi.id}/view", row.link)
         }
 
@@ -2481,6 +2488,7 @@ class SharingTest {
             assertEquals(ShareableResourceType.DAYS_OFF_CALENDAR, ownShare.resourceType)
             assertEquals(w.person.id, ownShare.resourceId)
             assertEquals(mapOf("person" to w.person.name), ownShare.details)
+            ShareDetailsSpec.assertMatches(ShareableResourceType.DAYS_OFF_CALENDAR, ownShare.details)
             assertEquals("/days-off?tab=calendar&scope=shared&user=${w.person.id}", ownShare.link)
 
             // M (direct) and G (skip-level) share the report's calendar; so does the person to a second sharee.
@@ -2868,6 +2876,7 @@ class SharingTest {
             assertEquals(ShareableResourceType.PULSE_TEAM_RESULTS, share.resourceType)
             assertEquals(w.teamId, share.resourceId)
             assertEquals(mapOf("team" to w.teamName), share.details)
+            ShareDetailsSpec.assertMatches(ShareableResourceType.PULSE_TEAM_RESULTS, share.details)
             assertEquals("/pulse?tab=results&view=shared&team=${w.teamId}", share.link)
             assertEquals(HttpStatusCode.Created, w.manager.client.sharePulse(w.teamId, person("sharee-m").id).status)
             assertEquals(HttpStatusCode.Created, w.grand.client.sharePulse(w.teamId, person("sharee-g").id).status)

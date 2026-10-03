@@ -13,7 +13,7 @@ import {
   type ShareBatchOutcome,
 } from "../api/shares";
 import { useAllUsers } from "../hooks/useAllUsers";
-import { todayIsoDate } from "../utils/datetime";
+import { useUntilDate } from "../hooks/useUntilDate";
 import {
   kindContext,
   selectedResourceIds,
@@ -23,10 +23,10 @@ import {
   type MassShareRow,
 } from "../utils/massShare";
 import { invalidateShares } from "../utils/shareQueries";
-import { saveErrorMessage } from "../utils/saveError";
+import { shareErrorMessage } from "../utils/shareErrors";
 import { showSuccessToast } from "../utils/toast";
-import DateField from "./DateField";
 import SharePeoplePicker from "./SharePeoplePicker";
+import UntilDateField from "./UntilDateField";
 
 // The warning names at most this many people before collapsing into "and N more".
 const MAX_WARNED_NAMES = 5;
@@ -37,11 +37,10 @@ const NO_EXCLUDED_IDS: ReadonlySet<number> = new Set();
 
 /** One whole-request failure → a readable reason (429 gets its own wording, the rest the shared chain). */
 function failureMessage(err: unknown, t: TFunction, kind: MassShareKind): string {
-  const context = kindContext(kind);
-  if (err instanceof ApiError && err.status === 429) return t("sharing.batch.error.rateLimited");
-  return saveErrorMessage(
+  return shareErrorMessage(
     err,
     t,
+    "sharing.batch.error.rateLimited",
     {
       forbidden: "sharing.batch.error.forbidden",
       notFound: "sharing.batch.error.notFound",
@@ -49,7 +48,7 @@ function failureMessage(err: unknown, t: TFunction, kind: MassShareKind): string
       failedStatus: "sharing.batch.error.failedStatus",
       failed: "sharing.batch.error.failed",
     },
-    context,
+    kindContext(kind),
   );
 }
 
@@ -91,8 +90,7 @@ function MassShareForm({
   const queryClient = useQueryClient();
   const { userPool } = useAllUsers();
   const [picked, setPicked] = useState<string[]>([]);
-  const [until, setUntil] = useState("");
-  const [untilError, setUntilError] = useState<string | null>(null);
+  const untilDate = useUntilDate();
   const [run, setRun] = useState<Run | null>(null);
   // The result heading takes focus when a run settles: the Share button that had it just unmounted.
   const resultHeadingRef = useRef<HTMLParagraphElement>(null);
@@ -118,11 +116,7 @@ function MassShareForm({
 
   async function submit(ids: readonly number[]) {
     if (picked.length === 0 || ids.length === 0) return;
-    if (until !== "" && until < todayIsoDate()) {
-      setUntilError(t("sharing.error.untilPast"));
-      return;
-    }
-    setUntilError(null);
+    if (!untilDate.validate()) return;
     setSubmitting(true);
     // The pre-run rows: the candidates refetch below can turn a just-shared person unshareable,
     // and the summary would then print them as "#id".
@@ -131,7 +125,7 @@ function MassShareForm({
       resourceType,
       ids,
       picked.map(Number),
-      until === "" ? undefined : until,
+      untilDate.expiresOn,
     );
     setSubmitting(false);
     setRun({
@@ -254,18 +248,7 @@ function MassShareForm({
           <Text size="xs" c="dimmed">
             {t("sharing.batch.maxPeople", { max: MAX_BATCH_SHARE_SHAREES })}
           </Text>
-          <DateField
-            label={t("sharing.until")}
-            description={t("sharing.untilHint")}
-            value={until}
-            onChange={(iso) => {
-              setUntil(iso);
-              setUntilError(null);
-            }}
-            minIso={todayIsoDate()}
-            error={untilError}
-            w={{ base: "100%", sm: 260 }}
-          />
+          <UntilDateField value={untilDate.until} onChange={untilDate.setUntil} error={untilDate.untilError} />
           {warnedNames.length > 0 && (
             <Alert color="yellow" variant="light">
               {t("sharing.batch.subjectWarning", { count: warnedNames.length, names: shownNames })}

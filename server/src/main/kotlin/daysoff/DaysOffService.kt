@@ -435,21 +435,7 @@ class DaysOffService(val database: R2dbcDatabase, private val cipher: ch.nokills
      * HR/ADMIN widening, nothing audited — and unpaged (bounded by the chain). ONE transaction.
      */
     suspend fun shareCandidates(callerId: UInt): DaysOffShareCandidateList = suspendTransaction(database) {
-        DaysOffShareCandidateList(
-            chainRoster(callerId).map {
-                DaysOffShareCandidate(
-                    userId = it.userId,
-                    name = it.name,
-                    email = it.email,
-                    deactivated = it.deactivated,
-                    teams = it.teams,
-                    directManagers = it.directManagers,
-                    careerPath = it.careerPath,
-                    careerSpecialization = it.careerSpecialization,
-                    seniorityLevel = it.seniorityLevel,
-                )
-            },
-        )
+        DaysOffShareCandidateList(chainRoster(callerId))
     }
 
     /**

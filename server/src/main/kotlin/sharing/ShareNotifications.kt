@@ -16,17 +16,14 @@ internal const val BATCH_SHARED_LINK = "/shares"
 internal const val SELF_OWN = "own"
 
 /**
- * The `self: "own"` carrier of a sharee-facing notice: present only for the days-off CALENDAR (the one
- * kind whose subject is a person who can also be the sharer) when the sharer IS that person; every
- * other kind ignores [sharerIsSubject] (pulse results name a team, never a person). One definition
- * for the create and the withdraw builders.
+ * The `self: "own"` carrier of a sharee-facing notice: present when [sharerIsSubject] — the sharer IS
+ * the person the document is about. The routes derive that flag from the adapter's
+ * [ShareableResource.isSubject], which only the days-off CALENDAR (the one kind whose resource id is a
+ * person) overrides, so every other kind never receives it. One definition for the create and the
+ * withdraw builders.
  */
-private fun ownCarrier(type: ShareableResourceType, sharerIsSubject: Boolean): Map<String, String> =
-    if (type == ShareableResourceType.DAYS_OFF_CALENDAR && sharerIsSubject) {
-        mapOf("self" to SELF_OWN)
-    } else {
-        emptyMap()
-    }
+private fun ownCarrier(sharerIsSubject: Boolean): Map<String, String> =
+    if (sharerIsSubject) mapOf("self" to SELF_OWN) else emptyMap()
 
 /**
  * The notification a new share mints for the SHARE'S RECIPIENT (the sharee): params `{sharer}`
@@ -35,8 +32,8 @@ private fun ownCarrier(type: ShareableResourceType, sharerIsSubject: Boolean): M
  * `{sharer}` only (the type name already says "succession plan"; nothing about the seat or the
  * end date). A kind with [notificationLabelKeys] (the days-off calendar, v4.11.0: `person`; pulse
  * results, v4.12.0: `team`) additionally carries those adapter-label entries from [labelParams] — the
- * plaintext display name — plus, for the calendar only, `self: "own"` when [sharerIsSubject]; the seven
- * document kinds carry none, so their params stay byte-identical. Pure and DB-free like every
+ * plaintext display name — plus `self: "own"` when [sharerIsSubject] (only the calendar's adapter ever
+ * reports it); the seven document kinds carry none, so their params stay byte-identical. Pure and DB-free like every
  * `*Notifications.kt` builder; the route resolves the sharer's name and persists the result.
  */
 internal fun shareCreatedNotification(
@@ -51,7 +48,7 @@ internal fun shareCreatedNotification(
     val params = buildMap {
         put("sharer", sharerName)
         putAll(labelParams.filterKeys { it in type.notificationLabelKeys })
-        putAll(ownCarrier(type, sharerIsSubject))
+        putAll(ownCarrier(sharerIsSubject))
         if (expiresOn != null && type != ShareableResourceType.SUCCESSION_PLAN) put("expiresOn", expiresOn)
     }
     return Notification(recipientId = shareeId, type = type.sharedNotification, params = params, link = link)
@@ -88,8 +85,8 @@ internal fun batchSharedNotification(
  * their "Shared by me" list. The succession copies carry `{sharer}` only (+ the `self` carrier on
  * the sharer's copy) — they name nobody else. A kind with [notificationLabelKeys] (the days-off
  * calendar, v4.11.0; pulse results, v4.12.0) adds those entries of [labelParams] (the creation-time
- * `details` snapshot) to BOTH copies and, for the calendar only, `self: "own"` on the sharee's copy
- * when [sharerIsSubject] (the sharer's copy only
+ * `details` snapshot) to BOTH copies and `self: "own"` on the sharee's copy
+ * when [sharerIsSubject] (calendar only, see [ownCarrier]) (the sharer's copy only
  * exists when the sharer is not the author, and the author of a calendar is its person — so there
  * `sharerIsSubject` is never true and `self` stays `"sharer"`).
  */
@@ -111,7 +108,7 @@ internal fun shareWithdrawnNotifications(
     } else {
         mapOf("sharer" to sharerName, "sharee" to shareeName, "actor" to actorName)
     }
-    val shareeParams = base + labelled + ownCarrier(type, sharerIsSubject)
+    val shareeParams = base + labelled + ownCarrier(sharerIsSubject)
     val toSharee = Notification(recipientId = shareeId, type = type.withdrawnNotification, params = shareeParams, link = null)
     if (actorId == sharerId) return listOf(toSharee)
     val toSharer = Notification(

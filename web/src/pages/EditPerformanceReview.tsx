@@ -37,7 +37,7 @@ import { formatMonthRange, isCurrentPeriod } from "../utils/datetime";
 import { reviewViewLink } from "../utils/performanceReviewLinks";
 import { invalidatePerformanceReview } from "../utils/performanceReviewQueries";
 import { showSuccessToast } from "../utils/toast";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 import {
   isReviewComplete,
   MAX_REVIEW_SUMMARY_LENGTH,
@@ -75,7 +75,7 @@ export default function EditPerformanceReview() {
   const idIsValid = Number.isFinite(id) && id > 0;
   const currentUserId = getUserId();
 
-  const from = searchParams.get("from") ?? undefined;
+  const from = readFromParam(searchParams) ?? undefined;
   const backOverride = safeBackParam(searchParams);
   const backTo = backOverride ?? "/performance";
 

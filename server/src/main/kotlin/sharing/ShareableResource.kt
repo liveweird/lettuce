@@ -54,6 +54,15 @@ interface ShareableResource<D : Any, G> {
 
     /** The in-app path of the document's view screen (the share notification's link). */
     fun viewPath(id: UInt): String
+
+    /**
+     * Is [userId] the person the document with [resourceId] is ABOUT — so the share notice reads
+     * "their" instead of naming a third party when the sharer is that person? Only a kind whose
+     * resource id IS a person overrides this (the days-off calendar); every other kind is never
+     * about a person who can also be the sharer. Takes the id, not the document: the withdrawal
+     * route has only the stored share row (the document may be gone by then).
+     */
+    fun isSubject(userId: UInt, resourceId: UInt): Boolean = false
 }
 
 /**

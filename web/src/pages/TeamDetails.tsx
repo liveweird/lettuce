@@ -43,7 +43,7 @@ import { teamKpisLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { useAllUsers } from "../hooks/useAllUsers";
 import { resolveBackLink } from "../utils/backLink";
-import { safeBackParam, boundedReturnPath } from "../utils/url";
+import { safeBackParam, boundedReturnPath, readFromParam } from "../utils/url";
 
 type MemberRow = { id: number; name: string };
 
@@ -56,7 +56,7 @@ export default function TeamDetails() {
   // were clicked on) wins the destination; a recognised `from` keeps naming the label, else a
   // back-only visit is labelled after where it returns to (`resolveBackLink`).
   const [searchParams] = useSearchParams();
-  const fromParam = searchParams.get("from");
+  const fromParam = readFromParam(searchParams);
   const recognisedFrom: "org" | "myTeams" | null =
     fromParam === "org" || fromParam === "myTeams" ? fromParam : null;
   const backOverride = safeBackParam(searchParams);

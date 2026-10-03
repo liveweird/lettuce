@@ -78,8 +78,9 @@ function shareSentence(entry: ActivityEntry, c: ActivityContext): string {
   // A days-off calendar share names the person whose calendar it is (the stored snapshot's
   // `person`) — "Shared Pat's days-off calendar with Ben" — and a pulse-results share (v4.12.0) the
   // team (`team`) — "Shared the pulse survey results of AAA with Ben" — falling back to the generic noun.
-  const person = entry.area === "DAYS_OFF" ? entry.details?.person : undefined;
-  const team = entry.area === "PULSE_TEAM_RESULTS" ? entry.details?.team : undefined;
+  const kind = activityDocumentKind(entry);
+  const person = kind === "DAYS_OFF_CALENDAR" ? entry.details?.person : undefined;
+  const team = kind === "PULSE_TEAM_RESULTS" ? entry.details?.team : undefined;
   const suffix = person != null || team != null ? "_named" : "";
   const nounKey = dynamicKey(`activity.shareNoun.${area}${suffix}`);
   const nounOfKey = dynamicKey(`activity.shareNounOf.${area}${suffix}`);

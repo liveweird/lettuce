@@ -2,13 +2,13 @@ package ch.nokillswit
 
 import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.daysoff.DaysOffCalendarShareable
-import ch.nokillswit.daysoff.DaysOffShareCandidate
 import ch.nokillswit.daysoff.DaysOffShareCandidateList
 import ch.nokillswit.dictionaries.Dictionary
 import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.sharing.ShareAccessKey
 import ch.nokillswit.sharing.ShareRegistryKey
 import ch.nokillswit.sharing.ShareableResourceType
+import ch.nokillswit.teams.ChainPerson
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamRef
 import ch.nokillswit.users.CareerPositionWrite
@@ -45,7 +45,7 @@ class DaysOffShareCandidatesTest {
     private suspend fun HttpClient.candidates(): DaysOffShareCandidateList =
         get("/api/v1/days-off/share-candidates").body()
 
-    private fun DaysOffShareCandidateList.byId(id: UInt): DaysOffShareCandidate = items.single { it.userId == id }
+    private fun DaysOffShareCandidateList.byId(id: UInt): ChainPerson = items.single { it.userId == id }
 
     @Test
     fun `rows are the caller's transitive chain only - deactivated kept, deleted and strangers absent, name order`() =

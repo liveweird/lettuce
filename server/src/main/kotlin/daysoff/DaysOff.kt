@@ -1,10 +1,9 @@
 package ch.nokillswit.daysoff
 
-import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
 import ch.nokillswit.infra.parseIsoDateStrict
+import ch.nokillswit.teams.ChainPerson
 import ch.nokillswit.teams.TeamRef
-import ch.nokillswit.users.UserRef
 import io.ktor.server.plugins.BadRequestException
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -210,29 +209,13 @@ data class DaysOffCalendarResponse(
 )
 
 /**
- * One person in the caller's transitive chain, for the days-off calendar mass-share picker
- * (v4.11.0 — the calendar counterpart of the reviews `ShareCandidate`, minus the review join:
- * every chain person's calendar is shareable, the batch route re-runs the real guard anyway).
- * [directManagers] are the managers of the person's teams minus the person themselves — the
- * caller appears there as themselves. [seniorityLevel] is always attached: every row is the
- * caller's own chain (the seniority-visibility rule). Nothing about absences rides here.
+ * Unpaged, caller-relative picker dataset — see [DaysOffService.shareCandidates]. Each item is the
+ * shared [ChainPerson] (v4.11.0 — the calendar counterpart of the reviews `ShareCandidate`, minus the
+ * review join: every chain person's calendar is shareable, the batch route re-runs the real guard
+ * anyway). Nothing about absences rides here.
  */
 @Serializable
-data class DaysOffShareCandidate(
-    val userId: UInt,
-    val name: String,
-    val email: String,
-    val deactivated: Boolean,
-    val teams: List<TeamRef>,
-    val directManagers: List<UserRef>,
-    val careerPath: DictionaryEntry?,
-    val careerSpecialization: DictionaryEntry?,
-    val seniorityLevel: DictionaryEntry?,
-)
-
-/** Unpaged, caller-relative picker dataset — see [DaysOffService.shareCandidates]. */
-@Serializable
-data class DaysOffShareCandidateList(val items: List<DaysOffShareCandidate>)
+data class DaysOffShareCandidateList(val items: List<ChainPerson>)
 
 /**
  * One user's budget in ONE paid pool for one calendar year (v3.2.0 — one row per (user, pool

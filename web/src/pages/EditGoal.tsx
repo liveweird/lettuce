@@ -31,7 +31,7 @@ import {
 import { goalViewLink } from "../utils/goalLinks";
 import { invalidateGoal } from "../utils/goalQueries";
 import { showSuccessToast } from "../utils/toast";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 
 /**
  * The status-dependent editor on one route (the EditFeedback precedent): a DRAFT renders the
@@ -49,7 +49,7 @@ export default function EditGoal() {
   const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const from = searchParams.get("from") ?? "own";
+  const from = readFromParam(searchParams) ?? "own";
   const backOverride = safeBackParam(searchParams);
   // Bare visits fall back to the Goals page's My-goals tab (see ViewGoal); real flows pass `back`.
   const backTo = backOverride ?? "/goals";

@@ -26,7 +26,7 @@ import { isShareLapse } from "../utils/shareLapse";
 import { showSuccessToast } from "../utils/toast";
 import { saveErrorMessage } from "../utils/saveError";
 import { ratingLabel, REVIEW_CATEGORIES } from "../utils/reviewRatings";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 
 // The manager's lifecycle actions per status (the ViewGoal ACTIONS idiom). Every edge is
 // bodyless — no close-modal analogue; publish is the "deliver" primary, unpublish the
@@ -96,7 +96,7 @@ export default function ViewPerformanceReview() {
   const currentUserId = getUserId();
 
   // Bare visits (notification links) return to the Performance page; drill-downs' explicit back wins.
-  const from = searchParams.get("from") ?? undefined;
+  const from = readFromParam(searchParams) ?? undefined;
   const backOverride = safeBackParam(searchParams);
   const backTo = backOverride ?? "/performance";
 

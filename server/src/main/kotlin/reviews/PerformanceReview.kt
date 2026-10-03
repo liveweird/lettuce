@@ -1,11 +1,14 @@
 package ch.nokillswit.reviews
 
-import ch.nokillswit.dictionaries.DictionaryEntry
 import ch.nokillswit.infra.paging.PageResponse
-import ch.nokillswit.teams.TeamRef
-import ch.nokillswit.users.UserRef
+import ch.nokillswit.teams.ChainPerson
 import io.ktor.server.plugins.BadRequestException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.elementNames
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonTransformingSerializer
+import kotlinx.serialization.json.jsonObject
 
 @Serializable
 enum class PerformanceReviewStatus { DRAFT, CALIBRATION, PUBLISHED }
@@ -141,31 +144,47 @@ data class ShareCandidateReview(
     val overallRating: Int?,
 )
 
-/** One person in the caller's transitive chain, for the mass-share picker (v4.10.0). */
+/**
+ * One person in the caller's transitive chain, for the mass-share picker (v4.10.0): the shared
+ * [ChainPerson] plus the review join. On the wire the person's nine fields are FLAT in this
+ * object (the declared `ShareCandidate` schema — [FlatShareCandidateSerializer] unwraps [person]
+ * on encode and re-wraps it on decode), followed by `review`, `shareable` and `reason`.
+ */
 @Serializable
 data class ShareCandidate(
-    val userId: UInt,
-    val name: String,
-    val email: String,
-    val deactivated: Boolean,
-    val teams: List<TeamRef>,
-    // Managers of the person's teams, minus the person themselves — the caller appears here as
-    // themselves; the SPA's direct-manager facet keeps the subtree under a chosen manager.
-    val directManagers: List<UserRef>,
-    val careerPath: DictionaryEntry?,
-    val careerSpecialization: DictionaryEntry?,
-    // Always attached: every row is the caller's own chain (the seniority-visibility rule).
-    val seniorityLevel: DictionaryEntry?,
+    val person: ChainPerson,
     val review: ShareCandidateReview?,
     val shareable: Boolean,
     val reason: ShareCandidateReason?,
 )
 
+/**
+ * Serializes a [ShareCandidate] with [ShareCandidate.person] flattened into the object, in the
+ * original field order (the person's fields first, then review/shareable/reason) — the JSON is
+ * byte-identical to the pre-checkup-#38 flat DTO. Applied on the list's item type; the plain
+ * generated serializer (the nested form) stays the delegate.
+ */
+object FlatShareCandidateSerializer : JsonTransformingSerializer<ShareCandidate>(ShareCandidate.serializer()) {
+    private val personKeys: Set<String> = ChainPerson.serializer().descriptor.elementNames.toSet()
+
+    override fun transformSerialize(element: JsonElement): JsonElement {
+        val candidate = element.jsonObject
+        return JsonObject(candidate.getValue("person").jsonObject + (candidate - "person"))
+    }
+
+    override fun transformDeserialize(element: JsonElement): JsonElement {
+        val (person, rest) = element.jsonObject.entries.partition { it.key in personKeys }
+        return JsonObject(
+            mapOf("person" to JsonObject(person.associate { it.key to it.value })) + rest.associate { it.key to it.value },
+        )
+    }
+}
+
 /** Unpaged, caller-relative picker dataset — see [PerformanceReviewService.shareCandidates]. */
 @Serializable
 data class ShareCandidateList(
     val periodId: UInt,
-    val items: List<ShareCandidate>,
+    val items: List<@Serializable(with = FlatShareCandidateSerializer::class) ShareCandidate>,
 )
 
 typealias PerformanceReviewPageResponse = PageResponse<PerformanceReviewListItem>

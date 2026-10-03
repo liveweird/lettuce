@@ -10,7 +10,7 @@ import FeedbackTable from "./FeedbackTable";
 import { feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { parsePositiveInt } from "../utils/parse";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 
 // Which screen this one was opened from (a Dashboard tab, the Users list, or a team's members
 // roster), so the "Back to …" link and the invalid-id redirect return there. Defaults to managers
@@ -65,7 +65,7 @@ export default function ManagerFeedbacks() {
   const params = useParams<{ userId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const name = searchParams.get("name");
-  const fromParam = searchParams.get("from");
+  const fromParam = readFromParam(searchParams);
   const teamId = parsePositiveInt(searchParams.get("teamId"));
 
   const requestedTab = searchParams.get("tab");

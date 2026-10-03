@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { boundedReturnPath, inAppPath, MAX_RETURN_PATH_LENGTH, safeBackParam, safeCancelParam, toRelativePath } from "./url";
+import { boundedReturnPath, inAppPath, MAX_RETURN_PATH_LENGTH, safeBackParam, readFromParam, safeCancelParam, toRelativePath } from "./url";
 
 describe("safeBackParam", () => {
   const of = (search: string) => new URLSearchParams(search);
@@ -154,5 +154,12 @@ describe("boundedReturnPath", () => {
       expect(inAppPath(current)).toBe(current);
     }
     expect(longest).toBeLessThanOrEqual(MAX_RETURN_PATH_LENGTH);
+  });
+});
+
+describe("readFromParam", () => {
+  test("returns the raw origin key, null when absent", () => {
+    expect(readFromParam(new URLSearchParams("from=team&x=1"))).toBe("team");
+    expect(readFromParam(new URLSearchParams("x=1"))).toBeNull();
   });
 });

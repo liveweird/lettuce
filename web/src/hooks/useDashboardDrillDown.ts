@@ -4,7 +4,7 @@ import { canAudit } from "../api/session";
 import { useAllUsers } from "./useAllUsers";
 import { userDetailsLink } from "../utils/userLinks";
 import { parsePositiveInt } from "../utils/parse";
-import { safeBackParam } from "../utils/url";
+import { safeBackParam, readFromParam } from "../utils/url";
 
 /**
  * The display name a `/users/:userId/…` heading renders for the route's person (v3.5.0 — the
@@ -67,7 +67,7 @@ export function useDashboardDrillDown(basePath: string): {
   const params = useParams<{ userId: string }>();
   const [searchParams] = useSearchParams();
   const name = searchParams.get("name");
-  const fromParam = searchParams.get("from");
+  const fromParam = readFromParam(searchParams);
   const teamId = parsePositiveInt(searchParams.get("teamId"));
   // Explicit return override (the details-page round-trip: `from` alone would lose the
   // details page's own origin). In-app paths only (the shared sanitizer, v2.35.0) —

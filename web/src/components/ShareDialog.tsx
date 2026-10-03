@@ -13,16 +13,18 @@ import {
   type ShareResponse,
 } from "../api/shares";
 import { useAllUsers } from "../hooks/useAllUsers";
-import { formatIsoDate, todayIsoDate } from "../utils/datetime";
+import { useUntilDate } from "../hooks/useUntilDate";
+import { formatIsoDate } from "../utils/datetime";
 import { shareKindContext, type ShareKindContext } from "../utils/shareKinds";
 import { documentSharesKey, invalidateShares } from "../utils/shareQueries";
-import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
+import { loadErrorMessage } from "../utils/saveError";
+import { shareErrorMessage } from "../utils/shareErrors";
 import { showSuccessToast } from "../utils/toast";
 import CenteredLoader from "./CenteredLoader";
 import ConfirmActionModal from "./ConfirmActionModal";
-import DateField from "./DateField";
 import ShareStatusBadge from "./ShareStatusBadge";
 import SharePeoplePicker from "./SharePeoplePicker";
+import UntilDateField from "./UntilDateField";
 
 type Failure = { shareeId: number; name: string; reason: string; retryable: boolean };
 
@@ -33,22 +35,27 @@ function failureReason(
   kind: "create" | "withdraw",
   context: ShareKindContext,
 ): string {
-  if (err instanceof ApiError && err.status === 429) return t("sharing.error.rateLimited");
-  return kind === "create"
-    ? saveErrorMessage(err, t, {
-        forbidden: "sharing.error.forbidden",
-        notFound: "sharing.error.notFound",
-        conflict: "sharing.error.duplicate",
-        invalid: "sharing.error.invalid",
-        failedStatus: "sharing.error.failedStatus",
-        failed: "sharing.error.failed",
-      }, context)
-    : saveErrorMessage(err, t, {
-        forbidden: "sharing.error.withdrawForbidden",
-        notFound: "sharing.error.notFound",
-        conflict: "sharing.error.withdrawConflict",
-        failed: "sharing.error.withdrawFailed",
-      }, context);
+  return shareErrorMessage(
+    err,
+    t,
+    "sharing.error.rateLimited",
+    kind === "create"
+      ? {
+          forbidden: "sharing.error.forbidden",
+          notFound: "sharing.error.notFound",
+          conflict: "sharing.error.duplicate",
+          invalid: "sharing.error.invalid",
+          failedStatus: "sharing.error.failedStatus",
+          failed: "sharing.error.failed",
+        }
+      : {
+          forbidden: "sharing.error.withdrawForbidden",
+          notFound: "sharing.error.notFound",
+          conflict: "sharing.error.withdrawConflict",
+          failed: "sharing.error.withdrawFailed",
+        },
+    context,
+  );
 }
 
 type Docs = { resourceType: ShareableResourceType; resourceId: number };
@@ -63,18 +70,13 @@ function ShareForm({
   const queryClient = useQueryClient();
   const { userPool } = useAllUsers();
   const [selected, setSelected] = useState<string[]>([]);
-  const [until, setUntil] = useState("");
-  const [untilError, setUntilError] = useState<string | null>(null);
+  const untilDate = useUntilDate();
   const [submitting, setSubmitting] = useState(false);
   const [failures, setFailures] = useState<Failure[]>([]);
 
   async function submit() {
     if (selected.length === 0) return;
-    if (until !== "" && until < todayIsoDate()) {
-      setUntilError(t("sharing.error.untilPast"));
-      return;
-    }
-    setUntilError(null);
+    if (!untilDate.validate()) return;
     setSubmitting(true);
     setFailures([]);
     const failed: Failure[] = [];
@@ -82,7 +84,7 @@ function ShareForm({
     for (const value of selected) {
       const shareeId = Number(value);
       try {
-        await createShare({ resourceType, resourceId, shareeId, expiresOn: until === "" ? undefined : until });
+        await createShare({ resourceType, resourceId, shareeId, expiresOn: untilDate.expiresOn });
         created += 1;
       } catch (err) {
         failed.push({
@@ -98,7 +100,7 @@ function ShareForm({
     setFailures(failed);
     // Successes leave the selection; failures stay for a retry (duplicates drop out too).
     setSelected(failed.filter((f) => f.retryable).map((f) => String(f.shareeId)));
-    if (failed.length === 0) setUntil("");
+    if (failed.length === 0) untilDate.clear();
     await invalidateShares(queryClient, resourceType, resourceId);
     if (created > 0) showSuccessToast(t("sharing.toast.shared", { context: shareKindContext(resourceType) }));
   }
@@ -106,18 +108,7 @@ function ShareForm({
   return (
     <Stack gap="sm">
       <SharePeoplePicker value={selected} onChange={setSelected} excludedIds={excludedIds} />
-      <DateField
-        label={t("sharing.until")}
-        description={t("sharing.untilHint")}
-        value={until}
-        onChange={(iso) => {
-          setUntil(iso);
-          setUntilError(null);
-        }}
-        minIso={todayIsoDate()}
-        error={untilError}
-        w={{ base: "100%", sm: 260 }}
-      />
+      <UntilDateField value={untilDate.until} onChange={untilDate.setUntil} error={untilDate.untilError} />
       {failures.length > 0 && (
         <Alert color="red" variant="light">
           <Stack gap={4}>
