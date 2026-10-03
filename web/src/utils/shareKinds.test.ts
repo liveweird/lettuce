@@ -115,23 +115,15 @@ describe("REQUIRED_KEYS vs the OpenAPI contract (checkup #38 S6)", () => {
   // The `details` description of ShareResponse is the shared oracle: the server pins the same text
   // against its snapshot builders, this pins the client's label requirements against it.
   const keysByType = (): Map<string, string[]> => {
-    const start = specText.indexOf("    ShareResponse:");
-    const marker = specText.indexOf("Keys per\n            `resourceType`:", start);
-    expect(marker).toBeGreaterThan(start);
-    const end = specText.indexOf("\n\n", marker);
-    const block = specText.slice(marker, end);
+    // Whitespace-collapsed, so re-wrapping or re-indenting the YAML description cannot break it.
+    const flat = specText.slice(specText.indexOf("    ShareResponse:")).replaceAll(/\s+/g, " ");
+    const marker = flat.indexOf("Keys per `resourceType`:");
+    expect(marker).toBeGreaterThanOrEqual(0);
+    // "Keys per `resourceType`: FEEDBACK `{provider,subjects}`; …; PULSE_TEAM_RESULTS `{team}`."
+    const block = flat.slice(marker, flat.indexOf("}`.", marker) + 3);
     const found = new Map<string, string[]>();
-    // "Keys per `resourceType`: FEEDBACK `{provider,subjects}`; ONE_ON_ONE `{…}`; …" — entries
-    // after the colon are `;`-separated, each "TYPE `{key,key}`".
-    const entries = block.slice(block.indexOf(":") + 1).replaceAll(/\s+/g, " ").split(";");
-    for (const entry of entries) {
-      const open = entry.indexOf("`{");
-      const close = entry.indexOf("}`");
-      if (open < 0 || close < open) continue;
-      found.set(
-        entry.slice(0, open).trim(),
-        entry.slice(open + 2, close).split(",").map((k) => k.trim()),
-      );
+    for (const m of block.matchAll(/\b([A-Z][A-Z_]*) `\{([A-Za-z,]+)\}`/g)) {
+      found.set(m[1], m[2].split(",").sort());
     }
     return found;
   };
@@ -140,7 +132,7 @@ describe("REQUIRED_KEYS vs the OpenAPI contract (checkup #38 S6)", () => {
     const documented = keysByType();
     expect([...documented.keys()].sort()).toEqual([...SHARE_TYPES].sort());
     for (const type of SHARE_TYPES) {
-      expect(REQUIRED_KEYS[type], type).toEqual(documented.get(type));
+      expect([...REQUIRED_KEYS[type]].sort(), type).toEqual(documented.get(type));
     }
   });
 });
