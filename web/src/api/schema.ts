@@ -3746,6 +3746,15 @@ export interface paths {
          *     fill gate — no role exemption, ADMIN included) and the team must be in their visible
          *     tree (member-of + managed + below). Fewer than 3 responses in the scope →
          *     `insufficientResponses: true` with all aggregates null (k-anonymity), not an error.
+         *
+         *     **Through a share (v4.12.0, `PULSE_TEAM_RESULTS`):** a caller denied in their own right
+         *     who holds an active share of the team's results reads exactly what the SHARER could — the
+         *     same guard re-run for the sharer with the HR role stripped, so the SHARER's fill gate (a
+         *     cycle the sharer sat out) and visible tree decide, never the caller's; the response then
+         *     carries `sharedBy`. The `404` → `409` → `403` order is unchanged (the share lookup comes
+         *     last). When the share exists but the sharer can no longer open this cycle's results the
+         *     `403` detail is "The person who shared this no longer has access to it". A share read is
+         *     never audit-logged (no `hr.read`).
          */
         get: operations["getPulseTeamResults"];
         put?: never;
@@ -3776,7 +3785,9 @@ export interface paths {
          *     only (the team must be in the caller's MONITORED tree — managed + below; HR org-wide,
          *     audit-logged); plain members never read comments; no own-participation requirement.
          *     `409` unless CLOSED. Fewer than 3 responses in the scope → withheld
-         *     (`insufficientResponses: true`, empty items).
+         *     (`insufficientResponses: true`, empty items). Through a share (v4.12.0) the same
+         *     monitoring rule is evaluated on the SHARER: a manager-sharer passes the comments on, a
+         *     member-sharer has none to pass on (`403` with the share-lapse detail).
          */
         get: operations["getPulseComments"];
         put?: never;
@@ -3805,7 +3816,11 @@ export interface paths {
          *     (HR org-wide, audited; otherwise the caller's visible tree). The per-cycle fill gate
          *     applies POINT-WISE for non-HR callers: a cycle the caller sat out yields
          *     `NOT_A_RESPONDENT` (no numbers at all); a scope under 3 responses yields
-         *     `NOT_ENOUGH_RESPONSES` (counts shown, eNPS withheld).
+         *     `NOT_ENOUGH_RESPONSES` (counts shown, eNPS withheld). Through a share (v4.12.0) the team
+         *     access is the SHARER's and a point carries numbers when SOME principal who may see the
+         *     team responded in that cycle — the union over the caller (when their own right holds) and
+         *     every active sharer who still passes — so each point is exactly what one of them sees;
+         *     the response names no sharer.
          */
         get: operations["getPulseTrend"];
         put?: never;
@@ -7529,6 +7544,12 @@ export interface components {
             drivers?: components["schemas"]["PulseDriverResult"][] | null;
             /** @description Set only when an immediately preceding non-cancelled closed cycle exists AND its same-scope response count also passes the k-floor. */
             previous?: components["schemas"]["PulsePreviousComparison"] | null;
+            /** @description Document sharing (v4.12.0): true when `POST /api/v1/shares` with `PULSE_TEAM_RESULTS` would accept this team for the caller — the team is in their visible result tree in their OWN right, independently of any share (the HR auditor role alone does not count), even when this particular read came through a share (a member who sat the cycle out). Gate the Share button on this flag only, never on `sharedBy`. Server-computed, read-only. */
+            canShare: boolean;
+            /** @description The sharer's display name when the caller is reading through a share; null for a read in the caller's own right. Server-resolved, read-only. */
+            sharedBy?: string | null;
+            /** @description Whether `GET …/comments` for this cycle and team would succeed for the caller (the HR auditor, a manager monitoring the team, or — through ANY of their active shares — a sharer who monitors it), so the client never makes a request that could only be a `403`. Computed by running the comments guard itself. Server-computed, read-only. */
+            canReadComments: boolean;
         };
         PulseCommentsResponse: {
             /** @description Author-free, shuffled per request; empty when withheld. */
