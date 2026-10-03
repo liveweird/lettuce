@@ -16,7 +16,7 @@ plugins {
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
-    source.setFrom("src/commonMain/kotlin")
+    source.setFrom("src/commonMain/kotlin", "src/jvmMain/kotlin")
 }
 
 

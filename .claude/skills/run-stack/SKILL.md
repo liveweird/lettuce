@@ -38,6 +38,8 @@ Optional overrides (defaults from `server/src/main/resources/application.yaml`, 
 | `POSTGRES_POOL_MAX_CREATE_SECONDS` | `10` (1..600) | Creating a pooled connection (TCP + startup/auth) | same |
 | `POSTGRES_CONNECT_TIMEOUT_SECONDS` | `10` | The TCP connect alone | same |
 | `POSTGRES_STATEMENT_TIMEOUT_SECONDS` | `30` (0 = off, 0..3600) | PostgreSQL `statement_timeout` for every statement | same |
+| `PERF_SERVER_TIMING` | blank = follow the mode (on in development, off in production; `true`/`false` pins it) | The `Server-Timing` header on AUTHENTICATED responses only (`db;dur=…;desc="stmt=N tx=M", app;dur=…`) | "Per-request DB metrics" in `.claude/docs/observability.md` |
+| `PERF_SLOW_REQUEST_MS` | `1000` (1..600000) | A request at or over this wall time logs one `ch.nokillswit.perf` INFO line (always on) | same |
 
 ## Backup and restoration
 

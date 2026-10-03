@@ -55,6 +55,7 @@ Current migrations are `V1`–`V91`. **The per-migration catalog lives in `.clau
   the `netty` pin.
 - **Reference:** `infra/db/Database.kt` (`connectPooled`, `readPoolBounds`), `application.yaml`
   `postgres.pool`.
+  The `tx` count of the `Server-Timing` header ("Per-request DB metrics" in `.claude/docs/observability.md`) is the number of validation round trips a request pays.
 - **Enforcement:** `ConnectionPoolTest` — concurrent transactions never exceed `maxSize` in
   `pg_stat_activity`, a saturated pool times out an acquire instead of hanging, the pool releases
   every connection when the application stops (also when a later module refuses startup),
