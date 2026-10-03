@@ -8,7 +8,7 @@ import ch.nokillswit.reviews.ShareCandidateReason
 import ch.nokillswit.teams.ChainPerson
 import ch.nokillswit.teams.TeamRef
 import ch.nokillswit.users.UserRef
-import kotlinx.serialization.json.Json
+import io.ktor.serialization.kotlinx.json.DefaultJson
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -16,10 +16,11 @@ import kotlin.test.assertEquals
  * Pure (no app, no DB) pin of the share-candidate wire shape after the checkup #38 M7 consolidation:
  * both pickers' rows are the shared [ChainPerson]'s nine fields, FLAT and in the original order, and
  * the reviews row appends `review`/`shareable`/`reason` — byte-identical to the pre-consolidation
- * flat DTOs (default `Json`, the ContentNegotiation configuration: nulls are written).
+ * flat DTOs. Encoded with Ktor's `DefaultJson` — exactly what `plugins/Serialization.kt`'s bare
+ * `json()` installs (nulls written, defaults encoded).
  */
 class ShareCandidateJsonTest {
-    private val json = Json
+    private val json = DefaultJson
 
     private val person = ChainPerson(
         userId = 7u,

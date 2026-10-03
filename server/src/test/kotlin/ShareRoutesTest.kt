@@ -87,7 +87,7 @@ internal class FakeShareable(override val type: ShareableResourceType) : Shareab
 }
 
 /**
- * The central `/api/v1/shares` routes (v4.8.0, `sharing/ShareRoutes.kt`) over a fake adapter —
+ * The central `/api/v1/shares` routes (v4.8.0, `sharing/ShareRoutes.kt` + `ShareHandlers.kt`) over a fake adapter —
  * ordering of the gates, validation after the guard, the 409 duplicate, the withdrawal matrix
  * with its notifications, and the three list views. What a REAL feature grants through a share
  * is covered by the per-feature sharing tests; here the adapter is a stub.
