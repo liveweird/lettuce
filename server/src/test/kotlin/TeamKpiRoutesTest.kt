@@ -977,6 +977,10 @@ class TeamKpiRoutesTest {
         assertEquals(listOf(active.id), own.items.map { it.id })
         assertEquals(team.teamId, own.items.single().teamId)
         assertEquals(team.managerId, own.items.single().managerId)
+        // A status SET containing DRAFT never exposes the DRAFT to a mere member.
+        val ownMixed = member.get("/api/v1/team-kpis?view=own&title=$marker&status=DRAFT&status=ACTIVE")
+            .body<TeamKpiPageResponse>()
+        assertEquals(listOf(active.id), ownMixed.items.map { it.id })
 
         val managed = manager.get("/api/v1/team-kpis?view=managed&title=$marker&sort=title")
             .body<TeamKpiPageResponse>()
@@ -1051,6 +1055,16 @@ class TeamKpiRoutesTest {
         assertEquals(setOf(one.id), ids("teamId=${team.teamId}"))
         assertEquals(setOf(two.id), ids("status=ACTIVE"))
         assertEquals(setOf(two.id), ids("type=PERCENTAGE"))
+        // Repeated teamId/status are IN sets (API-LIST-004): the union, any one value as before.
+        assertEquals(setOf(one.id, two.id), ids("teamId=${team.teamId}&teamId=$otherTeamId"))
+        assertEquals(setOf(one.id, two.id), ids("status=DRAFT&status=ACTIVE"))
+        assertEquals(setOf(one.id), ids("status=DRAFT&status=ARCHIVED"))
+        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/team-kpis?view=managed&status=ACTIVE&status=BOGUS").status)
+        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/team-kpis?view=managed&teamId=${team.teamId}&teamId=x").status)
+        val tooManyTeams = (1..101).joinToString("&") { "teamId=$it" }
+        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/team-kpis?view=managed&$tooManyTeams").status)
+        // type stays a single-value filter.
+        assertEquals(HttpStatusCode.BadRequest, manager.get("/api/v1/team-kpis?view=managed&type=NUMBER&type=PERCENTAGE").status)
         assertEquals(setOf(one.id, two.id), ids("createdAt[gte]=0"))
         assertEquals(emptySet(), ids("createdAt[gte]=${System.currentTimeMillis() + 60_000}"))
         assertEquals(setOf(one.id, two.id), ids("lastModified[gte]=0"))
@@ -1088,6 +1102,15 @@ class TeamKpiRoutesTest {
         val pinned = hr.get("/api/v1/team-kpis?view=all&teamId=${team.teamId}&title=$marker")
             .body<TeamKpiPageResponse>()
         assertEquals(setOf(draft.id, active.id), pinned.items.map { it.id }.toSet())
+
+        // Two teamIds on view=all: the union (an unknown id in the set narrows nothing extra).
+        val otherTeamId = TestServices.teams.create(
+            Team(name = "kpi-all-other-${UUID.randomUUID()}", managerId = team.managerId, memberIds = listOf(team.memberId)),
+        )
+        val third = manager.createKpi(otherTeamId, title = "$marker third")
+        val pair = hr.get("/api/v1/team-kpis?view=all&teamId=${team.teamId}&teamId=$otherTeamId&teamId=999999&title=$marker")
+            .body<TeamKpiPageResponse>()
+        assertEquals(setOf(draft.id, active.id, third.id), pair.items.map { it.id }.toSet())
 
         // A manager and an ADMIN each get 403 — the view=user rule of the per-user lists.
         assertEquals(HttpStatusCode.Forbidden, manager.get("/api/v1/team-kpis?view=all").status)

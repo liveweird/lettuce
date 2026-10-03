@@ -486,6 +486,12 @@ class ShareRoutesTest {
             // A withdrawn row never shows on withMe, whatever the filter.
             val noWithdrawn = sharee.client.get("/api/v1/shares") { parameter("status", "WITHDRAWN") }.body<SharePageResponse>()
             assertEquals(0L, noWithdrawn.total)
+            // …and a status SET containing WITHDRAWN doesn't resurrect it either.
+            val mixed = sharee.client.get("/api/v1/shares") {
+                parameter("status", "WITHDRAWN")
+                parameter("status", "ACTIVE")
+            }.body<SharePageResponse>()
+            assertEquals(listOf(live), mixed.items.map { it.id })
 
             // Newest first, deterministically: ids are monotonic, createdAt millis may tie.
             val newestFirst = sharee.client.get("/api/v1/shares") { parameter("sort", "-id") }.body<SharePageResponse>()
@@ -496,6 +502,30 @@ class ShareRoutesTest {
             val byMe = sharer.client.get("/api/v1/shares") { parameter("view", "byMe") }.body<SharePageResponse>()
             assertEquals(setOf(live, expired, withdrawn), byMe.items.map { it.id }.toSet())
             assertEquals(3L, byMe.total)
+            // A repeated status is an IN set (API-LIST-004): the union of the derived statuses.
+            suspend fun byMeStatuses(vararg statuses: String) = sharer.client.get("/api/v1/shares") {
+                parameter("view", "byMe")
+                statuses.forEach { parameter("status", it) }
+            }.body<SharePageResponse>().items.map { it.id }.toSet()
+            assertEquals(setOf(live, withdrawn), byMeStatuses("ACTIVE", "WITHDRAWN"))
+            assertEquals(setOf(expired, withdrawn), byMeStatuses("EXPIRED", "WITHDRAWN"))
+            assertEquals(setOf(live), byMeStatuses("ACTIVE"))
+            assertEquals(
+                HttpStatusCode.BadRequest,
+                sharer.client.get("/api/v1/shares") {
+                    parameter("view", "byMe")
+                    parameter("status", "ACTIVE")
+                    parameter("status", "BOGUS")
+                }.status,
+            )
+            // resourceType stays single-valued.
+            assertEquals(
+                HttpStatusCode.BadRequest,
+                sharer.client.get("/api/v1/shares") {
+                    parameter("resourceType", "GOAL")
+                    parameter("resourceType", "FEEDBACK")
+                }.status,
+            )
             // Someone else's byMe is empty — the lists are strictly caller-scoped.
             assertEquals(0L, sharee.client.get("/api/v1/shares") { parameter("view", "byMe") }.body<SharePageResponse>().total)
         }

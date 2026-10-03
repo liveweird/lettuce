@@ -35,7 +35,7 @@ import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalBoolean
 import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalString
-import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.optionalUIntSet
 import ch.nokillswit.infra.paging.toPage
 import java.time.LocalDate
 import io.ktor.http.HttpHeaders
@@ -203,7 +203,7 @@ fun Application.configureUserRoutes() {
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
                     role = params.optionalEnum<UserRole>("role"),
-                    teamId = params.optionalUInt("teamId"),
+                    teamIds = params.optionalUIntSet("teamId"),
                     deactivated = params.optionalBoolean("deactivated"),
                     feature = feature,
                     featureEnabled = featureEnabled,

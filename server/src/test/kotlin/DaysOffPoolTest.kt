@@ -14,6 +14,7 @@ import ch.nokillswit.daysoff.DaysOffResponse
 import ch.nokillswit.daysoff.DaysOffType
 import ch.nokillswit.notifications.NotificationPageResponse
 import ch.nokillswit.notifications.NotificationType
+import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.teams.Team
 import ch.nokillswit.teams.TeamMemberPageResponse
 import ch.nokillswit.users.UserRole
@@ -171,6 +172,74 @@ class DaysOffPoolTest {
         } finally {
             appender.detach()
         }
+    }
+
+    @Test
+    fun `the type and poolTypeId list filters are IN sets and the pools narrow only the paid branch`() = testApplication {
+        usePostgresTestcontainer()
+        val aEmail = uniqueEmail("pool-in-a")
+        val mEmail = uniqueEmail("pool-in-m")
+        val sEmail = uniqueEmail("pool-in-s")
+        TestUsers.seed(aEmail, "pw", roles = setOf(UserRole.ADMIN))
+        val mId = TestUsers.seed(mEmail, "pw", name = "PoolIn Mgr", roles = emptySet())
+        val sId = TestUsers.seed(sEmail, "pw", name = "PoolIn Sub", roles = emptySet())
+        val teamId = TestServices.teams.create(Team(name = "pool-in-${UUID.randomUUID()}", managerId = mId))
+        TestServices.teams.addMember(teamId, sId)
+        val a = authedClient(aEmail, "pw")
+        val m = authedClient(mEmail, "pw")
+        val s = authedClient(sEmail, "pw")
+        val one = a.freshKind("PoolIn One", carriesOver = false)
+        val two = a.freshKind("PoolIn Two", carriesOver = false)
+        TestDaysOff.setAllowance(sId, 30)
+        assertEquals(HttpStatusCode.NoContent, m.putAllowance(sId, 5, poolTypeId = one.id).status)
+        assertEquals(HttpStatusCode.NoContent, m.putAllowance(sId, 5, poolTypeId = two.id).status)
+
+        val mon = monday(2080)
+        suspend fun create(week: Long, type: DaysOffType = DaysOffType.PAID, pool: UInt? = null): UInt {
+            val response = s.createDaysOff(mon.plusWeeks(week), type = type, poolTypeId = pool)
+            assertEquals(HttpStatusCode.Created, response.status)
+            return response.body<DaysOffResponse>().id
+        }
+        val default = create(0)
+        val inOne = create(1, pool = one.id)
+        val inTwo = create(2, pool = two.id)
+        val unpaid = create(3, type = DaysOffType.UNPAID)
+
+        suspend fun ids(query: String): Set<UInt> =
+            s.get("/api/v1/days-off?pageSize=100$query").body<DaysOffPageResponse>().items.map { it.id }.toSet()
+
+        // Absent = every type; single values behave exactly as before.
+        assertEquals(setOf(default, inOne, inTwo, unpaid), ids(""))
+        assertEquals(setOf(default, inOne, inTwo), ids("&type=PAID"))
+        assertEquals(setOf(unpaid), ids("&type=UNPAID"))
+        // A repeated type is the union.
+        assertEquals(setOf(default, inOne, inTwo, unpaid), ids("&type=PAID&type=UNPAID"))
+        // poolTypeId alone implies PAID (the pre-v4.13.0 behaviour), now as a set.
+        assertEquals(setOf(inOne), ids("&poolTypeId=${one.id}"))
+        assertEquals(setOf(inOne, inTwo), ids("&poolTypeId=${one.id}&poolTypeId=${two.id}"))
+        assertEquals(setOf(default), ids("&poolTypeId=${TestDaysOff.DEFAULT_POOL_TYPE_ID}"))
+        assertEquals(setOf(inOne), ids("&type=PAID&poolTypeId=${one.id}"))
+        // The pools narrow ONLY the paid branch: UNPAID listed next to pools stays whole.
+        assertEquals(setOf(unpaid, inOne), ids("&type=UNPAID&type=PAID&poolTypeId=${one.id}"))
+        assertEquals(setOf(unpaid, inOne, inTwo), ids("&type=PAID&type=UNPAID&poolTypeId=${one.id}&poolTypeId=${two.id}"))
+
+        // Pools next to a type set that lacks PAID is a contradiction: a 400, not an empty page.
+        val contradiction = s.get("/api/v1/days-off?type=UNPAID&poolTypeId=${one.id}")
+        assertEquals(HttpStatusCode.BadRequest, contradiction.status)
+        assertEquals(
+            "poolTypeId narrows paid entries; include type=PAID",
+            contradiction.body<ProblemDetail>().detail,
+        )
+        // Per-value 400s and the 100-distinct-value cap.
+        assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off?type=PAID&type=BOGUS").status)
+        assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off?poolTypeId=${one.id}&poolTypeId=abc").status)
+        val tooMany = (1..101).joinToString("&") { "poolTypeId=$it" }
+        assertEquals(HttpStatusCode.BadRequest, s.get("/api/v1/days-off?$tooMany").status)
+        // The shape 400 runs before the auditor role gate (the registered list-shape rule).
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            s.get("/api/v1/days-off?view=user&userId=$sId&type=UNPAID&poolTypeId=${one.id}").status,
+        )
     }
 
     @Test

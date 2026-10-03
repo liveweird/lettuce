@@ -652,7 +652,17 @@ class AuditTest {
             }
             assertNotNull(kpiEvent, "the team-KPI auditor view should be audited")
             assertEquals(hrId.toLong(), kpiEvent.keyValuePairs.first { it.key == "byUserId" }.value)
-            assertEquals(teamId.toLong(), kpiEvent.keyValuePairs.first { it.key == "teamId" }.value)
+            // The scope id is a repeated-key set since v4.13.0: always the sorted, comma-joined ids.
+            assertEquals(teamId.toString(), kpiEvent.keyValuePairs.first { it.key == "teamId" }.value)
+
+            // Two teams (requested in descending order) ride as ONE sorted comma-joined value.
+            val otherTeamId = TestServices.teams.create(Team(name = "hrlist-2-${UUID.randomUUID()}", managerId = subId))
+            val (lo, hi) = listOf(teamId, otherTeamId).sorted()
+            assertEquals(HttpStatusCode.OK, hr.get("/api/v1/team-kpis?view=all&teamId=$hi&teamId=$lo").status)
+            val twoTeamsEvent = appender.events.last {
+                it.message == "hr.list" && it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "teamKpis" }
+            }
+            assertEquals("$lo,$hi", twoTeamsEvent.keyValuePairs.first { it.key == "teamId" }.value)
 
             // view=user on the days-off budgets — resource daysOffBudgets, carrying targetUserId.
             assertEquals(HttpStatusCode.OK, hr.get("/api/v1/days-off/budgets?view=user&userId=$subId").status)
@@ -764,7 +774,20 @@ class AuditTest {
                 it.message == "hr.list" &&
                     it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "daysOffCalendar" }
             }
-            assertEquals(teamId.toLong(), narrowedEvent.keyValuePairs.first { it.key == "teamId" }.value)
+            assertEquals(teamId.toString(), narrowedEvent.keyValuePairs.first { it.key == "teamId" }.value)
+
+            // Two teams: one sorted, comma-joined value under the same key.
+            val otherTeamId = TestServices.teams.create(Team(name = "hrlist-cal2-${UUID.randomUUID()}", managerId = ownerId))
+            val (lo, hi) = listOf(teamId, otherTeamId).sorted()
+            assertEquals(
+                HttpStatusCode.OK,
+                hr.get("/api/v1/days-off/calendar?month=2059-01&scope=org&teamId=$hi&teamId=$lo").status,
+            )
+            val twoTeamsEvent = appender.events.last {
+                it.message == "hr.list" &&
+                    it.keyValuePairs.any { kv -> kv.key == "resource" && kv.value == "daysOffCalendar" }
+            }
+            assertEquals("$lo,$hi", twoTeamsEvent.keyValuePairs.first { it.key == "teamId" }.value)
         } finally {
             appender.detach()
         }

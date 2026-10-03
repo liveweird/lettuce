@@ -13,10 +13,11 @@ import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalEnumSet
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalString
-import ch.nokillswit.infra.paging.optionalUInt
+import ch.nokillswit.infra.paging.optionalUIntSet
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.notifications.NotificationServiceKey
@@ -217,10 +218,10 @@ fun Application.configureTeamKpiRoutes() {
                 }
                 val filter = TeamKpiListFilter(
                     teamName = params.optionalString("teamName"),
-                    teamId = params.optionalUInt("teamId"),
+                    teamIds = params.optionalUIntSet("teamId"),
                     title = params.optionalString("title"),
                     type = params.optionalEnum<TeamKpiType>("type"),
-                    status = params.optionalEnum<TeamKpiStatus>("status"),
+                    statuses = params.optionalEnumSet<TeamKpiStatus>("status"),
                     createdAtGte = params.optionalLong("createdAt[gte]"),
                     lastModifiedGte = params.optionalLong("lastModified[gte]"),
                 )
@@ -229,7 +230,7 @@ fun Application.configureTeamKpiRoutes() {
                 // per-user lists); every use is audit-logged (hr.list), the teamId filter
                 // riding along so an audit reader can tell a scoped read from an org-wide one.
                 if (view == TeamKpiListView.ALL) {
-                    requireAuditScopeListAccess(caller, "teamKpis", filter.teamId)
+                    requireAuditScopeListAccess(caller, "teamKpis", filter.teamIds)
                 }
                 // Direct-vs-subtree scope (v2.26.0): only meaningful on view=managed, 400
                 // elsewhere (the shared strict-boolean helper) — ALL stays out of the allowed

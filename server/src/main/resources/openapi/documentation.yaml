@@ -345,8 +345,14 @@ paths:
         - name: teamId
           in: query
           required: false
-          schema: { type: integer, format: int32, minimum: 0 }
-          description: Filter to users who are members of the given team.
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: integer, format: int32, minimum: 0 }
+          style: form
+          explode: true
+          description: >-
+            Filter to users who are members of any of the given teams. Repeat the key to match any of several values.
         - name: deactivated
           in: query
           required: false
@@ -1324,8 +1330,14 @@ paths:
         - name: teamId
           in: query
           required: false
-          schema: { type: integer, format: int32, minimum: 0 }
-          description: Exact match against the team's id.
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: integer, format: int32, minimum: 0 }
+          style: form
+          explode: true
+          description: >-
+            Match members of any of the given teams (one row per member and team). Repeat the key to match any of several values.
       responses:
         '200':
           description: A page of team members
@@ -1581,9 +1593,13 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED]
-          description: Exact match against the record's status.
+            type: array
+            maxItems: 100
+            items: { type: string, enum: [REQUESTED, DRAFT, SENT, WITHDRAWN, REJECTED] }
+          style: form
+          explode: true
+          description: >-
+            Match any of the given statuses. Repeat the key to match any of several values.
         - name: lastModified[gte]
           in: query
           required: false
@@ -2382,8 +2398,14 @@ paths:
         - name: status
           in: query
           required: false
-          schema: { type: string, enum: [DRAFT, ACTIVE, ARCHIVED] }
-          description: Exact status match.
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: string, enum: [DRAFT, ACTIVE, ARCHIVED] }
+          style: form
+          explode: true
+          description: >-
+            Match any of the given statuses. Repeat the key to match any of several values.
         - name: createdAt[gte]
           in: query
           required: false
@@ -3486,8 +3508,14 @@ paths:
         - name: teamId
           in: query
           required: false
-          schema: { type: integer, format: int32, minimum: 0 }
-          description: Exact team-id match (the per-team drill-down).
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: integer, format: int32, minimum: 0 }
+          style: form
+          explode: true
+          description: >-
+            Match KPIs of any of the given teams (the per-team drill-down). Repeat the key to match any of several values.
         - name: title
           in: query
           required: false
@@ -3501,8 +3529,14 @@ paths:
         - name: status
           in: query
           required: false
-          schema: { type: string, enum: [DRAFT, ACTIVE, ARCHIVED] }
-          description: Exact status match.
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: string, enum: [DRAFT, ACTIVE, ARCHIVED] }
+          style: form
+          explode: true
+          description: >-
+            Match any of the given statuses. Repeat the key to match any of several values.
         - name: createdAt[gte]
           in: query
           required: false
@@ -4125,8 +4159,14 @@ paths:
         - name: status
           in: query
           required: false
-          schema: { type: string, enum: [DRAFT, CALIBRATION, PUBLISHED] }
-          description: Exact status match.
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: string, enum: [DRAFT, CALIBRATION, PUBLISHED] }
+          style: form
+          explode: true
+          description: >-
+            Match any of the given statuses. Repeat the key to match any of several values.
         - name: createdAt[gte]
           in: query
           required: false
@@ -4555,15 +4595,29 @@ paths:
         - name: type
           in: query
           required: false
-          schema: { type: string, enum: [PAID, UNPAID] }
-          description: Exact type match.
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: string, enum: [PAID, UNPAID] }
+          style: form
+          explode: true
+          description: >-
+            Match entries of any of the given types. Repeat the key to match any of several values. Combined with `poolTypeId`,
+            the pools narrow only the `PAID` branch: (UNPAID if listed) OR (PAID with any of the pools).
         - name: poolTypeId
           in: query
           required: false
-          schema: { type: integer, format: int32, minimum: 0 }
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: integer, format: int32, minimum: 0 }
+          style: form
+          explode: true
           description: >-
-            Exact paid-pool-kind match (v3.2.0) — only PAID entries carry one, so the filter
-            implies type=PAID (a non-integer value is 400).
+            Paid-pool-kind filter (v3.2.0, a set since v4.13.0) — it narrows ONLY the PAID entries
+            (UNPAID entries carry no pool and are unaffected). Without `type` it implies `type=PAID`;
+            with a `type` set that lacks `PAID` it answers `400` ("poolTypeId narrows paid entries;
+            include type=PAID"). A non-integer value is `400`. Repeat the key to match any of several values.
         - name: startDate[gte]
           in: query
           required: false
@@ -4725,10 +4779,15 @@ paths:
         - name: teamId
           in: query
           required: false
-          schema: { type: integer, format: int32, minimum: 0 }
+          schema:
+            type: array
+            maxItems: 100
+            items: { type: integer, format: int32, minimum: 0 }
+          style: form
+          explode: true
           description: >-
             Only valid with `scope=org` (else `400`): narrows the auditor calendar to the
-            members of one team.
+            members of the given team(s) (their union). Repeat the key to match any of several values.
         - $ref: '#/components/parameters/IncludeIndirect'
       responses:
         '200':
@@ -6448,8 +6507,14 @@ paths:
         - name: status
           in: query
           required: false
-          schema: { $ref: '#/components/schemas/ShareStatus' }
-          description: Equality filter on the derived share status.
+          schema:
+            type: array
+            maxItems: 100
+            items: { $ref: '#/components/schemas/ShareStatus' }
+          style: form
+          explode: true
+          description: >-
+            Filter on the derived share status (ACTIVE, EXPIRED or WITHDRAWN). Repeat the key to match any of several values.
       responses:
         '200':
           description: A page of shares

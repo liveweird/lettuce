@@ -14,6 +14,7 @@ import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.uintOnlyForView
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalEnumSet
 import ch.nokillswit.infra.paging.optionalString
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalUInt
@@ -200,7 +201,7 @@ fun Application.configureFeedbackRoutes() {
                     sortable = setOf("id", "requesterName", "subjectName", "providerName", "visibility", "status", "lastModified"),
                 )
                 val visibilityFilter = params.optionalEnum<FeedbackVisibility>("visibility")
-                val statusFilter = params.optionalEnum<FeedbackStatus>("status")
+                val statusFilter = params.optionalEnumSet<FeedbackStatus>("status")
                 val providerIdFilter = params.optionalUInt("providerId")
                 val subjectIdFilter = params.optionalUInt("subjectId")
                 val lastModifiedGteFilter = params.optionalLong("lastModified[gte]")
@@ -239,7 +240,7 @@ fun Application.configureFeedbackRoutes() {
                     providerId = providerIdFilter,
                     subjectId = subjectIdFilter,
                     visibility = visibilityFilter,
-                    status = statusFilter,
+                    statuses = statusFilter,
                     lastModifiedGte = lastModifiedGteFilter,
                 )
                 val result = feedbackService.list(

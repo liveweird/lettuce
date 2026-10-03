@@ -614,7 +614,30 @@ class DaysOffRoutesTest {
             .body<DaysOffCalendarResponse>()
         assertEquals(setOf(sId), narrowed.users.map { it.userId }.toSet())
 
+        // A repeated teamId narrows to the UNION of the teams' members (API-LIST-004): S and W.
+        val both = hr.get("/api/v1/days-off/calendar?month=$month&scope=org&teamId=$teamX&teamId=$teamY")
+            .body<DaysOffCalendarResponse>()
+        assertEquals(setOf(sId, wId), both.users.map { it.userId }.toSet())
+        // A bad value / a 101st distinct value in the set is a 400, before the role gate too.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/days-off/calendar?month=$month&scope=org&teamId=$teamX&teamId=bogus").status,
+        )
+        val tooManyTeams = (1..101).joinToString("&") { "teamId=$it" }
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/days-off/calendar?month=$month&scope=org&$tooManyTeams").status,
+        )
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            m.get("/api/v1/days-off/calendar?month=$month&scope=org&teamId=$teamX&teamId=bogus").status,
+        )
+
         // teamId only makes sense narrowing scope=org — the includeIndirect shape-rule wording.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            hr.get("/api/v1/days-off/calendar?month=$month&scope=member&teamId=$teamX&teamId=$teamY").status,
+        )
         assertEquals(
             HttpStatusCode.BadRequest,
             hr.get("/api/v1/days-off/calendar?month=$month&scope=member&teamId=$teamX").status,

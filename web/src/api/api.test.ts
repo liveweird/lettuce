@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ApiError, authedFetch, jsonRequest, shouldRetryQuery } from "./http";
+import { ApiError, authedFetch, buildQuery, jsonRequest, shouldRetryQuery } from "./http";
 import {
   canAudit,
   getDisabledFeatures,
@@ -683,6 +683,18 @@ describe("listFeedbacks serialization", () => {
     expect(url).toContain("sort=-lastModified");
     expect(url).toContain("lastModified%5Bgte%5D=1700000000000");
     expect(url).not.toContain("subjectName");
+  });
+});
+
+describe("buildQuery", () => {
+  test("skips absent values, keeps false and 0, sends scalars once", () => {
+    expect(buildQuery({ a: undefined, b: null, c: "", d: false, e: 0, f: "x" })).toBe("d=false&e=0&f=x");
+  });
+
+  test("an array value repeats the key per element (IN filter) and an empty array is skipped", () => {
+    expect(buildQuery({ status: ["DRAFT", "ACTIVE"], teamId: [3, 7], none: [] })).toBe(
+      "status=DRAFT&status=ACTIVE&teamId=3&teamId=7",
+    );
   });
 });
 

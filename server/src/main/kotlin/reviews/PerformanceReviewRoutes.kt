@@ -12,7 +12,7 @@ import ch.nokillswit.authz.requirePerformanceReviewWrite
 import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
-import ch.nokillswit.infra.paging.optionalEnum
+import ch.nokillswit.infra.paging.optionalEnumSet
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalLong
 import ch.nokillswit.infra.paging.optionalString
@@ -186,7 +186,7 @@ fun Application.configurePerformanceReviewRoutes() {
                     managerId = params.optionalUInt("managerId"),
                     subordinateId = params.optionalUInt("subordinateId"),
                     periodId = params.optionalUInt("periodId"),
-                    status = params.optionalEnum<PerformanceReviewStatus>("status"),
+                    statuses = params.optionalEnumSet<PerformanceReviewStatus>("status"),
                     createdAtGte = params.optionalLong("createdAt[gte]"),
                     lastModifiedGte = params.optionalLong("lastModified[gte]"),
                 )

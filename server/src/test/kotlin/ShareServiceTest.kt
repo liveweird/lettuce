@@ -113,7 +113,7 @@ class ShareServiceTest {
 
         // The SQL status predicates agree with the derived status on both sides of the boundary.
         fun filter(status: ShareStatus) =
-            ShareListFilter(view = ShareListView.BY_ME, userId = sharer, status = status)
+            ShareListFilter(view = ShareListView.BY_ME, userId = sharer, statuses = setOf(status))
         assertEquals(1L, s.list(filter(ShareStatus.EXPIRED), page()).total)
         assertEquals(0L, s.list(filter(ShareStatus.ACTIVE), page()).total)
         today = today.minusDays(1)
@@ -313,7 +313,7 @@ class ShareServiceTest {
             userId = a,
             resourceType = ShareableResourceType.GOAL,
             resourceId = doc,
-            status = status,
+            statuses = status?.let { setOf(it) },
             documentSharerScope = scope,
         )
         assertEquals(2L, s.list(doc(), page()).total)

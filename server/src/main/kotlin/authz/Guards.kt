@@ -92,7 +92,7 @@ fun requireUserRead(caller: CallerPrincipal, targetUserId: UInt) {
 /**
  * The single writer of the `hr.list` event shape: resource + byUserId, plus whichever
  * per-site key names the audited slice ([requireAuditListAccess]'s `targetUserId`,
- * [requireAuditScopeListAccess]'s optional `teamId`/`periodId`) — kept together so the shape cannot
+ * [requireAuditScopeListAccess]'s optional `teamId` (comma-joined)/`periodId`) — kept together so the shape cannot
  * drift per call site. (`hr.read` is a separate event with its own shape — see
  * [auditHrRead].)
  */
@@ -121,16 +121,29 @@ fun requireAuditListAccess(caller: CallerPrincipal, resource: String, targetUser
  * Gate for the auditor SCOPE list view (`view=all` on the team-KPI and performance-review lists,
  * v3.24.0/v4.3.0): HR only — a team KPI or org-wide review sweep is scoped by something other
  * than a person, so it doesn't fit the `view=user` shape above; this is its scope-keyed sibling.
- * [scopeId] is the caller's optional scope-narrowing filter (`teamId` for team KPIs, `periodId`
- * for performance reviews), carried on the event under [scopeKey] when present so an audit
- * reader can tell a scoped read from an org-wide one. Every use is recorded (`hr.list`).
+ * [scopeId] is the caller's optional scope-narrowing filter (`periodId` for performance
+ * reviews), carried on the event under [scopeKey] when present so an audit reader can tell a
+ * scoped read from an org-wide one. Every use is recorded (`hr.list`).
  */
-fun requireAuditScopeListAccess(caller: CallerPrincipal, resource: String, scopeId: UInt?, scopeKey: String = "teamId") {
+fun requireAuditScopeListAccess(caller: CallerPrincipal, resource: String, scopeId: UInt?, scopeKey: String) {
+    requireAuditScope(caller, resource, scopeKey, scopeId?.toLong())
+}
+
+/**
+ * The team-scoped sibling (team KPIs `view=all`, the days-off calendar `scope=org`): the
+ * narrowing `teamId` filter is a repeated-key set (API-LIST-004), audited under key `teamId` as
+ * the sorted, comma-joined ids — the `share.batch_created` idiom — and omitted when absent.
+ */
+fun requireAuditScopeListAccess(caller: CallerPrincipal, resource: String, teamIds: Set<UInt>?) {
+    requireAuditScope(caller, resource, "teamId", teamIds?.sorted()?.joinToString(","))
+}
+
+private fun requireAuditScope(caller: CallerPrincipal, resource: String, scopeKey: String, scopeValue: Any?) {
     if (!caller.isHr()) {
         throw ForbiddenException("HR role required for view=all")
     }
-    if (scopeId == null) auditHrList(resource, caller.userId)
-    else auditHrList(resource, caller.userId, scopeKey to scopeId.toLong())
+    if (scopeValue == null) auditHrList(resource, caller.userId)
+    else auditHrList(resource, caller.userId, scopeKey to scopeValue)
 }
 
 fun requireNotificationRecipient(caller: CallerPrincipal, recipientId: UInt) {

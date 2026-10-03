@@ -247,12 +247,20 @@ export async function voidRequest(input: string, init?: RequestInit): Promise<vo
  * ladders (2026-08 review round). Skips null/undefined/"" (an absent or cleared filter);
  * `false` and `0` ARE sent (wasSeen=false, deactivated=false are meaningful filters) — a
  * field that must be OMITTED when false (`includeIndirect`) is passed as `value || undefined`
- * at the call site.
+ * at the call site. An array value is a repeated-key `IN` filter (API-LIST-004, v4.13.0): each
+ * element is appended under the same key (`status=DRAFT&status=ACTIVE`) and an empty array is
+ * skipped like an absent filter.
  */
-export function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
+export function buildQuery(
+  params: Record<string, string | number | boolean | readonly (string | number)[] | null | undefined>,
+): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value == null || value === "") continue;
+    if (Array.isArray(value)) {
+      for (const item of value) search.append(key, String(item));
+      continue;
+    }
     search.set(key, String(value));
   }
   return search.toString();

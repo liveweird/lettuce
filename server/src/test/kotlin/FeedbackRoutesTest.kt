@@ -1153,6 +1153,19 @@ class FeedbackRoutesTest {
 
         val byStatus = client.get("/api/v1/feedbacks?status=WITHDRAWN").body<FeedbackPageResponse>()
         assertEquals(listOf(fromBob.id), byStatus.items.map { it.id })
+
+        // A repeated status is an IN set (API-LIST-004): the union of both statuses' rows.
+        val bothStatuses = client.get("/api/v1/feedbacks?status=SENT&status=WITHDRAWN&sort=id")
+            .body<FeedbackPageResponse>()
+        assertEquals(listOf(fromAlice.id, fromBob.id), bothStatuses.items.map { it.id })
+        val sentOrDraft = client.get("/api/v1/feedbacks?status=SENT&status=DRAFT").body<FeedbackPageResponse>()
+        assertEquals(listOf(fromAlice.id), sentOrDraft.items.map { it.id })
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/feedbacks?status=SENT&status=BOGUS").status)
+        // The other filters stay single-valued.
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.get("/api/v1/feedbacks?visibility=PUBLIC&visibility=PROVIDER_SUBJECT").status,
+        )
     }
 
     @Test
