@@ -28,6 +28,37 @@ import kotlin.test.assertTrue
  */
 class ReviewPeriodTest {
 
+    /**
+     * Runway canary. The timeline is global and append-only, and a review can only be created
+     * for a period that has STARTED, so once the timeline's end reaches the present every
+     * unrelated review-create test starts failing with scattered "period has not started yet"
+     * 400s. Fail here, with the cause named, long before that happens.
+     *
+     * The margin is 24 months, not 0: the first period starts at 2000-01, so a fresh container
+     * has ~25 years of runway and one JVM run appends well under a few hundred months (most
+     * callers take a single month), so the threshold holds regardless of which tests ran before
+     * this one in the same JVM; a long-lived container that accumulates months across runs
+     * trips it two years ahead of the cliff.
+     */
+    @Test
+    fun `the shared review-period timeline still has future-safe runway`() = testApplication {
+        usePostgresTestcontainer()
+        val latest = TestServices.reviewPeriods.list().lastOrNull()
+        if (latest != null) {
+            val end = java.time.YearMonth.parse(latest.endMonth)
+            val limit = java.time.YearMonth.now().minusMonths(24)
+            assertTrue(
+                !end.isAfter(limit),
+                "Review-period runway exhausted: the latest period ends $end, later than the " +
+                    "$limit limit (24 months before now). TestReviewPeriods.append only ever " +
+                    "extends the global, append-only, gapless timeline; once it reaches the " +
+                    "present, unrelated review-create tests fail with scattered \"period has " +
+                    "not started\" 400s. Append 1-month periods (the default), once per JVM, " +
+                    "and never several long periods per test.",
+            )
+        }
+    }
+
     @Test
     fun `the timeline is readable by any authenticated user and ordered oldest first`() = testApplication {
         usePostgresTestcontainer()
@@ -84,7 +115,7 @@ class ReviewPeriodTest {
         val next = monthAfter(latest.endMonth)
         assertEquals(
             HttpStatusCode.BadRequest,
-            tryCreate(next, monthAfter(latest.startMonth)).status, // start after end
+            tryCreate(monthAfter(next), next).status, // start after end
         )
         // Timeline-state errors are 409: a gap, an overlap, and a duplicate start alike.
         assertEquals(HttpStatusCode.Conflict, tryCreate(monthAfter(next), monthAfter(monthAfter(next))).status)
