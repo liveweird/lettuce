@@ -10,9 +10,9 @@ describe("shareKinds — the days-off calendar kind (v4.11.0)", () => {
     await i18n.changeLanguage("en");
   });
 
-  test("it is the eighth kind, last in the filter order, gated by DAYS_OFF", () => {
-    expect(SHARE_TYPES).toHaveLength(8);
-    expect(SHARE_TYPES.at(-1)).toBe("DAYS_OFF_CALENDAR");
+  test("it is the eighth kind (right before the pulse kind), gated by DAYS_OFF", () => {
+    expect(SHARE_TYPES).toHaveLength(9);
+    expect(SHARE_TYPES.at(-2)).toBe("DAYS_OFF_CALENDAR");
     expect(SHARE_FEATURE.DAYS_OFF_CALENDAR).toBe("DAYS_OFF");
   });
 
@@ -27,11 +27,50 @@ describe("shareKinds — the days-off calendar kind (v4.11.0)", () => {
     expect(documentLabel("DAYS_OFF_CALENDAR", null, tFor("en"), "en")).toBe("No longer available");
   });
 
-  test("only the calendar words the dialog as a calendar", () => {
+  test("only the calendar and the pulse results word the dialog for themselves", () => {
     expect(shareKindContext("DAYS_OFF_CALENDAR")).toBe("calendar");
-    for (const type of SHARE_TYPES.filter((type) => type !== "DAYS_OFF_CALENDAR")) {
+    expect(shareKindContext("PULSE_TEAM_RESULTS")).toBe("pulse");
+    for (const type of SHARE_TYPES.filter((type) => type !== "DAYS_OFF_CALENDAR" && type !== "PULSE_TEAM_RESULTS")) {
       expect(shareKindContext(type), type).toBeUndefined();
     }
+  });
+});
+
+describe("shareKinds — the pulse team results kind (v4.12.0)", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  test("it is the ninth kind, last in the filter order, gated by PULSE_SURVEYS", () => {
+    expect(SHARE_TYPES).toHaveLength(9);
+    expect(SHARE_TYPES.at(-1)).toBe("PULSE_TEAM_RESULTS");
+    expect(SHARE_FEATURE.PULSE_TEAM_RESULTS).toBe("PULSE_SURVEYS");
+  });
+
+  test("its label names the team from the snapshot, EN and PL; a missing team reads unavailable", () => {
+    expect(documentLabel("PULSE_TEAM_RESULTS", { team: "AAA" }, tFor("en"), "en")).toBe("Pulse survey results of AAA");
+    expect(documentLabel("PULSE_TEAM_RESULTS", { team: "AAA" }, tFor("pl"), "pl")).toBe(
+      "Wyniki ankiety pulsu zespołu AAA",
+    );
+    expect(documentLabel("PULSE_TEAM_RESULTS", {}, tFor("en"), "en")).toBe("No longer available");
+    expect(documentLabel("PULSE_TEAM_RESULTS", null, tFor("en"), "en")).toBe("No longer available");
+  });
+});
+
+describe("shareOpenPath — a pulse results share (v4.12.0)", () => {
+  const SHAREE_LINK = "/pulse?tab=results&view=shared&team=5";
+  const pulse = { resourceType: "PULSE_TEAM_RESULTS" as const, resourceId: 5, link: SHAREE_LINK, details: { team: "AAA" }, shareeId: 30 };
+
+  test("the sharee opens the server's link (their 'Shared with me' results view, the team marked)", () => {
+    expect(shareOpenPath(pulse, 30)).toBe(SHAREE_LINK);
+  });
+
+  test("a sharer / the team's manager / an activity-log owner (not the sharee) opens the Results tab with the team marked", () => {
+    expect(shareOpenPath(pulse, 7)).toBe("/pulse?tab=results&team=5");
+    expect(shareOpenPath(pulse, null)).toBe("/pulse?tab=results&team=5");
+    // An activity row never names the sharee: any viewer is a non-sharee.
+    const row = { resourceType: pulse.resourceType, resourceId: pulse.resourceId, link: pulse.link, details: pulse.details };
+    expect(shareOpenPath(row, 7)).toBe("/pulse?tab=results&team=5");
   });
 });
 

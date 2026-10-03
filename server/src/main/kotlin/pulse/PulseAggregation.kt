@@ -79,6 +79,15 @@ data class PulseTeamResults(
     val enps: PulseEnpsAggregate? = null,
     val drivers: List<PulseDriverResult>? = null,
     val previous: PulsePreviousComparison? = null,
+    /**
+     * Route-stamped capabilities (v4.12.0, document sharing) — false/null on every internal read,
+     * set by the results route via `.copy`: the Share button's gate (the caller sees the team's
+     * results in their own right), the sharer's display name when the read came through a share, and
+     * whether `GET …/comments` would succeed for the caller.
+     */
+    val canShare: Boolean = false,
+    val sharedBy: String? = null,
+    val canReadComments: Boolean = false,
 )
 
 /** The previous-cycle inputs the builder compares against (already scope-filtered by the caller). */

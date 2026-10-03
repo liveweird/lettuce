@@ -119,6 +119,29 @@ class ShareAccess(private val shares: ShareService, private val users: UserServi
     }
 
     /**
+     * EVERY active share of ([type], [id]) held by [caller] whose sharer still passes [guard]
+     * (role-stripped, feature enabled, not deleted/deactivated), oldest share first. For a read
+     * whose content is a union over principals — the pulse trend, whose points are visible per
+     * principal ("each point is what SOME principal sees"). Never throws a denial: a sharer who
+     * fails is simply absent. The caller's own right is NOT consulted here.
+     */
+    suspend fun <G> passingShares(
+        caller: CallerPrincipal,
+        type: ShareableResourceType,
+        id: UInt,
+        guard: suspend (CallerPrincipal) -> G,
+    ): List<ReadVia.Shared<G>> = shares.activeSharersFor(type, id, caller.userId).mapNotNull { sharerId ->
+        val sharer = users.read(sharerId)?.takeUnless { it.deactivated } ?: return@mapNotNull null
+        val principal = CallerPrincipal(
+            userId = sharerId,
+            email = sharer.email,
+            roles = emptySet(),
+            disabledFeatures = sharer.disabledFeatures,
+        )
+        evaluate(principal, type, guard)?.let { ReadVia.Shared(sharerId, sharer.name, principal, it.value, ownDenied = true) }
+    }
+
+    /**
      * Does [principal] hold read access to the document in their OWN right — the guard evaluated
      * with the roles stripped (an HR auditor-only reader does not; a share-granted reader does
      * not, because share access is never consulted here). Backs `canShare` and the POST

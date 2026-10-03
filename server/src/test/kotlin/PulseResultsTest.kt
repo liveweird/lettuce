@@ -109,6 +109,10 @@ class PulseResultsTest {
             // Scope participants: X, Y, Z (the manager and outsider are outside the team scope).
             assertEquals(3, block.participantCount)
             assertEquals(100.0, block.responseRate)
+            // The route-stamped sharing flags on an own-right read (v4.12.0): shareable, no sharer, no comments.
+            assertTrue(block.canShare)
+            assertNull(block.sharedBy)
+            assertFalse(block.canReadComments)
 
             // The manager did NOT respond: aggregates stay shut (participation/comments are their views).
             val manager = authedClient(fx.managerEmail, "pw")

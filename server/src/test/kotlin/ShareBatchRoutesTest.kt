@@ -148,6 +148,10 @@ class ShareBatchRoutesTest {
                 val goal = author.client.batch(listOf(doc), listOf(sharee.id), type = ShareableResourceType.GOAL)
                 assertEquals(HttpStatusCode.BadRequest, goal.status)
                 assertEquals("Batch sharing is not available for this document kind", goal.detail())
+                // Pulse team results (v4.12.0) are not batchable either: a team, not a person, is the unit.
+                val pulse = author.client.batch(listOf(doc), listOf(sharee.id), type = ShareableResourceType.PULSE_TEAM_RESULTS)
+                assertEquals(HttpStatusCode.BadRequest, pulse.status)
+                assertEquals("Batch sharing is not available for this document kind", pulse.detail())
                 // Shape: empty / over-cap / duplicate lists are 400 BEFORE any document is read.
                 assertEquals(HttpStatusCode.BadRequest, author.client.batch(emptyList(), listOf(sharee.id)).status)
                 assertEquals(HttpStatusCode.BadRequest, author.client.batch(listOf(doc), emptyList()).status)

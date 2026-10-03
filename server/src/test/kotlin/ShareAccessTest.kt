@@ -157,6 +157,45 @@ class ShareAccessTest {
     }
 
     @Test
+    fun `passingShares lists passing sharers oldest first, role-stripped, never an inactive or failing one`(): Unit =
+        runBlocking {
+            val first = user("first", roles = setOf(UserRole.HR))
+            val second = user("second")
+            val withdrawn = user("withdrawn")
+            val expired = user("expired")
+            val deactivated = user("deactivated")
+            val flagOff = user("flag-off")
+            val deleted = user("deleted")
+            val failing = user("failing")
+            val sharee = user("sharee")
+            val withdrawnId = (shares.create(type, doc, withdrawn, sharee, null) as ShareCreateOutcome.Created).id
+            share(first, sharee, doc)
+            shares.create(type, doc, expired, sharee, "2000-01-01")
+            share(deactivated, sharee, doc)
+            share(flagOff, sharee, doc)
+            share(deleted, sharee, doc)
+            share(failing, sharee, doc)
+            share(second, sharee, doc)
+            shares.withdraw(withdrawnId, withdrawn)
+            TestServices.users.setDeactivated(deactivated, true)
+            TestServices.users.setDisabledFeatures(flagOff, setOf(Feature.GOALS))
+            assertEquals(1, TestServices.users.delete(deleted))
+            val guard = RecordingGuard(allowed = setOf(first, second, withdrawn, expired, deactivated, flagOff, deleted))
+
+            val passing = access.passingShares(principal(sharee), type, doc, guard = guard::check)
+            // Oldest share first; the HR sharer is present but evaluated with NO roles.
+            assertEquals(listOf(first, second), passing.map { it.sharerId })
+            assertTrue(passing.all { it.principal.roles.isEmpty() && it.ownDenied })
+            assertEquals(listOf("grant-$first", "grant-$second"), passing.map { it.grant })
+            // The guard saw only the live candidates (the failing one included, who then simply fails); roles never leaked in.
+            assertEquals(setOf(first, second, failing), guard.seenUsers.toSet())
+            assertTrue(guard.seenRoles.all { it.isEmpty() })
+            // Scoped to the document and the sharee, and never an own-right check of the caller.
+            assertTrue(access.passingShares(principal(sharee), type, otherDoc, guard = guard::check).isEmpty())
+            assertTrue(access.passingShares(principal(first), type, doc, guard = guard::check).isEmpty())
+        }
+
+    @Test
     fun `only a ForbiddenException is a denial - any other failure propagates as itself`(): Unit = runBlocking {
         val sharer = user("sharer")
         val sharee = user("sharee")

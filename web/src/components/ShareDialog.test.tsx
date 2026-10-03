@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { notifications } from "@mantine/notifications";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
+import i18n from "../i18n";
 import ShareDialog from "./ShareDialog";
 
 const TOKEN_KEY = "lettuce.auth.token";
@@ -115,10 +116,11 @@ describe("ShareDialog", () => {
     localStorage.setItem(USER_ID_KEY, "7");
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     localStorage.clear();
+    await i18n.changeLanguage("en");
   });
 
   test("a document reads 'Share this document'; a days-off calendar words title, intro and withdraw confirm for a calendar (v4.11.0)", async () => {
@@ -144,6 +146,54 @@ describe("ShareDialog", () => {
     expect(
       screen.getByText("Ben Bystander will no longer be able to see this calendar through this share. This cannot be undone."),
     ).toBeInTheDocument();
+  });
+
+  test("a team's pulse results word title, intro and withdraw confirm for pulse results (v4.12.0)", async () => {
+    mockApi({
+      shares: [
+        share(311, 12, "Ben Bystander", { resourceType: "PULSE_TEAM_RESULTS", resourceId: 11, link: "/pulse?tab=results&view=shared&team=11", details: { team: "AAA" } }),
+      ],
+    });
+    const userEv = userEvent.setup();
+    renderWithProviders(
+      <ShareDialog opened onClose={() => undefined} resourceType="PULSE_TEAM_RESULTS" resourceId={11} />,
+    );
+    expect(await screen.findByRole("dialog", { name: "Share these pulse results" })).toBeInTheDocument();
+    expect(screen.getByText(/see exactly what you see — the team's aggregated scores, the trend and, if you can read them, the anonymized comments/)).toBeInTheDocument();
+    expect(screen.queryByText(/never change it/)).toBeNull();
+
+    await userEv.click(await screen.findByRole("button", { name: "Withdraw the share with Ben Bystander" }));
+    expect(
+      screen.getByText("Ben Bystander will no longer be able to see these pulse results through this share. This cannot be undone."),
+    ).toBeInTheDocument();
+  });
+
+  test("the pulse-results wording exists in Polish", async () => {
+    await i18n.changeLanguage("pl");
+    mockApi({ shares: [] });
+    renderWithProviders(
+      <ShareDialog opened onClose={() => undefined} resourceType="PULSE_TEAM_RESULTS" resourceId={11} />,
+    );
+    expect(await screen.findByRole("dialog", { name: "Udostępnij te wyniki ankiety pulsu" })).toBeInTheDocument();
+    expect(screen.getByText(/zobaczą dokładnie to, co Ty — zagregowane wyniki zespołu, trend oraz/)).toBeInTheDocument();
+  });
+
+  test("a pulse-results share's toast and failure reasons say pulse results, not document", async () => {
+    const calls = mockApi({ shares: [], createReplies: { 12: problem(403, "no") } });
+    const toast = vi.spyOn(notifications, "show");
+    const userEv = userEvent.setup();
+    renderWithProviders(
+      <ShareDialog opened onClose={() => undefined} resourceType="PULSE_TEAM_RESULTS" resourceId={11} />,
+    );
+    await screen.findByText("Nothing is shared yet.");
+
+    await pick(userEv, /Ben Bystander/, /Ed Eligible/);
+    await userEv.click(screen.getByRole("button", { name: "Share" }));
+    await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(2));
+
+    expect(await screen.findByText("Couldn't share with Ben Bystander: You can't share these results.")).toBeInTheDocument();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ message: "Pulse results shared" }));
+    expect(screen.queryByText(/document/i)).toBeNull();
   });
 
   test("a calendar share's toast and failure reasons say calendar, not document", async () => {

@@ -321,9 +321,9 @@ class ActivityService(
     /**
      * Left-folds the branches into one `UNION ALL`. Exposed has no one-branch set operation, so a
      * lone branch is paired with its own contradiction (`WHERE FALSE`): the same rows, one code
-     * path. Every shareable area contributes an event branch plus the two share branches (never
-     * fewer than three — DAYS_OFF too since v4.11.0, via the calendar's share rows), but CAREER_POSITION is
-     * ONE branch — `area=CAREER_POSITION` takes this path today.
+     * path. Every shareable area contributes the two share branches (at least two — the share-only
+     * PULSE_TEAM_RESULTS area, v4.12.0, exactly two) and, but for that one, an event branch; CAREER_POSITION
+     * is ONE branch — `area=CAREER_POSITION` takes this path today.
      */
     private fun unionOf(specs: List<(Boolean) -> Query>): SetOperation {
         val branches = specs.map { it(true) } + if (specs.size == 1) listOf(specs.first()(false)) else emptyList()
@@ -512,8 +512,10 @@ class ActivityService(
             ActivityArea.PERFORMANCE_REVIEW -> reviewFacts(ids, readability)
             ActivityArea.IMPACT_LOG_ENTRY -> impactFacts(ids, readability)
             ActivityArea.SUCCESSION_PLAN -> successionFacts(ids, readability)
-            // Person-scoped (days-off, career) and sign-in rows are never hydrated per document.
-            ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> emptyMap()
+            // Person-scoped (days-off, career) and sign-in rows are never hydrated per document; the pulse
+            // area has no event rows at all (its share rows carry the stored snapshot).
+            ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.PULSE_TEAM_RESULTS ->
+                emptyMap()
         }
 
     /**

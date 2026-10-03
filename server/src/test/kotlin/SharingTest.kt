@@ -36,6 +36,7 @@ import ch.nokillswit.oneonones.OneOnOneItemInput
 import ch.nokillswit.oneonones.OneOnOneResponse
 import ch.nokillswit.oneonones.OneOnOneUpdateRequest
 import ch.nokillswit.plugins.ProblemDetail
+import ch.nokillswit.pulse.PulseTeamResultsShareable
 import ch.nokillswit.reviews.CategoryAssessment
 import ch.nokillswit.reviews.PerformanceReviewCreateRequest
 import ch.nokillswit.reviews.PerformanceReviewEventListResponse
@@ -2804,6 +2805,270 @@ class SharingTest {
             // The single-share bucket is untouched.
             val other = person("other")
             assertEquals(HttpStatusCode.Created, w.manager.client.shareCalendar(w.person.id, other.id).status)
+        }
+
+    // ── Pulse team results ───────────────────────────────────────────────────────────────────
+    // The shared unit is a TEAM's pulse results (the resource id is the team id). Own right = the team
+    // is in the caller's visible result tree (member / manager / below — the per-cycle fill gate and the
+    // k>=3 floor are content gates on the SHARER's reads, covered with the read side); the HR auditor
+    // and ADMIN as such cannot share; the author is the team's current manager and the chain above.
+    // These cases need no pulse cycles (the share side never reads one).
+
+    private class PulseWorld(
+        val manager: Person,
+        val grand: Person,
+        val x: Person,
+        val y: Person,
+        val z: Person,
+        val teamId: UInt,
+        val teamName: String,
+        val departmentId: UInt,
+    )
+
+    private suspend fun HttpClient.sharePulse(teamId: UInt, shareeId: UInt, expiresOn: String? = null): HttpResponse =
+        post("/api/v1/shares") {
+            contentType(ContentType.Application.Json)
+            setBody(ShareRequest(ShareableResourceType.PULSE_TEAM_RESULTS, teamId, shareeId, expiresOn))
+        }
+
+    private suspend fun HttpClient.sharePulseId(teamId: UInt, shareeId: UInt, expiresOn: String? = null): UInt {
+        val response = sharePulse(teamId, shareeId, expiresOn)
+        assertEquals(HttpStatusCode.Created, response.status)
+        return response.body<ShareResponse>().id
+    }
+
+    private suspend fun HttpClient.pulseDocumentShares(teamId: UInt): HttpResponse = get("/api/v1/shares") {
+        parameter("view", "document")
+        parameter("resourceType", "PULSE_TEAM_RESULTS")
+        parameter("resourceId", teamId.toString())
+    }
+
+    /** M manages team T (members X, Y, Z); G manages department D, whose only member is M (the skip-level). */
+    private suspend fun ApplicationTestBuilder.pulseWorld(): PulseWorld {
+        val manager = person("pulse-manager")
+        val grand = person("pulse-grand")
+        val x = person("pulse-x")
+        val y = person("pulse-y")
+        val z = person("pulse-z")
+        val teamName = "PulseSquad-${manager.id}"
+        val teamId = TestServices.teams.create(Team(teamName, manager.id, listOf(x.id, y.id, z.id)))
+        val departmentId = TestServices.teams.create(Team("PulseDept-${grand.id}", grand.id, listOf(manager.id)))
+        return PulseWorld(manager, grand, x, y, z, teamId, teamName, departmentId)
+    }
+
+    @Test
+    fun `pulse results - member, manager and skip-level share the team's results, outsider, HR auditor and ADMIN cannot`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            val until = serverToday().plusDays(30).toString()
+            val created = w.x.client.sharePulse(w.teamId, sharee.id, expiresOn = until)
+            assertEquals(HttpStatusCode.Created, created.status)
+            val share = created.body<ShareResponse>()
+            assertEquals(ShareableResourceType.PULSE_TEAM_RESULTS, share.resourceType)
+            assertEquals(w.teamId, share.resourceId)
+            assertEquals(mapOf("team" to w.teamName), share.details)
+            assertEquals("/pulse?tab=results&view=shared&team=${w.teamId}", share.link)
+            assertEquals(HttpStatusCode.Created, w.manager.client.sharePulse(w.teamId, person("sharee-m").id).status)
+            assertEquals(HttpStatusCode.Created, w.grand.client.sharePulse(w.teamId, person("sharee-g").id).status)
+
+            val outsider = person("outsider")
+            val auditor = person("auditor", roles = setOf(UserRole.HR))
+            val admin = person("admin", roles = setOf(UserRole.ADMIN))
+            listOf(outsider, auditor, admin).forEach { who ->
+                val denied = who.client.sharePulse(w.teamId, sharee.id)
+                assertEquals(HttpStatusCode.Forbidden, denied.status, who.name)
+                assertEquals("Only someone who can read this document in their own right may share it", denied.detail())
+            }
+            // A mere sharee holds no own right: no re-sharing.
+            val reshare = sharee.client.sharePulse(w.teamId, person("third").id)
+            assertEquals(HttpStatusCode.Forbidden, reshare.status)
+            assertEquals("Only someone who can read this document in their own right may share it", reshare.detail())
+            // An HR user who is also a member holds the right as a member; HR can RECEIVE a share.
+            assertEquals(HttpStatusCode.Created, w.x.client.sharePulse(w.teamId, auditor.id).status)
+            val hrMember = person("hr-member", roles = setOf(UserRole.HR))
+            TestServices.teams.addMember(w.teamId, hrMember.id)
+            assertEquals(HttpStatusCode.Created, hrMember.client.sharePulse(w.teamId, person("fourth").id).status)
+        }
+
+    @Test
+    fun `pulse results - the team's manager and the chain above are the authors, a member sees only their own rows`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            val xShare = w.x.client.sharePulseId(w.teamId, sharee.id)
+            val yShare = w.y.client.sharePulseId(w.teamId, person("sharee-y").id)
+            suspend fun HttpResponse.ids() = body<SharePageResponse>().items.map { it.id }.toSet()
+
+            assertEquals(setOf(xShare, yShare), w.manager.client.pulseDocumentShares(w.teamId).ids())
+            assertEquals(setOf(xShare, yShare), w.grand.client.pulseDocumentShares(w.teamId).ids())
+            // A member (own-right holder, no author) lists only the rows they authored as sharer.
+            assertEquals(setOf(yShare), w.y.client.pulseDocumentShares(w.teamId).ids())
+            assertEquals(HttpStatusCode.Forbidden, person("outsider").client.pulseDocumentShares(w.teamId).status)
+
+            // The skip-level author reads and withdraws X's share.
+            assertEquals(HttpStatusCode.OK, w.grand.client.get("/api/v1/shares/$xShare").status)
+            assertEquals(HttpStatusCode.Forbidden, w.y.client.get("/api/v1/shares/$xShare").status)
+            assertEquals(HttpStatusCode.Forbidden, w.y.client.post("/api/v1/shares/$xShare/withdraw").status)
+            assertEquals(HttpStatusCode.NoContent, w.grand.client.post("/api/v1/shares/$xShare/withdraw").status)
+
+            val toSharee = sharee.client.notifications().single { it.type == NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN }
+            assertEquals(
+                mapOf("sharer" to w.x.name, "sharee" to sharee.name, "actor" to w.grand.name, "team" to w.teamName),
+                toSharee.params,
+            )
+            assertNull(toSharee.link)
+            val toSharer = w.x.client.notifications().single { it.type == NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN }
+            assertEquals("sharer", toSharer.params["self"])
+            assertEquals(w.teamName, toSharer.params["team"])
+            assertEquals("/shares?tab=byMe", toSharer.link)
+            // A sharer's own withdrawal mints only the sharee's copy.
+            assertEquals(HttpStatusCode.NoContent, w.y.client.post("/api/v1/shares/$yShare/withdraw").status)
+            assertTrue(w.y.client.notifications().none { it.type == NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN })
+        }
+
+    @Test
+    fun `pulse results - the notice names the team, carries expiresOn and the view link, no heads-up to the manager`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            val until = serverToday().plusDays(10).toString()
+            w.x.client.sharePulseId(w.teamId, sharee.id, expiresOn = until)
+            val notice = sharee.client.notifications().single { it.type == NotificationType.PULSE_RESULTS_SHARED }
+            assertEquals(mapOf("sharer" to w.x.name, "team" to w.teamName, "expiresOn" to until), notice.params)
+            assertEquals("/pulse?tab=results&view=shared&team=${w.teamId}", notice.link)
+            val second = person("sharee2")
+            w.manager.client.sharePulseId(w.teamId, second.id)
+            assertEquals(
+                mapOf("sharer" to w.manager.name, "team" to w.teamName),
+                second.client.notifications().single { it.type == NotificationType.PULSE_RESULTS_SHARED }.params,
+            )
+            // Pull-only: a member's share tells the team's manager nothing.
+            assertTrue(w.manager.client.notifications().none { it.type == NotificationType.PULSE_RESULTS_SHARED })
+            assertTrue(w.grand.client.notifications().none { it.type == NotificationType.PULSE_RESULTS_SHARED })
+        }
+
+    @Test
+    fun `pulse results - the details snapshot survives a team rename, a soft-deleted team is 404`() = runBlockingApp {
+        val w = pulseWorld()
+        val sharee = person("sharee")
+        w.x.client.sharePulseId(w.teamId, sharee.id)
+        val before = sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details
+        assertEquals(mapOf("team" to w.teamName), before)
+        val existing = checkNotNull(TestServices.teams.read(w.teamId))
+        assertEquals(1, TestServices.teams.update(w.teamId, existing.copy(name = "Renamed-${w.teamId}")))
+        assertEquals(before, sharee.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details)
+        // A fresh share after the rename snapshots the new name.
+        val late = person("late")
+        w.x.client.sharePulseId(w.teamId, late.id)
+        assertEquals(
+            mapOf("team" to "Renamed-${w.teamId}"),
+            late.client.get("/api/v1/shares").body<SharePageResponse>().items.single().details,
+        )
+
+        assertEquals(1, TestServices.teams.delete(w.teamId))
+        val missing = w.manager.client.sharePulse(w.teamId, sharee.id)
+        assertEquals(HttpStatusCode.NotFound, missing.status)
+        assertEquals("Document not found", missing.detail())
+    }
+
+    @Test
+    fun `pulse results - own-right lapse - a member who leaves the team no longer holds the right, rejoining restores it`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            w.x.client.sharePulseId(w.teamId, sharee.id)
+            val access = application.attributes[ShareAccessKey]
+            val adapter = PulseTeamResultsShareable(TestServices.teams)
+            val principal = CallerPrincipal(userId = w.x.id, email = w.x.email, roles = emptySet())
+            suspend fun ownRight(): Boolean = access.holdsOwnRight(principal, ShareableResourceType.PULSE_TEAM_RESULTS) {
+                adapter.guard(it, checkNotNull(adapter.read(w.teamId)))
+            }
+            assertTrue(ownRight())
+            TestServices.teams.removeMember(w.teamId, w.x.id)
+            assertFalse(ownRight())
+            assertEquals(HttpStatusCode.Forbidden, w.x.client.sharePulse(w.teamId, person("late").id).status)
+            TestServices.teams.addMember(w.teamId, w.x.id)
+            assertTrue(ownRight())
+            // The author predicate today: the team's manager and the chain above, never a plain member.
+            assertTrue(adapter.isAuthor(w.manager.id, checkNotNull(adapter.read(w.teamId))))
+            assertTrue(adapter.isAuthor(w.grand.id, checkNotNull(adapter.read(w.teamId))))
+            assertFalse(adapter.isAuthor(w.x.id, checkNotNull(adapter.read(w.teamId))))
+        }
+
+    @Test
+    fun `pulse results - reassigning the team moves the author set to the new manager and the chain above them`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            val n = person("pulse-new-manager")
+            val h = person("pulse-new-chain")
+            TestServices.teams.create(Team("PulseOther-${h.id}", h.id, listOf(n.id)))
+            val shareId = w.x.client.sharePulseId(w.teamId, sharee.id)
+            suspend fun listedBy(who: Person) = who.client.pulseDocumentShares(w.teamId)
+
+            // Reassign T from M to N: N (manager) and H (above N) are authors; M and G lost T from their tree.
+            val existing = checkNotNull(TestServices.teams.read(w.teamId))
+            assertEquals(1, TestServices.teams.update(w.teamId, existing.copy(managerId = n.id)))
+            for (author in listOf(n, h)) {
+                val page = listedBy(author)
+                assertEquals(HttpStatusCode.OK, page.status, author.name)
+                assertEquals(listOf(shareId), page.body<SharePageResponse>().items.map { it.id })
+            }
+            assertEquals(HttpStatusCode.Forbidden, listedBy(w.manager).status)
+            assertEquals(HttpStatusCode.Forbidden, listedBy(w.grand).status)
+            assertEquals(HttpStatusCode.Forbidden, w.manager.client.post("/api/v1/shares/$shareId/withdraw").status)
+            // G is an author again exactly while N sits below G (N joins G's department).
+            TestServices.teams.addMember(w.departmentId, n.id)
+            assertEquals(HttpStatusCode.OK, listedBy(w.grand).status)
+            assertEquals(HttpStatusCode.NoContent, w.grand.client.post("/api/v1/shares/$shareId/withdraw").status)
+        }
+
+    @Test
+    fun `pulse results - view=document answers 404 for a soft-deleted team, and an author with the PULSE_SURVEYS flag off is refused`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            w.x.client.sharePulseId(w.teamId, sharee.id)
+            // A chain-manager author whose OWN flag is off: the document list is gated first.
+            val offManager = person("pulse-off-manager", disabled = setOf(Feature.PULSE_SURVEYS))
+            TestServices.teams.addMember(w.departmentId, offManager.id)
+            TestServices.teams.create(Team("PulseOffTop-${offManager.id}", offManager.id, listOf(w.grand.id)))
+            assertEquals(HttpStatusCode.Forbidden, offManager.client.pulseDocumentShares(w.teamId).status)
+            assertEquals(HttpStatusCode.OK, w.grand.client.pulseDocumentShares(w.teamId).status)
+
+            assertEquals(1, TestServices.teams.delete(w.teamId))
+            for (who in listOf(w.manager, w.grand)) {
+                assertEquals(HttpStatusCode.NotFound, who.client.pulseDocumentShares(w.teamId).status, who.name)
+            }
+        }
+
+    @Test
+    fun `pulse results - the visible tree is the team, the teams below it and the manager's own department, never a parent`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val sharee = person("sharee")
+            val w2 = person("pulse-below-member")
+            // Y (a teammate of X) manages a team S below X's team T: X sees S's results, so may share them.
+            val below = TestServices.teams.create(Team("PulseBelow-${w.y.id}", w.y.id, listOf(w2.id)))
+            assertEquals(HttpStatusCode.Created, w.x.client.sharePulse(below, sharee.id).status)
+            // The parent department D (managed by G, M its only member) is outside X's tree: 403.
+            val denied = w.x.client.sharePulse(w.departmentId, sharee.id)
+            assertEquals(HttpStatusCode.Forbidden, denied.status)
+            assertEquals("Only someone who can read this document in their own right may share it", denied.detail())
+            // M is a MEMBER of D, so D is in M's tree.
+            assertEquals(HttpStatusCode.Created, w.manager.client.sharePulse(w.departmentId, sharee.id).status)
+        }
+
+    @Test
+    fun `pulse results - sharing needs the caller's PULSE_SURVEYS flag, an inert share for a flag-off sharee still exists`() =
+        runBlockingApp {
+            val w = pulseWorld()
+            val off = person("flag-off", disabled = setOf(Feature.PULSE_SURVEYS))
+            TestServices.teams.addMember(w.teamId, off.id)
+            assertEquals(HttpStatusCode.Forbidden, off.client.sharePulse(w.teamId, w.y.id).status)
+            assertEquals(HttpStatusCode.Created, w.x.client.sharePulse(w.teamId, off.id).status)
+            assertEquals(0, off.client.get("/api/v1/shares").body<SharePageResponse>().total)
         }
 
     /** `testApplication` with the container started; the body is the test. */

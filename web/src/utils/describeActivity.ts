@@ -76,21 +76,23 @@ function shareSentence(entry: ActivityEntry, c: ActivityContext): string {
   const p = entry.params;
   const area = entry.area as ShareableResourceType;
   // A days-off calendar share names the person whose calendar it is (the stored snapshot's
-  // `person`) — "Shared Pat's days-off calendar with Ben" — falling back to the generic noun.
+  // `person`) — "Shared Pat's days-off calendar with Ben" — and a pulse-results share (v4.12.0) the
+  // team (`team`) — "Shared the pulse survey results of AAA with Ben" — falling back to the generic noun.
   const person = entry.area === "DAYS_OFF" ? entry.details?.person : undefined;
-  const suffix = person != null ? "_named" : "";
+  const team = entry.area === "PULSE_TEAM_RESULTS" ? entry.details?.team : undefined;
+  const suffix = person != null || team != null ? "_named" : "";
   const nounKey = dynamicKey(`activity.shareNoun.${area}${suffix}`);
   const nounOfKey = dynamicKey(`activity.shareNounOf.${area}${suffix}`);
   if (entry.eventType === "SHARE_CREATED") {
     return t("activity.event.shareCreated", {
-      noun: t(nounKey, { person }),
+      noun: t(nounKey, { person, team }),
       sharee: p.sharee ?? "",
       date: date(p.expiresOn, locale),
       context: p.expiresOn ? "until" : undefined,
     });
   }
   return t("activity.event.shareWithdrawn", {
-    noun: t(nounOfKey, { person }),
+    noun: t(nounOfKey, { person, team }),
     sharee: p.sharee ?? "",
     sharer: p.sharer ?? "",
     context: p.byAuthor === "true" ? "byAuthor" : undefined,

@@ -17,9 +17,11 @@ import {
 import ResponsiveTable from "./ResponsiveTable";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { getPulseComments, getPulseResults, getPulseTrend, type PulseAggregationMode, type PulseDriverResult } from "../api/pulse";
+import { isShareLapse } from "../utils/shareLapse";
+import ShareButton from "./ShareButton";
 import {
   PULSE_SMALL_SAMPLE,
   buildTrendSeries,
@@ -92,6 +94,11 @@ function DriverRow({ driver, questionLabel }: { driver: PulseDriverResult; quest
  * callers who monitor this team — the anonymized comments. The response count is always
  * visible, and nothing is ever framed as statistically significant. A scope under the
  * k-anonymity floor renders the withheld state instead of numbers.
+ *
+ * Sharing (v4.12.0): the Share button follows the server's `canShare` ONLY (never `sharedBy`);
+ * `sharedBy` names whoever's share granted this read, on whichever view it arrives; comments are
+ * fetched for a monitor or when the server says `canReadComments`; a lapse 403 (the sharer sat this
+ * cycle out, or lost the team) reads as a neutral note, not a red load error.
  */
 export default function PulseTeamResultCard({
   cycleId,
@@ -100,6 +107,8 @@ export default function PulseTeamResultCard({
   mode,
   canMonitor,
   commentsOnly = false,
+  highlighted = false,
+  sharedByFallback,
 }: {
   cycleId: number;
   teamId: number;
@@ -109,14 +118,28 @@ export default function PulseTeamResultCard({
   /** A fill-gated monitor (a manager who didn't respond): skip the aggregate/trend queries
    *  and render only the comments section their monitoring right still covers. */
   commentsOnly?: boolean;
+  /** The deep link's `?team=` target: marked (aria-current + accent bar) and scrolled into view. */
+  highlighted?: boolean;
+  /** The sharer named by the "Shared with me" list — shown when the read itself carries no
+   *  `sharedBy` (not loaded yet, or lapsed). */
+  sharedByFallback?: string;
 }) {
   const { t, i18n } = useTranslation();
-  const { data, isLoading, isError } = useQuery({
+  const paperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // happy-dom (and very old browsers) lack scrollIntoView; the highlight itself still renders.
+    if (highlighted) paperRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [highlighted]);
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["pulseResults", cycleId, teamId, mode],
     queryFn: () => getPulseResults(cycleId, teamId, mode),
     retry: false,
     enabled: !commentsOnly,
   });
+  // "Would GET comments succeed": a monitor, or the server-computed flag (HR, or a share whose
+  // sharer monitors the team) — which is false for an INSIDER (someone who answered this cycle in
+  // the scope): a share never opens the comments to them.
+  const showComments = canMonitor || data?.canReadComments === true;
   const trend = useQuery({
     queryKey: ["pulseTrend", teamId, mode],
     queryFn: () => getPulseTrend(teamId, mode),
@@ -126,10 +149,12 @@ export default function PulseTeamResultCard({
   const comments = useQuery({
     queryKey: ["pulseComments", cycleId, teamId, mode],
     queryFn: () => getPulseComments(cycleId, teamId, mode),
-    enabled: canMonitor,
+    enabled: showComments,
     retry: false,
   });
 
+  const lapsed = isError && isShareLapse(error);
+  const sharedBy = data?.sharedBy ?? sharedByFallback;
   const trendSeries = trend.data ? buildTrendSeries(trend.data.points) : [];
   const questionLabel = (driver: PulseDriverResult) =>
     driver.question === "ROTATING"
@@ -137,25 +162,49 @@ export default function PulseTeamResultCard({
       : t(dynamicKey(`pulse.${driver.question.toLowerCase()}`));
 
   return (
-    <Paper withBorder shadow="sm" p="lg" radius="md">
+    <Paper ref={paperRef} withBorder shadow="sm" p="lg" radius="md">
       <Stack gap="sm">
         <Group justify="space-between" align="baseline" style={{ minWidth: 0 }}>
-          <Title order={4} style={{ minWidth: 0, overflowWrap: "break-word" }}>{teamName}</Title>
-          {data && (
-            <Text size="sm" c="dimmed">
-              {t("pulse.results.responses", {
-                completed: data.responseCount,
-                participants: data.participantCount,
-                rate: data.responseRate,
-              })}
-            </Text>
-          )}
+          <Title
+            order={4}
+            aria-current={highlighted ? "true" : undefined}
+            style={{
+              minWidth: 0,
+              overflowWrap: "break-word",
+              ...(highlighted
+                ? {
+                    background: "var(--mantine-primary-color-light)",
+                    boxShadow: "inset 3px 0 0 var(--mantine-primary-color-filled)",
+                    paddingLeft: "var(--mantine-spacing-xs)",
+                  }
+                : {}),
+            }}
+          >
+            {teamName}
+          </Title>
+          <Group gap="sm" align="center">
+            {data && (
+              <Text size="sm" c="dimmed">
+                {t("pulse.results.responses", {
+                  completed: data.responseCount,
+                  participants: data.participantCount,
+                  rate: data.responseRate,
+                })}
+              </Text>
+            )}
+            <ShareButton canShare={data?.canShare} resourceType="PULSE_TEAM_RESULTS" resourceId={teamId} />
+          </Group>
         </Group>
+        {sharedBy != null && sharedBy !== "" && (
+          <Text size="xs" c="dimmed">
+            {t("sharing.sharedBy", { name: sharedBy })}
+          </Text>
+        )}
 
         {!commentsOnly && isLoading && <Skeleton height={120} radius="sm" />}
         {!commentsOnly && isError && (
-          <Alert color="red" variant="light">
-            {t("pulse.results.loadError")}
+          <Alert color={lapsed ? "gray" : "red"} variant="light">
+            {lapsed ? t("pulse.results.sharedUnavailable") : t("pulse.results.loadError")}
           </Alert>
         )}
 
@@ -242,7 +291,7 @@ export default function PulseTeamResultCard({
           </>
         )}
 
-        {!commentsOnly && (
+        {!commentsOnly && !lapsed && (
           <>
             <Divider label={t("pulse.results.trendTitle")} labelPosition="left" />
             {trendSeries.length >= 2 ? (
@@ -254,13 +303,13 @@ export default function PulseTeamResultCard({
               </Suspense>
             ) : (
               <Text size="sm" c="dimmed">
-                {t("pulse.results.trendPending")}
+                {t(trend.isError ? "pulse.results.trendUnavailable" : "pulse.results.trendPending")}
               </Text>
             )}
           </>
         )}
 
-        {canMonitor && comments.data && !comments.data.insufficientResponses && comments.data.items.length > 0 && (
+        {showComments && comments.data && !comments.data.insufficientResponses && comments.data.items.length > 0 && (
           <>
             <Divider label={t("pulse.results.commentsTitle")} labelPosition="left" />
             <Text size="xs" c="dimmed">

@@ -28,7 +28,8 @@
     "SUCCESSION_PLAN": "Succession plan",
     "DAYS_OFF": "Days off",
     "CAREER_POSITION": "Career",
-    "ACCOUNT": "Sign-ins"
+    "ACCOUNT": "Sign-ins",
+    "PULSE_TEAM_RESULTS": "Pulse survey results"
   },
   "shareNoun": {
     "FEEDBACK": "feedback",
@@ -39,7 +40,9 @@
     "IMPACT_LOG_ENTRY": "an impact log entry",
     "SUCCESSION_PLAN": "a succession plan",
     "DAYS_OFF": "a days-off calendar",
-    "DAYS_OFF_named": "{{person}}'s days-off calendar"
+    "DAYS_OFF_named": "{{person}}'s days-off calendar",
+    "PULSE_TEAM_RESULTS": "pulse survey results",
+    "PULSE_TEAM_RESULTS_named": "the pulse survey results of {{team}}"
   },
   "shareNounOf": {
     "FEEDBACK": "feedback",
@@ -50,7 +53,9 @@
     "IMPACT_LOG_ENTRY": "an impact log entry",
     "SUCCESSION_PLAN": "a succession plan",
     "DAYS_OFF": "a days-off calendar",
-    "DAYS_OFF_named": "{{person}}'s days-off calendar"
+    "DAYS_OFF_named": "{{person}}'s days-off calendar",
+    "PULSE_TEAM_RESULTS": "pulse survey results",
+    "PULSE_TEAM_RESULTS_named": "the pulse survey results of {{team}}"
   },
   "kind": {
     "paid": "paid, \"{{pool}}\" pool",

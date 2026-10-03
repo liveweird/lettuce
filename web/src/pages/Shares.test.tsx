@@ -320,6 +320,34 @@ describe("Shares page", () => {
     expect(within(alert.closest("[role=alert]") as HTMLElement).getByText(/Loading failed \(500\)\./)).toBeInTheDocument();
     expect(screen.queryByText("Nothing has been shared with you.")).toBeNull();
   });
+  describe("pulse results shares (v4.12.0)", () => {
+    const PULSE_LINK = "/pulse?tab=results&view=shared&team=11";
+    const pulseRow = (id: number, extra: Record<string, unknown> = {}) =>
+      row(id, "PULSE_TEAM_RESULTS", { team: "AAA" }, { resourceId: 11, link: PULSE_LINK, ...extra });
+
+    test("Shared with me: labelled after the team; Open keeps the sharee's shared-view link", async () => {
+      mockApi({ withMe: { items: [pulseRow(41)] } });
+      renderPage();
+
+      expect(await screen.findByText("Pulse survey results of AAA")).toBeInTheDocument();
+      expect(screen.getAllByText("Pulse survey results").length).toBeGreaterThan(0);
+      const open = screen.getByRole("link", { name: "Open the shared document: Pulse survey results of AAA" });
+      expect(open).toHaveAttribute("href", `${PULSE_LINK}&back=${encodeURIComponent("/shares")}`);
+    });
+
+    test("Shared by me: Open goes to the Results tab with the team marked (the sharee's view holds nothing for the sharer)", async () => {
+      mockApi({
+        byMe: { items: [pulseRow(42, { sharerId: 7, sharerName: "Me", shareeId: 12, shareeName: "Ben Bystander" })] },
+      });
+      renderPage("/shares?tab=byMe");
+
+      expect(await screen.findByRole("link", { name: "Open the shared document: Pulse survey results of AAA" })).toHaveAttribute(
+        "href",
+        `/pulse?tab=results&team=11&back=${encodeURIComponent("/shares?tab=byMe")}`,
+      );
+    });
+  });
+
   describe("days-off calendar shares (v4.11.0)", () => {
     const CAL_LINK = "/days-off?tab=calendar&scope=shared&user=21";
     const calendarRow = (id: number, extra: Record<string, unknown> = {}) =>

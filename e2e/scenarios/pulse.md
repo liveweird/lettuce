@@ -1,22 +1,27 @@
 # Pulse surveys — full cycle lifecycle
 
 - **Spec**: [tests/pulse.spec.ts](../tests/pulse.spec.ts)
-- **Actors**: the seed admin (cycle lifecycle), AAA One (the UI participant/respondent),
+- **Actors**: the seed admin (cycle lifecycle; also creates the throwaway sharee), AAA One (the UI
+  participant/respondent and the results-share sharer),
   AAA Two + AAA Three + Manager CCC (API respondents, setup only), Manager AAA (the
-  non-responding monitor), Manager CCC (the two-view Results + Trend session)
+  non-responding monitor), Manager CCC (the two-view Results + Trend session, and the share's
+  author who withdraws it), a throwaway sharee (created after the cycle closed — never a
+  participant)
 - **Owns** (exclusive server-side state): the global pulse-cycle registry (the
   one-non-terminal-cycle invariant) and, transitively, every user's bell — opening a cycle
   sprays notifications org-wide. The spec therefore runs in its **own serial `pulse` project
   phase**, chained after `alerts` (chromium → alerts → pulse); no other spec runs concurrently.
   Each run accretes one CLOSED (plus one CANCELLED) cycle on the shared database, so results
   asserts always pin the CURRENT cycle (via the notification deep link / latest-closed
-  default), never cycle #1.
+  default), never cycle #1. The results-sharing test also owns one throwaway user (email contains
+  `e2e`, removed by the residue sweep) and one share of the AAA team's results from AAA One to
+  that user, withdrawn by the end of the test.
 - **Since**: v2.0.0 (pulse surveys), v2.5.9 (the one-question-per-step wizard + saved summary),
   v2.6.2 (hand-computed aggregates), v2.12.0 (two-view Results layout), v2.14.0 (Trend team
-  pills)
+  pills), v4.12.0 (pulse results sharing)
 
 The tests are ordered steps of one flow — schedule → open → fill → monitor → close → results →
-cancel path. The registry is swept at the start and left terminal at the end.
+share → cancel path. The registry is swept at the start and left terminal at the end.
 
 ## Scenario: admin schedules a cycle (prefilled dates) and opens it
 
@@ -109,6 +114,40 @@ fill gate for the "Teams I manage" leg below.
     cycles." shows; shared-database reruns accumulate cycles and the chart renders).
     - *Expected*: after each switch, either the chart or the pending text is visible; picking
       Q2 shows its full caption, "I understand what is expected of me in my role."
+
+## Scenario: a respondent shares the team's results with an outsider, who reads them under Shared with me; the manager withdraws
+
+**Setup**: the admin creates a throwaway user through the Users form (the one-time password reveal
+supplies the credential) and signs out. The cycle has already closed, so the new user is never a
+participant — the per-cycle fill gate would block them in their own right and only the share can
+let them in.
+
+1. AAA One (a respondent, member of AAA) opens Results, finds the AAA card on "Teams I belong to"
+   and presses its "Share" button.
+   - *Expected*: the "Share these pulse results" dialog opens.
+2. AAA One picks the throwaway user in "Share with" (no end date) and submits.
+   - *Expected*: the "Pulse results shared" toast appears and the dialog's current shares list
+     shows an Active share. AAA One closes the dialog and signs out.
+3. The sharee signs in and opens the bell.
+   - *Expected*: a card "AAA One shared the pulse survey results of AAA with you." is there;
+     following its "Go to" action opens Results on "Shared with me" with the AAA card marked
+     (current) and labelled "Shared by AAA One".
+4. The sharee reads the card.
+   - *Expected*: the SAME hand-computed numbers as AAA One saw — "3 of 3 responded (100%)", eNPS
+     0 with Promoters, Passives and Detractors at 33.3% each, the "I understand what is expected"
+     row (4.0 / 100.0%), the "I receive the support" row (3.3 / 33.3%) and the "My current
+     workload" row (4.0, n = 1); the run's unique comment is nowhere on the page (a member-sharer
+     passes no comments on); the card has no "Share" button (the sharee does not read the results
+     in their own right).
+5. The sharee opens the Shared screen.
+   - *Expected*: a row "Pulse survey results of AAA". The sharee signs out.
+6. Manager CCC (the team's manager through the chain — the share's author) opens Results, picks
+   "Teams I manage" and presses the AAA card's "Share" button.
+   - *Expected*: the dialog's current shares lists the sharee's share, "Shared by AAA One".
+7. Manager CCC withdraws it ("Withdraw the share with <sharee>") and confirms.
+   - *Expected*: the "Share withdrawn" toast appears and the row reads Withdrawn. CCC signs out.
+8. The sharee signs in again and opens Results on "Shared with me".
+   - *Expected*: "Nobody has shared pulse results with you."
 
 ## Scenario: cancelling a scheduled cycle is confirmed and leaves the registry terminal
 

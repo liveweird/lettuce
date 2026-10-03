@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 class ShareNotificationsTest {
 
     @Test
-    fun `only performance reviews and days-off calendars are batchable and map to their summary type (v4_11_0)`() {
+    fun `only performance reviews and days-off calendars are batchable and map to their summary type (v4_11_0, pulse results are not)`() {
         ShareableResourceType.entries.forEach { type ->
             val expected = when (type) {
                 ShareableResourceType.PERFORMANCE_REVIEW -> NotificationType.PERFORMANCE_REVIEWS_BATCH_SHARED
@@ -31,6 +31,7 @@ class ShareNotificationsTest {
         // The summary notice's link is per kind: reviews keep the Shared screen, calendars open the shared scope.
         assertEquals("/shares", ShareableResourceType.PERFORMANCE_REVIEW.batchSharedLink)
         assertEquals("/days-off?tab=calendar&scope=shared", ShareableResourceType.DAYS_OFF_CALENDAR.batchSharedLink)
+        assertNull(ShareableResourceType.PULSE_TEAM_RESULTS.batchSharedNotification)
         assertEquals(Feature.DAYS_OFF, NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED.feature)
         assertFalse(NotificationType.DAYS_OFF_CALENDARS_BATCH_SHARED.lockedOn)
         // The summary type follows its feature and is silenceable like every other share notice.
@@ -56,9 +57,13 @@ class ShareNotificationsTest {
     }
 
     @Test
-    fun `only the calendar carries label params into its notices - the seven document kinds stay byte-identical`() {
+    fun `only the calendar and pulse results carry label params into their notices - the seven document kinds stay byte-identical`() {
         ShareableResourceType.entries.forEach { type ->
-            val expected = if (type == ShareableResourceType.DAYS_OFF_CALENDAR) setOf("person") else emptySet()
+            val expected = when (type) {
+                ShareableResourceType.DAYS_OFF_CALENDAR -> setOf("person")
+                ShareableResourceType.PULSE_TEAM_RESULTS -> setOf("team")
+                else -> emptySet()
+            }
             assertEquals(expected, type.notificationLabelKeys, "$type")
         }
         // Label params and the self carrier offered to a document kind are ignored: params stay {sharer}+expiresOn.
@@ -134,5 +139,57 @@ class ShareNotificationsTest {
         )
         assertEquals(1, own.size)
         assertEquals("own", own.single().params["self"])
+    }
+
+    @Test
+    fun `a pulse results notice carries exactly sharer and team, plus expiresOn - never a cycle or any other label`() {
+        val link = "/pulse?tab=results&view=shared&team=5"
+        val open = shareCreatedNotification(
+            ShareableResourceType.PULSE_TEAM_RESULTS, 7u, "Xia Member", null, link,
+            labelParams = mapOf("team" to "AAA"),
+        )
+        assertEquals(NotificationType.PULSE_RESULTS_SHARED, open.type)
+        assertEquals(mapOf("sharer" to "Xia Member", "team" to "AAA"), open.params)
+        assertEquals(link, open.link)
+        assertEquals(Feature.PULSE_SURVEYS, open.type.feature)
+        assertFalse(open.type.lockedOn)
+        val bound = shareCreatedNotification(
+            ShareableResourceType.PULSE_TEAM_RESULTS, 7u, "Xia Member", "2026-12-31", link,
+            labelParams = mapOf("team" to "AAA", "cycle" to "9"),
+        )
+        assertEquals(mapOf("sharer" to "Xia Member", "team" to "AAA", "expiresOn" to "2026-12-31"), bound.params)
+        // sharerIsSubject is a calendar-only carrier: a pulse notice ignores it, created and withdrawn.
+        val flagged = shareCreatedNotification(
+            ShareableResourceType.PULSE_TEAM_RESULTS, 7u, "Xia Member", null, link,
+            labelParams = mapOf("team" to "AAA"), sharerIsSubject = true,
+        )
+        assertEquals(mapOf("sharer" to "Xia Member", "team" to "AAA"), flagged.params)
+        val withdrawn = shareWithdrawnNotifications(
+            ShareableResourceType.PULSE_TEAM_RESULTS, 1u, "Xia Member", 7u, "Sam Sharee", 1u, "Xia Member",
+            labelParams = mapOf("team" to "AAA"), sharerIsSubject = true,
+        )
+        assertNull(withdrawn.single().params["self"])
+    }
+
+    @Test
+    fun `pulse results withdrawal copies name the team, the sharee copy has no link and the author copy is flagged sharer`() {
+        val bySharer = shareWithdrawnNotifications(
+            ShareableResourceType.PULSE_TEAM_RESULTS, 1u, "Xia Member", 7u, "Sam Sharee", 1u, "Xia Member",
+            labelParams = mapOf("team" to "AAA"),
+        )
+        assertEquals(1, bySharer.size)
+        assertEquals(NotificationType.PULSE_RESULTS_SHARE_WITHDRAWN, bySharer.single().type)
+        assertEquals(
+            mapOf("sharer" to "Xia Member", "sharee" to "Sam Sharee", "actor" to "Xia Member", "team" to "AAA"),
+            bySharer.single().params,
+        )
+        assertNull(bySharer.single().link)
+        val byAuthor = shareWithdrawnNotifications(
+            ShareableResourceType.PULSE_TEAM_RESULTS, 1u, "Xia Member", 7u, "Sam Sharee", 5u, "Mia Manager",
+            labelParams = mapOf("team" to "AAA"),
+        )
+        assertEquals(2, byAuthor.size)
+        assertEquals("sharer", byAuthor[1].params["self"])
+        assertEquals("AAA", byAuthor[1].params["team"])
     }
 }

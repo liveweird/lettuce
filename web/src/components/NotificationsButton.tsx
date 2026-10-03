@@ -122,6 +122,9 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   DAYS_OFF_CALENDAR_SHARED: "daysOffCalendarShared",
   DAYS_OFF_CALENDAR_SHARE_WITHDRAWN: "daysOffCalendarShareWithdrawn",
   DAYS_OFF_CALENDARS_BATCH_SHARED: "daysOffCalendarsBatchShared",
+  // v4.12.0 — a team's pulse results: the notice names the team (`team`, a plain interpolation param).
+  PULSE_RESULTS_SHARED: "pulseResultsShared",
+  PULSE_RESULTS_SHARE_WITHDRAWN: "pulseResultsShareWithdrawn",
   PASSWORD_CHANGED: "passwordChanged",
 };
 
@@ -209,6 +212,8 @@ const PARAM_FORMAT: Partial<Record<string, ParamFormatSpec>> = {
   daysOffCalendarShared: CALENDAR_SHARED_SPEC,
   daysOffCalendarShareWithdrawn: CALENDAR_WITHDRAWN_SPEC,
   daysOffCalendarsBatchShared: BATCH_SHARED_SPEC,
+  pulseResultsShared: SHARED_SPEC,
+  pulseResultsShareWithdrawn: SHARE_WITHDRAWN_SPEC,
   teamKpiValueRecorded: KPI_VALUE_SPEC,
   teamKpiValueCorrected: KPI_VALUE_SPEC,
   teamKpiValueRemoved: KPI_VALUE_SPEC,
@@ -332,6 +337,8 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   DAYS_OFF_CALENDAR_SHARED: { icon: IconShare, color: "blue" },
   DAYS_OFF_CALENDAR_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
   DAYS_OFF_CALENDARS_BATCH_SHARED: { icon: IconShare, color: "blue" },
+  PULSE_RESULTS_SHARED: { icon: IconShare, color: "blue" },
+  PULSE_RESULTS_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
 };
 

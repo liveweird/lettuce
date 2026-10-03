@@ -28,7 +28,8 @@
     "SUCCESSION_PLAN": "Plan sukcesji",
     "DAYS_OFF": "Dni wolne",
     "CAREER_POSITION": "Kariera",
-    "ACCOUNT": "Logowania"
+    "ACCOUNT": "Logowania",
+    "PULSE_TEAM_RESULTS": "Wyniki ankiety pulsu"
   },
   "shareNoun": {
     "FEEDBACK": "feedback",
@@ -39,7 +40,9 @@
     "IMPACT_LOG_ENTRY": "wpis z dziennika wpływu",
     "SUCCESSION_PLAN": "plan sukcesji",
     "DAYS_OFF": "kalendarz dni wolnych",
-    "DAYS_OFF_named": "kalendarz dni wolnych osoby {{person}}"
+    "DAYS_OFF_named": "kalendarz dni wolnych osoby {{person}}",
+    "PULSE_TEAM_RESULTS": "wyniki ankiety pulsu",
+    "PULSE_TEAM_RESULTS_named": "wyniki ankiety pulsu zespołu {{team}}"
   },
   "shareNounOf": {
     "FEEDBACK": "feedbacku",
@@ -50,7 +53,9 @@
     "IMPACT_LOG_ENTRY": "wpisu z dziennika wpływu",
     "SUCCESSION_PLAN": "planu sukcesji",
     "DAYS_OFF": "kalendarza dni wolnych",
-    "DAYS_OFF_named": "kalendarza dni wolnych osoby {{person}}"
+    "DAYS_OFF_named": "kalendarza dni wolnych osoby {{person}}",
+    "PULSE_TEAM_RESULTS": "wyników ankiety pulsu",
+    "PULSE_TEAM_RESULTS_named": "wyników ankiety pulsu zespołu {{team}}"
   },
   "kind": {
     "paid": "płatne, pula „{{pool}}”",

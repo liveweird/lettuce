@@ -4,6 +4,8 @@
   "intro": "People you share this document with can read it, but never change it. A share works only while you can open the document yourself.",
   "dialogTitle_calendar": "Share this calendar",
   "intro_calendar": "People you share this calendar with can see when this person is off — dates and paid/unpaid only, never the kind of leave, the budget or the reasons — but never change anything. A share works only while you can see the calendar yourself.",
+  "dialogTitle_pulse": "Share these pulse results",
+  "intro_pulse": "People you share this team's pulse results with see exactly what you see — the team's aggregated scores, the trend and, if you can read them, the anonymized comments — except that the comments are never shown to someone who answered that cycle in the team. Never who answered what, and never anything you can't see yourself. A share works only while you can see the team's results yourself. People you share with can tell which survey cycles you took part in.",
   "shareWith": "Share with",
   "pickPeople": "Pick people",
   "noPeople": "No people available",
@@ -26,9 +28,11 @@
   "withdrawTitle": "Withdraw this share?",
   "withdrawBody": "{{name}} will no longer be able to open this document through this share. This cannot be undone.",
   "withdrawBody_calendar": "{{name}} will no longer be able to see this calendar through this share. This cannot be undone.",
+  "withdrawBody_pulse": "{{name}} will no longer be able to see these pulse results through this share. This cannot be undone.",
   "toast": {
     "shared": "Document shared",
     "shared_calendar": "Calendar shared",
+    "shared_pulse": "Pulse results shared",
     "withdrawn": "Share withdrawn",
     "batchShared": "Reviews shared",
     "batchShared_calendars": "Calendars shared"
@@ -39,13 +43,16 @@
   "error": {
     "duplicate": "It is already shared with this person.",
     "duplicate_calendar": "This calendar is already shared with this person.",
+    "duplicate_pulse": "These results are already shared with this person.",
     "invalid": "The server rejected the request. Check the end date.",
     "untilPast": "The end date cannot be in the past.",
     "rateLimited": "You are sharing too fast. Wait a moment and try again.",
     "forbidden": "You can't share this document.",
     "forbidden_calendar": "You can't share this calendar.",
+    "forbidden_pulse": "You can't share these results.",
     "notFound": "This document or person no longer exists.",
     "notFound_calendar": "This calendar or person no longer exists.",
+    "notFound_pulse": "This team or person no longer exists.",
     "failed": "Sharing failed. Try again.",
     "failedStatus": "Sharing failed (HTTP {{status}}).",
     "loadSharesFailed": "Couldn't load the current shares.",
@@ -86,7 +93,8 @@
     "TEAM_KPI": "Team KPI",
     "IMPACT_LOG_ENTRY": "Impact log entry",
     "SUCCESSION_PLAN": "Succession plan",
-    "DAYS_OFF_CALENDAR": "Days-off calendar"
+    "DAYS_OFF_CALENDAR": "Days-off calendar",
+    "PULSE_TEAM_RESULTS": "Pulse survey results"
   },
   "doc": {
     "unavailable": "No longer available",
@@ -98,7 +106,8 @@
     "IMPACT_LOG_ENTRY": "{{title}} ({{author}}, {{period}})",
     "IMPACT_LOG_ENTRY_untitled": "{{author}}, {{period}}",
     "SUCCESSION_PLAN": "{{person}} (owner: {{owner}})",
-    "DAYS_OFF_CALENDAR": "Days-off calendar of {{person}}"
+    "DAYS_OFF_CALENDAR": "Days-off calendar of {{person}}",
+    "PULSE_TEAM_RESULTS": "Pulse survey results of {{team}}"
   },
   "batch": {
     "title": "Share performance reviews",

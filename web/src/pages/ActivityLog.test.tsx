@@ -179,6 +179,47 @@ describe("ActivityLog page", () => {
     expect(screen.queryByText("No longer available")).toBeNull();
   });
 
+  test("a pulse results share row names the team and opens the Results tab with the team marked, never the sharee's view (v4.12.0)", async () => {
+    mockApi({
+      items: [
+        row("PULSE_TEAM_RESULTS:SHARE:15", "PULSE_TEAM_RESULTS", "SHARE_CREATED", { sharee: "Ben Bystander" }, {
+          documentId: 5,
+          link: "/pulse?tab=results&view=shared&team=5",
+          details: { team: "AAA" },
+        }),
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText("Shared the pulse survey results of AAA with Ben Bystander")).toBeInTheDocument();
+    expect(screen.getAllByText("Pulse survey results").length).toBeGreaterThan(0);
+    const back = encodeURIComponent("/activity");
+    expect(screen.getByRole("link", { name: "Pulse survey results of AAA" })).toHaveAttribute(
+      "href",
+      `/pulse?tab=results&team=5&back=${back}`,
+    );
+  });
+
+  const pulseAreaOption = async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Progress updated from 10 to 20.");
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Area", { selector: "input" }));
+    await screen.findByRole("option", { name: "Feedback" });
+    return screen.queryByRole("option", { name: "Pulse survey results" });
+  };
+
+  test("the pulse results area is offered while PULSE_SURVEYS is enabled for the viewer", async () => {
+    expect(await pulseAreaOption()).not.toBeNull();
+  });
+
+  test("the pulse results area is not offered once PULSE_SURVEYS is disabled for the viewer", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["PULSE_SURVEYS"]));
+    expect(await pulseAreaOption()).toBeNull();
+  });
+
   test("person-scoped rows name the person concerned when it is not the log's owner (career links to their career page)", async () => {
     mockApi();
     renderPage();

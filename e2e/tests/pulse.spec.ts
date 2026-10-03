@@ -6,6 +6,8 @@ import {
   logout,
   openBell,
   notificationCard,
+  createUserViaUi,
+  pickMultiSelectOptions,
   uniqueText,
   ADMIN,
   AAA_ONE,
@@ -20,7 +22,7 @@ import { apiToken } from "./api";
 // serial phase (playwright.config.ts `pulse` project, after `alerts`): scheduling/opening a
 // cycle sprays notifications at EVERY user's bell, and the one-non-terminal-cycle registry is
 // global — no other spec may run concurrently. Within the file the tests are ordered steps of
-// one flow (schedule → open → fill → monitor → close → results → cancel path); the registry
+// one flow (schedule → open → fill → monitor → close → results → share → cancel path); the registry
 // is swept at the start and left terminal at the end, so reruns on the shared dev DB self-heal
 // (each run leaves one more CLOSED cycle behind — the results asserts therefore always pin the
 // CURRENT cycle via the notification deep link / latest-closed default, never cycle #1).
@@ -296,6 +298,114 @@ test("admin closes; a respondent reads team results; the non-responding manager 
   await page.getByText("Q2", { exact: true }).click();
   await expect(page.getByText("I understand what is expected of me in my role.")).toBeVisible();
   await expect(chartOrPending).toBeVisible();
+});
+
+test("a respondent shares the team's results with an outsider, who reads them under Shared with me; the manager withdraws", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+
+  // Setup: a throwaway sharee, created AFTER the cycle closed — never a participant, so the
+  // per-cycle fill gate would block them in their own right; only the share lets them in.
+  await login(page, ADMIN);
+  const sharee = await createUserViaUi(page, "E2E PulseShare Sharee");
+  await logout(page);
+
+  const cardOf = (team: string) =>
+    page
+      .locator(".mantine-Paper-root")
+      .filter({ has: page.getByRole("heading", { name: team, exact: true }) });
+
+  // 1. AAA One (a respondent, member of AAA) shares the AAA card from the member view.
+  await login(page, AAA_ONE);
+  await page.goto("/pulse?tab=results");
+  await expect(cardOf("AAA").getByText("3 of 3 responded (100%)")).toBeVisible();
+  await cardOf("AAA").getByRole("button", { name: "Share", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Share these pulse results" });
+  await expect(dialog).toBeVisible();
+  await pickMultiSelectOptions(page, "Share with", [sharee.name]);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/shares") && r.request().method() === "POST" && r.ok(),
+    ),
+    dialog.getByRole("button", { name: "Share", exact: true }).click(),
+  ]);
+  await expect(page.getByText("Pulse results shared")).toBeVisible();
+  // The dialog lists every share of the team's results (earlier runs leave their own rows), so the
+  // new one is pinned by its sharee: an active share is the one carrying a Withdraw action.
+  await expect(dialog.getByRole("button", { name: `Withdraw the share with ${sharee.name}` })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await logout(page);
+
+  // 2. The sharee follows the bell card to Results / "Shared with me": the AAA card is marked,
+  // "Shared by AAA One", with the SAME numbers the respondent saw — and no comments (a
+  // member-sharer has none to pass on), no Share button (not an own-right reader).
+  await login(page, sharee.email, sharee.password);
+  const bell = await openBell(page);
+  const shareCard = notificationCard(bell, "AAA One shared the pulse survey results of AAA with you.");
+  await expect(shareCard).toBeVisible();
+  await shareCard.getByRole("button", { name: /^Go to notification \d+$/ }).click();
+  await expect(page).toHaveURL(/\/pulse\?tab=results&view=shared&team=\d+/);
+  await expect(page.getByRole("radio", { name: "Shared with me" })).toBeChecked();
+  await expect(page.getByRole("heading", { name: "AAA", exact: true })).toHaveAttribute("aria-current", "true");
+  const shared = cardOf("AAA");
+  await expect(shared.getByText("Shared by AAA One")).toBeVisible();
+  await expect(shared.getByText("3 of 3 responded (100%)")).toBeVisible();
+  await expect(shared.getByRole("paragraph").filter({ hasText: /^0$/ })).toBeVisible();
+  await expect(shared.getByText(/Promoters 33\.3%/)).toBeVisible();
+  await expect(shared.getByText(/Passives 33\.3%/)).toBeVisible();
+  await expect(shared.getByText(/Detractors 33\.3%/)).toBeVisible();
+  const q2 = shared.locator("tr").filter({ hasText: "I understand what is expected" });
+  await expect(q2.getByText("4.0", { exact: true })).toBeVisible();
+  await expect(q2.getByText("100.0%", { exact: true })).toBeVisible();
+  const q3 = shared.locator("tr").filter({ hasText: "I receive the support" });
+  await expect(q3.getByText("3.3", { exact: true })).toBeVisible();
+  await expect(q3.getByText("33.3%", { exact: true })).toBeVisible();
+  const q5 = shared.locator("tr").filter({ hasText: "My current workload" });
+  await expect(q5.getByText("4.0", { exact: true })).toBeVisible();
+  await expect(q5.getByText("1", { exact: true })).toBeVisible();
+  // Asserted only after the numbers rendered, so an unloaded card cannot pass the count vacuously.
+  await expect(page.getByText(COMMENT)).toHaveCount(0);
+  await expect(shared.getByRole("button", { name: "Share", exact: true })).toHaveCount(0);
+  // The Shared screen lists it under its frozen label.
+  await page.goto("/shares");
+  await expect(page.getByRole("heading", { level: 2, name: "Shared" })).toBeVisible();
+  await expect(page.locator("tr", { hasText: "Pulse survey results of AAA" }).first()).toBeVisible();
+  await logout(page);
+
+  // 3. Manager CCC (the team's manager via the chain — the AUTHOR) sees AAA One's share in the
+  // card's Share dialog and withdraws it.
+  await login(page, MANAGER_CCC);
+  await page.goto("/pulse?tab=results");
+  await page.getByText("Teams I manage", { exact: true }).click();
+  await expect(cardOf("AAA").getByText("3 of 3 responded (100%)")).toBeVisible();
+  await cardOf("AAA").getByRole("button", { name: "Share", exact: true }).click();
+  const authorDialog = page.getByRole("dialog", { name: "Share these pulse results" });
+  await expect(authorDialog).toBeVisible();
+  await expect(authorDialog.getByText("Shared by AAA One").first()).toBeVisible();
+  const withdrawAction = authorDialog.getByRole("button", { name: `Withdraw the share with ${sharee.name}` });
+  await withdrawAction.click();
+  await expect(page.getByText("Withdraw this share?")).toBeVisible();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/v1\/shares\/\d+\/withdraw$/.test(r.url()) && r.request().method() === "POST" && r.ok(),
+    ),
+    page
+      .getByRole("dialog", { name: "Withdraw this share?" })
+      .getByRole("button", { name: "Withdraw", exact: true })
+      .click(),
+  ]);
+  await expect(page.getByText("Share withdrawn")).toBeVisible();
+  // The withdrawn share loses its Withdraw action (only active shares carry one).
+  await expect(withdrawAction).toHaveCount(0);
+  await expect(authorDialog.getByText("Withdrawn", { exact: true }).first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await logout(page);
+
+  // 4. The sharee's shared view is now empty.
+  await login(page, sharee.email, sharee.password);
+  await page.goto("/pulse?tab=results&view=shared");
+  await expect(page.getByText("Nobody has shared pulse results with you.")).toBeVisible();
 });
 
 test("cancelling a scheduled cycle is confirmed and leaves the registry terminal", async ({ page }) => {
