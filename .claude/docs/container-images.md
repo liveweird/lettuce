@@ -16,6 +16,7 @@ The current indexes include both `linux/amd64` and `linux/arm64` images.
 | Mailpit 1.31.2 | `docker-compose.yaml` |
 | WireMock 3.13.2 (the local Teams stub, v4.5.0) | `docker-compose.yaml` |
 | Trivy 0.74.0 (the CI dependency scan, v4.5.2) | `.github/workflows/quality.yml` |
+| k6 2.3.0 (the on-demand load generator, perf M1) | `perf/run.sh` (`K6_IMAGE`) |
 
 Initial registry verification: 2026-09-06. PostgreSQL and Mailpit preserve the images
 already running in the development stack. Their exact version tags were checked
@@ -43,6 +44,13 @@ the local stack only; no deployed environment uses it.
 Addition record: 2026-09-30. Trivy 0.74.0 (`ghcr.io/aquasecurity/trivy`, the official image,
 `sha256:62b1e65e…1969` — the same pin Flow's CI uses) joined as the **Dependency scan** CI job's
 scanner. It runs in CI only, over copies of the lockfiles; nothing it produces ships.
+
+Addition record: 2026-10-04. k6 2.3.0 (`grafana/k6`, the official upstream image; 2.3.0 is
+the newest GitHub release — the registry's `latest` tag points at a different index) joined as the
+performance programme's load generator (`perf/run.sh k6`, `.claude/docs/performance.md`). Its index
+`sha256:9c2dee7f…5aeb34` carries linux/amd64 and linux/arm64 images. It runs locally on demand
+only (a throwaway `docker run` on the perf compose network); nothing in CI, compose or Kubernetes
+uses it and nothing it produces ships.
 
 ## Updating a pin
 
