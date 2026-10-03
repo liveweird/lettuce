@@ -125,7 +125,7 @@ on the wire — it lets the flood cap count a batch as one notice and joins the 
   IMPACT_LOG_ENTRY `{title, author, periodStart, periodEnd}`, SUCCESSION_PLAN `{person, owner}`, DAYS_OFF_CALENDAR `{person}`, PULSE_TEAM_RESULTS `{team}`.
   `link` is derived from kind + id (the adapter's `viewPath`; never null — the document may be gone, opening it then answers 404/the lapse 403).
 
-#### API (`sharing/ShareRoutes.kt`, `/api/v1/shares`)
+#### API (`sharing/ShareRoutes.kt` registers, `sharing/ShareHandlers.kt` holds the handlers — checkup #38 M8; `/api/v1/shares`)
 
 - `POST` `{resourceType, resourceId, shareeId, expiresOn?}` → `201` + `Location` + `ShareResponse`.
   One sharee per call (the dialog submits sequentially and itemizes failures). Order: body

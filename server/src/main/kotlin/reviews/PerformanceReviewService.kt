@@ -457,15 +457,7 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
                 val readable = row != null &&
                     canShareInOwnRight(callerId, row[Reviews.managerId].value, row[Reviews.status])
                 ShareCandidate(
-                    userId = person.userId,
-                    name = person.name,
-                    email = person.email,
-                    deactivated = person.deactivated,
-                    teams = person.teams,
-                    directManagers = person.directManagers,
-                    careerPath = person.careerPath,
-                    careerSpecialization = person.careerSpecialization,
-                    seniorityLevel = person.seniorityLevel,
+                    person = person,
                     review = row?.toShareCandidateReview(readable),
                     shareable = readable,
                     reason = when {

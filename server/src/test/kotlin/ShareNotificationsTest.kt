@@ -1,8 +1,10 @@
 package ch.nokillswit
 
+import ch.nokillswit.authz.CallerPrincipal
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.notifications.feature
 import ch.nokillswit.notifications.lockedOn
+import ch.nokillswit.sharing.ShareableResource
 import ch.nokillswit.sharing.ShareableResourceType
 import ch.nokillswit.sharing.batchSharedLink
 import ch.nokillswit.sharing.batchSharedNotification
@@ -66,15 +68,17 @@ class ShareNotificationsTest {
             }
             assertEquals(expected, type.notificationLabelKeys, "$type")
         }
-        // Label params and the self carrier offered to a document kind are ignored: params stay {sharer}+expiresOn.
+        // Label params offered to a document kind are ignored: params stay {sharer}+expiresOn. (The self carrier is
+        // not type-gated here any more — the routes only ever pass sharerIsSubject = true for an adapter whose
+        // isSubject hook says so, and only the calendar's does.)
         val goal = shareCreatedNotification(
             ShareableResourceType.GOAL, 7u, "Sia Sharer", "2026-12-31", "/goals/1/view",
-            labelParams = mapOf("person" to "Pat Person", "title" to "Secret"), sharerIsSubject = true,
+            labelParams = mapOf("person" to "Pat Person", "title" to "Secret"),
         )
         assertEquals(mapOf("sharer" to "Sia Sharer", "expiresOn" to "2026-12-31"), goal.params)
         val withdrawn = shareWithdrawnNotifications(
             ShareableResourceType.GOAL, 1u, "Sia Sharer", 7u, "Sam Sharee", 2u, "Ada Author",
-            labelParams = mapOf("person" to "Pat Person"), sharerIsSubject = true,
+            labelParams = mapOf("person" to "Pat Person"),
         )
         assertEquals(mapOf("sharer" to "Sia Sharer", "sharee" to "Sam Sharee", "actor" to "Ada Author"), withdrawn[0].params)
         assertEquals(
@@ -158,17 +162,26 @@ class ShareNotificationsTest {
             labelParams = mapOf("team" to "AAA", "cycle" to "9"),
         )
         assertEquals(mapOf("sharer" to "Xia Member", "team" to "AAA", "expiresOn" to "2026-12-31"), bound.params)
-        // sharerIsSubject is a calendar-only carrier: a pulse notice ignores it, created and withdrawn.
-        val flagged = shareCreatedNotification(
-            ShareableResourceType.PULSE_TEAM_RESULTS, 7u, "Xia Member", null, link,
-            labelParams = mapOf("team" to "AAA"), sharerIsSubject = true,
-        )
-        assertEquals(mapOf("sharer" to "Xia Member", "team" to "AAA"), flagged.params)
-        val withdrawn = shareWithdrawnNotifications(
+        // sharerIsSubject is no longer type-gated here: the routes derive it from the adapter's isSubject hook,
+        // which defaults to false and which only the calendar adapter overrides (the test below).
+        val unflagged = shareWithdrawnNotifications(
             ShareableResourceType.PULSE_TEAM_RESULTS, 1u, "Xia Member", 7u, "Sam Sharee", 1u, "Xia Member",
-            labelParams = mapOf("team" to "AAA"), sharerIsSubject = true,
+            labelParams = mapOf("team" to "AAA"),
         )
-        assertNull(withdrawn.single().params["self"])
+        assertNull(unflagged.single().params["self"])
+    }
+
+    @Test
+    fun `the isSubject adapter hook defaults to false - only a kind whose resource id is a person overrides it`() {
+        val stub = object : ShareableResource<Unit, Unit> {
+            override val type = ShareableResourceType.PULSE_TEAM_RESULTS
+            override suspend fun read(id: UInt) = Unit
+            override suspend fun guard(principal: CallerPrincipal, doc: Unit) = Unit
+            override suspend fun isAuthor(userId: UInt, doc: Unit) = false
+            override suspend fun label(doc: Unit) = emptyMap<String, String>()
+            override fun viewPath(id: UInt) = "/x/$id"
+        }
+        assertFalse(stub.isSubject(5u, 5u))
     }
 
     @Test

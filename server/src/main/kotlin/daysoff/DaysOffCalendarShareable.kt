@@ -37,4 +37,7 @@ class DaysOffCalendarShareable(
     override suspend fun label(doc: CalendarPerson): Map<String, String> = mapOf("person" to doc.name)
 
     override fun viewPath(id: UInt): String = "/days-off?tab=calendar&scope=shared&user=$id"
+
+    // A calendar's resource id IS the person: sharing one's own calendar reads "their" in the notice.
+    override fun isSubject(userId: UInt, resourceId: UInt): Boolean = userId == resourceId
 }

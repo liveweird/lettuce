@@ -91,7 +91,7 @@ class ShareCandidatesTest {
     private suspend fun HttpClient.candidates(periodId: UInt): ShareCandidateList =
         get("/api/v1/performance-reviews/share-candidates?periodId=$periodId").body()
 
-    private fun ShareCandidateList.byId(id: UInt): ShareCandidate = items.single { it.userId == id }
+    private fun ShareCandidateList.byId(id: UInt): ShareCandidate = items.single { it.person.userId == id }
 
     @Test
     fun `rows are the caller's transitive chain only - deactivated kept, deleted and strangers absent, name order`() =
@@ -115,14 +115,14 @@ class ShareCandidatesTest {
             val list = client.candidates(period.id)
             assertEquals(period.id, list.periodId)
             // Name order is case-insensitive then id: Alpha, Bravo, Dormant, mid.
-            assertEquals(listOf(sA, sB, deactivated, m), list.items.map { it.userId })
-            assertEquals(listOf(false, false, true, false), list.items.map { it.deactivated })
-            assertTrue(list.items.none { it.userId in setOf(gm, deleted, stranger) })
-            assertEquals(TestServices.users.read(sA)!!.email, list.byId(sA).email)
+            assertEquals(listOf(sA, sB, deactivated, m), list.items.map { it.person.userId })
+            assertEquals(listOf(false, false, true, false), list.items.map { it.person.deactivated })
+            assertTrue(list.items.none { it.person.userId in setOf(gm, deleted, stranger) })
+            assertEquals(TestServices.users.read(sA)!!.email, list.byId(sA).person.email)
 
             // The mid manager sees only their own reports; a non-manager gets [] (no 403).
             val mid = authedClient(TestServices.users.read(m)!!.email, "pw").candidates(period.id)
-            assertEquals(listOf(sA, sB, deactivated), mid.items.map { it.userId })
+            assertEquals(listOf(sA, sB, deactivated), mid.items.map { it.person.userId })
             assertEquals(emptyList(), authedClient(TestServices.users.read(sA)!!.email, "pw").candidates(period.id).items)
         }
 
@@ -146,20 +146,20 @@ class ShareCandidatesTest {
             TestServices.careerPositions.create(m, s, CareerPositionWrite("2020-01-01", pathId, specId, levelId))
 
             val list = authedClient(TestServices.users.read(gm)!!.email, "pw").candidates(period.id)
-            assertEquals(listOf(TeamRef(lead, "Scp Lead")), list.byId(d).teams)
+            assertEquals(listOf(TeamRef(lead, "Scp Lead")), list.byId(d).person.teams)
             // Direct report of the caller: the caller appears as themselves.
-            assertEquals(listOf(UserRef(gm, "Scp Grand")), list.byId(d).directManagers)
-            assertEquals(listOf(UserRef(gm, "Scp Grand")), list.byId(m).directManagers)
+            assertEquals(listOf(UserRef(gm, "Scp Grand")), list.byId(d).person.directManagers)
+            assertEquals(listOf(UserRef(gm, "Scp Grand")), list.byId(m).person.directManagers)
             // Grand-manager's row lists the middle manager — and an outsider manager outside the chain.
             val sub = list.byId(s)
-            assertEquals(listOf(TeamRef(dotted, "Scp Dotted line"), TeamRef(squad, "Scp Squad")), sub.teams)
-            assertEquals(listOf(UserRef(outsider, "Scp Dotted"), UserRef(m, "Scp Middle")), sub.directManagers)
+            assertEquals(listOf(TeamRef(dotted, "Scp Dotted line"), TeamRef(squad, "Scp Squad")), sub.person.teams)
+            assertEquals(listOf(UserRef(outsider, "Scp Dotted"), UserRef(m, "Scp Middle")), sub.person.directManagers)
             // Career triple with seniority ALWAYS attached (chain rows); no positions = nulls.
-            assertEquals(DictionaryEntry(pathId, mapOf("en" to "Scp P $marker")), sub.careerPath)
-            assertEquals(DictionaryEntry(specId, mapOf("en" to "Scp S $marker")), sub.careerSpecialization)
-            assertEquals(DictionaryEntry(levelId, mapOf("en" to "Scp L $marker")), sub.seniorityLevel)
-            assertNull(list.byId(d).careerPath)
-            assertNull(list.byId(d).seniorityLevel)
+            assertEquals(DictionaryEntry(pathId, mapOf("en" to "Scp P $marker")), sub.person.careerPath)
+            assertEquals(DictionaryEntry(specId, mapOf("en" to "Scp S $marker")), sub.person.careerSpecialization)
+            assertEquals(DictionaryEntry(levelId, mapOf("en" to "Scp L $marker")), sub.person.seniorityLevel)
+            assertNull(list.byId(d).person.careerPath)
+            assertNull(list.byId(d).person.seniorityLevel)
         }
 
     @Test
@@ -262,7 +262,7 @@ class ShareCandidatesTest {
                 }
                 // An HR user who manages m sees m and s - the draft by m stays an unreadable stub.
                 val list = authedClient(TestServices.users.read(hrManager)!!.email, "pw").candidates(period.id)
-                assertEquals(setOf(m, s), list.items.map { it.userId }.toSet())
+                assertEquals(setOf(m, s), list.items.map { it.person.userId }.toSet())
                 assertEquals(ShareCandidateReason.UNREADABLE_DRAFT, list.byId(s).reason)
                 assertNull(list.byId(s).review!!.id)
                 assertEquals(0, capture.events.count { it.message.startsWith("hr.") })
@@ -341,7 +341,7 @@ class ShareCandidatesTest {
                     val roles = if (caller == gm) topRoles else emptySet()
                     val principal = CallerPrincipal(caller, "caller-$caller@test", roles)
                     val rows = authedClient(TestServices.users.read(caller)!!.email, "pw")
-                        .candidates(period.id).items.associateBy { it.userId }
+                        .candidates(period.id).items.associateBy { it.person.userId }
                     for ((subordinate, reviewId) in reviewIds) {
                         val row = rows[subordinate] ?: continue // not in this caller's chain
                         val doc = checkNotNull(adapter.read(reviewId))

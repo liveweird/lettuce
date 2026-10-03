@@ -1,20 +1,26 @@
 package ch.nokillswit.teams
 
 import ch.nokillswit.dictionaries.DictionaryEntry
-import ch.nokillswit.users.CareerProfile
 import ch.nokillswit.users.UserRef
 import ch.nokillswit.users.UserService
 import ch.nokillswit.users.currentProfilesByUserIds
 import kotlinx.coroutines.flow.toList
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.r2dbc.select
 
 /**
  * One person in a caller's transitive chain, with the facets the mass-share pickers show
  * (v4.11.0 — extracted from the v4.10.0 review share-candidates read so the reviews and the
- * days-off calendar endpoints run the same queries). [directManagers] are the managers of the
- * person's teams minus the person themselves — the caller appears there as themselves.
+ * days-off calendar endpoints run the same queries). This is ALSO the wire shape of the nine
+ * shared fields: the days-off candidate list serializes it directly, and the reviews
+ * `ShareCandidate` embeds it and flattens it back into its own object (checkup #38 M7 — one
+ * declaration instead of three). [directManagers] are the managers of the person's teams minus
+ * the person themselves — the caller appears there as themselves. [seniorityLevel] is always
+ * attached: every row is the caller's own chain (the seniority-visibility rule). The three career
+ * entries come from the person's CURRENT career position, null when none is recorded.
  */
+@Serializable
 data class ChainPerson(
     val userId: UInt,
     val name: String,
@@ -22,12 +28,10 @@ data class ChainPerson(
     val deactivated: Boolean,
     val teams: List<TeamRef>,
     val directManagers: List<UserRef>,
-    val profile: CareerProfile?,
-) {
-    val careerPath: DictionaryEntry? get() = profile?.careerPath
-    val careerSpecialization: DictionaryEntry? get() = profile?.careerSpecialization
-    val seniorityLevel: DictionaryEntry? get() = profile?.seniorityLevel
-}
+    val careerPath: DictionaryEntry?,
+    val careerSpecialization: DictionaryEntry?,
+    val seniorityLevel: DictionaryEntry?,
+)
 
 /**
  * Every non-deleted person in [callerId]'s TRANSITIVE chain (deactivated INCLUDED with their
@@ -69,6 +73,7 @@ suspend fun chainRoster(callerId: UInt): List<ChainPerson> {
     return people.map { person ->
         val personId = person[UserService.Users.id].value
         val edges = memberships[personId].orEmpty()
+        val profile = profiles[personId]
         ChainPerson(
             userId = personId,
             name = person[UserService.Users.name],
@@ -80,7 +85,9 @@ suspend fun chainRoster(callerId: UInt): List<ChainPerson> {
                 .distinct()
                 .map { UserRef(it, names[it] ?: "#$it") }
                 .sortedWith(compareBy({ it.name.lowercase() }, { it.id })),
-            profile = profiles[personId],
+            careerPath = profile?.careerPath,
+            careerSpecialization = profile?.careerSpecialization,
+            seniorityLevel = profile?.seniorityLevel,
         )
     }.sortedWith(compareBy({ it.name.lowercase() }, { it.userId }))
 }
