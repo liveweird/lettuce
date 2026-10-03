@@ -6,7 +6,7 @@
 // org-wide, so nothing cycle-dependent is anchored: the survey wizard, the results cards, the
 // cycle pickers and the trend chart are all body (concept) steps instead. No lifecycle diagram
 // — the cycle machine (Scheduled → Open → Closed, Cancelled from anywhere) is an admin registry,
-// described in copy rather than rendered. See "Feature tutorials" in web/CLAUDE.md for the
+// described in copy rather than rendered. See web/docs/tutorials.md for the
 // recipe this follows.
 import type { TourStepDef } from "../components/tourSupport";
 import type { TutorialDef } from "./types";

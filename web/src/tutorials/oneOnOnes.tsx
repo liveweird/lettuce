@@ -2,8 +2,8 @@
 // 1:1 meetings area's own chrome. It only navigates and spotlights stable chrome (tabs, header
 // buttons, form controls, dashboard cards); it never opens a real meeting and needs no data to
 // exist. The editor needs a real meeting to open, so the document shape, the carry-over rule and
-// editing are body (concept) steps instead of anchored ones. See "Feature tutorials" in
-// web/CLAUDE.md for the recipe this follows.
+// editing are body (concept) steps instead of anchored ones. See web/docs/tutorials.md for
+// the recipe this follows.
 import type { TourStepDef } from "../components/tourSupport";
 import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import type { TutorialDef } from "./types";

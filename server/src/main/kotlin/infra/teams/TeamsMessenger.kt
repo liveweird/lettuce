@@ -55,7 +55,9 @@ interface TeamsMessenger {
 sealed interface ResolveResult {
     data class Resolved(val aadObjectId: String) : ResolveResult
 
-    /** A durable "don't retry every send" outcome — `user_not_found` only today. */
+    /** A durable "don't retry every send" outcome — the resolve stage stamps `user_not_found` (no
+     *  Graph match) and `ambiguous` (more than one `mail` match); `not_installed` and `blocked` are
+     *  stamped by the connector stage via [ConversationResult.Unreachable]/[SendResult.Unreachable]. */
     data class Unreachable(val reason: String) : ResolveResult
     data object Failed : ResolveResult
 }

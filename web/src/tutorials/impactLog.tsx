@@ -2,8 +2,8 @@
 // the impact log area's own chrome. It only navigates and spotlights stable chrome (tabs, header
 // buttons, form controls, dashboard cards); it never opens a real entry and needs no data to
 // exist. The view page needs a real entry to open, so it stays a body (concept) step instead of
-// an anchored one — the shared closing step re-spotlights My journal. See "Feature tutorials" in
-// web/CLAUDE.md for the recipe this follows.
+// an anchored one — the shared closing step re-spotlights My journal. See web/docs/tutorials.md for
+// the recipe this follows.
 import type { TourStepDef } from "../components/tourSupport";
 import type { TutorialDef } from "./types";
 import { impactEntryCreateLink } from "../utils/impactLogLinks";

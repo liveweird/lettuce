@@ -1,7 +1,7 @@
 // The per-feature tutorial registry — one TutorialDef per shipped tutorial, keyed by TutorialId.
 // Tour.tsx reads TUTORIALS[tutorial].steps when a tutorial is running; TutorialButton starts one
 // by id. Adding a tutorial: a new tutorials/<area>.tsx, a TutorialId union entry (types.ts), and
-// an entry here — see "Feature tutorials" in web/CLAUDE.md.
+// an entry here — see web/docs/tutorials.md.
 import { DAYS_OFF_TUTORIAL } from "./daysOff";
 import { FEEDBACKS_TUTORIAL } from "./feedbacks";
 import { GOALS_TUTORIAL } from "./goals";
