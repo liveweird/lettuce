@@ -21,6 +21,24 @@ Package the server for deployment with `./gradlew :server:installDist` (output u
 
 JVM footprint tuning is baked into the `application {}` block in `server/build.gradle.kts` via `applicationDefaultJvmArgs` = `-XX:+UseSerialGC -Xmx256m -XX:TieredStopAtLevel=1`, so it flows into both `bin/server` (→ Docker image) and `:server:run` (the Gradle `test` task is unaffected). Measured on a 512 MiB Linux container: baseline G1 drifts **~345→410 MiB RSS** as it grows its heap, vs a steady, deterministic **~270 MiB** with these flags (**~25% lower and predictable**); startup is ~1.6 s either way, so the win is memory, not startup. SerialGC removes G1's per-heap overhead (~75 MiB); `-Xmx256m` caps a heap that holds no large caches (drop to `192m` to trim ~25 MiB more); C1-only (`TieredStopAtLevel=1`) trims code-cache + C2-compiler memory (~50 MiB) at the cost of peak CPU-bound throughput (irrelevant here — **remove that flag if the service ever runs hot**). Override per-deploy with `JAVA_OPTS`/`SERVER_OPTS` (the launcher appends both). Container ceilings match: `mem_limit: 512m` in `docker-compose.yaml`, `resources.limits.memory: 512Mi` (request `320Mi`) in the rendered `k8s/templates/app-deployment.yaml`. This was evaluated instead of a GraalVM native-image migration, which the reflection/ServiceLoader-heavy stack (Ktor config modules, Flyway, Exposed, OTel, Logback, java-jwt) makes costly for little benefit on a long-running internal service.
 
+## Environment knobs added since v4.0.2
+
+Optional overrides (defaults from `server/src/main/resources/application.yaml`, all boot-validated; the full per-feature rationale lives in the docs named in the last column).
+
+| Variable | Default | What it bounds | Doc |
+|---|---|---|---|
+| `TEAMS_REQUEST_TIMEOUT_SECONDS` | `10` | Per-request HTTP timeout of the Teams connector/Graph/token calls | `.claude/docs/features/teams-notifications.md` |
+| `TEAMS_UNREACHABLE_RETRY_HOURS` | `24` | How long an unreachable Teams recipient is cached before a retry | same |
+| `SHARING_RATE_LIMIT_PER_MINUTE` | `60` | Per-caller bucket on `POST /shares` and the withdraw route | `.claude/docs/features/sharing.md` |
+| `SHARING_BATCH_RATE_LIMIT_PER_MINUTE` | `10` | Own per-caller bucket on `POST /shares/batch` | same |
+| `SHARING_NOTIFICATION_DAILY_CAP_PER_PAIR` | blank = built-in 20 (a number is 1..1000) | Notifications per (sharer, sharee) per rolling 24 h | same |
+| `ACTIVITY_ACCOUNT_RETENTION_DAYS` | `90` (0 = keep forever) | Sign-in history (`account_events`) retention | `.claude/docs/features/activity-log.md` |
+| `ACTIVITY_ACCOUNT_PURGE_INTERVAL_SECONDS` | `3600` | Minimum gap between sign-in history purges (per instance) | same |
+| `POSTGRES_POOL_MAX_VALIDATION_SECONDS` | `5` (1..60) | The per-acquire validation round trip | "Connection pool" in `.claude/docs/persistence.md` |
+| `POSTGRES_POOL_MAX_CREATE_SECONDS` | `10` (1..600) | Creating a pooled connection (TCP + startup/auth) | same |
+| `POSTGRES_CONNECT_TIMEOUT_SECONDS` | `10` | The TCP connect alone | same |
+| `POSTGRES_STATEMENT_TIMEOUT_SECONDS` | `30` (0 = off, 0..3600) | PostgreSQL `statement_timeout` for every statement | same |
+
 ## Backup and restoration
 
 Follow `.claude/docs/backup-and-restore.md` for the isolated rehearsal procedure,
