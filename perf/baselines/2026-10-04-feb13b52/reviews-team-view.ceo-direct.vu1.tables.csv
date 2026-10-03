@@ -1,0 +1,22 @@
+relname,seq_scan,seq_tup_read,idx_scan,idx_tup_fetch,n_tup_ins,n_tup_upd,n_tup_del,est_rows,total_size
+users,48,25104,100,154,0,1,0,522,336 kB
+team_members,36,12444,18,180,0,0,0,518,112 kB
+teams,60,5040,24,24,0,0,0,84,56 kB
+review_periods,327,1920,0,0,0,0,0,10,40 kB
+dictionary_entries,12,384,0,0,0,0,0,32,64 kB
+days_off_pool_types,6,6,0,0,0,0,0,1,72 kB
+user_roles,1,3,0,0,0,0,0,2,40 kB
+login_lockouts,2,1,1,0,1,0,1,0,40 kB
+feedback_events,0,0,165,285,0,0,0,50721,9192 kB
+feedback_subjects,0,0,165,192,0,0,0,41166,6296 kB
+performance_reviews,0,0,132,12588,0,0,0,5100,14 MB
+one_on_one_meetings,0,0,60,7800,0,0,0,132600,16 MB
+feedbacks,0,0,9,276,0,0,0,30660,24 MB
+goals,0,0,6,1800,0,0,0,30600,25 MB
+user_career_positions,0,0,3,42,0,0,0,782,256 kB
+one_on_one_action_items,0,0,3,90,0,0,0,429868,127 MB
+user_disabled_features,0,0,1,2,0,0,0,1044,160 kB
+days_off_pools,3,0,0,0,0,0,0,0,24 kB
+revoked_tokens,30,0,0,0,0,0,0,0,16 kB
+days_off_requests,6,0,0,0,0,0,0,0,40 kB
+days_off_corrections,3,0,0,0,0,0,0,0,32 kB
