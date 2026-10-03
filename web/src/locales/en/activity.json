@@ -41,7 +41,8 @@
     "SUCCESSION_PLAN": "a succession plan",
     "DAYS_OFF": "a days-off calendar",
     "DAYS_OFF_named": "{{person}}'s days-off calendar",
-    "PULSE_TEAM_RESULTS": "pulse survey results"
+    "PULSE_TEAM_RESULTS": "pulse survey results",
+    "PULSE_TEAM_RESULTS_named": "the pulse survey results of {{team}}"
   },
   "shareNounOf": {
     "FEEDBACK": "feedback",
@@ -53,7 +54,8 @@
     "SUCCESSION_PLAN": "a succession plan",
     "DAYS_OFF": "a days-off calendar",
     "DAYS_OFF_named": "{{person}}'s days-off calendar",
-    "PULSE_TEAM_RESULTS": "pulse survey results"
+    "PULSE_TEAM_RESULTS": "pulse survey results",
+    "PULSE_TEAM_RESULTS_named": "the pulse survey results of {{team}}"
   },
   "kind": {
     "paid": "paid, \"{{pool}}\" pool",

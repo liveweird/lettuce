@@ -678,6 +678,57 @@ class ActivityLogTest {
         }
 
     @Test
+    fun `a pulse results share has its own area - team snapshot, link, visible only to the team's manager chain`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val w = world()
+            val sharee = person("sharee")
+            val hr = person("hr", roles = setOf(UserRole.HR))
+            // E (a member of M's team) shares the team's pulse results; M2 is E's OTHER manager (a second team).
+            val other = person("other-manager")
+            TestServices.teams.create(Team("Other-${other.id}", other.id, listOf(w.employee.id)))
+            val share = w.employee.client.shareDocument(ShareableResourceType.PULSE_TEAM_RESULTS, w.teamId, sharee.id)
+
+            val rows = w.employee.client.page(w.employee.id, "area=PULSE_TEAM_RESULTS&pageSize=100").items
+            val row = rows.single()
+            assertEquals("PULSE_TEAM_RESULTS:SHARE:${share.id}", row.id)
+            assertEquals("SHARE_CREATED", row.eventType)
+            assertEquals(ActivityArea.PULSE_TEAM_RESULTS, row.area)
+            assertEquals(w.teamId, row.documentId, "the team id")
+            assertEquals("/pulse?tab=results&view=shared&team=${w.teamId}", row.link)
+            assertEquals(mapOf("team" to "Squad-${w.manager.id}"), row.details)
+            assertEquals(mapOf("sharee" to sharee.name), row.params)
+            assertEquals(share.details, row.details, "the stored snapshot")
+            // The area filter isolates it; another area's filter excludes it.
+            assertTrue(w.employee.client.page(w.employee.id, "area=GOAL&pageSize=100").items.shareRows().isEmpty())
+            val unfiltered = w.employee.client.page(w.employee.id, "pageSize=100").items.shareRows()
+            assertEquals(1, unfiltered.count { it.area == ActivityArea.PULSE_TEAM_RESULTS })
+
+            // Chain viewers: the team's manager and the chain above them author the team's results → they see E's row;
+            // E's other manager (in E's chain, but not above THIS team's manager) does not.
+            for (author in listOf(w.manager, w.grand)) {
+                assertEquals(
+                    listOf(row.id),
+                    author.client.page(w.employee.id, "area=PULSE_TEAM_RESULTS&pageSize=100").items.map { it.id },
+                    author.name,
+                )
+            }
+            assertTrue(other.client.page(w.employee.id, "area=PULSE_TEAM_RESULTS&pageSize=100").items.isEmpty())
+            // HR sees every share row; an HR viewer with PULSE_SURVEYS disabled sees none (the area is gated).
+            assertEquals(1, hr.client.page(w.employee.id, "area=PULSE_TEAM_RESULTS&pageSize=100").items.size)
+            val noPulse = person("hr-nopulse", roles = setOf(UserRole.HR), disabled = setOf(Feature.PULSE_SURVEYS))
+            assertTrue(noPulse.client.page(w.employee.id, "pageSize=100").items.none { it.area == ActivityArea.PULSE_TEAM_RESULTS })
+
+            // The author's withdrawal lands in the author's own log with byAuthor + the sharer.
+            w.manager.client.withdrawShare(share.id)
+            val withdrawal = w.manager.client.page(w.manager.id, "area=PULSE_TEAM_RESULTS&pageSize=100").items
+                .single { it.eventType == "SHARE_WITHDRAWN" }
+            assertEquals(mapOf("sharee" to sharee.name, "byAuthor" to "true", "sharer" to w.employee.name), withdrawal.params)
+            assertEquals(w.teamId, withdrawal.documentId)
+            assertTotalOrder(w.manager.client.page(w.manager.id, "pageSize=100").items)
+        }
+
+    @Test
     fun `the viewer's disabled area hides that type's share rows, totals stay consistent over pages`() = testApplication {
         usePostgresTestcontainer()
         val w = world()

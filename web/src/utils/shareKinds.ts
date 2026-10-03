@@ -125,9 +125,16 @@ type ShareOpenTarget = {
  * which holds nothing for them (the scope lists calendars shared WITH the viewer), so a viewer
  * who is not the sharee is sent to the person's details page instead (every authenticated user
  * may open it, and it carries the manager/HR days-off drill-down) — or, when the calendar is the
- * viewer's own, to the Calendar tab of their own days off. The caller appends `back=` (`shareOpenLink`).
+ * viewer's own, to the Calendar tab of their own days off. A pulse-results share (v4.12.0) is the
+ * same story: the server's `link` is the sharee's "Shared with me" view of the Results tab, so any
+ * other viewer (the sharer, the team's manager, an activity-log owner) is sent to the Results tab
+ * with the team marked — the page picks the first of their own views that holds the team. The
+ * caller appends `back=` (`shareOpenLink`).
  */
 export function shareOpenPath(target: ShareOpenTarget, viewerId: number | null): string {
+  if (target.resourceType === "PULSE_TEAM_RESULTS" && target.shareeId !== viewerId) {
+    return `/pulse?tab=results&team=${target.resourceId}`;
+  }
   if (target.resourceType !== "DAYS_OFF_CALENDAR" || target.shareeId === viewerId) return target.link;
   if (target.resourceId === viewerId) return daysOffListLink("calendar");
   return userDetailsLink(target.resourceId, target.details?.person);

@@ -137,6 +137,12 @@ for (const area of SHARE_AREAS) {
   CASES.push([area, "SHARE_WITHDRAWN", { sharee: "Ben Bystander", byAuthor: "true", sharer: "Sue Sharer" }]);
 }
 
+// The share-only pulse area (v4.12.0): generic noun when the snapshot is missing.
+CASES.push(["PULSE_TEAM_RESULTS", "SHARE_CREATED", { sharee: "Ben Bystander" }]);
+CASES.push(["PULSE_TEAM_RESULTS", "SHARE_CREATED", { sharee: "Ben Bystander", expiresOn: "2026-12-31" }]);
+CASES.push(["PULSE_TEAM_RESULTS", "SHARE_WITHDRAWN", { sharee: "Ben Bystander" }]);
+CASES.push(["PULSE_TEAM_RESULTS", "SHARE_WITHDRAWN", { sharee: "Ben Bystander", byAuthor: "true", sharer: "Sue Sharer" }]);
+
 // The days-off area also carries calendar SHARE rows (v4.11.0) — a different row kind from its
 // person-scoped event rows, worded with the generic noun when the snapshot is missing.
 CASES.push(["DAYS_OFF", "SHARE_CREATED", { sharee: "Ben Bystander" }]);
@@ -246,6 +252,40 @@ describe("describeActivity", () => {
     );
     expect(describeActivity(entry("DAYS_OFF", "SHARE_WITHDRAWN", { sharee: "Ben" }, { details }), pl)).toBe(
       "Wycofał/a udostępnienie kalendarza dni wolnych osoby Pat Person osobie Ben",
+    );
+  });
+
+  test("a pulse results share names the team from the stored snapshot, falling back to the generic noun (v4.12.0)", () => {
+    const en = ctxFor("en");
+    const pl = ctxFor("pl");
+    const details = { team: "AAA" };
+    const made = (type: string, params: Record<string, string>, withDetails = true) =>
+      entry("PULSE_TEAM_RESULTS", type, params, withDetails ? { details } : undefined);
+    expect(describeActivity(made("SHARE_CREATED", { sharee: "Ben" }), en)).toBe(
+      "Shared the pulse survey results of AAA with Ben",
+    );
+    expect(describeActivity(made("SHARE_CREATED", { sharee: "Ben", expiresOn: "2026-12-31" }), en)).toBe(
+      "Shared the pulse survey results of AAA with Ben until Dec 31, 2026",
+    );
+    expect(describeActivity(made("SHARE_WITHDRAWN", { sharee: "Ben" }), en)).toBe(
+      "Withdrew the share of the pulse survey results of AAA with Ben",
+    );
+    expect(describeActivity(made("SHARE_WITHDRAWN", { sharee: "Ben", byAuthor: "true", sharer: "Sue" }), en)).toBe(
+      "Withdrew Sue's share of the pulse survey results of AAA with Ben",
+    );
+    // No snapshot: the generic noun, never a half-filled "{{team}}".
+    expect(describeActivity(made("SHARE_CREATED", { sharee: "Ben" }, false), en)).toBe(
+      "Shared pulse survey results with Ben",
+    );
+    // Polish: accusative on create, genitive on withdrawal.
+    expect(describeActivity(made("SHARE_CREATED", { sharee: "Ben" }), pl)).toBe(
+      "Udostępnił/a wyniki ankiety pulsu zespołu AAA osobie Ben",
+    );
+    expect(describeActivity(made("SHARE_WITHDRAWN", { sharee: "Ben" }), pl)).toBe(
+      "Wycofał/a udostępnienie wyników ankiety pulsu zespołu AAA osobie Ben",
+    );
+    expect(describeActivity(made("SHARE_WITHDRAWN", { sharee: "Ben", byAuthor: "true", sharer: "Sue" }), pl)).toBe(
+      "Wycofał/a udostępnienie wyników ankiety pulsu zespołu AAA osobie Ben, które utworzył/a Sue",
     );
   });
 

@@ -56,6 +56,23 @@ describe("shareKinds — the pulse team results kind (v4.12.0)", () => {
   });
 });
 
+describe("shareOpenPath — a pulse results share (v4.12.0)", () => {
+  const SHAREE_LINK = "/pulse?tab=results&view=shared&team=5";
+  const pulse = { resourceType: "PULSE_TEAM_RESULTS" as const, resourceId: 5, link: SHAREE_LINK, details: { team: "AAA" }, shareeId: 30 };
+
+  test("the sharee opens the server's link (their 'Shared with me' results view, the team marked)", () => {
+    expect(shareOpenPath(pulse, 30)).toBe(SHAREE_LINK);
+  });
+
+  test("a sharer / the team's manager / an activity-log owner (not the sharee) opens the Results tab with the team marked", () => {
+    expect(shareOpenPath(pulse, 7)).toBe("/pulse?tab=results&team=5");
+    expect(shareOpenPath(pulse, null)).toBe("/pulse?tab=results&team=5");
+    // An activity row never names the sharee: any viewer is a non-sharee.
+    const row = { resourceType: pulse.resourceType, resourceId: pulse.resourceId, link: pulse.link, details: pulse.details };
+    expect(shareOpenPath(row, 7)).toBe("/pulse?tab=results&team=5");
+  });
+});
+
 describe("shareOpenPath — the Open target per viewer (D7)", () => {
   const SHAREE_LINK = "/days-off?tab=calendar&scope=shared&user=21";
   const calendar = { resourceType: "DAYS_OFF_CALENDAR" as const, resourceId: 21, link: SHAREE_LINK, details: { person: "Pat Person" }, shareeId: 30 };

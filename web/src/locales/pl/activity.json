@@ -41,7 +41,8 @@
     "SUCCESSION_PLAN": "plan sukcesji",
     "DAYS_OFF": "kalendarz dni wolnych",
     "DAYS_OFF_named": "kalendarz dni wolnych osoby {{person}}",
-    "PULSE_TEAM_RESULTS": "wyniki ankiety pulsu"
+    "PULSE_TEAM_RESULTS": "wyniki ankiety pulsu",
+    "PULSE_TEAM_RESULTS_named": "wyniki ankiety pulsu zespołu {{team}}"
   },
   "shareNounOf": {
     "FEEDBACK": "feedbacku",
@@ -53,7 +54,8 @@
     "SUCCESSION_PLAN": "planu sukcesji",
     "DAYS_OFF": "kalendarza dni wolnych",
     "DAYS_OFF_named": "kalendarza dni wolnych osoby {{person}}",
-    "PULSE_TEAM_RESULTS": "wyników ankiety pulsu"
+    "PULSE_TEAM_RESULTS": "wyników ankiety pulsu",
+    "PULSE_TEAM_RESULTS_named": "wyników ankiety pulsu zespołu {{team}}"
   },
   "kind": {
     "paid": "płatne, pula „{{pool}}”",
