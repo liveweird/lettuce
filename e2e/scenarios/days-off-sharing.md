@@ -6,7 +6,8 @@
 - **Owns** (exclusive server-side state): the four throwaway users, one throwaway team (manager M,
   members R1 and R2), a paid allowance for R1 and R2, one PAID days-off entry next month for each
   (booked by M on their behalf), and the calendar shares of R1 and R2 to X. Nothing else in the
-  suite touches any of them; the residue sweep removes the users and the team. The public-holiday
+  suite touches any of them; the residue sweep removes the users and the team (the entries, the two
+  default-pool grants and the shares stay behind, inert — all owned by soft-deleted users). The public-holiday
   registry (owned by `days-off.spec`) is never written — a candidate day that a parallel spec's
   holiday made free of cost is refused by the server and the next candidate day is used.
 - **Since**: v4.11.0

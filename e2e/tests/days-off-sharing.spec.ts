@@ -26,7 +26,9 @@ import type { APIRequestContext, Page } from "@playwright/test";
 // the person, the author of every share of their calendar — withdraws M's share from their own row,
 // and X's scope keeps only R2. Owns all its state: four throwaway users, one team, two days-off
 // entries, two shares; nothing else in the suite touches them, and the residue sweep removes the
-// users and the team. It reads (never writes) the public-holiday registry to dodge a holiday date.
+// users and the team (the entries, the two default-pool grants and the shares stay behind — inert, all
+// owned by soft-deleted users). It never touches the public-holiday registry: a day a holiday made
+// free of cost is refused by the server (400) and the next candidate is used.
 
 /** `YYYY-MM-DD`, 30 days from now — a future end date that the server accepts at any time of day. */
 function futureIso(): string {
@@ -66,14 +68,18 @@ async function bookPaidDay(
     data: { userId: person.id, allowance: 20 },
   });
   expect(allowance.ok()).toBeTruthy();
+  let last = "";
   for (const date of candidates) {
     const created = await request.post("/api/v1/days-off", {
       headers: managerHeaders,
       data: { type: "PAID", startDate: date, endDate: date, userId: person.id },
     });
     if (created.ok()) return { id: ((await created.json()) as { id: number }).id, date };
+    last = `${created.status()} ${await created.text()}`;
+    // Only the holiday case (a zero-cost day, 400) is worth another candidate; anything else is a real failure.
+    if (created.status() !== 400) break;
   }
-  throw new Error("days-off-sharing: no candidate day accepted a PAID entry");
+  throw new Error(`days-off-sharing: no candidate day accepted a PAID entry (last: ${last})`);
 }
 
 /** Opens the Calendar tab at [path] and steps to next month, where the entries live. */
@@ -220,7 +226,9 @@ test("a manager shares two reports' days-off calendars, the sharee sees them in 
   const bell2 = await openBell(page);
   const batchCard = notificationCard(bell2, `${manager.name} shared 1 days-off calendar with you.`);
   await expect(batchCard).toBeVisible();
-  await expect(bell2.getByText(`${manager.name} shared 1 days-off calendar with you.`)).toHaveCount(1);
+  await expect(
+    bell2.getByRole("listitem").filter({ hasText: `${manager.name} shared 1 days-off calendar with you.` }),
+  ).toHaveCount(1);
   await expect(bell2.getByText(`shared ${report2.name}'s days-off calendar`)).toHaveCount(0);
   await batchCard.getByRole("button", { name: /^Go to notification \d+$/ }).click();
   await expect(page).toHaveURL(/\/days-off\?tab=calendar&scope=shared$/);
