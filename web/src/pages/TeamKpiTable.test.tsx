@@ -59,6 +59,14 @@ function mockApi(mockFetch: FetchMock, kpis: unknown[] = [BASE, FOREIGN_ARCHIVED
       return Promise.resolve(
         jsonResponse(200, { items: kpis, page: 1, pageSize: 20, total: kpis.length }),
       );
+    // The Team picker's options (the shared all-teams pool).
+    if (u.startsWith("/api/v1/teams?")) {
+      const items = [
+        { id: 10, name: "Team AAA" },
+        { id: 11, name: "Team BBB" },
+      ];
+      return Promise.resolve(jsonResponse(200, { items, page: 1, pageSize: 100, total: items.length }));
+    }
     return Promise.resolve(jsonResponse(404, {}));
   });
 }
@@ -167,6 +175,46 @@ describe("TeamKpiTable", () => {
     await waitFor(() =>
       expect(kpiUrls(mockFetch).some((u) => u.includes("status=ACTIVE"))).toBe(true),
     );
+    // Multi-value (v4.13.0): a second status repeats the key.
+    fireEvent.click(await screen.findByRole("option", { name: "Draft" }));
+    await waitFor(() =>
+      expect(kpiUrls(mockFetch).some((u) => u.includes("status=ACTIVE&status=DRAFT"))).toBe(true),
+    );
+    expect(
+      JSON.parse(localStorage.getItem("lettuce.viewSettings.teamKpis.test2.filter.statuses") ?? "null"),
+    ).toEqual(["ACTIVE", "DRAFT"]);
+  });
+
+  test("the Team filter is a picker whose picks repeat teamId (v4.13.0, the free-text input is gone)", async () => {
+    mockApi(mockFetch);
+    renderWithProviders(<TeamKpiTable view="managed" settingsKey="teamKpis.test8" />);
+    await screen.findByText("Deploy weekly");
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Team" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Team BBB" }));
+    await waitFor(() => expect(kpiUrls(mockFetch).some((u) => u.includes("teamId=11"))).toBe(true));
+    fireEvent.click(screen.getByRole("option", { name: "Team AAA" }));
+    await waitFor(() =>
+      expect(kpiUrls(mockFetch).some((u) => u.includes("teamId=11&teamId=10"))).toBe(true),
+    );
+    // The retired substring param is never sent by the SPA.
+    expect(kpiUrls(mockFetch).some((u) => u.includes("teamName="))).toBe(false);
+  });
+
+  test("a deleted team's stored id is dropped once the teams load (not sent, no pill)", async () => {
+    localStorage.setItem("lettuce.viewSettings.teamKpis.test9.filter.teams", JSON.stringify(["11", "99"]));
+    localStorage.setItem("lettuce.viewSettings.teamKpis.test9.filtersOpen", "true");
+    mockApi(mockFetch);
+    renderWithProviders(<TeamKpiTable view="managed" settingsKey="teamKpis.test9" />);
+
+    expect(await screen.findByRole("button", { name: "Remove Team BBB" })).toBeInTheDocument();
+    await waitFor(() => {
+      const last = kpiUrls(mockFetch).at(-1) ?? "";
+      expect(last).toContain("teamId=11");
+      expect(last).not.toContain("teamId=99");
+    });
+    expect(screen.queryByRole("button", { name: "Remove 99" })).toBeNull();
   });
 
   test("view=all sends that param; rows stay View-only for the org-wide auditor (v3.24.0)", async () => {

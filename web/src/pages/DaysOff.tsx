@@ -24,10 +24,12 @@ import { listAllTeams } from "../api/teams";
 import DaysOffBudgetCard from "../components/DaysOffBudgetCard";
 import DaysOffBudgetsTable from "../components/DaysOffBudgetsTable";
 import DaysOffMonthGrid from "../components/DaysOffMonthGrid";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import ShareDialog from "../components/ShareDialog";
 import { useIsManager } from "../hooks/useIsManager";
-import { isNumberOrNull, isOneOf, useStoredState } from "../hooks/useStoredState";
+import { isKnownTeam, useKnownPicks } from "../hooks/useKnownPicks";
+import { isOneOf, isStringArray, useStoredState } from "../hooks/useStoredState";
 import { useCurrentPath } from "../hooks/useCurrentPath";
 import { addIsoMonths, currentIsoMonth, formatIsoMonth } from "../utils/datetime";
 import { daysOffCreateLink, daysOffListLink, daysOffMassShareLink } from "../utils/daysOffLinks";
@@ -131,31 +133,28 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
     );
   }
 
-  // The org-scope team narrower (v3.25.0): every team, from the shared all-teams pool.
-  const [storedOrgTeamId, setOrgTeamId] = useStoredState<number | null>(
-    "daysOff.calendar.orgTeam", null, isNumberOrNull,
+  // The org-scope team narrower (v3.25.0; multi-value since v4.13.0 — the union of the picked
+  // teams, an empty pick = "All teams", under a NEW key so the legacy scalar is orphaned): every
+  // team, from the shared all-teams pool. Ids are stored as strings (the option values).
+  const [storedOrgTeams, setOrgTeams] = useStoredState<string[]>(
+    "daysOff.calendar.orgTeams", [], isStringArray,
   );
   const teamsQuery = useQuery({
     queryKey: ["teams", "all"],
     queryFn: () => listAllTeams(),
     enabled: scope === "org",
   });
-  // A deleted team must never pin the calendar to an empty result — validate the stored pick
+  // A deleted team must never pin the calendar to an empty result — validate the stored picks
   // against the fetched teams, but only ONCE they have arrived: dropping to "All teams" while
   // the list loads would fire a second, wider calendar request and flash the wrong scope.
-  const orgTeamId =
-    storedOrgTeamId == null || teamsQuery.data == null
-      ? storedOrgTeamId
-      : teamsQuery.data.some((team) => team.id === storedOrgTeamId)
-        ? storedOrgTeamId
-        : null;
+  const orgTeamIds = useKnownPicks(storedOrgTeams, teamsQuery.data, isKnownTeam);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["daysOffCalendar", scope, month, includeIndirect, scope === "org" ? orgTeamId : undefined],
+    queryKey: ["daysOffCalendar", scope, month, includeIndirect, scope === "org" ? orgTeamIds : undefined],
     queryFn: () =>
       getDaysOffCalendar(month, scope, {
         includeIndirect,
-        teamId: scope === "org" ? (orgTeamId ?? undefined) : undefined,
+        teamId: scope === "org" && orgTeamIds.length > 0 ? orgTeamIds.map(Number) : undefined,
       }),
   });
 
@@ -198,17 +197,13 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
             wrapperProps={{ "data-tour": "days-off-calendar-scope" }}
           />
           {scope === "org" && (
-            <Select
+            <FilterMultiSelect
               label={t("daysOff.calendar.orgTeamLabel")}
-              data={[
-                { value: "", label: t("daysOff.calendar.orgTeamAll") },
-                ...(teamsQuery.data ?? []).map((team) => ({ value: String(team.id), label: team.name })),
-              ]}
-              value={orgTeamId == null ? "" : String(orgTeamId)}
-              onChange={(v) => setOrgTeamId(v == null || v === "" ? null : Number(v))}
-              allowDeselect={false}
-              searchable
-              // A Select in a flex Group clips its longest option unless it gets an
+              placeholder={orgTeamIds.length === 0 ? t("daysOff.calendar.orgTeamAll") : undefined}
+              data={(teamsQuery.data ?? []).map((team) => ({ value: String(team.id), label: team.name }))}
+              value={orgTeamIds}
+              onChange={setOrgTeams}
+              // A picker in a flex Group clips its longest option unless it gets an
               // explicit width.
               w={{ base: "100%", sm: 260 }}
             />

@@ -20,13 +20,14 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import { StatusBadge, VisibilityBadge } from "../components/FeedbackBadges";
 import PersonCell from "../components/PersonCell";
 import RowActions from "../components/RowActions";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import SortHeader from "../components/SortHeader";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { isArrayOf, isOneOf, isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { lastModifiedCutoff, lastModifiedOptions, type LastModifiedWindow } from "../utils/datetime";
 import { ALL_VISIBILITIES } from "../utils/feedbackVisibility";
 import { feedbackEditLink, feedbackViewLink } from "../utils/feedbackLinks";
@@ -235,8 +236,9 @@ export default function FeedbackTable({
   const [visibilityFilter, setVisibilityFilter] = useStoredState<FeedbackVisibility | null>(
     `${storeKey}.filter.visibility`, null, isOneOfOrNull(ALL_VISIBILITIES),
   );
-  const [statusFilter, setStatusFilter] = useStoredState<FeedbackStatus | null>(
-    `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
+  // Multi-value (v4.13.0): a NEW key — the legacy scalar `.filter.status` is orphaned.
+  const [statusFilter, setStatusFilter] = useStoredState<FeedbackStatus[]>(
+    `${storeKey}.filter.statuses`, [], isArrayOf(isOneOf(STATUS_VALUES)),
   );
   const [lastModifiedFilter, setLastModifiedFilter] = useStoredState<LastModifiedWindow>(
     `${storeKey}.filter.lastModified`, "all", isOneOf(["all", "week", "month"]),
@@ -253,7 +255,7 @@ export default function FeedbackTable({
     (providerFilter.trim() ? 1 : 0) +
     (subjectFilter.trim() ? 1 : 0) +
     (visibilityFilter ? 1 : 0) +
-    (statusFilter ? 1 : 0) +
+    (statusFilter.length > 0 ? 1 : 0) +
     (lastModifiedFilter !== "all" ? 1 : 0) +
     (includeIndirect ? 1 : 0);
 
@@ -315,7 +317,7 @@ export default function FeedbackTable({
         providerId,
         subjectId,
         visibility: visibilityFilter ?? undefined,
-        status: statusFilter ?? undefined,
+        status: statusFilter,
         lastModifiedGte: lastModifiedCutoff(lastModifiedFilter),
         includeIndirect: includeIndirect || undefined,
         userId,
@@ -354,13 +356,11 @@ export default function FeedbackTable({
           onChange={(v) => setVisibilityFilter((v as FeedbackVisibility | null) ?? null)}
           clearable
         />
-        <Select
+        <FilterMultiSelect<FeedbackStatus>
           label={t("common.field.status")}
-          placeholder={t("common.state.any")}
           data={statusOptions}
           value={statusFilter}
-          onChange={(v) => setStatusFilter((v as FeedbackStatus | null) ?? null)}
-          clearable
+          onChange={setStatusFilter}
         />
         <Select
           label={t("common.field.lastModified")}

@@ -11,6 +11,7 @@ import ClearableTextInput from "../components/ClearableTextInput";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
@@ -20,7 +21,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
-import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
+import { isArrayOf, isOneOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatMonthRange } from "../utils/datetime";
 import { reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
@@ -139,8 +140,9 @@ export default function PerformanceReviewTable({
     managerName: { value: managerFilter, set: setManagerFilter },
     subordinateName: { value: subordinateFilter, set: setSubordinateFilter },
   };
-  const [statusFilter, setStatusFilter] = useStoredState<PerformanceReviewStatus | null>(
-    `${storeKey}.filter.status`, null, isOneOfOrNull(STATUS_VALUES),
+  // Multi-value (v4.13.0): a NEW key — the legacy scalar `.filter.status` is orphaned.
+  const [statusFilter, setStatusFilter] = useStoredState<PerformanceReviewStatus[]>(
+    `${storeKey}.filter.statuses`, [], isArrayOf(isOneOf(STATUS_VALUES)),
   );
   // The period filter persists the period ID as a string ("" = all); a stale stored id (a
   // deleted period) simply matches nothing until cleared.
@@ -149,7 +151,7 @@ export default function PerformanceReviewTable({
   );
   const activeFilterCount =
     visibleColumns.filter((c) => personFilters[c.field].value.trim()).length +
-    (statusFilter ? 1 : 0) +
+    (statusFilter.length > 0 ? 1 : 0) +
     (periodFilter ? 1 : 0);
 
   const [debouncedManager] = useDebouncedValue(managerFilter, 300);
@@ -192,7 +194,7 @@ export default function PerformanceReviewTable({
         sort: sortParam,
         managerName: (managerVisible && debouncedManager) || undefined,
         subordinateName: (subordinateVisible && debouncedSubordinate) || undefined,
-        status: statusFilter ?? undefined,
+        status: statusFilter,
         managerId,
         subordinateId,
         periodId: periodFilter ? Number(periodFilter) : undefined,
@@ -225,16 +227,12 @@ export default function PerformanceReviewTable({
           renderOption={renderPeriodOption}
           w={240}
         />
-        <Select
+        <FilterMultiSelect<PerformanceReviewStatus>
           label={t("common.field.status")}
-          data={[
-            { value: "", label: t("common.state.any") },
-            ...STATUS_VALUES.map((s) => ({ value: s, label: t(`performanceReview.status.${s}`) })),
-          ]}
-          value={statusFilter ?? ""}
-          onChange={(v) => setStatusFilter((v as PerformanceReviewStatus) || null)}
-          allowDeselect={false}
-          w={180}
+          data={STATUS_VALUES.map((s) => ({ value: s, label: t(`performanceReview.status.${s}`) }))}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          w={220}
         />
       </FilterPanel>
 

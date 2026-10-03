@@ -23,7 +23,8 @@ type ShareListQuery = {
   resourceType?: ShareableResourceType;
   /** Accepted only with, and required by, view=document. */
   resourceId?: number;
-  status?: ShareStatus;
+  /** Any of these statuses (repeated key, v4.13.0). */
+  status?: ShareStatus[];
   page?: number;
   pageSize?: number;
   /** `id` | `createdAt` | `expiresOn`, `-` prefix for descending (server default `-createdAt`). */

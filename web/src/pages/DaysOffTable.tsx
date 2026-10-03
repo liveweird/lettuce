@@ -1,4 +1,4 @@
-import { Alert, Group, Select, Stack, Text } from "@mantine/core";
+import { Alert, Group, Stack, Text } from "@mantine/core";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconBeach, IconTrash } from "@tabler/icons-react";
@@ -6,12 +6,13 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
-import { deleteDaysOff, listDaysOff, type DaysOffListItem, type DaysOffListView, type DaysOffType, listDaysOffPoolTypes } from "../api/daysoff";
+import { deleteDaysOff, listDaysOff, type DaysOffListItem, type DaysOffListView, listDaysOffPoolTypes } from "../api/daysoff";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import DateCell from "../components/DateCell";
 import EmptyState from "../components/EmptyState";
 import RowActions from "../components/RowActions";
+import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import PersonCell from "../components/PersonCell";
@@ -20,19 +21,22 @@ import TableLoadingRow from "../components/TableLoadingRow";
 import TeamBadges from "../components/TeamBadges";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
-import { isString, useStoredState } from "../hooks/useStoredState";
+import { isArrayOf, isString, useStoredState } from "../hooks/useStoredState";
 import { formatIsoDate, formatIsoWeekday } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
+import {
+  POOL_PICK_PREFIX,
+  hasPoolPick,
+  isTypePick,
+  livePicks,
+  nextTypePicks,
+  typePicksToQuery,
+} from "../utils/daysOffTypeFilter";
 import { invalidateDaysOff } from "../utils/daysOffQueries";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 
 const BASE_SORT_FIELDS = ["startDate", "endDate", "days", "type", "createdAt"] as const;
 type SortField = (typeof BASE_SORT_FIELDS)[number] | "userName";
-
-// The Type filter (v3.2.0): any, all paid pools, one paid pool ("pool:<kind id>"), or unpaid.
-const POOL_PICK_PREFIX = "pool:";
-const isTypeFilter = (v: unknown): v is string | null =>
-  v === null || v === "PAID" || v === "UNPAID" || (typeof v === "string" && /^pool:\d+$/.test(v));
 
 /**
  * The days-off entries list (the GoalTable shape): view `own` = the caller's own entries,
@@ -76,23 +80,21 @@ export default function DaysOffTable({
 
   const storeKey = settingsKey ?? `daysOff.${view}`;
   const [userFilter, setUserFilter] = useStoredState(`${storeKey}.filter.user`, "", isString);
-  const [typeFilter, setTypeFilter] = useStoredState<string | null>(
-    `${storeKey}.filter.type`, null, isTypeFilter,
+  // The Type filter (v3.2.0; a multi-select since v4.13.0 under a NEW key — the legacy scalar
+  // `.filter.type` is orphaned): picks over "All paid" / one paid pool / unpaid, see
+  // utils/daysOffTypeFilter.ts for the token and request mapping.
+  const [typeFilter, setTypeFilter] = useStoredState<string[]>(
+    `${storeKey}.filter.types`, [], isArrayOf(isTypePick),
   );
   const { data: poolTypes } = useQuery({
     queryKey: ["daysOffPoolTypes"],
     queryFn: listDaysOffPoolTypes,
   });
-  // A stored pool pick whose kind was archived since (the registry lists active kinds only)
-  // reads as "any" once the registry has loaded, instead of a blank control over a filtered
-  // list (v3.2.1).
-  const storedPoolId = typeFilter?.startsWith(POOL_PICK_PREFIX)
-    ? Number(typeFilter.slice(POOL_PICK_PREFIX.length))
-    : undefined;
-  const stalePool = storedPoolId != null && poolTypes != null && !poolTypes.some((k) => k.id === storedPoolId);
-  const effectiveTypeFilter = stalePool ? null : typeFilter;
-  const poolTypeFilter = stalePool ? undefined : storedPoolId;
-  const activeFilterCount = (personVisible && userFilter.trim() ? 1 : 0) + (effectiveTypeFilter ? 1 : 0);
+  // A stored pool pick whose kind was archived since (the registry lists active kinds only) is
+  // dropped once the registry has loaded, instead of a blank pill over a filtered list (v3.2.1).
+  const effectiveTypeFilter = livePicks(typeFilter, poolTypes?.map((k) => k.id));
+  const activeFilterCount =
+    (personVisible && userFilter.trim() ? 1 : 0) + (effectiveTypeFilter.length > 0 ? 1 : 0);
   const [debouncedUser] = useDebouncedValue(userFilter, 300);
 
   const deleteConfirm = useDeleteConfirm<DaysOffListItem>({
@@ -121,14 +123,13 @@ export default function DaysOffTable({
         pageSize,
         sort: sortParam,
         userName: (personVisible && debouncedUser) || undefined,
-        type: poolTypeFilter != null ? "PAID" : ((effectiveTypeFilter as DaysOffType | null) ?? undefined),
-        poolTypeId: poolTypeFilter,
+        ...typePicksToQuery(effectiveTypeFilter),
         userId,
         includeIndirect,
       }),
     placeholderData: keepPreviousData,
     // A stored pool pick waits for the registry (one fetch, never a stale-filtered first page).
-    enabled: storedPoolId == null || poolTypes !== undefined,
+    enabled: !hasPoolPick(typeFilter) || poolTypes !== undefined,
   });
 
   function rowActions(r: DaysOffListItem) {
@@ -165,18 +166,22 @@ export default function DaysOffTable({
             clearLabel={t("daysOff.clearPersonFilter")}
           />
         )}
-        <Select
+        <FilterMultiSelect
           label={t("daysOff.type.label")}
           data={[
-            { value: "", label: t("common.state.any") },
-            { value: "PAID", label: t("daysOff.type.PAID") },
-            ...(poolTypes ?? []).map((k) => ({ value: `${POOL_PICK_PREFIX}${k.id}`, label: `— ${k.name}` })),
-            { value: "UNPAID", label: t("daysOff.type.UNPAID") },
+            {
+              group: t("daysOff.type.PAID"),
+              items: [
+                { value: "PAID", label: t("daysOff.type.allPaid") },
+                ...(poolTypes ?? []).map((k) => ({ value: `${POOL_PICK_PREFIX}${k.id}`, label: k.name })),
+              ],
+            },
+            { group: t("daysOff.type.UNPAID"), items: [{ value: "UNPAID", label: t("daysOff.type.UNPAID") }] },
           ]}
-          value={effectiveTypeFilter ?? ""}
-          onChange={(v) => setTypeFilter(v || null)}
-          allowDeselect={false}
-          w={200}
+          value={effectiveTypeFilter}
+          // "All paid" and a single pool overlap, so the last pick wins (nextTypePicks).
+          onChange={(next) => setTypeFilter(nextTypePicks(effectiveTypeFilter, next))}
+          w={260}
         />
       </FilterPanel>
 

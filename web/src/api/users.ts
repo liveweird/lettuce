@@ -14,7 +14,8 @@ type UserListQuery = {
   name?: string;
   email?: string;
   role?: UserRole;
-  teamId?: number;
+  /** Members of any of these teams (repeated key, v4.13.0). */
+  teamId?: number | number[];
   deactivated?: boolean;
   // Feature-flag state filter — the server requires the pair together (400 otherwise),
   // so listUsers serializes them only when `feature` is set.
@@ -182,7 +183,7 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
 
 /** Every user (optionally: of one team), paging until the server total is reached — the
  * listAllTeams idiom. */
-export async function listAllUsers(filter: { teamId?: number } = {}): Promise<UserPage["items"]> {
+export async function listAllUsers(filter: { teamId?: number | number[] } = {}): Promise<UserPage["items"]> {
   const items: UserPage["items"] = [];
   let page = 1;
   for (;;) {

@@ -82,7 +82,8 @@ type TeamMemberListQuery = {
   sort?: string;
   name?: string;
   email?: string;
-  teamId?: number;
+  /** Members of any of these teams (repeated key, v4.13.0). */
+  teamId?: number | number[];
   /** Only valid with view=managed: widen from direct reports to the whole management chain. */
   includeIndirect?: boolean;
 };

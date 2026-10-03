@@ -176,7 +176,16 @@ describe("DaysOffTable", () => {
     expect(screen.getByText("Wed")).toBeInTheDocument();
   });
 
-  test("a paid row names its pool and the Type filter offers every pool kind (v3.2.0)", async () => {
+  /** The query strings of every list request so far (the pool-types registry fetch excluded). */
+  const listUrls = () =>
+    mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/v1/days-off?"));
+  const lastListUrl = () => listUrls().at(-1) ?? "";
+  const openTypeFilter = async () => {
+    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
+  };
+
+  test("a paid row names its pool and the Type filter offers All paid, every pool kind and Unpaid in two groups (v3.2.0)", async () => {
     setupList([
       row({ id: 1, poolTypeId: 7, poolName: "Study leave" }),
       row({ id: 2, type: "UNPAID", poolTypeId: null, poolName: null, startDate: "2099-04-06", endDate: "2099-04-06" }),
@@ -185,34 +194,91 @@ describe("DaysOffTable", () => {
 
     expect(await screen.findByText("Study leave")).toBeInTheDocument();
     expect(screen.getByText("Unpaid")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
-    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
+    await openTypeFilter();
     const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
-    expect(options).toEqual(["Any", "Paid", "— Paid days off", "— Study leave", "Unpaid"]);
-    await userEvent.click(screen.getByRole("option", { name: "— Study leave" }));
+    expect(options).toEqual(["All paid", "Paid days off", "Study leave", "Unpaid"]);
+    await userEvent.click(screen.getByRole("option", { name: "Study leave" }));
     await waitFor(() => {
-      const call = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.includes("poolTypeId=7"));
-      expect(call).toBeDefined();
+      const call = lastListUrl();
+      expect(call).toContain("poolTypeId=7");
       expect(call).toContain("type=PAID");
+      expect(call).not.toContain("type=UNPAID");
     });
   });
 
-  test("Paid filters every pool (type=PAID, no poolTypeId) and a stale stored pool pick reads as Any (v3.2.1)", async () => {
-    localStorage.setItem("lettuce.viewSettings.daysOff.own.filter.type", JSON.stringify("pool:999"));
+  test("Unpaid plus a pool sends the type set and the pool narrowing; All paid sends type=PAID alone (v4.13.0)", async () => {
+    setupList([row({ id: 1 })]);
+    renderWithProviders(<DaysOffTable view="own" />);
+    await screen.findByText("Paid days off");
+    await openTypeFilter();
+
+    await userEvent.click(await screen.findByRole("option", { name: "Unpaid" }));
+    await waitFor(() => expect(lastListUrl()).toContain("type=UNPAID"));
+    // Only UNPAID picked: no PAID branch, no pool narrowing (the server would 400 on that mix).
+    expect(lastListUrl()).not.toContain("type=PAID");
+    expect(lastListUrl()).not.toContain("poolTypeId");
+
+    await userEvent.click(screen.getByRole("option", { name: "Study leave" }));
+    await waitFor(() => expect(lastListUrl()).toContain("poolTypeId=7"));
+    // The type set is repeated (PAID because a pool is picked, then UNPAID) with the pool narrowing.
+    expect(lastListUrl()).toContain("type=PAID&type=UNPAID&poolTypeId=7");
+
+    // "All paid" subsumes the individual pools: the last pick wins, the pool pick is dropped.
+    await userEvent.click(screen.getByRole("option", { name: "All paid" }));
+    await waitFor(() => expect(lastListUrl()).not.toContain("poolTypeId"));
+    expect(lastListUrl()).toContain("type=PAID&type=UNPAID");
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.daysOff.own.filter.types") ?? "null")).toEqual([
+      "UNPAID",
+      "PAID",
+    ]);
+
+    // And the other way round: picking a pool while "All paid" is selected replaces "All paid".
+    await userEvent.click(screen.getByRole("option", { name: "Study leave" }));
+    await waitFor(() => expect(lastListUrl()).toContain("poolTypeId=7"));
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.daysOff.own.filter.types") ?? "null")).toEqual([
+      "UNPAID",
+      "pool:7",
+    ]);
+  });
+
+  test("two pools repeat poolTypeId; All paid alone is type=PAID with no poolTypeId", async () => {
+    setupList([row({ id: 1 })]);
+    renderWithProviders(<DaysOffTable view="own" />);
+    await screen.findByText("Paid days off");
+    await openTypeFilter();
+
+    await userEvent.click(await screen.findByRole("option", { name: "Paid days off" }));
+    await userEvent.click(screen.getByRole("option", { name: "Study leave" }));
+    await waitFor(() => expect(lastListUrl()).toContain("poolTypeId=1&poolTypeId=7"));
+    expect(lastListUrl()).toContain("type=PAID");
+
+    await userEvent.click(screen.getByRole("option", { name: "All paid" }));
+    await waitFor(() => expect(lastListUrl()).not.toContain("poolTypeId"));
+    expect(lastListUrl()).toContain("type=PAID");
+    expect(lastListUrl()).not.toContain("type=UNPAID");
+  });
+
+  test("a stale stored pool pick (an archived kind) is neither sent nor shown (v3.2.1)", async () => {
+    localStorage.setItem(
+      "lettuce.viewSettings.daysOff.own.filter.types",
+      JSON.stringify(["pool:999", "UNPAID"]),
+    );
     setupList([row({ id: 1 })]);
     renderWithProviders(<DaysOffTable view="own" />);
     expect(await screen.findByText("Paid days off")).toBeInTheDocument();
-    // The archived kind's pick is neither sent nor shown.
-    const stale = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.includes("poolTypeId=999"));
-    expect(stale).toBeUndefined();
-    await userEvent.click(screen.getByRole("button", { name: /filters/i }));
-    expect(screen.getByRole("combobox", { name: "Type" })).toHaveValue("Any");
-    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
-    await userEvent.click(await screen.findByRole("option", { name: "Paid" }));
-    await waitFor(() => {
-      const call = mockFetch.mock.calls.map(([u]) => String(u)).find((u) => u.includes("type=PAID"));
-      expect(call).toBeDefined();
-      expect(call).not.toContain("poolTypeId");
-    });
+    // The list request waited for the registry, then dropped the archived kind.
+    await waitFor(() => expect(listUrls().length).toBeGreaterThan(0));
+    expect(listUrls().some((u) => u.includes("poolTypeId=999"))).toBe(false);
+    expect(lastListUrl()).toContain("type=UNPAID");
+    expect(lastListUrl()).not.toContain("type=PAID");
+  });
+
+  test("a legacy scalar type filter under the old key is ignored (new key, v4.13.0)", async () => {
+    localStorage.setItem("lettuce.viewSettings.daysOff.own.filter.type", JSON.stringify("pool:7"));
+    setupList([row({ id: 1 })]);
+    renderWithProviders(<DaysOffTable view="own" />);
+    expect(await screen.findByText("Paid days off")).toBeInTheDocument();
+    await waitFor(() => expect(listUrls().length).toBeGreaterThan(0));
+    expect(listUrls().every((u) => !u.includes("type=") && !u.includes("poolTypeId"))).toBe(true);
   });
 });

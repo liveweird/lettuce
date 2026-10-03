@@ -35,12 +35,15 @@ describe("shares API wrappers", () => {
 
     await listShares({ view: "document", resourceType: "GOAL", resourceId: 5, pageSize: 100 });
     await listShares();
-    await listShares({ view: "withMe", status: "ACTIVE", sort: "-createdAt", page: 2, pageSize: 20 });
+    await listShares({ view: "withMe", status: ["ACTIVE"], sort: "-createdAt", page: 2, pageSize: 20 });
+    await listShares({ view: "byMe", status: ["ACTIVE", "WITHDRAWN"] });
 
     const urls = fetchMock.mock.calls.map((c) => String((c as unknown[])[0]));
     expect(urls[0]).toBe("/api/v1/shares?view=document&resourceType=GOAL&resourceId=5&pageSize=100");
     expect(urls[1]).toBe("/api/v1/shares");
     expect(urls[2]).toBe("/api/v1/shares?view=withMe&status=ACTIVE&page=2&pageSize=20&sort=-createdAt");
+    // A multi-pick repeats the key (the server's IN filter, v4.13.0).
+    expect(urls[3]).toBe("/api/v1/shares?view=byMe&status=ACTIVE&status=WITHDRAWN");
   });
 
   test("createShare POSTs the body, getShare reads one, withdrawShare POSTs the terminal action", async () => {

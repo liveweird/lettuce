@@ -258,15 +258,36 @@ describe("ReviewsDashboard tab", () => {
     expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
     expect(within(screen.getByRole("table")).queryByText("Zoe Zeta")).toBeNull();
 
-    // Back to all teams, then filter by career path — only Ann carries entry 11.
-    fireEvent.click(screen.getByLabelText("Team", { selector: "input" }));
-    fireEvent.click(await screen.findByRole("option", { name: "All" }));
+    // Multi-value (v4.13.0): a second team is OR-ed in, so Zoe (BBB) is back alongside Ann (AAA).
+    fireEvent.click(await screen.findByRole("option", { name: "BBB" }));
     await screen.findByText("Zoe Zeta");
+    expect(screen.getByText("Ann Alpha")).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.dashboardReviews.filter.teams") ?? "null"))
+      .toEqual(["AAA", "BBB"]);
+
+    // AND across filters: both teams still picked, then a career path — only Ann carries entry 11.
     fireEvent.click(screen.getByLabelText("Career path", { selector: "input" }));
     const options = await screen.findAllByRole("option", { name: "Software Engineer" });
     fireEvent.click(options[0]);
     expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
     expect(within(screen.getByRole("table")).queryByText("Zoe Zeta")).toBeNull();
+  });
+
+  test("stored picks for a vanished team or dictionary entry are dropped once the options load", async () => {
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.filter.teams", JSON.stringify(["AAA", "Gone"]));
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.filter.careerPaths", JSON.stringify(["11", "999"]));
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.filtersOpen", "true");
+    setupMocks();
+    renderTab();
+
+    // Ann (team AAA, path 11) is the only row matching the surviving picks ...
+    expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
+    await waitFor(() => expect(within(screen.getByRole("table")).queryByText("Zoe Zeta")).toBeNull());
+    // ... and the vanished team / entry have no pill (the raw-value pill shows only while loading).
+    expect(screen.getByRole("button", { name: "Remove AAA" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Software Engineer" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove Gone" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove 999" })).toBeNull();
   });
 
   test("the five rating headers carry data-vertical, and the specialty column + filter read Specialty", async () => {

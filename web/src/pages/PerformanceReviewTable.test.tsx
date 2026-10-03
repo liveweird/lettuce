@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -129,6 +129,24 @@ describe("PerformanceReviewTable", () => {
       .find((u) => u.includes("/api/v1/performance-reviews?"));
     expect(listCall).toContain("subordinateId=8");
     expect(listCall).toContain("includeIndirect=true");
+  });
+
+  test("the Status filter is multi-value: picks repeat the status key (v4.13.0)", async () => {
+    setupMocks(mockFetch, [row()]);
+    renderTable();
+    await screen.findByText("Mona Manager");
+
+    const listUrls = () =>
+      mockFetch.mock.calls.map((c) => String(c[0])).filter((u) => u.includes("/api/v1/performance-reviews?"));
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Draft" }));
+    await waitFor(() => expect(listUrls().some((u) => u.includes("status=DRAFT"))).toBe(true));
+    fireEvent.click(screen.getByRole("option", { name: "Published" }));
+    await waitFor(() => expect(listUrls().some((u) => u.includes("status=DRAFT&status=PUBLISHED"))).toBe(true));
+    expect(
+      JSON.parse(localStorage.getItem("lettuce.viewSettings.performanceReviews.own.filter.statuses") ?? "null"),
+    ).toEqual(["DRAFT", "PUBLISHED"]);
   });
 
   test("the user (auditor) view shows both person columns and passes userId", async () => {

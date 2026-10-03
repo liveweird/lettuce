@@ -19,9 +19,10 @@ type DaysOffListQuery = {
   pageSize: number;
   sort?: string;
   userName?: string;
-  type?: DaysOffType;
-  /** The paid pool kind (v3.2.0) — implies PAID. */
-  poolTypeId?: number;
+  /** Any of these types (repeated key, v4.13.0). */
+  type?: DaysOffType[];
+  /** The paid pool kinds (v3.2.0, a set since v4.13.0) — narrow ONLY the PAID branch; without `type` they imply PAID, and a `type` set lacking PAID is a 400 (the SPA never sends that). */
+  poolTypeId?: number[];
   startDateGte?: string;
   startDateLte?: string;
   /** Required with view=user (the HR auditor view); a pin-filter with view=managed. */
@@ -78,13 +79,13 @@ export type DaysOffCalendarScope = "member" | "managed" | "org" | "shared";
  * plus the month's public holidays. `includeIndirect` (v3.13.0) widens `scope=managed` from
  * direct reports to the caller's whole transitive management chain — omit-when-false, invalid
  * with `scope=member`. `scope=org` (v3.25.0) is the HR auditor's org-wide scope — `teamId`
- * narrows it to one team, sent only with that scope. `scope=shared` (v4.11.0, "Shared with me") lists
+ * narrows it to the union of the given teams (repeated key, v4.13.0), sent only with that scope. `scope=shared` (v4.11.0, "Shared with me") lists
  * the people whose calendar was shared with the caller — no parameters of its own, rows carry
  * `sharedBy`. */
 export async function getDaysOffCalendar(
   month: string,
   scope: DaysOffCalendarScope,
-  opts: { includeIndirect?: boolean; teamId?: number } = {},
+  opts: { includeIndirect?: boolean; teamId?: number[] } = {},
 ): Promise<DaysOffCalendarResponse> {
   const params = buildQuery({
     month,

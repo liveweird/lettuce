@@ -10,17 +10,22 @@ import { Pill, type MultiSelectProps } from "@mantine/core";
 export function accessibleRenderPill(
   removeLabel: (optionLabel: string) => string,
 ): NonNullable<MultiSelectProps["renderPill"]> {
-  return ({ option, onRemove, disabled }) => (
-    <Pill
-      withRemoveButton={!disabled}
-      onRemove={onRemove}
-      removeButtonProps={{
-        "aria-label": removeLabel(option.label),
-        "aria-hidden": false,
-        tabIndex: 0,
-      }}
-    >
-      {option.label}
-    </Pill>
-  );
+  // Mantine calls renderPill with `option: undefined` for a selected value absent from `data`
+  // (a stored pick whose options load late or were deleted) — fall back to the raw value.
+  return ({ option, value, onRemove, disabled }) => {
+    const label = option?.label ?? value;
+    return (
+      <Pill
+        withRemoveButton={!disabled}
+        onRemove={onRemove}
+        removeButtonProps={{
+          "aria-label": removeLabel(label),
+          "aria-hidden": false,
+          tabIndex: 0,
+        }}
+      >
+        {label}
+      </Pill>
+    );
+  };
 }

@@ -36,44 +36,38 @@ export function joinReviewsDashboardRows(
     .sort((a, b) => a.person.name.localeCompare(b.person.name));
 }
 
+/** Multi-value filters (v4.13.0): OR within one filter, AND across filters, `[]` = no filter. */
 export type ReviewsDashboardFilters = {
-  /** Team name (names, not ids — the card rows carry names; "" = all). */
-  teamName: string;
-  /** Dictionary entry ids as Select string values ("" = all). */
-  careerPathId: string;
-  careerSpecializationId: string;
-  seniorityLevelId: string;
+  /** Team names (names, not ids — the card rows carry names); a person matches any of theirs. */
+  teamNames: string[];
+  /** Dictionary entry ids as MultiSelect string values. */
+  careerPathIds: string[];
+  careerSpecializationIds: string[];
+  seniorityLevelIds: string[];
 };
 
 export const EMPTY_REVIEWS_DASHBOARD_FILTERS: ReviewsDashboardFilters = {
-  teamName: "",
-  careerPathId: "",
-  careerSpecializationId: "",
-  seniorityLevelId: "",
+  teamNames: [],
+  careerPathIds: [],
+  careerSpecializationIds: [],
+  seniorityLevelIds: [],
 };
+
+/** An empty pick matches everything; otherwise the (possibly unset) entry id must be one of them. */
+const matchesAny = (picks: string[], id: number | undefined): boolean =>
+  picks.length === 0 || picks.includes(String(id ?? ""));
 
 export function filterReviewsDashboardRows(
   rows: ReviewsDashboardRow[],
   filters: ReviewsDashboardFilters,
 ): ReviewsDashboardRow[] {
   return rows.filter(({ person }) => {
-    if (filters.teamName && !person.teamNames.includes(filters.teamName)) return false;
-    if (filters.careerPathId && String(person.careerPath?.id ?? "") !== filters.careerPathId) {
+    if (filters.teamNames.length > 0 && !filters.teamNames.some((n) => person.teamNames.includes(n))) {
       return false;
     }
-    if (
-      filters.careerSpecializationId &&
-      String(person.careerSpecialization?.id ?? "") !== filters.careerSpecializationId
-    ) {
-      return false;
-    }
-    if (
-      filters.seniorityLevelId &&
-      String(person.seniorityLevel?.id ?? "") !== filters.seniorityLevelId
-    ) {
-      return false;
-    }
-    return true;
+    if (!matchesAny(filters.careerPathIds, person.careerPath?.id)) return false;
+    if (!matchesAny(filters.careerSpecializationIds, person.careerSpecialization?.id)) return false;
+    return matchesAny(filters.seniorityLevelIds, person.seniorityLevel?.id);
   });
 }
 

@@ -122,7 +122,7 @@ export default function PulseResults() {
   // Under the ["shares", …] prefix, so a share mutation (the card's Share dialog) refreshes it.
   const shares = useQuery({
     queryKey: ["shares", "withMe", "pulseTeamResults"],
-    queryFn: () => listShares({ view: "withMe", resourceType: "PULSE_TEAM_RESULTS", status: "ACTIVE", pageSize: 100 }),
+    queryFn: () => listShares({ view: "withMe", resourceType: "PULSE_TEAM_RESULTS", status: ["ACTIVE"], pageSize: 100 }),
     // No retries: this list only decorates the own views, so a 5xx must not hold the page on its
     // skeleton for the retry backoff.
     retry: false,

@@ -239,6 +239,15 @@ describe("FeedbackTable (received view)", () => {
     await waitFor(() => {
       expect(feedbackUrls(mockFetch).some((url) => url.includes("status=DRAFT"))).toBe(true);
     });
+
+    // Multi-value (v4.13.0): further picks repeat the key (any-of), under the NEW stored key.
+    fireEvent.click(await screen.findByRole("option", { name: "Sent" }));
+    await waitFor(() => {
+      expect(feedbackUrls(mockFetch).some((url) => url.includes("status=DRAFT&status=SENT"))).toBe(true);
+    });
+    expect(
+      JSON.parse(localStorage.getItem("lettuce.viewSettings.feedbacks.received.filter.statuses") ?? "null"),
+    ).toEqual(["DRAFT", "SENT"]);
   });
 
   test("selecting a Last modified window adds the lastModified[gte] param; All omits it", async () => {

@@ -162,16 +162,27 @@ describe("filterCareerPyramidRows", () => {
 
   test("entry-id filters match by id; NOT_SET matches the missing value", () => {
     expect(
-      filterCareerPyramidRows(rows(), { ...EMPTY_CAREER_PYRAMID_FILTERS, careerPathId: "12" }).map(
+      filterCareerPyramidRows(rows(), { ...EMPTY_CAREER_PYRAMID_FILTERS, careerPathIds: ["12"] }).map(
         (r) => r.userId,
       ),
     ).toEqual([2]);
     expect(
       filterCareerPyramidRows(rows(), {
         ...EMPTY_CAREER_PYRAMID_FILTERS,
-        careerSpecializationId: NOT_SET,
+        careerSpecializationIds: [NOT_SET],
       }).map((r) => r.userId),
     ).toEqual([2, 3]);
+  });
+
+  test("a multi-value filter is OR within itself (NOT_SET stays a selectable value) and AND across (v4.13.0)", () => {
+    const ids = (filters: Partial<typeof EMPTY_CAREER_PYRAMID_FILTERS>) =>
+      filterCareerPyramidRows(rows(), { ...EMPTY_CAREER_PYRAMID_FILTERS, ...filters }).map((r) => r.userId);
+    expect(ids({ careerPathIds: ["11", "12"] })).toEqual([1, 2]);
+    // A concrete id OR "Not set": persons 1 (path 11) and 3 (no path).
+    expect(ids({ careerPathIds: ["11", NOT_SET] })).toEqual([1, 3]);
+    // AND across filters: path 11-or-12 AND no specialization.
+    expect(ids({ careerPathIds: ["11", "12"], careerSpecializationIds: [NOT_SET] })).toEqual([2]);
+    expect(ids({ careerPathIds: [] })).toEqual([1, 2, 3]);
   });
 });
 

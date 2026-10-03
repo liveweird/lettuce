@@ -173,6 +173,30 @@ describe("CareerPyramid", () => {
     await user.click(await screen.findByRole("option", { name: "Not set" }));
     await waitFor(() => expect(screen.queryByText("Alice Anchor")).not.toBeInTheDocument());
     expect(screen.getByText("Bob Blank")).toBeInTheDocument();
+
+    // Multi-value (v4.13.0): "Not set" stays a selectable value and ORs with a concrete entry —
+    // Engineer (Alice) joins Not set (Bob).
+    await user.click(screen.getByRole("option", { name: "Engineer" }));
+    expect(await screen.findByText("Alice Anchor")).toBeInTheDocument();
+    expect(screen.getByText("Bob Blank")).toBeInTheDocument();
+    expect(
+      JSON.parse(localStorage.getItem("lettuce.viewSettings.career.pyramid.filter.careerPaths") ?? "null"),
+    ).toEqual(["__notSet__", "11"]);
+  });
+
+  test("a stored pick for an archived entry is dropped once the dictionary loads; Not set stays valid", async () => {
+    localStorage.setItem(
+      "lettuce.viewSettings.career.pyramid.filter.careerPaths",
+      JSON.stringify(["__notSet__", "999"]),
+    );
+    mockApi(mockFetch);
+    renderWithProviders(<CareerPyramid />);
+
+    // Not set (Bob) is the surviving pick: 999 matches nothing and must not be applied.
+    expect(await screen.findByText("Bob Blank")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Anchor")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Remove Not set" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove 999" })).toBeNull();
   });
 
   test("sorting by tenure at level puts the longest first and Not set last", async () => {
