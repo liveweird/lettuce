@@ -93,6 +93,16 @@ for any new or edited spec:
 
 ## What's covered
 
+**Separate desktop visual pilot (approved; automatic PR comparisons):**
+[`visual/tests/lists.spec.ts`](scenarios/visual/lists.md) defines 12 screenshot comparisons for
+member Received/Provided feedback, all four read-only dictionaries, the administrator dictionary
+editor, and selected Polish/dark desktop states at 1280/1440px. It owns only isolated browser
+fixtures and `visual/` build/report directories, never server state. It does not run through the
+ordinary E2E config. Canonical capture, two unchanged comparisons and deliberate-regression
+detection have been verified against v4.15.2; the owner approved all 12 images on 2026-10-04.
+The **Desktop visual** quality job compares them on PRs and master pushes. See [the image gallery](visual/review.html) and
+[visual/README.md](visual/README.md) for findings, run recipes and approval/activation steps.
+
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb
 endpoints through the UI). **Each spec's full design lives in its scenario file under
 [`scenarios/`](scenarios/README.md)** — versioned natural-language test-design artifacts (actors,
@@ -204,9 +214,11 @@ remaining real logins aren't throttled either.
 - **`DRAFT → WITHDRAWN` (abandon a draft)** — a valid backend transition with no UI affordance
   (the editor offers Delete instead), so it cannot be exercised through the browser.
 - **Dark-mode rendering** — the theme toggle is unit-tested and the palette is theme-owned
-  (`web/src/theme.ts`); no e2e asserts colors, and there is no visual-regression suite.
-- **Cross-browser / visual automation** — the suite runs Chromium, with no device-emulation
-  project or screenshot comparison. `list-layout.spec.ts` checks responsive geometry and
+  (`web/src/theme.ts`); the ordinary E2E suite does not compare screenshots. The separate desktop
+  visual pilot compares an approved dark dictionary baseline in PR CI.
+- **Cross-browser / visual automation** — the ordinary suite runs Chromium, with no device-emulation
+  project or screenshot comparison; the separate desktop pilot above runs screenshot comparisons in PR CI.
+  `list-layout.spec.ts` checks responsive geometry and
   control reachability at desktop and mobile viewport widths in English and Polish. Accessibility gets
   the `accessibility.spec.ts` axe smoke (see above) — every WCAG 2.0/2.1 A+AA rule un-waived since v3.3.0 (`color-contrast` included).
 

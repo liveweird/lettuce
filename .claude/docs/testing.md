@@ -24,6 +24,12 @@ commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/de
   `npm run gen:api` and a clean-diff assertion for `web/src/api/schema.ts`.
 - **E2E source:** a lockfile install followed by `npm run typecheck` and
   `npm run check:scenarios`.
+- **Desktop visual:** separate desktop-only screenshot comparisons for Feedback and dictionaries,
+  plus visual spec/scenario pairing. Uses `e2e/visual/run-container.sh compare` and the digest-pinned
+  Linux amd64 runtime in `e2e/visual/runtime.json`; no backend or shared performance services.
+  The owner approved the initial 12 baselines on 2026-10-04. Expectations are read-only in CI;
+  the `desktop-visual-report` artifact contains the HTML report, differences and failure traces.
+  See `e2e/visual/README.md` for reproduction and reviewed baseline updates.
 - **Dependency scan** (v4.5.2): Trivy 0.74.0 (digest-pinned) over every Gradle lockfile —
   runtime, test, build-tool and the three plugin-classpath `buildscript-gradle.lockfile`s —
   failing on any HIGH or CRITICAL advisory (and when any of the seven lockfiles is missing from
@@ -38,12 +44,14 @@ commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/de
 
 The full Playwright browser journey remains an on-demand, manual workflow in
 `.github/workflows/e2e.yml`; the pull-request gate checks its TypeScript and spec/scenario pairing
-without starting the stack or downloading Chromium. The stable quality job IDs and display names
+without starting the stack or downloading Chromium. The separate **Desktop visual** job does run
+Chromium against fixture data, without the stack. The stable quality job IDs and display names
 for required-check rules are `backend` (**Backend**), `web` (**Web**), `api-contract`
 (**API contract**), `e2e-static` (**E2E source**), and — since v4.5.2 — `dependency-scan`
 (**Dependency scan**; required only once the ruleset lists it, a GitHub setting). Since
-2026-09-06, the active repository ruleset requires the first four checks from the GitHub Actions app on `master`,
-with strict up-to-date checking. Existing PR, deletion, and non-fast-forward protections
+2026-09-06, the active repository ruleset requires the first four checks from the GitHub Actions
+app on `master`, with strict up-to-date checking. On 2026-10-04, `visual` (**Desktop visual**)
+was added to that required set after its first successful hosted run. Existing PR, deletion, and non-fast-forward protections
 remain in place, with no bypass actors. These settings live in GitHub, separately from
 the workflow file; preserve the check names when editing the workflow. **The browser e2e suite is
 dispatch-only in CI** (`workflow_dispatch`, no `push`/`pull_request` trigger) — **the LOCAL e2e run

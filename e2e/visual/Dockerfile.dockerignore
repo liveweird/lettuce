@@ -1,0 +1,16 @@
+**/node_modules
+**/.git
+**/dist
+**/coverage
+**/.cache
+.claude
+.agents
+.codex
+.mcp.json
+design-previews
+server
+core
+perf
+e2e/visual/test-results
+e2e/visual/playwright-report
+e2e/visual/diagnostic-snapshots
