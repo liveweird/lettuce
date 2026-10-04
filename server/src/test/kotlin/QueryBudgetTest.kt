@@ -124,8 +124,10 @@ class QueryBudgetTest {
             "shares?view=byMe" to Budget(3, 2), // 3/2 -> 3/2
             "users/{id}/activity" to Budget(10, 3), // 10/3 -> 10/3 (own log: 1 sign-in event + 2 rows per goal)
             // Measured before and after adding 9 closed cycles (not rows): F7 fixed in v4.14.0 — one transaction, two set-based statements.
-            "pulse-surveys/trend" to Budget(8, 6), // 8/6 -> 8/6 (HR, direct; was 2 stmt + 2 tx per closed cycle)
-            "pulse-surveys/cycles/{id}/results" to Budget(10, 7), // 10/7 -> 10/7 (HR, direct; current + previous cycle in one tx)
+            // v4.15.0 (F16): `readRef` — one statement, the unused memberIds select is gone — and the HR trend skips the share lookup.
+            "pulse-surveys/trend" to Budget(6, 5), // 8/6 -> 6/5 (HR, direct; was 2 stmt + 2 tx per closed cycle before v4.14.0)
+            "pulse-surveys/cycles/{id}/results" to Budget(9, 7), // 10/7 -> 9/7 (HR, direct; current + previous cycle in one tx)
+            "pulse-surveys/cycles/{id}/comments" to Budget(6, 6), // 7/6 -> 6/6 (HR, direct; >= 3 responders so the comments read runs)
         )
     }
 
@@ -506,14 +508,15 @@ class QueryBudgetTest {
     )
 
     /**
-     * The pulse trend and results read every visible cycle in one transaction with two set-based statements
-     * (F7, fixed in v4.14.0), so the cost no longer depends on how many closed cycles exist. The fixture adds 9 more
-     * closed cycles (3 respondents each, so the point is computed, not skipped) between the two measurements: equal
-     * trend cost before and after is the proof. The results probe reads one of those cycles (+ its previous cycle),
-     * which is the same pair at both measurements, so its pin is the absolute budget (the per-cycle code cost 11/9).
+     * The pulse trend and results (and, since v4.15.0, comments) reads. Trend and results read every visible
+     * cycle in one transaction with two set-based statements (F7, fixed in v4.14.0), so the cost no longer
+     * depends on how many closed cycles exist. The fixture adds 9 more closed cycles (3 respondents each, so
+     * the point is computed, not skipped) between the two measurements: equal trend cost before and after is
+     * the proof. The results and comments probes read one of those cycles (+ its previous cycle for results),
+     * which is the same cycle at both measurements, so their pin is the absolute budget.
      */
     @Test
-    fun `pulse trend and results cost the same at any number of closed cycles`() = testApplication {
+    fun `pulse trend, results and comments cost the same at any number of closed cycles`() = testApplication {
         usePostgresTestcontainer()
         TestPulse.sweepNonTerminal()
         val tag = tag()
@@ -543,6 +546,10 @@ class QueryBudgetTest {
             Probe(
                 "pulse-surveys/cycles/{id}/results", client,
                 "/api/v1/pulse-surveys/cycles/$resultsCycle/results?teamId=${org.teamId}&mode=direct", rows = null,
+            ),
+            Probe(
+                "pulse-surveys/cycles/{id}/comments", client,
+                "/api/v1/pulse-surveys/cycles/$resultsCycle/comments?teamId=${org.teamId}&mode=direct", rows = null,
             ),
         )
         val small = probes.map { it.measure(SMALL) }
