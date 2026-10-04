@@ -32,31 +32,16 @@ function teamsPage(
   });
 }
 
-function usersPage(items: Array<{ id: number; name: string; email: string; roles: Array<"ADMIN"> }>) {
-  return jsonResponse(200, { items, page: 1, pageSize: 100, total: items.length });
-}
-
 const SEED_TEAMS = [
   { id: 1, name: "Platform", managerId: 10, managerName: "Alice Manager" },
   { id: 2, name: "Mobile", managerId: 11, managerName: "Bob Manager" },
 ];
 
-const SEED_MANAGERS = [
-  { id: 10, name: "Alice Manager", email: "alice@example.com", roles: ["ADMIN" as const] },
-  { id: 11, name: "Bob Manager", email: "bob@example.com", roles: [] as Array<"ADMIN"> },
-];
-
-function routeFor(url: string): "teams" | "users" | "other" {
-  if (url.startsWith("/api/v1/teams")) return "teams";
-  if (url.startsWith("/api/v1/users")) return "users";
-  return "other";
-}
-
+// The page reads NO users pool since v4.15.0 (F9) — the manager filter is built from the
+// all-teams rows — so a `/api/v1/users` request is unmocked (404) and asserted absent.
 function setupMocks(mockFetch: FetchMock, teamsByUrl: (url: string) => Response) {
   mockFetch.mockImplementation((url: string) => {
-    const route = routeFor(url);
-    if (route === "users") return Promise.resolve(usersPage(SEED_MANAGERS));
-    if (route === "teams") return Promise.resolve(teamsByUrl(url));
+    if (url.startsWith("/api/v1/teams")) return Promise.resolve(teamsByUrl(url));
     return Promise.resolve(jsonResponse(404, {}));
   });
 }
@@ -175,22 +160,64 @@ describe("Teams page", () => {
     });
   });
 
-  test("manager picker is populated with the prefetched users", async () => {
-    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+  test("the manager filter lists the current managers from the all-teams rows — no users pool (F9, v4.15.0)", async () => {
+    // A third team of Alice's repeats her manager: the options are DISTINCT managers.
+    setupMocks(mockFetch, () =>
+      teamsPage([...SEED_TEAMS, { id: 3, name: "Infra", managerId: 10, managerName: "Alice Manager" }]),
+    );
     renderTeams();
 
     await screen.findByText("Platform");
 
     await waitFor(() => {
-      const userCall = mockFetch.mock.calls.find(([url]) =>
-        typeof url === "string" && url.startsWith("/api/v1/users?") && url.includes("pageSize=100"),
+      const allTeamsCall = mockFetch.mock.calls.find(
+        ([url]) =>
+          typeof url === "string" && url.startsWith("/api/v1/teams?") && url.includes("pageSize=100"),
       );
-      expect(userCall).toBeDefined();
+      expect(allTeamsCall).toBeDefined();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     const managerSelect = screen.getByLabelText(/manager/i, { selector: "input" });
-    expect(managerSelect).not.toBeDisabled();
+    await waitFor(() => expect(managerSelect).not.toBeDisabled());
+    fireEvent.click(managerSelect);
+    // Alice manages two teams but is ONE option.
+    expect(await screen.findAllByRole("option", { name: "Alice Manager", hidden: true })).toHaveLength(1);
+    expect(screen.getByRole("option", { name: "Bob Manager", hidden: true })).toBeInTheDocument();
+    // The directory is never paged for the filter.
+    expect(mockFetch.mock.calls.some(([url]) => String(url).startsWith("/api/v1/users"))).toBe(false);
+  });
+
+  test("a stored manager filter who no longer manages any team is dropped once the teams have loaded", async () => {
+    localStorage.setItem("lettuce.viewSettings.teams.filter.managerId", "42");
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByText("Platform");
+    // No orphan filter: the list is not pinned to the gone manager and the badge counts nothing.
+    await waitFor(() => {
+      const listCalls = mockFetch.mock.calls.filter(
+        ([url]) =>
+          typeof url === "string" && url.startsWith("/api/v1/teams?") && !url.includes("pageSize=100"),
+      );
+      expect(listCalls.some(([url]) => String(url).includes("managerId=42"))).toBe(true);
+      expect(String(listCalls[listCalls.length - 1][0])).not.toContain("managerId=");
+    });
+    expect(within(screen.getByRole("button", { name: /filters/i })).queryByText("1")).not.toBeInTheDocument();
+  });
+
+  test("a stored manager filter who still manages a team stands", async () => {
+    localStorage.setItem("lettuce.viewSettings.teams.filter.managerId", "10");
+    setupMocks(mockFetch, () => teamsPage(SEED_TEAMS));
+    renderTeams();
+
+    await screen.findByText("Platform");
+    await waitFor(() => expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2));
+    const listCalls = mockFetch.mock.calls.filter(
+      ([url]) => typeof url === "string" && url.startsWith("/api/v1/teams?") && !url.includes("pageSize=100"),
+    );
+    expect(listCalls.every(([url]) => String(url).includes("managerId=10"))).toBe(true);
+    expect(within(screen.getByRole("button", { name: /filters/i })).getByText("1")).toBeInTheDocument();
   });
 
   test("clearing the Name filter empties the input", async () => {
@@ -277,7 +304,6 @@ describe("Teams page", () => {
   test("the modal Cancel button is disabled while the delete is in flight", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (url.startsWith("/api/v1/users?")) return Promise.resolve(usersPage(SEED_MANAGERS));
       if (method === "DELETE" && /^\/api\/v1\/teams\/\d+$/.test(url)) return new Promise(() => {});
       if (url.startsWith("/api/v1/teams?")) return Promise.resolve(teamsPage(SEED_TEAMS));
       return Promise.resolve(jsonResponse(404, {}));
@@ -425,11 +451,12 @@ describe("Teams page", () => {
     let teamGetCount = 0;
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (url.startsWith("/api/v1/users?")) {
-        return Promise.resolve(usersPage(SEED_MANAGERS));
-      }
       if (method === "DELETE" && /^\/api\/v1\/teams\/\d+$/.test(url)) {
         return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      // The all-teams read behind the manager filter (pageSize=100) is not the page's list.
+      if (url.startsWith("/api/v1/teams?") && url.includes("pageSize=100")) {
+        return Promise.resolve(teamsPage(SEED_TEAMS));
       }
       if (url.startsWith("/api/v1/teams?")) {
         teamGetCount++;
@@ -467,9 +494,6 @@ describe("Teams page", () => {
   test("server error surfaces an alert and keeps the modal open", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      if (url.startsWith("/api/v1/users?")) {
-        return Promise.resolve(usersPage(SEED_MANAGERS));
-      }
       if (method === "DELETE" && /^\/api\/v1\/teams\/\d+$/.test(url)) {
         return Promise.resolve(jsonResponse(500, { error: "internal", message: "boom" }));
       }

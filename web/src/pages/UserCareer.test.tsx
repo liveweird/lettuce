@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { jsonResponse } from "../test/http";
+import { jsonResponse, userLookupResponse, usersListRequests } from "../test/http";
 import UserCareer from "./UserCareer";
 
 type FetchMock = ReturnType<typeof vi.fn>;
@@ -70,15 +70,10 @@ describe("UserCareer", () => {
     mockFetch.mockImplementation((input: string, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
-      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      // The one-row `users?id=` lookup the heading resolves the person's name from (v3.5.0, one lookup since v4.15.0).
       if (method === "GET" && url.startsWith("/api/v1/users?")) {
         return Promise.resolve(
-          jsonResponse(200, {
-            items: [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }],
-            page: 1,
-            pageSize: 100,
-            total: 1,
-          }),
+          userLookupResponse(url, [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }]),
         );
       }
       if (method === "GET" && url.startsWith("/api/v1/dictionaries/")) {
@@ -142,18 +137,24 @@ describe("UserCareer", () => {
     expect(screen.queryByLabelText("Edit the position started 2019-02-01")).not.toBeInTheDocument();
   });
 
-  test("a bare URL (the notification deep link) renders read-only, the name resolved from the user pool", async () => {
+  test("a bare URL (the notification deep link) renders read-only, the name resolved by one id lookup", async () => {
     setupMocks();
     renderPage("/users/9/career");
-    // The fallback only until the pool arrives — then the pool's name for the id (v3.5.0).
+    // The fallback only until the lookup arrives — then the looked-up name for the id (v3.5.0).
     expect(screen.getByRole("heading", { name: "Career progression — user #9" })).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { name: "Career progression — Riley Report" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Start a new position")).not.toBeInTheDocument();
+    // F9 (v4.15.0): one one-row lookup by the route's id, never the 100-row directory pages.
+    const lookups = usersListRequests(mockFetch);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0]).toContain("id=9");
+    expect(lookups[0]).toContain("pageSize=1&");
+    expect(lookups.some((u) => u.includes("pageSize=100"))).toBe(false);
   });
 
-  test("an id outside the user pool keeps the fallback title once the pool has loaded, whatever the URL claims", async () => {
+  test("an id the lookup does not return keeps the fallback title once it has settled, whatever the URL claims", async () => {
     setupMocks();
     renderPage("/users/99/career?name=Mallory");
     // The URL's name is only the pre-load hint.

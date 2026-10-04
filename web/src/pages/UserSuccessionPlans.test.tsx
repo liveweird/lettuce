@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import UserSuccessionPlans from "./UserSuccessionPlans";
 import { theme } from "../theme";
-import { jsonResponse } from "../test/http";
+import { jsonResponse, userLookupResponse, usersListRequests } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
@@ -20,14 +20,9 @@ function renderScreen(route: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const mockFetch = vi.fn((url: string) =>
     Promise.resolve(
-      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      // The one-row `users?id=` lookup the heading resolves the person's name from (v3.5.0, one lookup since v4.15.0).
       String(url).startsWith("/api/v1/users?")
-        ? jsonResponse(200, {
-            items: [{ id: 8, name: "Sam Seat", email: "sam@example.com", roles: [] }],
-            page: 1,
-            pageSize: 100,
-            total: 1,
-          })
+        ? userLookupResponse(String(url), [{ id: 8, name: "Sam Seat", email: "sam@example.com", roles: [] }])
         : jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }),
     ),
   );
@@ -70,6 +65,12 @@ describe("UserSuccessionPlans page", () => {
         ([url]) => String(url).includes("view=user") && String(url).includes("userId=8"),
       ),
     ).toBe(true);
+    // F9 (v4.15.0): the heading's name is ONE one-row lookup by the route's id, never the 100-row directory pages.
+    const lookups = usersListRequests(mockFetch);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0]).toContain("id=8");
+    expect(lookups[0]).toContain("pageSize=1&");
+    expect(lookups.some((u) => u.includes("pageSize=100"))).toBe(false);
   });
 
   test("a non-auditor (mode=audit ignored) bounces to the Succession page", async () => {

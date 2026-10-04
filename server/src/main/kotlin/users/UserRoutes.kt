@@ -200,6 +200,7 @@ fun Application.configureUserRoutes() {
                     throw BadRequestException("feature and featureEnabled must be provided together")
                 }
                 val filter = UserListFilter(
+                    ids = params.optionalUIntSet("id"),
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
                     role = params.optionalEnum<UserRole>("role"),

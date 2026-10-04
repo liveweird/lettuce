@@ -5,7 +5,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ManagerFeedbacks from "./ManagerFeedbacks";
-import { jsonResponse } from "../test/http";
+import { jsonResponse, userLookupResponse, usersListRequests } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
@@ -81,10 +81,10 @@ describe("ManagerFeedbacks page", () => {
       // Return the right slice based on the view scoping in the query string.
       if (url.includes("view=received")) return Promise.resolve(jsonResponse(200, page([RECEIVED_ITEM])));
       if (url.includes("view=provided")) return Promise.resolve(jsonResponse(200, page([PROVIDED_ITEM])));
-      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      // The one-row `users?id=` lookup the heading resolves the person's name from (v3.5.0, one lookup since v4.15.0).
       if (url.startsWith("/api/v1/users?")) {
         return Promise.resolve(
-          jsonResponse(200, page([{ id: 10, name: "Alice", email: "alice@example.com", roles: [] }])),
+          userLookupResponse(url, [{ id: 10, name: "Alice", email: "alice@example.com", roles: [] }]),
         );
       }
       return Promise.resolve(jsonResponse(200, page([])));
@@ -233,18 +233,22 @@ describe("ManagerFeedbacks page", () => {
   test("falls back to a placeholder name when the id is not in the user pool", async () => {
     renderScreen("/users/99/feedbacks");
     expect(await screen.findByRole("tab", { name: "From user #99 to you" })).toBeInTheDocument();
-    await waitFor(() => {
-      const urls = mockFetch.mock.calls.map(([u]) => String(u));
-      expect(urls.some((u) => u.startsWith("/api/v1/users?"))).toBe(true);
-    });
+    await waitFor(() => expect(usersListRequests(mockFetch)).toHaveLength(1));
+    expect(usersListRequests(mockFetch)[0]).toContain("id=99");
     expect(screen.getByRole("tab", { name: "From user #99 to you" })).toBeInTheDocument();
   });
 
-  test("the URL's name is only the pre-load hint — the pool's name for the id wins once loaded", async () => {
+  test("the URL's name is only the pre-load hint — the looked-up name for the id wins once loaded", async () => {
     renderScreen("/users/10/feedbacks?name=Mallory");
     expect(screen.getByRole("heading", { name: "Feedbacks with Mallory" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Feedbacks with Alice" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "From Alice to you" })).toBeInTheDocument();
+    // F9 (v4.15.0): ONE one-row lookup by the route's id — never the 100-row directory pages.
+    const lookups = usersListRequests(mockFetch);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0]).toContain("id=10");
+    expect(lookups[0]).toContain("pageSize=1&");
+    expect(lookups.some((u) => u.includes("pageSize=100"))).toBe(false);
   });
 
   test("the Back to My managers link points at the managers tab", async () => {

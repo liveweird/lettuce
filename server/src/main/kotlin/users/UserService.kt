@@ -34,6 +34,8 @@ data class CareerProfile(
 )
 
 data class UserListFilter(
+    /** Repeated-key `IN` (API-LIST-004): exactly these user ids — the drill-down headings' name lookup (v4.15.0). */
+    val ids: Set<UInt>? = null,
     val name: String? = null,
     val email: String? = null,
     /** Has-role filter: only users holding this additional role. */
@@ -501,6 +503,7 @@ class UserService(val database: R2dbcDatabase) {
 
     private fun buildPredicate(filter: UserListFilter): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
+        filter.ids?.let { op = op and (Users.id inList it) }
         filter.name?.takeIf { it.isNotBlank() }?.let {
             op = op and (Users.name.containsNormalized(it))
         }

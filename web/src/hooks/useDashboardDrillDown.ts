@@ -1,7 +1,8 @@
 import type { ParseKeys } from "i18next";
+import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router-dom";
 import { canAudit } from "../api/session";
-import { useAllUsers } from "./useAllUsers";
+import { findUserById } from "../api/users";
 import { userDetailsLink } from "../utils/userLinks";
 import { parsePositiveInt } from "../utils/parse";
 import { safeBackParam, readFromParam } from "../utils/url";
@@ -9,17 +10,21 @@ import { safeBackParam, readFromParam } from "../utils/url";
 /**
  * The display name a `/users/:userId/…` heading renders for the route's person (v3.5.0 — the
  * "user #3" fix, the identity-never-from-the-URL rule applied to the drill-downs): resolved
- * from the org-wide user pool by the numeric id. The URL's `?name=` is only the PRE-LOAD hint —
- * rendered until the pool arrives, never after it (a URL-carried name could label the page as
- * one person while the id lists another) — so once the pool has loaded without the id the
- * result is null and the page renders its "user #<id>" fallback. A pool that never arrives
- * (load failure) keeps the hint. `enabled=false` (an invalid id) skips the fetch.
+ * by the numeric id through ONE `users?id=` lookup (v4.15.0 — it used to page the whole
+ * org-wide user pool, six requests per cold load, F9). The URL's `?name=` is only the
+ * PRE-LOAD hint — rendered until the lookup settles, never after it (a URL-carried name could
+ * label the page as one person while the id lists another) — so once the lookup has succeeded
+ * without the id the result is null and the page renders its "user #<id>" fallback. A lookup
+ * that never arrives (load failure) keeps the hint. `enabled=false` (an invalid id) skips the fetch.
  */
 export function useUserDisplayName(userId: number, hint: string | null, enabled = true): string | null {
-  const { userPool, usersReady } = useAllUsers(enabled);
-  const pooled = userPool?.find((u) => u.id === userId)?.name;
-  if (pooled != null) return pooled;
-  return usersReady ? null : hint;
+  const { data, isSuccess } = useQuery({
+    queryKey: ["users", "byId", userId],
+    queryFn: () => findUserById(userId),
+    staleTime: 5 * 60 * 1000,
+    enabled,
+  });
+  return data?.name ?? (isSuccess ? null : hint);
 }
 
 // Which screen a per-user drill-down (/users/:userId/…) was opened from — decides the

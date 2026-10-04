@@ -9,9 +9,9 @@
 //   requests          tab=requests: budgets?view=own&year || days-off?view=own&pageSize=20&sort=-startDate || pool-types
 //   team-requests     tab=team (managers): days-off?view=managed&pageSize=20&sort=-startDate || pool-types; -all = includeIndirect
 //   team-budgets      the Budgets sub-view: budgets?view=managed&year (unpaged: one row per (user, pool)); -all = includeIndirect
-//   drilldown         /users/<report>/days-off as the manager (lead on perf-ic-0001): users (useAllUsers loop) ||
-//                     budgets?view=managed&year&includeIndirect=true || days-off?view=managed&userId&includeIndirect=true || pool-types
-//   drilldown-audit   HR: users loop || budgets?view=user&userId || days-off?view=user&userId || pool-types || corrections?userId
+//   drilldown         /users/<report>/days-off as the manager (lead on perf-ic-0001): ONE users?id= lookup
+//                     (v4.15.0 — it was the six-page listAll pool) || budgets?view=managed&year&includeIndirect=true || days-off?view=managed&userId&includeIndirect=true || pool-types
+//   drilldown-audit   HR: the users?id= lookup || budgets?view=user&userId || days-off?view=user&userId || pool-types || corrections?userId
 import { defineScenario, qs, shellRequests, SHELL_ENDPOINTS, isoDate } from './lib/replay.js';
 
 const MONTH = isoDate(0).slice(0, 7);
@@ -19,11 +19,10 @@ const YEAR = parseInt(isoDate(0).slice(0, 4), 10);
 const calendar = (extra) => `/api/v1/days-off/calendar?${qs(Object.assign({ month: MONTH }, extra))}`;
 const entries = (view, extra = {}) => `/api/v1/days-off?${qs(Object.assign({ view, page: 1, pageSize: 20, sort: '-startDate' }, extra))}`;
 const budgets = (view, extra = {}) => `/api/v1/days-off/budgets?${qs(Object.assign({ view, year: YEAR }, extra))}`;
-const users = (page) => `/api/v1/users?${qs({ page, pageSize: 100, sort: 'id' })}`;
+const userLookup = (id) => `/api/v1/users?${qs({ page: 1, pageSize: 1, id })}`;
 
-function drilldown(s, requests) {
-  const res = s.batch([...shellRequests(s), [users(1), 'users'], ...requests]);
-  s.pageMore(users, res[SHELL_ENDPOINTS.length], 'users');
+function drilldown(s, id, requests) {
+  s.batch([...shellRequests(s), [userLookup(id), 'users'], ...requests]);
 }
 
 const def = {
@@ -67,7 +66,7 @@ const def = {
       endpoints: [...SHELL_ENDPOINTS, 'users', 'budgets', 'entries', 'pool-types'],
       run(s) {
         const id = s.userId('ic');
-        drilldown(s, [
+        drilldown(s, id, [
           [budgets('managed', { includeIndirect: true }), 'budgets'],
           [entries('managed', { userId: id, includeIndirect: true }), 'entries'],
           ['/api/v1/days-off/pool-types', 'pool-types'],
@@ -78,7 +77,7 @@ const def = {
       endpoints: [...SHELL_ENDPOINTS, 'users', 'budgets', 'entries', 'pool-types', 'corrections'],
       run(s) {
         const id = s.userId('ic');
-        drilldown(s, [
+        drilldown(s, id, [
           [budgets('user', { userId: id }), 'budgets'],
           [entries('user', { userId: id }), 'entries'],
           ['/api/v1/days-off/pool-types', 'pool-types'],
