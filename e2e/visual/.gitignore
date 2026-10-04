@@ -1,0 +1,5 @@
+dist/
+.cache/
+test-results/
+playwright-report/
+diagnostic-snapshots/
