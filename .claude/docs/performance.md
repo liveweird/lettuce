@@ -130,7 +130,7 @@ The mixed run served ~300 requests/s with 0 failures; at 50 VUs the app containe
 | `mixed-50vu` (ramp 2 m, hold 5 m, think 3–8 s) | 10 074 requests, 0 failed, 0 write conflicts; app CPU avg 21 % (peak 101 % of 200 %), PostgreSQL avg 5 %; median screen 6–35 ms, worst p95 0.73 s (CEO 1:1 create) | | | |
 | login storm, 50 VUs | ~7.3 sign-ins/s, median 6.1–6.6 s (bcrypt on 2 CPUs); 5/695 answered 429 | | | |
 
-What the numbers show is in `perf/baselines/FINDINGS.md` (F7–F16: the pulse trend's per-cycle loop, the org chart's per-team GETs, the users-pool pages of every drill-down, the 1:1 `latestOnly` statement, seq scans on the manager-wide lists, the bell is O(1), the realistic mix does not saturate).
+What the numbers show is in `perf/baselines/FINDINGS.md` (F7–F17: the pulse trend's per-cycle loop, the org chart's per-team GETs, the users-pool pages of every drill-down, the 1:1 `latestOnly` statement, seq scans on the manager-wide lists, the bell is O(1), the realistic mix does not saturate; F17 adds the per-row 1:1 lookups that `QueryBudgetTest` found).
 
 #### Query budgets (`QueryBudgetTest`, M3 — runs in CI)
 
