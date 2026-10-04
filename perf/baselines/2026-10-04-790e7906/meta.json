@@ -1,0 +1,54 @@
+{
+  "baseline": "v4.15.1 re-measurement (targeted web subset) — the front-end fixes W1/W7",
+  "measuredOn": "2026-10-04",
+  "appCommit": "790e7906",
+  "appCommitNote": "branch perf/v4151-bundle at 790e7906 (clean tree), image built by `perf/run.sh up` from a scratch clone (appImageId sha256:e1fdafb8ad2a…); SPA-only release — no server, spec or migration change since 9c2e5c0f, so the API counts compare 1:1 with 2026-10-04-9c2e5c0f",
+  "datasetVersion": 2,
+  "dataset": {
+    "anchor": "2026-10-01",
+    "seed": 1,
+    "scale": 1.0,
+    "snapshot": "perf/snapshots/lettuce-perf-v2-2026-10-01-s1-x1.0.dump (git-ignored); restored once with perf/run.sh restore (11 s) before the run, app ready 2 s after",
+    "rows": "unchanged from 2026-10-04-9c2e5c0f (same snapshot)"
+  },
+  "machine": {
+    "arch": "arm64",
+    "cpu": "Apple M5 Max (18 cores, 128 GB host)",
+    "macOS": "27.0.1",
+    "containerRuntime": "OrbStack, Docker server 29.4.0",
+    "vm": "18 CPUs, 16 GB (shared by every container; the browser runs on the host)"
+  },
+  "limits": {
+    "app": "cpus 2, mem_limit 512m",
+    "postgres": "cpus 2, mem_limit 1g (postgres:18.4-alpine3.24)",
+    "k6": "no limit (grafana/k6:2.3.0, digest-pinned in perf/run.sh)"
+  },
+  "jvm": {
+    "variant": "shipped flags (C2 on since v4.14.0)",
+    "flags": "-XX:+UseSerialGC -Xmx256m",
+    "javaOpts": "(empty)"
+  },
+  "app": {
+    "mode": "development (KTOR_DEVELOPMENT=true)",
+    "perfServerTiming": true,
+    "pool": "postgres.pool.maxSize 20 (shipped default, unchanged)",
+    "jwtAccessExpiresInSeconds": 7200
+  },
+  "runner": {
+    "browser": "chromium 153.0.8010.12 (Playwright, Desktop Chrome 1280x720, headless), node v24.15.0",
+    "iterations": 5,
+    "coldRun": "iteration 0 of every case under `cold`; medians over the 5 measured iterations; one extra traced iteration per case (not committed, not in the medians)",
+    "settled": "every expected request finished + nothing in flight + no Loader/Skeleton intersecting the viewport + ready selector, stable for 400 ms; poll 25 ms (the committed v4.15.0 in-viewport rule — no local patch this time)",
+    "cpuThrottle": "1x everywhere"
+  },
+  "scenario": {
+    "name": "targeted web subset (bundle-w7 plan §7), NOT perf/run.sh web all: activity-log (all 10 cases), one-on-ones --persona lead (own/managed/team/drilldown), dashboard --persona ceo (managers/peers/subordinates/myTeams), pulse-results --persona hr (results/trend/participation), org-chart (admin/ic/ceo), days-off --persona ceo and --persona lead (calendar scopes, requests, team), the bundle report (perf/run.sh web bundle), plus one k6 sanity run reviews-team-view --persona ceo-all (1 VU, 3 iterations, pgss window, no warm-up). The runner has no login/first-load case.",
+    "compareWith": "web: 2026-10-04-9c2e5c0f/web (activity-log, one-on-ones lead, pulse-results hr, org-chart) and 2026-10-04-3076bbd4/web (dashboard ceo, days-off ceo/lead — absent from 9c2e5c0f; that baseline predates the v4.14.0/v4.15.0 API fixes, so its api.stmt differs by design); bundle: 2026-10-04-3076bbd4/bundle.json. Compare with jq, not perf_compare.py.",
+    "report": "report-vs-2026-10-04-9c2e5c0f.md: every count identical (15 requests / 183 stmt / 84 tx, every per-chain and per-endpoint stmt/tx); no RUN NOT CLEAN; the only flags are a p95 wall blip on the reviews request (7.6 -> 9.6 ms, 3 samples) and pg_stat_statements IN-list text-variant shifts (total calls 817 = 817).",
+    "webApiNote": "per-request statement counts unchanged; several screens issue ONE request fewer (1:1 lead own 6 -> 5, days-off calendar-member/requests -1, pulse participation/results/trend -1): with the 300 ms Suspense throttle gone the page mounts together with the shell, so React Query dedupes the shell query it shares instead of refetching it on mount ~300 ms later. The activity log's own request +1..2 statements is data-dependent (the runner's sign-ins add account_events rows to the first page), no code change.",
+    "knownNotClean": "none: 0 failed requests and 0 responses without Server-Timing"
+  },
+  "k6Image": "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34",
+  "caveat": "OrbStack on one laptop, loopback network, development-mode app image: milliseconds are relative; counts and byte sizes exact. Baselines compare only within one datasetVersion.",
+  "fixes": "v4.15.1: W1 (first-route preload + synchronous lazyPage render — the ~300 ms Suspense fallback throttle is gone: the screen's first own request starts with the shell's at ~52-65 ms instead of ~274 ms; activity-log.ceo.own settled 292.6 -> 108.6 ms, LCP 276 -> 84 ms), W7 (initial payload 38 files / 1 726 732 B raw / 480 717 gzip / 405 060 brotli -> 8 files / 1 245 851 / 333 387 / 282 109, entry 116.5 KiB raw; CI budget --max-initial-gzip 360000 --max-initial-files 12 passes; staticCount on the activity screen 67 -> 42, decoded 1 816 194 -> 1 604 114 B)."
+}
