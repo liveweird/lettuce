@@ -90,8 +90,8 @@ class QueryBudgetTest {
          */
         val BUDGETS: Map<String, Budget> = mapOf(
             "users?name" to Budget(8, 2), // 8/2 -> 8/2
-            "teams?name" to Budget(3, 2), // 3/2 -> 3/2
-            "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (F8: O(1) per team; the org chart's cost is the SPA's one request per team)
+            "teams?name" to Budget(4, 2), // 4/2 -> 4/2 (v4.14.0: +1 grouped memberIds statement per page)
+            "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1) per team; since v4.14.0 the org chart reads memberIds from the teams list instead, F8)
             // O(n), pinned (F1/F10): two per-row LIMIT 1 lookups (latest 1:1, latest review) on `managed`, ...
             "teams/members?view=managed" to Budget(18, 11, dStmt = 98), // 18/11 -> 116/11
             "teams/members?view=managed&includeIndirect" to Budget(22, 11, dStmt = 98), // 22/11 -> 120/11

@@ -1164,7 +1164,8 @@ paths:
           - `memberId` — restrict to teams the given user is a member of.
 
         Each returned item includes the manager's `name` resolved via join so the UI
-        does not need an N+1 lookup.
+        does not need an N+1 lookup, and the team's `memberIds` (v4.14.0, one grouped
+        query per page).
 
         Malformed query parameters (unknown sort field, non-numeric managerId,
         out-of-range page/pageSize) respond with `400` and a `ProblemDetail` body.
@@ -7701,7 +7702,7 @@ components:
 
     TeamListItem:
       type: object
-      required: [id, name, managerId, managerName, managerDeleted]
+      required: [id, name, managerId, managerName, managerDeleted, memberIds]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
@@ -7710,6 +7711,12 @@ components:
         managerDeleted:
           type: boolean
           description: True when the user referenced by `managerId` has been soft-deleted.
+        memberIds:
+          type: array
+          description: >-
+            The team's current member ids, ascending — the same list as `GET /teams/{id}`
+            (v4.14.0; backs the org chart, which no longer fetches every team one by one).
+          items: { type: integer, format: int32, minimum: 0 }
 
     TeamPage:
       type: object
