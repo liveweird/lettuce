@@ -90,7 +90,7 @@ class QueryBudgetTest {
         val BUDGETS: Map<String, Budget> = mapOf(
             "users?name" to Budget(8, 2), // 8/2 -> 8/2
             "teams?name" to Budget(4, 2), // 4/2 -> 4/2 (v4.14.0: +1 grouped memberIds statement per page)
-            "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1) per team; since v4.14.0 the org chart reads memberIds from the teams list instead, F8)
+            "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1); the org chart reads memberIds from the teams list, F8)
             // F1/F10/F17, fixed in v4.14.0: one DISTINCT ON statement per enrichment (latest 1:1, latest review on
             // `managed`; latest 1:1 on `managers`) instead of one LIMIT 1 lookup per row.
             "teams/members?view=managed" to Budget(18, 11), // 18/11 -> 18/11
