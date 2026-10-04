@@ -66,6 +66,9 @@ data class TeamListItem(
     val managerId: UInt,
     val managerName: String,
     val managerDeleted: Boolean,
+    // The team's current member ids, ascending (v4.14.0) — the same list GET /teams/{id}
+    // returns, loaded for the whole page in one grouped statement; backs the org chart.
+    val memberIds: List<UInt>,
 )
 
 typealias TeamPageResponse = PageResponse<TeamListItem>
