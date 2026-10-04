@@ -4,14 +4,14 @@ Status: stage 1 approved on 2026-10-04, promoted and merged to master in PR #111
 repository owner replied **“Approved”** for implementation revision `8bb36776`, artifact
 `05bcc4f3`, app version 4.15.3. Approval covers 18 images: the prior 12 plus six
 Dashboard/Users/Teams images, and 15 visual tests including three sidebar geometry/focus tests.
-The v4.15.2 review remains historical; stage 2 is being prepared on `test/desktop-visual-forms`.
+The v4.15.2 review remains historical; stage 2 is ready for separate candidate review on `test/desktop-visual-forms`.
 
 ## Staged plan
 
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 1 | Sidebar active-link visibility; Dashboard member/manager; Users and Teams member/admin | Merged; all six CI jobs passed |
-| 2 | Representative forms/detail pages, including validation, editor and footer states | [Implementation in progress; separate review](forms-review.md) |
+| 2 | Representative forms/detail pages, including validation, editor and footer states | [Six candidates awaiting approval](forms-review.md) |
 | 3 | Remaining frequently used feature lists; add states by risk and reuse shared fixtures | Planned after stage 2 review |
 
 Each stage captures candidates, presents them for human review, then promotes approved images
