@@ -926,6 +926,96 @@ class OneOnOneRoutesTest {
         )
     }
 
+    @Test
+    fun `latestOnly with a name filter narrows to the matching pair's latest and never to older rows`() = testApplication {
+        usePostgresTestcontainer()
+        // Two reports with distinct names under one manager. The name filter selects ONE pair, and
+        // that pair still contributes only its absolute latest meeting (the filter never changes
+        // which row of a pair is the latest, and never promotes an older matching row).
+        val marker = UUID.randomUUID().toString().take(8)
+        val pair = seedPair(subordinateName = "Zeta $marker")
+        val manager = authedClient(pair.managerEmail, "pw")
+        val otherId = TestUsers.seed(uniqueEmail("latest-name-other"), "pw", name = "Omega $marker", roles = emptySet())
+        TestServices.teams.addMember(pair.teamId, otherId)
+        manager.createMeeting(pair.subordinateId, "2026-06-01")
+        val newest = manager.createMeeting(pair.subordinateId, "2026-07-01")
+        manager.createMeeting(otherId, "2026-07-02")
+
+        val page = manager.get("/api/v1/one-on-ones?view=managed&latestOnly=true&subordinateName=Zeta%20$marker")
+            .body<OneOnOnePageResponse>()
+        assertEquals(listOf(newest.id), page.items.map { it.id })
+        assertEquals(1L, page.total)
+    }
+
+    @Test
+    fun `latestOnly with a date bound gives a pair no row when its latest is outside the bound`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair()
+        val manager = authedClient(pair.managerEmail, "pw")
+        manager.createMeeting(pair.subordinateId, "2026-06-01")
+        manager.createMeeting(pair.subordinateId, "2026-06-15")
+        val newest = manager.createMeeting(pair.subordinateId, "2026-07-01")
+
+        // The bound excludes the pair's latest: the pair contributes NO row — never the latest
+        // meeting before the bound (the latest is not computed against the other filters).
+        val before = manager.get(
+            "/api/v1/one-on-ones?view=managed&latestOnly=true&meetingDate%5Blte%5D=2026-06-20",
+        ).body<OneOnOnePageResponse>()
+        assertTrue(before.items.isEmpty())
+        assertEquals(0L, before.total)
+        // A bound that includes the latest keeps it (and only it).
+        val including = manager.get(
+            "/api/v1/one-on-ones?view=managed&latestOnly=true&meetingDate%5Blte%5D=2026-07-01",
+        ).body<OneOnOnePageResponse>()
+        assertEquals(listOf(newest.id), including.items.map { it.id })
+    }
+
+    @Test
+    fun `latestOnly with view=with keeps one latest per direction for a pair that swapped roles`() = testApplication {
+        usePostgresTestcontainer()
+        val pair = seedPair() // alice = pair.manager, bob = pair.subordinate
+        val reverseTeam = TestServices.teams.create(Team(name = "oo-rev-latest-${UUID.randomUUID()}", managerId = pair.subordinateId))
+        TestServices.teams.addMember(reverseTeam, pair.managerId)
+        val alice = authedClient(pair.managerEmail, "pw")
+        val bob = authedClient(pair.subordinateEmail, "pw")
+        alice.createMeeting(pair.subordinateId, "2026-03-01")
+        val aliceLatest = alice.createMeeting(pair.subordinateId, "2026-07-05")
+        bob.createMeeting(pair.managerId, "2025-12-01")
+        val bobLatest = bob.createMeeting(pair.managerId, "2026-01-10")
+
+        val page = alice.get("/api/v1/one-on-ones?view=with&counterpartId=${pair.subordinateId}&latestOnly=true")
+            .body<OneOnOnePageResponse>()
+        // Two rows — one per (manager, subordinate) direction — not one for the whole relationship.
+        assertEquals(setOf(aliceLatest.id, bobLatest.id), page.items.map { it.id }.toSet())
+        assertEquals(2L, page.total)
+    }
+
+    @Test
+    fun `the pair-latest index exists`() {
+        // V92 (perf finding F12): pins the migration against an accidental drop. No testApplication boots
+        // here, so migrate explicitly — test order is not guaranteed (the PerfSeedCoverageTest precedent).
+        PostgresTestSupport.ensureMigrated()
+        java.sql.DriverManager.getConnection(
+            PostgresTestSupport.jdbcUrl,
+            PostgresTestSupport.user,
+            PostgresTestSupport.password,
+        ).use { conn ->
+            conn.createStatement().use { st ->
+                st.executeQuery(
+                    "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_one_on_one_meetings_pair_latest'",
+                ).use { rs ->
+                    assertTrue(rs.next(), "idx_one_on_one_meetings_pair_latest exists")
+                    val def = rs.getString("indexdef")
+                    assertTrue(
+                        def.contains("manager_id, subordinate_id, meeting_date DESC, id DESC"),
+                        "key columns: $def",
+                    )
+                    assertTrue(def.contains("INCLUDE (marked_as_deleted)"), "covering: $def")
+                }
+            }
+        }
+    }
+
     // ---- action-item history ----
 
     @Test

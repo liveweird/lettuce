@@ -99,6 +99,7 @@ class QueryBudgetTest {
             "teams/members?view=member" to Budget(9, 8), // 9/8 -> 9/8
             "dashboard/summary" to Budget(10, 8), // 10/8 -> 10/8 (F11)
             // F17, fixed in v4.14.0: `isLatest` is one DISTINCT ON statement over the page's pairs, not one per pair.
+            // F12, fixed in v4.15.0: `latestOnly` is a DISTINCT ON subquery + the V92 index — the gain is time, the count stays 6/2.
             "one-on-ones?view=managed" to Budget(6, 2), // 6/2 -> 6/2
             "one-on-ones?view=managed&latestOnly" to Budget(6, 2), // 6/2 -> 6/2
             "goals?view=managed" to Budget(4, 2), // 4/2 -> 4/2

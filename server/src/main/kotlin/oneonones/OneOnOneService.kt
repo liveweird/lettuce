@@ -32,6 +32,12 @@ enum class OneOnOneListView { OWN, MANAGED, TEAM, WITH, USER }
 /** Storage discriminator for the shared points/decisions table. */
 enum class NoteKind { POINT, DECISION }
 
+/** A list view's scope as a function of the (manager, subordinate) key columns — see [OneOnOneService.list]. */
+private typealias PairScope = (Column<EntityID<UInt>>, Column<EntityID<UInt>>) -> Op<Boolean>
+
+/** Types a [PairScope] lambda (a bare `{ … }` after a statement would parse as a trailing lambda). */
+private fun pairScope(scope: PairScope): PairScope = scope
+
 data class OneOnOneListFilter(
     val managerName: String? = null,
     val subordinateName: String? = null,
@@ -447,6 +453,51 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
     }
 
+    /**
+     * The view's scope as a function of the two pair-key columns: the outer query applies it to the
+     * meetings table, the latestOnly subquery to its alias (the scope decides whole pairs, so it
+     * never changes WHICH row is a pair's latest — it only bounds the subquery's scan).
+     */
+    private suspend fun listScope(
+        view: OneOnOneListView,
+        callerUserId: UInt,
+        includeIndirect: Boolean,
+        counterpartId: UInt?,
+        targetUserId: UInt?,
+    ): PairScope = when (view) {
+        OneOnOneListView.OWN -> pairScope { _, subordinate -> subordinate eq callerUserId }
+        OneOnOneListView.MANAGED -> pairScope { manager, _ -> manager eq callerUserId }
+        OneOnOneListView.USER -> {
+            // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
+            // meeting the target is a party to, either role direction. The route guarantees
+            // a non-null userId.
+            val target = requireNotNull(targetUserId) { "view=user requires userId" }
+            pairScope { manager, subordinate -> (manager eq target) or (subordinate eq target) }
+        }
+        OneOnOneListView.WITH -> {
+            // Every 1:1 between the caller and one counterpart, either role direction (the
+            // pair may have switched manager/subordinate roles over time). The caller is a
+            // party to every row, so this adds no new read surface. The route guarantees a
+            // non-null counterpartId.
+            val other = requireNotNull(counterpartId) { "view=with requires counterpartId" }
+            pairScope { manager, subordinate ->
+                ((manager eq callerUserId) and (subordinate eq other)) or
+                    ((manager eq other) and (subordinate eq callerUserId))
+            }
+        }
+        OneOnOneListView.TEAM -> {
+            // Meetings run BY the caller's subordinates as managers — direct reports by
+            // default, the whole transitive chain with includeIndirect. A narrower slice of
+            // the single-GET's transitive manager read right (the subordinate of such a
+            // meeting is always in the caller's chain too) — not a separate authorization.
+            val managerIds =
+                if (includeIndirect) transitiveSubordinateIds(callerUserId)
+                else directSubordinateIds(callerUserId)
+            if (managerIds.isEmpty()) pairScope { _, _ -> Op.FALSE }
+            else pairScope { manager, _ -> manager inList managerIds }
+        }
+    }
+
     suspend fun list(
         view: OneOnOneListView,
         callerUserId: UInt,
@@ -456,37 +507,9 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         counterpartId: UInt? = null,
         targetUserId: UInt? = null,
     ): OneOnOneListResult = suspendTransaction(database) {
-        val scope: Op<Boolean> = when (view) {
-            OneOnOneListView.OWN -> Meetings.subordinateId eq callerUserId
-            OneOnOneListView.MANAGED -> Meetings.managerId eq callerUserId
-            OneOnOneListView.USER -> {
-                // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
-                // meeting the target is a party to, either role direction. The route guarantees
-                // a non-null userId.
-                val target = requireNotNull(targetUserId) { "view=user requires userId" }
-                (Meetings.managerId eq target) or (Meetings.subordinateId eq target)
-            }
-            OneOnOneListView.WITH -> {
-                // Every 1:1 between the caller and one counterpart, either role direction (the
-                // pair may have switched manager/subordinate roles over time). The caller is a
-                // party to every row, so this adds no new read surface. The route guarantees a
-                // non-null counterpartId.
-                val other = requireNotNull(counterpartId) { "view=with requires counterpartId" }
-                ((Meetings.managerId eq callerUserId) and (Meetings.subordinateId eq other)) or
-                    ((Meetings.managerId eq other) and (Meetings.subordinateId eq callerUserId))
-            }
-            OneOnOneListView.TEAM -> {
-                // Meetings run BY the caller's subordinates as managers — direct reports by
-                // default, the whole transitive chain with includeIndirect. A narrower slice of
-                // the single-GET's transitive manager read right (the subordinate of such a
-                // meeting is always in the caller's chain too) — not a separate authorization.
-                val managerIds =
-                    if (includeIndirect) transitiveSubordinateIds(callerUserId)
-                    else directSubordinateIds(callerUserId)
-                if (managerIds.isEmpty()) Op.FALSE else Meetings.managerId inList managerIds
-            }
-        }
-        val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
+        val scopeOn = listScope(view, callerUserId, includeIndirect, counterpartId, targetUserId)
+        val scope: Op<Boolean> = scopeOn(Meetings.managerId, Meetings.subordinateId)
+        val predicate: Op<Boolean> = scope and buildPredicate(filter, scopeOn) and active()
         val join = Meetings
             .join(
                 managerUsers,
@@ -798,7 +821,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
     }
 
-    private fun buildPredicate(filter: OneOnOneListFilter): Op<Boolean> {
+    private fun buildPredicate(filter: OneOnOneListFilter, scopeOn: PairScope): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.managerName?.takeIf { it.isNotBlank() }?.let {
             op = op and (managerUsers[UserService.Users.name].containsNormalized(it))
@@ -808,32 +831,37 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
         filter.meetingDateGte?.let { op = op and (Meetings.meetingDate greaterEq it) }
         filter.meetingDateLte?.let { op = op and (Meetings.meetingDate lessEq it) }
-        if (filter.latestOnly) op = op and latestOnlyPredicate()
+        if (filter.latestOnly) op = op and latestOnlyPredicate(scopeOn)
         return op
     }
 
     /**
      * `latestOnly=true`: keeps only each (manager, subordinate) pair's absolute latest
-     * non-deleted meeting — a correlated `NOT EXISTS` over a self-alias, so it composes with
-     * `total` and the page in the SAME query (never computed against the other filters/view,
-     * the same canonical `meeting_date DESC, id DESC` ordering as [latestMeetingOfPair] and
-     * the write rules).
+     * non-deleted meeting — `id IN (SELECT DISTINCT ON (manager_id, subordinate_id) id … ORDER BY
+     * manager_id, subordinate_id, meeting_date DESC, id DESC)`, so it composes with `total` and
+     * the page in the SAME query (the same canonical `meeting_date DESC, id DESC` ordering as
+     * [latestMeetingOfPair] and the write rules). The view's scope rides inside the subquery (it
+     * decides whole pairs, so it bounds the scan to the caller's index range without changing which
+     * row is a pair's latest); the name and date filters deliberately do NOT — the latest is never
+     * computed against the other filters. V92's pair-latest index serves the subquery index-only,
+     * in order (measured on the perf dataset: the CEO's managed page took 40 ms / 347 k buffers
+     * with the former correlated `NOT EXISTS`, 0.2 ms now).
      */
-    private fun latestOnlyPredicate(): Op<Boolean> {
-        val later = Meetings.alias("later_one_on_one_meeting")
-        return notExists(
-            later.selectAll().where {
-                (later[Meetings.managerId] eq Meetings.managerId) and
-                    (later[Meetings.subordinateId] eq Meetings.subordinateId) and
-                    (later[Meetings.markedAsDeleted] eq false) and
-                    (
-                        (later[Meetings.meetingDate] greater Meetings.meetingDate) or
-                            (
-                                (later[Meetings.meetingDate] eq Meetings.meetingDate) and
-                                    (later[Meetings.id] greater Meetings.id)
-                            )
-                        )
-            },
-        )
+    private fun latestOnlyPredicate(scopeOn: PairScope): Op<Boolean> {
+        val latest = Meetings.alias("latest_one_on_one_meeting")
+        return Meetings.id inSubQuery latest
+            .select(latest[Meetings.id])
+            .where {
+                scopeOn(latest[Meetings.managerId], latest[Meetings.subordinateId]) and
+                    (latest[Meetings.markedAsDeleted] eq false)
+            }
+            // The Column-vararg overload: the Pair overload would put every listed column into DISTINCT ON.
+            .withDistinctOn(latest[Meetings.managerId], latest[Meetings.subordinateId])
+            .orderBy(
+                latest[Meetings.managerId] to SortOrder.ASC,
+                latest[Meetings.subordinateId] to SortOrder.ASC,
+                latest[Meetings.meetingDate] to SortOrder.DESC,
+                latest[Meetings.id] to SortOrder.DESC,
+            )
     }
 }
