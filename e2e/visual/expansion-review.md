@@ -1,17 +1,17 @@
 # Desktop visual coverage expansion
 
-Status: stage 1 approved on 2026-10-04 and promoted to the CI reference. The
+Status: stage 1 approved on 2026-10-04, promoted and merged to master in PR #111 (`4c1e30ab`). The
 repository owner replied **“Approved”** for implementation revision `8bb36776`, artifact
 `05bcc4f3`, app version 4.15.3. Approval covers 18 images: the prior 12 plus six
 Dashboard/Users/Teams images, and 15 visual tests including three sidebar geometry/focus tests.
-The v4.15.2 review remains historical; stage 2 is planned.
+The v4.15.2 review remains historical; stage 2 is being prepared on `test/desktop-visual-forms`.
 
 ## Staged plan
 
 | Stage | Scope | Status |
 | --- | --- | --- |
-| 1 | Sidebar active-link visibility; Dashboard member/manager; Users and Teams member/admin | Approved; baselines promoted; canonical comparison passed |
-| 2 | Representative forms/detail pages, including validation, editor and footer states | Planned after stage 1 review |
+| 1 | Sidebar active-link visibility; Dashboard member/manager; Users and Teams member/admin | Merged; all six CI jobs passed |
+| 2 | Representative forms/detail pages, including validation, editor and footer states | [Implementation in progress; separate review](forms-review.md) |
 | 3 | Remaining frequently used feature lists; add states by risk and reuse shared fixtures | Planned after stage 2 review |
 
 Each stage captures candidates, presents them for human review, then promotes approved images
@@ -40,9 +40,9 @@ pixel-tolerance relaxation are introduced.
 
 ## Review and verification
 
-- [Open the candidate gallery](candidate-review.html): the two sidebar before/after/diff views,
+- [Open the candidate gallery](review-history/stage-1/candidate-review.html): the two sidebar before/after/diff views,
   six new screens and the ten remaining version-only changes.
-- [Candidate image hashes and source provenance](candidate-manifest.json).
+- [Candidate image hashes and source provenance](review-history/stage-1/candidate-manifest.json).
 - Source implementation: `8bb36776`; app version **4.15.3** (English/Polish changelog included).
 - Independent review's reduced-motion finding was fixed and re-reviewed; no actionable findings remain.
 - All six new views and both changed dictionary views were visually inspected. Existing intentional
@@ -64,12 +64,14 @@ pixel-tolerance relaxation are introduced.
 | Ordinary approved-reference comparison probe | Expected screenshot failure: version digit, 11 pixels |
 | Gallery links and image hashes | Passed |
 | Canonical comparison after promotion | 15/15 passed; 18 approved images; 50.2 s |
+| Sidebar repetition after assertion correction | 30/30 passed (each of three journeys repeated ten times); 1.4 min |
 | Full functional E2E on updated source frontend | 144/144 passed; 4.3 min; v4.15.3 source frontend with development backend |
 
 The owner approved the concrete stage 1 result with the exact reply **“Approved”**. The current
-review gallery shows 18 approved v4.15.3 baselines; `candidate-review.html` remains the old/new/diff
+review gallery shows 18 approved v4.15.3 baselines; `review-history/stage-1/candidate-review.html` remains the old/new/diff
 evidence for the stage 1 change. Promotion copies the reviewed PNGs byte-for-byte into `snapshots/`; all 18 hashes match the
-accepted candidates. Hosted checks must pass before merge. The
+accepted candidates. All six hosted jobs passed in [quality run 37236533748](https://github.com/liveweird/lettuce/actions/runs/37236533748)
+before [PR #111](https://github.com/liveweird/lettuce/pull/111) merged. The
 sidebar issue from the v4.15.2 historical review is resolved by this approved fix. Forms/details
 and remaining lists follow in subsequent reviews. Backend/API behavior was not changed in this batch.
 

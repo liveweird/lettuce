@@ -103,8 +103,10 @@ to the stage 1 gallery, approving 18 v4.15.3 images (the prior 12 plus six Dashb
 images), across 15 visual tests including three sidebar geometry tests. The **Desktop visual**
 quality job compares them on PRs and master pushes. See [the image gallery](visual/review.html) and
 [visual/README.md](visual/README.md) for findings, run recipes and approval/activation steps.
-The next review batch is stage 2, covering representative forms and detail pages. See the
-[Dashboard/directory companion](scenarios/visual/people.md) and [expansion review](visual/expansion-review.md).
+The stage 2 candidate batch adds six forms/detail views in
+[`visual/tests/forms.spec.ts`](scenarios/visual/forms.md), with isolated fixture state and no API writes.
+These remain unapproved; see [the forms review](visual/forms-review.md).
+The [expansion plan](visual/expansion-review.md) tracks the staged coverage.
 
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb

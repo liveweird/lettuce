@@ -5,7 +5,7 @@ for app version 4.15.3 on 2026-10-04: the prior 12 images plus six Dashboard/Use
 The approval source is implementation revision `8bb36776`, artifact `05bcc4f3`, app version
 4.15.3, with the exact reply **“Approved”**. The approved set includes 15 visual tests, including
 three sidebar geometry/focus regression tests. The Desktop visual job compares the approved set on
-PRs and master pushes; stage 2 remains planned.
+PRs and master pushes.
 
 Open the [review gallery](review.html) and [validation/approval record](expansion-review.md).
 The current gallery shows the 18 approved v4.15.3 baselines. The historical v4.15.2 review is
@@ -24,8 +24,12 @@ for v4.15.3; see [the staged expansion plan and review record](expansion-review.
 issue documented by the historical v4.15.2 review is resolved by the approved v4.15.3 fix.
 
 `capture` writes **only** `candidates/`, and `compare-candidates` checks stability against that
-set. Every mode mounts approved `snapshots/` read-only. `candidate-review.html` retains the
+set. Every mode mounts approved `snapshots/` read-only. `review-history/stage-1/candidate-review.html` retains the
 old/new/diff evidence for the approved stage 1 promotion.
+
+Stage 2 adds six separate forms/detail candidates; see [the forms review](forms-review.md).
+They are not approved baselines. The normal comparison deliberately fails for new images until
+the owner reviews and approves their promotion.
 
 ## Coverage
 
