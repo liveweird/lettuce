@@ -4,6 +4,9 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 import io.opentelemetry.semconv.ServiceAttributes
 
+/** The traces exporter the SDK defaults to (and the server's DB-span gating compares against): none — spans are not exported. */
+const val DEFAULT_TRACES_EXPORTER = "none"
+
 fun getOpenTelemetry(serviceName: String): OpenTelemetry =
     AutoConfiguredOpenTelemetrySdk.builder()
         // Defaults via addPropertiesSupplier (lowest precedence) so OTEL_* env vars can override —
@@ -11,7 +14,7 @@ fun getOpenTelemetry(serviceName: String): OpenTelemetry =
         .addPropertiesSupplier {
             mapOf(
                 "otel.metrics.exporter" to "none",
-                "otel.traces.exporter" to "none",
+                "otel.traces.exporter" to DEFAULT_TRACES_EXPORTER,
                 "otel.logs.exporter" to "console", // interim: System.out; overridable by OTEL_LOGS_EXPORTER
             )
         }

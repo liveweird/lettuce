@@ -110,13 +110,37 @@ services:
       # EMPTY by default = the SHIPPED JVM flags (SerialGC, -Xmx256m, C1-only — server/build.gradle.kts).
       # The launcher appends JAVA_OPTS, so e.g. PERF_JAVA_OPTS="-XX:TieredStopAtLevel=4" turns C2 on.
       JAVA_OPTS: "${PERF_JAVA_OPTS:-}"
+      # Traces (M4): the exporter defaults to `none` — the shipped posture, so baselines are measured without export cost.
+      # `perf/run.sh traces` recreates the app with PERF_OTEL_TRACES_EXPORTER=otlp + the always_on sampler; the endpoint is
+      # the in-network Jaeger (never published beyond its UI port). The DB-span wrapper is installed only
+      # when the exporter is not `none` (FINDINGS F18), so a `none` run measures the shipped, unwrapped pool. Keep
+      # `traces` runs to a few iterations: a 50-VU always_on run would flood the in-memory Jaeger.
+      OTEL_TRACES_EXPORTER: "${PERF_OTEL_TRACES_EXPORTER:-none}"
+      OTEL_TRACES_SAMPLER: "${PERF_OTEL_TRACES_SAMPLER:-parentbased_always_on}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
     ports: !override
       - "127.0.0.1:18080:8080"
     volumes:
       # JFR recordings and other in-container profiler output (perf/run.sh creates the directory).
       - ./perf/results/jfr:/perf-out
-    mem_limit: 512m
+    # 512m = the k8s limit; `perf/run.sh jfr --heap X` raises it to X + 256m for that run only.
+    mem_limit: "${PERF_APP_MEM_LIMIT:-512m}"
     cpus: 2
+
+  # Trace UI + store (M4 step 12, .claude/docs/performance.md "Traces"). Profile `traces`: `up` never starts it, so it
+  # costs nothing during a baseline; `perf/run.sh traces` starts it. Jaeger v2 all-in-one — in-memory storage, OTLP
+  # receivers on 4317/4318 (reachable only inside the compose network), the UI/query API on the loopback port below.
+  # Pinned by index digest (container-images.md); JAEGER_LISTEN_HOST=0.0.0.0 is baked into the image.
+  jaeger:
+    container_name: lettuce-perf-jaeger
+    image: jaegertracing/jaeger:2.21.0@sha256:3d0ac795ff98aa04d1be04311d2dac6c25b4bfc8322dc02e53bc5b170c5018c3
+    profiles: ["traces"]
+    restart: "no"
+    ports:
+      - "127.0.0.1:16686:16686"
+    mem_limit: 512m
+    cpus: 1
 
 volumes:
   postgres-data:
