@@ -425,14 +425,19 @@ Admin bypasses are deliberate, documented exceptions — never the default.
 
 ### API-CACHE-001 — Validators on cacheable reads `[both]`
 **SHOULD** send an `ETag` (or `Last-Modified`) on cacheable `GET` responses and honor
-`If-None-Match`/`If-Modified-Since` with `304 Not Modified`. *(Registered gap.)*
+`If-None-Match`/`If-Modified-Since` with `304 Not Modified`. *(Implemented for the static SPA
+files since v4.14.0 — a content-hash `ETag` only (no `Last-Modified`: a date check misfires
+after a rollback), `304` via `ConditionalHeaders`; API `GET`s are `no-store`, so validators do
+not apply to them — see the register.)*
 **Check (spectral, hint):** `GET` `200`s declare an `ETag` header. **Check (review):**
 conditional requests yield `304`.
 
 ### API-CACHE-002 — Explicit `Cache-Control` `[llm/manual]`
 **SHOULD** set a deliberate `Cache-Control` on every response class (e.g. `no-store` for
 sensitive/authed data, `max-age` for static assets) rather than relying on defaults.
-*(Registered gap: only CSS is covered today.)*
+*(Since v4.14.0: `no-store` on every API response — `/api/` and the integration GraphQL
+endpoint; hashed `assets/` files immutable for a year; `index.html`, the SPA fallback and the
+other root files `no-cache` + ETag.)*
 **Check:** responses carry a deliberate `Cache-Control`.
 
 ### API-CACHE-003 — Optimistic concurrency on writes `[llm/manual]`
@@ -638,8 +643,9 @@ gap"**, not as findings.
 - **API-AUTH-001..004** — Schemes declared + applied; bearer with credentials in headers
   only; `401` vs `403` + token-type enforcement; default-deny guards at the top of every
   handler?
-- **API-CACHE-001..004** — ETag/304 *(registered gap)*; deliberate `Cache-Control`
-  *(registered gap)*; a documented lost-update defense per concurrent write *(registered gap —
+- **API-CACHE-001..004** — ETag/304 on static files, API `GET`s `no-store` by design
+  *(register: the Spectral `ETag` hint stays unmet)*; deliberate `Cache-Control` per response
+  class (API `no-store`, static immutable / `no-cache`); a documented lost-update defense per concurrent write *(registered gap —
   see the register's inventory)*; push channel where polling would be wasteful?
 - **API-RATE-001/002** — `429` + problem body; `Retry-After`/`RateLimit-*` *(registered
   gap)*; uniform lockout behavior; limits documented?
@@ -667,7 +673,7 @@ prioritized. Reviewers cite these as "registered gap"; the Spectral ruleset carr
 | API-ERR-004 | `X-Request-Id` is read but not echoed or generated | `CallId` config in `plugins/Monitoring.kt`: add `replyToHeader(HttpHeaders.XRequestId)` + `generate { ... }`; declare the header on responses in the spec |
 | API-ERR-007 | Generic unique-violation `409`s carry no `instance` URI | `ConflictException.instance` already rides `ProblemDetail.instance` (`plugins/ErrorHandling.kt`); populated today by the feedback-duplicate and days-off-overlap `409`s — extend other domain conflict sites where the service knows the conflicting row's id (the generic 23505 handler never can, and existence-disclosure rules apply per API-ERR-006) |
 | API-RATE-001 | No `Retry-After` / `RateLimit-*` headers on `429`s | Set `Retry-After` where the wait is known (login lockout knows its window); add headers to the shared `TooManyRequests` response |
-| API-CACHE-001/002 | No `ETag`/`304`; `Cache-Control` only on CSS | Install `ConditionalHeaders`; extend the `CachingHeaders` config in `plugins/Http.kt` with deliberate per-class policies (`no-store` on API responses) |
+| API-CACHE-001 | API `GET`s carry no `ETag`/`Last-Modified` — they are `no-store` by design (v4.14.0; the static SPA files have an ETag + `304`), so the Spectral `ETag` hint on `GET` `200`s stays unmet | Only if an API read ever becomes worth caching: install `ConditionalHeaders` on that route (today it is installed on the static route only, `plugins/Routing.kt`), set the ETag, and give it its own `Cache-Control` class |
 | API-CACHE-003 | No `If-Match`/`ETag`/`412` conditional writes anywhere; unguarded full-document writes are last-write-wins (see the inventory below) | Add `ETag` + `If-Match` handling to the concurrency-sensitive `PUT`s if contention ever materializes; a `version` column + `409` is the R2DBC-friendly alternative |
 | API-IDEM-001 | No `Idempotency-Key` handling | Domain no-duplicate `409`s cover double-submits today; adopt the header if external/retrying clients appear |
 | API-HTTP-001 | HTTP/1.1 only (Netty defaults; no edge HTTP/2) | Configure HTTP/2 at the TLS-terminating ingress when one exists |

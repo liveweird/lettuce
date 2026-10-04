@@ -107,8 +107,8 @@ services:
       TEAMS_LOGIN_BASE_URL: !reset null
       TEAMS_GRAPH_BASE_URL: !reset null
       TEAMS_SERVICE_URL: !reset null
-      # EMPTY by default = the SHIPPED JVM flags (SerialGC, -Xmx256m, C1-only — server/build.gradle.kts).
-      # The launcher appends JAVA_OPTS, so e.g. PERF_JAVA_OPTS="-XX:TieredStopAtLevel=4" turns C2 on.
+      # EMPTY by default = the SHIPPED JVM flags (SerialGC, -Xmx256m, C2 on — server/build.gradle.kts).
+      # The launcher appends JAVA_OPTS, so e.g. PERF_JAVA_OPTS="-XX:TieredStopAtLevel=1" re-measures the retired C1-only variant.
       JAVA_OPTS: "${PERF_JAVA_OPTS:-}"
       # Traces (M4): the exporter defaults to `none` — the shipped posture, so baselines are measured without export cost.
       # `perf/run.sh traces` recreates the app with PERF_OTEL_TRACES_EXPORTER=otlp + the always_on sampler; the endpoint is

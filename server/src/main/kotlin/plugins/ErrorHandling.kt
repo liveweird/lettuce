@@ -142,9 +142,9 @@ private fun clientSafeBadRequestDetail(cause: BadRequestException): String = whe
 private val NEGATIVE_ID_SEGMENT = Regex("""^-\d+$""")
 
 private fun ApplicationCall.hasNegativeIdSegment(): Boolean {
-    val path = request.path()
-    return path.startsWith("/api/") &&
-        path.split('/').any { NEGATIVE_ID_SEGMENT.matches(it.decodeURLPart()) }
+    // isApiPath() normalizes like the router (a leading `//api/…` still reaches the handler).
+    return isApiPath() &&
+        request.path().split('/').any { NEGATIVE_ID_SEGMENT.matches(it.decodeURLPart()) }
 }
 
 // A client disconnecting mid-response (a browser aborting a static-asset download, e.g.) is not
