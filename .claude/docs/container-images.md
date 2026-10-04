@@ -52,6 +52,14 @@ performance programme's load generator (`perf/run.sh k6`, `.claude/docs/performa
 only (a throwaway `docker run` on the perf compose network); nothing in CI, compose or Kubernetes
 uses it and nothing it produces ships.
 
+Addition record: 2026-10-04. Jaeger 2.21.0 (`jaegertracing/jaeger`, the official upstream image, the v2
+all-in-one binary; 2.21.0 is the newest GitHub release) joined as the performance programme's trace
+store and UI (`perf/docker-compose.perf.yaml`, profile `traces`, `perf/run.sh traces`). Its index
+`sha256:3d0ac795…18c3` carries linux/amd64 and linux/arm64 images (plus s390x/ppc64le). It runs in the
+local perf project on demand only — the UI is published on `127.0.0.1:16686`, the OTLP receivers stay inside the
+compose network, storage is in memory; nothing in CI, the dev compose file or Kubernetes uses it and nothing it
+produces ships.
+
 ## Updating a pin
 
 Before first adopting these pins on an existing environment, inspect its running

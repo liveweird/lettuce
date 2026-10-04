@@ -52,6 +52,8 @@ import ch.nokillswit.oneonones.OneOnOneEventServiceKey
 import ch.nokillswit.oneonones.OneOnOneService
 import ch.nokillswit.oneonones.OneOnOneServiceKey
 import ch.nokillswit.oneonones.OneOnOneShareable
+import ch.nokillswit.plugins.DbSpansEnabledKey
+import ch.nokillswit.plugins.OpenTelemetryKey
 import ch.nokillswit.pulse.PulseCycleService
 import ch.nokillswit.pulse.PulseCycleServiceKey
 import ch.nokillswit.pulse.PulseResponseService
@@ -96,10 +98,13 @@ import ch.nokillswit.users.UserServiceKey
 import io.ktor.server.application.*
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.util.AttributeKey
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.instrumentation.r2dbc.v1_0.R2dbcTelemetry
 import io.r2dbc.pool.ConnectionPool
 import io.r2dbc.pool.ConnectionPoolConfiguration
 import io.r2dbc.postgresql.PostgresqlConnectionFactoryProvider
 import io.r2dbc.spi.ConnectionFactories
+import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.ValidationDepth
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
@@ -236,8 +241,23 @@ private fun Application.connectPooled(): R2dbcDatabase {
         // the server actually sees). Seconds, as Exposed takes them.
         defaultQueryTimeout = bounds.statementTimeoutSeconds.toInt()
     }
-    return R2dbcDatabase.connect(connectionFactory = pool, databaseConfig = databaseConfig)
+    // DB spans (M4 step 12): ONLY when a traces exporter is configured — the default `none` is the pre-M4 path, no
+    // proxy (the wrapper costs ~0.1 ms per statement even with nothing exported, FINDINGS F18). It wraps the POOL,
+    // not the raw factory: the pool's own validation round trip (SELECT 1) sits below the wrapper and is never
+    // traced, and the proxy adds no statement of its own. The SDK is the one configureOpenTelemetry published
+    // (it runs before this module).
+    val traced = tracedConnectionFactory(pool, options, attributes[DbSpansEnabledKey]) { attributes[OpenTelemetryKey] }
+    return R2dbcDatabase.connect(connectionFactory = traced, databaseConfig = databaseConfig)
 }
+
+/** The factory Exposed connects through: [pool] itself (the same instance) unless [enabled], then the span-emitting wrapper. */
+internal fun tracedConnectionFactory(
+    pool: ConnectionFactory,
+    options: ConnectionFactoryOptions,
+    enabled: Boolean,
+    openTelemetry: () -> OpenTelemetry,
+): ConnectionFactory =
+    if (enabled) R2dbcTelemetry.create(openTelemetry()).wrapConnectionFactory(pool, options) else pool
 
 /**
  * The sign-in trail's service (v4.9.0, V90) — retention and purge interval range-checked like every
