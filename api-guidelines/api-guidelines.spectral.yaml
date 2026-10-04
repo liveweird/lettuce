@@ -230,6 +230,15 @@ rules:
       field: responses.400
       function: truthy
 
+  input-operation-declares-413:
+    description: "API-ERR-005: operations that take a request body declare a 413 response (the global body-size cap)."
+    message: "Body-taking operation is missing a 413 response (API-ERR-005)."
+    severity: warn
+    given: $.paths[*][post,put][?(@.requestBody)]
+    then:
+      field: responses.413
+      function: truthy
+
   responses-declare-correlation-id:
     description: >
       API-ERR-004: every response echoes a correlation id header (X-Request-Id).

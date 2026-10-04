@@ -65,6 +65,20 @@ describe("saveErrorMessage", () => {
     expect(saveErrorMessage(new ApiError(400, null), t, ALL_KEYS)).toBe("k.invalid");
   });
 
+  test("413 (the request-body size cap) maps to invalid like a 400", () => {
+    expect(saveErrorMessage(new ApiError(413, null), t, ALL_KEYS)).toBe("k.invalid");
+  });
+
+  test("413 without an invalid key falls through to failedStatus", () => {
+    expect(
+      saveErrorMessage(new ApiError(413, null), t, keys({
+        forbidden: "k.forbidden",
+        failedStatus: "k.failedStatus",
+        failed: "k.failed",
+      })),
+    ).toBe("k.failedStatus(413)");
+  });
+
   test("400 without an invalid key falls through to failedStatus", () => {
     expect(
       saveErrorMessage(new ApiError(400, null), t, keys({

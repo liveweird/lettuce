@@ -379,6 +379,26 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun `a zero request body cap refuses to start in every mode`() = testApplication {
+        // http.maxBodyBytes (v4.14.1) is boot-validated 1024..1073741824 like the other numeric
+        // knobs — a cap of 0 would refuse every body, a malformed value is a config error.
+        configureApp("http.maxBodyBytes" to "0")
+        assertStartupFails("http.maxBodyBytes") { startApplication() }
+    }
+
+    @Test
+    fun `a non-numeric request body cap refuses to start with a clear message`() = testApplication {
+        configureApp("http.maxBodyBytes" to "abc")
+        assertStartupFails("http.maxBodyBytes") { startApplication() }
+    }
+
+    @Test
+    fun `a request body cap above one GiB refuses to start`() = testApplication {
+        configureApp("http.maxBodyBytes" to "1073741825")
+        assertStartupFails("http.maxBodyBytes") { startApplication() }
+    }
+
+    @Test
     fun `enabling CSRF blocks unsafe requests without an origin`() = testApplication {
         configureApp("security.csrf.enabled" to "true")
         startApplication()

@@ -91,7 +91,13 @@ fun Application.configureHttp() {
             forHeaders.clear()
         }
     }
-    install(Compression)
+    // Response compression only. The default Mode.All would also INFLATE `Content-Encoding: gzip`
+    // request bodies with no decoded-size cap (a gzip bomb), after the body-size cap has already
+    // counted only the compressed bytes. No client sends compressed request bodies, so a gzip body
+    // is simply malformed JSON (the usual 400) and the cap in plugins/BodyLimit.kt counts wire bytes.
+    install(Compression) {
+        mode = CompressionConfig.Mode.CompressResponse
+    }
     install(DefaultHeaders)
     if (!developmentMode) {
         // Behind ingress-nginx this header is OVERWRITTEN by the controller (configmap `hsts`,
