@@ -17,8 +17,9 @@
 1. Open Seniority levels directly.
    - *Expected*: its active sidebar link is fully visible.
 2. Collapse Dictionaries manually, then expand it again.
-   - *Expected*: manual collapse remains respected; expansion reveals the active item after
-     the normal animation, and keyboard focus stays on the group button.
+   - *Expected*: the group reports its collapsed state and clips the still-mounted active link
+     out of the sidebar viewport; expansion reveals it after the normal animation, and keyboard
+     focus stays on the group button.
 3. Toggle the sidebar to its icon rail and back.
    - *Expected*: the active item is revealed again, focus stays on the toggle button and the
      main document has not scrolled.
@@ -28,5 +29,6 @@
 1. Enable reduced motion and open Pulse rotating questions directly.
    - *Expected*: the active item is fully visible.
 2. Collapse and reopen Dictionaries.
-   - *Expected*: the active item becomes fully visible without depending on a transition event;
-     focus stays on the group button and the main document stays at the top.
+   - *Expected*: the collapsed group clips the active link out of the sidebar viewport, then the
+     active item becomes fully visible without depending on a transition event; focus stays on the
+     group button and the main document stays at the top.

@@ -1,14 +1,16 @@
 # Desktop visual coverage expansion
 
-Status: first review batch ready for candidate review on `test/desktop-visual-expansion`. New screenshots are
-candidates, not approved references. The twelve v4.15.2 baselines accepted on 2026-10-04 remain
-unchanged in `snapshots/` and remain CI's reference.
+Status: stage 1 approved on 2026-10-04 and promoted to the CI reference. The
+repository owner replied **“Approved”** for implementation revision `8bb36776`, artifact
+`05bcc4f3`, app version 4.15.3. Approval covers 18 images: the prior 12 plus six
+Dashboard/Users/Teams images, and 15 visual tests including three sidebar geometry/focus tests.
+The v4.15.2 review remains historical; stage 2 is planned.
 
 ## Staged plan
 
 | Stage | Scope | Status |
 | --- | --- | --- |
-| 1 | Sidebar active-link visibility; Dashboard member/manager; Users and Teams member/admin | Implemented; candidate approval pending |
+| 1 | Sidebar active-link visibility; Dashboard member/manager; Users and Teams member/admin | Approved; baselines promoted; canonical comparison passed |
 | 2 | Representative forms/detail pages, including validation, editor and footer states | Planned after stage 1 review |
 | 3 | Remaining frequently used feature lists; add states by risk and reuse shared fixtures | Planned after stage 2 review |
 
@@ -23,7 +25,7 @@ entry, route changes, group expansion and rail/expanded switches. It preserves m
 keyboard focus and the main document's scroll position. Three browser regressions exercise a
 1280×720 desktop with normal and reduced motion, independently of screenshot assertions.
 
-Six new candidate views use fixed synthetic, generated-schema-typed data:
+Six newly approved views use fixed synthetic, generated-schema-typed data:
 
 - Member Dashboard / My managers, 1440×1000: personal tiles and manager cards.
 - Manager Dashboard / My subordinates, 1280×1000: management tiles and three cards with varied stats.
@@ -46,8 +48,8 @@ pixel-tolerance relaxation are introduced.
 - All six new views and both changed dictionary views were visually inspected. Existing intentional
   name/profile truncation in cards and email wrapping in Users remain visible for human review.
 - Pixel analysis of all twelve existing views found ten changes confined to the footer version
-  digit (8×10px bounding box), plus the two intended sidebar scroll changes. The twelve approved
-  baseline hashes are unchanged. Difference overlays use raw RGB changes, not Playwright's
+  digit (8×10px bounding box), plus the two intended sidebar scroll changes. The twelve historical
+  baseline images are archived unchanged under `review-history/v4.15.2/`. Difference overlays use raw RGB changes, not Playwright's
   perceptual pixel threshold.
 
 | Check | Result |
@@ -61,9 +63,19 @@ pixel-tolerance relaxation are introduced.
 | Unchanged candidate comparison 2 | 15/15 passed; 50.6 s |
 | Ordinary approved-reference comparison probe | Expected screenshot failure: version digit, 11 pixels |
 | Gallery links and image hashes | Passed |
+| Canonical comparison after promotion | 15/15 passed; 18 approved images; 50.2 s |
 | Full functional E2E on updated source frontend | 144/144 passed; 4.3 min; v4.15.3 source frontend with development backend |
 
-Do not promote candidates or merge until the owner approves the concrete result. The ordinary
-visual CI comparison is expected to reject intentionally changed/missing baselines until that
-approval step. This is stage 1 of the staged plan; forms/details and remaining lists follow
-subsequent reviews. Backend/API behavior was not changed in this batch.
+The owner approved the concrete stage 1 result with the exact reply **“Approved”**. The current
+review gallery shows 18 approved v4.15.3 baselines; `candidate-review.html` remains the old/new/diff
+evidence for the stage 1 change. Promotion copies the reviewed PNGs byte-for-byte into `snapshots/`; all 18 hashes match the
+accepted candidates. Hosted checks must pass before merge. The
+sidebar issue from the v4.15.2 historical review is resolved by this approved fix. Forms/details
+and remaining lists follow in subsequent reviews. Backend/API behavior was not changed in this batch.
+
+The first promotion check passed all screenshot assertions but exposed an intermittent sidebar
+test-oracle error: Mantine keeps collapsed links mounted, so their own boxes can satisfy
+Playwright visibility while an ancestor clips them. The corrected regression asserts collapsed
+group state and zero viewport intersection, then full visibility after reopening. Independent
+review found no weakened behavior checks. No application code, screenshot pixels or tolerances
+changed; the complete canonical rerun passed.

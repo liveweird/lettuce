@@ -3,7 +3,8 @@
 - **Spec**: [people.spec.ts](../../visual/tests/people.spec.ts)
 - **Actors**: synthetic member, manager without ADMIN, administrator without managed teams.
 - **Owns**: isolated browser contexts and fixed, schema-typed read responses; no server state.
-- **Status**: six new candidate images, awaiting human approval before promotion to CI baselines.
+- **Status**: six v4.15.3 stage 1 images approved by the repository owner on 2026-10-04 as part
+  of the 18-image gallery and current automatic PR comparison reference.
 - **Scope**: desktop appearance at 1280/1440px, full vertical pages; no mobile, API authorization,
   mutation or real-data correctness claims. Every request must be an explicit fixture.
 

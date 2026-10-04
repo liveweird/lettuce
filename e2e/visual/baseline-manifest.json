@@ -1,8 +1,8 @@
 {
   "status": "accepted",
-  "applicationVersion": "4.15.2",
-  "upstreamRevision": "7cb4b20a",
-  "captureMergeRevision": "9166b0ef29c5e51539b04a4bb4f6559a2ae1c415",
+  "applicationVersion": "4.15.3",
+  "sourceRevision": "8bb3677693f052e64bf52e65a4ef3dd7a476f8c4",
+  "previousBaselineRevision": "8c351bbad85e1e29b0122872188f9dcf7961d5af",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -16,82 +16,114 @@
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "b2d5defddbcf84b3853582b781406b736d4df690d6af4cec35fdb4d1b6e65240"
+      "sha256": "dc7a88c35f63ffb893cfbf0cfa0e1a67328e8b28f5ca1bbbcf744050462c6229"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "f246952d1f24795fa16aa7eb2381f96c483d29a3ca37b031657158c4a5173efb"
+      "sha256": "24be86b1698df45853ab0de50b3a36a3528e357af31a35b3a9713b64ce6ea20f"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "3bdbc46f7ba0f60fb9c38c35f8f4a9e5a5367004fcf699066de50be182377b33"
+      "sha256": "9a8680c7b88397926bcb954e36897fa29c0c38b728eff4bf2804514884b16b2d"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "67423fe9f869da01484c0c41bc070351c83d8811cc2af341ad9061bc5638442d"
+      "sha256": "ec18c9583455e1b7626228ddf772d3b534e40987ec7ab293783626b38f636b5d"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "c9028d4db25e315dfddd7939e6529bb640688d179aa7bde976666804623536d6"
+      "sha256": "3a53d40a5300f43b91d71a0b6d3c870d048326648ed2870b3a2abaa405e9ee58"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "2fa206eafe5142cd8f9d6815246464eb3f2e370e02904ebcdc7c073f606ef44f"
+      "sha256": "179d647a457ba9bde6f0647ac92ba278cfe43e71d716a2a76893554c86627fd8"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "74dcc9a6a883590e2d2d3181bd2ff008e07bf8769660f2c9d2ec52feaaeda5c7"
+      "sha256": "760edb546d3a1387ee07c221cb4ac1250b0ce2f7b0b737501185ec1498660cc8"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png",
       "width": 1280,
       "height": 1472,
-      "sha256": "8f4de23362e21d72adcf3911f605592cf9b75ca8ea0b6391e92ff336b36d514e"
+      "sha256": "1f7e07c0e5285c40231d10ab8ec6a77ded039ab881a0da25f7f02edc03ca09e0"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "366b9f1afcd36e6fe196f301c51bff674b1fe511780e86dd2b4895dbb5e162df"
+      "sha256": "5fc81898345af33cbf06f81435fbdd21f217e1e692671b521049093a054dfc5f"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "width": 1280,
       "height": 1472,
-      "sha256": "ae8964600e0fe8b33f1d7bb6d8a125d194d9c0941e828082d23c49522391dfff"
+      "sha256": "9f1513443a5ce5b21a4e3c4e68599fcdb8e80c2f9a4c9f7c306513b18df61c52"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png",
       "width": 1280,
       "height": 1147,
-      "sha256": "1611f2a1399678bccb45c7bbe7f66c0a3f149910672a1b747dc82b68a4ac1b30"
+      "sha256": "8fa855d7fdff9e01e48f730966c5a06fe8ce87a0b3f15d439c7fec2da2e13b7b"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "59de43ba54d20bea8c30896372d605927a7053303692df6ece83a89309994f93"
+      "sha256": "2d53789d6cf9eaa7d7e8c507541c61955284edf2c411d688672f89ad3fafe052"
+    },
+    {
+      "file": "snapshots/people.spec.ts/dashboard-manager-en-light-1280.png",
+      "width": 1280,
+      "height": 1363,
+      "sha256": "d19703a5579ca4e8dd22514ab34e49341f2221b9f0a64bc8d32b62beab460752"
+    },
+    {
+      "file": "snapshots/people.spec.ts/dashboard-member-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "d20fe59e1a5979a29b1f4d9f65e4dbdac406483970b000a10eb9fe04160f5a08"
+    },
+    {
+      "file": "snapshots/people.spec.ts/teams-admin-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "d8837a92854500e15ec5392376340533d67ac3317c2fca26a6c98f9ce76c872e"
+    },
+    {
+      "file": "snapshots/people.spec.ts/teams-member-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "0954cc3303470d768c9838667f72d709f113dc63a7890bf3a22fe93421366e77"
+    },
+    {
+      "file": "snapshots/people.spec.ts/users-admin-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "42ff70112167cad43d6972e0ac8fcc5451b75e62bb8413ef39061094f058ca17"
+    },
+    {
+      "file": "snapshots/people.spec.ts/users-member-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "f1bbd6c774aaf0ff0f5bbfe93f9183c91dab8fb836e312cde222366d9c2f032a"
     }
   ],
   "approval": {
     "date": "2026-10-04",
-    "reference": "Repository owner accepted the linked 12-image gallery in the Codex conversation: \"I accept\".",
-    "baselineCommit": "5418856988979d7d16395b6a2fe0699cbd0d6d2d",
-    "knownBehaviors": [
-      "Feedback rows stack at 1280px with the expanded sidebar.",
-      "Active Seniority levels and Pulse questions navigation items can fall outside the visible sidebar; retained as a documented follow-up."
-    ]
+    "reference": "Repository owner reviewed the stage 1 gallery and replied \"Approved\" in the Codex conversation.",
+    "reviewedArtifactsCommit": "05bcc4f303c1851f2216704ddbd786394b49ba08"
   }
 }

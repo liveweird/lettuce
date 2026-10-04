@@ -1,5 +1,5 @@
 {
-  "status": "candidate-awaiting-human-review",
+  "status": "accepted",
   "applicationVersion": "4.15.3",
   "sourceRevision": "8bb3677693f052e64bf52e65a4ef3dd7a476f8c4",
   "approvedReferenceRevision": "8c351bbad85e1e29b0122872188f9dcf7961d5af",
@@ -13,7 +13,7 @@
       "width": 1280,
       "height": 1000,
       "sha256": "dc7a88c35f63ffb893cfbf0cfa0e1a67328e8b28f5ca1bbbcf744050462c6229",
-      "previous": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
       "changedBounds": [
         44,
         947,
@@ -27,7 +27,7 @@
       "width": 1440,
       "height": 1000,
       "sha256": "24be86b1698df45853ab0de50b3a36a3528e357af31a35b3a9713b64ce6ea20f",
-      "previous": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
       "changedBounds": [
         44,
         947,
@@ -41,7 +41,7 @@
       "width": 1280,
       "height": 1000,
       "sha256": "9a8680c7b88397926bcb954e36897fa29c0c38b728eff4bf2804514884b16b2d",
-      "previous": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
       "changedBounds": [
         44,
         947,
@@ -55,7 +55,7 @@
       "width": 1280,
       "height": 1000,
       "sha256": "ec18c9583455e1b7626228ddf772d3b534e40987ec7ab293783626b38f636b5d",
-      "previous": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
       "changedBounds": [
         44,
         947,
@@ -69,7 +69,7 @@
       "width": 1280,
       "height": 1000,
       "sha256": "3a53d40a5300f43b91d71a0b6d3c870d048326648ed2870b3a2abaa405e9ee58",
-      "previous": "snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
       "changedBounds": [
         44,
         947,
@@ -83,7 +83,7 @@
       "width": 1280,
       "height": 1000,
       "sha256": "179d647a457ba9bde6f0647ac92ba278cfe43e71d716a2a76893554c86627fd8",
-      "previous": "snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
       "changedBounds": [
         21,
         69,
@@ -97,7 +97,7 @@
       "width": 1280,
       "height": 1000,
       "sha256": "760edb546d3a1387ee07c221cb4ac1250b0ce2f7b0b737501185ec1498660cc8",
-      "previous": "snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
       "changedBounds": [
         21,
         69,
@@ -111,7 +111,7 @@
       "width": 1280,
       "height": 1472,
       "sha256": "1f7e07c0e5285c40231d10ab8ec6a77ded039ab881a0da25f7f02edc03ca09e0",
-      "previous": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/feedback-provided-en-light-1280.png",
       "changedBounds": [
         44,
         947,
@@ -125,7 +125,7 @@
       "width": 1440,
       "height": 1000,
       "sha256": "5fc81898345af33cbf06f81435fbdd21f217e1e692671b521049093a054dfc5f",
-      "previous": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/feedback-provided-en-light-1440.png",
       "changedBounds": [
         44,
         947,
@@ -139,7 +139,7 @@
       "width": 1280,
       "height": 1472,
       "sha256": "9f1513443a5ce5b21a4e3c4e68599fcdb8e80c2f9a4c9f7c306513b18df61c52",
-      "previous": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "changedBounds": [
         44,
         947,
@@ -153,7 +153,7 @@
       "width": 1280,
       "height": 1147,
       "sha256": "8fa855d7fdff9e01e48f730966c5a06fe8ce87a0b3f15d439c7fec2da2e13b7b",
-      "previous": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/feedback-received-en-light-1280.png",
       "changedBounds": [
         44,
         947,
@@ -167,7 +167,7 @@
       "width": 1440,
       "height": 1000,
       "sha256": "2d53789d6cf9eaa7d7e8c507541c61955284edf2c411d688672f89ad3fafe052",
-      "previous": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png",
+      "previous": "review-history/v4.15.2/snapshots/lists.spec.ts/feedback-received-en-light-1440.png",
       "changedBounds": [
         44,
         947,
@@ -212,5 +212,10 @@
       "height": 1000,
       "sha256": "f1bbd6c774aaf0ff0f5bbfe93f9183c91dab8fb836e312cde222366d9c2f032a"
     }
-  ]
+  ],
+  "approval": {
+    "date": "2026-10-04",
+    "reference": "Repository owner reviewed the stage 1 gallery and replied \"Approved\" in the Codex conversation.",
+    "reviewedArtifactsCommit": "05bcc4f303c1851f2216704ddbd786394b49ba08"
+  }
 }

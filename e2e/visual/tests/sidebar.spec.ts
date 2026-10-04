@@ -20,7 +20,11 @@ test('expanding the dictionary group and returning from the rail reveal the acti
   await expect(active).toBeInViewport({ ratio: 1 });
   const group = page.locator('[data-tour="nav-dictionaries"]');
   await group.click();
-  await expect(active).not.toBeVisible();
+  // Mantine keeps collapsed children mounted while clipping them to the collapse's zero height.
+  // Playwright's visibility check only considers the link's own box, so assert the group state
+  // and the user-observable geometry instead.
+  await expect(group).not.toHaveAttribute('data-expanded');
+  await expect(active).not.toBeInViewport();
   await group.click();
   await expect(active).toBeInViewport({ ratio: 1 });
   await expect(group).toBeFocused();
@@ -42,7 +46,8 @@ test.describe('reduced motion', () => {
     await expect(active).toBeInViewport({ ratio: 1 });
     const group = page.locator('[data-tour="nav-dictionaries"]');
     await group.click();
-    await expect(active).not.toBeVisible();
+    await expect(group).not.toHaveAttribute('data-expanded');
+    await expect(active).not.toBeInViewport();
     await group.click();
     await expect(active).toBeInViewport({ ratio: 1 });
     await expect(group).toBeFocused();
