@@ -110,7 +110,7 @@ interface DomProbe {
 }
 
 /**
- * Settled = every expected request finished, nothing in flight, no visible Loader/Skeleton and (when given) the ready
+ * Settled = every expected request finished, nothing in flight, no Loader/Skeleton intersecting the viewport (below-the-fold lazy placeholders do not count) and (when given) the ready
  * selector present — continuously for QUIET_MS (a new request or a reappearing loader restarts the window). Returns the
  * page-clock moment the stable stretch BEGAN, so the quiet window itself is never part of the number. Poll granularity 25 ms.
  */
@@ -129,7 +129,14 @@ async function waitSettled(
       try {
         probe = await page.evaluate(
           ({ sel, ready }) => {
-            const visible = (el: Element) => el.getClientRects().length > 0;
+            // Only a loader that intersects the viewport blocks settling: a lazy-loaded below-the-fold skeleton (the
+            // v4.15.0 pulse trend charts) never resolves until scrolled to, so it must not hold the screen open. Every
+            // other part of the settle definition is unchanged.
+            const visible = (el: Element) => {
+              if (el.getClientRects().length === 0) return false;
+              const r = el.getBoundingClientRect();
+              return r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+            };
             const blocker = [...document.querySelectorAll(sel)].find(visible);
             return {
               now: performance.now(),
