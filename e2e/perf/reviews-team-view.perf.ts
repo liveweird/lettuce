@@ -42,7 +42,7 @@ const quadrants: Interaction = {
   run: (page: Page) => page.getByText("Quadrants", { exact: true }).click(),
 };
 
-// direct -> all reports: a fresh roster listAll + reviews refetch (the `includeIndirect` request keys change).
+// direct -> all reports: a fresh roster listAll (the members query key carries `includeIndirect`; the reviews query does not refetch).
 const widenScope: Interaction = {
   name: "scope-all",
   prepare: async (page: Page) => {

@@ -27,6 +27,9 @@ export default defineConfig({
     trace: "off",
     screenshot: "off",
     video: "off",
+    // Fail in seconds when a control or route changes, instead of waiting out the long per-test timeout.
+    actionTimeout: 30_000,
+    navigationTimeout: 60_000,
   },
   projects: [{ name: "perf", use: { ...devices["Desktop Chrome"] } }],
 });

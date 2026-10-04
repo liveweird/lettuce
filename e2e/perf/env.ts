@@ -4,6 +4,8 @@
 export const PERF_BASE_URL = process.env.PERF_BASE_URL ?? "http://localhost:18080";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+// The dev stack's ports: only the PERF_SMOKE=1 harness self-check may target them (its seed accounts exist there).
+const DEV_PORTS = new Set(["8080", "5173"]);
 
 /** `host:port` of the target — what is logged and written into the result files (never the full URL). */
 export function perfHost(): string {
@@ -17,6 +19,12 @@ export async function assertPerfTargetReady(): Promise<void> {
     throw new Error(
       `PERF_BASE_URL must be a local address (localhost / 127.0.0.1), got host ${url.host}: the perf runner signs in as ` +
         `the generated perf accounts and is meant for the local perf stack only.`,
+    );
+  }
+  if (DEV_PORTS.has(url.port) && process.env.PERF_SMOKE !== "1") {
+    throw new Error(
+      `PERF_BASE_URL points at the dev stack (${url.host}); the perf runner targets the perf stack (default ` +
+        `localhost:18080). Set PERF_SMOKE=1 only for the harness self-check against the dev seed accounts.`,
     );
   }
   let status: number;

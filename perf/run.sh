@@ -361,7 +361,12 @@ cmd_web() {
       ;;
     all)
       local s
-      for s in $WEB_SCREENS; do web_run "$run" "$s" "$persona" "${cpu}" "$iterations" "$trace"; done
+      # A screen without the requested persona ("No tests found") or a failing screen must not abort the rest.
+      local failed=""
+      for s in $WEB_SCREENS; do
+        if ! web_run "$run" "$s" "$persona" "${cpu}" "$iterations" "$trace"; then failed="$failed $s"; fi
+      done
+      if [ -n "$failed" ]; then echo "web: no results (no such persona, or a failure) for:$failed" >&2; fi
       # The suspect screen again at 4x CPU throttle (the slow-laptop variant), then the bundle report.
       if [ -z "$cpu" ]; then web_run "$run" reviews-team-view "$persona" 4x "$iterations" "$trace"; fi
       if [ "$build" -eq 0 ]; then cmd_web bundle --run "$run" --no-build; else cmd_web bundle --run "$run"; fi
@@ -585,7 +590,7 @@ case "${1:-}" in
   all) shift; cmd_all "$@" ;;
   baseline) shift; cmd_baseline "$@" ;;
   web) shift; cmd_web "$@" ;;
-  traces | jfr | web) not_yet "$1" ;;
+  traces | jfr) not_yet "$1" ;;
   "" | -h | --help | help) usage ;;
   *) echo "unknown subcommand: $1" >&2; usage >&2; exit 64 ;;
 esac
