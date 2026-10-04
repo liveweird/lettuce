@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
@@ -183,9 +184,10 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         subordinateId: UInt,
     ): Map<UInt, OneOnOneLatestStats> =
         if (managerIds.isEmpty()) emptyMap()
-        else latestStatsByKey(managerIds) { managerId ->
-            (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
-        }
+        else latestStatsByKey(
+            Meetings.managerId,
+            (Meetings.subordinateId eq subordinateId) and (Meetings.managerId inList managerIds),
+        )
 
     /**
      * The mirror of [latestMeetingStats]: for each subordinate in [subordinateIds], the latest
@@ -198,26 +200,16 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         subordinateIds: Set<UInt>,
     ): Map<UInt, OneOnOneLatestStats> =
         if (subordinateIds.isEmpty()) emptyMap()
-        else latestStatsByKey(subordinateIds) { subordinateId ->
-            (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
-        }
+        else latestStatsByKey(
+            Meetings.subordinateId,
+            (Meetings.managerId eq managerId) and (Meetings.subordinateId inList subordinateIds),
+        )
 
     private suspend fun latestStatsByKey(
-        keys: Set<UInt>,
-        pairFor: (UInt) -> Op<Boolean>,
+        keyColumn: Column<EntityID<UInt>>,
+        predicate: Op<Boolean>,
     ): Map<UInt, OneOnOneLatestStats> = suspendTransaction(database) {
-        // One indexed limit-1 lookup per key (the carry-over query shape in create()); the set
-        // is one page of dashboard cards — a handful — so no multi-group "latest per key" SQL.
-        val latest = mutableMapOf<UInt, Pair<UInt, String>>()
-        keys.forEach { key ->
-            Meetings.select(Meetings.id, Meetings.meetingDate)
-                .where { pairFor(key) and active() }
-                .orderBy(Meetings.meetingDate to SortOrder.DESC, Meetings.id to SortOrder.DESC)
-                .limit(1)
-                .map { it[Meetings.id].value to it[Meetings.meetingDate] }
-                .singleOrNull()
-                ?.let { latest[key] = it }
-        }
+        val latest = latestPerKey(keyColumn, predicate)
         val meetingIds = latest.values.map { it.first }
         val openCounts: Map<UInt, Int> = if (meetingIds.isEmpty()) emptyMap() else {
             val count = ActionItems.id.count()
@@ -231,6 +223,54 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         latest.mapValues { (_, meeting) ->
             OneOnOneLatestStats(meeting.second, openCounts[meeting.first] ?: 0)
         }
+    }
+
+    /**
+     * The set-at-a-time form of [latestMeetingOfPair]: ONE `DISTINCT ON ([keyColumn])` statement
+     * returning, per key, the latest non-deleted meeting matching [predicate] as `(id, meetingDate)`
+     * — the same canonical `(meeting_date DESC, id DESC)` ordering [latestMeetingOfPair] uses
+     * (PostgreSQL requires the ORDER BY to start with the DISTINCT ON column). Keys with no match
+     * are absent. The predicate must pin the other side of the pair to a single value, so the key
+     * alone identifies a pair. In-txn; the result is drained before it returns (R2DBC never nests
+     * a query inside an open flow).
+     */
+    private suspend fun latestPerKey(
+        keyColumn: Column<EntityID<UInt>>,
+        predicate: Op<Boolean>,
+    ): Map<UInt, Pair<UInt, String>> =
+        Meetings.select(Meetings.id, keyColumn, Meetings.meetingDate)
+            .where { predicate and active() }
+            .withDistinctOn(keyColumn)
+            .orderBy(
+                keyColumn to SortOrder.ASC,
+                Meetings.meetingDate to SortOrder.DESC,
+                Meetings.id to SortOrder.DESC,
+            )
+            .map { it[keyColumn].value to (it[Meetings.id].value to it[Meetings.meetingDate]) }
+            .toList()
+            .toMap()
+
+    /**
+     * The set-at-a-time form of [latestMeetingOfPair] for a page of `(managerId, subordinateId)`
+     * pairs: ONE `DISTINCT ON (manager_id, subordinate_id)` statement over a tuple `IN`, the same
+     * canonical `(meeting_date DESC, id DESC)` ordering, returning each pair's latest meeting id
+     * (a pair with no live meeting is absent). In-txn; drained before it returns.
+     */
+    private suspend fun latestMeetingIdByPair(pairs: Set<Pair<UInt, UInt>>): Map<Pair<UInt, UInt>, UInt> {
+        if (pairs.isEmpty()) return emptyMap()
+        val pairKeys = pairs.map { (m, s) -> EntityID(m, UserService.Users) to EntityID(s, UserService.Users) }
+        return Meetings.select(Meetings.id, Meetings.managerId, Meetings.subordinateId)
+            .where { ((Meetings.managerId to Meetings.subordinateId) inList pairKeys) and active() }
+            .withDistinctOn(Meetings.managerId, Meetings.subordinateId)
+            .orderBy(
+                Meetings.managerId to SortOrder.ASC,
+                Meetings.subordinateId to SortOrder.ASC,
+                Meetings.meetingDate to SortOrder.DESC,
+                Meetings.id to SortOrder.DESC,
+            )
+            .map { (it[Meetings.managerId].value to it[Meetings.subordinateId].value) to it[Meetings.id].value }
+            .toList()
+            .toMap()
     }
 
     /**
@@ -500,13 +540,12 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 .toMap()
         }
 
-        // The latest-only write rule needs each row flagged: one limit-1 lookup per distinct
-        // pair on the page (same cost profile as the dashboard stats enrichments) so the table
-        // offers Edit only where a PUT would succeed.
-        val latestByPair: Map<Pair<UInt, UInt>, UInt?> = rows
-            .map { it[Meetings.managerId].value to it[Meetings.subordinateId].value }
-            .toSet()
-            .associateWith { (managerId, subordinateId) -> latestMeetingOfPair(managerId, subordinateId)?.first }
+        // The latest-only write rule needs each row flagged so the table offers Edit only where a
+        // PUT would succeed. A latestOnly page needs no special case — every row is its pair's
+        // latest and the statement is cheap.
+        val latestByPair = latestMeetingIdByPair(
+            rows.map { it[Meetings.managerId].value to it[Meetings.subordinateId].value }.toSet(),
+        )
 
         val items = rows.map { row ->
             val meetingId = row[Meetings.id].value
