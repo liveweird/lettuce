@@ -2,10 +2,15 @@ import { test as base, expect } from '@playwright/test';
 import type { components } from '../../web/src/api/schema';
 import { APP_VERSION } from '../../web/src/changelog/version';
 import { sessionEntries } from '../sessions';
+import { formManagedTeam, resolveFormsGet } from './forms-fixtures';
 import { cardPeople, dashboardSummary, people, teams } from './people-fixtures';
 
 type Schema = components['schemas'];
-type Options = { visualRole: 'member' | 'admin' | 'manager'; visualLanguage: 'en' | 'pl'; visualScenario: 'lists' | 'people' };
+type Options = {
+  visualRole: 'member' | 'admin' | 'manager';
+  visualLanguage: 'en' | 'pl';
+  visualScenario: 'lists' | 'people' | 'forms';
+};
 const userId = 7001;
 const userName = 'Aleksandra Kowalska-Nowak';
 const fixedTime = Date.parse('2026-10-03T12:00:00Z');
@@ -85,11 +90,17 @@ export const test = base.extend<Options>({
       let body: unknown;
       if (url.pathname === `/api/v1/users/${userId}`) body = user;
       else if (url.pathname === '/api/v1/teams' && url.searchParams.get('managerId') === String(userId)) {
-        const items = visualRole === 'manager' ? [{ ...teams[0], managerId: userId, managerName: userName }] : [];
+        const items = visualRole === 'manager'
+          ? [visualScenario === 'forms' ? formManagedTeam : { ...teams[0], managerId: userId, managerName: userName }]
+          : [];
         body = { items, page: 1, pageSize: 1, total: items.length } satisfies Schema['TeamPage'];
       } else if (url.pathname === '/api/v1/alerts/visible') body = { items: [] };
       else if (url.pathname === '/api/v1/notifications') {
         body = { items: [], page: 1, pageSize: 1, total: 0 } satisfies Schema['NotificationPage'];
+      } else if (visualScenario === 'forms') {
+        const fixture = resolveFormsGet(url);
+        if (!fixture.matched) return reject();
+        body = fixture.body;
       } else if (/^\/api\/v1\/dictionaries\/(career-paths|career-specializations|seniority-levels|pulse-rotating-questions)$/.test(url.pathname)) {
         body = dictionary;
       } else if (url.pathname === '/api/v1/feedbacks') {

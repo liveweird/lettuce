@@ -29,7 +29,8 @@ commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/de
   plus visual spec/scenario pairing. Uses `e2e/visual/run-container.sh compare` and the digest-pinned
   Linux amd64 runtime in `e2e/visual/runtime.json`; no backend or shared performance services.
   The owner approved the 18-image stage 1 set on 2026-10-04 (the initial 12 plus six
-  Dashboard/Users/Teams images, with three sidebar geometry tests). Expectations are read-only in CI;
+  Dashboard/Users/Teams images, with three sidebar geometry tests). Stage 2 adds six approved
+  forms/detail images, for 24 approved snapshots and 21 visual tests total. Expectations are read-only in CI;
   the `desktop-visual-report` artifact contains the HTML report, differences and failure traces.
   `capture` writes separate `candidates/`; `compare-candidates` tests stability without replacing
   approved `snapshots/`. All runner modes mount approved images read-only.

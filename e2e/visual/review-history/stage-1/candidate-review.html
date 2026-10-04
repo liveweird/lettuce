@@ -1,0 +1,83 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lettuce · desktop expansion review</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;background:#f5f7f6;color:#182b25;margin:0;padding:28px}main{max-width:1600px;margin:auto}h1{margin-bottom:8px}p{max-width:110ch}a{color:#13733d}nav{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0}.notice{background:#fff6dd;border-left:4px solid #bd8700;padding:16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.comparison{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}figure{margin:0;background:white;border:1px solid #d4ded8;border-radius:8px;overflow:hidden}figcaption{padding:12px;font-weight:600}img{width:100%;height:auto;display:block;border-top:1px solid #d4ded8}small{display:block;color:#52625b;font-weight:400}details{margin:20px 0}summary{cursor:pointer;font-weight:600}@media(max-width:800px){.grid,.comparison{grid-template-columns:1fr}}</style><main>
+<h1>Desktop visual coverage · stage 1</h1>
+<p class="notice"><strong>Approved on 2026-10-04.</strong> The owner accepted these 18 images in review commit 05bcc4f3. They were promoted byte-for-byte to CI baselines. The previous v4.15.2 images are archived for comparison. Click an image for full resolution.</p>
+<nav><a href="../../expansion-review.md">Plan and verification</a><a href="candidate-manifest.json">Hashes and provenance</a><a href="../v4.15.2/review.html">Previous v4.15.2 gallery</a></nav>
+<h2>Sidebar fix: before, approved, difference</h2>
+<p>The active dictionary item is now visible above the pinned footer. Magenta marks raw image differences; it is a review aid, not the screenshot assertion algorithm.</p>
+<h3>Pulse questions</h3>
+<div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/dictionary-pulse-rotating-questions-member-en-light-1280.png" target="_blank"><img src="candidate-diffs/dictionary-pulse-rotating-questions-member-en-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div>
+<h3>Seniority levels</h3>
+<div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/dictionary-seniority-levels-member-en-light-1280.png" target="_blank"><img src="candidate-diffs/dictionary-seniority-levels-member-en-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div>
+<h2>Six new desktop views</h2>
+<p>Populated member/manager and member/admin states with long names and varied data. Normal vertical scrolling is allowed. Existing intentional truncation in person cards and wrapping in directory cells are preserved.</p>
+<div class="grid">
+<figure><figcaption>Dashboard · member · 1440px</figcaption><a href="candidates/people.spec.ts/dashboard-member-en-light-1440.png" target="_blank"><img src="candidates/people.spec.ts/dashboard-member-en-light-1440.png" alt="Dashboard · member · 1440px" loading="lazy"></a></figure>
+<figure><figcaption>Dashboard · manager · 1280px</figcaption><a href="candidates/people.spec.ts/dashboard-manager-en-light-1280.png" target="_blank"><img src="candidates/people.spec.ts/dashboard-manager-en-light-1280.png" alt="Dashboard · manager · 1280px" loading="lazy"></a></figure>
+<figure><figcaption>Users · member · 1280px</figcaption><a href="candidates/people.spec.ts/users-member-en-light-1280.png" target="_blank"><img src="candidates/people.spec.ts/users-member-en-light-1280.png" alt="Users · member · 1280px" loading="lazy"></a></figure>
+<figure><figcaption>Users · administrator · 1440px</figcaption><a href="candidates/people.spec.ts/users-admin-en-light-1440.png" target="_blank"><img src="candidates/people.spec.ts/users-admin-en-light-1440.png" alt="Users · administrator · 1440px" loading="lazy"></a></figure>
+<figure><figcaption>Teams · member · 1280px</figcaption><a href="candidates/people.spec.ts/teams-member-en-light-1280.png" target="_blank"><img src="candidates/people.spec.ts/teams-member-en-light-1280.png" alt="Teams · member · 1280px" loading="lazy"></a></figure>
+<figure><figcaption>Teams · administrator · 1440px</figcaption><a href="candidates/people.spec.ts/teams-admin-en-light-1440.png" target="_blank"><img src="candidates/people.spec.ts/teams-admin-en-light-1440.png" alt="Teams · administrator · 1440px" loading="lazy"></a></figure>
+</div>
+<h2>Other ten reference images</h2>
+<p>Only the footer version digit changes from 4.15.2 to 4.15.3, within an 8×10px rectangle (x44–52, y947–957). Page content is unchanged. Expand any entry to inspect it.</p>
+<details><summary>dictionary-career-paths-admin-en-light-1280</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/dictionary-career-paths-admin-en-light-1280.png" target="_blank"><img src="candidate-diffs/dictionary-career-paths-admin-en-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>dictionary-career-paths-admin-en-light-1440</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png" target="_blank"><img src="candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/dictionary-career-paths-admin-en-light-1440.png" target="_blank"><img src="candidate-diffs/dictionary-career-paths-admin-en-light-1440.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>dictionary-career-paths-member-en-dark-1280</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png" target="_blank"><img src="candidates/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/dictionary-career-paths-member-en-dark-1280.png" target="_blank"><img src="candidate-diffs/dictionary-career-paths-member-en-dark-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>dictionary-career-paths-member-en-light-1280</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/dictionary-career-paths-member-en-light-1280.png" target="_blank"><img src="candidate-diffs/dictionary-career-paths-member-en-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>dictionary-career-specializations-member-en-light-1280</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/dictionary-career-specializations-member-en-light-1280.png" target="_blank"><img src="candidate-diffs/dictionary-career-specializations-member-en-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>feedback-provided-en-light-1280</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/feedback-provided-en-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/feedback-provided-en-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/feedback-provided-en-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/feedback-provided-en-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/feedback-provided-en-light-1280.png" target="_blank"><img src="candidate-diffs/feedback-provided-en-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>feedback-provided-en-light-1440</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/feedback-provided-en-light-1440.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/feedback-provided-en-light-1440.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/feedback-provided-en-light-1440.png" target="_blank"><img src="candidates/lists.spec.ts/feedback-provided-en-light-1440.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/feedback-provided-en-light-1440.png" target="_blank"><img src="candidate-diffs/feedback-provided-en-light-1440.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>feedback-provided-pl-light-1280</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/feedback-provided-pl-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/feedback-provided-pl-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/feedback-provided-pl-light-1280.png" target="_blank"><img src="candidate-diffs/feedback-provided-pl-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>feedback-received-en-light-1280</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/feedback-received-en-light-1280.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/feedback-received-en-light-1280.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/feedback-received-en-light-1280.png" target="_blank"><img src="candidates/lists.spec.ts/feedback-received-en-light-1280.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/feedback-received-en-light-1280.png" target="_blank"><img src="candidate-diffs/feedback-received-en-light-1280.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<details><summary>feedback-received-en-light-1440</summary><div class="comparison">
+<figure><figcaption>Approved v4.15.2</figcaption><a href="../v4.15.2/snapshots/lists.spec.ts/feedback-received-en-light-1440.png" target="_blank"><img src="../v4.15.2/snapshots/lists.spec.ts/feedback-received-en-light-1440.png" alt="Approved v4.15.2" loading="lazy"></a></figure>
+<figure><figcaption>Approved v4.15.3</figcaption><a href="candidates/lists.spec.ts/feedback-received-en-light-1440.png" target="_blank"><img src="candidates/lists.spec.ts/feedback-received-en-light-1440.png" alt="Approved v4.15.3" loading="lazy"></a></figure>
+<figure><figcaption>Difference overlay</figcaption><a href="candidate-diffs/feedback-received-en-light-1440.png" target="_blank"><img src="candidate-diffs/feedback-received-en-light-1440.png" alt="Difference overlay" loading="lazy"></a></figure>
+</div></details>
+<p>These images are now approved CI expectations. Forms/detail screens and remaining feature lists follow in later review stages.</p></main></html>

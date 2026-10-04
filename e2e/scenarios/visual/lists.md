@@ -8,7 +8,7 @@
   by automatic PR comparisons. See
   [validation and findings](../../visual/baseline-review.md).
 - **Current expansion**: v4.15.3 sidebar/version candidates and the six Dashboard/Users/Teams
-  views are approved for promotion; `candidate-review.html` retains the old/new/diff evidence.
+  views are approved for promotion; `review-history/stage-1/candidate-review.html` retains the old/new/diff evidence.
 - **Scope**: desktop web only. Fixed responses render the real SPA; these are visual tests,
   not evidence of backend authorization or end-to-end data correctness.
 - **Capture**: desktop-width full-page images include every row vertically. Normal vertical

@@ -1,14 +1,18 @@
 # Desktop visual regression pilot
 
-**Status: 18 approved baselines; automatic PR comparisons.** The repository owner approved all 18 images
+**Status: 24 approved baselines; automatic PR comparisons.** The repository owner approved 18 images
 for app version 4.15.3 on 2026-10-04: the prior 12 images plus six Dashboard/Users/Teams images.
 The approval source is implementation revision `8bb36776`, artifact `05bcc4f3`, app version
-4.15.3, with the exact reply **“Approved”**. The approved set includes 15 visual tests, including
+4.15.3, with the exact reply **“Approved”**. Stage 1 includes 15 visual tests, including
 three sidebar geometry/focus regression tests. The Desktop visual job compares the approved set on
-PRs and master pushes; stage 2 remains planned.
+PRs and master pushes. On 2026-10-05, the owner approved six additional forms/detail images for
+app version 4.15.3, bringing the approved set to 24 images and 21 visual tests (the 18 screenshot
+tests plus three sidebar geometry/focus tests). The approval source is implementation revision
+`6118bee0`, artifact `5ad82149`, with the exact reply **“Approved. Commit, merge, push. Let's park
+for now, when you do that.”**
 
 Open the [review gallery](review.html) and [validation/approval record](expansion-review.md).
-The current gallery shows the 18 approved v4.15.3 baselines. The historical v4.15.2 review is
+The current gallery shows the 24 approved v4.15.3 baselines. The historical v4.15.2 review is
 preserved at [review-history/v4.15.2/review.html](review-history/v4.15.2/review.html), with its
 [historical manifest](review-history/v4.15.2/baseline-manifest.json).
 
@@ -24,13 +28,17 @@ for v4.15.3; see [the staged expansion plan and review record](expansion-review.
 issue documented by the historical v4.15.2 review is resolved by the approved v4.15.3 fix.
 
 `capture` writes **only** `candidates/`, and `compare-candidates` checks stability against that
-set. Every mode mounts approved `snapshots/` read-only. `candidate-review.html` retains the
+set. Every mode mounts approved `snapshots/` read-only. `review-history/stage-1/candidate-review.html` retains the
 old/new/diff evidence for the approved stage 1 promotion.
+
+Stage 2 adds six approved forms/detail baselines; see [the forms review](forms-review.md). Stage 3
+is parked at the owner's request.
 
 ## Coverage
 
 See the [natural-language scenarios](../scenarios/visual/lists.md) and
-[Dashboard/directory scenarios](../scenarios/visual/people.md).
+[Dashboard/directory scenarios](../scenarios/visual/people.md), plus
+[forms/detail scenarios](../scenarios/visual/forms.md).
 
 | State | Desktop viewport | Images |
 | --- | --- | --- |
@@ -41,6 +49,7 @@ See the [natural-language scenarios](../scenarios/visual/lists.md) and
 | Member Provided feedback, Polish/light | 1280×1000 | 1 |
 | Career paths, member read-only, English/dark | 1280×1000 | 1 |
 | Dashboard, Users and Teams stage 1 expansion | 1280×1000 and 1440×1000 | 6 |
+| Forms and details stage 2 expansion | 1280×1000 and 1440×1000 | 6 |
 
 Long names, multiple recipients, varied feedback statuses, long dictionary values and missing
 translations are intentional fixtures. Existing functional E2E and responsive geometry checks
@@ -56,7 +65,7 @@ a new requirement.
 
 - The visual harness owns `e2e/visual/` and `e2e/scenarios/visual/`; CI calls its isolated runner.
 - The harness itself does not alter backend/API, package/lockfile, shared Playwright or Compose
-  behavior. The current review batch also contains the separately tested sidebar fix.
+  behavior. The stage 1 sidebar fix was tested and merged separately.
 - No imports of the ordinary E2E global setup/teardown or login helpers. `sessions.ts` is reused
   only for its pure storage-key mapping; the tokens here are synthetic and never sent to a server.
 - Own static SPA build/cache/report paths, one worker, loopback port **5197** with strict
@@ -143,5 +152,5 @@ are awaited; no arbitrary sleep substitutes for readiness.
 Download the `desktop-visual-report` artifact from the **Desktop visual** job. It contains the
 HTML report plus expected/actual/diff screenshots and failure traces. Run the same `compare`
 command locally in a quiet window to reproduce. CI never captures or commits new expectations;
-missing images and visual differences fail the job. A passing result covers the approved 18
+missing images and visual differences fail the job. A passing result covers the approved 24
 screenshot states and three sidebar interaction regressions.
