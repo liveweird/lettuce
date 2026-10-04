@@ -64,6 +64,10 @@ export default defineConfig({
             // The emoji-mart data set — the bulk of the (lazy-loaded) picker payload; the
             // same under-500 kB split as the lexical group above.
             { name: 'emoji-data', test: /node_modules[\\/]@emoji-mart[\\/]data[\\/]/, priority: 5 },
+            // dayjs CORE stays its own chunk: `dayjs/locale/<lang>.js` `require`s it, and a language group
+            // pulls its dependencies in recursively — without this, dayjs core landed inside `i18n-pl` and
+            // every date field (English users too) statically imported the Polish chunk.
+            { name: 'dayjs', test: /node_modules[\\/]dayjs[\\/]dayjs\.min\.js/, priority: 30 },
             // One chunk per non-EN language (v4.15.1): its ~29 locale JSON files plus its dayjs calendar
             // locale, which are only ever reached through `loadLanguage`'s dynamic imports — without this
             // a language switch/first paint fetched ~31 files. The group name is derived from the module

@@ -68,6 +68,19 @@ test("a reset email delivers a working new password and kills the old one", asyn
     )
     .toBeTruthy();
 
+  // The server sends the email BEFORE it stores the new hash (by design: a delivery failure must leave
+  // the old password working), so the message is visible a bcrypt-hash earlier than the password
+  // works — a fast browser (the v4.15.1 SPA paints the form at once) can sign in inside that window and
+  // be told "wrong password". Wait for the server's verdict through the API first (a handful of
+  // attempts at most — far below the per-account lockout threshold), then drive the real form.
+  await expect
+    .poll(
+      async () =>
+        (await page.request.post("/api/v1/login", { data: { email: user.email, password: newPassword! } })).status(),
+      { timeout: 15_000, intervals: [150, 300, 600, 1000] },
+    )
+    .toBe(200);
+
   await login(page, user.email, newPassword!);
   await logout(page);
 
