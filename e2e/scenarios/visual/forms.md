@@ -1,9 +1,11 @@
-# Desktop forms and detail visual candidates
+# Desktop forms and detail visual baselines
 
 - **Spec**: [forms.spec.ts](../../visual/tests/forms.spec.ts)
 - **Actors**: synthetic ordinary member, manager without ADMIN, and administrator without managed teams.
 - **Owns**: isolated browser contexts and schema-typed GET responses; no server state.
-- **Scope**: six desktop full-page candidates at 1280/1440px. These views cover client rendering
+- **Status**: six stage 2 images approved by the repository owner on 2026-10-05 as part of the
+  24-image, 21-test visual reference. The baselines are promoted; stage 3 is parked.
+- **Scope**: six approved desktop full-page snapshots at 1280/1440px. These views cover client rendering
   and validation; they do not claim backend authorization or mutation correctness.
 
 ## Scenario: feedback create keeps its initial recipient picker editor and disabled save actions
@@ -58,7 +60,7 @@
 
 - Every API request is an explicit fixture and every non-GET request is rejected.
 - Every capture waits for identifying content, actions and the absence of loaders/skeletons.
-- Initial candidates require manual review before they can become approved references.
+- The six stage 2 images were manually approved before promotion into the canonical snapshots.
 
 ## Not covered here
 

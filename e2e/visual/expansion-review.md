@@ -4,15 +4,15 @@ Status: stage 1 approved on 2026-10-04, promoted and merged to master in PR #111
 repository owner replied **“Approved”** for implementation revision `8bb36776`, artifact
 `05bcc4f3`, app version 4.15.3. Approval covers 18 images: the prior 12 plus six
 Dashboard/Users/Teams images, and 15 visual tests including three sidebar geometry/focus tests.
-The v4.15.2 review remains historical; stage 2 is ready for separate candidate review on `test/desktop-visual-forms`.
+The v4.15.2 review remains historical; stage 2 is approved and stage 3 is parked at the owner's request.
 
 ## Staged plan
 
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 1 | Sidebar active-link visibility; Dashboard member/manager; Users and Teams member/admin | Merged; all six CI jobs passed |
-| 2 | Representative forms/detail pages, including validation, editor and footer states | [Six candidates awaiting approval](forms-review.md) |
-| 3 | Remaining frequently used feature lists; add states by risk and reuse shared fixtures | Planned after stage 2 review |
+| 2 | Representative forms/detail pages, including validation, editor and footer states | Approved; baselines promoted; canonical comparison passed ([forms review](forms-review.md)) |
+| 3 | Remaining frequently used feature lists; add states by risk and reuse shared fixtures | Parked at owner request |
 
 Each stage captures candidates, presents them for human review, then promotes approved images
 into CI. Approval of the initial twelve images does not approve later changes automatically.
@@ -67,13 +67,13 @@ pixel-tolerance relaxation are introduced.
 | Sidebar repetition after assertion correction | 30/30 passed (each of three journeys repeated ten times); 1.4 min |
 | Full functional E2E on updated source frontend | 144/144 passed; 4.3 min; v4.15.3 source frontend with development backend |
 
-The owner approved the concrete stage 1 result with the exact reply **“Approved”**. The current
-review gallery shows 18 approved v4.15.3 baselines; `review-history/stage-1/candidate-review.html` remains the old/new/diff
+The owner approved the concrete stage 1 result with the exact reply **“Approved”**. The stage 1
+review gallery records its 18 approved v4.15.3 baselines; `review-history/stage-1/candidate-review.html` remains the old/new/diff
 evidence for the stage 1 change. Promotion copies the reviewed PNGs byte-for-byte into `snapshots/`; all 18 hashes match the
 accepted candidates. All six hosted jobs passed in [quality run 37236533748](https://github.com/liveweird/lettuce/actions/runs/37236533748)
 before [PR #111](https://github.com/liveweird/lettuce/pull/111) merged. The
-sidebar issue from the v4.15.2 historical review is resolved by this approved fix. Forms/details
-and remaining lists follow in subsequent reviews. Backend/API behavior was not changed in this batch.
+sidebar issue from the v4.15.2 historical review is resolved by this approved fix. Stage 2 forms/details are now approved;
+stage 3 remaining lists are parked at the owner's request. Backend/API behavior was not changed in this batch.
 
 The first promotion check passed all screenshot assertions but exposed an intermittent sidebar
 test-oracle error: Mantine keeps collapsed links mounted, so their own boxes can satisfy

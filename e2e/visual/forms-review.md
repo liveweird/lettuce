@@ -1,8 +1,10 @@
 # Desktop visual coverage — stage 2 forms and details
 
-Status: six new candidate images await owner approval on `test/desktop-visual-forms`. The 18 approved v4.15.3
-baselines remain the CI reference. This stage adds six candidates and requires a separate human
-review before promotion or merge.
+Status: stage 2 approved on 2026-10-05. The repository owner replied **“Approved. Commit, merge,
+push. Let's park for now, when you do that.”** for implementation revision `6118bee0`, artifact
+`5ad82149`, app version 4.15.3. Approval covers six new forms/detail images, bringing the set to
+24 approved snapshots and 21 visual tests, including the three stage 1 sidebar tests. The six new
+images were promoted byte-for-byte, and the canonical approved-reference comparison passed.
 
 ## Scope
 
@@ -28,8 +30,8 @@ what the owner approved.
 
 ## Review artifacts
 
-- [Six new screenshots](candidate-review.html).
-- [24-image manifest and hashes](candidate-manifest.json): six candidates plus 18 unchanged references.
+- [Six approved forms/detail screenshots](candidate-review.html).
+- [24-image manifest and hashes](candidate-manifest.json): six newly approved images plus 18 unchanged references.
 - Source revision: `6118bee0` (includes approved master `4c1e30ab`); application version **4.15.3**.
 
 All six new screenshots were visually inspected. The editor, labels, errors, metadata, cards
@@ -49,6 +51,7 @@ skeletons still block capture, alongside identifying content/action assertions.
 | Final canonical capture | 21/21 passed; 24 images; 1.1 min |
 | Unchanged comparison 1 | 21/21 passed; 1.1 min |
 | Unchanged comparison 2 | 21/21 passed; 1.1 min |
+| Canonical comparison after promotion | 21/21 passed; all 24 approved images matched; 1.1 min |
 | Approved references | All 18 hashes unchanged; newly captured equivalents are byte-identical |
 | Manifest hashes and current/historical gallery links | Passed |
 
@@ -57,6 +60,5 @@ whose six CI jobs passed before merge; that batch also passed 2,257 frontend tes
 functional E2E tests against the updated source frontend. Those suites were not rerun for this
 test-only stage. The new visual tests exercise the real built SPA in the pinned Linux amd64 runtime.
 
-The six new images remain separate candidates. Default CI comparison deliberately rejects missing
-approved baselines until owner review and explicit promotion. No merge of this stage is authorized
-by the earlier stage 1 approval.
+The six approved images are now canonical references in `snapshots/`. The required CI gates
+govern merging this batch. Stage 3 is parked at the owner's request.

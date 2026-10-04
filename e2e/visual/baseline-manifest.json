@@ -1,8 +1,8 @@
 {
   "status": "accepted",
   "applicationVersion": "4.15.3",
-  "sourceRevision": "8bb3677693f052e64bf52e65a4ef3dd7a476f8c4",
-  "previousBaselineRevision": "8c351bbad85e1e29b0122872188f9dcf7961d5af",
+  "sourceRevision": "6118bee019d11652962a8ca76387a30a94440290",
+  "previousBaselineRevision": "4c1e30abc037fa154988313b6d97b74552a332eb",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -119,11 +119,55 @@
       "width": 1280,
       "height": 1000,
       "sha256": "f1bbd6c774aaf0ff0f5bbfe93f9183c91dab8fb836e312cde222366d9c2f032a"
+    },
+    {
+      "file": "snapshots/forms.spec.ts/feedback-create-initial-member-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "43b3bb9e06481958a6df666481c1de35a3237a210222ba30ca9a42cfb78255c6"
+    },
+    {
+      "file": "snapshots/forms.spec.ts/feedback-draft-edit-multi-recipient-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "c274f882645a9a919211caa77775fec900635eff11f08d276535907c1e3011ec"
+    },
+    {
+      "file": "snapshots/forms.spec.ts/feedback-sent-detail-provider-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "268b3cc76d4f89f568429a6f0beb279823e258764072d47b971caef990813f5a"
+    },
+    {
+      "file": "snapshots/forms.spec.ts/team-create-invalid-empty-admin-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "30877920a6fc47580db65d26c98945ed2b3176eba9b9e704a3d7a899d2ff5b65"
+    },
+    {
+      "file": "snapshots/forms.spec.ts/team-detail-member-roster-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "a9fcfb7eebf8f8ee8cb75a686a11c255704bfcd83b05f2d32d366ba9415aca4a"
+    },
+    {
+      "file": "snapshots/forms.spec.ts/user-detail-subordinate-person-card-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "2e6e38b3fbd6d1a331f58452045e9bed6a984fee8a8968cb388e0aa7a2cc396a"
     }
   ],
   "approval": {
-    "date": "2026-10-04",
-    "reference": "Repository owner reviewed the stage 1 gallery and replied \"Approved\" in the Codex conversation.",
-    "reviewedArtifactsCommit": "05bcc4f303c1851f2216704ddbd786394b49ba08"
-  }
+    "date": "2026-10-05",
+    "reference": "Repository owner approved the six new stage 2 images in the Codex conversation: \"Approved. Commit, merge, push. Let's park for now, when you do that.\"",
+    "reviewedArtifactsCommit": "5ad82149c7642de4fa8b0cdf240466755611d8f7",
+    "scope": "Six new forms/detail images; the previous 18 approved images are unchanged."
+  },
+  "previousApprovals": [
+    {
+      "date": "2026-10-04",
+      "reference": "Repository owner reviewed the stage 1 gallery and replied \"Approved\" in the Codex conversation.",
+      "reviewedArtifactsCommit": "05bcc4f303c1851f2216704ddbd786394b49ba08"
+    }
+  ]
 }

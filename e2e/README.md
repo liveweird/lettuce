@@ -93,20 +93,21 @@ for any new or edited spec:
 
 ## What's covered
 
-**Separate desktop visual pilot (18 approved baselines; automatic PR comparisons):**
+**Separate desktop visual pilot (24 approved baselines; automatic PR comparisons):**
 [`visual/tests/lists.spec.ts`](scenarios/visual/lists.md) defines the original 12 screenshot comparisons for
 member Received/Provided feedback, all four read-only dictionaries, the administrator dictionary
 editor, and selected Polish/dark desktop states at 1280/1440px. It owns only isolated browser
 fixtures and `visual/` build/report directories, never server state. It does not run through the
 ordinary E2E config. The historical v4.15.2 set is preserved separately. On 2026-10-04 the owner replied **“Approved”**
 to the stage 1 gallery, approving 18 v4.15.3 images (the prior 12 plus six Dashboard/Users/Teams
-images), across 15 visual tests including three sidebar geometry tests. The **Desktop visual**
+images), across 15 visual tests including three sidebar geometry tests. Stage 2 adds six approved
+forms/detail images, bringing the current set to 24 images across 21 visual tests. The **Desktop visual**
 quality job compares them on PRs and master pushes. See [the image gallery](visual/review.html) and
 [visual/README.md](visual/README.md) for findings, run recipes and approval/activation steps.
-The stage 2 candidate batch adds six forms/detail views in
+The stage 2 batch adds six approved forms/detail views in
 [`visual/tests/forms.spec.ts`](scenarios/visual/forms.md), with isolated fixture state and no API writes.
-These remain unapproved; see [the forms review](visual/forms-review.md).
-The [expansion plan](visual/expansion-review.md) tracks the staged coverage.
+See [the forms review](visual/forms-review.md). Stage 3 is parked at the owner's request; the
+[expansion plan](visual/expansion-review.md) tracks the staged coverage.
 
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb
