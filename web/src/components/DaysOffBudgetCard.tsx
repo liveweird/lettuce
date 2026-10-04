@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Group, Modal, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import { IconAdjustments } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
-import { listDaysOffBudgets, type DaysOffBudget } from "../api/daysoff";
+import { type DaysOffBudget } from "../api/daysoff";
+import { useOwnDaysOffBudgets } from "../hooks/useOwnDaysOffBudgets";
 import { formatDays } from "../utils/daysOffCost";
 import DaysOffCorrections from "./DaysOffCorrections";
 
@@ -79,10 +79,7 @@ export default function DaysOffBudgetCard({ year, tourId }: { year: number; tour
   const { t } = useTranslation();
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
   const currentUserId = getUserId();
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["daysOffBudgets", "own", year],
-    queryFn: () => listDaysOffBudgets("own", year),
-  });
+  const { data, isLoading, isError } = useOwnDaysOffBudgets(year);
   const pools = data ?? [];
 
   if (isError) {

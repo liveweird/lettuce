@@ -110,13 +110,20 @@ export const en = {
 
 
 // Every non-EN bundle is assembled from its locales/<lang>/ folder — adding a language never
-// adds imports here. Eager on purpose: at 2 shipped languages the whole set rides the main
-// chunk (~95KB raw per language); move non-EN to lazy loading when a 3rd language ships or a
-// bundle passes ~150KB (documented in web/CLAUDE.md).
+// adds imports here. LAZY since v4.15.1: the PL JSON alone is ~170 KiB minified, so only EN rides
+// the entry graph and a non-EN bundle (plus its calendar locale) loads on demand through
+// `loadLanguage`. `main.tsx` waits for the detected language before the first paint (no English
+// flash) and every language change goes through `switchLanguage`.
 const NON_EN_MODULES = import.meta.glob<Record<string, unknown>>(
   ["./locales/*/*.json", "!./locales/en/**"],
-  { eager: true, import: "default" },
+  { import: "default" },
 );
+
+// The dayjs calendar locale of each shipped non-EN language, loaded together with its bundle (the
+// Record forces one line per language). `AppDatesProvider` only passes the language code to Mantine.
+const DAYJS_LOCALES: Record<Exclude<SupportedLanguage, "en">, () => Promise<unknown>> = {
+  pl: () => import("dayjs/locale/pl"),
+};
 
 // Area files whose mount key differs from the filename (the EN tree above is the reference).
 const AREA_MOUNT: Record<string, string> = {
@@ -126,26 +133,97 @@ const AREA_MOUNT: Record<string, string> = {
   dictionaries: "dictionary",
 };
 
-function bundleFor(lang: SupportedLanguage): Record<string, unknown> {
+async function bundleFor(lang: SupportedLanguage): Promise<Record<string, unknown>> {
   const bundle: Record<string, unknown> = {};
-  for (const [path, module] of Object.entries(NON_EN_MODULES)) {
+  const loads: Promise<void>[] = [];
+  for (const [path, load] of Object.entries(NON_EN_MODULES)) {
     const match = /\/([^/]+)\/([^/]+)\.json$/.exec(path);
     if (!match || match[1] !== lang) continue;
-    bundle[AREA_MOUNT[match[2]] ?? match[2]] = module;
+    loads.push(
+      load().then((module) => {
+        bundle[AREA_MOUNT[match[2]] ?? match[2]] = module;
+      }),
+    );
   }
+  await Promise.all(loads);
   return bundle;
+}
+
+const loading = new Map<SupportedLanguage, Promise<void>>();
+
+/**
+ * Registers a language's translation bundle and calendar locale. EN (the static bundle) and an
+ * already registered language resolve at once; concurrent callers share one load. It does NOT
+ * change the active language — use `switchLanguage`.
+ */
+export function loadLanguage(lang: SupportedLanguage): Promise<void> {
+  if (lang === "en" || i18n.hasResourceBundle(lang, "translation")) return Promise.resolve();
+  let pending = loading.get(lang);
+  if (!pending) {
+    pending = Promise.all([bundleFor(lang), DAYJS_LOCALES[lang]()]).then(([bundle]) => {
+      i18n.addResourceBundle(lang, "translation", bundle, true, true);
+    });
+    // A failed load (offline, dead chunk) must stay retryable, so it is not cached.
+    pending.catch(() => loading.delete(lang));
+    loading.set(lang, pending);
+  }
+  return pending;
+}
+
+/**
+ * `loadLanguage` bounded by `ms`: resolves when the bundle is registered, when the load FAILED
+ * (the caller then renders the English fallback), or when the cap elapses — whichever is first.
+ * Used before first paint and before a session starts, where a slow network must not hold the UI.
+ */
+export function loadLanguageWithin(lang: SupportedLanguage, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cap = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  const load = loadLanguage(lang).catch(() => undefined);
+  return Promise.race([load, cap]).finally(() => clearTimeout(timer));
+}
+
+// Latest-call-wins state of `switchLanguage`: every call takes a token, and only the call that still
+// holds the newest token may apply its language once its bundle has loaded.
+let switchToken = 0;
+let pendingLanguage: SupportedLanguage | null = null;
+
+/** The language the UI is on, or is about to switch to (a `switchLanguage` whose bundle is still loading). */
+export function targetLanguage(): SupportedLanguage {
+  return pendingLanguage ?? asSupportedLanguage(i18n.resolvedLanguage);
+}
+
+/**
+ * THE way to change the UI language: records the preference at once (the detector cache,
+ * `lettuce.lang`), loads the bundle, then switches — a bare `i18n.changeLanguage("pl")` would render
+ * English fallbacks until the bundle arrives. Latest call wins: a switch whose load resolves after a
+ * newer call (e.g. PL requested, then EN before the PL chunk arrived — or another account signing
+ * in) is dropped and never applies. A superseded call resolves quietly; the newest one rejects when
+ * its bundle cannot be loaded (the UI then stays on the previous language).
+ */
+export async function switchLanguage(lang: SupportedLanguage): Promise<void> {
+  const token = ++switchToken;
+  pendingLanguage = lang;
+  i18n.services.languageDetector?.cacheUserLanguage?.(lang);
+  try {
+    await loadLanguage(lang);
+    if (token !== switchToken) return;
+    await i18n.changeLanguage(lang);
+  } catch (error) {
+    if (token === switchToken) throw error;
+  } finally {
+    if (token === switchToken) pendingLanguage = null;
+  }
 }
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    resources: Object.fromEntries(
-      SUPPORTED_LANGUAGES.map((lang) => [
-        lang,
-        { translation: lang === "en" ? en : bundleFor(lang) },
-      ]),
-    ),
+    // Only EN is bundled; the other languages are registered by `loadLanguage` (above).
+    resources: { en: { translation: en } },
+    partialBundledLanguages: true,
     fallbackLng: "en",
     supportedLngs: SUPPORTED_LANGUAGES,
     // Map e.g. pl-PL -> pl.

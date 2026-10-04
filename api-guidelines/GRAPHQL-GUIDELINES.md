@@ -86,7 +86,8 @@ the runtime schema cannot drift from it.
 ## Errors & operations
 
 - **GQL-ERR-001** `[test]` Transport errors are RFC 7807 ProblemDetail (401 bad key, 400
-  malformed JSON body — StatusPages); everything after a parsed transport request — validation,
+  malformed JSON body or a compressed `Content-Encoding` request body, 413 body over
+  `http.maxBodyBytes` — StatusPages); everything after a parsed transport request — validation,
   guardrails, resolver failures — is HTTP 200 with the spec `errors` array. Never mix the two.
   **Check**: route tests for both classes.
 - **GQL-ERR-002** `[test]` Resolver failures MUST surface sanitized: argument-validation

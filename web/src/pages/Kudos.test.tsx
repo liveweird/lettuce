@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { act, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import Kudos from "./Kudos";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
+import { fireIntersect, installIntersectionObserver } from "../test/intersection";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -48,40 +49,6 @@ function row(id: number, over: Partial<KudosRow> = {}): KudosRow {
   };
 }
 
-// happy-dom has no layout, so the sentinel's IntersectionObserver never fires on its own —
-// this manual stub lets the test push an "is intersecting" entry through Mantine's
-// useIntersection. First of its kind in the repo (the Kudos wall is the first infinite scroll).
-class MockIntersectionObserver {
-  static readonly instances: MockIntersectionObserver[] = [];
-  callback: IntersectionObserverCallback;
-  observed: Element[] = [];
-  constructor(callback: IntersectionObserverCallback) {
-    this.callback = callback;
-    MockIntersectionObserver.instances.push(this);
-  }
-  observe(el: Element) {
-    this.observed.push(el);
-  }
-  unobserve() {}
-  disconnect() {}
-  takeRecords(): IntersectionObserverEntry[] {
-    return [];
-  }
-}
-
-function fireIntersect() {
-  const withTargets = MockIntersectionObserver.instances.filter((i) => i.observed.length > 0);
-  expect(withTargets.length).toBeGreaterThan(0);
-  act(() => {
-    for (const observer of withTargets) {
-      observer.callback(
-        [{ isIntersecting: true, target: observer.observed[0] } as IntersectionObserverEntry],
-        observer as unknown as IntersectionObserver,
-      );
-    }
-  });
-}
-
 describe("Kudos wall", () => {
   let mockFetch: FetchMock;
 
@@ -112,8 +79,7 @@ describe("Kudos wall", () => {
   beforeEach(() => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
-    MockIntersectionObserver.instances.length = 0;
-    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+    installIntersectionObserver();
     localStorage.setItem("lettuce.auth.token", "fake-token");
     localStorage.setItem("lettuce.auth.userId", "7");
   });
@@ -231,7 +197,7 @@ describe("Kudos wall", () => {
     expect(screen.queryByText("kudos content 21")).toBeNull();
     expect(screen.getByTestId("kudos-sentinel")).toBeInTheDocument();
 
-    fireIntersect();
+    expect(fireIntersect()).toBeGreaterThan(0);
     expect(await screen.findByText("kudos content 21")).toBeInTheDocument();
     // Page 1 stays mounted above the appended page…
     expect(screen.getByText("kudos content 1")).toBeInTheDocument();

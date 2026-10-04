@@ -390,6 +390,48 @@ describe("DaysOff page", () => {
     );
   });
 
+  // v4.15.2: the budget card's height depends on its data, so the entries list (filters + table,
+  // mounted at once so its query runs in parallel) stays out of the layout until the card has its
+  // data — otherwise the card's growth pushed the whole list down (CLS).
+  function holdBudgets() {
+    const base = mockFetch.getMockImplementation() as (url: string) => Promise<Response>;
+    const gate: { release: () => void } = { release: () => {} };
+    mockFetch.mockImplementation((url: string) => {
+      if (String(url).includes("/api/v1/days-off/budgets")) {
+        return new Promise((resolve) => {
+          gate.release = () => resolve(jsonResponse(200, { items: [BUDGET] }));
+        });
+      }
+      return base(url);
+    });
+    return gate;
+  }
+
+  test("the requests tab keeps the entries list out of the layout until the budget card has its data", async () => {
+    setupMocks();
+    const gate = holdBudgets();
+    renderDaysOff("/days-off?tab=requests");
+
+    // The entries request is already out (mounted, not waiting for the budgets)...
+    await waitFor(() =>
+      expect(mockFetch.mock.calls.some(([u]) => /\/api\/v1\/days-off\?.*view=own/.test(String(u)))).toBe(true),
+    );
+    // ...but the list is not rendered into the page yet.
+    expect(screen.queryByRole("table")).toBeNull();
+
+    gate.release();
+    expect(await screen.findByText("17.5")).toBeInTheDocument();
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+
+  test("the entries list is not held hostage by a slow budget card: it appears after the grace period", async () => {
+    setupMocks();
+    holdBudgets(); // never released
+    renderDaysOff("/days-off?tab=requests");
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(await screen.findByRole("table", {}, { timeout: 3000 })).toBeInTheDocument();
+  });
+
   test("a non-manager's deep link to the team tab falls back to the calendar", async () => {
     setupMocks({ managed: 0 });
     renderDaysOff("/days-off?tab=team");

@@ -12,6 +12,7 @@
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
+    "perf": "playwright test -c playwright.perf.config.ts",
     "install:browsers": "playwright install chromium",
     "typecheck": "tsc --noEmit",
     "check:scenarios": "node scripts/check-scenarios.mjs"

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -28,14 +29,13 @@ import PaginationBar from "../components/PaginationBar";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isNumberOrNull, isString, useStoredState } from "../hooks/useStoredState";
-import { useManagerOptions } from "../hooks/useManagerOptions";
 import { getUserId, isAdmin } from "../api/session";
-import { deleteTeam, listTeams } from "../api/teams";
+import { deleteTeam, listAllTeams, listTeams } from "../api/teams";
 import { userDetailsLink } from "../utils/userLinks";
 import { teamDetailsLink } from "../utils/teamLinks";
 import { loadErrorMessage } from "../utils/saveError";
 import PageHeader from "../components/PageHeader";
-import { renderUserOption } from "../components/userOptions";
+import { renderUserOption, userOption } from "../components/userOptions";
 import ResponsiveTable from "../components/ResponsiveTable";
 
 const SORT_FIELDS = ["name"] as const;
@@ -48,11 +48,35 @@ type TeamRow = { id: number; name: string; managerName: string };
 export default function Teams() {
   const { t } = useTranslation();
   const [nameFilter, setNameFilter] = useStoredState(`${SETTINGS_KEY}.filter.name`, "", isString);
-  const [managerIdFilter, setManagerIdFilter] = useStoredState<number | null>(
+  const [storedManagerId, setManagerIdFilter] = useStoredState<number | null>(
     `${SETTINGS_KEY}.filter.managerId`,
     null,
     isNumberOrNull,
   );
+
+  // The manager FILTER lists the people who manage a team today, derived from the all-teams rows
+  // (one request for up to 100 teams — v4.15.0, F9: it used to page the whole user directory,
+  // six requests). The admin manager PICKER (TeamFormFields) keeps the everyone pool: any user
+  // may become a manager. Rides the `["teams", "all"]` cache the other all-teams readers share.
+  const { data: allTeams, isLoading: managersLoading } = useQuery({
+    queryKey: ["teams", "all"],
+    queryFn: () => listAllTeams(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const managerOptions = useMemo(() => {
+    const managers = new Map<number, string>();
+    for (const team of allTeams ?? []) managers.set(team.managerId, team.managerName);
+    return [...managers]
+      .map(([id, name]) => userOption(id, name, []))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allTeams]);
+  // A stored manager who no longer manages any team is dropped once the teams have loaded (until
+  // then it stands — the DaysOff/TeamMembersTable "deleted team's stored id" precedent): it would
+  // otherwise be an invisible filter (the Select shows "Any" while the list is empty).
+  const managerIdFilter =
+    storedManagerId != null && allTeams && !managerOptions.some((o) => o.value === String(storedManagerId))
+      ? null
+      : storedManagerId;
   const activeFilterCount = (nameFilter.trim() ? 1 : 0) + (managerIdFilter != null ? 1 : 0);
 
   const queryClient = useQueryClient();
@@ -79,8 +103,6 @@ export default function Teams() {
       }),
     placeholderData: keepPreviousData
   });
-
-  const { managerOptions, managersLoading } = useManagerOptions();
 
   const deleteConfirm = useDeleteConfirm<TeamRow>({
     mutationFn: (row) => deleteTeam(row.id),
@@ -232,6 +254,7 @@ export default function Teams() {
 
       <PaginationBar
         total={total}
+        pending={isLoading && !data}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

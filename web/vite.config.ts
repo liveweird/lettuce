@@ -19,6 +19,11 @@ const commit =
   process.env.GIT_SHA || (sha ? (git('status --porcelain') ? `${sha}+dirty` : sha) : 'unknown')
 const commitTime = process.env.GIT_COMMIT_TIME || git('log -1 --format=%cI') || ''
 
+// Where the dev server proxies the API. Defaults to the local `:server:run` (8080); VITE_API_TARGET lets the front-end
+// profiling recipe (a dev build + React DevTools Profiler against the perf stack, .claude/docs/performance.md) point at
+// http://localhost:18080 without editing this file.
+const apiTarget = process.env.VITE_API_TARGET ?? 'http://localhost:8080'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -32,11 +37,11 @@ export default defineConfig({
     // confined to web/.
     ...(process.env.VITEST ? { fs: { allow: ['.', '../server/src/main/resources/openapi'] } } : {}),
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': apiTarget,
       // The integration GraphQL endpoint lives outside /api (see the integration-api doc); the
       // e2e integration-clients spec calls it through the SPA origin in the SPA-only posture.
       // Anchored: a bare '/integration' prefix would also swallow the SPA route /integration-clients.
-      '^/integration/': 'http://localhost:8080',
+      '^/integration/': apiTarget,
     },
   },
   build: {
@@ -59,8 +64,30 @@ export default defineConfig({
             // The emoji-mart data set — the bulk of the (lazy-loaded) picker payload; the
             // same under-500 kB split as the lexical group above.
             { name: 'emoji-data', test: /node_modules[\\/]@emoji-mart[\\/]data[\\/]/, priority: 5 },
-            // The calendar layer (@mantine/dates + dayjs) shared by every date field (v3.5.0).
-            { name: 'dates', test: /node_modules[\\/](?:@mantine[\\/]dates|dayjs)[\\/]/, priority: 5 },
+            // dayjs CORE stays its own chunk: `dayjs/locale/<lang>.js` `require`s it, and a language group
+            // pulls its dependencies in recursively — without this, dayjs core landed inside `i18n-pl` and
+            // every date field (English users too) statically imported the Polish chunk.
+            { name: 'dayjs', test: /node_modules[\\/]dayjs[\\/]dayjs\.min\.js/, priority: 30 },
+            // One chunk per non-EN language (v4.15.1): its ~29 locale JSON files plus its dayjs calendar
+            // locale, which are only ever reached through `loadLanguage`'s dynamic imports — without this
+            // a language switch/first paint fetched ~31 files. The group name is derived from the module
+            // path (`i18n-<lang>`), so a new shipped language needs no config edit. EN stays in `i18n`.
+            {
+              name: (id: string) => {
+                const m = /src[\\/]locales[\\/](?!en[\\/])([^\\/]+)[\\/]|node_modules[\\/]dayjs[\\/]locale[\\/](?!en\.)([^\\/.]+)\.js/.exec(id);
+                const lang = m?.[1] ?? m?.[2];
+                return lang ? `i18n-${lang}` : null;
+              },
+              priority: 20,
+            },
+            // ONE chunk for the initial graph (v4.15.1): rolldown's built-in `$initial` tag matches
+            // every module statically reachable from the entry, so the ~25 per-module shared
+            // chunks the entry used to fan out into (34 `modulepreload`s) collapse into a single
+            // `vendor` file; vendor modules only a lazy page reaches stay in that page's chunk.
+            // `react` keeps its higher priority so a Mantine bump does not invalidate the cached
+            // React chunk. (The former `dates` group is gone: its forced single chunk became
+            // initial through `DatesProvider` and dragged the whole calendar layer in.)
+            { name: 'vendor', test: /node_modules[\\/]/, tags: ['$initial'], priority: 1 },
           ],
         },
       },

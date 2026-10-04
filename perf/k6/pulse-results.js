@@ -4,24 +4,28 @@
 //                   403 for a non-participant — both expected)
 //   results         ?tab=results: Shell || cycles || visible-teams || shares?view=withMe&resourceType=PULSE_TEAM_RESULTS&status=ACTIVE;
 //                   the most recently CLOSED cycle; the default view = "Teams I belong to" (memberTeams), HR with no own team
-//                   defaults to "all"; per team, all in parallel: cycles/<c>/results?teamId&mode=direct, trend?teamId&mode=direct and
-//                   (monitors/HR) cycles/<c>/comments?teamId&mode=direct. A plain 403 on results is the fill gate (the caller did
+//                   defaults to "all"; per team, all in parallel: cycles/<c>/results?teamId&mode=direct and (monitors/HR)
+//                   cycles/<c>/comments?teamId&mode=direct; the card's small trend chart loads lazily (v4.15.0, the card's
+//                   IntersectionObserver, 300 px margin), so trend?teamId&mode=direct is replayed for the first VISIBLE_CARDS = 3
+//                   teams only — a documented approximation of a 1280x720 viewport plus the margin (the browser runner
+//                   `perf/run.sh web pulse-results` measures the truth). A plain 403 on results is the fill gate (the caller did
 //                   not answer that cycle; ~10-20 % of participants) and is expected.
 //   results-managed the "Teams I manage" segment (managers): the same per-team cards for every monitored team (the CEO's = all 81)
-//   trend           ?tab=trend: Shell || visible-teams, then trend per team of the default view
+//   trend           ?tab=trend: Shell || visible-teams, then trend per team of the default view (the Trend TAB is not lazy)
 //   participation   ?tab=participation (managers + HR): Shell || cycles, then cycles/<c>/participation-status
 import http from 'k6/http';
 import { defineScenario, qs, shellRequests, SHELL_ENDPOINTS, expected } from './lib/replay.js';
 
 const CARD = ['results', 'trend', 'comments'];
 const EXPECT = [200, 403, 404, 409];
+// The card's trend chart is fetched only once its section is within 300 px of the viewport (v4.15.0): the first
+// VISIBLE_CARDS cards of a results screen stand in for "in view" (a 1280x720 viewport + the margin ~ 3 cards of ~450 px).
+const VISIBLE_CARDS = 3;
 
-function cardRequests(cycleId, teamId, comments) {
+function cardRequests(cycleId, teamId, comments, trendInView) {
   const q = qs({ teamId, mode: 'direct' });
-  const reqs = [
-    [`/api/v1/pulse-surveys/cycles/${cycleId}/results?${q}`, 'results'],
-    [`/api/v1/pulse-surveys/trend?${q}`, 'trend'],
-  ];
+  const reqs = [[`/api/v1/pulse-surveys/cycles/${cycleId}/results?${q}`, 'results']];
+  if (trendInView) reqs.push([`/api/v1/pulse-surveys/trend?${q}`, 'trend']);
   if (comments) reqs.push([`/api/v1/pulse-surveys/cycles/${cycleId}/comments?${q}`, 'comments']);
   return reqs;
 }
@@ -35,15 +39,15 @@ function lastClosedCycle(cyclesRes) {
 
 // Runs the cards through k6's batch (6 simultaneous per host — the browser's own HTTP/1.1 connection cap),
 // lenient on the fill-gate statuses. Comments: fired at once for HR / monitored teams, otherwise only AFTER the
-// results response says `canReadComments` (PulseTeamResultCard.tsx:142).
+// results response says `canReadComments` (PulseTeamResultCard.tsx).
 function cards(s, cycle, teams, monitoredIds, isHr) {
   const first = [];
   const lazy = [];
-  for (const t of teams) {
+  teams.forEach((t, i) => {
     const eager = isHr || monitoredIds.has(t.id);
-    first.push(...cardRequests(cycle.id, t.id, eager));
+    first.push(...cardRequests(cycle.id, t.id, eager, i < VISIBLE_CARDS));
     if (!eager) lazy.push(t.id);
-  }
+  });
   const run = (reqs) => {
     const out = [];
     for (let i = 0; i < reqs.length; i += 60) {

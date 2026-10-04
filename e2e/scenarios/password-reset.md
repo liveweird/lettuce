@@ -28,6 +28,9 @@
    - *Expected*: the same neutral "if an account with this address exists…" answer.
 3. A reset email arrives in the user's Mailpit inbox (delivery is asynchronous), containing a
    generated 16-character password.
+   - The server sends the email *before* it stores the new password (a delivery failure must leave
+     the old one working), so the test first waits — through the API, a few attempts at most — until
+     the new password is accepted; the form sign-in below must not race the server's store.
 4. The user signs in with the new password from the email, then logs out.
    - *Expected*: the new password works.
 5. The user attempts to sign in with the *old* (original) password.

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.dao.id.UIntIdTable
 import org.jetbrains.exposed.v1.r2dbc.*
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
@@ -30,6 +31,12 @@ enum class OneOnOneListView { OWN, MANAGED, TEAM, WITH, USER }
 
 /** Storage discriminator for the shared points/decisions table. */
 enum class NoteKind { POINT, DECISION }
+
+/** A list view's scope as a function of the (manager, subordinate) key columns — see [OneOnOneService.list]. */
+private typealias PairScope = (Column<EntityID<UInt>>, Column<EntityID<UInt>>) -> Op<Boolean>
+
+/** Types a [PairScope] lambda (a bare `{ … }` after a statement would parse as a trailing lambda). */
+private fun pairScope(scope: PairScope): PairScope = scope
 
 data class OneOnOneListFilter(
     val managerName: String? = null,
@@ -183,9 +190,10 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         subordinateId: UInt,
     ): Map<UInt, OneOnOneLatestStats> =
         if (managerIds.isEmpty()) emptyMap()
-        else latestStatsByKey(managerIds) { managerId ->
-            (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
-        }
+        else latestStatsByKey(
+            Meetings.managerId,
+            (Meetings.subordinateId eq subordinateId) and (Meetings.managerId inList managerIds),
+        )
 
     /**
      * The mirror of [latestMeetingStats]: for each subordinate in [subordinateIds], the latest
@@ -198,26 +206,16 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         subordinateIds: Set<UInt>,
     ): Map<UInt, OneOnOneLatestStats> =
         if (subordinateIds.isEmpty()) emptyMap()
-        else latestStatsByKey(subordinateIds) { subordinateId ->
-            (Meetings.managerId eq managerId) and (Meetings.subordinateId eq subordinateId)
-        }
+        else latestStatsByKey(
+            Meetings.subordinateId,
+            (Meetings.managerId eq managerId) and (Meetings.subordinateId inList subordinateIds),
+        )
 
     private suspend fun latestStatsByKey(
-        keys: Set<UInt>,
-        pairFor: (UInt) -> Op<Boolean>,
+        keyColumn: Column<EntityID<UInt>>,
+        predicate: Op<Boolean>,
     ): Map<UInt, OneOnOneLatestStats> = suspendTransaction(database) {
-        // One indexed limit-1 lookup per key (the carry-over query shape in create()); the set
-        // is one page of dashboard cards — a handful — so no multi-group "latest per key" SQL.
-        val latest = mutableMapOf<UInt, Pair<UInt, String>>()
-        keys.forEach { key ->
-            Meetings.select(Meetings.id, Meetings.meetingDate)
-                .where { pairFor(key) and active() }
-                .orderBy(Meetings.meetingDate to SortOrder.DESC, Meetings.id to SortOrder.DESC)
-                .limit(1)
-                .map { it[Meetings.id].value to it[Meetings.meetingDate] }
-                .singleOrNull()
-                ?.let { latest[key] = it }
-        }
+        val latest = latestPerKey(keyColumn, predicate)
         val meetingIds = latest.values.map { it.first }
         val openCounts: Map<UInt, Int> = if (meetingIds.isEmpty()) emptyMap() else {
             val count = ActionItems.id.count()
@@ -231,6 +229,54 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         latest.mapValues { (_, meeting) ->
             OneOnOneLatestStats(meeting.second, openCounts[meeting.first] ?: 0)
         }
+    }
+
+    /**
+     * The set-at-a-time form of [latestMeetingOfPair]: ONE `DISTINCT ON ([keyColumn])` statement
+     * returning, per key, the latest non-deleted meeting matching [predicate] as `(id, meetingDate)`
+     * — the same canonical `(meeting_date DESC, id DESC)` ordering [latestMeetingOfPair] uses
+     * (PostgreSQL requires the ORDER BY to start with the DISTINCT ON column). Keys with no match
+     * are absent. The predicate must pin the other side of the pair to a single value, so the key
+     * alone identifies a pair. In-txn; the result is drained before it returns (R2DBC never nests
+     * a query inside an open flow).
+     */
+    private suspend fun latestPerKey(
+        keyColumn: Column<EntityID<UInt>>,
+        predicate: Op<Boolean>,
+    ): Map<UInt, Pair<UInt, String>> =
+        Meetings.select(Meetings.id, keyColumn, Meetings.meetingDate)
+            .where { predicate and active() }
+            .withDistinctOn(keyColumn)
+            .orderBy(
+                keyColumn to SortOrder.ASC,
+                Meetings.meetingDate to SortOrder.DESC,
+                Meetings.id to SortOrder.DESC,
+            )
+            .map { it[keyColumn].value to (it[Meetings.id].value to it[Meetings.meetingDate]) }
+            .toList()
+            .toMap()
+
+    /**
+     * The set-at-a-time form of [latestMeetingOfPair] for a page of `(managerId, subordinateId)`
+     * pairs: ONE `DISTINCT ON (manager_id, subordinate_id)` statement over a tuple `IN`, the same
+     * canonical `(meeting_date DESC, id DESC)` ordering, returning each pair's latest meeting id
+     * (a pair with no live meeting is absent). In-txn; drained before it returns.
+     */
+    private suspend fun latestMeetingIdByPair(pairs: Set<Pair<UInt, UInt>>): Map<Pair<UInt, UInt>, UInt> {
+        if (pairs.isEmpty()) return emptyMap()
+        val pairKeys = pairs.map { (m, s) -> EntityID(m, UserService.Users) to EntityID(s, UserService.Users) }
+        return Meetings.select(Meetings.id, Meetings.managerId, Meetings.subordinateId)
+            .where { ((Meetings.managerId to Meetings.subordinateId) inList pairKeys) and active() }
+            .withDistinctOn(Meetings.managerId, Meetings.subordinateId)
+            .orderBy(
+                Meetings.managerId to SortOrder.ASC,
+                Meetings.subordinateId to SortOrder.ASC,
+                Meetings.meetingDate to SortOrder.DESC,
+                Meetings.id to SortOrder.DESC,
+            )
+            .map { (it[Meetings.managerId].value to it[Meetings.subordinateId].value) to it[Meetings.id].value }
+            .toList()
+            .toMap()
     }
 
     /**
@@ -407,6 +453,51 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
     }
 
+    /**
+     * The view's scope as a function of the two pair-key columns: the outer query applies it to the
+     * meetings table, the latestOnly subquery to its alias (the scope decides whole pairs, so it
+     * never changes WHICH row is a pair's latest — it only bounds the subquery's scan).
+     */
+    private suspend fun listScope(
+        view: OneOnOneListView,
+        callerUserId: UInt,
+        includeIndirect: Boolean,
+        counterpartId: UInt?,
+        targetUserId: UInt?,
+    ): PairScope = when (view) {
+        OneOnOneListView.OWN -> pairScope { _, subordinate -> subordinate eq callerUserId }
+        OneOnOneListView.MANAGED -> pairScope { manager, _ -> manager eq callerUserId }
+        OneOnOneListView.USER -> {
+            // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
+            // meeting the target is a party to, either role direction. The route guarantees
+            // a non-null userId.
+            val target = requireNotNull(targetUserId) { "view=user requires userId" }
+            pairScope { manager, subordinate -> (manager eq target) or (subordinate eq target) }
+        }
+        OneOnOneListView.WITH -> {
+            // Every 1:1 between the caller and one counterpart, either role direction (the
+            // pair may have switched manager/subordinate roles over time). The caller is a
+            // party to every row, so this adds no new read surface. The route guarantees a
+            // non-null counterpartId.
+            val other = requireNotNull(counterpartId) { "view=with requires counterpartId" }
+            pairScope { manager, subordinate ->
+                ((manager eq callerUserId) and (subordinate eq other)) or
+                    ((manager eq other) and (subordinate eq callerUserId))
+            }
+        }
+        OneOnOneListView.TEAM -> {
+            // Meetings run BY the caller's subordinates as managers — direct reports by
+            // default, the whole transitive chain with includeIndirect. A narrower slice of
+            // the single-GET's transitive manager read right (the subordinate of such a
+            // meeting is always in the caller's chain too) — not a separate authorization.
+            val managerIds =
+                if (includeIndirect) transitiveSubordinateIds(callerUserId)
+                else directSubordinateIds(callerUserId)
+            if (managerIds.isEmpty()) pairScope { _, _ -> Op.FALSE }
+            else pairScope { manager, _ -> manager inList managerIds }
+        }
+    }
+
     suspend fun list(
         view: OneOnOneListView,
         callerUserId: UInt,
@@ -416,37 +507,9 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         counterpartId: UInt? = null,
         targetUserId: UInt? = null,
     ): OneOnOneListResult = suspendTransaction(database) {
-        val scope: Op<Boolean> = when (view) {
-            OneOnOneListView.OWN -> Meetings.subordinateId eq callerUserId
-            OneOnOneListView.MANAGED -> Meetings.managerId eq callerUserId
-            OneOnOneListView.USER -> {
-                // Auditor view (HR-only, gated route-side via requireAuditListAccess): every
-                // meeting the target is a party to, either role direction. The route guarantees
-                // a non-null userId.
-                val target = requireNotNull(targetUserId) { "view=user requires userId" }
-                (Meetings.managerId eq target) or (Meetings.subordinateId eq target)
-            }
-            OneOnOneListView.WITH -> {
-                // Every 1:1 between the caller and one counterpart, either role direction (the
-                // pair may have switched manager/subordinate roles over time). The caller is a
-                // party to every row, so this adds no new read surface. The route guarantees a
-                // non-null counterpartId.
-                val other = requireNotNull(counterpartId) { "view=with requires counterpartId" }
-                ((Meetings.managerId eq callerUserId) and (Meetings.subordinateId eq other)) or
-                    ((Meetings.managerId eq other) and (Meetings.subordinateId eq callerUserId))
-            }
-            OneOnOneListView.TEAM -> {
-                // Meetings run BY the caller's subordinates as managers — direct reports by
-                // default, the whole transitive chain with includeIndirect. A narrower slice of
-                // the single-GET's transitive manager read right (the subordinate of such a
-                // meeting is always in the caller's chain too) — not a separate authorization.
-                val managerIds =
-                    if (includeIndirect) transitiveSubordinateIds(callerUserId)
-                    else directSubordinateIds(callerUserId)
-                if (managerIds.isEmpty()) Op.FALSE else Meetings.managerId inList managerIds
-            }
-        }
-        val predicate: Op<Boolean> = scope and buildPredicate(filter) and active()
+        val scopeOn = listScope(view, callerUserId, includeIndirect, counterpartId, targetUserId)
+        val scope: Op<Boolean> = scopeOn(Meetings.managerId, Meetings.subordinateId)
+        val predicate: Op<Boolean> = scope and buildPredicate(filter, scopeOn) and active()
         val join = Meetings
             .join(
                 managerUsers,
@@ -500,13 +563,12 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
                 .toMap()
         }
 
-        // The latest-only write rule needs each row flagged: one limit-1 lookup per distinct
-        // pair on the page (same cost profile as the dashboard stats enrichments) so the table
-        // offers Edit only where a PUT would succeed.
-        val latestByPair: Map<Pair<UInt, UInt>, UInt?> = rows
-            .map { it[Meetings.managerId].value to it[Meetings.subordinateId].value }
-            .toSet()
-            .associateWith { (managerId, subordinateId) -> latestMeetingOfPair(managerId, subordinateId)?.first }
+        // The latest-only write rule needs each row flagged so the table offers Edit only where a
+        // PUT would succeed. A latestOnly page needs no special case — every row is its pair's
+        // latest and the statement is cheap.
+        val latestByPair = latestMeetingIdByPair(
+            rows.map { it[Meetings.managerId].value to it[Meetings.subordinateId].value }.toSet(),
+        )
 
         val items = rows.map { row ->
             val meetingId = row[Meetings.id].value
@@ -759,7 +821,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
     }
 
-    private fun buildPredicate(filter: OneOnOneListFilter): Op<Boolean> {
+    private fun buildPredicate(filter: OneOnOneListFilter, scopeOn: PairScope): Op<Boolean> {
         var op: Op<Boolean> = Op.TRUE
         filter.managerName?.takeIf { it.isNotBlank() }?.let {
             op = op and (managerUsers[UserService.Users.name].containsNormalized(it))
@@ -769,32 +831,37 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
         }
         filter.meetingDateGte?.let { op = op and (Meetings.meetingDate greaterEq it) }
         filter.meetingDateLte?.let { op = op and (Meetings.meetingDate lessEq it) }
-        if (filter.latestOnly) op = op and latestOnlyPredicate()
+        if (filter.latestOnly) op = op and latestOnlyPredicate(scopeOn)
         return op
     }
 
     /**
      * `latestOnly=true`: keeps only each (manager, subordinate) pair's absolute latest
-     * non-deleted meeting — a correlated `NOT EXISTS` over a self-alias, so it composes with
-     * `total` and the page in the SAME query (never computed against the other filters/view,
-     * the same canonical `meeting_date DESC, id DESC` ordering as [latestMeetingOfPair] and
-     * the write rules).
+     * non-deleted meeting — `id IN (SELECT DISTINCT ON (manager_id, subordinate_id) id … ORDER BY
+     * manager_id, subordinate_id, meeting_date DESC, id DESC)`, so it composes with `total` and
+     * the page in the SAME query (the same canonical `meeting_date DESC, id DESC` ordering as
+     * [latestMeetingOfPair] and the write rules). The view's scope rides inside the subquery (it
+     * decides whole pairs, so it bounds the scan to the caller's index range without changing which
+     * row is a pair's latest); the name and date filters deliberately do NOT — the latest is never
+     * computed against the other filters. V92's pair-latest index serves the subquery index-only,
+     * in order (measured on the perf dataset: the CEO's managed page took 40 ms / 347 k buffers
+     * with the former correlated `NOT EXISTS`, 0.2 ms now).
      */
-    private fun latestOnlyPredicate(): Op<Boolean> {
-        val later = Meetings.alias("later_one_on_one_meeting")
-        return notExists(
-            later.selectAll().where {
-                (later[Meetings.managerId] eq Meetings.managerId) and
-                    (later[Meetings.subordinateId] eq Meetings.subordinateId) and
-                    (later[Meetings.markedAsDeleted] eq false) and
-                    (
-                        (later[Meetings.meetingDate] greater Meetings.meetingDate) or
-                            (
-                                (later[Meetings.meetingDate] eq Meetings.meetingDate) and
-                                    (later[Meetings.id] greater Meetings.id)
-                            )
-                        )
-            },
-        )
+    private fun latestOnlyPredicate(scopeOn: PairScope): Op<Boolean> {
+        val latest = Meetings.alias("latest_one_on_one_meeting")
+        return Meetings.id inSubQuery latest
+            .select(latest[Meetings.id])
+            .where {
+                scopeOn(latest[Meetings.managerId], latest[Meetings.subordinateId]) and
+                    (latest[Meetings.markedAsDeleted] eq false)
+            }
+            // The Column-vararg overload: the Pair overload would put every listed column into DISTINCT ON.
+            .withDistinctOn(latest[Meetings.managerId], latest[Meetings.subordinateId])
+            .orderBy(
+                latest[Meetings.managerId] to SortOrder.ASC,
+                latest[Meetings.subordinateId] to SortOrder.ASC,
+                latest[Meetings.meetingDate] to SortOrder.DESC,
+                latest[Meetings.id] to SortOrder.DESC,
+            )
     }
 }

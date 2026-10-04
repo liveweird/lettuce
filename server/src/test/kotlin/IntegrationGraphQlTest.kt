@@ -101,6 +101,24 @@ class IntegrationGraphQlTest {
     }
 
     @Test
+    fun `an oversized request body is a 413 problem before graphql-java sees it`() = testApplication {
+        // v4.14.1: the HTTP body cap (plugins/BodyLimit.kt) also covers the integration endpoint —
+        // graphql-java's own parser limit is only the next layer.
+        configureApp("integration.enabled" to "true", "http.maxBodyBytes" to "2048")
+        startApplication()
+        val (_, key) = freshKey("gql-body")
+        val plain = jsonClient()
+
+        val response = plain.graphql(key, "{ reviewPeriods { id } }" + " ".repeat(3 * 1024))
+        assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
+        assertEquals("application/problem+json", response.contentType()?.withoutParameters()?.toString())
+        assertEquals("Request body must not exceed 2048 bytes", response.body<ProblemDetail>().detail)
+
+        // A normal query under the cap still works.
+        assertEquals(HttpStatusCode.OK, plain.graphql(key, "{ reviewPeriods { id } }").status)
+    }
+
+    @Test
     fun `every bad-key shape answers the same 401 problem`() = testApplication {
         enabledApp()
         val (admin, key) = freshKey("gql-auth")

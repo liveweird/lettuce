@@ -26,6 +26,11 @@ netty = "4.2.18.Final"
 # imported in core pins every io.opentelemetry artifact, incubator/alpha ones included, to that
 # pair; `:server:checkDependencyAlignment` fails on drift (2026-09-04 — 2.30.0 left the incubator
 # at 1.64.0-alpha next to a 1.65.0 SDK).
+# DB spans (M4, v4.13.x): `opentelemetry-r2dbc-1.0` carries NO version of its own — the alpha BOM pins it to the
+# `opentelemetry-ktor` pair (2.31.1-alpha). It brings `io.r2dbc:r2dbc-proxy` 1.1.6.RELEASE transitively (read off the
+# instrumentation's published module metadata, 2026-10-04; r2dbc-spi stays the driver's 1.0.0.RELEASE). Both artifacts'
+# checksums in gradle/verification-metadata.xml were verified against the publishers' PGP signatures (keys named in the
+# entries' `origin`). On an instrumentation bump, re-read r2dbc-proxy's version off the new module metadata and repeat.
 opentelemetry = "1.65.0"
 opentelemetry-ktor = "2.31.1-alpha"
 opentelemetry-semconv = "1.43.0"
@@ -72,6 +77,8 @@ opentelemetry-instrumentationBomAlpha = { module = "io.opentelemetry.instrumenta
 opentelemetry-exporterLogging = { module = "io.opentelemetry:opentelemetry-exporter-logging", version.ref = "opentelemetry" }
 opentelemetry-exporterOtlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetry" }
 opentelemetry-logbackAppender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetry-ktor" }
+# No version on purpose: the alpha BOM imported in core pins it to the `opentelemetry-ktor` pair (M4 step 12).
+opentelemetry-r2dbcInstrumentation = { module = "io.opentelemetry.instrumentation:opentelemetry-r2dbc-1.0" }
 opentelemetry-ktorInstrumentation = { module = "io.opentelemetry.instrumentation:opentelemetry-ktor-3.0", version.ref = "opentelemetry-ktor" }
 opentelemetry-sdkAutoconfigure = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetry" }
 opentelemetry-semconv = { module = "io.opentelemetry.semconv:opentelemetry-semconv", version.ref = "opentelemetry-semconv" }

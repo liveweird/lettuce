@@ -1,6 +1,7 @@
 // Auth flows — login (incl. the MFA second step), logout, and self-service password reset
 // (transport in ./http, session state in ./session).
 
+import { asSupportedLanguage, loadLanguageWithin } from "../i18n";
 import { API_BASE, ApiError, safeJson, timeoutSignal } from "./http";
 import type { components, paths } from "./schema";
 import {
@@ -38,8 +39,19 @@ export async function login(credentials: LoginBody): Promise<LoginOk> {
   const data = (await res.json()) as LoginOk;
   if (!isSessionCurrent(session)) throw new SessionChangedError();
   // An MFA challenge carries no tokens — the session starts only after verifyMfa.
-  if (!isMfaChallenge(data)) persistSession(data);
+  if (!isMfaChallenge(data)) await startSession(data, session);
   return data;
+}
+
+// Non-EN bundles are lazy: fetch the account's stored language BEFORE the session starts (nothing is
+// written yet, so this is session-safe), so the first signed-in paint is already in it instead of
+// flashing English. Capped — a slow network falls back to English, and `persistSession`'s own
+// switchLanguage then swaps the language the moment the bundle lands.
+const SIGN_IN_LANGUAGE_CAP_MS = 1000;
+async function startSession(data: LoginSuccess, session: ReturnType<typeof captureSession>): Promise<void> {
+  if (data.language) await loadLanguageWithin(asSupportedLanguage(data.language), SIGN_IN_LANGUAGE_CAP_MS);
+  if (!isSessionCurrent(session)) throw new SessionChangedError();
+  persistSession(data);
 }
 
 type MfaVerifyBody =
@@ -67,7 +79,7 @@ export async function verifyMfa(challengeId: string, code: string): Promise<Logi
   }
   const data = (await res.json()) as LoginSuccess;
   if (!isSessionCurrent(session)) throw new SessionChangedError();
-  persistSession(data);
+  await startSession(data, session);
   return data;
 }
 

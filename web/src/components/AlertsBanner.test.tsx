@@ -49,6 +49,19 @@ describe("AlertsBanner", () => {
     localStorage.clear();
   });
 
+  test("warms the markdown chunk at idle after mount, even before any alert exists", async () => {
+    mockFetch.mockResolvedValue(visibleResponse([]));
+    const idle = vi.fn((cb: () => void) => {
+      cb();
+      return 1;
+    });
+    vi.stubGlobal("requestIdleCallback", idle);
+    vi.stubGlobal("cancelIdleCallback", vi.fn());
+    const { unmount } = renderBanner();
+    await waitFor(() => expect(idle).toHaveBeenCalledTimes(1));
+    unmount();
+  });
+
   test("renders nothing when there are no visible alerts", async () => {
     mockFetch.mockResolvedValue(visibleResponse([]));
     renderBanner();
@@ -76,7 +89,7 @@ describe("AlertsBanner", () => {
 
     expect(await screen.findByText("Maintenance")).toBeInTheDocument();
     // Markdown is rendered, not shown raw.
-    expect(screen.getByText("down")).toBeInTheDocument();
+    expect(await screen.findByText("down")).toBeInTheDocument();
     expect(screen.queryByText(/\*\*down\*\*/)).not.toBeInTheDocument();
     // A single alert shows no pager.
     expect(screen.queryByRole("button", { name: /next alert/i })).not.toBeInTheDocument();

@@ -98,17 +98,18 @@ private fun Parameters.aggregationMode(): PulseAggregationMode {
 }
 
 /**
- * One trend point per closed cycle (oldest first) over one scope — backs `/trend`. The
+ * One trend point per closed cycle (oldest first) over one scope — backs `/trend`. [data] is the
+ * batched per-cycle scope read ([PulseResponseService.scopeDataByCycle], v4.14.0); a cycle the
+ * caller sat out is never looked up in it. The
  * per-cycle fill gate applies POINT-WISE for non-HR callers
  * ([respondedCycleIds] null for HR): a cycle the caller sat out contributes a gap, not a
  * number (and no counts either); a scope under the k-floor keeps its counts but no scores.
- * [cycles] is a drained List — never nest queries inside an open flow (R2DBC deadlock).
+ * Pure: every database read happened before the call.
  */
-private suspend fun trendPoints(
+private fun trendPoints(
     cycles: List<PulseCycleRow>,
-    scope: Set<UInt>,
     respondedCycleIds: Set<UInt>?,
-    responseService: PulseResponseService,
+    data: Map<UInt, PulseCycleScopeData>,
 ): List<PulseTrendPoint> = cycles.map { c ->
     if (respondedCycleIds != null && c.id !in respondedCycleIds) {
         PulseTrendPoint(
@@ -117,8 +118,7 @@ private suspend fun trendPoints(
             availability = PulseTrendAvailability.NOT_A_RESPONDENT,
         )
     } else {
-        val answers = responseService.answersForScope(c.id, scope)
-        val participantCount = responseService.participantCountForScope(c.id, scope)
+        val (answers, participantCount) = data.getValue(c.id)
         if (answers.size < MIN_PULSE_RESPONSES) {
             PulseTrendPoint(
                 cycleId = c.id,
@@ -467,7 +467,7 @@ fun Application.configurePulseRoutes() {
                 val params = call.request.queryParameters
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
-                val team = teamService.read(teamId)
+                val team = teamService.readRef(teamId)
                     ?: throw NotFoundException("Team not found")
                 // The identity step: HR exempt from the fill gate (audited); everyone else —
                 // ADMIN included — must have responded in THIS cycle and stay in-tree. OR (v4.12.0)
@@ -485,16 +485,17 @@ fun Application.configurePulseRoutes() {
                     )
                 }
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
-                val answers = responseService.answersForScope(cycle.id, scope)
-                val participantCount = responseService.participantCountForScope(cycle.id, scope)
                 // The immediately preceding non-cancelled closed cycle, over the SAME scope.
                 val previousCycle = cycleService.closedCyclesAsc()
                     .filter { (it.closedAt ?: 0) < (cycle.closedAt ?: 0) }
                     .maxByOrNull { it.closedAt ?: 0 }
+                // One batched read (one transaction, two statements) for the current + previous cycle.
+                val data = responseService.scopeDataByCycle(setOfNotNull(cycle.id, previousCycle?.id), scope)
+                val (answers, participantCount) = data.getValue(cycle.id)
                 val previous = previousCycle?.let {
                     PulsePreviousCycleData(
                         cycleId = it.id,
-                        answers = responseService.answersForScope(it.id, scope),
+                        answers = data.getValue(it.id).answers,
                         sameRotatingEntry = it.rotatingQuestionEntryId == cycle.rotatingQuestionEntryId,
                     )
                 }
@@ -525,7 +526,7 @@ fun Application.configurePulseRoutes() {
                 val params = call.request.queryParameters
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
-                val team = teamService.read(teamId)
+                val team = teamService.readRef(teamId)
                     ?: throw NotFoundException("Team not found")
                 // Managers-and-above only (their monitored tree; HR org-wide, audited) — a
                 // plain member never reads comments, and no fill gate applies (a monitoring
@@ -572,7 +573,7 @@ fun Application.configurePulseRoutes() {
                 val params = call.request.queryParameters
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
-                val team = teamService.read(teamId)
+                val team = teamService.readRef(teamId)
                     ?: throw NotFoundException("Team not found")
                 // Team scope as results (HR org-wide, audited); the fill gate instead applies
                 // point-wise below.
@@ -583,8 +584,15 @@ fun Application.configurePulseRoutes() {
                 val via = shareAccess.readOrShared(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
                     teamService.requireResultsVisible(principal, teamId)
                 }
-                val sharers = shareAccess.passingShares(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
-                    teamService.requireResultsVisible(principal, teamId)
+                // v4.15.0: an HR own read sets `respondedCycleIds` to null below (every point visible), so a
+                // sharer's responded set cannot widen it — skip the share lookup. A non-HR own read still
+                // needs the sharers (their cycles may differ from the caller's), and a shared read always does.
+                val sharers = if (via is ReadVia.Own && caller.isHr()) {
+                    emptyList()
+                } else {
+                    shareAccess.passingShares(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
+                        teamService.requireResultsVisible(principal, teamId)
+                    }
                 }
                 val seeing = listOfNotNull(caller.takeIf { via is ReadVia.Own }) + sharers.map { it.principal }
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)
@@ -593,7 +601,13 @@ fun Application.configurePulseRoutes() {
                 } else {
                     seeing.flatMapTo(mutableSetOf()) { responseService.respondedCycleIds(it.userId) }
                 }
-                val points = trendPoints(cycleService.closedCyclesAsc(), scope, respondedCycleIds, responseService)
+                val closed = cycleService.closedCyclesAsc()
+                // Only the cycles the caller may see are read (a sat-out cycle is the count-less
+                // NOT_A_RESPONDENT point either way) — two set-based statements, whatever the cycle count.
+                val visible = closed.filter { respondedCycleIds == null || it.id in respondedCycleIds }
+                    .mapTo(mutableSetOf()) { it.id }
+                val data = responseService.scopeDataByCycle(visible, scope)
+                val points = trendPoints(closed, respondedCycleIds, data)
                 call.respond(
                     HttpStatusCode.OK,
                     PulseTrendResponse(teamId = teamId, teamName = team.name, mode = mode, points = points),

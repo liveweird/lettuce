@@ -1,3 +1,4 @@
+import "../test/withPolish";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";

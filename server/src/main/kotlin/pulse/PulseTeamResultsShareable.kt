@@ -23,7 +23,7 @@ class PulseTeam(val teamId: UInt, val name: String)
 class PulseTeamResultsShareable(private val teamService: TeamService) : ShareableResource<PulseTeam, Unit> {
     override val type = ShareableResourceType.PULSE_TEAM_RESULTS
 
-    override suspend fun read(id: UInt): PulseTeam? = teamService.read(id)?.let { PulseTeam(id, it.name) }
+    override suspend fun read(id: UInt): PulseTeam? = teamService.readRef(id)?.let { PulseTeam(id, it.name) }
 
     override suspend fun guard(principal: CallerPrincipal, doc: PulseTeam) =
         teamService.requireResultsVisible(principal, doc.teamId)

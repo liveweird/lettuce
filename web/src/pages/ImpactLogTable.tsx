@@ -296,6 +296,7 @@ export default function ImpactLogTable({
 
       <PaginationBar
         total={total}
+        pending={isLoading && !data}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

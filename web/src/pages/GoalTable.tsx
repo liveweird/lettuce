@@ -484,6 +484,7 @@ export default function GoalTable({
 
       <PaginationBar
         total={total}
+        pending={isLoading && !data}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

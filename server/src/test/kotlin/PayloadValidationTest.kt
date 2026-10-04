@@ -234,6 +234,72 @@ class PayloadValidationTest {
     }
 
     @Test
+    fun `negative or overflowing ids inside request bodies are the fixed-vocabulary 400 - they never wrap`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val admin = adminClient()
+            val schema400 = "Request body is invalid or does not match the expected schema"
+
+            // The Resources plugin's PARAMETER decoder wraps a negative path id (MT-005 guards it);
+            // kotlinx-serialization's JSON decoder does not — it rejects -1, -0, 1.5 and 2^32 for
+            // a UInt outright. Pinned on a List<UInt>, a UInt scalar and a UInt? in a nested list.
+            suspend fun assertDecoder400(response: io.ktor.client.statement.HttpResponse, what: String) {
+                assertEquals(HttpStatusCode.BadRequest, response.status, what)
+                assertEquals(schema400, response.body<ProblemDetail>().detail, what)
+            }
+            suspend fun assertNotDecoder400(response: io.ktor.client.statement.HttpResponse, what: String) {
+                // Whatever the route made of 4294967295 (403/404/200, or its own validator 400), the
+                // body DECODED — so it is not the decoder's 400.
+                val decoderRejected = response.status == HttpStatusCode.BadRequest &&
+                    response.body<ProblemDetail>().detail == schema400
+                assertTrue(!decoderRejected, "$what must decode (UInt max) but was rejected by the decoder")
+            }
+
+            suspend fun batch(ids: String) = admin.post("/api/v1/shares/batch") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"resourceType":"GOAL","resourceIds":$ids,"shareeIds":[1]}""")
+            }
+            assertDecoder400(batch("[-1]"), "shares/batch resourceIds [-1]")
+            assertDecoder400(batch("[4294967296]"), "shares/batch resourceIds [2^32]")
+            assertDecoder400(batch("[1.5]"), "shares/batch resourceIds [1.5]")
+            assertNotDecoder400(batch("[4294967295]"), "shares/batch resourceIds [2^32-1]")
+
+            suspend fun kpi(teamId: String) = admin.post("/api/v1/team-kpis") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"teamId":$teamId,"title":"neg","type":"NUMBER"}""")
+            }
+            assertDecoder400(kpi("-1"), "team-kpis teamId -1")
+            assertNotDecoder400(kpi("4294967295"), "team-kpis teamId 2^32-1")
+
+            // A real DRAFT goal, written by its manager (the guard precedes the body read).
+            val managerEmail = uniqueEmail("negid-manager")
+            val managerId = TestUsers.seed(managerEmail, "pw-123456789", roles = emptySet())
+            val subId = TestUsers.seed(uniqueEmail("negid-sub"), "pw-123456789", roles = emptySet())
+            val teamId = TestServices.teams.create(Team(name = "negid-${java.util.UUID.randomUUID()}", managerId = managerId))
+            TestServices.teams.addMember(teamId, subId)
+            val manager = authedClient(managerEmail, "pw-123456789")
+            val created = manager.post("/api/v1/goals") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    """{"subordinateId":$subId,"title":"neg-id goal","type":"PLAN","dueDate":"2099-01-01",""" +
+                        """"milestones":[{"description":"step"}]}""",
+                )
+            }
+            assertEquals(HttpStatusCode.Created, created.status)
+            val goalId = Regex(""""id"\s*:\s*(\d+)""").find(created.bodyAsText())!!.groupValues[1]
+
+            suspend fun update(milestoneId: String) = manager.put("/api/v1/goals/$goalId") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    """{"title":"neg-id goal","type":"PLAN","dueDate":"2099-01-01",""" +
+                        """"milestones":[{"id":$milestoneId,"description":"step"}]}""",
+                )
+            }
+            assertDecoder400(update("-1"), "goals PUT milestones[0].id -1")
+            assertNotDecoder400(update("4294967295"), "goals PUT milestones[0].id 2^32-1")
+        }
+
+    @Test
     fun `user update applies the same name and email checks`() = testApplication {
         usePostgresTestcontainer()
         val client = adminClient()

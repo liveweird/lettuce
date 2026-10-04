@@ -252,6 +252,8 @@ export default function ReviewsDashboard() {
     (isAuditorScope ? auditUsersLoading : membersLoading) ||
     (periodId != null && reviewsLoading);
   const isError = periodsError || (isAuditorScope ? auditUsersError : membersError) || reviewsError;
+  // The first page of the table is still loading (the loading row shows, the pager stays away — PaginationBar `pending`).
+  const firstPagePending = isLoading && !(isAuditorScope ? auditUsers : members);
   const columnCount = REVIEWS_DASHBOARD_SORT_FIELDS.length + 1;
 
   if (periods != null && periods.length === 0) {
@@ -465,7 +467,7 @@ export default function ReviewsDashboard() {
           </ResponsiveTable.Tr>
         </ResponsiveTable.Thead>
         <ResponsiveTable.Tbody>
-          {isLoading && !(isAuditorScope ? auditUsers : members) ? (
+          {firstPagePending ? (
             <TableLoadingRow colSpan={columnCount} />
           ) : rows.length > 0 ? (
             rows.map(({ person, review }) => {
@@ -584,6 +586,7 @@ export default function ReviewsDashboard() {
 
       <PaginationBar
         total={total}
+        pending={firstPagePending}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

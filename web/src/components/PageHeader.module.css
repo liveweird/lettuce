@@ -25,3 +25,17 @@
     width: 100%;
   }
 }
+
+/* From sm up the actions slot takes the row's remaining width and packs its buttons against the
+   right edge (v4.15.2). Visually identical to the old shrink-wrapped group — but its own box no
+   longer changes when a button arrives late (a manager-only action waiting for the managed-teams
+   probe): a shrink-wrapped, right-anchored group grows LEFTWARD, which moves its left edge and is
+   scored as a layout shift of up to the button's width. Placed after the mobile rule, same
+   specificity as Mantine's Group class (which sets justify-content inline-var style), so the
+   doubled class selector makes the intent explicit. */
+@media (min-width: $mantine-breakpoint-sm) {
+  .actions.actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+}

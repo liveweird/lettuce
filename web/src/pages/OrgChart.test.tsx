@@ -33,11 +33,10 @@ const USER_ID_KEY = "lettuce.auth.userId";
 type FetchMock = ReturnType<typeof vi.fn>;
 
 const TEAMS = [
-  { id: 1, name: "AAA", managerId: 10, managerName: "Manager AAA", managerDeleted: false },
-  { id: 3, name: "CCC", managerId: 12, managerName: "Manager CCC", managerDeleted: false },
-  { id: 9, name: "Orphan", managerId: 42, managerName: "Zed", managerDeleted: true },
+  { id: 1, name: "AAA", managerId: 10, managerName: "Manager AAA", managerDeleted: false, memberIds: [1] },
+  { id: 3, name: "CCC", managerId: 12, managerName: "Manager CCC", managerDeleted: false, memberIds: [10] },
+  { id: 9, name: "Orphan", managerId: 42, managerName: "Zed", managerDeleted: true, memberIds: [] },
 ];
-const MEMBERS: Record<number, number[]> = { 1: [1], 3: [10], 9: [] };
 const USERS = [
   { id: 1, name: "AAA One", email: "a1@x", roles: [] },
   { id: 10, name: "Manager AAA", email: "ma@x", roles: [] },
@@ -48,14 +47,6 @@ const USERS = [
 function mockApi(mockFetch: FetchMock, teams = TEAMS, users = USERS) {
   mockFetch.mockImplementation((url: string) => {
     const u = String(url);
-    const single = u.match(/^\/api\/v1\/teams\/(\d+)$/);
-    if (single) {
-      const id = Number(single[1]);
-      const team = teams.find((t) => t.id === id)!;
-      return Promise.resolve(
-        jsonResponse(200, { id, name: team.name, managerId: team.managerId, memberIds: MEMBERS[id] ?? [] }),
-      );
-    }
     if (u.startsWith("/api/v1/teams?"))
       return Promise.resolve(jsonResponse(200, { items: teams, page: 1, pageSize: 100, total: teams.length }));
     if (u.startsWith("/api/v1/users?"))
@@ -110,6 +101,9 @@ describe("OrgChart page", () => {
     // The teamless user renders too, under the section label, as an ordinary clickable node.
     expect(screen.getByText("Not in any team")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "User details for Floater" })).toBeInTheDocument();
+    // memberIds ride the teams list: no per-team GET /api/v1/teams/{id} (the v4.14.0 fix).
+    const urls = mockFetch.mock.calls.map(([url]) => String(url));
+    expect(urls.filter((u) => /^\/api\/v1\/teams\/\d+/.test(u))).toEqual([]);
   });
 
   test("person nodes open the details view with the org origin — except self and deleted", async () => {

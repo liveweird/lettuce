@@ -9,6 +9,7 @@ import ch.nokillswit.authz.UnauthorizedException
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.decodeURLPart
@@ -17,8 +18,11 @@ import io.ktor.serialization.ContentConvertException
 import io.ktor.server.application.*
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.CannotTransformContentToTypeException
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.contentLength
 import io.ktor.server.request.path
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.util.cio.ChannelWriteException
 import io.ktor.utils.io.ClosedByteChannelException
@@ -96,6 +100,42 @@ internal fun Throwable.isCharacterNotInRepertoire(): Boolean = hasSqlState(PG_CH
 private suspend fun ApplicationCall.respondConflict() =
     respondProblem(HttpStatusCode.Conflict, "Resource already exists")
 
+private const val MAX_LOGGED_PATH_CHARS = 200
+
+/**
+ * [raw] made safe for a log line: every char outside printable ASCII (0x20..0x7E) becomes `?` —
+ * Netty hands a request-line path through with ESC/DEL/CR/LF intact, and an anonymous caller must
+ * not be able to forge or colour log lines — and the length is capped.
+ */
+internal fun sanitizeForLog(raw: String, maxChars: Int = MAX_LOGGED_PATH_CHARS): String {
+    val clean = raw.take(maxChars).map { if (it.code in 0x20..0x7E) it else '?' }.joinToString("")
+    return if (raw.length > maxChars) "$clean..." else clean
+}
+
+/**
+ * The size cap's 413 (plugins/BodyLimit.kt): one DEBUG line (method, sanitized route path without
+ * the query string, declared length or "chunked", the cap) — CallLogging is not installed, so
+ * without it a rejection would be invisible when someone looks; DEBUG, not INFO, because the
+ * rejection is anonymous and un-rate-limited, so an INFO line would be a free log sink — and the
+ * fixed problem body. Deliberately not audited: a malformed-request class like the 400s, with no
+ * principal and no mutation.
+ */
+private suspend fun ApplicationCall.respondPayloadTooLarge() {
+    val limit = requestBodyLimit()
+    application.log.debug(
+        "Request body rejected as too large: {} {} (Content-Length {}, cap {} bytes)",
+        sanitizeForLog(request.local.method.value, maxChars = 16),
+        sanitizeForLog(request.path()),
+        request.contentLength() ?: "chunked",
+        limit,
+    )
+    // The honest signal: a conforming client closes after reading it. The server deliberately does NOT
+    // force the close — closing while the client is still uploading makes the OS send a RST that can
+    // destroy this very 413, and under pipelining it would truncate an earlier in-flight response.
+    response.header(HttpHeaders.Connection, "close")
+    respondProblem(HttpStatusCode.PayloadTooLarge, "Request body must not exceed $limit bytes")
+}
+
 private suspend fun ApplicationCall.respondDbFailure(cause: Throwable) = when {
     cause.isUniqueViolation() -> respondConflict()
     cause.isCharacterNotInRepertoire() ->
@@ -116,13 +156,16 @@ internal suspend fun ApplicationCall.respondInternalError(cause: Throwable) {
 // -dependent, so it is replaced with fixed vocabulary. The wrap always carries a
 // ContentConvertException in its cause chain; our own validators throw BadRequestException
 // with no such cause, so their intentional messages pass through untouched.
-private fun Throwable.hasContentConvertCause(): Boolean {
-    var cur: Throwable? = cause
+private fun Throwable.hasContentConvertCause(): Boolean = cause?.findCause<ContentConvertException>() != null
+
+/** The first [T] in this throwable's cause chain, starting at the throwable itself. */
+private inline fun <reified T : Throwable> Throwable.findCause(): T? {
+    var cur: Throwable? = this
     while (cur != null) {
-        if (cur is ContentConvertException) return true
+        if (cur is T) return cur
         cur = cur.cause
     }
-    return false
+    return null
 }
 
 // The Resources plugin's path/query decode failures arrive as BadRequestException with this
@@ -135,16 +178,18 @@ private fun clientSafeBadRequestDetail(cause: BadRequestException): String = whe
     else -> cause.message ?: "Bad request"
 }
 
-// Path ids are unsigned (UInt) end-to-end, but kotlinx's UInt decoding parses via
-// toInt().toUInt() — a negative segment like /users/-1 silently WRAPPED to 4294967295 and
-// flowed into the normal lookup instead of failing (MT-005), contradicting the spec's
-// `minimum: 0`. No legitimate /api/ path has a negative-integer segment.
+// Path ids are unsigned (UInt) end-to-end, but the Resources plugin's parameter decoder maps a
+// UInt via decodeInt().toUInt() — a negative segment like /users/-1 silently WRAPPED to
+// 4294967295 and flowed into the normal lookup instead of failing (MT-005), contradicting the
+// spec's `minimum: 0`. No legitimate /api/ path has a negative-integer segment. JSON BODIES are
+// unaffected: kotlinx-serialization's JSON decoder rejects a negative or overflowing UInt
+// outright (the MT-007 400; pinned in PayloadValidationTest), so no body-side intercept exists.
 private val NEGATIVE_ID_SEGMENT = Regex("""^-\d+$""")
 
 private fun ApplicationCall.hasNegativeIdSegment(): Boolean {
-    val path = request.path()
-    return path.startsWith("/api/") &&
-        path.split('/').any { NEGATIVE_ID_SEGMENT.matches(it.decodeURLPart()) }
+    // isApiPath() normalizes like the router (a leading `//api/…` still reaches the handler).
+    return isApiPath() &&
+        request.path().split('/').any { NEGATIVE_ID_SEGMENT.matches(it.decodeURLPart()) }
 }
 
 // A client disconnecting mid-response (a browser aborting a static-asset download, e.g.) is not
@@ -183,15 +228,26 @@ fun Application.configureErrorHandling() {
         exception<TooManyRequestsException> { call, cause ->
             call.respondProblem(HttpStatusCode.TooManyRequests, cause.message ?: "Too many requests")
         }
+        // A body cut off by the size cap while streaming surfaces WRAPPED: ContentNegotiation
+        // rethrows every converter failure as BadRequestException("Failed to convert request
+        // body…", cause) with the PayloadTooLargeException as the cause — so it is checked BEFORE
+        // the converter-failure vocabulary, or a chunked oversized body would answer a 400.
         exception<BadRequestException> { call, cause ->
-            call.respondProblem(HttpStatusCode.BadRequest, clientSafeBadRequestDetail(cause))
+            if (cause.findCause<PayloadTooLargeException>() != null) {
+                call.respondPayloadTooLarge()
+            } else {
+                call.respondProblem(HttpStatusCode.BadRequest, clientSafeBadRequestDetail(cause))
+            }
         }
+        // The raw shape: the body limit's Content-Length precheck throws it before routing.
+        exception<PayloadTooLargeException> { call, _ -> call.respondPayloadTooLarge() }
         // A POST/PUT with NO Content-Type (a truly body-less request) never enters
         // ContentNegotiation (no converter matches ContentType.Any), so `call.receive` throws
         // this instead of the BadRequestException the converter path wraps malformed JSON in —
         // and it used to escape to the 500 catch-all (v2.34.0; the 22021 central-mapping
         // precedent). Deliberately NOT the abstract ContentTransformationException parent:
-        // that would mislabel a future PayloadTooLarge (413) / UnsupportedMediaType (415).
+        // that would mislabel the PayloadTooLarge (413, handled above since v4.14.1) / a future
+        // UnsupportedMediaType (415).
         exception<CannotTransformContentToTypeException> { call, _ ->
             call.respondProblem(HttpStatusCode.BadRequest, "Request body is missing or not JSON")
         }

@@ -11,8 +11,8 @@
 //                  icon of an action item (GET action-items/{item}/history). The meeting is the one holding the
 //                  DEEPEST carry-over chain of dataset v2 (6 links; ids pinned below — a new DATASET_VERSION needs a
 //                  re-pick: recursive CTE over one_on_one_action_items.copied_from_id), read by the CEO via the chain rule.
-//   drilldown      /users/:id/one-on-ones as the report's manager: Shell || users (useAllUsers: pageSize 100 sort=id,
-//                  listAll — one sequential loop) || one-on-ones?view=with&counterpartId=<report>
+//   drilldown      /users/:id/one-on-ones as the report's manager: Shell || users (ONE users?id=<report>&page=1&pageSize=1
+//                  lookup, v4.15.0 — it was the six-page listAll pool) || one-on-ones?view=with&counterpartId=<report>
 //   drilldown-audit the same for HR with ?mode=audit: view=user&userId=<report>
 import { defineScenario, qs, shellRequests, SHELL_ENDPOINTS } from './lib/replay.js';
 
@@ -23,10 +23,9 @@ const LONG_CHAIN_ITEM = 314699;
 
 const list = (view, extra = {}) => `/api/v1/one-on-ones?${qs(Object.assign({ view, page: 1, pageSize: 20, sort: '-meetingDate' }, extra))}`;
 
-function drilldown(s, listPath) {
-  const users = (page) => `/api/v1/users?${qs({ page, pageSize: 100, sort: 'id' })}`;
-  const res = s.batch([...shellRequests(s), [users(1), 'users'], [listPath, 'list']]);
-  s.pageMore(users, res[SHELL_ENDPOINTS.length], 'users');
+function drilldown(s, targetId, listPath) {
+  const lookup = `/api/v1/users?${qs({ page: 1, pageSize: 1, id: targetId })}`;
+  s.batch([...shellRequests(s), [lookup, 'users'], [listPath, 'list']]);
 }
 
 const def = {
@@ -52,11 +51,11 @@ const def = {
     },
     drilldown: {
       endpoints: [...SHELL_ENDPOINTS, 'users', 'list'],
-      run(s) { drilldown(s, list('with', { counterpartId: s.userId('ic') })); },
+      run(s) { drilldown(s, s.userId('ic'), list('with', { counterpartId: s.userId('ic') })); },
     },
     'drilldown-audit': {
       endpoints: [...SHELL_ENDPOINTS, 'users', 'list'],
-      run(s) { drilldown(s, list('user', { userId: s.userId('ic') })); },
+      run(s) { drilldown(s, s.userId('ic'), list('user', { userId: s.userId('ic') })); },
     },
   },
   personaScreens: {

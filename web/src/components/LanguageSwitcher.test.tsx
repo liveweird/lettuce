@@ -1,3 +1,4 @@
+import "../test/withPolish";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, screen } from "../test/render";

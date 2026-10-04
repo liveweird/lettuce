@@ -70,8 +70,18 @@ class QueryBudgetTest {
      */
     private data class Budget(val stmt: Int, val tx: Int, val dStmt: Int = 0, val dTx: Int = 0)
 
-    /** [rows] maps the grown size n to the `total` the page must report (null = unpaged response, not checked). */
-    private class Probe(val name: String, val client: HttpClient, val path: String, val rows: ((Int) -> Int)? = { it })
+    /**
+     * [pathAt] (optional) derives the path from the size n, for a probe whose query names the grown rows themselves.
+     * [rows] maps the grown size n to the `total` the page must report (null = unpaged response, not checked); it
+     * stays the LAST parameter so the existing `Probe(...) { n -> total }` trailing-lambda calls keep binding to it.
+     */
+    private class Probe(
+        val name: String,
+        val client: HttpClient,
+        val path: String,
+        val pathAt: ((Int) -> String)? = null,
+        val rows: ((Int) -> Int)? = { it },
+    )
 
     private class Person(val id: UInt, val email: String)
 
@@ -85,23 +95,24 @@ class QueryBudgetTest {
         /**
          * THE budget table — one line per endpoint, the measured value (stmt/tx at 1 row -> at 50 rows) in the
          * comment. Measured 2026-10-04 on the development-mode test application (so these include the JWT
-         * blocklist read: 1 statement, 1 transaction, on every authenticated request). The fixed pulse-trend
-         * slope is [PULSE_TREND_PER_CYCLE].
+         * blocklist read: 1 statement, 1 transaction, on every authenticated request).
          */
         val BUDGETS: Map<String, Budget> = mapOf(
             "users?name" to Budget(8, 2), // 8/2 -> 8/2
-            "teams?name" to Budget(3, 2), // 3/2 -> 3/2
-            "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (F8: O(1) per team; the org chart's cost is the SPA's one request per team)
-            // O(n), pinned (F1/F10): two per-row LIMIT 1 lookups (latest 1:1, latest review) on `managed`, ...
-            "teams/members?view=managed" to Budget(18, 11, dStmt = 98), // 18/11 -> 116/11
-            "teams/members?view=managed&includeIndirect" to Budget(22, 11, dStmt = 98), // 22/11 -> 120/11
-            // ... one per-row latest-1:1 lookup (`latestStatsByKey`) on `managers` (F17: not in F1, found by this test).
-            "teams/members?view=managers" to Budget(8, 7, dStmt = 49), // 8/7 -> 57/7
+            "users?id" to Budget(8, 2), // 8/2 -> 8/2 (v4.15.0: the drill-down name lookup; IN over 1 vs 50 ids)
+            "teams?name" to Budget(4, 2), // 4/2 -> 4/2 (v4.14.0: +1 grouped memberIds statement per page)
+            "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1); the org chart reads memberIds from the teams list, F8)
+            // F1/F10/F17, fixed in v4.14.0: one DISTINCT ON statement per enrichment (latest 1:1, latest review on
+            // `managed`; latest 1:1 on `managers`) instead of one LIMIT 1 lookup per row.
+            "teams/members?view=managed" to Budget(18, 11), // 18/11 -> 18/11
+            "teams/members?view=managed&includeIndirect" to Budget(20, 11), // 20/11 -> 20/11
+            "teams/members?view=managers" to Budget(8, 7), // 8/7 -> 8/7
             "teams/members?view=member" to Budget(9, 8), // 9/8 -> 9/8
             "dashboard/summary" to Budget(10, 8), // 10/8 -> 10/8 (F11)
-            // O(n), pinned (F17): one latest-meeting LIMIT 1 per distinct (manager, subordinate) pair on the page.
-            "one-on-ones?view=managed" to Budget(6, 2, dStmt = 49), // 6/2 -> 55/2
-            "one-on-ones?view=managed&latestOnly" to Budget(6, 2, dStmt = 49), // 6/2 -> 55/2
+            // F17, fixed in v4.14.0: `isLatest` is one DISTINCT ON statement over the page's pairs, not one per pair.
+            // F12, fixed in v4.15.0: `latestOnly` is a DISTINCT ON subquery + the V92 index — the gain is time, the count stays 6/2.
+            "one-on-ones?view=managed" to Budget(6, 2), // 6/2 -> 6/2
+            "one-on-ones?view=managed&latestOnly" to Budget(6, 2), // 6/2 -> 6/2
             "goals?view=managed" to Budget(4, 2), // 4/2 -> 4/2
             "performance-reviews?view=managed" to Budget(3, 2), // 3/2 -> 3/2
             "performance-reviews?view=all" to Budget(3, 2), // 3/2 -> 3/2
@@ -124,10 +135,12 @@ class QueryBudgetTest {
             "shares?view=withMe" to Budget(3, 2), // 3/2 -> 3/2
             "shares?view=byMe" to Budget(3, 2), // 3/2 -> 3/2
             "users/{id}/activity" to Budget(10, 3), // 10/3 -> 10/3 (own log: 1 sign-in event + 2 rows per goal)
+            // Measured before and after adding 9 closed cycles (not rows): F7 fixed in v4.14.0 — one transaction, two set-based statements.
+            // v4.15.0 (F16): `readRef` — one statement, the unused memberIds select is gone — and the HR trend skips the share lookup.
+            "pulse-surveys/trend" to Budget(6, 5), // 8/6 -> 6/5 (HR, direct; was 2 stmt + 2 tx per closed cycle before v4.14.0)
+            "pulse-surveys/cycles/{id}/results" to Budget(9, 7), // 10/7 -> 9/7 (HR, direct; current + previous cycle in one tx)
+            "pulse-surveys/cycles/{id}/comments" to Budget(6, 6), // 7/6 -> 6/6 (HR, direct; >= 3 responders so the comments read runs)
         )
-
-        /** F7 in `perf/baselines/FINDINGS.md`: the pulse trend costs 2 statements + 2 transactions per closed cycle. */
-        val PULSE_TREND_PER_CYCLE = Cost(2, 2)
     }
 
     // ---- fixtures ----
@@ -175,7 +188,8 @@ class QueryBudgetTest {
 
     private class Reading(val cost: Cost, val total: Int?)
 
-    private suspend fun Probe.fetch(): Reading {
+    private suspend fun Probe.fetch(n: Int): Reading {
+        val path = pathAt?.invoke(n) ?: path
         val response = client.get(path)
         assertEquals(HttpStatusCode.OK, response.status, "$name: GET $path")
         val header = assertNotNull(response.headers["Server-Timing"], "$name: no Server-Timing header (dev mode, authenticated)")
@@ -188,9 +202,9 @@ class QueryBudgetTest {
     private suspend fun Probe.measure(n: Int): Cost {
         // The warm-up absorbs one-off work that is not the endpoint's own cost: the feedback lists sweep overdue
         // REQUESTED rows left by other tests of the shared container on the first read (extra statements, once).
-        fetch()
-        val first = fetch()
-        val second = fetch()
+        fetch(n)
+        val first = fetch(n)
+        val second = fetch(n)
         assertEquals(first.cost, second.cost, "$name: two identical requests cost different statement counts")
         val expected = rows?.invoke(n)
         if (expected != null) assertEquals(expected, first.total, "$name: the page must report $expected rows at n=$n")
@@ -262,6 +276,10 @@ class QueryBudgetTest {
                 val ownerClient = authedClient(owner.email, PASSWORD)
                 listOf(
                     Probe("users?name", adminClient, "/api/v1/users?name=$tag-s&pageSize=100"),
+                    Probe(
+                        "users?id", adminClient, "",
+                        pathAt = { n -> "/api/v1/users?" + org.subs.take(n).joinToString("&") { "id=${it.id}" } + "&pageSize=100" },
+                    ),
                     Probe("teams?name", ownerClient, "/api/v1/teams?name=$tag-x&pageSize=100"),
                     Probe("teams/{id}", ownerClient, "/api/v1/teams/$firstTeam", rows = null),
                 )
@@ -507,44 +525,54 @@ class QueryBudgetTest {
     )
 
     /**
-     * The pulse trend is O(cycles) per team (F7, 2 statements + 2 transactions per closed cycle) and its absolute cost
-     * depends on how many closed cycles the shared container already holds, so only the per-cycle slope is pinned: add
-     * closed cycles (3 respondents each, so the point is computed, not skipped) and the delta must be
-     * cycles x [PULSE_TREND_PER_CYCLE].
+     * The pulse trend and results (and, since v4.15.0, comments) reads. Trend and results read every visible
+     * cycle in one transaction with two set-based statements (F7, fixed in v4.14.0), so the cost no longer
+     * depends on how many closed cycles exist. The fixture adds 9 more closed cycles (3 respondents each, so
+     * the point is computed, not skipped) between the two measurements: equal trend cost before and after is
+     * the proof. The results and comments probes read one of those cycles (+ its previous cycle for results),
+     * which is the same cycle at both measurements, so their pin is the absolute budget.
      */
     @Test
-    fun `pulse trend costs a pinned amount per closed cycle`() = testApplication {
+    fun `pulse trend, results and comments cost the same at any number of closed cycles`() = testApplication {
         usePostgresTestcontainer()
         TestPulse.sweepNonTerminal()
         val tag = tag()
         val org = org(tag)
         org.grow(3)
         val hr = person("qb-hr", "HR", roles = setOf(UserRole.HR))
-        val probe = Probe(
-            "pulse-surveys/trend", authedClient(hr.email, PASSWORD),
-            "/api/v1/pulse-surveys/trend?teamId=${org.teamId}&mode=direct", rows = null,
-        )
 
-        suspend fun addCycles(count: Int) {
+        suspend fun addCycles(count: Int): UInt {
             val base = TestPulse.closedAtAfterAll()
+            var last = 0u
             repeat(count) { i ->
-                TestPulse.closedCycleWith(
+                last = TestPulse.closedCycleWith(
                     respondents = org.subs.take(3).associate { it.id to answers(9) },
                     closedAt = base + i * 10_000L,
-                )
+                ).id
             }
+            return last
         }
 
-        addCycles(1)
-        val small = probe.measure(SMALL)
-        val added = 9
-        addCycles(added)
-        val large = probe.measure(SMALL + added)
-        println("QUERY-BUDGET pulse-surveys/trend: stmt ${small.stmt} -> ${large.stmt}, tx ${small.tx} -> ${large.tx} (+$added cycles)")
-        assertEquals(
-            Cost(added * PULSE_TREND_PER_CYCLE.stmt, added * PULSE_TREND_PER_CYCLE.tx),
-            Cost(large.stmt - small.stmt, large.tx - small.tx),
-            "the trend's per-cycle cost is pinned (F7 in perf/baselines/FINDINGS.md): a change either way updates PULSE_TREND_PER_CYCLE",
+        val resultsCycle = addCycles(2)
+        val client = authedClient(hr.email, PASSWORD)
+        val probes = listOf(
+            Probe(
+                "pulse-surveys/trend", client,
+                "/api/v1/pulse-surveys/trend?teamId=${org.teamId}&mode=direct", rows = null,
+            ),
+            Probe(
+                "pulse-surveys/cycles/{id}/results", client,
+                "/api/v1/pulse-surveys/cycles/$resultsCycle/results?teamId=${org.teamId}&mode=direct", rows = null,
+            ),
+            Probe(
+                "pulse-surveys/cycles/{id}/comments", client,
+                "/api/v1/pulse-surveys/cycles/$resultsCycle/comments?teamId=${org.teamId}&mode=direct", rows = null,
+            ),
         )
+        val small = probes.map { it.measure(SMALL) }
+        addCycles(9)
+        val large = probes.map { it.measure(SMALL + 9) }
+        val failures = probes.indices.mapNotNull { evaluate(probes[it].name, small[it], large[it]) }
+        assertTrue(failures.isEmpty(), "query budgets violated:\n" + failures.joinToString("\n"))
     }
 }

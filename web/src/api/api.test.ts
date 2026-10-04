@@ -1,3 +1,4 @@
+import "../test/withPolish";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ApiError, authedFetch, buildQuery, jsonRequest, shouldRetryQuery } from "./http";
 import {
@@ -167,7 +168,7 @@ describe("login", () => {
       // The V61 sync: the server's stored language wins over the device default.
       mockFetch.mockResolvedValue(jsonResponse(200, tokenPair({ language: "pl" })));
       await login({ email: "a@b", password: "pw" });
-      expect(i18n.resolvedLanguage).toBe("pl");
+      await vi.waitFor(() => expect(i18n.resolvedLanguage).toBe("pl"));
 
       // A mid-deploy older server without the field leaves the UI language untouched.
       await i18n.changeLanguage("en");

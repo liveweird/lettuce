@@ -141,6 +141,7 @@ export default function MyTeamsTable() {
 
       <PaginationBar
         total={total}
+        pending={isLoading && !data}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

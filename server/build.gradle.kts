@@ -45,20 +45,23 @@ application {
     // Footprint tuning for this small, I/O-bound, low-traffic service. Baked into the installDist
     // launcher (bin/server → the Docker image) and `:server:run`; `test` is unaffected. Measured on
     // a 512 MiB Linux container (5 warm requests): baseline G1 drifts ~345→410 MiB RSS as it grows
-    // its heap; this config sits at a steady ~270 MiB (deterministic across runs) — ~25% lower and
-    // predictable. Startup is ~1.6 s either way; the win is memory, not startup.
+    // its heap; this config (measured with C1-only, before C2 came back) sat at a steady ~270 MiB
+    // (deterministic across runs) — ~25% lower and predictable. Startup is ~1.6 s either way; the
+    // win is memory, not startup.
     //   - UseSerialGC        : G1's concurrent threads + region metadata are pure overhead for a
     //                          small heap / few cores; SerialGC alone saved ~75 MiB here.
     //   - Xmx256m            : the app holds no large caches; 256 MiB is comfortable headroom for
     //                          light bursts (drop to 192m to trim ~25 MiB more if traffic stays low).
-    //   - TieredStopAtLevel=1: C1-only JIT — trims code-cache + C2-compiler memory (~50 MiB here).
-    //                          Peak CPU-bound throughput is lower, which is irrelevant for an
-    //                          I/O-bound tool; REMOVE this flag if the service ever runs hot.
+    // C2 is ON (the JIT default; since v4.14.0 — the former `-XX:TieredStopAtLevel=1` C1-only flag is
+    // gone). perf/baselines FINDINGS F20 (50-VU closed loop): C2 gave +67 % requests and halved the
+    // page p50 (2 081 -> 1 005 ms); C1-only had saved ~50 MiB of code cache + compiler memory.
+    // RSS with C2 on (perf baseline 2026-10-04-ce513a41): ~270-310 MiB idle, ~400 MiB p50 and 427 MiB
+    // peak under the 50-VU closed loop (C1-only: 268 / 330 / 337 MiB). To restore the old
+    // footprint on a memory-starved host: JAVA_OPTS=-XX:TieredStopAtLevel=1.
     // Override per-deployment with the JAVA_OPTS / SERVER_OPTS env vars (the launcher appends both).
     applicationDefaultJvmArgs = listOf(
         "-XX:+UseSerialGC",
         "-Xmx256m",
-        "-XX:TieredStopAtLevel=1",
     )
 }
 
@@ -97,10 +100,12 @@ dependencies {
     implementation(ktorLibs.server.auth)
     implementation(ktorLibs.server.auth.jwt)
     implementation(ktorLibs.server.autoHeadResponse)
+    implementation(ktorLibs.server.bodyLimit)
     implementation(ktorLibs.server.cachingHeaders)
     implementation(ktorLibs.server.callId)
     implementation(ktorLibs.server.callLogging)
     implementation(ktorLibs.server.compression)
+    implementation(ktorLibs.server.conditionalHeaders)
     implementation(ktorLibs.server.config.yaml)
     implementation(ktorLibs.server.contentNegotiation)
     implementation(ktorLibs.server.core)
@@ -131,6 +136,8 @@ dependencies {
     implementation(libs.graphql.java)
     implementation(libs.logback.classic)
     implementation(libs.opentelemetry.logbackAppender)
+    // DB spans (M4 step 12): wraps the pool in infra/db/Database.kt; versionless — the alpha BOM in :core pins it.
+    implementation(libs.opentelemetry.r2dbcInstrumentation)
     implementation(libs.postgresql)
     implementation(libs.r2dbc.postgresql)
     // Netty alignment — see the `netty` comment in gradle/libs.versions.toml: the BOM pins every

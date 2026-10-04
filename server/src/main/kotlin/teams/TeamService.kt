@@ -130,6 +130,17 @@ class TeamService(val database: R2dbcDatabase) {
             .sortedBy { it.name }
     }
 
+    /**
+     * (id, name) of ONE non-deleted team — one statement, for callers that need only the name
+     * (the pulse results/comments/trend handlers; [read] also loads the member ids, v4.15.0).
+     */
+    suspend fun readRef(id: UInt): TeamRef? = suspendTransaction(database) {
+        Teams.select(Teams.id, Teams.name)
+            .where { (Teams.id eq id) and active() }
+            .map { TeamRef(id = it[Teams.id].value, name = it[Teams.name]) }
+            .singleOrNull()
+    }
+
     /** Every non-deleted team, name-ascending (the HR org-wide scope). */
     suspend fun allTeamRefs(): List<TeamRef> = suspendTransaction(database) {
         Teams.select(Teams.id, Teams.name)
@@ -304,7 +315,7 @@ class TeamService(val database: R2dbcDatabase) {
             }
             val join = Teams innerJoin UserService.Users
             val total = join.selectAll().where { predicate }.count()
-            val rows = join
+            val pageRows = join
                 .select(
                     Teams.id,
                     Teams.name,
@@ -314,16 +325,28 @@ class TeamService(val database: R2dbcDatabase) {
                 )
                 .where { predicate }
                 .applyPaging(paging, SORTABLE_COLUMNS)
-                .map { row ->
-                    TeamListItem(
-                        id = row[Teams.id].value,
-                        name = row[Teams.name],
-                        managerId = row[Teams.managerId].value,
-                        managerName = row[UserService.Users.name],
-                        managerDeleted = row[UserService.Users.markedAsDeleted],
-                    )
-                }
                 .toList()
+            // ONE grouped statement for the whole page (the users-list `teams` idiom); like
+            // readDetail, no soft-deleted-user filter, so the ids equal GET /teams/{id}'s.
+            val memberIdsByTeam = if (pageRows.isEmpty()) {
+                emptyMap()
+            } else {
+                TeamMembers
+                    .select(TeamMembers.teamId, TeamMembers.userId)
+                    .where { TeamMembers.teamId inList pageRows.map { it[Teams.id].value } }
+                    .toList()
+                    .groupBy({ it[TeamMembers.teamId].value }, { it[TeamMembers.userId].value })
+            }
+            val rows = pageRows.map { row ->
+                TeamListItem(
+                    id = row[Teams.id].value,
+                    name = row[Teams.name],
+                    managerId = row[Teams.managerId].value,
+                    managerName = row[UserService.Users.name],
+                    managerDeleted = row[UserService.Users.markedAsDeleted],
+                    memberIds = memberIdsByTeam[row[Teams.id].value].orEmpty().sorted(),
+                )
+            }
             TeamListResult(items = rows, total = total)
         }
 
