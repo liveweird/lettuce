@@ -168,11 +168,12 @@ spec:
             - containerPort: 8080
               protocol: TCP
           # Sized for the tuned JVM baked into the image (SerialGC + -Xmx256m, C2 on since v4.14.0):
-          # ~TODO(v4.14.0-rss) MiB RSS under load. Request covers steady state; the 512 MiB limit bounds it with headroom.
+          # ~270-310 MiB RSS idle, ~400 MiB under load, 427 MiB at the 50-VU closed-loop peak (perf baseline
+          # 2026-10-04-ce513a41). The request reserves the loaded footprint; the 512 MiB limit bounds the peak.
           resources:
             requests:
               cpu: "250m"
-              memory: "384Mi"
+              memory: "448Mi"
             limits:
               memory: "512Mi"
           # Pod hardening (Checkup #34 Tier A): the image already runs as numeric uid/gid 1000

@@ -100,7 +100,8 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     # Ceiling for the tuned JVM (SerialGC + -Xmx256m, C2 on since v4.14.0, baked into bin/server):
-    # ~TODO(v4.14.0-rss) MiB RSS under load, so 512 MiB leaves headroom and bounds the container.
+    # ~270-310 MiB RSS idle, ~400 MiB under load, 427 MiB at the 50-VU closed-loop peak (v4.14.0
+    # baseline 2026-10-04-ce513a41), so 512 MiB leaves headroom and bounds the container.
     mem_limit: 512m
     # Liveness for `docker compose ps` / `docker inspect` (checkup #38 A1): /healthz is process-alive
     # only, never touches the DB (so a PostgreSQL blip does not flip the app unhealthy — /readyz is the

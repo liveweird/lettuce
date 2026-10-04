@@ -55,7 +55,8 @@ application {
     // C2 is ON (the JIT default; since v4.14.0 — the former `-XX:TieredStopAtLevel=1` C1-only flag is
     // gone). perf/baselines FINDINGS F20 (50-VU closed loop): C2 gave +67 % requests and halved the
     // page p50 (2 081 -> 1 005 ms); C1-only had saved ~50 MiB of code cache + compiler memory.
-    // Steady RSS with C2 on: TODO(v4.14.0-rss) (measured value goes here). To restore the old
+    // RSS with C2 on (perf baseline 2026-10-04-ce513a41): ~270-310 MiB idle, ~400 MiB p50 and 427 MiB
+    // peak under the 50-VU closed loop (C1-only: 268 / 330 / 337 MiB). To restore the old
     // footprint on a memory-starved host: JAVA_OPTS=-XX:TieredStopAtLevel=1.
     // Override per-deployment with the JAVA_OPTS / SERVER_OPTS env vars (the launcher appends both).
     applicationDefaultJvmArgs = listOf(
