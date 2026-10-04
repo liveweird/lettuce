@@ -52,14 +52,15 @@ export function parseServerTiming(res) {
 }
 
 /** Records one response; returns its numbers for the caller's chain/screen sums. */
-export function recordRequest(res, tags) {
+export function recordRequest(res, tags, anonymous = false) {
   const wall = res.timings.duration;
   reqWall.add(wall, tags);
   const bytes = res.body ? res.body.length : 0;
   reqBytes.add(bytes, tags);
   const st = parseServerTiming(res);
   if (st === null) {
-    serverTimingMissing.add(1, tags);
+    // Anonymous responses (login) carry no Server-Timing by design (an enumeration oracle otherwise).
+    if (!anonymous) serverTimingMissing.add(1, tags);
     return { wall, db: 0, stmt: 0, tx: 0 };
   }
   reqDb.add(st.db, tags);
@@ -68,3 +69,8 @@ export function recordRequest(res, tags) {
   reqTx.add(st.tx, tags);
   return { wall, db: st.db, stmt: st.stmt, tx: st.tx };
 }
+
+// Per screen load, scenarios built on lib/replay.js (every one tagged persona + screen): `screen_wall_ms` there is the
+// REAL elapsed time of the load (dependent requests in sequence, simultaneous ones through http.batch, like the
+// browser), `screen_seq_ms` the sum of the individual request durations (the work, whatever overlapped).
+export const screenSeq = new Trend('screen_seq_ms', true);

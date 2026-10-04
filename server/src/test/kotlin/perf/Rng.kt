@@ -15,11 +15,17 @@ class Rng(seed: Long, stream: String) {
     /** Uniform in `[from, toInclusive]`. */
     fun int(from: Int, toInclusive: Int): Int = random.nextInt(from, toInclusive + 1)
 
+    /** Uniform in `[from, toInclusive]`. */
+    fun long(from: Long, toInclusive: Long): Long = random.nextLong(from, toInclusive + 1)
+
     fun double(): Double = random.nextDouble()
 
     fun chance(probability: Double): Boolean = random.nextDouble() < probability
 
     fun <T> pick(items: List<T>): T = items[random.nextInt(items.size)]
+
+    /** [items] in a random order (deterministic for the stream's state). */
+    fun <T> shuffled(items: List<T>): List<T> = items.shuffled(random)
 
     /** A rough bell curve: the mean of three uniform draws, scaled to [mean] ± ~[spread], clamped. */
     fun bell(mean: Double, spread: Double, min: Int, max: Int): Int {

@@ -17,6 +17,7 @@ import ch.nokillswit.daysoff.DaysOffService
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import java.nio.file.Files
+import java.nio.file.Path
 import java.sql.DriverManager
 import java.time.LocalDate
 import java.util.UUID
@@ -51,6 +52,25 @@ private class ScratchDatabase {
         .use { c ->
             c.createStatement().executeQuery(sql).use { rs -> generateSequence { if (rs.next()) rs.getString(1) else null }.toList() }
         }
+
+    /**
+     * Runs the checks of `perf/pg/verify.sql` — the post-seed assertions the perf run executes with psql — over JDBC on
+     * ONE connection (its temp table `verify_checks` must outlive the script) and returns the failed ones as
+     * `name (violations)`; empty = every check passed. The psql meta-commands (`\set …`) are dropped, and the script is cut
+     * at its "Report + gate" marker: the gate's RAISE would abort the implicit transaction and take the temp table with it,
+     * so the failed rows are read back here instead (the row counts after the gate only report). The checks themselves
+     * hold at every scale, so nothing is parameterised.
+     */
+    fun verify(script: String): List<String> {
+        val marker = "-- Report + gate."
+        check(marker in script) { "perf/pg/verify.sql lost its '$marker' marker" }
+        val sql = script.substringBefore(marker).lines().filterNot { it.trimStart().startsWith("\\") }.joinToString("\n")
+        return DriverManager.getConnection(jdbcUrl, PostgresTestSupport.user, PostgresTestSupport.password).use { c ->
+            c.createStatement().execute(sql)
+            val failing = "SELECT name || ' (' || violations || ')' FROM verify_checks WHERE violations > 0 ORDER BY 1"
+            c.createStatement().executeQuery(failing).use { rs -> generateSequence { if (rs.next()) rs.getString(1) else null }.toList() }
+        }
+    }
 }
 
 /**
@@ -59,7 +79,8 @@ private class ScratchDatabase {
  * column without a default, a CHECK or FK the generated rows violate. Asserts it completes, that every
  * [Seeded] table received at least one row, that no plaintext sits in an encrypted column — the ten
  * `EncryptedAtRest` backfills find nothing to rewrite — and that [ENCRYPTED_COLUMNS] mirrors reality in both
- * directions.
+ * directions. It also runs `perf/pg/verify.sql` over the scratch database (every check must hold) and requires rows
+ * beyond the Flyway seeds in `public_holidays` and `days_off_pool_types`.
  */
 class PerfSeedSmokeTest {
 
@@ -69,7 +90,8 @@ class PerfSeedSmokeTest {
         user = PostgresTestSupport.user,
         password = PostgresTestSupport.password,
         key = DEV_DATA_ENCRYPTION_KEY,
-        anchor = LocalDate.of(2026, 10, 1),
+        // 2028: the history reaches past the V41 migration's holiday years, so the generator's holiday top-up is exercised.
+        anchor = LocalDate.of(2028, 3, 1),
         seed = 7,
         scale = 0.02,
         outDir = Files.createTempDirectory("perf-smoke"),
@@ -91,6 +113,16 @@ class PerfSeedSmokeTest {
             val result = runSeed(config(scratch), log = {})
             val empty = Seeded.names.filter { result.counts.getValue(it) == 0L }
             assertTrue(empty.isEmpty(), "every seeded table must get at least one row; empty: $empty")
+
+            // Rows beyond the Flyway seeds (V41's 2026-2027 holidays, V74's default pool kind), so these two cannot pass vacuously.
+            val extraHolidays = scratch.query("SELECT count(*) FROM public_holidays WHERE holiday_date > '2027-12-31'").single().toLong()
+            assertTrue(extraHolidays > 0, "the generator must add public holidays beyond the migration-seeded 2026-2027 years")
+            val extraPools = scratch.query("SELECT count(*) FROM days_off_pool_types WHERE name <> 'Paid days off'").single().toLong()
+            assertTrue(extraPools > 0, "the generator must add a pool kind beyond the migration-seeded default")
+
+            // The dataset contract: every invariant of perf/pg/verify.sql holds on the generated rows.
+            val failed = scratch.verify(Files.readString(Path.of("..", "perf", "pg", "verify.sql")))
+            assertEquals(emptyList(), failed, "perf/pg/verify.sql checks failed")
 
             // Nothing to backfill: a registered column the generator wrote as plaintext would be rewritten.
             val db = R2dbcDatabase.connect(scratch.r2dbcUrl, user = PostgresTestSupport.user, password = PostgresTestSupport.password)

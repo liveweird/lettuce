@@ -136,6 +136,13 @@ suspend fun runSeed(config: SeedConfig, log: (String) -> Unit = ::println): Seed
     step("one-on-ones", started, log) { seedOneOnOnes(ctx, org, mint) }
     step("goals", started, log) { seedGoals(ctx, org, mint) }
     step("feedbacks", started, log) { seedFeedbacks(ctx, org, mint) }
+    step("pulse", started, log) { seedPulse(ctx, org, mint) }
+    step("team-kpis", started, log) { seedTeamKpis(ctx, org, mint) }
+    step("days-off", started, log) { seedDaysOff(ctx, org, mint) }
+    step("impact-log", started, log) { seedImpactLog(ctx, org, mint) }
+    step("succession", started, log) { seedSuccession(ctx, org) }
+    step("shares", started, log) { seedShares(ctx, org, mint) }
+    step("account-events", started, log) { seedAccountEvents(ctx, org) }
     step("notifications", started, log) { mint.finish() }
     return SeedResult(spec, rowCounts(db), mint, (System.nanoTime() - started) / 1_000_000_000)
 }

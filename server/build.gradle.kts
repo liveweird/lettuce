@@ -174,7 +174,7 @@ tasks.withType<Test> {
 // host. PERF_SEED_PASSWORD / PERF_SEED_KEY in the environment win over -P (keep secrets off command lines).
 val perfSeed by tasks.registering(JavaExec::class) {
     group = "other"
-    description = "Seeds the perf database with the deterministic M1 capacity dataset (perf/run.sh seed)."
+    description = "Seeds the perf database with the deterministic capacity dataset (perf/run.sh seed)."
     classpath = sourceSets.test.get().runtimeClasspath
     mainClass = "ch.nokillswit.perf.SeedMainKt"
     workingDir = rootProject.projectDir

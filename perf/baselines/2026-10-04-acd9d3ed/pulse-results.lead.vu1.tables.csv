@@ -1,0 +1,16 @@
+relname,seq_scan,seq_tup_read,idx_scan,idx_tup_fetch,n_tup_ins,n_tup_upd,n_tup_del,est_rows,total_size
+teams,306,25704,30,30,0,0,0,84,56 kB
+team_members,48,24864,99,459,0,0,0,518,112 kB
+pulse_cycles,42,5460,0,0,0,0,0,130,128 kB
+users,3,1569,52,52,0,1,0,522,336 kB
+dictionary_entries,12,384,0,0,0,0,0,32,64 kB
+user_roles,13,39,0,0,0,0,0,2,40 kB
+login_lockouts,2,1,1,0,1,0,1,0,40 kB
+pulse_responses,0,0,2217,6627,0,0,0,59749,30 MB
+pulse_participants,0,0,1020,0,0,0,0,66300,5448 kB
+notifications,0,0,24,10512,0,0,0,91812,21 MB
+document_shares,0,0,24,0,0,0,0,11416,3320 kB
+user_disabled_features,0,0,13,26,0,0,0,1044,160 kB
+user_career_positions,0,0,12,12,0,0,0,782,256 kB
+revoked_tokens,96,0,0,0,0,0,0,0,16 kB
+alerts,12,0,0,0,0,0,0,0,24 kB

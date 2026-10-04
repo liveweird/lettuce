@@ -182,7 +182,8 @@ private class FeedbackStory(
     var lastModified: Long = ctx.millis(created, 9)
         private set
 
-    private fun at(): Long = ctx.millis(day, 9, minute++).also { lastModified = it }
+    /** The next step's moment; past the anchor, scattered over the last 30 days (never before the previous step). */
+    private fun at(rng: Rng): Long = ctx.spreadMillis(rng, ctx.rawMillis(day, 9, minute++), floor = lastModified).also { lastModified = it }
 
     /** The recipients' direct managers, with each manager's own recipients — what the SENT notes need. */
     private fun managerMaps(): Pair<Map<UInt, String>, Map<UInt, Set<UInt>>> {
@@ -196,7 +197,7 @@ private class FeedbackStory(
         val creator = stored.requesterId ?: stored.providerId
         val first = stored.copy(status = path.statuses.first())
         val creation = feedbackCreationEvent(first)
-        val createdAt = at()
+        val createdAt = at(rng)
         events.add(EventRow(eventIds.take(), id, creator, createdAt, creation.type.name, creation.params))
         mint.emitAll(feedbackCreationNotifications(id, first, org.names, managerNames, recipientsByManager), createdAt)
         path.statuses.zipWithNext().forEach { (from, to) ->
@@ -204,7 +205,7 @@ private class FeedbackStory(
             val before = stored.copy(status = from)
             val after = stored.copy(status = to)
             val update = checkNotNull(feedbackUpdateEvent(before, after)) { "a status edge always mints an event" }
-            val atEdge = at()
+            val atEdge = at(rng)
             events.add(EventRow(eventIds.take(), id, stored.providerId, atEdge, update.type.name, update.params))
             mint.emitAll(
                 feedbackTransitionNotifications(id, from, after, org.names, managerNames, recipientsByManager),
