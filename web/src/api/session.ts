@@ -1,7 +1,7 @@
 // Session state — token/roles/feature-flag storage and the render-time accessors
 // (transport lives in ./http).
 
-import i18n, { asSupportedLanguage } from "../i18n";
+import { asSupportedLanguage, switchLanguage, targetLanguage } from "../i18n";
 import type { components } from "./schema";
 
 type LoginSuccess = components["schemas"]["LoginResponse"];
@@ -325,7 +325,7 @@ export function clearSession(): void {
 // Persist the access + refresh pair (and the current roles/userId/feature flags) returned by
 // /login, /login/mfa, or /refresh. `?? []` keeps a mid-deploy older server (no disabledFeatures
 // yet) harmless.
-function writeSession(data: LoginSuccess): void {
+function writeSession(data: LoginSuccess, newSession: boolean): void {
   setToken(data.token);
   setRefreshToken(data.refreshToken);
   localStorage.setItem(ROLES_KEY, JSON.stringify(data.roles));
@@ -333,19 +333,25 @@ function writeSession(data: LoginSuccess): void {
   localStorage.setItem(DISABLED_FEATURES_KEY, JSON.stringify(data.disabledFeatures ?? []));
   // Apply the user's stored language (V61) — one chokepoint covers login, the MFA step, and
   // the silent refresh (so an admin change propagates within the refresh window). The
-  // inequality guard avoids re-firing languageChanged app-wide on every refresh; the
   // data.language truthiness guard keeps a mid-deploy older server harmless (the
-  // disabledFeatures ?? [] precedent). changeLanguage caches to lettuce.lang, so the stored
-  // language also becomes the device language.
-  const lang = asSupportedLanguage(data.language);
-  if (data.language && lang !== asSupportedLanguage(i18n.resolvedLanguage)) {
-    void i18n.changeLanguage(lang);
+  // disabledFeatures ?? [] precedent). switchLanguage records the preference at once (so the
+  // stored language also becomes the device language), loads the bundle (a server-stored non-EN
+  // language never renders English) and is latest-call-wins, so a still-loading switch left over
+  // from a PREVIOUS session can never apply to this one. A login is a session boundary and always
+  // switches (superseding any leftover); a refresh compares against the TARGET language — not the
+  // rendered one — so it neither re-fires languageChanged app-wide on every refresh nor undoes a
+  // still-loading switch of this same session.
+  if (data.language) {
+    const lang = asSupportedLanguage(data.language);
+    if (newSession || lang !== targetLanguage()) {
+      switchLanguage(lang).catch((e) => console.error("Language switch failed", e));
+    }
   }
 }
 
 /** A completed login always starts a new cache/component-state boundary. */
 export function persistSession(data: LoginSuccess): void {
-  writeSession(data);
+  writeSession(data, true);
   publishSessionChange(true);
 }
 
@@ -354,7 +360,7 @@ export function persistRefreshedSession(data: LoginSuccess): SessionSnapshot {
   const authorizationChanged = JSON.stringify([...getRoles()].sort()) !== JSON.stringify([...data.roles].sort())
     || JSON.stringify([...getDisabledFeatures()].sort())
       !== JSON.stringify([...(data.disabledFeatures ?? [])].sort());
-  writeSession(data);
+  writeSession(data, false);
   publishSessionChange(authorizationChanged);
   return captureSession();
 }

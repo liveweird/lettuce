@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.15.1",
+    date: "2026-10-04",
+    en: `Faster first paint. Every page now appears about a third of a second sooner on a fresh load: the app fetches the page's code before it draws, so the spinner that used to sit between the shell and the content is gone. The first visit after a deploy downloads about 30% less — the app's own files are now 8 instead of 38, the Polish texts load only for people who use Polish, the announcement banner's text renderer loads in the background once the page is idle instead of with the first load, and the calendar styles load with the first date picker. Nothing else changes.`,
+    pl: `Szybsze pierwsze wyświetlenie. Każda strona pojawia się teraz około jednej trzeciej sekundy wcześniej przy świeżym wczytaniu: aplikacja pobiera kod strony, zanim ją narysuje, więc zniknął wskaźnik ładowania, który pokazywał się między powłoką a treścią. Pierwsza wizyta po wdrożeniu pobiera około 30% mniej — pliki aplikacji to teraz 8 zamiast 38, polskie teksty wczytują się tylko osobom używającym polskiego, renderer tekstu baneru ogłoszeń wczytuje się w tle, gdy strona jest bezczynna, a nie razem z pierwszym wczytaniem, a style kalendarza wczytują się razem z pierwszym polem daty. Nic innego się nie zmienia.`,
+  },
+  {
     version: "4.15.0",
     date: "2026-10-04",
     en: `Faster drill-down pages and 1:1 lists. Opening a person's activity, 1:1 meetings, goals, reviews, days off, impact log, succession plans or teams from a card now looks up that one person instead of loading the whole directory first — five requests fewer on every such page, and the same for the manager filter on the "Teams" screen. The "Latest 1:1 only" filter on the 1:1 lists is answered by a new database index and a leaner query: for a manager with many reports it is now about as fast as the plain list (it used to take several times longer). On the pulse "Results" tab each team card is read with fewer queries, and the small trend chart on a card loads when the card scrolls into view — HR's all-teams view starts with a fraction of the requests. Behind the scenes: the users list accepts a repeated "id" filter, and the query budgets in CI pin the new costs.`,

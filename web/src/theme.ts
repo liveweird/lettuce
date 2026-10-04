@@ -2,19 +2,23 @@ import {
   AppShell,
   Badge,
   Button,
-  Drawer,
-  Modal,
-  MultiSelect,
   NavLink,
-  Select,
-  SegmentedControl,
-  Table,
-  Tabs,
   Tooltip,
   createTheme,
   rem,
-  type MantineColorsTuple, InputWrapper } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+  type DrawerFactory,
+  type DrawerOverlayProps,
+  type ExtendComponent,
+  type InputWrapperFactory,
+  type MantineColorsTuple,
+  type ModalFactory,
+  type MultiSelectFactory,
+  type SegmentedControlFactory,
+  type SelectFactory,
+  type TableFactory,
+  type TabsFactory,
+} from "@mantine/core";
+import type { DateInputFactory } from "@mantine/dates";
 import classes from "./theme.module.css";
 import { foldedOptionsFilter } from "./utils/text";
 
@@ -51,6 +55,13 @@ const BADGE_DIMENSIONS: Record<string, { height: string; fz: string; px: string 
 // lift off with hairline borders rather than shadows. Colour tokens (text, dimmed, borders,
 // the light-variant inks) live in themeVariables.ts. Don't reintroduce stock-blue actions or
 // stock-green success states.
+//
+// Theme overrides for components the shell does NOT render (Table, Select, MultiSelect,
+// SegmentedControl, Tabs, DateInput, InputWrapper, Modal, Drawer) are PLAIN objects checked by a
+// type-only `satisfies ExtendComponent<…Factory>`: `X.extend(input)` is the identity function, but
+// a VALUE import of a component drags that component (Select/Combobox/Popover/Modal/Drawer, the
+// whole calendar layer for DateInput) into the entry chunk. Keep `.extend` only for components
+// the shell renders anyway (AppShell, NavLink, Badge, Button, Tooltip).
 export const theme = createTheme({
   primaryColor: "lettuce",
   // Shade 7 in light mode — deeper, calmer CTAs than the mid-green 6.
@@ -90,10 +101,10 @@ export const theme = createTheme({
     // Every data table in the app: a card-like frame on the quiet canvas, hoverable compact
     // rows (~44px), and a neutral header row (see theme.module.css). New tables inherit all
     // of it — never re-declare these props or add per-table frames.
-    Table: Table.extend({
+    Table: {
       defaultProps: { highlightOnHover: true, verticalSpacing: "xs", horizontalSpacing: "sm", fz: "sm" },
       classNames: { table: classes.table, thead: classes.tableHead },
-    }),
+    } satisfies ExtendComponent<TableFactory>,
     // The shell surfaces: white header/navbar over a tinted main canvas, crisp separators.
     AppShell: AppShell.extend({
       classNames: {
@@ -106,8 +117,8 @@ export const theme = createTheme({
     // Every searchable Select/MultiSelect matches accent-insensitively ("zolw" finds "Żółw"),
     // mirroring the server-side unaccent list filters. A per-site `filter` prop still wins —
     // don't pass one unless it preserves the diacritics folding (see utils/text.ts).
-    Select: Select.extend({ defaultProps: { filter: foldedOptionsFilter } }),
-    MultiSelect: MultiSelect.extend({ defaultProps: { filter: foldedOptionsFilter } }),
+    Select: { defaultProps: { filter: foldedOptionsFilter } } satisfies ExtendComponent<SelectFactory>,
+    MultiSelect: { defaultProps: { filter: foldedOptionsFilter } } satisfies ExtendComponent<MultiSelectFactory>,
     // Sentence-case light pills everywhere (no uppercase shouting); the status components add
     // the hue dot through StatusPill.
     Badge: Badge.extend({
@@ -121,32 +132,36 @@ export const theme = createTheme({
       },
     }),
     Button: Button.extend({ classNames: { root: classes.button } }),
-    SegmentedControl: SegmentedControl.extend({
+    SegmentedControl: {
       classNames: { root: classes.segmentedRoot, control: classes.segmentedControl, label: classes.segmentedLabel },
-    }),
-    Tabs: Tabs.extend({ classNames: { tab: classes.tab } }),
+    } satisfies ExtendComponent<SegmentedControlFactory>,
+    Tabs: { classNames: { tab: classes.tab } } satisfies ExtendComponent<TabsFactory>,
     Tooltip: Tooltip.extend({ defaultProps: { radius: "md", openDelay: 300 } }),
     // Every date picker's calendar marks today (v4.7.0 — the same "where am I" cue as the
     // days-off month grid's today column).
-    DateInput: DateInput.extend({ defaultProps: { highlightToday: true } }),
+    DateInput: { defaultProps: { highlightToday: true } } satisfies ExtendComponent<DateInputFactory>,
     // Every input renders label → input → description → error (v3.5.0): hints and errors
     // sit UNDER the control, so sibling fields in a row stay level whatever their hints.
     // The 17 per-site inputWrapperOrder props this replaced are gone — never re-add one.
-    InputWrapper: InputWrapper.extend({ defaultProps: { inputWrapperOrder: ["label", "input", "description", "error"] } }),
-    Modal: Modal.extend({
+    InputWrapper: {
+      defaultProps: { inputWrapperOrder: ["label", "input", "description", "error"] },
+    } satisfies ExtendComponent<InputWrapperFactory>,
+    Modal: {
       defaultProps: { radius: "md", centered: true, overlayProps: { backgroundOpacity: 0.45, blur: 2 } },
       classNames: { title: classes.dialogTitle },
-    }),
+    } satisfies ExtendComponent<ModalFactory>,
     // The classNames apply to both the plain `<Drawer>` and the compound `<Drawer.Root>`
     // (both style under the "Drawer" name), but defaultProps do NOT: `Drawer.Root` reads
     // "DrawerRoot" and `Drawer.Overlay` reads "DrawerOverlay", so the overlay defaults live on
     // DrawerOverlay — the one place BOTH shapes go through (plain Drawer spreads its own
     // `overlayProps` over it, so a per-site override still wins). `position` reaches the
     // plain shape only; compound drawers (the notifications panel) pass it themselves.
-    Drawer: Drawer.extend({
+    Drawer: {
       defaultProps: { position: "right" },
       classNames: { title: classes.dialogTitle },
-    }),
-    DrawerOverlay: Drawer.Overlay.extend({ defaultProps: { backgroundOpacity: 0.45, blur: 2 } }),
+    } satisfies ExtendComponent<DrawerFactory>,
+    DrawerOverlay: {
+      defaultProps: { backgroundOpacity: 0.45, blur: 2 },
+    } satisfies { defaultProps: Partial<DrawerOverlayProps> }, // (DrawerOverlayFactory is not exported)
   },
 });

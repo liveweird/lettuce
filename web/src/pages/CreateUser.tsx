@@ -24,7 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
 import { isAdmin } from "../api/session";
 import { createUser } from "../api/users";
-import { type SupportedLanguage } from "../i18n";
+import { loadLanguage, type SupportedLanguage } from "../i18n";
 import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
 import PageHeader from "../components/PageHeader";
@@ -79,6 +79,10 @@ export default function CreateUser() {
         ...(values.uniqueId.trim() !== "" ? { uniqueId: values.uniqueId.trim() } : {}),
       });
       await invalidateUser(queryClient);
+      // The onboarding draft is rendered in the NEW USER'S language, whose bundle is lazy (v4.15.1):
+      // register it first, or the draft would silently come out in English. A failed load keeps the
+      // English fallback — the user was created, so it must not turn into an error.
+      await loadLanguage(values.language).catch(() => undefined);
       setCreated({
         email: values.email,
         name: values.name,

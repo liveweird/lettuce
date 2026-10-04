@@ -18,7 +18,8 @@ commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/de
   The tests require the GitHub-hosted runner's Docker daemon for
   Testcontainers.
 - **Web:** a lockfile install with `npm ci --legacy-peer-deps`, followed by `npm run build`,
-  `npm run lint`, `npm run knip`, and `npm run test:coverage`.
+  `npm run lint`, `npm run knip`, and `npm run test:coverage`, then the initial-bundle budget gate
+  (`perf/web/bundle-report.mjs --max-initial-gzip 360000 --max-initial-files 12`, v4.15.1).
 - **API contract:** Spectral CLI 6.15.0 with the repository ruleset at error severity, then
   `npm run gen:api` and a clean-diff assertion for `web/src/api/schema.ts`.
 - **E2E source:** a lockfile install followed by `npm run typecheck` and
@@ -75,7 +76,8 @@ read as real failures) — and never `docker compose down -v` against a long-liv
    `.claude/docs/dependency-reproducibility.md` for an intentional dependency update instead of
    fighting this check).
 3. The **Web** and **E2E source** CI jobs: `cd web && npm run build && npm run lint && npm run knip &&
-   npm run test:coverage`, then `cd e2e && npm run typecheck && npm run check:scenarios`.
+   npm run test:coverage && cd .. && node perf/web/bundle-report.mjs --max-initial-gzip 360000 --max-initial-files 12`,
+   then `cd e2e && npm run typecheck && npm run check:scenarios`.
 4. The **Dependency scan** twin (needs Docker; the job's script in `.github/workflows/quality.yml`
    is authoritative, incl. its Python all-seven-lockfiles check): copy the seven lockfiles into a
    temp dir keeping the `core/`/`server/` layout, then
