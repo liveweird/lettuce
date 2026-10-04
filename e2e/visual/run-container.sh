@@ -4,8 +4,8 @@ set -euo pipefail
 visual_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_dir="$(cd "$visual_dir/../.." && pwd)"
 mode="${1:-compare}"
-if [[ "$mode" != compare && "$mode" != capture ]]; then
-  echo 'Usage: bash e2e/visual/run-container.sh [compare|capture]' >&2
+if [[ "$mode" != compare && "$mode" != capture && "$mode" != compare-candidates ]]; then
+  echo 'Usage: bash e2e/visual/run-container.sh [compare|capture|compare-candidates]' >&2
   exit 2
 fi
 # Explicit opt-in: a separate container still competes with performance benchmarks
@@ -31,23 +31,29 @@ if [[ ! "$image_digest" =~ ^[a-f0-9]{64}$ ]]; then
   echo 'The Playwright image must have a complete SHA-256 digest.' >&2
   exit 2
 fi
-mkdir -p "$visual_dir/snapshots" "$visual_dir/test-results" "$visual_dir/playwright-report"
+mkdir -p "$visual_dir/snapshots" "$visual_dir/candidates" "$visual_dir/test-results" "$visual_dir/playwright-report"
 docker build --platform linux/amd64 \
   --file "$visual_dir/Dockerfile" \
   --build-arg "PLAYWRIGHT_IMAGE=$VISUAL_PLAYWRIGHT_IMAGE" \
   --tag lettuce-desktop-visual:local "$repo_dir"
 
-snapshot_options=,readonly
+candidate_options=,readonly
+use_candidates=0
 update_mode=none
+if [[ "$mode" != compare ]]; then
+  use_candidates=1
+fi
 if [[ "$mode" == capture ]]; then
-  snapshot_options=
+  candidate_options=
   update_mode=all
-  echo 'Writing CANDIDATE baselines. Capture does not constitute visual approval.'
+  echo 'Writing candidates/ only. Approved snapshots/ stay read-only; capture is not approval.'
 fi
 # No published ports, no network access to live services, and no shared dev volumes.
 # Snapshot mounts are read-only during ordinary comparison, even inside the container.
 docker run --rm --platform linux/amd64 --network none --ipc=private --shm-size=1g \
-  --mount "type=bind,src=$visual_dir/snapshots,dst=/workspace/e2e/visual/snapshots$snapshot_options" \
+  --env "VISUAL_CANDIDATES=$use_candidates" \
+  --mount "type=bind,src=$visual_dir/snapshots,dst=/workspace/e2e/visual/snapshots,readonly" \
+  --mount "type=bind,src=$visual_dir/candidates,dst=/workspace/e2e/visual/candidates$candidate_options" \
   --mount "type=bind,src=$visual_dir/test-results,dst=/workspace/e2e/visual/test-results" \
   --mount "type=bind,src=$visual_dir/playwright-report,dst=/workspace/e2e/visual/playwright-report" \
   lettuce-desktop-visual:local --update-snapshots="$update_mode"

@@ -1,16 +1,13 @@
-# Desktop visual pilot — validation and baseline review
+# Desktop visual pilot — historical v4.15.2 validation and baseline review
 
-**Status: accepted baselines.** On 2026-10-04, the repository owner reviewed the linked gallery
-and replied **“I accept”** in the Codex conversation. Approval applies to all 12 images committed
-in `54188569`, including the two visible behaviors documented below. No screenshot pixels were
-changed during activation. The `Desktop visual` job in `quality.yml` now compares this accepted
-set on pull requests, master pushes and manual dispatches. After the first hosted run passed,
-**Desktop visual** was added to master's required checks in the existing GitHub ruleset, preserving
-all earlier protections.
+**Historical record: v4.15.2.** On 2026-10-04, the repository owner reviewed the linked gallery
+and replied **“I accept”** in the Codex conversation. This record applies to the original 12-image
+v4.15.2 set. The current 18-image v4.15.3 approval is recorded in
+[expansion-review.md](expansion-review.md).
 
-- [Browse all 12 images](review.html)
+- [Browse the historical 12 images](review-history/v4.15.2/review.html)
 - [Runtime pin](runtime.json)
-- [Image dimensions, hashes and capture provenance](baseline-manifest.json)
+- [Historical image dimensions, hashes and capture provenance](review-history/v4.15.2/baseline-manifest.json)
 
 ## Source and environment
 
@@ -70,8 +67,8 @@ the normal test and application source remain unchanged.
    Seniority levels, its highlight is partly clipped by the pinned footer; on Pulse questions,
    the active leaf is below the visible scroll area. Independent image/source review confirmed
    that the active group expands without scrolling its active child into view. The page content
-   itself is correct. A sidebar fix remains a separate follow-up; the accepted
-   baseline preserves and documents the observed behavior instead of masking it.
+   itself was correct in the historical capture. This issue was resolved by the approved v4.15.3
+   sidebar fix.
 
 All 12 images were visually inspected across the coordinator and independent reviewer. There
 were no loading/error placeholders, missing content rows or missing row actions. The ordinary
@@ -85,7 +82,8 @@ on PR #110, using commit `d0442d4e` and the approved, unchanged image set.
 
 ## Future baseline changes
 
-This approval establishes the initial comparison reference; it does not close the sidebar issue.
+This historical approval established the initial comparison reference. The sidebar issue was
+resolved by the approved v4.15.3 fix.
 For intentional UI changes, capture affected candidates in the pinned environment, review their
 old/new/diff images, obtain human approval and update the manifest and this record before merging.
 Never regenerate baselines just to silence a CI failure. These tests complement the existing

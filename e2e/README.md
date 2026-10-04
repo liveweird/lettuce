@@ -93,15 +93,19 @@ for any new or edited spec:
 
 ## What's covered
 
-**Separate desktop visual pilot (approved; automatic PR comparisons):**
-[`visual/tests/lists.spec.ts`](scenarios/visual/lists.md) defines 12 screenshot comparisons for
+**Separate desktop visual pilot (18 approved baselines; automatic PR comparisons):**
+[`visual/tests/lists.spec.ts`](scenarios/visual/lists.md) defines the original 12 screenshot comparisons for
 member Received/Provided feedback, all four read-only dictionaries, the administrator dictionary
 editor, and selected Polish/dark desktop states at 1280/1440px. It owns only isolated browser
 fixtures and `visual/` build/report directories, never server state. It does not run through the
-ordinary E2E config. Canonical capture, two unchanged comparisons and deliberate-regression
-detection have been verified against v4.15.2; the owner approved all 12 images on 2026-10-04.
-The **Desktop visual** quality job compares them on PRs and master pushes. See [the image gallery](visual/review.html) and
+ordinary E2E config. The historical v4.15.2 set is preserved separately. On 2026-10-04 the owner replied **“Approved”**
+to the stage 1 gallery, approving 18 v4.15.3 images (the prior 12 plus six Dashboard/Users/Teams
+images), across 15 visual tests including three sidebar geometry tests. The **Desktop visual**
+quality job compares them on PRs and master pushes. See [the image gallery](visual/review.html) and
 [visual/README.md](visual/README.md) for findings, run recipes and approval/activation steps.
+The next review batch is stage 2, covering representative forms and detail pages. See the
+[Dashboard/directory companion](scenarios/visual/people.md) and [expansion review](visual/expansion-review.md).
+
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb
 endpoints through the UI). **Each spec's full design lives in its scenario file under

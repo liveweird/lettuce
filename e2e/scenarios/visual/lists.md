@@ -3,10 +3,12 @@
 - **Spec**: [lists.spec.ts](../../visual/tests/lists.spec.ts)
 - **Actors**: synthetic ordinary team member and administrator; no live accounts.
 - **Owns**: isolated browser contexts and visual build/report directories. No server state.
-- **Status**: canonical capture, two unchanged comparisons and deliberate-regression detection
-  verified against v4.15.2; baselines approved by the repository owner on 2026-10-04.
-  The Desktop visual CI job compares them on every PR and master push. See
+- **Status**: the original 12-image v4.15.2 set is historical; the owner approved the current
+  v4.15.3 stage 1 gallery on 2026-10-04. The 18-image set is the current approved reference used
+  by automatic PR comparisons. See
   [validation and findings](../../visual/baseline-review.md).
+- **Current expansion**: v4.15.3 sidebar/version candidates and the six Dashboard/Users/Teams
+  views are approved for promotion; `candidate-review.html` retains the old/new/diff evidence.
 - **Scope**: desktop web only. Fixed responses render the real SPA; these are visual tests,
   not evidence of backend authorization or end-to-end data correctness.
 - **Capture**: desktop-width full-page images include every row vertically. Normal vertical

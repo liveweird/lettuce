@@ -55,6 +55,14 @@ The SPA is expected to fail gracefully under every failure class — render cras
 - **Route transitions stay inside the shell (v2.24.0)**: the `Suspense` around the Shell's `<Outlet />` keeps header/nav mounted while a lazy page chunk loads; the App-level Suspense only covers the unauthenticated pages.
 - **First route preloaded (v4.15.1)**: pages are `lazyPage(() => import(...))` (`lazyPage.ts`), and `main.tsx` preloads the first matched route (`routePreload.ts`, capped at 1 s) before the first render — a lazy page that suspends on first render commits ≥ 300 ms after its fallback (React's fallback throttle); navigations were never affected. New pages use `lazyPage`, never bare `lazy`.
 
+## Sidebar active destination
+
+`appShell/AppNav.tsx` reveals the active link in the sidebar's own ScrollArea on route entry,
+route changes and rail/expanded switches. Group reopening handles both reduced motion and
+normal expansion transitions. Preserve manual collapse, keyboard focus and main-page scroll;
+do not replace the viewport-only adjustment with document-scrolling `scrollIntoView()`.
+Focused AppNav tests and `e2e/visual/tests/sidebar.spec.ts` cover this behavior.
+
 ## Shared list-page building blocks
 
 **MANDATORY read before building or changing any list, table, person-card grid, detail page or form: `web/docs/list-pages.md`** — the shared list scaffolding (`ResponsiveTable` and its densities, `usePagedSort`/`PaginationBar`, persisted list settings, the row/cell visual language, the v3.3.0 page blocks, back affordances, delete confirms, success toasts and error alerts, theme-owned searchable-select filtering, feedback link builders, the UserDetails/OrgChart/FeedbackTable notes, and their testing notes). One rule stays here because it applies to every page:

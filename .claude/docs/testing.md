@@ -24,11 +24,15 @@ commit SHA with a trailing `# vX.Y.Z` comment (never a mutable tag); `.github/de
   `npm run gen:api` and a clean-diff assertion for `web/src/api/schema.ts`.
 - **E2E source:** a lockfile install followed by `npm run typecheck` and
   `npm run check:scenarios`.
-- **Desktop visual:** separate desktop-only screenshot comparisons for Feedback and dictionaries,
+- **Desktop visual:** separate desktop-only screenshot comparisons for Feedback, dictionaries,
+  Dashboard, Users and Teams,
   plus visual spec/scenario pairing. Uses `e2e/visual/run-container.sh compare` and the digest-pinned
   Linux amd64 runtime in `e2e/visual/runtime.json`; no backend or shared performance services.
-  The owner approved the initial 12 baselines on 2026-10-04. Expectations are read-only in CI;
+  The owner approved the 18-image stage 1 set on 2026-10-04 (the initial 12 plus six
+  Dashboard/Users/Teams images, with three sidebar geometry tests). Expectations are read-only in CI;
   the `desktop-visual-report` artifact contains the HTML report, differences and failure traces.
+  `capture` writes separate `candidates/`; `compare-candidates` tests stability without replacing
+  approved `snapshots/`. All runner modes mount approved images read-only.
   See `e2e/visual/README.md` for reproduction and reviewed baseline updates.
 - **Dependency scan** (v4.5.2): Trivy 0.74.0 (digest-pinned) over every Gradle lockfile —
   runtime, test, build-tool and the three plugin-classpath `buildscript-gradle.lockfile`s —

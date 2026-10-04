@@ -1,23 +1,36 @@
 # Desktop visual regression pilot
 
-**Status: approved baselines, automatic PR comparisons.** The repository owner accepted all 12
-images of v4.15.2 on 2026-10-04, after incorporating `origin/master` at `7cb4b20a`. Canonical
-capture, repeated comparisons and deliberate color/spacing regression probes passed their
-expected checks. The **Desktop visual** job in `.github/workflows/quality.yml` runs comparisons
-on every PR, master push and manual dispatch. **Desktop visual** is also required by the active
-master ruleset (configured separately in GitHub), so a failed comparison blocks merging.
+**Status: 18 approved baselines; automatic PR comparisons.** The repository owner approved all 18 images
+for app version 4.15.3 on 2026-10-04: the prior 12 images plus six Dashboard/Users/Teams images.
+The approval source is implementation revision `8bb36776`, artifact `05bcc4f3`, app version
+4.15.3, with the exact reply **“Approved”**. The approved set includes 15 visual tests, including
+three sidebar geometry/focus regression tests. The Desktop visual job compares the approved set on
+PRs and master pushes; stage 2 remains planned.
 
-Open the [review gallery](review.html) and [validation/approval record](baseline-review.md).
-The accepted images retain Feedback's desktop stacking and the offscreen active dictionary
-navigation item. The sidebar issue remains a separate follow-up.
+Open the [review gallery](review.html) and [validation/approval record](expansion-review.md).
+The current gallery shows the 18 approved v4.15.3 baselines. The historical v4.15.2 review is
+preserved at [review-history/v4.15.2/review.html](review-history/v4.15.2/review.html), with its
+[historical manifest](review-history/v4.15.2/baseline-manifest.json).
 
 This suite renders the real React/Mantine SPA with deterministic, generated-schema-typed API
 fixtures. It is separate from the live-stack functional E2E suite. It verifies appearance, not
 backend correctness or authorization. The user explicitly scoped this pilot to desktop web.
 
+
+## Current expansion review
+
+The sidebar visibility fix and Dashboard/Users/Teams coverage are the approved stage 1 expansion
+for v4.15.3; see [the staged expansion plan and review record](expansion-review.md). The sidebar
+issue documented by the historical v4.15.2 review is resolved by the approved v4.15.3 fix.
+
+`capture` writes **only** `candidates/`, and `compare-candidates` checks stability against that
+set. Every mode mounts approved `snapshots/` read-only. `candidate-review.html` retains the
+old/new/diff evidence for the approved stage 1 promotion.
+
 ## Coverage
 
-See the [natural-language scenarios](../scenarios/visual/lists.md).
+See the [natural-language scenarios](../scenarios/visual/lists.md) and
+[Dashboard/directory scenarios](../scenarios/visual/people.md).
 
 | State | Desktop viewport | Images |
 | --- | --- | --- |
@@ -27,6 +40,7 @@ See the [natural-language scenarios](../scenarios/visual/lists.md).
 | Career paths, administrator editor, English/light | 1280×1000 and 1440×1000 | 2 |
 | Member Provided feedback, Polish/light | 1280×1000 | 1 |
 | Career paths, member read-only, English/dark | 1280×1000 | 1 |
+| Dashboard, Users and Teams stage 1 expansion | 1280×1000 and 1440×1000 | 6 |
 
 Long names, multiple recipients, varied feedback statuses, long dictionary values and missing
 translations are intentional fixtures. Existing functional E2E and responsive geometry checks
@@ -41,7 +55,8 @@ a new requirement.
 ## Isolation from performance work
 
 - The visual harness owns `e2e/visual/` and `e2e/scenarios/visual/`; CI calls its isolated runner.
-- No production, backend, API, package/lockfile, shared Playwright or Compose changes.
+- The harness itself does not alter backend/API, package/lockfile, shared Playwright or Compose
+  behavior. The current review batch also contains the separately tested sidebar fix.
 - No imports of the ordinary E2E global setup/teardown or login helpers. `sessions.ts` is reused
   only for its pure storage-key mapping; the tokens here are synthetic and never sent to a server.
 - Own static SPA build/cache/report paths, one worker, loopback port **5197** with strict
@@ -82,12 +97,13 @@ export VISUAL_QUIET_WINDOW=1
 bash e2e/visual/run-container.sh compare
 # Only for an intentional, reviewable baseline update:
 # bash e2e/visual/run-container.sh capture
+# bash e2e/visual/run-container.sh compare-candidates
 ```
 
 The build installs the existing lockfiles inside its own image. It does not install into host
 `node_modules`. At runtime it publishes no ports and mounts only the visual snapshots/results.
-Reports are in `playwright-report/`, differences/traces in `test-results/`. Comparisons mount
-baselines read-only. Normal execution uses `updateSnapshots: 'none'`, so missing baselines fail.
+Reports are in `playwright-report/`, differences/traces in `test-results/`. All modes mount
+approved baselines read-only; capture writes a separate candidate directory. Normal execution uses `updateSnapshots: 'none'`, so missing baselines fail.
 
 For a local **diagnostic** run after measurements finish:
 
@@ -103,7 +119,7 @@ also builds the SPA, so it is not safe during performance measurements.
 
 ## Baseline approval and activation
 
-1. Inspect all 12 candidate images: expected data and roles, typography, spacing, wrapping,
+1. Inspect every candidate image: expected data and roles, typography, spacing, wrapping,
    action visibility, translation and theme. Initial images may reveal existing defects.
 2. Run two unchanged comparisons in the canonical environment. Diagnose instability; do not
    increase tolerances or hide table content to obtain green results.
@@ -115,7 +131,7 @@ also builds the SPA, so it is not safe during performance measurements.
 5. Mark the reviewed candidate set as accepted, with the approval reference in the validation
    record. Only then add a dedicated CI job and decide which check is required. Candidate images
    may be shared on a review branch before approval; that does not approve their appearance.
-   The initial set is now approved and CI comparisons are enabled.
+   The reviewed candidate set is approved before promotion and CI activation.
 
 Build identity is fixed for capture, but the real displayed app version is retained. A version
 bump can legitimately change screenshots and still needs a reviewed update. No broad content
@@ -127,4 +143,5 @@ are awaited; no arbitrary sleep substitutes for readiness.
 Download the `desktop-visual-report` artifact from the **Desktop visual** job. It contains the
 HTML report plus expected/actual/diff screenshots and failure traces. Run the same `compare`
 command locally in a quiet window to reproduce. CI never captures or commits new expectations;
-missing images and visual differences fail the job. A passing result covers these 12 states only.
+missing images and visual differences fail the job. A passing result covers the approved 18
+screenshot states and three sidebar interaction regressions.
