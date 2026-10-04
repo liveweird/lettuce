@@ -1,4 +1,4 @@
-// k6 scenario `login`: POST /api/v1/login (pages/Login.tsx, api/auth.ts) — bcrypt cost 12 on the app's C1-only JVM. Each
+// k6 scenario `login`: POST /api/v1/login (pages/Login.tsx, api/auth.ts) — bcrypt cost 12 on the app's JVM. Each
 // iteration is one sign-in of the VU's persona (the 7 accounts, round-robin). The response is anonymous: no Server-Timing (it
 // would be an account-enumeration oracle), so only wall time is measured; the pgss window shows the 3-5 statements a login runs.
 // Shape: `perf/run.sh k6 login --vus 50 --ramp-up 30s --duration 1m` ramps 0 -> 50 VUs and holds (a login storm, e.g. the

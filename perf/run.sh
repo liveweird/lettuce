@@ -32,10 +32,10 @@
 #                                 Jaeger (profile `traces`) + the app recreated with the OTLP trace export on, one k6 iteration
 #                                 (or the k6 flags you pass), then the traces exported from Jaeger's API and summarised
 #                                 (<scenario>.traces.json / .traces.md in perf/results/<run>/); the app is put back afterwards
-#   perf/run.sh jfr <scenario> [--c2] [--heap Nm] [--run ID] [k6 flags]
+#   perf/run.sh jfr <scenario> [--c1] [--heap Nm] [--run ID] [k6 flags]
 #                                 the app recreated with a JFR recording (settings=profile), the k6 scenario, a graceful stop
 #                                 (the recording dumps on exit), then `jfr summary` + the ExecutionSample summary into the run dir;
-#                                 --c2 turns the C2 compiler on (the shipped flags are C1-only), --heap sets -Xmx (container
+#                                 --c1 caps the JIT at C1 (the shipped flags have C2 on since v4.14.0), --heap sets -Xmx (container
 #                                 limit = heap + 256m for the run); the app is put back afterwards
 #
 # The compose PROJECT is hardcoded to `lettuce-perf`: the dev stack's containers and its
@@ -670,8 +670,8 @@ find_jfr_tool() {
 }
 
 cmd_jfr() {
-  local name="${1:-}" run="" c2=0 heap="" pass=()
-  [ -n "$name" ] || die "usage: perf/run.sh jfr <scenario> [--c2] [--heap Nm] [--run ID] [k6 flags]"
+  local name="${1:-}" run="" c1=0 heap="" pass=()
+  [ -n "$name" ] || die "usage: perf/run.sh jfr <scenario> [--c1] [--heap Nm] [--run ID] [k6 flags]"
   shift
   [ -f "$ROOT/perf/k6/$name.js" ] || die "jfr: no scenario perf/k6/$name.js"
   local jfr_tool
@@ -679,7 +679,7 @@ cmd_jfr() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --run) run="${2:?--run needs an id}"; shift ;;
-      --c2) c2=1 ;;
+      --c1) c1=1 ;;
       --heap) heap="${2:?--heap needs e.g. 512m}"; shift ;;
       *) pass+=("$1") ;;
     esac
@@ -687,8 +687,8 @@ cmd_jfr() {
   done
   [ -n "$run" ] || run="$(new_run_id)"
   safe_name "--run" "$run"
-  local variant="c1" opts="" mem="512m" heap_mb
-  if [ "$c2" -eq 1 ]; then opts="$opts -XX:TieredStopAtLevel=4"; variant="c2"; fi
+  local variant="c2" opts="" mem="512m" heap_mb
+  if [ "$c1" -eq 1 ]; then opts="$opts -XX:TieredStopAtLevel=1"; variant="c1"; fi
   if [ -n "$heap" ]; then
     case "$heap" in [0-9]*m) ;; *) die "--heap must look like 512m" ;; esac
     heap_mb="${heap%m}"
