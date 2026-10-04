@@ -70,8 +70,18 @@ class QueryBudgetTest {
      */
     private data class Budget(val stmt: Int, val tx: Int, val dStmt: Int = 0, val dTx: Int = 0)
 
-    /** [rows] maps the grown size n to the `total` the page must report (null = unpaged response, not checked). */
-    private class Probe(val name: String, val client: HttpClient, val path: String, val rows: ((Int) -> Int)? = { it })
+    /**
+     * [pathAt] (optional) derives the path from the size n, for a probe whose query names the grown rows themselves.
+     * [rows] maps the grown size n to the `total` the page must report (null = unpaged response, not checked); it
+     * stays the LAST parameter so the existing `Probe(...) { n -> total }` trailing-lambda calls keep binding to it.
+     */
+    private class Probe(
+        val name: String,
+        val client: HttpClient,
+        val path: String,
+        val pathAt: ((Int) -> String)? = null,
+        val rows: ((Int) -> Int)? = { it },
+    )
 
     private class Person(val id: UInt, val email: String)
 
@@ -89,6 +99,7 @@ class QueryBudgetTest {
          */
         val BUDGETS: Map<String, Budget> = mapOf(
             "users?name" to Budget(8, 2), // 8/2 -> 8/2
+            "users?id" to Budget(8, 2), // 8/2 -> 8/2 (v4.15.0: the drill-down name lookup; IN over 1 vs 50 ids)
             "teams?name" to Budget(4, 2), // 4/2 -> 4/2 (v4.14.0: +1 grouped memberIds statement per page)
             "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1); the org chart reads memberIds from the teams list, F8)
             // F1/F10/F17, fixed in v4.14.0: one DISTINCT ON statement per enrichment (latest 1:1, latest review on
@@ -175,7 +186,8 @@ class QueryBudgetTest {
 
     private class Reading(val cost: Cost, val total: Int?)
 
-    private suspend fun Probe.fetch(): Reading {
+    private suspend fun Probe.fetch(n: Int): Reading {
+        val path = pathAt?.invoke(n) ?: path
         val response = client.get(path)
         assertEquals(HttpStatusCode.OK, response.status, "$name: GET $path")
         val header = assertNotNull(response.headers["Server-Timing"], "$name: no Server-Timing header (dev mode, authenticated)")
@@ -188,9 +200,9 @@ class QueryBudgetTest {
     private suspend fun Probe.measure(n: Int): Cost {
         // The warm-up absorbs one-off work that is not the endpoint's own cost: the feedback lists sweep overdue
         // REQUESTED rows left by other tests of the shared container on the first read (extra statements, once).
-        fetch()
-        val first = fetch()
-        val second = fetch()
+        fetch(n)
+        val first = fetch(n)
+        val second = fetch(n)
         assertEquals(first.cost, second.cost, "$name: two identical requests cost different statement counts")
         val expected = rows?.invoke(n)
         if (expected != null) assertEquals(expected, first.total, "$name: the page must report $expected rows at n=$n")
@@ -262,6 +274,10 @@ class QueryBudgetTest {
                 val ownerClient = authedClient(owner.email, PASSWORD)
                 listOf(
                     Probe("users?name", adminClient, "/api/v1/users?name=$tag-s&pageSize=100"),
+                    Probe(
+                        "users?id", adminClient, "",
+                        pathAt = { n -> "/api/v1/users?" + org.subs.take(n).joinToString("&") { "id=${it.id}" } + "&pageSize=100" },
+                    ),
                     Probe("teams?name", ownerClient, "/api/v1/teams?name=$tag-x&pageSize=100"),
                     Probe("teams/{id}", ownerClient, "/api/v1/teams/$firstTeam", rows = null),
                 )

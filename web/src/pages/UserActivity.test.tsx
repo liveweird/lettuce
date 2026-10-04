@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { cleanup, fireEvent, renderWithProviders, screen, waitFor } from "../test/render";
-import { jsonResponse } from "../test/http";
+import { jsonResponse, userLookupResponse } from "../test/http";
 import UserActivity from "./UserActivity";
 
 const TOKEN_KEY = "lettuce.auth.token";
@@ -27,20 +27,20 @@ const ENTRY = {
   subjectUserName: null,
 };
 
+// The `users?…` requests of the current test (F9: the heading is ONE `id=` lookup, never the pool pages).
+let userRequests: string[] = [];
+
 function mockApi(activityStatus = 200) {
   const urls: string[] = [];
+  userRequests = [];
   vi.stubGlobal(
     "fetch",
     vi.fn((input: string) => {
       const url = String(input);
       if (url.startsWith("/api/v1/users?")) {
+        userRequests.push(url);
         return Promise.resolve(
-          jsonResponse(200, {
-            items: [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }],
-            page: 1,
-            pageSize: 100,
-            total: 1,
-          }),
+          userLookupResponse(url, [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }]),
         );
       }
       if (/^\/api\/v1\/users\/\d+\/activity\?/.test(url)) {
@@ -77,12 +77,17 @@ describe("UserActivity page", () => {
     localStorage.clear();
   });
 
-  test("report flavor: names the person from the pool, lists their log, persists under userActivity.managed", async () => {
+  test("report flavor: names the person by one lookup, lists their log, persists under userActivity.managed", async () => {
     const urls = mockApi();
     const user = userEvent.setup();
     renderPage("/users/9/activity?name=Riley&from=subordinates&manages=1");
 
     expect(await screen.findByRole("heading", { level: 2, name: "Activity of Riley Report" })).toBeInTheDocument();
+    // F9 (v4.15.0): one one-row lookup by the route's id, never the 100-row directory pages.
+    expect(userRequests).toHaveLength(1);
+    expect(userRequests[0]).toContain("id=9");
+    expect(userRequests[0]).toContain("pageSize=1&");
+    expect(userRequests.some((u) => u.includes("pageSize=100"))).toBe(false);
     expect(screen.getByText(/limited to the documents you can read yourself/)).toBeInTheDocument();
     expect(await screen.findByText("Progress updated from 10 to 20.")).toBeInTheDocument();
     expect(urls[0]).toBe("/api/v1/users/9/activity?page=1&pageSize=20&sort=-createdAt");

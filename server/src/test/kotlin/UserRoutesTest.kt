@@ -667,6 +667,75 @@ class UserRoutesTest {
     }
 
     @Test
+    fun `GET users with a repeated id returns exactly those users, composes with name, and is open to any caller`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val tag = UUID.randomUUID().toString().substring(0, 8)
+            // A NON-admin caller: the id filter narrows the same open list, it widens nothing.
+            val callerEmail = uniqueEmail("caller-$tag")
+            TestUsers.seed(email = callerEmail, password = "pw-123456789", roles = emptySet(), name = "Caller-$tag")
+            val a = TestUsers.seed(email = uniqueEmail("a-$tag"), password = "pw-123456789", name = "IdA-$tag")
+            val b = TestUsers.seed(email = uniqueEmail("b-$tag"), password = "pw-123456789", name = "IdB-$tag")
+            TestUsers.seed(email = uniqueEmail("c-$tag"), password = "pw-123456789", name = "IdC-$tag")
+            val client = authedClient(callerEmail, "pw-123456789")
+
+            // Two ids -> exactly those rows (no matter what else shares the name prefix).
+            val both = client.get("/api/v1/users?id=$a&id=$b").body<UserPageResponse>()
+            assertEquals(2L, both.total)
+            assertEquals(setOf(a, b), both.items.map { it.id }.toSet())
+            // One id with the drill-down lookup's page shape.
+            val one = client.get("/api/v1/users?id=$a&page=1&pageSize=1").body<UserPageResponse>()
+            assertEquals(1L, one.total)
+            assertEquals("IdA-$tag", one.items.single().name)
+            // Blank repeats are dropped, a duplicate value is harmless.
+            assertEquals(1L, client.get("/api/v1/users?id=$a&id=&id=$a").body<UserPageResponse>().total)
+            // Composes with the other filters (AND): the name excludes b.
+            val composed = client.get("/api/v1/users?id=$a&id=$b&name=IdA-$tag").body<UserPageResponse>()
+            assertEquals(listOf(a), composed.items.map { it.id })
+            assertEquals(1L, composed.total)
+            // An unknown id is an empty page — 200, never 404.
+            val unknown = client.get("/api/v1/users?id=2000000000")
+            assertEquals(HttpStatusCode.OK, unknown.status)
+            val unknownPage = unknown.body<UserPageResponse>()
+            assertEquals(0L, unknownPage.total)
+            assertEquals(emptyList(), unknownPage.items)
+            // One bad value spoils the request; so does a 101st distinct value.
+            assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/users?id=$a&id=abc").status)
+            val tooMany = (1..101).joinToString("&") { "id=$it" }
+            val capped = client.get("/api/v1/users?$tooMany")
+            assertEquals(HttpStatusCode.BadRequest, capped.status)
+            assertEquals("Parameter 'id' accepts at most 100 values", capped.body<ProblemDetail>().detail)
+        }
+
+    @Test
+    fun `GET users by id returns a deactivated user but an empty page for a soft-deleted one`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val adminEmail = uniqueEmail("admin-$tag")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789", roles = setOf(UserRole.ADMIN), name = "Admin-$tag")
+        val callerEmail = uniqueEmail("caller-$tag")
+        TestUsers.seed(email = callerEmail, password = "pw-123456789", roles = emptySet(), name = "Caller-$tag")
+        val deactivated = TestUsers.seed(email = uniqueEmail("off-$tag"), password = "pw-123456789", name = "Off-$tag")
+        val deleted = TestUsers.seed(email = uniqueEmail("gone-$tag"), password = "pw-123456789", name = "Gone-$tag")
+        val admin = authedClient(adminEmail, "pw-123456789")
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$deactivated/deactivate").status)
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/$deleted").status)
+
+        // A drill-down heading must still name a person whose account was disabled (the row says so).
+        val caller = authedClient(callerEmail, "pw-123456789")
+        val off = caller.get("/api/v1/users?id=$deactivated&page=1&pageSize=1").body<UserPageResponse>()
+        assertEquals(1L, off.total)
+        assertEquals("Off-$tag", off.items.single().name)
+        assertEquals(true, off.items.single().deactivated)
+        // A soft-deleted user is gone from the list, so its id yields an empty page (never a 404).
+        val gone = caller.get("/api/v1/users?id=$deleted&page=1&pageSize=1")
+        assertEquals(HttpStatusCode.OK, gone.status)
+        val gonePage = gone.body<UserPageResponse>()
+        assertEquals(0L, gonePage.total)
+        assertEquals(emptyList(), gonePage.items)
+    }
+
+    @Test
     fun `users list rows carry member-of team refs, name-ascending, excluding deleted teams`() = testApplication {
         usePostgresTestcontainer()
         val tag = UUID.randomUUID().toString().substring(0, 8)

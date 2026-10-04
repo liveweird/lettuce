@@ -4,7 +4,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import UserPerformanceReviews from "./UserPerformanceReviews";
-import { jsonResponse } from "../test/http";
+import { jsonResponse, userLookupResponse, usersListRequests } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -40,18 +40,13 @@ describe("UserPerformanceReviews page", () => {
       if (u.includes("/api/v1/review-periods")) {
         return Promise.resolve(jsonResponse(200, { items: [] }));
       }
-      // The org-wide user pool the heading resolves the person's name from (v3.5.0).
+      // The one-row `users?id=` lookup the heading resolves the person's name from (v3.5.0, one lookup since v4.15.0).
       if (u.startsWith("/api/v1/users?")) {
         return Promise.resolve(
-          jsonResponse(200, {
-            items: [
-              { id: 8, name: "Sub Ordinate", email: "sub@example.com", roles: [] },
-              { id: 9, name: "Mona Manager", email: "mona@example.com", roles: [] },
-            ],
-            page: 1,
-            pageSize: 100,
-            total: 2,
-          }),
+          userLookupResponse(u, [
+            { id: 8, name: "Sub Ordinate", email: "sub@example.com", roles: [] },
+            { id: 9, name: "Mona Manager", email: "mona@example.com", roles: [] },
+          ]),
         );
       }
       return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
@@ -75,6 +70,12 @@ describe("UserPerformanceReviews page", () => {
     expect(listCall).toContain("includeIndirect=true");
     const newReview = screen.getByRole("link", { name: "New review" });
     expect(newReview.getAttribute("href")).toContain("/performance-reviews/new?subordinateId=8");
+    // F9 (v4.15.0): the heading's name is ONE one-row lookup by the route's id, never the 100-row directory pages.
+    const lookups = usersListRequests(mockFetch);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0]).toContain("id=8");
+    expect(lookups[0]).toContain("pageSize=1&");
+    expect(lookups.some((u) => u.includes("pageSize=100"))).toBe(false);
   });
 
   test("managers origin: the clicked manager's published reviews of the caller, no create", async () => {

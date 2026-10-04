@@ -5,7 +5,7 @@ import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import UserTeams from "./UserTeams";
-import { jsonResponse } from "../test/http";
+import { jsonResponse, userLookupResponse, usersListRequests } from "../test/http";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
@@ -134,7 +134,7 @@ describe("UserTeams page", () => {
       return Promise.resolve(jsonResponse(404, {}));
     });
     // The user's name comes from the ?name= param the /users list passes (the pre-load hint —
-    // the user pool 404s here, so the hint stays).
+    // the users lookup 404s here, so the hint stays).
     renderUserTeams(7, "?name=Alice");
 
     // Not redirected: heading (from the name param) and the team rows render.
@@ -150,21 +150,23 @@ describe("UserTeams page", () => {
     expect(mockFetch.mock.calls.some(([u]) => typeof u === "string" && isAllTeamsUrl(u))).toBe(false);
   });
 
-  test("non-admin: the URL's name is only the pre-load hint — the user pool's name for the id wins (v3.5.0)", async () => {
+  test("non-admin: the URL's name is only the pre-load hint — the looked-up name for the id wins (v3.5.0)", async () => {
     localStorage.setItem(ROLE_KEY, "[]");
     mockFetch.mockImplementation((url: string) => {
       if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
-      if (url.startsWith("/api/v1/users?")) {
-        return Promise.resolve(
-          jsonResponse(200, { items: [TARGET_USER], page: 1, pageSize: 100, total: 1 }),
-        );
-      }
+      if (url.startsWith("/api/v1/users?")) return Promise.resolve(userLookupResponse(url, [TARGET_USER]));
       return Promise.resolve(jsonResponse(404, {}));
     });
     renderUserTeams(7, "?name=Mallory");
 
     expect(screen.getByRole("heading", { name: "Teams — Mallory" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Teams — Alice" })).toBeInTheDocument();
+    // F9 (v4.15.0): ONE one-row lookup by the route's id, never the 100-row directory pages.
+    const lookups = usersListRequests(mockFetch);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0]).toContain("id=7");
+    expect(lookups[0]).toContain("pageSize=1&");
+    expect(lookups.some((u) => u.includes("pageSize=100"))).toBe(false);
     // The unified drill-down back link (v3.5.0).
     expect(screen.getByRole("link", { name: "← Back to Users" })).toHaveAttribute("href", "/users");
   });

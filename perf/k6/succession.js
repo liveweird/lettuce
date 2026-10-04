@@ -5,12 +5,12 @@
 //   own      first load: Shell || succession-plans?view=own&page=1&pageSize=20&sort=-lastReviewedAt
 //   team     tab click: view=team (plans owned by the caller's reports who manage — a lead's is empty by construction);
 //            team-all = includeIndirect=true
-//   drilldown-audit  HR on a lead (perf-lead-001): Shell || users (useAllUsers loop) ||
+//   drilldown-audit  HR on a lead (perf-lead-001): Shell || ONE users?id=<lead> lookup (v4.15.0 — it was the six-page listAll pool) ||
 //                    succession-plans?view=user&page=1&pageSize=20&sort=-lastReviewedAt&userId=<lead>
 import { defineScenario, qs, shellRequests, SHELL_ENDPOINTS } from './lib/replay.js';
 
 const list = (view, extra = {}) => `/api/v1/succession-plans?${qs(Object.assign({ view, page: 1, pageSize: 20, sort: '-lastReviewedAt' }, extra))}`;
-const users = (page) => `/api/v1/users?${qs({ page, pageSize: 100, sort: 'id' })}`;
+const userLookup = (id) => `/api/v1/users?${qs({ page: 1, pageSize: 1, id })}`;
 
 const def = {
   name: 'succession',
@@ -26,8 +26,8 @@ const def = {
     'drilldown-audit': {
       endpoints: [...SHELL_ENDPOINTS, 'users', 'list'],
       run(s) {
-        const res = s.batch([...shellRequests(s), [users(1), 'users'], [list('user', { userId: s.userId('lead') }), 'list']]);
-        s.pageMore(users, res[SHELL_ENDPOINTS.length], 'users');
+        const id = s.userId('lead');
+        s.batch([...shellRequests(s), [userLookup(id), 'users'], [list('user', { userId: id }), 'list']]);
       },
     },
   },

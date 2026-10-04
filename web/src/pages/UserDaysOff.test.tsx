@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { jsonResponse } from "../test/http";
+import { jsonResponse, userLookupResponse, usersListRequests } from "../test/http";
 import UserDaysOff from "./UserDaysOff";
 
 type FetchMock = ReturnType<typeof vi.fn>;
@@ -82,15 +82,10 @@ describe("UserDaysOff", () => {
   function setupMocks(budget: typeof BUDGET = BUDGET, extraPools: (typeof BUDGET)[] = []) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
-      // The org-wide user pool the heading resolves the report's name from (v3.5.0).
+      // The one-row `users?id=` lookup the heading resolves the report's name from (v3.5.0, one lookup since v4.15.0).
       if (u.startsWith("/api/v1/users?")) {
         return Promise.resolve(
-          jsonResponse(200, {
-            items: [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }],
-            page: 1,
-            pageSize: 100,
-            total: 1,
-          }),
+          userLookupResponse(u, [{ id: 9, name: "Riley Report", email: "riley@example.com", roles: [] }]),
         );
       }
       if (u.includes("/api/v1/days-off/allowance") || u.includes("/api/v1/days-off/pools/")) {
@@ -167,6 +162,12 @@ describe("UserDaysOff", () => {
     // The year picker lost its stacked label for the compact toolbar row (v2.32.1) — the
     // aria-label must keep it accessible.
     expect(screen.getByLabelText("Year", { selector: "input" })).toBeInTheDocument();
+    // F9 (v4.15.0): the heading's name is ONE one-row lookup by the route's id, never the 100-row directory pages.
+    const lookups = usersListRequests(mockFetch);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0]).toContain("id=9");
+    expect(lookups[0]).toContain("pageSize=1&");
+    expect(lookups.some((u) => u.includes("pageSize=100"))).toBe(false);
   });
 
   test("the allowance pencil opens the editor and PUTs the new value (v2.32.0)", async () => {

@@ -4,8 +4,9 @@
 //   users          first load: Shell || users?page=1&pageSize=20&sort=name
 //   users-filtered the name filter (300 ms debounce): users?page=1&pageSize=20&sort=name&name=perf-lead
 //   users-deep     a deep page sorted by email: page=20&sort=email   (OFFSET cost)
-//   teams          Shell || teams?page=1&pageSize=20&sort=name || users (useManagerOptions -> useAllUsers: pageSize 100
-//                  sort=id, one sequential loop of 6 pages)
+//   teams          Shell || teams?page=1&pageSize=20&sort=name || teams-all (the manager FILTER's options come from the
+//                  all-teams rows since v4.15.0, listAllTeams: pageSize 100 sort=name — one page for <= 100 teams; it was
+//                  useManagerOptions -> useAllUsers, a 6-page users loop)
 //   org-chart      /org: Shell || teams page 1 (listAll, pageSize 100 sort=name; rows carry memberIds since v4.14.0 — no
 //                  per-team GET) || users page 1 (listAll, pageSize 100 sort=id) in one batch, then both loops' further pages
 import { defineScenario, qs, shellRequests, SHELL_ENDPOINTS } from './lib/replay.js';
@@ -26,14 +27,14 @@ const def = {
     'users-filtered': { endpoints: ['users'], run(s) { s.get(usersPage(1, { name: 'perf-lead' }), 'users'); } },
     'users-deep': { endpoints: ['users'], run(s) { s.get(usersPage(20, { sort: 'email' }), 'users'); } },
     teams: {
-      endpoints: [...SHELL_ENDPOINTS, 'teams', 'users-all'],
+      endpoints: [...SHELL_ENDPOINTS, 'teams', 'teams-all'],
       run(s) {
         const res = s.batch([
           ...shellRequests(s),
           [`/api/v1/teams?${qs({ page: 1, pageSize: 20, sort: 'name' })}`, 'teams'],
-          [usersAll(1), 'users-all'],
+          [teamsPage(1), 'teams-all'],
         ]);
-        s.pageMore(usersAll, res[SHELL_ENDPOINTS.length + 1], 'users-all');
+        s.pageMore(teamsPage, res[SHELL_ENDPOINTS.length + 1], 'teams-all');
       },
     },
     'org-chart': {

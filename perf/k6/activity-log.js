@@ -3,8 +3,9 @@
 // (self | HR | a manager in the target's transitive chain; an ADMIN as such gets 403 for anybody else).
 //   own     /activity — Shell || users/<me>/activity?page=1&pageSize=20&sort=-createdAt; when a row is a
 //           CAREER_POSITION the SPA then loads the three career dictionaries (replayed on the same condition)
-//   report  /users/<id>/activity as a manager (the chain rule): Shell || users (useUserDisplayName -> useAllUsers:
-//           pageSize 100 sort=id, one sequential listAll loop) || users/<id>/activity — the report is perf-ic-0001
+//   report  /users/<id>/activity as a manager (the chain rule): Shell || users (useUserDisplayName ->
+//           ONE users?id=<id>&page=1&pageSize=1 lookup, v4.15.0 — it was the six-page listAll pool) ||
+//           users/<id>/activity — the report is perf-ic-0001
 //           (id 92; its chain is lead-001 -> dir-01 -> CEO, so lead, director and CEO may all read it)
 //   audit   the same page as HR (?mode=audit changes nothing in the API calls) on the CEO — the widest log of the
 //           org (hr.list is audited; the UNION ALL runs over every event trail the CEO acted in)
@@ -20,9 +21,8 @@ function dictionariesIfCareer(s, res) {
 }
 
 function anotherPersonsLog(s, targetId) {
-  const users = (page) => `/api/v1/users?${qs({ page, pageSize: 100, sort: 'id' })}`;
-  const res = s.batch([...shellRequests(s), [users(1), 'users'], [feed(targetId), 'activity']]);
-  s.pageMore(users, res[SHELL_ENDPOINTS.length], 'users');
+  const lookup = `/api/v1/users?${qs({ page: 1, pageSize: 1, id: targetId })}`;
+  const res = s.batch([...shellRequests(s), [lookup, 'users'], [feed(targetId), 'activity']]);
   dictionariesIfCareer(s, res[SHELL_ENDPOINTS.length + 1]);
 }
 

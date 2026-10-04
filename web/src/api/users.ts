@@ -11,6 +11,8 @@ type UserListQuery = {
   page: number;
   pageSize: number;
   sort?: string;
+  /** Exactly these ids (repeated key, v4.15.0). */
+  id?: number | number[];
   name?: string;
   email?: string;
   role?: UserRole;
@@ -167,6 +169,7 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
     page: q.page,
     pageSize: q.pageSize,
     sort: q.sort,
+    id: q.id,
     name: q.name,
     email: q.email,
     role: q.role,
@@ -179,6 +182,13 @@ export async function listUsers(q: UserListQuery): Promise<UserPage> {
     uniqueIdMissing: q.uniqueIdMissing,
   });
   return jsonRequest<UserPage>(`/api/v1/users?${params}`);
+}
+
+/** One person by id through the open users list (v4.15.0 — `GET /users/{id}` is self/ADMIN/HR only,
+ * so a manager reading a report's name could not use it): one row, `null` for an unknown id. */
+export async function findUserById(id: number): Promise<UserPage["items"][number] | null> {
+  const result = await listUsers({ page: 1, pageSize: 1, id });
+  return result.items[0] ?? null;
 }
 
 /** Every user (optionally: of one team), paging until the server total is reached — the
