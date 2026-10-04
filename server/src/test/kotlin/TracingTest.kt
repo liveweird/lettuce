@@ -82,7 +82,7 @@ class TracingTest {
     @Test
     fun `DB spans are enabled only when a traces exporter other than none is configured`() {
         withExporterProperty("none") { assertFalse(tracesExporterConfigured()) }
-        withExporterProperty("") { assertFalse(tracesExporterConfigured()) }
+        withExporterProperty("") { assertTrue(tracesExporterConfigured()) } // SDK: empty -> its default otlp
         withExporterProperty("otlp") { assertTrue(tracesExporterConfigured()) }
         withExporterProperty("none, OTLP") { assertTrue(tracesExporterConfigured()) }
         // No property: the env var / core's default (none) decide — the test JVM has no OTEL_TRACES_EXPORTER.

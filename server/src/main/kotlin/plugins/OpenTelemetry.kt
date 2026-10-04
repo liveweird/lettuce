@@ -23,7 +23,9 @@ val OpenTelemetryKey = AttributeKey<OpenTelemetry>("OpenTelemetry")
  */
 internal fun tracesExporterConfigured(): Boolean {
     val raw = System.getProperty("otel.traces.exporter") ?: System.getenv("OTEL_TRACES_EXPORTER") ?: DEFAULT_TRACES_EXPORTER
-    return raw.split(',').map { it.trim().lowercase() }.any { it.isNotEmpty() && it != "none" }
+    val exporters = raw.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+    // An explicitly EMPTY value overrides core's default and the SDK then falls back to `otlp` (its own default).
+    return exporters.isEmpty() || exporters.any { it != "none" }
 }
 
 /** Whether `infra/db/Database.kt` wraps the pool with the R2DBC span instrumentation (see [tracesExporterConfigured]). */

@@ -112,8 +112,9 @@ services:
       JAVA_OPTS: "${PERF_JAVA_OPTS:-}"
       # Traces (M4): the exporter defaults to `none` — the shipped posture, so baselines are measured without export cost.
       # `perf/run.sh traces` recreates the app with PERF_OTEL_TRACES_EXPORTER=otlp + the always_on sampler; the endpoint is
-      # the in-network Jaeger (never published beyond its UI port). The DB spans themselves are always created (the
-      # instrumented pool is the shipped code); only their export is optional.
+      # the in-network Jaeger (never published beyond its UI port). The DB-span wrapper is installed only
+      # when the exporter is not `none` (FINDINGS F18), so a `none` run measures the shipped, unwrapped pool. Keep
+      # `traces` runs to a few iterations: a 50-VU always_on run would flood the in-memory Jaeger.
       OTEL_TRACES_EXPORTER: "${PERF_OTEL_TRACES_EXPORTER:-none}"
       OTEL_TRACES_SAMPLER: "${PERF_OTEL_TRACES_SAMPLER:-parentbased_always_on}"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
