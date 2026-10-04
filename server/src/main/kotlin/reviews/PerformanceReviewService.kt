@@ -484,34 +484,34 @@ class PerformanceReviewService(val database: R2dbcDatabase, private val cipher: 
     ): Map<UInt, LatestReviewStats> =
         if (subordinateIds.isEmpty()) emptyMap()
         else suspendTransaction(database) {
-            // One indexed limit-1 lookup per key (the 1:1 stats idiom in OneOnOneService): the
-            // set is one page of dashboard cards — a handful — so no multi-group SQL.
+            // ONE DISTINCT ON (subordinate) statement for the whole page (v4.14.0 — it replaced a
+            // per-key LIMIT 1 loop, F1/F10): the ORDER BY must start with the DISTINCT ON column.
             val periods = ReviewPeriodService.ReviewPeriods
-            val stats = mutableMapOf<UInt, LatestReviewStats>()
-            subordinateIds.forEach { subordinateId ->
-                Reviews
-                    .join(periods, JoinType.INNER, onColumn = Reviews.periodId, otherColumn = periods.id)
-                    .select(Reviews.id, periods.startMonth, periods.endMonth, Reviews.status)
-                    .where {
-                        (Reviews.managerId eq managerId) and
-                            (Reviews.subordinateId eq subordinateId) and active()
-                    }
-                    // ISO YYYY-MM sorts lexicographically == chronologically; id breaks the
-                    // (impossible-by-uniqueness, but cheap) tie.
-                    .orderBy(periods.startMonth to SortOrder.DESC, Reviews.id to SortOrder.DESC)
-                    .limit(1)
-                    .map {
-                        LatestReviewStats(
-                            reviewId = it[Reviews.id].value,
-                            periodStartMonth = it[periods.startMonth],
-                            periodEndMonth = it[periods.endMonth],
-                            status = it[Reviews.status],
-                        )
-                    }
-                    .singleOrNull()
-                    ?.let { stats[subordinateId] = it }
-            }
-            stats
+            Reviews
+                .join(periods, JoinType.INNER, onColumn = Reviews.periodId, otherColumn = periods.id)
+                .select(Reviews.id, Reviews.subordinateId, periods.startMonth, periods.endMonth, Reviews.status)
+                .where {
+                    (Reviews.managerId eq managerId) and
+                        (Reviews.subordinateId inList subordinateIds) and active()
+                }
+                .withDistinctOn(Reviews.subordinateId)
+                // ISO YYYY-MM sorts lexicographically == chronologically; id breaks the
+                // (impossible-by-uniqueness, but cheap) tie.
+                .orderBy(
+                    Reviews.subordinateId to SortOrder.ASC,
+                    periods.startMonth to SortOrder.DESC,
+                    Reviews.id to SortOrder.DESC,
+                )
+                .map {
+                    it[Reviews.subordinateId].value to LatestReviewStats(
+                        reviewId = it[Reviews.id].value,
+                        periodStartMonth = it[periods.startMonth],
+                        periodEndMonth = it[periods.endMonth],
+                        status = it[Reviews.status],
+                    )
+                }
+                .toList()
+                .toMap()
         }
 
     /**

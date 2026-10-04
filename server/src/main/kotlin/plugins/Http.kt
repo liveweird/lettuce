@@ -16,11 +16,22 @@ import io.ktor.server.routing.*
 import io.ktor.server.plugins.swagger.*
 
 fun Application.configureHttp() {
+    // Response caching policy (v4.14.0) — three classes, no overlap:
+    //   - SPA static files: owned by the static route in plugins/Routing.kt (hashed assets/ files are
+    //     `immutable` for a year; index.html, the fallback and the other root files are `no-cache`,
+    //     revalidated by ETag only — ConditionalHeaders is installed on THAT route alone, so no
+    //     other response can ever pick up 304/412 semantics from a stray ETag/Last-Modified header).
+    //   - the dynamic surface — /api/** and the integration GraphQL endpoint (/integration/**):
+    //     `no-store` on every response (API-CACHE-002) — React Query owns client-side caching, and
+    //     a stale authenticated read is worse than a refetch. A response that already carries a
+    //     Cache-Control (StatusPages re-responds a 405/429 through this hook a second time) is left alone.
+    //   - everything else (Swagger UI /openapi, probes, redirects): no Cache-Control from this plugin.
     install(CachingHeaders) {
-        options { call, outgoingContent ->
-            when (outgoingContent.contentType?.withoutParameters()) {
-                ContentType.Text.CSS -> CachingOptions(CacheControl.MaxAge(maxAgeSeconds = 24 * 60 * 60))
-                else -> null
+        options { call, _ ->
+            if (call.isApiSurfacePath() && !call.response.headers.contains(HttpHeaders.CacheControl)) {
+                CachingOptions(CacheControl.NoStore(null))
+            } else {
+                null
             }
         }
     }

@@ -19,7 +19,7 @@ perf/run.sh all           # restore -> warm-up -> every scenario with pgss windo
 perf/run.sh report <run> [--baseline DIR]   # scripts/perf_compare.py: Δ vs a committed baseline (same datasetVersion only)
 perf/run.sh baseline <run>                  # copy a run's small files into perf/baselines/<date>-<sha>/ (token check included)
 perf/run.sh traces reviews-team-view --persona ceo-all   # Jaeger + OTLP export on, one iteration, traces exported + summarised (UI http://127.0.0.1:16686)
-perf/run.sh jfr reviews-team-view --persona ceo-all --vus 50 --duration 2m [--c2] [--heap 512m]   # JFR CPU profile of a run
+perf/run.sh jfr reviews-team-view --persona ceo-all --vus 50 --duration 2m [--c1] [--heap 512m]   # JFR CPU profile of a run
 ```
 
 Results land in `perf/results/<run>/` (git-ignored; k6 summaries never carry the bearer tokens — before committing a baseline run `grep -rl eyJ perf/baselines`, it must print nothing); the committed numbers are `perf/baselines/<date>-<sha>/` plus

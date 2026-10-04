@@ -195,8 +195,9 @@ class TeamMemberSubordinateStatsTest {
         val callerId = TestUsers.seed(email = callerEmail, password = "pw", name = "Caller", roles = emptySet())
         val subEmail = uniqueEmail("sub")
         val subId = TestUsers.seed(email = subEmail, password = "pw", name = "Sub", roles = emptySet())
+        val sub2Id = TestUsers.seed(email = uniqueEmail("sub2"), password = "pw", name = "Sub Two", roles = emptySet())
         val admin = authedClient(adminEmail, "pw")
-        admin.createTeam("substats-rev-a-${UUID.randomUUID()}", callerId, listOf(subId))
+        admin.createTeam("substats-rev-a-${UUID.randomUUID()}", callerId, listOf(subId, sub2Id))
         // The reverse team (the subordinate manages the caller) pins the direction below.
         admin.createTeam("substats-rev-b-${UUID.randomUUID()}", subId, listOf(callerId))
         val periodA = TestReviewPeriods.append()
@@ -222,6 +223,14 @@ class TeamMemberSubordinateStatsTest {
 
         // Latest by PERIOD, not by creation: a review minted later for the older period loses.
         val reviewA = caller.createReview(subId, periodA.id)
+        assertEquals(reviewB.id, caller.subordinateItem(subId).lastReviewId)
+
+        // The batched lookup must not cross keys: a second subordinate reviewed only in the OLDER
+        // period carries its own review, and the first one's stays untouched.
+        val reviewSub2 = caller.createReview(sub2Id, periodA.id)
+        val item2 = caller.subordinateItem(sub2Id)
+        assertEquals(reviewSub2.id, item2.lastReviewId)
+        assertEquals(periodA.startMonth, item2.lastReviewPeriodStartMonth)
         assertEquals(reviewB.id, caller.subordinateItem(subId).lastReviewId)
 
         // Status transitions show up live.

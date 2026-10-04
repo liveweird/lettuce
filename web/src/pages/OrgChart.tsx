@@ -32,7 +32,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { getUserId } from "../api/session";
 import { listAllUsers } from "../api/users";
-import { getTeam, listAllTeams } from "../api/teams";
+import { listAllTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
 import PersonaChip from "../components/PersonaChip";
 import {
@@ -49,21 +49,12 @@ import { userDetailsLink } from "../utils/userLinks";
 import { loadErrorMessage } from "../utils/saveError";
 
 // The whole org, composed client-side from the open lists (the house aggregation pattern):
-// teams + managers from the teams list, memberIds per team, names from the users list.
+// teams + managers + memberIds from the teams list (rows carry memberIds since v4.14.0 — no
+// per-team fetch), names from the users list; the two loops run in parallel.
 // Returns the raw graph — layout runs in the component, downstream of the collapse state.
 async function fetchOrg() {
-  const teams = await listAllTeams();
-  const [memberships, users] = await Promise.all([
-    Promise.all(
-      teams.map(
-        async (team): Promise<OrgMembership> => ({
-          teamId: team.id,
-          memberIds: (await getTeam(team.id)).memberIds,
-        }),
-      ),
-    ),
-    listAllUsers(),
-  ]);
+  const [teams, users] = await Promise.all([listAllTeams(), listAllUsers()]);
+  const memberships: OrgMembership[] = teams.map((t) => ({ teamId: t.id, memberIds: t.memberIds }));
   const usersById = new Map(users.map((u) => [u.id, u.name]));
   return buildOrgGraph(teams, memberships, usersById);
 }

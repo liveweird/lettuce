@@ -1,0 +1,5 @@
+# idle after warm-up (2026-10-04T08:33:40Z), flags: -XX:+UseSerialGC -Xmx256m 
+lettuce-perf-app 0.26% 310.8MiB / 512MiB
+lettuce-perf-postgres 0.09% 575.8MiB / 1GiB
+lettuce-perf-app 1.50% 270.3MiB / 512MiB
+lettuce-perf-postgres 0.26% 167.6MiB / 1GiB

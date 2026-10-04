@@ -543,6 +543,36 @@ class TeamRoutesTest {
         assertTrue(page.items.all { it.managerId == managerId })
         assertTrue(page.items.all { it.managerName == "Mona" })
         assertTrue(page.items.all { !it.managerDeleted })
+        // memberIds ride every row (v4.14.0), equal to the single-team GET's.
+        assertTrue(page.items.all { it.memberIds == listOf(memberA) })
+    }
+
+    @Test
+    fun `GET teams rows carry memberIds ascending, empty for a zero-member team`() = testApplication {
+        usePostgresTestcontainer()
+        val managerEmail = uniqueEmail("mgr")
+        val managerId = TestUsers.seed(email = managerEmail, password = "pw")
+        val first = TestUsers.seed(email = uniqueEmail("a"), password = "pw")
+        val second = TestUsers.seed(email = uniqueEmail("b"), password = "pw")
+
+        val client = authedClient(managerEmail, "pw")
+        val tag = UUID.randomUUID().toString().substring(0, 8)
+        val full = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "mem-$tag-full", managerId = managerId, memberIds = listOf(second, first)))
+        }.body<TeamResponse>()
+        val empty = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "mem-$tag-empty", managerId = managerId, memberIds = emptyList()))
+        }.body<TeamResponse>()
+
+        val page = client.get("/api/v1/teams?name=mem-$tag").body<TeamPageResponse>()
+        assertEquals(listOf(first, second).sorted(), page.items.single { it.id == full.id }.memberIds)
+        assertEquals(emptyList(), page.items.single { it.id == empty.id }.memberIds)
+        assertEquals(
+            client.get("/api/v1/teams/${full.id}").body<TeamResponse>().memberIds.sorted(),
+            page.items.single { it.id == full.id }.memberIds,
+        )
     }
 
     @Test
