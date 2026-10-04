@@ -4,8 +4,8 @@
 images of v4.15.2 on 2026-10-04, after incorporating `origin/master` at `7cb4b20a`. Canonical
 capture, repeated comparisons and deliberate color/spacing regression probes passed their
 expected checks. The **Desktop visual** job in `.github/workflows/quality.yml` runs comparisons
-on every PR, master push and manual dispatch. Required-check enforcement is configured separately
-in GitHub's ruleset; adding a workflow job alone does not require it for merge.
+on every PR, master push and manual dispatch. **Desktop visual** is also required by the active
+master ruleset (configured separately in GitHub), so a failed comparison blocks merging.
 
 Open the [review gallery](review.html) and [validation/approval record](baseline-review.md).
 The accepted images retain Feedback's desktop stacking and the offscreen active dictionary

@@ -49,10 +49,9 @@ Chromium against fixture data, without the stack. The stable quality job IDs and
 for required-check rules are `backend` (**Backend**), `web` (**Web**), `api-contract`
 (**API contract**), `e2e-static` (**E2E source**), and — since v4.5.2 — `dependency-scan`
 (**Dependency scan**; required only once the ruleset lists it, a GitHub setting). Since
-2026-10-04, `visual` (**Desktop visual**) also runs automatically; its required-check enforcement
-is likewise a separate GitHub ruleset setting. Since
-2026-09-06, the active repository ruleset requires the first four checks from the GitHub Actions app on `master`,
-with strict up-to-date checking. Existing PR, deletion, and non-fast-forward protections
+2026-09-06, the active repository ruleset requires the first four checks from the GitHub Actions
+app on `master`, with strict up-to-date checking. On 2026-10-04, `visual` (**Desktop visual**)
+was added to that required set after its first successful hosted run. Existing PR, deletion, and non-fast-forward protections
 remain in place, with no bypass actors. These settings live in GitHub, separately from
 the workflow file; preserve the check names when editing the workflow. **The browser e2e suite is
 dispatch-only in CI** (`workflow_dispatch`, no `push`/`pull_request` trigger) — **the LOCAL e2e run

@@ -4,8 +4,9 @@
 and replied **“I accept”** in the Codex conversation. Approval applies to all 12 images committed
 in `54188569`, including the two visible behaviors documented below. No screenshot pixels were
 changed during activation. The `Desktop visual` job in `quality.yml` now compares this accepted
-set on pull requests, master pushes and manual dispatches. Required-check enforcement is a
-separate GitHub ruleset setting.
+set on pull requests, master pushes and manual dispatches. After the first hosted run passed,
+**Desktop visual** was added to master's required checks in the existing GitHub ruleset, preserving
+all earlier protections.
 
 - [Browse all 12 images](review.html)
 - [Runtime pin](runtime.json)
@@ -76,6 +77,11 @@ All 12 images were visually inspected across the coordinator and independent rev
 were no loading/error placeholders, missing content rows or missing row actions. The ordinary
 dictionary tables remain compact and read-only; administrators have the editor and disabled
 Save before edits. Long text inside single-line admin inputs is naturally horizontally clipped.
+
+## CI activation
+
+The first hosted **Desktop visual** job passed in [quality run 37229755537](https://github.com/liveweird/lettuce/actions/runs/37229755537)
+on PR #110, using commit `d0442d4e` and the approved, unchanged image set.
 
 ## Future baseline changes
 
