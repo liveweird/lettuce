@@ -108,7 +108,11 @@ class TracingTest {
         val previous = System.getProperty("otel.traces.exporter")
         System.setProperty("otel.traces.exporter", "lettuce-test-collector")
         try {
-            configureApp()
+            // Retention 0 switches the sign-in history purge off. Otherwise the login launches that purge
+            // fire-and-forget on the Application scope: its `DELETE FROM account_events` is a ROOT client
+            // span (own trace) that runs concurrently with the test and, on a slower runner, lands after
+            // the `clear()` below — a stray span from another trace that is not this request's.
+            configureApp("activity.accountRetentionDays" to "0")
             startApplication()
             val sdk = application.attributes[OpenTelemetryKey] as OpenTelemetrySdk
             assertEquals(true, application.attributes[DbSpansEnabledKey], "a configured exporter turns DB spans on")
