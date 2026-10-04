@@ -25,7 +25,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
 import { getUserId, isAdmin } from "../api/session";
 import { getUser, setUserLanguage, updateUser } from "../api/users";
-import i18n, { asSupportedLanguage } from "../i18n";
+import { asSupportedLanguage, switchLanguage } from "../i18n";
 import { showSuccessToast } from "../utils/toast";
 import DiscardGuard from "../components/DiscardGuard";
 import FormFooter from "../components/FormFooter";
@@ -99,7 +99,7 @@ export default function EditUser() {
         await setUserLanguage(id, values.language);
         // Editing one's own account applies the language immediately (the features self-edit
         // precedent); others pick it up at their next sign-in or token refresh.
-        if (getUserId() === id) void i18n.changeLanguage(values.language);
+        if (getUserId() === id) switchLanguage(values.language).catch((e) => console.error("Language switch failed", e));
       }
       await invalidateUser(queryClient, id);
       showSuccessToast(t("users.toast.updated"));

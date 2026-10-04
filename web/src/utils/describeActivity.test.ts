@@ -1,3 +1,4 @@
+import "../test/withPolish";
 import { afterEach, describe, expect, test } from "vitest";
 import type { TFunction } from "i18next";
 import i18n from "../i18n";

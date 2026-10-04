@@ -105,4 +105,21 @@ describe("theme component defaults", () => {
     expect(theme.components!.DrawerOverlay!.defaultProps).toEqual({ backgroundOpacity: 0.45, blur: 2 });
     expect(theme.components!.Drawer!.defaultProps).not.toHaveProperty("overlayProps");
   });
+
+  it("keeps every component override (the plain-object ones are what `X.extend` returned)", () => {
+    const c = theme.components!;
+    expect(Object.keys(c).sort()).toEqual(
+      [
+        "AppShell", "Badge", "Button", "DateInput", "Drawer", "DrawerOverlay", "InputWrapper", "Modal",
+        "MultiSelect", "NavLink", "SegmentedControl", "Select", "Table", "Tabs", "Tooltip",
+      ].sort(),
+    );
+    expect(c.Table!.defaultProps).toEqual({ highlightOnHover: true, verticalSpacing: "xs", horizontalSpacing: "sm", fz: "sm" });
+    expect(c.DateInput!.defaultProps).toEqual({ highlightToday: true });
+    expect(c.InputWrapper!.defaultProps).toEqual({ inputWrapperOrder: ["label", "input", "description", "error"] });
+    expect(c.Modal!.defaultProps).toEqual({ radius: "md", centered: true, overlayProps: { backgroundOpacity: 0.45, blur: 2 } });
+    expect(c.Drawer!.defaultProps).toEqual({ position: "right" });
+    expect(c.Select!.defaultProps).toHaveProperty("filter");
+    expect(c.MultiSelect!.defaultProps).toHaveProperty("filter");
+  });
 });

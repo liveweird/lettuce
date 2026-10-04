@@ -1,3 +1,4 @@
+import "../test/withPolish";
 import { afterEach, describe, expect, test } from "vitest";
 import Changelog from "./Changelog";
 import { CHANGELOG } from "../changelog/entries";

@@ -1,3 +1,4 @@
+import "../test/withPolish";
 import { afterEach, describe, expect, test } from "vitest";
 import type { TFunction } from "i18next";
 // A Vite `?raw` import rather than node:fs, so the app tsconfig never needs Node types.

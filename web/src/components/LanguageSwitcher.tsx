@@ -3,7 +3,7 @@ import { IconCheck, IconLanguage } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { setUserLanguage } from "../api/users";
-import { asSupportedLanguage, NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../i18n";
+import { asSupportedLanguage, NATIVE_LANGUAGE_NAMES, switchLanguage, SUPPORTED_LANGUAGES } from "../i18n";
 
 /**
  * The header language menu (a SegmentedControl until v2.20.0 — a Menu scales past two
@@ -18,7 +18,7 @@ export default function LanguageSwitcher() {
   const current = asSupportedLanguage(i18n.resolvedLanguage);
 
   function pick(lng: string) {
-    void i18n.changeLanguage(lng);
+    switchLanguage(asSupportedLanguage(lng)).catch((e) => console.error("Language switch failed", e));
     // The switcher only mounts in the authenticated shell, but keep the guard.
     const userId = getUserId();
     if (userId !== null) {

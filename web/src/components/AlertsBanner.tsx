@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { ActionIcon, Alert, Box, Group, Portal, Text } from "@mantine/core";
 import {
   IconChevronDown,
@@ -9,8 +9,27 @@ import {
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "../hooks/useVisibleAlerts";
-import MarkdownView from "./MarkdownView";
 import classes from "./AlertsBanner.module.css";
+
+// Lazy: react-markdown + remark (~150 KiB raw) stay out of the shell's initial payload. The chunk is
+// WARMED once the browser is idle after the first paint (below), so the banner body never depends on
+// a fetch made minutes later by the 60 s alerts poll — after a deploy that fetch would 404 a stale
+// tab's old chunk URL. If it still fails, the body falls back to plain text (AlertBodyBoundary).
+const loadMarkdownView = () => import("./MarkdownView");
+const MarkdownView = lazy(loadMarkdownView);
+
+/** Renders `fallback` (the alert as plain text) when the markdown renderer cannot load or crashes. */
+class AlertBodyBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 const STORAGE_KEY = "lettuce.alertsBanner";
 
@@ -54,6 +73,20 @@ export default function AlertsBanner() {
 
   const items = data ?? [];
   const maxId = items.reduce((acc, a) => Math.max(acc, a.id), 0);
+
+  // Warm the markdown chunk when the browser is idle (a failed warm-up is ignored — the body falls
+  // back to plain text if it is still unavailable when an alert is shown).
+  useEffect(() => {
+    const warm = () => {
+      loadMarkdownView().catch(() => undefined);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(warm, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(warm, 2000);
+    return () => clearTimeout(id);
+  }, []);
 
   // Auto-unhide when an alert id we have never seen appears; remember it either way.
   useEffect(() => {
@@ -170,7 +203,18 @@ export default function AlertsBanner() {
                   <IconChevronUp size={16} />
                 </ActionIcon>
               </Group>
-              <MarkdownView>{current.content}</MarkdownView>
+              <AlertBodyBoundary
+                key={current.id}
+                fallback={
+                  <Text size="sm" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                    {current.content}
+                  </Text>
+                }
+              >
+                <Suspense fallback={null}>
+                  <MarkdownView>{current.content}</MarkdownView>
+                </Suspense>
+              </AlertBodyBoundary>
             </Alert>
           </Box>
         </Portal>

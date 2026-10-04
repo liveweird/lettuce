@@ -1,4 +1,7 @@
 import { DateInput, type DateInputProps } from "@mantine/dates";
+// The calendar stylesheet loads with the date fields (its only consumers), not with the entry: a lazily
+// loaded sheet is appended after @mantine/core/styles.css, the order Mantine requires.
+import "@mantine/dates/styles.css";
 import { useTranslation } from "react-i18next";
 import { isValidIsoDate } from "../utils/datetime";
 import { isOutsideIsoRange } from "../utils/isoRange";

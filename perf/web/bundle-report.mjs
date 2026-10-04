@@ -3,13 +3,17 @@
 // web/dist/assets/*.js|css, the ENTRY chunk (the module script of index.html) and the INITIAL payload (entry + the
 // modulepreload/stylesheet links of index.html — what a first load must fetch before the app starts).
 //
-// Node stdlib only (fs + zlib + path) and deliberately outside web/ so knip/eslint never see it. A REPORT, not a gate:
-// gating is a decision for after the first baseline. Deterministic for a given dist (no timestamps; gzip level 9, brotli
+// Node stdlib only (fs + zlib + path) and deliberately outside web/ so knip/eslint never see it. A report by default; since
+// v4.15.1 it is also a BUDGET GATE when given limits: the CI Web job passes --max-initial-gzip / --max-initial-files and the
+// script exits 1 on overrun (the first baseline, 2026-10-04-3076bbd4, was 480,795 B gzip over 38 initial files; v4.15.1 cut it
+// to ~333 kB over 8, the limits sit ~8 % above that). Deterministic for a given dist (no timestamps; gzip level 9, brotli
 // quality 11), so two builds of the same sources compare exactly.
 //
 //   node perf/web/bundle-report.mjs [--dist web/dist] [--out bundle.json] [--quiet]
+//                                   [--max-initial-gzip <bytes>] [--max-initial-files <n>]
 //
-// Prints a table (largest first) and, with --out, writes the JSON (the CI Web job uploads it as an artifact).
+// Prints a table (largest first) and, with --out, writes the JSON (the CI Web job uploads it as an artifact). A limit
+// that is exceeded is printed to stderr (also with --quiet) and the exit code is 1; a malformed limit is a usage error (2).
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
 import { basename, join, resolve } from 'node:path';
@@ -24,6 +28,18 @@ const flag = (name) => {
 const dist = resolve(flag('--dist') ?? join(here, '..', '..', 'web', 'dist'));
 const out = flag('--out');
 const quiet = args.includes('--quiet');
+
+const limit = (name) => {
+  const raw = flag(name);
+  if (raw === undefined) return undefined;
+  if (!/^[1-9]\d*$/.test(raw)) {
+    console.error(`bundle-report: ${name} wants a positive integer, got '${raw}'`);
+    process.exit(2);
+  }
+  return Number(raw);
+};
+const maxInitialGzip = limit('--max-initial-gzip');
+const maxInitialFiles = limit('--max-initial-files');
 
 let assets;
 try {
@@ -98,4 +114,18 @@ if (!quiet) {
   }
   console.log(`${'initial payload'.padEnd(width)}  ${kb(report.initial.raw)} ${kb(report.initial.gzip)} ${kb(report.initial.brotli)}`);
   console.log(`${'all chunks'.padEnd(width)}  ${kb(report.totals.all.raw)} ${kb(report.totals.all.gzip)} ${kb(report.totals.all.brotli)}`);
+}
+
+// The budget gate: every exceeded limit is named, then one non-zero exit.
+const budgets = [
+  ['initial gzip bytes', report.initial.gzip, maxInitialGzip],
+  ['initial files', report.initial.files.length, maxInitialFiles],
+].filter(([, , max]) => max !== undefined);
+const over = budgets.filter(([, actual, max]) => actual > max);
+if (budgets.length > 0 && !quiet) {
+  for (const [what, actual, max] of budgets) console.log(`budget: ${what} ${actual} / ${max} ${actual > max ? 'OVER' : 'ok'}`);
+}
+if (over.length > 0) {
+  for (const [what, actual, max] of over) console.error(`bundle-report: ${what} ${actual} exceeds the budget ${max}`);
+  process.exit(1);
 }

@@ -68,17 +68,6 @@ jobs:
         working-directory: web
         run: npm run build
 
-      # A report, not a gate (decision deferred until the first baseline exists): per-chunk raw/gzip/brotli sizes of the
-      # build above. Node stdlib only; the script lives outside web/ (perf/web/bundle-report.mjs).
-      - name: Bundle-size report
-        run: node perf/web/bundle-report.mjs --out "$RUNNER_TEMP/web-bundle-report.json"
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: web-bundle-report
-          path: ${{ runner.temp }}/web-bundle-report.json
-          retention-days: 30
-
       - name: Lint web
         working-directory: web
         run: npm run lint
@@ -90,6 +79,22 @@ jobs:
       - name: Run web coverage gate
         working-directory: web
         run: npm run test:coverage
+
+      # Per-chunk raw/gzip/brotli sizes of the build, plus (since v4.15.1) a budget gate on the initial payload.
+      # It runs after lint, knip and coverage so an overrun never hides those results. The step fails when the
+      # files `index.html` loads up front exceed 360,000 B gzip or 12 files (v4.15.1 measured ~333 kB over 8,
+      # ~8 % headroom; the first baseline was 480,795 B over 38). Raise a limit only in the PR that deliberately
+      # grows the initial payload, with the reason. Node stdlib only; the script lives outside web/
+      # (perf/web/bundle-report.mjs); the JSON is written first, so the artifact uploads (!cancelled()) on an overrun too.
+      - name: Bundle-size report
+        run: node perf/web/bundle-report.mjs --out "$RUNNER_TEMP/web-bundle-report.json" --max-initial-gzip 360000 --max-initial-files 12
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: web-bundle-report
+          path: ${{ runner.temp }}/web-bundle-report.json
+          retention-days: 30
 
   api-contract:
     name: API contract

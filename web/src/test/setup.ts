@@ -7,6 +7,9 @@ import i18n from "../i18n";
 // Deterministic English in tests (the global i18n instance is shared by every test, including the
 // many that render with their own inline providers — no per-test I18nextProvider needed).
 void i18n.changeLanguage("en");
+// Non-EN bundles are NOT preloaded here on purpose: the app loads them lazily (v4.15.1), and a global
+// preload would mask a code path that renders in a language it never loaded. A test that needs
+// Polish says so: `import "../test/withPolish"`.
 
 if (typeof globalThis.localStorage === "undefined") {
   const store = new Map<string, string>();
