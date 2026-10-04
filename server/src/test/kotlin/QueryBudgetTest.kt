@@ -92,16 +92,16 @@ class QueryBudgetTest {
             "users?name" to Budget(8, 2), // 8/2 -> 8/2
             "teams?name" to Budget(3, 2), // 3/2 -> 3/2
             "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (F8: O(1) per team; the org chart's cost is the SPA's one request per team)
-            // O(n), pinned (F1/F10): two per-row LIMIT 1 lookups (latest 1:1, latest review) on `managed`, ...
-            "teams/members?view=managed" to Budget(18, 11, dStmt = 98), // 18/11 -> 116/11
-            "teams/members?view=managed&includeIndirect" to Budget(22, 11, dStmt = 98), // 22/11 -> 120/11
-            // ... one per-row latest-1:1 lookup (`latestStatsByKey`) on `managers` (F17: not in F1, found by this test).
-            "teams/members?view=managers" to Budget(8, 7, dStmt = 49), // 8/7 -> 57/7
+            // F1/F10/F17, fixed in v4.14.0: one DISTINCT ON statement per enrichment (latest 1:1, latest review on
+            // `managed`; latest 1:1 on `managers`) instead of one LIMIT 1 lookup per row.
+            "teams/members?view=managed" to Budget(18, 11), // 18/11 -> 18/11
+            "teams/members?view=managed&includeIndirect" to Budget(20, 11), // 20/11 -> 20/11
+            "teams/members?view=managers" to Budget(8, 7), // 8/7 -> 8/7
             "teams/members?view=member" to Budget(9, 8), // 9/8 -> 9/8
             "dashboard/summary" to Budget(10, 8), // 10/8 -> 10/8 (F11)
-            // O(n), pinned (F17): one latest-meeting LIMIT 1 per distinct (manager, subordinate) pair on the page.
-            "one-on-ones?view=managed" to Budget(6, 2, dStmt = 49), // 6/2 -> 55/2
-            "one-on-ones?view=managed&latestOnly" to Budget(6, 2, dStmt = 49), // 6/2 -> 55/2
+            // F17, fixed in v4.14.0: `isLatest` is one DISTINCT ON statement over the page's pairs, not one per pair.
+            "one-on-ones?view=managed" to Budget(6, 2), // 6/2 -> 6/2
+            "one-on-ones?view=managed&latestOnly" to Budget(6, 2), // 6/2 -> 6/2
             "goals?view=managed" to Budget(4, 2), // 4/2 -> 4/2
             "performance-reviews?view=managed" to Budget(3, 2), // 3/2 -> 3/2
             "performance-reviews?view=all" to Budget(3, 2), // 3/2 -> 3/2
