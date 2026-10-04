@@ -46,3 +46,45 @@ export function tableMarkdown(data, personas, info) {
   }
   return lines.join('\n');
 }
+
+/** The table of a lib/replay.js scenario: per persona and screen, per-endpoint latency/DB numbers and the per-load sums. */
+export function screenTableMarkdown(data, def, personas, info) {
+  const lines = [];
+  lines.push(`### ${def.name} — ${info.run}, ${info.vus} VU`);
+  lines.push('');
+  const total = (data.metrics.http_reqs && data.metrics.http_reqs.values.count) || 0;
+  const missing = (data.metrics.server_timing_missing && data.metrics.server_timing_missing.values.count) || 0;
+  const failed = (data.metrics.http_req_failed && data.metrics.http_req_failed.values.rate) || 0;
+  lines.push(`requests ${total}, failed rate ${f(failed * 100, 2)} %, responses without Server-Timing ${missing}`);
+  for (const persona of personas) {
+    for (const screen of def.personaScreens[persona] || []) {
+      lines.push('');
+      lines.push(`#### ${persona} / ${screen}`);
+      lines.push('');
+      const sums = [
+        ['requests', 'screen_requests', 0], ['elapsed wall ms', 'screen_wall_ms', 0],
+        ['summed request ms', 'screen_seq_ms', 0], ['db ms', 'screen_db_ms', 0], ['statements', 'screen_stmt', 0],
+        ['transactions', 'screen_tx', 0],
+      ];
+      lines.push('| per screen load | p50 | p95 | max |');
+      lines.push('|---|---:|---:|---:|');
+      for (const [label, key, d] of sums) {
+        const s = trend(data, `${key}{persona:${persona},screen:${screen}}`);
+        if (s) lines.push(`| ${label} | ${f(s.med, d)} | ${f(s['p(95)'], d)} | ${f(s.max, d)} |`);
+      }
+      lines.push('');
+      lines.push('| endpoint | n | wall p50 | wall p95 | db p50 | db p95 | stmt p50 | tx p50 |');
+      lines.push('|---|---:|---:|---:|---:|---:|---:|---:|');
+      for (const e of def.screens[screen].endpoints) {
+        const k = (m) => trend(data, `${m}{persona:${persona},screen:${screen},endpoint:${e}}`);
+        const w = k('req_wall_ms');
+        if (!w) continue;
+        const db = k('req_db_ms') || {};
+        const st = k('req_stmt') || {};
+        const tx = k('req_tx') || {};
+        lines.push(`| ${e} | ${w.count} | ${f(w.med, 0)} | ${f(w['p(95)'], 0)} | ${f(db.med, 0)} | ${f(db['p(95)'], 0)} | ${f(st.med, 0)} | ${f(tx.med, 0)} |`);
+      }
+    }
+  }
+  return lines.join('\n');
+}

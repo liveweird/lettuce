@@ -81,6 +81,13 @@ services:
       JWT_ACCESS_EXPIRES_IN_SECONDS: "7200"
       # Development mode (inherited from the base file, decision D3) with the header ON explicitly.
       PERF_SERVER_TIMING: "true"
+      # The sign-in history purge (AccountEventService) runs against the REAL clock while the dataset's anchor is
+      # pinned: with the default 90 days, a restore on a later date would hard-delete part of the seeded account_events
+      # during a measurement. 0 = keep forever, so every run reads the same rows (the activity-log numbers depend on it).
+      ACTIVITY_ACCOUNT_RETENTION_DAYS: "0"
+      # Same reason for the notification purge (seen rows older than 30 real-clock days are hard-deleted on mint — the
+      # mixed run mints): 0 disables it, so a later restore + run still reads the seeded retention-shaped set.
+      NOTIFICATION_RETENTION_DAYS: "0"
       # The base file turns the integration API on for the demo; nothing on the perf path uses it.
       INTEGRATION_ENABLED: "false"
       MAIL_APP_URL: http://localhost:18080
