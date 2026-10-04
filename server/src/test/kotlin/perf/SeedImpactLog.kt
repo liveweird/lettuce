@@ -65,20 +65,20 @@ suspend fun seedImpactLog(ctx: SeedContext, org: Org, mint: NotificationMint) {
         for (person in org.people) {
             val id = ids.take()
             val managers = setOfNotNull(person.managerId)
-            val createdAt = ctx.millis(end.plusDays(rng.int(0, 6).toLong()), 8 + rng.int(0, 9), rng.int(0, 59))
+            val createdAt = ctx.spreadMillis(rng, end.plusDays(rng.int(0, 6).toLong()), 8 + rng.int(0, 9), rng.int(0, 59))
             var modified = createdAt
             val created = impactEntryCreationEvent(start.toString(), end.toString())
             events.add(id, person.id, createdAt, created.type.name, created.params)
             mint.emitAll(impactEntryCreatedNotifications(id, managers, person.name, start.toString(), end.toString()), createdAt)
             if (rng.chance(0.12)) {
-                modified = minOf(createdAt + rng.int(1, 14) * MILLIS_PER_DAY, ctx.anchorMillis - 1)
+                modified = ctx.spreadMillis(rng, createdAt + rng.int(1, 14) * MILLIS_PER_DAY, floor = createdAt)
                 val fields = SECTION_FIELDS.filter { rng.chance(0.5) }.ifEmpty { listOf(SECTION_FIELDS.first()) }
                 events.add(id, person.id, modified, ImpactEntryEventType.UPDATED.name, mapOf("changed" to fields.joinToString(",")))
                 mint.emitAll(impactEntryUpdatedNotifications(id, managers, person.name, start.toString(), end.toString()), modified)
             }
             val deleted = rng.chance(0.01)
             if (deleted) {
-                modified = minOf(modified + MILLIS_PER_DAY, ctx.anchorMillis - 1)
+                modified = ctx.spreadMillis(rng, modified + MILLIS_PER_DAY, floor = modified)
                 val d = impactEntryDeletionEvent()
                 events.add(id, person.id, modified, d.type.name, d.params)
                 mint.emitAll(impactEntryDeletedNotifications(managers, person.name, start.toString(), end.toString()), modified)

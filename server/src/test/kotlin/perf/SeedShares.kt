@@ -98,24 +98,24 @@ private suspend fun loadDocuments(ctx: SeedContext, org: Org): List<ShareableDoc
     val e = ImpactLogService.Entries
     val p = SuccessionPlanService.Plans
     val docs = mutableListOf<ShareableDoc>()
-    docs += f.select(f.id, f.providerId, f.lastModified).where { f.markedAsDeleted eq false }
+    docs += f.select(f.id, f.providerId, f.lastModified).where { f.markedAsDeleted eq false }.orderBy(f.id)
         .map { ShareableDoc(ShareableResourceType.FEEDBACK, it[f.id].value, it[f.providerId].value, it[f.lastModified]) }.toList()
-    docs += m.select(m.id, m.managerId, m.lastModified).where { m.markedAsDeleted eq false }
+    docs += m.select(m.id, m.managerId, m.lastModified).where { m.markedAsDeleted eq false }.orderBy(m.id)
         .map { ShareableDoc(ShareableResourceType.ONE_ON_ONE, it[m.id].value, it[m.managerId].value, it[m.lastModified]) }.toList()
-    docs += g.select(g.id, g.managerId, g.createdAt).where { g.markedAsDeleted eq false }
+    docs += g.select(g.id, g.managerId, g.createdAt).where { g.markedAsDeleted eq false }.orderBy(g.id)
         .map { ShareableDoc(ShareableResourceType.GOAL, it[g.id].value, it[g.managerId].value, it[g.createdAt]) }.toList()
     // A team KPI's author is whoever manages the team NOW (the current-manager derivation).
-    docs += k.select(k.id, k.teamId, k.createdAt).where { k.markedAsDeleted eq false }
+    docs += k.select(k.id, k.teamId, k.createdAt).where { k.markedAsDeleted eq false }.orderBy(k.id)
         .map {
             val manager = org.teamById.getValue(it[k.teamId].value).managerId
             ShareableDoc(ShareableResourceType.TEAM_KPI, it[k.id].value, manager, it[k.createdAt])
         }
         .toList()
-    docs += r.select(r.id, r.managerId, r.createdAt).where { r.markedAsDeleted eq false }
+    docs += r.select(r.id, r.managerId, r.createdAt).where { r.markedAsDeleted eq false }.orderBy(r.id)
         .map { ShareableDoc(ShareableResourceType.PERFORMANCE_REVIEW, it[r.id].value, it[r.managerId].value, it[r.createdAt]) }.toList()
-    docs += e.select(e.id, e.userId, e.createdAt).where { e.markedAsDeleted eq false }
+    docs += e.select(e.id, e.userId, e.createdAt).where { e.markedAsDeleted eq false }.orderBy(e.id)
         .map { ShareableDoc(ShareableResourceType.IMPACT_LOG_ENTRY, it[e.id].value, it[e.userId].value, it[e.createdAt]) }.toList()
-    docs += p.select(p.id, p.managerId, p.createdAt).where { p.markedAsDeleted eq false }
+    docs += p.select(p.id, p.managerId, p.createdAt).where { p.markedAsDeleted eq false }.orderBy(p.id)
         .map { ShareableDoc(ShareableResourceType.SUCCESSION_PLAN, it[p.id].value, it[p.managerId].value, it[p.createdAt]) }.toList()
     docs
 }
@@ -175,10 +175,12 @@ suspend fun seedShares(ctx: SeedContext, org: Org, mint: NotificationMint) {
             val sharee = rng.pick(peers)
             if (!taken.add(Triple(type, doc.id, sharee.id))) return@forEach
             val label = snapshot(adapter, doc.id) ?: return@forEach
-            val createdAt = ctx.millis(isoDate(doc.atMillis).plusDays(rng.int(1, 30).toLong()), 9 + rng.int(0, 8), rng.int(0, 59))
+            val createdAt = ctx.spreadMillis(
+                rng, isoDate(doc.atMillis).plusDays(rng.int(1, 30).toLong()), 9 + rng.int(0, 8), rng.int(0, 59), floor = doc.atMillis,
+            )
             val expiresOn = if (rng.chance(EXPIRING_RATE)) isoDate(createdAt).plusDays(rng.int(30, 180).toLong()).toString() else null
             val withdrawnAt = if (rng.chance(WITHDRAWN_RATE)) {
-                ctx.millis(isoDate(createdAt).plusDays(rng.int(1, 20).toLong()), 10)
+                ctx.spreadMillis(rng, isoDate(createdAt).plusDays(rng.int(1, 20).toLong()), 10, floor = createdAt)
             } else {
                 null
             }

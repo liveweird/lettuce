@@ -15,6 +15,9 @@ class Rng(seed: Long, stream: String) {
     /** Uniform in `[from, toInclusive]`. */
     fun int(from: Int, toInclusive: Int): Int = random.nextInt(from, toInclusive + 1)
 
+    /** Uniform in `[from, toInclusive]`. */
+    fun long(from: Long, toInclusive: Long): Long = random.nextLong(from, toInclusive + 1)
+
     fun double(): Double = random.nextDouble()
 
     fun chance(probability: Double): Boolean = random.nextDouble() < probability

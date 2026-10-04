@@ -88,7 +88,7 @@ suspend fun seedOneOnOnes(ctx: SeedContext, org: Org, mint: NotificationMint) {
         for (pair in pairs) {
             val date = firstWeek.plusWeeks(week.toLong()).plusDays(pair.weekdayOffset.toLong())
             val meetingId = meetingIds.take()
-            val at = ctx.millis(date, hour = 9, minuteOffset = week % 50)
+            val at = ctx.spreadMillis(rng, date, hour = 9, minuteOffset = week % 50)
             meetings.add(MeetingRow(meetingId, pair.manager.id, pair.subordinate.id, date.toString(), at + 3_600_000))
             addNotes(ctx, rng, notes, noteIds, meetingId)
             val unresolved = addItems(ctx, rng, items, itemIds, pair, meetingId, date)

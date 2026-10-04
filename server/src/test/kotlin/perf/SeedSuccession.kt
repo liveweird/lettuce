@@ -58,7 +58,7 @@ private val json = Json { encodeDefaults = true }
 
 private suspend fun goalsByPerson(ctx: SeedContext): Map<UInt, List<UInt>> = suspendTransaction(ctx.db) {
     val g = GoalService.Goals
-    g.select(g.id, g.subordinateId).where { g.markedAsDeleted eq false }
+    g.select(g.id, g.subordinateId).where { g.markedAsDeleted eq false }.orderBy(g.id)
         .map { it[g.subordinateId].value to it[g.id].value }.toList().groupBy({ it.first }, { it.second })
 }
 
@@ -112,14 +112,17 @@ private class SuccessionWriter(private val ctx: SeedContext, private val org: Or
     }
 
     private fun pickNominations(seat: Person, reach: List<Person>): List<Pair<Person, NominationType>> {
-        val inside = reach.filter { it.id != seat.id }
-        val outside = org.managed.filter { it.id != seat.id && it !in inside }
+        // A successor is a peer or a more junior person: never the seat's person, the plan's owner or anyone above
+        // the seat — every manager up the seat's chain (the owner included) sits at a strictly higher level.
+        fun eligible(c: Person) = c.id != seat.id && c.level >= seat.level
+        val inside = reach.filter(::eligible)
+        val outside = org.managed.filter { eligible(it) && it !in inside }
         val count = rng.int(1, 3)
         val chosen = mutableListOf<Pair<Person, NominationType>>()
         repeat(count) { i ->
             val source = if (i == 0 || outside.isEmpty() || rng.chance(0.7)) inside else outside
             val pool = source.filter { c -> chosen.none { it.first === c } }
-            val candidate = pool.ifEmpty { org.managed.filter { c -> c.id != seat.id && chosen.none { it.first === c } } }
+            val candidate = pool.ifEmpty { org.managed.filter { c -> eligible(c) && chosen.none { it.first === c } } }
                 .takeIf { it.isNotEmpty() }?.let(rng::pick) ?: return@repeat
             val type = when {
                 i == 0 && candidate in inside -> NominationType.PRIMARY
@@ -160,12 +163,12 @@ private class SuccessionWriter(private val ctx: SeedContext, private val org: Or
             events.add(id, manager.id, at, added.type.name, added.params)
         }
         repeat(rng.int(if (open) 0 else 1, 2)) {
-            reviewed = ctx.millis(created.plusDays(rng.int(5, 120).toLong()), 10).coerceAtLeast(reviewed)
+            reviewed = ctx.spreadMillis(rng, created.plusDays(rng.int(5, 120).toLong()), 10, floor = reviewed).coerceAtLeast(reviewed)
             val review = successionReviewCompletedEvent()
             events.add(id, manager.id, reviewed, review.type.name, review.params)
         }
         if (!open) {
-            val closedAt = ctx.millis(closeBy.minusDays(rng.int(0, 20).toLong()), 15).coerceAtLeast(reviewed)
+            val closedAt = ctx.spreadMillis(rng, closeBy.minusDays(rng.int(0, 20).toLong()), 15, floor = reviewed).coerceAtLeast(reviewed)
             val closed = successionPlanClosedEvent()
             events.add(id, manager.id, closedAt, closed.type.name, closed.params)
         }
@@ -183,7 +186,8 @@ private class SuccessionWriter(private val ctx: SeedContext, private val org: Or
  * the history (81 managers × 20 ≈ 1.6k at scale 1.0) — the seat's person is drawn from the manager's
  * TRANSITIVE subtree (distinct within a half-year, so the "one OPEN plan per (owner, person)" index
  * holds), every plan of the newest half-year is OPEN and every older one CLOSED. Each plan carries an
- * encrypted loss-impact list (2–5 texts) and 1–3 nominations — candidate from the manager's subtree
+ * encrypted loss-impact list (2–5 texts) and 1–3 nominations — candidate (never the owner nor anyone above
+ * the seat) from the manager's subtree
  * (`PRIMARY` for the first, ONE primary at most, then `SECONDARY`) or any other person (`CROSS_TEAM`) —
  * with an encrypted competency-gap list of `{text, filled}` objects, and up to two links to the
  * candidate's own goals (the first nomination always links when the candidate has goals). Events by rule

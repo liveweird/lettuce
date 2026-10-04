@@ -124,6 +124,8 @@ INSERT INTO verify_checks SELECT 'every team KPI is created by its team''s manag
 INSERT INTO verify_checks SELECT 'days-off: cost > 0, start <= end, one calendar year, PAID entries name a pool', count(*) FROM days_off_requests
   WHERE cost_half_days <= 0 OR start_date > end_date OR left(start_date, 4) <> left(end_date, 4)
      OR (type = 'PAID' AND pool_type_id IS NULL);
+INSERT INTO verify_checks SELECT 'days-off: a single-day entry has no end half-day (DaysOff.kt rejects start = end AND end_half)', count(*) FROM days_off_requests
+  WHERE start_date = end_date AND end_half;
 INSERT INTO verify_checks SELECT 'days-off: no two active entries of one person overlap', count(*) FROM days_off_requests a
   JOIN days_off_requests b ON b.user_id = a.user_id AND a.id < b.id AND a.start_date <= b.end_date AND a.end_date >= b.start_date
   WHERE NOT a.marked_as_deleted AND NOT b.marked_as_deleted;
@@ -156,6 +158,15 @@ INSERT INTO verify_checks SELECT 'succession: the seat''s person is in the owner
 INSERT INTO verify_checks SELECT 'succession: candidate is not the seat''s person; at most one PRIMARY per plan', count(*) FROM (
   SELECT 1 FROM succession_nominations n JOIN succession_plans p ON p.id = n.plan_id WHERE n.candidate_id = p.user_id
   UNION ALL SELECT 1 FROM (SELECT plan_id FROM succession_nominations WHERE nomination_type = 'PRIMARY' AND NOT marked_as_deleted GROUP BY 1 HAVING count(*) > 1) x) d;
+WITH RECURSIVE reports(manager_id, user_id) AS (
+  SELECT t.manager_id, tm.user_id FROM teams t JOIN team_members tm ON tm.team_id = t.id WHERE NOT t.marked_as_deleted
+  UNION
+  SELECT r.manager_id, tm.user_id FROM reports r JOIN teams t ON t.manager_id = r.user_id AND NOT t.marked_as_deleted
+  JOIN team_members tm ON tm.team_id = t.id)
+INSERT INTO verify_checks SELECT 'succession: a candidate is never the plan''s owner nor anyone above the seat''s person', count(*) FROM succession_nominations n
+  JOIN succession_plans p ON p.id = n.plan_id
+  WHERE n.candidate_id = p.manager_id
+     OR EXISTS (SELECT 1 FROM reports r WHERE r.manager_id = n.candidate_id AND r.user_id = p.user_id);
 INSERT INTO verify_checks SELECT 'succession: one OPEN plan per (owner, person); every plan has a CREATED event', count(*) FROM (
   SELECT 1 FROM (SELECT manager_id, user_id FROM succession_plans WHERE status = 'OPEN' AND NOT marked_as_deleted GROUP BY 1, 2 HAVING count(*) > 1) x
   UNION ALL SELECT 1 FROM succession_plans p WHERE (SELECT count(*) FROM succession_plan_events e WHERE e.plan_id = p.id AND e.event_type = 'CREATED') <> 1) d;
@@ -184,6 +195,39 @@ INSERT INTO verify_checks SELECT 'career_position_events: the named position bel
   WHERE NOT EXISTS (SELECT 1 FROM user_career_positions p WHERE p.id = (e.params::jsonb ->> 'positionId')::bigint AND p.user_id = e.owner_id);
 INSERT INTO verify_checks SELECT 'account_events: owner = actor, nothing older than the 90-day window', count(*) FROM account_events
   WHERE user_id IS DISTINCT FROM owner_id OR created_at < (SELECT max(created_at) FROM account_events) - 91::bigint * 86400000;
+
+-- The sign-in history and users.last_login_at agree: a perf account that never signed in has no SIGNED_IN row and
+-- last_login_at = 0, every other one's last_login_at is its newest SIGNED_IN.
+INSERT INTO verify_checks SELECT 'users.last_login_at equals the newest SIGNED_IN of the account (0 when none)', count(*) FROM users u
+  WHERE u.email LIKE '%@perf.lettuce.local'
+    AND u.last_login_at <> COALESCE((SELECT max(e.created_at) FROM account_events e WHERE e.owner_id = u.id AND e.event_type = 'SIGNED_IN'), 0);
+
+-- 13b. Timestamp pile-ups: the generator scatters "would be in the future" moments over the last 30 days before the anchor
+--      (SeedContext.spreadMillis) instead of clamping them onto one millisecond. No event / share / notification
+--      timestamp may be shared by more than 20 rows. Notifications group by (moment, type) — one event legitimately mints
+--      one notice per recipient — and leave out the four pulse cycle fan-outs, which notify the whole eligible org at once.
+DO $$
+DECLARE c record; worst bigint;
+BEGIN
+  FOR c IN SELECT * FROM (VALUES
+    ('feedback_events', 'created_at', 'true'), ('one_on_one_events', 'created_at', 'true'), ('goal_events', 'created_at', 'true'),
+    ('team_kpi_events', 'created_at', 'true'), ('performance_review_events', 'created_at', 'true'),
+    ('impact_log_events', 'created_at', 'true'), ('succession_plan_events', 'created_at', 'true'),
+    ('days_off_events', 'created_at', 'true'), ('career_position_events', 'created_at', 'true'),
+    ('account_events', 'created_at', 'true'), ('document_shares', 'created_at', 'true'),
+    ('document_shares', 'withdrawn_at', 'withdrawn_at IS NOT NULL'),
+    ('days_off_requests', 'created_at', 'true'), ('days_off_corrections', 'created_at', 'true'),
+    ('succession_plans', 'last_reviewed_at', 'true')
+  ) AS t(tbl, col, cond) LOOP
+    EXECUTE format('SELECT COALESCE(max(k), 0) FROM (SELECT count(*) AS k FROM %I WHERE %s GROUP BY %I) g', c.tbl, c.cond, c.col) INTO worst;
+    INSERT INTO verify_checks VALUES (format('same-millisecond groups: largest %s.%s group is at most 20', c.tbl, c.col), CASE WHEN worst > 20 THEN worst ELSE 0 END);
+  END LOOP;
+  SELECT COALESCE(max(k), 0) INTO worst FROM (
+    SELECT count(*) AS k FROM notifications
+    WHERE notification_type NOT IN ('PULSE_CYCLE_SCHEDULED', 'PULSE_CYCLE_OPENED', 'PULSE_RESULTS_AVAILABLE', 'PULSE_CYCLE_CANCELLED')
+    GROUP BY created_at, notification_type) g;
+  INSERT INTO verify_checks VALUES ('same-millisecond groups: largest notifications (moment, type) group is at most 20', CASE WHEN worst > 20 THEN worst ELSE 0 END);
+END $$;
 
 -- 14. Referential sanity the foreign keys cannot say: the sequences are ahead of the generated ids
 --    (the app's next INSERT must not collide).

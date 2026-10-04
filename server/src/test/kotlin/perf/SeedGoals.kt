@@ -122,7 +122,7 @@ private class GoalWriter(private val ctx: SeedContext, private val org: Org, pri
     suspend fun write(person: Person, created: LocalDate, ageMonths: Int) {
         ensureIds()
         val plan = planGoal(rng, ageMonths)
-        val story = GoalStory(ctx, org, mint, events, eventIds, person, goalIds.take(), Text.title(rng, rng.int(3, 6)), created)
+        val story = GoalStory(ctx, org, mint, events, eventIds, rng, person, goalIds.take(), Text.title(rng, rng.int(3, 6)), created)
         story.tell(rng, plan)
         goals.add(
             GoalRow(
@@ -152,6 +152,7 @@ private class GoalStory(
     private val mint: NotificationMint,
     private val events: RowSink<EventRow>,
     private val eventIds: IdCounter,
+    private val rng: Rng,
     private val person: Person,
     val goalId: UInt,
     val title: String,
@@ -165,7 +166,8 @@ private class GoalStory(
         private set
 
     private fun event(type: String, params: Map<String, String>, actor: UInt, comment: String? = null) {
-        val at = ctx.millis(day, 9, minute++)
+        // Past the anchor, scatter the remaining steps over the last 30 days (never before the previous step).
+        val at = ctx.spreadMillis(rng, ctx.rawMillis(day, 9, minute++), floor = lastModified)
         lastModified = at
         events.add(EventRow(eventIds.take(), goalId, actor, at, type, params, comment))
     }

@@ -9,6 +9,7 @@ import ch.nokillswit.users.CareerPositionWrite
 import ch.nokillswit.users.careerPositionCreatedEvent
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -42,6 +43,7 @@ private suspend fun topUpDictionaries(ctx: SeedContext): Map<Dictionary, List<UI
     listOf(Dictionary.CAREER_PATH, Dictionary.CAREER_SPECIALIZATION, Dictionary.SENIORITY_LEVEL).associateWith { dictionary ->
         entries.selectAll()
             .where { (entries.dictionary eq dictionary.name) and (entries.markedAsDeleted eq false) }
+            .orderBy(entries.position to SortOrder.ASC, entries.id to SortOrder.ASC)
             .map { it[entries.id].value to it[entries.position] }.toList()
             .sortedBy { it.second }.map { it.first }
     }

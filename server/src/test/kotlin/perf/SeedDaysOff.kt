@@ -132,15 +132,17 @@ private class DaysOffWriter(val ctx: SeedContext, val org: Org, val mint: Notifi
     /** An entry [lengthDays] long from [start], clipped to its calendar year and shortened until it fits [budget] half-days. */
     fun fit(start: LocalDate, lengthDays: Long, budget: Int): Slot? {
         val startHalf = rng.chance(0.1)
-        val endHalf = rng.chance(0.1)
+        val endHalfDrawn = rng.chance(0.1)
         var end = minOf(start.plusDays(lengthDays - 1), LocalDate.of(start.year, 12, 31))
+        // A single-day entry has no separate end day: `DaysOff.kt` rejects `start == end && endHalf`.
+        fun endHalf() = endHalfDrawn && end > start
         // The REAL cost function (DaysOff.kt) — weekends and the registry's holidays cost nothing.
-        var cost = daysOffCostHalfDays(start, end, startHalf, endHalf, holidays)
+        var cost = daysOffCostHalfDays(start, end, startHalf, endHalf(), holidays)
         while (cost > budget && end > start) {
             end = end.minusDays(1)
-            cost = daysOffCostHalfDays(start, end, startHalf, endHalf, holidays)
+            cost = daysOffCostHalfDays(start, end, startHalf, endHalf(), holidays)
         }
-        return if (cost in 1..budget) Slot(start, end, startHalf, endHalf, cost) else null
+        return if (cost in 1..budget) Slot(start, end, startHalf, endHalf(), cost) else null
     }
 
     fun grant(person: Person, kind: PoolKind, allowance: Int, at: LocalDate) {
@@ -186,8 +188,12 @@ private fun DaysOffWriter.writeYear(
         val length = if (kind === extra) rng.int(2, 3) else rng.int(2, 9)
         val planned = fit(start, length.toLong(), cap - (used[key] ?: 0)) ?: return@repeat
         val actor = person.managerId?.takeIf { rng.chance(0.1) } ?: person.id
-        val createdAt = ctx.millis(start.minusDays(rng.int(7, 45).toLong()), 9 + rng.int(0, 7), rng.int(0, 59))
-        val deletedAt = if (rng.chance(0.03)) ctx.millis(planned.start.minusDays(rng.int(1, 6).toLong()), 14) else null
+        val createdAt = ctx.spreadMillis(rng, start.minusDays(rng.int(7, 45).toLong()), 9 + rng.int(0, 7), rng.int(0, 59))
+        val deletedAt = if (rng.chance(0.03)) {
+            ctx.spreadMillis(rng, planned.start.minusDays(rng.int(1, 6).toLong()), 14, floor = createdAt)
+        } else {
+            null
+        }
         if (deletedAt == null) used[key] = (used[key] ?: 0) + planned.cost
         val row = RequestRow(
             requestIds.take(), person.id, kind, planned.start, planned.end, planned.startHalf, planned.endHalf, planned.cost,
@@ -223,7 +229,7 @@ private fun DaysOffWriter.writeCorrections(default: PoolKind) {
         val manager = person.managerId!!
         val year = rng.int(ctx.config.anchor.minusMonths(ctx.spec.months.toLong()).year, ctx.config.anchor.year)
         val date = LocalDate.of(year, rng.int(1, 12), rng.int(1, 28))
-        val at = ctx.millis(date, 11)
+        val at = ctx.spreadMillis(rng, date, 11)
         val subtract = rng.chance(0.1)
         val halfDays = if (subtract) -1 else rng.int(1, 6)
         val id = correctionIds.take()
@@ -251,7 +257,8 @@ private fun DaysOffWriter.writeCorrections(default: PoolKind) {
  * (≈ 12.8k), spread across the year, 2–9 calendar days each, never overlapping, one calendar year each, kept
  * inside the pool's yearly budget (the app's create-time 409 would otherwise refuse them) — the last year's
  * window reaches ~4 months past the anchor, so some entries are booked ahead (`createdAt` is always before
- * the anchor). `cost_half_days` comes from the REAL `daysOffCostHalfDays` over the seeded holidays. ~3 % of the
+ * the anchor — a booking-ahead timestamp is scattered over the last 30 days, never stacked on one millisecond).
+ * `cost_half_days` comes from the REAL `daysOffCostHalfDays` over the seeded holidays. ~3 % of the
  * entries were deleted again (soft), ~10 % recorded by the direct manager on the person's behalf, and one
  * encrypted correction per ten managed people. Events by rule (`DaysOffEvents.kt` builders, person-keyed —
  * V88): `ENTRY_RECORDED{…, onBehalf}`, `ENTRY_DELETED`, `CORRECTION_CREATED`, `ALLOWANCE_CHANGED` (the grants,

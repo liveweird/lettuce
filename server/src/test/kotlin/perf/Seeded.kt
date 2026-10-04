@@ -62,6 +62,27 @@ object Seeded {
     val names: Set<String> = tables.map { it.tableName.lowercase() }.toSet()
 }
 
+/*
+ * HAND-BUILT SHAPES — the event/notification params the generator writes WITHOUT a production builder, because the
+ * builder needs full documents (before/after) or does not exist. Every other event and notification goes through
+ * the pure `*Event`/`*Notifications` builders the routes use, so only these can drift from production; the doc
+ * owner (`.claude/docs/performance.md`) lists them as the generator's known approximations:
+ *
+ *   goal_events           PROGRESS_UPDATED{from,to}      (SeedGoals — numeric from/to as strings, + an encrypted comment ~50 %)
+ *                         MILESTONE_COMPLETED{position}  (SeedGoals — 1-based position)
+ *   performance_review_events
+ *                         RATING_CHANGED{category}, SUMMARY_CHANGED{category}  (SeedReviews — category enum name, never a rating value)
+ *   one_on_one_events     ACTION_ITEM_RESOLVED{position} (SeedOneOnOnes — 1-based item position)
+ *   impact_log_events     UPDATED{changed}               (SeedImpactLog — comma-joined subset of whatHappened,contribution,
+ *                                                         whyItMattered,evidence in the builder's stable order; the real
+ *                                                         `impactEntryUpdateEvent` needs two full documents)
+ *   account_events        SIGNED_IN{mfa:"false"}, SIGNED_OUT{}  (SeedAccountEvents — AccountEventService.insert's own shape)
+ *   notifications         TEAM_KPI_VALUE_RECORDED_TO_MEMBER params {date,value}  (SeedTeamKpis — the recorded point's ISO date + value;
+ *                         the CORRECTED sibling reuses the real event's params)
+ *
+ * A change to any of these shapes in the app means updating the generator and bumping DATASET_VERSION.
+ */
+
 private const val MIGRATION = "filled by Flyway seeds / defaults — the generator adds nothing"
 private const val RUNTIME = "runtime state written by the app while it runs, never part of a dataset"
 

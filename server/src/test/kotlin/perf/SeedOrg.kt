@@ -33,7 +33,13 @@ class Team(val id: UInt, val name: String, val managerId: UInt, val memberIds: L
  * last. Every non-CEO person belongs to exactly one team, the one their manager runs, so a person's
  * team manager is their direct manager and the management chain is the `managerId` walk.
  */
-class Org(val people: List<Person>, val teams: List<Team>, val hr: Person) {
+class Org(
+    val people: List<Person>,
+    val teams: List<Team>,
+    val hr: Person,
+    /** Accounts that never signed in (`last_login_at = 0`): [seedAccountEvents] gives them no sign-in history. Filled by [seedOrg]. */
+    val neverSignedIn: Set<UInt> = emptySet(),
+) {
     val byId: Map<UInt, Person> = (people + hr).associateBy { it.id }
     val names: Map<UInt, String> = byId.mapValues { it.value.name }
     val reports: Map<UInt, List<Person>> = people.filter { it.managerId != null }.groupBy { it.managerId!! }
@@ -98,9 +104,12 @@ fun buildOrg(spec: SeedSpec, firstUserId: UInt, firstTeamId: UInt): Org {
 /** Writes users (one shared bcrypt hash), roles, the two opt-in feature flags, teams and rosters. */
 suspend fun seedOrg(ctx: SeedContext): Org {
     val db = ctx.db
-    val org = buildOrg(ctx.spec, nextFreeId(db, UserService.Users), nextFreeId(db, TeamService.Teams))
+    val built = buildOrg(ctx.spec, nextFreeId(db, UserService.Users), nextFreeId(db, TeamService.Teams))
     val passwordHash = hashPassword(PERF_PASSWORD) // bcrypt cost 12, once — every account shares it
     val rng = ctx.rng("users")
+    // ~10 % of the accounts never signed in. The sign-in history ([seedAccountEvents]) honours this set and
+    // then rewrites every other account's `last_login_at` to its newest SIGNED_IN, so the two always agree.
+    val org = Org(built.people, built.teams, built.hr, (built.people + built.hr).filter { rng.chance(0.1) }.map { it.id }.toSet())
 
     val users = RowSink<Person>(db, UserService.Users) { p ->
         this[UserService.Users.id] = p.id
@@ -108,9 +117,9 @@ suspend fun seedOrg(ctx: SeedContext): Org {
         this[UserService.Users.email] = p.email
         this[UserService.Users.passwordHash] = passwordHash
         this[UserService.Users.language] = "en"
-        // Most people signed in during the last month; ~10% never did (lastLoginAt 0 = never).
-        this[UserService.Users.lastLoginAt] =
-            if (rng.chance(0.9)) ctx.anchorMillis - rng.int(0, 30 * 24 * 60) * 60_000L else 0L
+        // 0 = never signed in. Everyone else gets a provisional value that seedAccountEvents overwrites
+        // with their newest SIGNED_IN (the two stay consistent).
+        this[UserService.Users.lastLoginAt] = if (p.id in org.neverSignedIn) 0L else ctx.anchorMillis - 1
     }
     val roles = RowSink<Person>(db, UserService.UserRoles) { p ->
         this[UserService.UserRoles.userId] = p.id
