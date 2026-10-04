@@ -23,7 +23,16 @@
 #   perf/run.sh baseline <run> [--name DIR]
 #                                 copy the committed-size files of a run (summary/table/pgss/tables per label, no raw output,
 #                                 no warm-up) into perf/baselines/<date>-<sha>/ and fail if any bearer token leaked into them
-#   perf/run.sh traces|jfr|web   — later milestone steps (stubs)
+#   perf/run.sh traces <scenario> [--run ID] [--keep] [--limit N] [k6 flags]
+#                                 Jaeger (profile `traces`) + the app recreated with the OTLP trace export on, one k6 iteration
+#                                 (or the k6 flags you pass), then the traces exported from Jaeger's API and summarised
+#                                 (<scenario>.traces.json / .traces.md in perf/results/<run>/); the app is put back afterwards
+#   perf/run.sh jfr <scenario> [--c2] [--heap Nm] [--run ID] [k6 flags]
+#                                 the app recreated with a JFR recording (settings=profile), the k6 scenario, a graceful stop
+#                                 (the recording dumps on exit), then `jfr summary` + the ExecutionSample summary into the run dir;
+#                                 --c2 turns the C2 compiler on (the shipped flags are C1-only), --heap sets -Xmx (container
+#                                 limit = heap + 256m for the run); the app is put back afterwards
+#   perf/run.sh web              — a later milestone step (stub)
 #
 # The compose PROJECT is hardcoded to `lettuce-perf`: the dev stack's containers and its
 # `lettuce_postgres-data` volume are never addressed by this script. `docker compose down -v`
@@ -39,7 +48,7 @@ compose() {
 }
 
 usage() {
-  sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,39p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 cmd_up() {
@@ -484,6 +493,145 @@ cmd_baseline() {
   echo "baseline: $dest ($(ls "$dest" | wc -l | tr -d ' ') files, $(du -sh "$dest" | cut -f1)) — add meta.json by hand"
 }
 
+# ---------------------------------------------------------------------------------------------------------
+# M4 — traces to Jaeger, JFR CPU profiles (.claude/docs/performance.md "Traces" / "CPU profile")
+# ---------------------------------------------------------------------------------------------------------
+
+JAEGER_URL="http://127.0.0.1:16686"
+
+# Recreates the app container from the ALREADY-BUILT image with whatever PERF_* variables the caller prefixed
+# (PERF_JAVA_OPTS, PERF_APP_MEM_LIMIT, PERF_OTEL_TRACES_EXPORTER, PERF_OTEL_TRACES_SAMPLER — see the overlay), then waits for readiness.
+recreate_app() {
+  compose up -d --no-build --force-recreate --no-deps app >/dev/null
+  wait_app
+}
+
+wait_jaeger() {
+  local i
+  for i in $(seq 1 60); do
+    if curl -fsS -o /dev/null "$JAEGER_URL/api/v3/services" 2>/dev/null; then return 0; fi
+    sleep 1
+  done
+  die "jaeger did not answer on $JAEGER_URL within a minute"
+}
+
+# True when the k6 flags already choose the run length (--iterations or --duration).
+has_length_flag() {
+  local a
+  for a in "$@"; do
+    case "$a" in --iterations | --duration) return 0 ;; esac
+  done
+  return 1
+}
+
+# Global for the EXIT trap (a trap cannot see a function's locals).
+TRACES_KEEP=0
+traces_cleanup() {
+  trap - EXIT
+  echo "traces: putting the app back (trace export off)"
+  recreate_app || echo "traces: could not recreate the app — run 'perf/run.sh up'" >&2
+  if [ "$TRACES_KEEP" -eq 0 ]; then compose --profile traces stop jaeger >/dev/null 2>&1 || true; fi
+}
+
+cmd_traces() {
+  local name="${1:-}" run="" limit=60 maxtraces=2000 pass=()
+  [ -n "$name" ] || die "usage: perf/run.sh traces <scenario> [--run ID] [--keep] [--limit N] [k6 flags]"
+  shift
+  [ -f "$ROOT/perf/k6/$name.js" ] || die "traces: no scenario perf/k6/$name.js"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --run) run="${2:?--run needs an id}"; shift ;;
+      --keep) TRACES_KEEP=1 ;;
+      --limit) limit="${2:?--limit needs a number}"; shift ;;
+      *) pass+=("$1") ;;
+    esac
+    shift
+  done
+  [ -n "$run" ] || run="$(new_run_id)"
+  safe_name "--run" "$run"
+  case "$limit" in "" | *[!0-9]*) die "--limit must be a number" ;; esac
+  local dir="$ROOT/perf/results/$run"
+  mkdir -p "$dir"
+  compose --profile traces up -d jaeger >/dev/null
+  wait_jaeger
+  trap traces_cleanup EXIT
+  # The in-memory store starts empty with the container; the app is recreated so its first span is this run's.
+  PERF_OTEL_TRACES_EXPORTER=otlp PERF_OTEL_TRACES_SAMPLER=always_on recreate_app
+  local t_start t_end
+  t_start="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if has_length_flag ${pass[@]+"${pass[@]}"}; then
+    cmd_k6 "$name" --run "$run" --no-pgss ${pass[@]+"${pass[@]}"}
+  else
+    cmd_k6 "$name" --run "$run" --no-pgss --iterations 1 ${pass[@]+"${pass[@]}"}
+  fi
+  # The batch span processor flushes every 5 s; let the last request's spans leave the app.
+  sleep 8
+  # Jaeger v2's query API is /api/v3 (OTLP JSON, one `{"result":{"resourceSpans":[…]}}` document per chunk).
+  t_end="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  curl -fsS -G "$JAEGER_URL/api/v3/traces" --data-urlencode "query.service_name=lettuce" \
+    --data-urlencode "query.start_time_min=$t_start" --data-urlencode "query.start_time_max=$t_end" \
+    --data-urlencode "query.search_depth=$maxtraces" -o "$dir/$name.traces.json"
+  python3 "$ROOT/perf/profile/trace-summary.py" "$dir/$name.traces.json" --limit "$limit" > "$dir/$name.traces.md"
+  echo "traces: $dir/$name.traces.{json,md} — UI at $JAEGER_URL while Jaeger runs (--keep leaves it up)"
+  head -n 3 "$dir/$name.traces.md"
+}
+
+find_jfr_tool() {
+  if command -v jfr >/dev/null 2>&1; then command -v jfr; return; fi
+  if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/jfr" ]; then echo "$JAVA_HOME/bin/jfr"; return; fi
+  die "jfr: no 'jfr' tool on PATH or in \$JAVA_HOME/bin (any JDK 21+ ships it)"
+}
+
+cmd_jfr() {
+  local name="${1:-}" run="" c2=0 heap="" pass=()
+  [ -n "$name" ] || die "usage: perf/run.sh jfr <scenario> [--c2] [--heap Nm] [--run ID] [k6 flags]"
+  shift
+  [ -f "$ROOT/perf/k6/$name.js" ] || die "jfr: no scenario perf/k6/$name.js"
+  local jfr_tool
+  jfr_tool="$(find_jfr_tool)"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --run) run="${2:?--run needs an id}"; shift ;;
+      --c2) c2=1 ;;
+      --heap) heap="${2:?--heap needs e.g. 512m}"; shift ;;
+      *) pass+=("$1") ;;
+    esac
+    shift
+  done
+  [ -n "$run" ] || run="$(new_run_id)"
+  safe_name "--run" "$run"
+  local variant="c1" opts="" mem="512m" heap_mb
+  if [ "$c2" -eq 1 ]; then opts="$opts -XX:TieredStopAtLevel=4"; variant="c2"; fi
+  if [ -n "$heap" ]; then
+    case "$heap" in [0-9]*m) ;; *) die "--heap must look like 512m" ;; esac
+    heap_mb="${heap%m}"
+    case "$heap_mb" in *[!0-9]*) die "--heap must look like 512m" ;; esac
+    opts="$opts -Xmx${heap}"
+    mem="$((heap_mb + 256))m"
+    variant="$variant-heap$heap"
+  fi
+  local file="$run.$name.$variant.jfr" dir="$ROOT/perf/results/$run"
+  mkdir -p "$dir" "$ROOT/perf/results/jfr"
+  rm -f "$ROOT/perf/results/jfr/$file"
+  trap 'trap - EXIT; echo "jfr: putting the app back (shipped flags)"; recreate_app || true' EXIT
+  PERF_JAVA_OPTS="-XX:StartFlightRecording=filename=/perf-out/$file,settings=profile,dumponexit=true,maxsize=256m$opts" \
+    PERF_APP_MEM_LIMIT="$mem" recreate_app
+  local rc=0
+  cmd_k6 "$name" --run "$run" ${pass[@]+"${pass[@]}"} || rc=$?
+  # A graceful stop is what makes the recording dump (dumponexit); give the dump time.
+  compose stop -t 120 app >/dev/null
+  [ -f "$ROOT/perf/results/jfr/$file" ] || die "jfr: no recording at perf/results/jfr/$file (did the JVM exit gracefully?)"
+  mv "$ROOT/perf/results/jfr/$file" "$dir/$file"
+  "$jfr_tool" summary "$dir/$file" > "$dir/$file.summary.txt"
+  "$jfr_tool" print --events jdk.ExecutionSample --stack-depth 64 "$dir/$file" > "$dir/$file.samples.txt"
+  "$jfr_tool" print --events jdk.GarbageCollection "$dir/$file" > "$dir/$file.gc.txt"
+  python3 "$ROOT/perf/profile/jfr-summary.py" "$dir/$file.samples.txt" "$dir/$file.gc.txt" > "$dir/$file.cpu.md"
+  rm -f "$dir/$file.samples.txt" "$dir/$file.gc.txt"
+  echo "jfr: $dir/$file (+ .summary.txt, .cpu.md) — open the .jfr in JDK Mission Control for the flame graph"
+  head -n 2 "$dir/$file.cpu.md"
+  return "$rc"
+}
+
 not_yet() {
   echo "perf/run.sh $1: not implemented yet (a later step of the performance plan)." >&2
   exit 2
@@ -501,7 +649,9 @@ case "${1:-}" in
   report) shift; cmd_report "$@" ;;
   all) shift; cmd_all "$@" ;;
   baseline) shift; cmd_baseline "$@" ;;
-  traces | jfr | web) not_yet "$1" ;;
+  traces) shift; cmd_traces "$@" ;;
+  jfr) shift; cmd_jfr "$@" ;;
+  web) not_yet "$1" ;;
   "" | -h | --help | help) usage ;;
   *) echo "unknown subcommand: $1" >&2; usage >&2; exit 64 ;;
 esac

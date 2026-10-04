@@ -164,7 +164,7 @@ Own-document lists (1:1s, feedback received/provided/team, impact log, KPIs, suc
 
 ### Hypotheses after the full baseline
 
-H1 confirmed (F2). **H2 refuted** (F1/F10: 222 statements and 11 tx per 100-row page). **H3** refuted for 1:1 lookups (F5), neither for days off (F13). H4 (decryption vs C1 JSON) not answerable without a CPU profile (M4). **H5 refuted:** the activity log is not the slowest request — HR's audit of the CEO is 6 statements / 13 ms, a manager reading a report's log 13 statements / 41 ms; the slowest single requests are the pulse trend per team (412 ms) and the CEO's chain-wide days-off budgets (69 ms). **H6 confirmed** (F11). H7 undecided (F14).
+H1 confirmed (F2). **H2 refuted** (F1/F10: 222 statements and 11 tx per 100-row page). **H3** refuted for 1:1 lookups (F5), neither for days off (F13). H4 (decryption vs C1 JSON): see F20 (M4's CPU profile). **H5 refuted:** the activity log is not the slowest request — HR's audit of the CEO is 6 statements / 13 ms, a manager reading a report's log 13 statements / 41 ms; the slowest single requests are the pulse trend per team (412 ms) and the CEO's chain-wide days-off budgets (69 ms). **H6 confirmed** (F11). H7 undecided (F14).
 
 ## Found by `QueryBudgetTest` (M3, 2026-10-04) — observations only
 
@@ -180,3 +180,44 @@ Everything else the test measured is flat in the number of rows: users, teams, `
 ### Not measured here (so no finding)
 
 Browser rendering (M5), the JVM CPU profile and traces (M4), `Server-Timing` is absent on anonymous routes (login, refresh, password reset) by design, the feedback detail/edit screens, the per-status split of the pulse fill-gate responses, the closed-loop saturation CPU split of `docker stats` for the 50-VU single-screen runs, and anything about production network latency (the extrapolation note of F6 applies to every count above).
+
+## Found while building M4 (DB spans, traces, JFR — 2026-10-04) — observations only
+
+Measured on the dataset-v2 snapshot, the 2-CPU/512 MB app and 2-CPU/1 GB PostgreSQL of the perf stack, the SHIPPED JVM flags unless a variant is named, one session, images built from the same checkout with and without the DB-span wrapper (`pre-m4` = the M3 tip image). None of it is committed as a baseline; the committed baselines (`2026-10-04-acd9d3ed`) were taken WITHOUT the wrapper.
+
+### F18. The R2DBC span wrapper is not free, even with the exporter off: +24 % on the CEO screen at 1 VU, −36 % throughput at 50 VUs
+
+`opentelemetry-r2dbc-1.0` wraps the pool (`R2dbcTelemetry.wrapConnectionFactory`, `infra/db/Database.kt`). It adds **no statements** (the CEO screen is 1 190 statements / 84 transactions with and without it — `Server-Timing` and `QueryBudgetTest` are unaffected) but it costs CPU per statement and per result:
+
+* **1 VU, `reviews-team-view --persona ceo-all`**, 15 iterations after a 4-iteration warm-up per container start, three alternating rounds, exporter `none`: screen wall **median 609 / 593 / 597 ms with the wrapper vs 485 / 479 / 486 without** (p95 634 / 610 / 625 vs 505 / 509 / 504) — **+~115 ms ≈ +24 %, ~0.1 ms per statement**. With `OTEL_TRACES_SAMPLER=always_off` (no recording spans) it is the same (596 / 606 ms), so the cost is the proxy machinery, not span recording.
+* **50 VUs closed loop, `reviews-team-view --persona mixed`, 60 s, two alternating rounds**: without the wrapper **15 995 / 16 349 requests**, `teams/members` page p50 1 337 / 1 305 ms, CEO screen (sequential) 8.6 / 8.5 s; with it **10 323 / 10 456 requests (−36 %)**, page p50 2 100 / 2 083 ms (+60 %), screen 13.5 / 13.2 s. The app container is the saturated resource (F4), so per-statement CPU converts directly into capacity.
+* JFR (F20) attributes 5.0 % (C1) / 4.0 % (C2) of the CPU samples to `io.r2dbc.proxy` frames as the nearest owner and up to 26.6 % inclusive (the driver's own work happens under the proxy's frames, so the inclusive share overstates the overhead).
+
+**Consequence and resolution:** as first built (always wrapped) the shipped code paid this in production on every statement-heavy request, and the M1/M2 baselines were not comparable with it. Decision (main session, 2026-10-04): the wrapper is now **gated on a configured traces exporter** (`tracesExporterConfigured()`, `plugins/OpenTelemetry.kt`) — the default (`none`) path is the unwrapped pool, i.e. the pre-M4 code, and `perf/run.sh traces` (OTLP export on) turns it on. The measurements above stay recorded as the reason for the gate. Parity of the gated default with the `pre-m4` image is re-measured below.
+
+### F19. One CEO screen as a trace: a roster page is 222 DB spans, ~100 ms warm, half of it outside the statements
+
+`perf/run.sh traces reviews-team-view --persona ceo-all --iterations 6` (Jaeger, OTLP export on; the numbers include export and wrapper cost, so read the SHAPE, not the milliseconds; the first iteration after the app start is cold: 219 ms for the first roster page). Median per request over the 6 iterations: **`GET /teams/members` (100-row page) — 222 DB spans, wall 104 ms, Σ DB spans 54 ms (≈ 0.24 ms per statement), the remaining ~50 ms outside any statement** (11 pool acquire + validation round trips, row mapping, decryption, JSON); the partial last page 40 spans / 27 ms; `GET /performance-reviews` 7 spans, wall 14 ms, Σ DB 9 ms; `/review-periods`, `/dictionaries/*`, `/teams` 2–3 spans each, 2–3 ms. The login (the k6 setup) is 331 ms of which 11 ms DB — bcrypt, not queries. The statement count of the trace equals the `Server-Timing` count (222) — the spans see no extra statements and miss none. The slowest single span in a roster page is one `days_off_requests` read at 15–19 ms (≈ 30 % of the page's Σ DB). H1 stands: the screen's cost is the number of statements per page (222) times the number of pages, not a slow statement.
+
+### F20. Where the CPU goes at 50 VUs (JFR, shipped C1 flags vs C2): the per-statement machinery, not decryption or JSON; C1 costs ~40 % of capacity
+
+`perf/run.sh jfr reviews-team-view --persona mixed --vus 50 --duration 90s` (JFR `settings=profile`, wrapper on, exporter `none`). **C1 (shipped): 15 795 requests, page p50 2 081 ms; C2 (`--c2`): 26 329 requests (+67 %), page p50 1 005 ms** — C1-only is a large cost at this load (both runs carry JFR's own overhead; compare them with each other only). Execution samples: 767 (C1) / 1 745 (C2) — thin; read the ranking, not the decimals. Nearest known owner of the CPU, C1 / C2:
+
+| owner | C1 | C2 |
+|---|---:|---:|
+| Exposed (statement building, row mapping) | 16.9 % | 23.7 % |
+| Netty | 13.2 % | 12.7 % |
+| R2DBC driver + pool | 9.5 % | 8.0 % |
+| kotlinx.serialization (JSON) | 8.3 % | 4.7 % |
+| Ktor | 7.7 % | 9.9 % |
+| Kotlin coroutines machinery | 7.7 % | 10.0 % |
+| AES-GCM (field decryption) | 6.3 % | 5.9 % |
+| Reactor | 5.0 % | 8.0 % |
+| r2dbc-proxy (the F18 wrapper) | 5.0 % | 4.0 % |
+| Lettuce services | 4.3 % | 4.2 % |
+| OpenTelemetry (span creation) | 1.3 % | 3.4 % |
+| bcrypt (the five k6 setup sign-ins — a fixed cost of the run, not of the screen) | 14.0 % | 5.0 % |
+
+**H4 (rating decryption negligible against C1 JSON): not as stated** — AES-GCM (6.3 %) is the same size as JSON serialization (8.3 %); both are minor next to the statement machinery (Exposed + driver + Reactor + Netty ≈ 45–50 %), consistent with 222 statements per page. **GC at `-Xmx256m`:** 1 658 young collections (mean 3.7 ms, 6.1 s) + 64 SerialOld (mean 41 ms, 2.6 s) in the 108 s recording ≈ 8 % of wall time in pauses (C2: 2 387 + 95, 8.2 s + 4.1 s over a 67 % higher request volume). **H7 stays undecided:** JFR shows on-CPU work, not queueing; a pool-acquire wait is invisible to it, and a 50-VU trace set (15 k traces) was not collected.
+
+**F18 re-measured after the gate (same method as above, three alternating rounds, 15 iterations, exporter `none`, `perf/run.sh traces` excluded):** CEO screen wall median **499 / 488 / 484 ms with the gated build vs 483 / 488 / 484 ms for the `pre-m4` image** (p95 516 / 512 / 505 vs 505 / 508 / 506) — parity within ~1–3 %, 1 190 statements / 84 transactions in both. `perf/run.sh traces` (OTLP export on, wrapper on) still yields the DB spans (222 per roster page, the `Server-Timing` count).

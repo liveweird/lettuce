@@ -131,6 +131,8 @@ dependencies {
     implementation(libs.graphql.java)
     implementation(libs.logback.classic)
     implementation(libs.opentelemetry.logbackAppender)
+    // DB spans (M4 step 12): wraps the pool in infra/db/Database.kt; versionless — the alpha BOM in :core pins it.
+    implementation(libs.opentelemetry.r2dbcInstrumentation)
     implementation(libs.postgresql)
     implementation(libs.r2dbc.postgresql)
     // Netty alignment — see the `netty` comment in gradle/libs.versions.toml: the BOM pins every
