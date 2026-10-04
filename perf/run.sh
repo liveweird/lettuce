@@ -23,6 +23,11 @@
 #   perf/run.sh baseline <run> [--name DIR]
 #                                 copy the committed-size files of a run (summary/table/pgss/tables per label, no raw output,
 #                                 no warm-up) into perf/baselines/<date>-<sha>/ and fail if any bearer token leaked into them
+#   perf/run.sh web <screen|all|bundle> [--persona P] [--cpu 4x] [--iterations N] [--no-trace] [--run ID] [--no-build]
+#                                 front-end timings in a real Chromium (e2e/perf, Playwright) against the RUNNING perf stack
+#                                 (never starts it): per screen x persona, medians -> perf/results/<run>/web/<screen>.<label>.json;
+#                                 `bundle` = the bundle-size report of a fresh web build (perf/web/bundle-report.mjs);
+#                                 `all` = every screen at 1x + the reviews screen at 4x CPU + the bundle report
 #   perf/run.sh traces <scenario> [--run ID] [--keep] [--limit N] [k6 flags]
 #                                 Jaeger (profile `traces`) + the app recreated with the OTLP trace export on, one k6 iteration
 #                                 (or the k6 flags you pass), then the traces exported from Jaeger's API and summarised
@@ -32,7 +37,6 @@
 #                                 (the recording dumps on exit), then `jfr summary` + the ExecutionSample summary into the run dir;
 #                                 --c2 turns the C2 compiler on (the shipped flags are C1-only), --heap sets -Xmx (container
 #                                 limit = heap + 256m for the run); the app is put back afterwards
-#   perf/run.sh web              — a later milestone step (stub)
 #
 # The compose PROJECT is hardcoded to `lettuce-perf`: the dev stack's containers and its
 # `lettuce_postgres-data` volume are never addressed by this script. `docker compose down -v`
@@ -48,7 +52,7 @@ compose() {
 }
 
 usage() {
-  sed -n '2,39p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,43p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 cmd_up() {
@@ -308,6 +312,82 @@ cmd_k6() {
 }
 
 # ---------------------------------------------------------------------------------------------------------
+# Step 14 (M5) — front-end measurement: e2e/perf (Playwright) + perf/web/bundle-report.mjs
+# ---------------------------------------------------------------------------------------------------------
+
+# One spec per k6 screen name where one exists (e2e/perf/<screen>.perf.ts).
+WEB_SCREENS="reviews-team-view dashboard one-on-ones days-off pulse-results org-chart activity-log"
+WEB_BASE_URL="${PERF_BASE_URL:-http://localhost:18080}"
+
+# web_run <run> <screen|""> <persona|""> <cpu|""> <iterations|""> <trace 0|1>
+# The runner has its OWN fail-fast guard (/readyz on a local PERF_BASE_URL, e2e/perf/env.ts) and never starts a stack;
+# this check only gives the friendlier message first. Loads read; the sign-ins write account_events (negligible).
+web_run() {
+  local run="$1" screen="$2" persona="$3" cpu="$4" iterations="$5" trace="$6"
+  local args=()
+  [ -n "$screen" ] && args+=("$screen.perf.ts")
+  [ -n "$persona" ] && args+=(--grep " $persona([.-]|\$)")
+  mkdir -p "$ROOT/perf/results/$run/web"
+  (cd "$ROOT/e2e" && env PERF_BASE_URL="$WEB_BASE_URL" PERF_RUN_DIR="$ROOT/perf/results/$run" PERF_CPU="${cpu:-1}" \
+     PERF_TRACE="$trace" ${iterations:+PERF_ITERATIONS=$iterations} npm run --silent perf -- ${args[@]+"${args[@]}"})
+}
+
+cmd_web() {
+  local what="${1:-}"
+  [ -n "$what" ] || die "usage: perf/run.sh web <screen|all|bundle> [--persona P] [--cpu 4x] [--iterations N] [--no-trace] [--run ID] [--no-build] (screens: $WEB_SCREENS)"
+  shift
+  local persona="" cpu="" iterations="" trace=1 run build=1
+  run="$(new_run_id)"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --persona) persona="${2:?--persona needs a name}"; shift ;;
+      --cpu) cpu="${2:?--cpu needs e.g. 4x}"; shift ;;
+      --iterations) iterations="${2:?--iterations needs a number}"; shift ;;
+      --no-trace) trace=0 ;;
+      --no-build) build=0 ;;
+      --run) run="${2:?--run needs an id}"; shift ;;
+      *) die "web: unknown flag $1" ;;
+    esac
+    shift
+  done
+  safe_name "--run" "$run"
+  if [ -n "$persona" ]; then safe_name "--persona" "$persona"; fi
+  if [ -n "$cpu" ]; then
+    case "$cpu" in [0-9]*x | [0-9]*) ;; *) die "--cpu must be a number like 4x" ;; esac
+  fi
+  if [ -n "$iterations" ]; then
+    case "$iterations" in *[!0-9]* | "") die "--iterations must be a number" ;; esac
+  fi
+  mkdir -p "$ROOT/perf/results/$run/web"
+  if [ "$what" != "bundle" ]; then
+    curl -fsS -o /dev/null "$APP_URL/readyz" || die "web: the perf app does not answer on $APP_URL — 'perf/run.sh up' (or 'restore') first; this command never starts the stack"
+  fi
+  case "$what" in
+    bundle)
+      if [ "$build" -eq 1 ]; then (cd "$ROOT/web" && npm run --silent build); fi
+      node "$ROOT/perf/web/bundle-report.mjs" --out "$ROOT/perf/results/$run/web/bundle.json"
+      ;;
+    all)
+      local s
+      # A screen without the requested persona ("No tests found") or a failing screen must not abort the rest.
+      local failed=""
+      for s in $WEB_SCREENS; do
+        if ! web_run "$run" "$s" "$persona" "${cpu}" "$iterations" "$trace"; then failed="$failed $s"; fi
+      done
+      if [ -n "$failed" ]; then echo "web: no results (no such persona, or a failure) for:$failed" >&2; fi
+      # The suspect screen again at 4x CPU throttle (the slow-laptop variant), then the bundle report.
+      if [ -z "$cpu" ]; then web_run "$run" reviews-team-view "$persona" 4x "$iterations" "$trace"; fi
+      if [ "$build" -eq 0 ]; then cmd_web bundle --run "$run" --no-build; else cmd_web bundle --run "$run"; fi
+      ;;
+    *)
+      case " $WEB_SCREENS " in *" $what "*) ;; *) die "web: unknown screen '$what' (screens: $WEB_SCREENS)" ;; esac
+      web_run "$run" "$what" "$persona" "$cpu" "$iterations" "$trace"
+      ;;
+  esac
+  echo "web results: $ROOT/perf/results/$run/web/"
+}
+
+# ---------------------------------------------------------------------------------------------------------
 # Step 9/10 — report, the full run, committed baselines
 # ---------------------------------------------------------------------------------------------------------
 
@@ -486,6 +566,13 @@ cmd_baseline() {
       *) cp "$f" "$dest/" ;;
     esac
   done
+  # Front-end numbers (M5): the per-screen JSONs without their waterfalls and the bundle report; Chrome traces stay out.
+  if ls "$src"/web/*.json >/dev/null 2>&1; then
+    mkdir -p "$dest/web"
+    for f in "$src"/web/*.json; do
+      if [ "$(basename "$f")" = "bundle.json" ]; then cp "$f" "$dest/bundle.json"; else jq -c 'del(.waterfall)' "$f" > "$dest/web/$(basename "$f")"; fi
+    done
+  fi
   if grep -rl 'eyJ' "$dest" >/dev/null 2>&1; then
     rm -rf "$dest"
     die "baseline: a JWT-shaped string (eyJ…) was found — nothing copied"
@@ -632,11 +719,6 @@ cmd_jfr() {
   return "$rc"
 }
 
-not_yet() {
-  echo "perf/run.sh $1: not implemented yet (a later step of the performance plan)." >&2
-  exit 2
-}
-
 case "${1:-}" in
   up) shift; cmd_up "$@" ;;
   down) shift; cmd_down "$@" ;;
@@ -649,9 +731,9 @@ case "${1:-}" in
   report) shift; cmd_report "$@" ;;
   all) shift; cmd_all "$@" ;;
   baseline) shift; cmd_baseline "$@" ;;
+  web) shift; cmd_web "$@" ;;
   traces) shift; cmd_traces "$@" ;;
   jfr) shift; cmd_jfr "$@" ;;
-  web) not_yet "$1" ;;
   "" | -h | --help | help) usage ;;
   *) echo "unknown subcommand: $1" >&2; usage >&2; exit 64 ;;
 esac

@@ -31,5 +31,5 @@ scenarios, baselines) is `.claude/docs/performance.md`; this file only names the
 
 The dataset generator is a Gradle task (`./gradlew :server:perfSeed`, test source set, see
 `server/src/test/kotlin/perf/`); `perf/pg/verify.sql` asserts the dataset's invariants afterwards.
-`web` arrives with a later milestone; k6 itself is only the pinned
+k6 itself is only the pinned
 `grafana/k6` image (`K6_IMAGE` in `run.sh`) — no repo dependency.

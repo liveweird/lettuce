@@ -68,6 +68,17 @@ jobs:
         working-directory: web
         run: npm run build
 
+      # A report, not a gate (decision deferred until the first baseline exists): per-chunk raw/gzip/brotli sizes of the
+      # build above. Node stdlib only; the script lives outside web/ (perf/web/bundle-report.mjs).
+      - name: Bundle-size report
+        run: node perf/web/bundle-report.mjs --out "$RUNNER_TEMP/web-bundle-report.json"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-bundle-report
+          path: ${{ runner.temp }}/web-bundle-report.json
+          retention-days: 30
+
       - name: Lint web
         working-directory: web
         run: npm run lint
