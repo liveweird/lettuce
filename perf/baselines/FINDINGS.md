@@ -166,6 +166,17 @@ Own-document lists (1:1s, feedback received/provided/team, impact log, KPIs, suc
 
 H1 confirmed (F2). **H2 refuted** (F1/F10: 222 statements and 11 tx per 100-row page). **H3** refuted for 1:1 lookups (F5), neither for days off (F13). H4 (decryption vs C1 JSON) not answerable without a CPU profile (M4). **H5 refuted:** the activity log is not the slowest request — HR's audit of the CEO is 6 statements / 13 ms, a manager reading a report's log 13 statements / 41 ms; the slowest single requests are the pulse trend per team (412 ms) and the CEO's chain-wide days-off budgets (69 ms). **H6 confirmed** (F11). H7 undecided (F14).
 
+## Found by `QueryBudgetTest` (M3, 2026-10-04) — observations only
+
+### F17. Two more per-row lookups the screen baselines hid: `teams/members?view=managers` and the 1:1 lists
+
+`QueryBudgetTest` measures `stmt`/`tx` at 1 vs 50 rows for the same caller (test application, so the counts include the blocklist read of every request). Besides the F1/F10 pair on `view=managed` (**+98 statements for 49 more rows — 18 → 116, `tx` constant at 11**; with `includeIndirect` 22 → 120), two endpoints the F-entries did not list as per-row are O(n) too, both with a constant transaction count:
+
+- **`GET /teams/members?view=managers`: 8 → 57 statements (+1 per row), `tx` 7 → 7.** `OneOnOneService.latestMeetingStats` → `latestStatsByKey` issues one indexed `LIMIT 1` per manager row (the code comment calls it "a handful" of dashboard cards); the other two enrichments of the view are batched. The CEO's dashboard "Managers" cards stay small, but a person who sits in many teams pays it per team.
+- **`GET /one-on-ones?view=managed` (also with `latestOnly=true`): 6 → 55 statements (+1 per distinct (manager, subordinate) pair on the page), `tx` 2 → 2.** The `isLatest` flag is one `latestMeetingOfPair` `LIMIT 1` per pair (`OneOnOneService.list`, the comment there states the cost profile). In the dataset-v2 baseline this is the "15 statements for the CEO's list" of F12 (≈ 5 fixed + one per direct report), and it is why the plain list was never statement-bound; a page of 100 distinct pairs is ~105 statements.
+
+Everything else the test measured is flat in the number of rows: users, teams, `teams/{id}`, `teams/members?view=member`, the dashboard summary (10 statements / 8 `tx`), goals, performance reviews (managed and the HR `all` view), the four feedback views, team KPIs (managed, all), impact log (own, managed), succession plans, days off (entries, budgets and calendar in their direct and `includeIndirect` shapes), notifications, shares (`withMe`, `byMe`) and the activity log. The pulse trend's slope is confirmed at exactly 2 statements and 2 transactions per closed cycle (F7). The test pins today's numbers as the CI budget (`.claude/docs/performance.md`, "Query budgets"); nothing was changed to obtain them.
+
 ### Not measured here (so no finding)
 
 Browser rendering (M5), the JVM CPU profile and traces (M4), `Server-Timing` is absent on anonymous routes (login, refresh, password reset) by design, the feedback detail/edit screens, the per-status split of the pulse fill-gate responses, the closed-loop saturation CPU split of `docker stats` for the 50-VU single-screen runs, and anything about production network latency (the extrapolation note of F6 applies to every count above).
