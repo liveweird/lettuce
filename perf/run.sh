@@ -12,9 +12,18 @@
 #                                 pg_stat_statements/table-stat window: reset, then dump the top statements,
 #                                 per-table seq-scan deltas and auto_explain plans into perf/results/<run>/
 #   perf/run.sh k6 <scenario> [--persona P] [--vus N] [--iterations N | --duration D] [--think MIN MAX]
-#                             [--run ID] [--label L] [--raw] [--no-pgss]
+#                             [--ramp-up D] [--run ID] [--label L] [--raw] [--no-pgss]
 #                                 one k6 run (pinned image) with a pgss window around it
-#   perf/run.sh traces|jfr|web|report|all   — later milestone steps (stubs)
+#   perf/run.sh report <run> [--baseline DIR] [--force]
+#                                 compare perf/results/<run> with a committed baseline (scripts/perf_compare.py) -> <run>/report.md
+#   perf/run.sh all [--run ID] [--skip-seed] [--only SCENARIO]
+#                                 build the app image (the CURRENT checkout) -> restore (seed when no snapshot) -> run.json
+#                                 (commit, image id, dataset) -> warm-up -> every scenario with a pgss window around each run
+#                                 -> restore before the mixed run and after it (an EXIT trap restores if the run aborts) -> report
+#   perf/run.sh baseline <run> [--name DIR]
+#                                 copy the committed-size files of a run (summary/table/pgss/tables per label, no raw output,
+#                                 no warm-up) into perf/baselines/<date>-<sha>/ and fail if any bearer token leaked into them
+#   perf/run.sh traces|jfr|web   — later milestone steps (stubs)
 #
 # The compose PROJECT is hardcoded to `lettuce-perf`: the dev stack's containers and its
 # `lettuce_postgres-data` volume are never addressed by this script. `docker compose down -v`
@@ -30,7 +39,7 @@ compose() {
 }
 
 usage() {
-  sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 cmd_up() {
@@ -240,7 +249,7 @@ cmd_k6() {
   [ -n "$name" ] || die "usage: perf/run.sh k6 <scenario> [flags] (scenarios: $(cd "$ROOT/perf/k6" && ls ./*.js | sed 's|./||; s|\.js$||' | tr '\n' ' '))"
   shift
   [ -f "$ROOT/perf/k6/$name.js" ] || die "k6: no scenario perf/k6/$name.js"
-  local persona="ceo-all" vus=1 iterations="" duration="" think_min=0 think_max=0 run label="" raw=0 pgss=1
+  local persona="" vus=1 iterations="" duration="" think_min=0 think_max=0 run label="" raw=0 pgss=1 ramp=""
   run="$(new_run_id)"
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -248,6 +257,7 @@ cmd_k6() {
       --vus) vus="${2:?--vus needs a number}"; shift ;;
       --iterations) iterations="${2:?--iterations needs a number}"; shift ;;
       --duration) duration="${2:?--duration needs e.g. 3m}"; shift ;;
+      --ramp-up) ramp="${2:?--ramp-up needs e.g. 2m}"; shift ;;
       --think) think_min="${2:?--think needs MIN MAX seconds}"; think_max="${3:?--think needs MIN MAX seconds}"; shift 2 ;;
       --run) run="${2:?--run needs an id}"; shift ;;
       --label) label="${2:?--label needs a name}"; shift ;;
@@ -257,8 +267,14 @@ cmd_k6() {
     esac
     shift
   done
+  # reviews-team-view predates the per-screen scenarios: its default persona is the CEO's "all reports" scope; every other
+  # scenario takes a persona name, or none = `mixed` (VU n takes the scenario's personas round-robin).
+  if [ -z "$persona" ]; then
+    if [ "$name" = "reviews-team-view" ]; then persona="ceo-all"; else persona="mixed"; fi
+  fi
   safe_name "--run" "$run"; safe_name "--persona" "$persona"
   if [ -n "$label" ]; then safe_name "--label" "$label"; fi
+  if [ -n "$ramp" ]; then safe_name "--ramp-up" "$ramp"; fi
   [ -n "$iterations" ] || [ -n "$duration" ] || iterations=3
   [ -n "$label" ] || label="$name.$persona.vu$vus"
   curl -fsS -o /dev/null "$APP_URL/readyz" || die "k6: the perf app does not answer on $APP_URL — 'perf/run.sh up' first"
@@ -269,6 +285,7 @@ cmd_k6() {
   local envs=(-e "BASE_URL=http://app:8080" -e "PERSONA=$persona" -e "VUS=$vus" -e "LABEL=$label"
               -e "THINK_MIN=$think_min" -e "THINK_MAX=$think_max")
   if [ -n "$iterations" ]; then envs+=(-e "ITERATIONS=$iterations"); else envs+=(-e "DURATION=$duration"); fi
+  if [ -n "$ramp" ]; then envs+=(-e "RAMP_UP=$ramp"); fi
   if [ "$pgss" -eq 1 ]; then pgss_reset; fi
   local since
   since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -279,6 +296,192 @@ cmd_k6() {
   if [ "$pgss" -eq 1 ]; then pgss_dump "$dir" "$label" "$since"; fi
   echo "results: $dir/$label.*"
   return "$rc"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Step 9/10 — report, the full run, committed baselines
+# ---------------------------------------------------------------------------------------------------------
+
+cmd_report() {
+  local run="${1:-}"
+  [ -n "$run" ] || die "usage: perf/run.sh report <run> [--baseline DIR] [--force]"
+  shift
+  safe_name "run" "$run"
+  [ -d "$ROOT/perf/results/$run" ] || die "report: no perf/results/$run"
+  python3 "$ROOT/scripts/perf_compare.py" "$ROOT/perf/results/$run" --baselines-root "$ROOT/perf/baselines" "$@"
+}
+
+# The per-persona 1-VU runs of `all`: <scenario> <personas…>. A persona that cannot reach a scenario makes k6 abort at
+# init (lib/replay.js), so this table cannot silently drift from the scenarios.
+PER_PERSONA_RUNS=(
+  "dashboard ceo director lead ic hr admin"
+  "notifications-bell ceo ic hr"
+  "one-on-ones ceo director lead ic hr"
+  "feedback-lists ceo lead ic hr"
+  "activity-log ceo director lead ic hr"
+  "days-off ceo director lead ic hr"
+  "team-kpis ceo lead ic hr"
+  "pulse-results ceo lead ic hr"
+  "impact-log ceo lead ic hr"
+  "succession ceo lead hr"
+  "users-admin admin ic ceo"
+)
+
+# Globals for the EXIT trap of `all` (a trap cannot see a function's locals).
+ALL_SAMPLER_PID=""
+ALL_DB_DIRTY=0
+all_cleanup() {
+  if [ -n "$ALL_SAMPLER_PID" ]; then kill "$ALL_SAMPLER_PID" 2>/dev/null || true; ALL_SAMPLER_PID=""; fi
+  if [ "$ALL_DB_DIRTY" -eq 1 ]; then
+    ALL_DB_DIRTY=0
+    echo "all: restoring the snapshot (the run wrote into the database)"
+    cmd_restore || echo "all: RESTORE FAILED — run 'perf/run.sh restore' before the next measurement" >&2
+  fi
+}
+
+cmd_all() {
+  local run skip_seed=0 only=""
+  FAILED_RUNS=()
+  k6run() {
+    echo "  k6 $*"
+    cmd_k6 "$@" >/dev/null || FAILED_RUNS+=("$*")
+  }
+  run="$(new_run_id)"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --run) run="${2:?--run needs an id}"; safe_name "--run" "$run"; shift ;;
+      --skip-seed) skip_seed=1 ;;
+      --only) only="${2:?--only needs a scenario}"; safe_name "--only" "$only"; shift ;;
+      *) die "all: unknown flag $1" ;;
+    esac
+    shift
+  done
+  mkdir -p "$ROOT/perf/results/$run"
+  trap all_cleanup EXIT
+  # The measured app is the CURRENT checkout: build the image once, here (restore only starts the already-built image).
+  echo "== build the app image ($(git -C "$ROOT" rev-parse --short=8 HEAD))"
+  compose build app
+  if ls "$ROOT"/perf/snapshots/*.dump >/dev/null 2>&1; then
+    cmd_up postgres
+    wait_postgres
+    cmd_restore
+  elif [ "$skip_seed" -eq 0 ]; then
+    cmd_seed
+    cmd_restore
+  else
+    die "all: no snapshot and --skip-seed given"
+  fi
+  # run.json AFTER seed/restore: on a first run the seed (and its seed-<v>.json) only exists by now.
+  local seed_json image
+  seed_json="$(latest_seed_json)"
+  image="$(docker inspect --format '{{.Image}}' "${PROJECT}-app" 2>/dev/null || true)"
+  jq -n --arg commit "$(git -C "$ROOT" rev-parse HEAD)" --arg dirty "$(git -C "$ROOT" status --porcelain | wc -l | tr -d ' ')" \
+        --arg image "$image" --slurpfile seed "${seed_json:-/dev/null}" \
+     '{gitCommit: $commit, uncommittedFiles: ($dirty | tonumber), appImageId: $image} + (($seed[0] // {}) | {datasetVersion, anchor, seed, scale})' \
+     > "$ROOT/perf/results/$run/run.json"
+  want() { [ -z "$only" ] || [ "$only" = "$1" ]; }
+  # Warm-up (JIT, caches, pools): one pass of every persona over every scenario, not recorded. Writes (mixed) excluded.
+  echo "== warm-up"
+  local row scenario p
+  for row in "${PER_PERSONA_RUNS[@]}"; do
+    scenario="${row%% *}"
+    want "$scenario" || continue
+    k6run "$scenario" --persona all --iterations 2 --no-pgss --run "$run" --label "warmup.$scenario" || true
+  done
+  if want reviews-team-view; then
+    k6run reviews-team-view --persona all --iterations 3 --no-pgss --run "$run" --label "warmup.reviews-team-view" || true
+  fi
+  # Sign-ins write account_events; from here on the database is "dirty" until the next restore.
+  ALL_DB_DIRTY=1
+  echo "== 1 VU per persona (3 iterations, a pgss window each)"
+  for row in "${PER_PERSONA_RUNS[@]}"; do
+    scenario="${row%% *}"
+    want "$scenario" || continue
+    for p in ${row#* }; do
+      k6run "$scenario" --persona "$p" --iterations 3 --run "$run"
+    done
+  done
+  if want reviews-team-view; then
+    for p in ceo-all ceo-direct director-all lead lead-2 hr; do
+      k6run reviews-team-view --persona "$p" --iterations 3 --run "$run"
+    done
+  fi
+  if want login; then
+    k6run login --persona ic --iterations 5 --run "$run"
+  fi
+  echo "== 50 VUs"
+  if want reviews-team-view; then
+    k6run reviews-team-view --persona mixed --vus 50 --duration 3m --run "$run"
+    k6run reviews-team-view --persona ceo-all --vus 50 --duration 2m --run "$run"
+    k6run reviews-team-view --persona director-all --vus 50 --duration 1m --run "$run"
+    k6run reviews-team-view --persona lead --vus 50 --duration 1m --run "$run"
+    k6run reviews-team-view --persona hr --vus 50 --duration 1m --run "$run"
+  fi
+  if want login; then
+    k6run login --persona mixed --vus 50 --ramp-up 30s --duration 1m --run "$run"
+  fi
+  if want mixed-50vu; then
+    # The logins above (and every earlier run) wrote account_events/notifications: start the mixed run from the snapshot.
+    ALL_DB_DIRTY=0
+    cmd_restore
+    ALL_DB_DIRTY=1
+    local stats="$ROOT/perf/results/$run/saturation-docker-stats.txt"
+    : > "$stats"
+    (while true; do
+       docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}' lettuce-perf-app lettuce-perf-postgres >> "$stats" 2>/dev/null || true
+       sleep 4
+     done) &
+    ALL_SAMPLER_PID=$!
+    k6run mixed-50vu --persona mixed --vus 50 --ramp-up 2m --duration 5m --think 3 8 --run "$run"
+    kill "$ALL_SAMPLER_PID" 2>/dev/null || true
+    ALL_SAMPLER_PID=""
+  fi
+  # The mixed run wrote feedbacks, 1:1s and goal progress: leave the database as the snapshot has it (the EXIT trap does
+  # the same if anything above aborted).
+  all_cleanup
+  echo "== report"
+  cmd_report "$run" || true
+  if [ "${#FAILED_RUNS[@]}" -gt 0 ]; then
+    echo "k6 runs that failed (a threshold or a crashed scenario):"; printf '  %s\n' "${FAILED_RUNS[@]}"
+  fi
+  echo "run: $run (perf/results/$run)"
+}
+
+# Copies a run's small, token-free files into a new perf/baselines/<date>-<sha>/ (never overwrites a directory).
+cmd_baseline() {
+  local run="${1:-}" name=""
+  [ -n "$run" ] || die "usage: perf/run.sh baseline <run> [--name DIR]"
+  safe_name "run" "$run"
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --name) name="${2:?--name needs a directory name}"; safe_name "--name" "$name"; shift ;;
+      *) die "baseline: unknown flag $1" ;;
+    esac
+    shift
+  done
+  [ -n "$name" ] || name="$(date +%Y-%m-%d)-$(git -C "$ROOT" rev-parse --short=8 HEAD)"
+  local src="$ROOT/perf/results/$run" dest="$ROOT/perf/baselines/$name" f
+  [ -d "$src" ] || die "baseline: no perf/results/$run"
+  [ ! -e "$dest" ] || die "baseline: $dest exists — a baseline directory is never overwritten"
+  mkdir -p "$dest"
+  for f in "$src"/*.summary.json "$src"/*.table.md "$src"/*.pgss.csv "$src"/*.tables.csv "$src"/saturation-docker-stats.txt; do
+    [ -f "$f" ] || continue
+    case "$(basename "$f")" in
+      warmup.*) continue ;;
+      # Only the metrics the compare tool reads, and only the statistics it (and a human) uses: ~1/6 of the size.
+      *.summary.json)
+        jq -c '{metrics: (.metrics | with_entries(select(.key | test("^(screen_|req_wall_ms|req_stmt|req_tx|chain_|write_|http_req_failed|http_reqs|server_timing_missing|checks|iterations)")))
+                | map_values({type, values: (.values | with_entries(select(.key | IN("count","avg","med","p(95)","max","rate","passes","fails"))))}))}' \
+          "$f" > "$dest/$(basename "$f")" ;;
+      *) cp "$f" "$dest/" ;;
+    esac
+  done
+  if grep -rl 'eyJ' "$dest" >/dev/null 2>&1; then
+    rm -rf "$dest"
+    die "baseline: a JWT-shaped string (eyJ…) was found — nothing copied"
+  fi
+  echo "baseline: $dest ($(ls "$dest" | wc -l | tr -d ' ') files, $(du -sh "$dest" | cut -f1)) — add meta.json by hand"
 }
 
 not_yet() {
@@ -295,7 +498,10 @@ case "${1:-}" in
   restore) shift; cmd_restore "$@" ;;
   pgss) shift; cmd_pgss "$@" ;;
   k6) shift; cmd_k6 "$@" ;;
-  traces | jfr | web | report | all) not_yet "$1" ;;
+  report) shift; cmd_report "$@" ;;
+  all) shift; cmd_all "$@" ;;
+  baseline) shift; cmd_baseline "$@" ;;
+  traces | jfr | web) not_yet "$1" ;;
   "" | -h | --help | help) usage ;;
   *) echo "unknown subcommand: $1" >&2; usage >&2; exit 64 ;;
 esac
