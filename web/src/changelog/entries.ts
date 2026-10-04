@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.14.1",
+    date: "2026-10-04",
+    en: `Hardening. The server now refuses any request whose body is larger than 4 MiB before reading it in full: it answers "413 Payload Too Large" with the usual problem details and closes the connection, instead of loading the whole payload into memory first, and compressed request bodies are no longer unpacked. Nothing changes in everyday use — the cap is sized for the largest document the app accepts (a 1:1 meeting with every list filled to its limit, a little over 3 MB at worst). Behind the scenes: the limit is configurable and checked at startup (HTTP_MAX_BODY_BYTES), the API contract declares the new status on every operation that takes a body, and the rejection of negative ids inside request bodies is now pinned by tests.`,
+    pl: `Wzmocnienie zabezpieczeń. Serwer odrzuca teraz każde żądanie, którego treść przekracza 4 MiB, zanim wczyta ją w całości: odpowiada "413 Payload Too Large" ze standardowym opisem problemu i zamyka połączenie, zamiast najpierw ładować cały ładunek do pamięci, a skompresowanych treści żądań już nie rozpakowuje. W codziennym użyciu nic się nie zmienia — limit uwzględnia największy dokument, jaki przyjmuje aplikacja (spotkanie 1:1 z każdą listą wypełnioną do maksimum, w najgorszym razie nieco ponad 3 MB). Pod maską: limit można skonfigurować i jest sprawdzany przy starcie (HTTP_MAX_BODY_BYTES), kontrakt API deklaruje nowy status na każdej operacji przyjmującej treść, a odrzucanie ujemnych identyfikatorów w treści żądań jest teraz przypięte testami.`,
+  },
+  {
     version: "4.14.0",
     date: "2026-10-04",
     en: `Faster pages for large teams. The "Team's performance" tab and the dashboard's "My subordinates" cards now load the latest 1:1 and review of each person in a handful of database queries instead of one per person — for a manager with hundreds of reports the roster is several times faster. The pulse "Trend" and HR's all-teams "Results" screen read every survey cycle at once instead of one cycle at a time. The org chart fetches the whole organization in a few requests instead of one per team. Behind the scenes: the browser now caches the app's own files between visits and re-checks only the page shell, the server runs with the full JIT compiler for more headroom under load, and API responses are marked as never cacheable.`,

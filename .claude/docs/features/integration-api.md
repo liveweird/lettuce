@@ -59,7 +59,11 @@ goals, impact log, pulse, notifications, alerts, templates.
   introspection query's 12 — checkup #30 A-H2) + complexity 1000 under the pageSize-weighted
   calculator (subtree × ceil(pageSize/20), cap 5; a variable pageSize charges the cap —
   checkup #30 A-M5) → 200 + errors; `SanitizingExceptionHandler` passes through `BadRequestException`
-  messages, everything else logs + "Internal error" (no FQCNs — MT-007). Error split:
+  messages, everything else logs + "Internal error" (no FQCNs — MT-007). The HTTP body itself is capped at
+  `http.maxBodyBytes` (4 MiB, `413` problem — see "Request body size cap" in
+  `.claude/docs/security-details.md`) before graphql-java sees it; graphql-java's `ParserOptions`
+  defaults (1 MiB characters / 15k tokens) are the next layer. Request bodies must be sent
+  uncompressed: a `Content-Encoding: gzip` request is a `400` since v4.14.1. Error split:
   transport = ProblemDetail (401 key, 400 malformed JSON via StatusPages — app-wide), executed
   documents = 200 + `errors`. Introspection stays ON (authenticated contract discovery). Two
   compiler landmines are documented in-code: graphql-java's F-bounded `GraphqlErrorBuilder`

@@ -114,6 +114,24 @@ class OpenApiSpecTest {
     }
 
     @Test
+    fun `every body-taking operation declares a 413 and no other operation does`() {
+        // The global request-body cap (plugins/BodyLimit.kt) answers 413 before any route runs, so
+        // the contract must carry it on exactly the operations that take a body (API-ERR-005).
+        val violations = OpenApiSpec.parsed.paths.flatMap { (path, item) ->
+            item.readOperationsMap().mapNotNull { (method, op) ->
+                val takesBody = op.requestBody != null
+                val declares413 = "413" in op.responses.keys
+                when {
+                    takesBody && !declares413 -> "$method $path takes a body but declares no 413"
+                    !takesBody && declares413 -> "$method $path declares a 413 but takes no body"
+                    else -> null
+                }
+            }
+        }
+        assertEquals(emptyList(), violations)
+    }
+
+    @Test
     fun `spec path templates are unambiguous for coverage resolution`() {
         // Every concrete path derivable from one template must not match another template of the
         // same shape — guard the most-literal-first resolution in OpenApiCoverage by asserting no

@@ -333,7 +333,7 @@ ad-hoc error JSON.
 
 | Condition | Status |
 |---|---|
-| Malformed / invalid request (incl. oversized payloads, invalid stored-text such as NUL bytes) | `400` |
+| Malformed / invalid request (incl. an oversized FIELD — a declared `maxLength`/`maxItems` exceeded — or invalid stored-text such as NUL bytes) | `400` |
 | Missing / invalid authentication | `401` |
 | Authenticated but not permitted | `403` |
 | Resource does not exist (or is soft-deleted — API-RES-007) | `404` |
@@ -341,6 +341,7 @@ ad-hoc error JSON.
 | Unacceptable / conflicting media type | `406` / `415` |
 | State-machine conflict, uniqueness violation (DB unique-constraint errors **MUST** be caught and mapped, never surface as `500`) | `409` |
 | Failed precondition (`If-Match`) | `412` |
+| Request body larger than the server's acceptance cap — refused on the declared `Content-Length` before routing, or cut off while streaming; never deserialized (`Content Too Large`, RFC 9110 §15.5.14) | `413` |
 | Semantically invalid (well-formed) entity | `422` |
 | Rate limit / throttle / lockout exceeded | `429` |
 | Unexpected server error (logged) | `500` |
@@ -366,10 +367,10 @@ it is echoed/generated at runtime.
 
 ### API-ERR-005 — Declare & order the error responses `[both]`
 **MUST** declare, on every operation: `500`; `401` if it requires auth; `400` if it takes
-input. A bad input **MUST NOT** surface as a `500` (it is a `400`/`422`), and authorization
+input; `413` if it takes a body (the body-size cap is global — a body-less operation handed an oversized declared `Content-Length` is answered `413` too, undeclared there and accepted). A bad input **MUST NOT** surface as a `500` (it is a `400`/`422`), and authorization
 **MUST** be evaluated **before** payload validation (`403` outranks `400` — a non-privileged
 caller learns nothing about payload rules). Validation depth is owned by **API-SEC-003**.
-**Check (spectral):** each operation lists `500`; body-taking ops list `400`. **Check
+**Check (spectral):** each operation lists `500`; body-taking ops list `400` and `413`. **Check
 (review):** `401` on secured ops; guard-then-validate ordering; no `500` from bad input.
 
 ### API-ERR-006 — Deliberate existence-disclosure policy `[llm/manual]`
@@ -638,7 +639,7 @@ gap"**, not as findings.
   actionable leak-free errors; one intentional existence-disclosure idiom per resource;
   duplicate `409`s carrying `instance` *(registered gap for the generic handler)*?
 - **API-ERR-004** — Correlation id echoed on every response? *(registered gap)*
-- **API-ERR-005 / API-SEC-003** — `500`/`401`/`400` declared; authz before validation; every
+- **API-ERR-005 / API-SEC-003** — `500`/`401`/`400` (and `413` on body-taking ops) declared; authz before validation; every
   boundary input validated feature-locally?
 - **API-AUTH-001..004** — Schemes declared + applied; bearer with credentials in headers
   only; `401` vs `403` + token-type enforcement; default-deny guards at the top of every

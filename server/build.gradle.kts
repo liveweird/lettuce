@@ -100,6 +100,7 @@ dependencies {
     implementation(ktorLibs.server.auth)
     implementation(ktorLibs.server.auth.jwt)
     implementation(ktorLibs.server.autoHeadResponse)
+    implementation(ktorLibs.server.bodyLimit)
     implementation(ktorLibs.server.cachingHeaders)
     implementation(ktorLibs.server.callId)
     implementation(ktorLibs.server.callLogging)

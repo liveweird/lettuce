@@ -42,10 +42,12 @@ metadata:
     # Edge HTTP→HTTPS redirect (308). ingress-nginx's default once tls: is present; pinned so a
     # controller-wide `ssl-redirect: "false"` cannot silently switch it off for this host.
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    # nginx's client_max_body_size default is 1m. The CSV import accepts 256 Ki characters,
-    # up to ~1 MiB of UTF-8 inside JSON — it must reach the app's own problem+json 400, not
-    # nginx's HTML 413.
-    nginx.ingress.kubernetes.io/proxy-body-size: 2m
+    # nginx's client_max_body_size default is 1m. A legitimate 1:1 meeting document can reach
+    # ~3.6 MB (three lists of 100 items x 4000 chars, 3 UTF-8 bytes each), and the CSV user
+    # import ~1.5 MiB inside JSON — they must reach the app, not nginx's HTML 413. The app
+    # enforces its own cap with a problem+json 413 (v4.14.1: HTTP_MAX_BODY_BYTES, default
+    # 4 MiB, every route); this is the edge backstop and must stay >= that value.
+    nginx.ingress.kubernetes.io/proxy-body-size: 4m
 spec:
   ingressClassName: nginx
   tls:

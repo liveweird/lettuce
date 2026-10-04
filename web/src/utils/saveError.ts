@@ -38,7 +38,7 @@ export function saveErrorMessage(
     if (err.status === 403 && keys.forbidden) return t(keys.forbidden, { context });
     if (err.status === 404 && keys.notFound) return t(keys.notFound, { context });
     if (err.status === 409 && keys.conflict) return t(keys.conflict, { context });
-    if (err.status === 400 && keys.invalid) return t(keys.invalid, { context });
+    if ((err.status === 400 || err.status === 413) && keys.invalid) return t(keys.invalid, { context });
     if (keys.failedStatus) return t(keys.failedStatus, { status: err.status, context });
   }
   if (isTimeoutError(err)) return t("common.error.timeout");
