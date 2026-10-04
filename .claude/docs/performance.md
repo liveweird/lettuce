@@ -130,7 +130,16 @@ The mixed run served ~300 requests/s with 0 failures; at 50 VUs the app containe
 | `mixed-50vu` (ramp 2 m, hold 5 m, think 3–8 s) | 10 074 requests, 0 failed, 0 write conflicts; app CPU avg 21 % (peak 101 % of 200 %), PostgreSQL avg 5 %; median screen 6–35 ms, worst p95 0.73 s (CEO 1:1 create) | | | |
 | login storm, 50 VUs | ~7.3 sign-ins/s, median 6.1–6.6 s (bcrypt on 2 CPUs); 5/695 answered 429 | | | |
 
-What the numbers show is in `perf/baselines/FINDINGS.md` (F7–F16: the pulse trend's per-cycle loop, the org chart's per-team GETs, the users-pool pages of every drill-down, the 1:1 `latestOnly` statement, seq scans on the manager-wide lists, the bell is O(1), the realistic mix does not saturate).
+What the numbers show is in `perf/baselines/FINDINGS.md` (F7–F17: the pulse trend's per-cycle loop, the org chart's per-team GETs, the users-pool pages of every drill-down, the 1:1 `latestOnly` statement, seq scans on the manager-wide lists, the bell is O(1), the realistic mix does not saturate; F17 adds the per-row 1:1 lookups that `QueryBudgetTest` found).
+
+#### Query budgets (`QueryBudgetTest`, M3 — runs in CI)
+
+`server/src/test/kotlin/QueryBudgetTest.kt` is the regression guard for the statement/transaction counts this programme measures. For each list/read endpoint it seeds 1 row, then 50 (the same caller, `pageSize` 100), reads `stmt`/`tx` from the `Server-Timing` header (development mode sends it to every authenticated response, which is what the tests run in) and asserts: the count does not grow with the rows (the slope is 0) and it stays within the endpoint's row of the **`BUDGETS` table at the top of that file** (one line per endpoint, the measured `stmt/tx` at 1 → 50 rows in the comment). The page's reported `total` is asserted too, so an empty page cannot pass. About 20 s in the Backend job; every test builds its own users (unique `qb…` tag), so it coexists with the rest of the suite in the shared container.
+
+- **Update rule.** A deliberate optimisation lowers its budget row **in the same PR** (a count that merely fell below its budget still passes, so the next person would otherwise inherit the slack). A feature that adds a statement raises the row and says why in the PR; one that adds a per-row query fails and has to batch it instead.
+- **Already-O(n) endpoints are pinned, not fixed.** Their row carries `dStmt`/`dTx`, the measured `stmt(50) − stmt(1)`: a regression and an improvement both fail the test, so whoever changes the code updates the pin and the matching finding in `perf/baselines/FINDINGS.md`. Today: `teams/members?view=managed` (+2 statements per row, F1/F10 — the latest 1:1 and the latest review lookups), `…&includeIndirect` (the same), `teams/members?view=managers` (+1 per row, F17), `one-on-ones?view=managed` with and without `latestOnly` (+1 per distinct (manager, subordinate) pair on the page, F17). Every other budgeted endpoint is O(1) in rows.
+- **The pulse trend** is O(cycles) (F7) and its absolute count depends on how many closed cycles the shared test container already holds, so only its slope is pinned (`PULSE_TREND_PER_CYCLE` = 2 statements + 2 transactions per closed cycle; the test adds 9 closed cycles and expects exactly +18/+18).
+- **Not covered:** the per-screen request fan-outs of the SPA (F8's one `GET /teams/{id}` per team, F9's users pool) — they are many cheap requests, not a per-row query inside one; `/teams/{id}` itself is budgeted at O(1). Measure those with `perf/run.sh`.
 
 #### Reading the numbers
 
