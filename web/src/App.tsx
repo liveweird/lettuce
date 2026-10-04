@@ -7,11 +7,13 @@ import {
   ActionIcon,
   AppShell,
   Avatar,
+  Box,
   Burger,
   Button,
   Group,
   Menu,
   ScrollArea,
+  Skeleton,
   Text,
   useMantineColorScheme,
   useMantineTheme,
@@ -170,13 +172,16 @@ function RouteFallback() {
 }
 
 
+// Width reserved for the account menu's name (px) — see HeaderUserMenu.
+const USER_NAME_SLOT_WIDTH = 160;
+
 /** The header account menu: avatar + name trigger opening email / change-password / logout.
  *  Always rendered (even before — or without — the profile query resolving), so the Logout
  *  affordance never depends on a successful GET /users/{id}. */
 function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
   const { t } = useTranslation();
   const userId = getUserId();
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["currentUser", userId],
     queryFn: getCurrentUser,
     enabled: userId !== null,
@@ -196,11 +201,22 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
           leftSection={<Avatar name={data?.name} color="initials" size={22} radius="xl" />}
           rightSection={<IconChevronDown size={14} />}
         >
-          {data && (
-            <Text size="sm" fw={500} truncate maw={160} span visibleFrom="sm">
-              {data.name}
-            </Text>
-          )}
+          {/* The name slot is a FIXED-width box from the first commit (v4.15.2): the name arrives
+              with GET /users/{id}, and a trigger that grew by ~60-90 px when it did shifted the
+              whole right-hand header group. The slot is the full 160 px a name may take (longer
+              names ellipsize), holds a skeleton while loading and stays that wide when the
+              profile fails to load (empty — Logout still works). */}
+          <Box w={USER_NAME_SLOT_WIDTH} visibleFrom="sm" style={{ textAlign: "left" }}>
+            {isLoading ? (
+              <Skeleton h={12} w={120} radius="xl" />
+            ) : (
+              data && (
+                <Text size="sm" fw={500} truncate>
+                  {data.name}
+                </Text>
+              )
+            )}
+          </Box>
         </Button>
       </Menu.Target>
       <Menu.Dropdown>

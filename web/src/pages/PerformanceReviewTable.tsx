@@ -368,6 +368,7 @@ export default function PerformanceReviewTable({
 
       <PaginationBar
         total={total}
+        pending={isLoading && !data}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

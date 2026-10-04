@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.15.2",
+    date: "2026-10-04",
+    en: `Steadier pages while they load. Screens no longer jump as their data arrives: the account menu in the header keeps room for your name from the first moment, so the icons beside it stay put; the list footer (total and page buttons) appears together with the list instead of being pushed down by it; the dashboard tiles and the days-off page reserve the size of what is about to load — on "Days off" the entries list now appears together with the budget card above it, so it is no longer pushed down by a card with several leave pools — and page-header buttons that arrive late, such as "Record days off" for managers, no longer nudge the buttons next to them. Nothing else changes.`,
+    pl: `Spokojniejsze strony podczas ładowania. Ekrany nie skaczą już, gdy napływają dane: menu konta w nagłówku od pierwszej chwili rezerwuje miejsce na imię i nazwisko, więc ikony obok niego stoją w miejscu; stopka listy (liczba pozycji i przyciski stron) pojawia się razem z listą, zamiast być spychana w dół; kafelki pulpitu i strona dni wolnych rezerwują rozmiar tego, co za chwilę się wczyta — na stronie "Dni wolne" lista wpisów pojawia się teraz razem z kartą budżetu nad nią, więc nie jest już spychana przez kartę z kilkoma pulami urlopowymi — a przyciski nagłówka strony, które pojawiają się z opóźnieniem, jak "Zapisz dni wolne" dla osób zarządzających, nie przesuwają już sąsiednich przycisków. Nic więcej się nie zmienia.`,
+  },
+  {
     version: "4.15.1",
     date: "2026-10-04",
     en: `Faster first paint. Every page now appears about a third of a second sooner on a fresh load: the app fetches the page's code before it draws, so the spinner that used to sit between the shell and the content is gone. The first visit after a deploy downloads about 30% less — the app's own files are now 8 instead of 38, the Polish texts load only for people who use Polish, the announcement banner's text renderer loads in the background once the page is idle instead of with the first load, and the calendar styles load with the first date picker. Nothing else changes.`,

@@ -285,6 +285,7 @@ export default function ActivityFeed({ userId, storeKey }: { userId: number; sto
       {!rangeInvalid && (
         <PaginationBar
           total={data?.total ?? 0}
+          pending={isLoading && !data}
           page={page}
           pageSize={pageSize}
           onPageChange={setPage}
