@@ -1,0 +1,61 @@
+{
+  "baseline": "v4.15.0 re-measurement (targeted subset) — the fixes F9/F12/F16/W4/W6",
+  "measuredOn": "2026-10-04",
+  "appCommit": "9c2e5c0f",
+  "appCommitNote": "branch perf/v4.15.0 at 9c2e5c0f (clean tree), image built by `perf/run.sh up` from a scratch clone (appImageId sha256:ca6a339a3cbc…); Flyway applied V92 (one_on_one_meetings pair-latest index, 46 ms) at the first app boot on the restored snapshot — expected; every count here compares 1:1 with 2026-10-04-ce513a41 and 2026-10-04-acd9d3ed (same dataset v2 snapshot)",
+  "datasetVersion": 2,
+  "dataset": {
+    "anchor": "2026-10-01",
+    "seed": 1,
+    "scale": 1.0,
+    "slice": "every feature (users, teams, careers, periods, reviews, 1:1s, goals, feedbacks, notifications, pulse, team KPIs, days off, impact log, succession, shares, career/days-off/account events)",
+    "snapshot": "perf/snapshots/lettuce-perf-v2-2026-10-01-s1-x1.0.dump (git-ignored); restored once with perf/run.sh restore (18 s) before the run, app ready 3 s after",
+    "rows": "perf/results/seed-2.json (users 522, one_on_one_meetings 132600, action items 429868, goals 30600, feedbacks 30660, pulse_responses 59749, team_kpi_values 77123, days_off_requests 12378, document_shares 11416, account_events 59392, notifications 91812 kept of 1339081 minted); verify.sql: all 92 checks passed",
+    "generatorNote": "after the 2026-10-04 fidelity fixes (acd9d3ed): timestamps spread/jittered dataset-wide (SPREAD_DAYS 30, sub-minute jitter), DATASET_VERSION stays 2"
+  },
+  "machine": {
+    "arch": "arm64",
+    "cpu": "Apple M5 Max (18 cores, 128 GB host)",
+    "macOS": "27.0.1",
+    "containerRuntime": "OrbStack 2.2.3, Docker server 29.4.0",
+    "vm": "18 CPUs, 16 GB (shared by every container, including k6)"
+  },
+  "limits": {
+    "app": "cpus 2, mem_limit 512m",
+    "postgres": "cpus 2, mem_limit 1g (postgres:18.4-alpine3.24)",
+    "k6": "no limit (grafana/k6:2.3.0, digest-pinned in perf/run.sh)"
+  },
+  "jvm": {
+    "variant": "shipped flags (C2 on since v4.14.0)",
+    "flags": "-XX:+UseSerialGC -Xmx256m",
+    "javaOpts": "(empty)",
+    "runtime": "Temurin 21.0.12+8",
+    "rssMiB": "not re-measured (no 50-VU run in this subset; see 2026-10-04-ce513a41)"
+  },
+  "app": {
+    "mode": "development (KTOR_DEVELOPMENT=true)",
+    "perfServerTiming": true,
+    "pool": "postgres.pool.maxSize 20 (shipped default, unchanged)",
+    "jwtAccessExpiresInSeconds": 7200,
+    "retentionPins": "ACTIVITY_ACCOUNT_RETENTION_DAYS=0, NOTIFICATION_RETENTION_DAYS=0 (the real-clock purges are off on the perf stack)"
+  },
+  "postgres": {
+    "extensions": "pg_stat_statements (track=all, max=10000), auto_explain",
+    "autoExplain": "log_min_duration=50ms, log_analyze=on, log_buffers=on, log_timing=off, log_format=json",
+    "trackIoTiming": true,
+    "observerOverheadNote": "auto_explain.log_analyze=on instruments EVERY statement and pg_stat_statements + track_io_timing add a little per call, so absolute database milliseconds are inflated slightly; statement and transaction counts are exact and unaffected. No statement of any window exceeded 50 ms (max_exec 16.1 ms, one-on-ones ceo), so every auto_explain file was empty (not committed)."
+  },
+  "scenario": {
+    "name": "targeted subset (v4.15.0 plan §4), NOT perf/run.sh all: one-on-ones ceo/lead/hr, activity-log ceo/lead/hr, days-off lead/hr, impact-log lead/hr, succession hr, users-admin admin/ic/ceo, pulse-results hr, dashboard ceo, reviews-team-view ceo-all (1 VU, 3 iterations, a pgss window each, after an unrecorded 2-iteration warm-up of each, run v4150-warmup); no 50-VU run",
+    "scripts": "perf/k6/*.js at 9c2e5c0f",
+    "web": "perf/run.sh web pulse-results --persona hr | activity-log (all 10 cases) | org-chart | one-on-ones --persona ceo|lead|hr (5 measured iterations + a cold run each, 1x CPU) -> web/*.json (waterfalls dropped); compare with 2026-10-04-3076bbd4/web and 2026-10-04-ce513a41/web. The web runner has no days-off drill-down case and no 1:1 managed latest-only case.",
+    "webHarnessNote": "pulse-results hr.results does NOT settle with the committed e2e/perf/harness.ts since W4: the lazy card trend charts leave a 200px Mantine Skeleton on every below-the-fold card until it is scrolled near the viewport, and waitSettled counts any rendered Skeleton (getClientRects) as loading -> 180 s timeout. web/pulse-results.hr.results.json was measured with a LOCAL, uncommitted one-line patch (a loader blocks only when its bounding rect intersects the viewport), reverted afterwards; hr.trend and hr.participation are from the unpatched harness.",
+    "report": "report-vs-2026-10-04-ce513a41.md (pulse-results hr, one-on-ones ceo, users-admin, dashboard ceo, reviews-team-view ceo-all) and report-vs-2026-10-04-acd9d3ed.md (the drill-downs, absent from ce513a41); no RUN NOT CLEAN in either. Count increases, all explained: GET /teams +1 statement (the v4.14.0 grouped memberIds query, incl. every shell-probe); the activity endpoint +1..2 statements vs acd9d3ed (data-dependent hydration: fewer k6 sign-ins of the target persona before the window than in acd9d3ed's perf/run.sh all warm-up, so the first 20-row page reaches goal/share rows and runs their fact lookups — no activity code changed since acd9d3ed); users-admin statement calls of the users-list teams-enrichment query shift between pg_stat_statements IN-list-length text variants (total calls fall 42 -> 24 with the users pool gone).",
+    "knownNotClean": "none: 0 failed requests and 0 responses without Server-Timing in every run",
+    "pgssLatestOnly": "the CEO's one-on-ones?view=managed&latestOnly=true row statement: 42.1 ms mean / 1 042 728 buffers hit for 3 calls (2026-10-04-ce513a41) -> 0.154 ms mean / 294 buffers hit for 3 calls (separate window, run v4150-pgss, read straight from pg_stat_statements — too cheap to make the committed top-50 CSV)",
+    "summaries": "reduced to the metrics scripts/perf_compare.py reads; no tokens (the JWT-prefix grep is empty)"
+  },
+  "k6Image": "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34",
+  "caveat": "OrbStack on one laptop is not production: compare milliseconds relatively, statement/transaction counts exactly. Baselines compare only within one datasetVersion.",
+  "fixes": "v4.15.0: F12 (1:1 latestOnly as a DISTINCT ON subquery + V92 pair-latest index — CEO managed-latest 47 -> 3 ms p50, statement 42.1 -> 0.15 ms; 6 stmt / 2 tx unchanged), F9 (drill-down headings: one users?id= lookup instead of the six-page users pool — every drill-down 5 requests and ~40-50 statements / 10 tx fewer; the Teams screen's manager filter from the teams rows — 11 -> 6 requests, 71 -> 21 stmt), F16 (pulse: results 10 -> 9 stmt, trend 8/6 -> 6/5, comments 7 -> 6), W4 (lazy card trend charts: HR results screen 259 -> 178 requests, 2 120 -> 1 298 stmt, 1 613 -> 1 124 tx, k6 1 115 -> 294 ms; web 1 800 -> 677 ms settled, 3 trend requests instead of 84), W6 (the drill-down web screens 11 -> 6 requests, settled ~300 ms)."
+}

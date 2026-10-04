@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import PulseResults from "./PulseResults";
 import { renderWithProviders } from "../test/render";
 import { jsonResponse } from "../test/http";
+import { fireIntersect, installIntersectionObserver } from "../test/intersection";
 import i18n from "../i18n";
 
 vi.mock("@mantine/charts", () => ({
@@ -123,9 +124,12 @@ describe("PulseResults", () => {
     });
   }
 
+  const trendCalls = () => mockFetch.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/trend?"));
+
   beforeEach(() => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
+    installIntersectionObserver();
     localStorage.setItem("lettuce.auth.token", "fake-token");
   });
 
@@ -155,7 +159,11 @@ describe("PulseResults", () => {
       .closest("tr")!;
     expect(within(q5Row).getAllByText("—")).toHaveLength(5);
     expect(within(q5Row).getByText("0")).toBeInTheDocument();
-    // The trend chart got exactly the two OK points.
+    // The trend chart is lazy (v4.15.0): nothing was requested while the section is off-screen…
+    expect(trendCalls()).toHaveLength(0);
+    expect(screen.queryByTestId("trend-chart")).toBeNull();
+    // …and once it nears the viewport the chart gets exactly the two OK points.
+    fireIntersect();
     await waitFor(() => {
       const chart = screen.getByTestId("trend-chart");
       expect(JSON.parse(chart.getAttribute("data-points")!)).toHaveLength(2);
@@ -171,6 +179,43 @@ describe("PulseResults", () => {
     expect(screen.getByRole("img", { name: /average of this question/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /mean changed versus the previous/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /favorable share changed versus the previous/ })).toBeInTheDocument();
+  });
+
+  test("the trend loads per card when its chart section nears the viewport, and keeps it once scrolled away (v4.15.0)", async () => {
+    localStorage.setItem("lettuce.viewSettings.pulse.results.view", JSON.stringify("managed"));
+    setupMocks({
+      member: [],
+      monitored: [
+        { id: 11, name: "AAA" },
+        { id: 31, name: "CCC" },
+      ],
+    });
+    renderWithProviders(<PulseResults />);
+    expect(await screen.findAllByText("eNPS trend")).toHaveLength(2);
+    await screen.findAllByText("+33");
+    // Both cards fetched their results eagerly, but no trend yet: no chart, no request, and an idle (not busy) section.
+    expect(trendCalls()).toHaveLength(0);
+    expect(screen.queryByTestId("trend-chart")).toBeNull();
+    const wrappers = screen.getAllByText("eNPS trend").map((label) => label.closest("[aria-busy]")!);
+    expect(wrappers.map((w) => w.getAttribute("aria-busy"))).toEqual(["false", "false"]);
+
+    // Only the first card's chart section scrolls into view: exactly one trend request, for that team.
+    expect(fireIntersect((el) => el === wrappers[0])).toBe(1);
+    await waitFor(() => expect(trendCalls()).toHaveLength(1));
+    expect(trendCalls()[0]).toContain("teamId=11");
+    await waitFor(() => expect(screen.getAllByTestId("trend-chart")).toHaveLength(1));
+    expect(within(wrappers[0] as HTMLElement).getByTestId("trend-chart")).toBeInTheDocument();
+    expect(within(wrappers[1] as HTMLElement).queryByTestId("trend-chart")).toBeNull();
+
+    // Scrolling the first back out keeps its chart and refetches nothing (the latch).
+    fireIntersect((el) => el === wrappers[0], false);
+    expect(screen.getAllByTestId("trend-chart")).toHaveLength(1);
+    expect(trendCalls()).toHaveLength(1);
+
+    // Later the second one too; a re-fire for the first never refetches (cached + latched).
+    fireIntersect();
+    await waitFor(() => expect(screen.getAllByTestId("trend-chart")).toHaveLength(2));
+    expect(trendCalls()).toHaveLength(2);
   });
 
   test("edge renderings: a zero score is unsigned and a zero delta stays gray", async () => {
@@ -448,6 +493,7 @@ describe("PulseResults — sharing (v4.12.0)", () => {
   beforeEach(() => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
+    installIntersectionObserver();
     localStorage.setItem("lettuce.auth.token", "fake-token");
     localStorage.setItem("lettuce.auth.userId", "7");
   });
@@ -810,6 +856,8 @@ describe("PulseResults — sharing (v4.12.0)", () => {
         : base(url, init),
     );
     renderWithProviders(<PulseResults />);
+    await screen.findByText("eNPS trend");
+    fireIntersect();
     expect(await screen.findByText("The trend is unavailable right now.")).toBeInTheDocument();
     expect(screen.queryByText("The trend appears after two closed cycles.")).toBeNull();
   });

@@ -189,6 +189,9 @@ export interface paths {
          *     - Sortable fields: `id`, `name`, `email`, `uniqueId`. Default sort is `id` ascending.
          *       `id` ascending is always appended as a deterministic tiebreaker.
          *     - Filters (all optional, all whitelisted):
+         *       - `id` — repeated key: users with ANY of these ids (at most 100 values; a malformed
+         *         value or more than 100 is `400`; an unknown id simply matches nothing). Backs the
+         *         per-person drill-down headings' one-row name lookup (v4.15.0).
          *       - `name` — case- and accent-insensitive substring match against `name`.
          *       - `email` — case- and accent-insensitive substring match against `email`.
          *       - `uniqueId` — case- and accent-insensitive substring match against `uniqueId`
@@ -8176,6 +8179,8 @@ export interface operations {
                  *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
                  */
                 sort?: components["parameters"]["Sort"];
+                /** @description Filter to the users with ANY of these ids. Repeat the key to match any of several values (at most 100); an unknown id matches nothing (`200` with an empty page, never `404`). Narrows the same open list — no new disclosure (v4.15.0). */
+                id?: number[];
                 /** @description Case- and accent-insensitive substring match against the user's name (e.g. `zolw` matches `Żółw`). */
                 name?: string;
                 /** @description Case- and accent-insensitive substring match against the user's email. */

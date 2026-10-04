@@ -5,8 +5,9 @@ import { useAllUsers } from "./useAllUsers";
 // The shared manager-picker pool: EVERY user (via the shared useAllUsers pool — one cache
 // for every picker; a single capped page silently dropped anyone past the first 100 by
 // name, v1.51.0 fix), name-sorted client-side and mapped to team-aware Mantine Select options.
-// Used by the Teams list filter and the Create/Edit team forms (which pass `enabled: isAdmin()`
-// since only admins see their picker).
+// Used by the Create/Edit team forms via TeamFormFields (which pass `enabled: isAdmin()` since
+// only admins see their picker) — any user may become a manager. The Teams list's manager FILTER
+// no longer uses it (v4.15.0): it lists the current managers from the all-teams rows.
 export function useManagerOptions(enabled = true): {
   managerOptions: UserOption[];
   managersLoading: boolean;

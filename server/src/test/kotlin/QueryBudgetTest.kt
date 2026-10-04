@@ -70,8 +70,18 @@ class QueryBudgetTest {
      */
     private data class Budget(val stmt: Int, val tx: Int, val dStmt: Int = 0, val dTx: Int = 0)
 
-    /** [rows] maps the grown size n to the `total` the page must report (null = unpaged response, not checked). */
-    private class Probe(val name: String, val client: HttpClient, val path: String, val rows: ((Int) -> Int)? = { it })
+    /**
+     * [pathAt] (optional) derives the path from the size n, for a probe whose query names the grown rows themselves.
+     * [rows] maps the grown size n to the `total` the page must report (null = unpaged response, not checked); it
+     * stays the LAST parameter so the existing `Probe(...) { n -> total }` trailing-lambda calls keep binding to it.
+     */
+    private class Probe(
+        val name: String,
+        val client: HttpClient,
+        val path: String,
+        val pathAt: ((Int) -> String)? = null,
+        val rows: ((Int) -> Int)? = { it },
+    )
 
     private class Person(val id: UInt, val email: String)
 
@@ -89,6 +99,7 @@ class QueryBudgetTest {
          */
         val BUDGETS: Map<String, Budget> = mapOf(
             "users?name" to Budget(8, 2), // 8/2 -> 8/2
+            "users?id" to Budget(8, 2), // 8/2 -> 8/2 (v4.15.0: the drill-down name lookup; IN over 1 vs 50 ids)
             "teams?name" to Budget(4, 2), // 4/2 -> 4/2 (v4.14.0: +1 grouped memberIds statement per page)
             "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1); the org chart reads memberIds from the teams list, F8)
             // F1/F10/F17, fixed in v4.14.0: one DISTINCT ON statement per enrichment (latest 1:1, latest review on
@@ -99,6 +110,7 @@ class QueryBudgetTest {
             "teams/members?view=member" to Budget(9, 8), // 9/8 -> 9/8
             "dashboard/summary" to Budget(10, 8), // 10/8 -> 10/8 (F11)
             // F17, fixed in v4.14.0: `isLatest` is one DISTINCT ON statement over the page's pairs, not one per pair.
+            // F12, fixed in v4.15.0: `latestOnly` is a DISTINCT ON subquery + the V92 index — the gain is time, the count stays 6/2.
             "one-on-ones?view=managed" to Budget(6, 2), // 6/2 -> 6/2
             "one-on-ones?view=managed&latestOnly" to Budget(6, 2), // 6/2 -> 6/2
             "goals?view=managed" to Budget(4, 2), // 4/2 -> 4/2
@@ -124,8 +136,10 @@ class QueryBudgetTest {
             "shares?view=byMe" to Budget(3, 2), // 3/2 -> 3/2
             "users/{id}/activity" to Budget(10, 3), // 10/3 -> 10/3 (own log: 1 sign-in event + 2 rows per goal)
             // Measured before and after adding 9 closed cycles (not rows): F7 fixed in v4.14.0 — one transaction, two set-based statements.
-            "pulse-surveys/trend" to Budget(8, 6), // 8/6 -> 8/6 (HR, direct; was 2 stmt + 2 tx per closed cycle)
-            "pulse-surveys/cycles/{id}/results" to Budget(10, 7), // 10/7 -> 10/7 (HR, direct; current + previous cycle in one tx)
+            // v4.15.0 (F16): `readRef` — one statement, the unused memberIds select is gone — and the HR trend skips the share lookup.
+            "pulse-surveys/trend" to Budget(6, 5), // 8/6 -> 6/5 (HR, direct; was 2 stmt + 2 tx per closed cycle before v4.14.0)
+            "pulse-surveys/cycles/{id}/results" to Budget(9, 7), // 10/7 -> 9/7 (HR, direct; current + previous cycle in one tx)
+            "pulse-surveys/cycles/{id}/comments" to Budget(6, 6), // 7/6 -> 6/6 (HR, direct; >= 3 responders so the comments read runs)
         )
     }
 
@@ -174,7 +188,8 @@ class QueryBudgetTest {
 
     private class Reading(val cost: Cost, val total: Int?)
 
-    private suspend fun Probe.fetch(): Reading {
+    private suspend fun Probe.fetch(n: Int): Reading {
+        val path = pathAt?.invoke(n) ?: path
         val response = client.get(path)
         assertEquals(HttpStatusCode.OK, response.status, "$name: GET $path")
         val header = assertNotNull(response.headers["Server-Timing"], "$name: no Server-Timing header (dev mode, authenticated)")
@@ -187,9 +202,9 @@ class QueryBudgetTest {
     private suspend fun Probe.measure(n: Int): Cost {
         // The warm-up absorbs one-off work that is not the endpoint's own cost: the feedback lists sweep overdue
         // REQUESTED rows left by other tests of the shared container on the first read (extra statements, once).
-        fetch()
-        val first = fetch()
-        val second = fetch()
+        fetch(n)
+        val first = fetch(n)
+        val second = fetch(n)
         assertEquals(first.cost, second.cost, "$name: two identical requests cost different statement counts")
         val expected = rows?.invoke(n)
         if (expected != null) assertEquals(expected, first.total, "$name: the page must report $expected rows at n=$n")
@@ -261,6 +276,10 @@ class QueryBudgetTest {
                 val ownerClient = authedClient(owner.email, PASSWORD)
                 listOf(
                     Probe("users?name", adminClient, "/api/v1/users?name=$tag-s&pageSize=100"),
+                    Probe(
+                        "users?id", adminClient, "",
+                        pathAt = { n -> "/api/v1/users?" + org.subs.take(n).joinToString("&") { "id=${it.id}" } + "&pageSize=100" },
+                    ),
                     Probe("teams?name", ownerClient, "/api/v1/teams?name=$tag-x&pageSize=100"),
                     Probe("teams/{id}", ownerClient, "/api/v1/teams/$firstTeam", rows = null),
                 )
@@ -506,14 +525,15 @@ class QueryBudgetTest {
     )
 
     /**
-     * The pulse trend and results read every visible cycle in one transaction with two set-based statements
-     * (F7, fixed in v4.14.0), so the cost no longer depends on how many closed cycles exist. The fixture adds 9 more
-     * closed cycles (3 respondents each, so the point is computed, not skipped) between the two measurements: equal
-     * trend cost before and after is the proof. The results probe reads one of those cycles (+ its previous cycle),
-     * which is the same pair at both measurements, so its pin is the absolute budget (the per-cycle code cost 11/9).
+     * The pulse trend and results (and, since v4.15.0, comments) reads. Trend and results read every visible
+     * cycle in one transaction with two set-based statements (F7, fixed in v4.14.0), so the cost no longer
+     * depends on how many closed cycles exist. The fixture adds 9 more closed cycles (3 respondents each, so
+     * the point is computed, not skipped) between the two measurements: equal trend cost before and after is
+     * the proof. The results and comments probes read one of those cycles (+ its previous cycle for results),
+     * which is the same cycle at both measurements, so their pin is the absolute budget.
      */
     @Test
-    fun `pulse trend and results cost the same at any number of closed cycles`() = testApplication {
+    fun `pulse trend, results and comments cost the same at any number of closed cycles`() = testApplication {
         usePostgresTestcontainer()
         TestPulse.sweepNonTerminal()
         val tag = tag()
@@ -543,6 +563,10 @@ class QueryBudgetTest {
             Probe(
                 "pulse-surveys/cycles/{id}/results", client,
                 "/api/v1/pulse-surveys/cycles/$resultsCycle/results?teamId=${org.teamId}&mode=direct", rows = null,
+            ),
+            Probe(
+                "pulse-surveys/cycles/{id}/comments", client,
+                "/api/v1/pulse-surveys/cycles/$resultsCycle/comments?teamId=${org.teamId}&mode=direct", rows = null,
             ),
         )
         val small = probes.map { it.measure(SMALL) }
