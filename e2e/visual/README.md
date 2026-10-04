@@ -1,9 +1,13 @@
 # Desktop visual regression pilot
 
-**Status: prepared, not activated.** Six tests request 12 screenshots; no baseline images are
-approved or committed yet. Browser execution, container validation, repeated comparisons and
-deliberate-regression checks are deferred while Claude works on performance measurements.
-Passing source checks is not evidence that the screenshots pass.
+**Status: validated pilot; candidate baselines await human approval.** Six tests cover 12 desktop
+images of v4.15.2 after incorporating `origin/master` at `7cb4b20a`. Canonical capture and two
+unchanged comparisons passed. A temporary color defect failed at the screenshot assertion
+(279,044 changed pixels). This is not yet a required CI gate or approved product-design baseline.
+
+Open the [review gallery](review.html) and [validation record](baseline-review.md). The review
+record calls out existing desktop table stacking and an offscreen active dictionary navigation
+item; approving a baseline should be an explicit decision about those visible states.
 
 This suite renders the real React/Mantine SPA with deterministic, generated-schema-typed API
 fixtures. It is separate from the live-stack functional E2E suite. It verifies appearance, not
@@ -62,21 +66,20 @@ literal titles, not the semantic completeness of assertions.
 
 ## Canonical capture and comparison — quiet window required
 
-Use **Linux amd64 Chromium**, the Playwright version in `e2e/package-lock.json`, and the same
-verified official Playwright image digest for both baseline generation and comparison. The
-runner rejects mutable image references or a version different from the lockfile. Record the
-chosen image reference, observed Node version, Git revision and comparison results in the initial
-baseline review. The image build rejects Node versions below the workspaces' required Node 24.
-Resolve/verify the real digest at that time; this change deliberately contains no guessed digest.
+Use **Linux amd64 Chromium** and the verified official image in [runtime.json](runtime.json).
+The runner requires that image, validates its tag against `e2e/package-lock.json`, and rejects a
+conflicting environment override. A runtime upgrade is a reviewed edit to that pin, followed by
+comparison and, when needed, review of new candidates. [baseline-manifest.json](baseline-manifest.json)
+records the observed Node/Chromium versions, application revision, image dimensions and SHA-256
+hashes. The Docker build rejects Node versions below the workspaces' required Node 24.
 
 From the repository root, after measurements finish:
 
 ```sh
 export VISUAL_QUIET_WINDOW=1
-# Set VISUAL_PLAYWRIGHT_IMAGE to the verified version-and-digest-pinned image.
-bash e2e/visual/run-container.sh capture
 bash e2e/visual/run-container.sh compare
-bash e2e/visual/run-container.sh compare
+# Only for an intentional, reviewable baseline update:
+# bash e2e/visual/run-container.sh capture
 ```
 
 The build installs the existing lockfiles inside its own image. It does not install into host
@@ -107,9 +110,10 @@ also builds the SPA, so it is not safe during performance measurements.
 4. Obtain human approval before treating candidate images as accepted baselines. An agent must
    not update expected images merely to silence a failure. Include old/new/diff images for later
    intentional changes; keep baseline edits visible in review.
-5. Commit accepted images and record the canonical image digest. Only then add a dedicated CI
-   job and decide which check is required; CI integration is intentionally outside this pilot
-   while parallel performance work is active.
+5. Mark the reviewed candidate set as accepted, with the approval reference in the validation
+   record. Only then add a dedicated CI job and decide which check is required. Candidate images
+   may be shared on the review branch before approval; that does not activate a gate or approve
+   the appearance. No master merge or required-check change is part of this pilot.
 
 Build identity is fixed for capture, but the real displayed app version is retained. A version
 bump can legitimately change screenshots and still needs a reviewed update. No broad content

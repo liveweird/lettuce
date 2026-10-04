@@ -3,7 +3,9 @@
 - **Spec**: [lists.spec.ts](../../visual/tests/lists.spec.ts)
 - **Actors**: synthetic ordinary team member and administrator; no live accounts.
 - **Owns**: isolated browser contexts and visual build/report directories. No server state.
-- **Status**: harness prepared; baseline capture, stability checks and human approval pending.
+- **Status**: canonical capture, two unchanged comparisons and deliberate-regression detection
+  verified against v4.15.2; candidate baselines await human approval. See
+  [validation and findings](../../visual/baseline-review.md).
 - **Scope**: desktop web only. Fixed responses render the real SPA; these are visual tests,
   not evidence of backend authorization or end-to-end data correctness.
 - **Capture**: desktop-width full-page images include every row vertically. Normal vertical

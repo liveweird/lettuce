@@ -15,9 +15,15 @@ if [[ "${VISUAL_QUIET_WINDOW:-}" != 1 ]]; then
   exit 2
 fi
 pw_version="$(node -e 'const fs=require("node:fs"); const l=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(l.packages["node_modules/@playwright/test"].version)' "$repo_dir/e2e/package-lock.json")"
+pinned_image="$(node -e 'const fs=require("node:fs"); const runtime=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(runtime.platform!=="linux/amd64") throw new Error("Visual baselines require linux/amd64"); process.stdout.write(runtime.image)' "$visual_dir/runtime.json")"
+if [[ -n "${VISUAL_PLAYWRIGHT_IMAGE:-}" && "$VISUAL_PLAYWRIGHT_IMAGE" != "$pinned_image" ]]; then
+  echo 'The requested image differs from runtime.json. Review a runtime pin change before changing the baseline environment.' >&2
+  exit 2
+fi
+VISUAL_PLAYWRIGHT_IMAGE="$pinned_image"
 image_prefix="mcr.microsoft.com/playwright:v${pw_version}-noble@sha256:"
 if [[ "${VISUAL_PLAYWRIGHT_IMAGE:-}" != "$image_prefix"* ]]; then
-  echo "Set VISUAL_PLAYWRIGHT_IMAGE to ${image_prefix}<verified digest>; record it with the baseline review." >&2
+  echo "runtime.json must pin ${image_prefix}<verified digest> to match the E2E lockfile; review the runtime upgrade before capturing new baselines." >&2
   exit 2
 fi
 image_digest="${VISUAL_PLAYWRIGHT_IMAGE#"$image_prefix"}"

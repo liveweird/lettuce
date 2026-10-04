@@ -1,0 +1,88 @@
+{
+  "status": "candidate-awaiting-human-review",
+  "applicationVersion": "4.15.2",
+  "upstreamRevision": "7cb4b20a",
+  "captureMergeRevision": "9166b0ef29c5e51539b04a4bb4f6559a2ae1c415",
+  "runtime": {
+    "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
+    "platform": "linux/amd64",
+    "node": "v24.20.0",
+    "playwright": "1.63.0",
+    "chromium": "153.0.8010.12",
+    "chromiumRevision": "1243"
+  },
+  "images": [
+    {
+      "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "b2d5defddbcf84b3853582b781406b736d4df690d6af4cec35fdb4d1b6e65240"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "f246952d1f24795fa16aa7eb2381f96c483d29a3ca37b031657158c4a5173efb"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "3bdbc46f7ba0f60fb9c38c35f8f4a9e5a5367004fcf699066de50be182377b33"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "67423fe9f869da01484c0c41bc070351c83d8811cc2af341ad9061bc5638442d"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "c9028d4db25e315dfddd7939e6529bb640688d179aa7bde976666804623536d6"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "2fa206eafe5142cd8f9d6815246464eb3f2e370e02904ebcdc7c073f606ef44f"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
+      "width": 1280,
+      "height": 1000,
+      "sha256": "74dcc9a6a883590e2d2d3181bd2ff008e07bf8769660f2c9d2ec52feaaeda5c7"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png",
+      "width": 1280,
+      "height": 1472,
+      "sha256": "8f4de23362e21d72adcf3911f605592cf9b75ca8ea0b6391e92ff336b36d514e"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "366b9f1afcd36e6fe196f301c51bff674b1fe511780e86dd2b4895dbb5e162df"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png",
+      "width": 1280,
+      "height": 1472,
+      "sha256": "ae8964600e0fe8b33f1d7bb6d8a125d194d9c0941e828082d23c49522391dfff"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png",
+      "width": 1280,
+      "height": 1147,
+      "sha256": "1611f2a1399678bccb45c7bbe7f66c0a3f149910672a1b747dc82b68a4ac1b30"
+    },
+    {
+      "file": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "59de43ba54d20bea8c30896372d605927a7053303692df6ece83a89309994f93"
+    }
+  ]
+}

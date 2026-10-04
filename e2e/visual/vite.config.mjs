@@ -6,7 +6,7 @@ import react from '../../web/node_modules/@vitejs/plugin-react/dist/index.js';
 export default {
   configFile: false,
   root: fileURLToPath(new URL('../../web/', import.meta.url)),
-  envFile: false,
+  envDir: false,
   cacheDir: fileURLToPath(new URL('./.cache/', import.meta.url)),
   plugins: [react()],
   define: {

@@ -9,6 +9,7 @@ The current indexes include both `linux/amd64` and `linux/arm64` images.
 
 | Image | Committed references |
 | --- | --- |
+| Playwright 1.63.0 Noble (desktop visual pilot) | `e2e/visual/runtime.json` |
 | Dockerfile frontend | `Dockerfile` syntax directive |
 | Node 24 Alpine | `Dockerfile` web stage |
 | Temurin 21 JDK and JRE | `Dockerfile` server and runtime stages |
@@ -61,6 +62,14 @@ compose network, storage is in memory; nothing in CI, the dev compose file or Ku
 produces ships.
 
 ## Updating a pin
+
+The desktop visual pilot uses the Playwright multi-platform index pinned in
+`e2e/visual/runtime.json`, with execution fixed to **linux/amd64** for comparable screenshots.
+Its inspected runtime is Node v24.20.0 / Chromium 153.0.8010.12. See
+`e2e/visual/baseline-review.md` for validation and pending human approval; this is an isolated,
+manual test image, not a deployed application image or required CI gate. Changing its runtime
+pin requires reviewing the screenshot differences as well as keeping the Playwright version
+aligned with the E2E lockfile.
 
 Before first adopting these pins on an existing environment, inspect its running
 PostgreSQL version and registry digest. Another environment may have pulled a newer

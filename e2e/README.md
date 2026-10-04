@@ -93,13 +93,14 @@ for any new or edited spec:
 
 ## What's covered
 
-**Separate desktop visual pilot (prepared; baseline approval pending):**
+**Separate desktop visual pilot (validated; baseline approval pending):**
 [`visual/tests/lists.spec.ts`](scenarios/visual/lists.md) defines 12 screenshot comparisons for
 member Received/Provided feedback, all four read-only dictionaries, the administrator dictionary
 editor, and selected Polish/dark desktop states at 1280/1440px. It owns only isolated browser
 fixtures and `visual/` build/report directories, never server state. It does not run through the
-ordinary E2E config. See [visual/README.md](visual/README.md) for source checks, isolation from
-parallel performance work, canonical capture and the outstanding approval/activation steps.
+ordinary E2E config. Canonical capture, two unchanged comparisons and deliberate-regression
+detection have been verified against v4.15.2. See [the image gallery](visual/review.html) and
+[visual/README.md](visual/README.md) for findings, run recipes and approval/activation steps.
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb
 endpoints through the UI). **Each spec's full design lives in its scenario file under
@@ -213,7 +214,7 @@ remaining real logins aren't throttled either.
   (the editor offers Delete instead), so it cannot be exercised through the browser.
 - **Dark-mode rendering** — the theme toggle is unit-tested and the palette is theme-owned
   (`web/src/theme.ts`); the ordinary E2E suite does not compare screenshots. The separate desktop
-  visual pilot includes a dark dictionary case, with baseline capture and approval still pending.
+  visual pilot includes a captured dark dictionary case, with baseline approval still pending.
 - **Cross-browser / visual automation** — the ordinary suite runs Chromium, with no device-emulation
   project or screenshot comparison; the separate desktop pilot above is not yet an active gate.
   `list-layout.spec.ts` checks responsive geometry and
