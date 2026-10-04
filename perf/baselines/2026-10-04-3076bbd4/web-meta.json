@@ -1,0 +1,29 @@
+{
+  "baseline": "front end (M5 Step 14): e2e/perf Playwright runner + bundle report",
+  "note": "Named web-meta.json (not meta.json) on purpose: scripts/perf_compare.py's pick_baseline() selects the newest directory that carries a meta.json for the k6 comparison, and this directory holds no k6 summaries.",
+  "measuredOn": "2026-10-04",
+  "appCommit": "3076bbd4",
+  "appCommitNote": "master at the end of M3; the app image was built from a scratch clone of that commit plus the uncommitted M5 tooling (e2e/perf, perf/web, perf/run.sh web, vite.config.ts VITE_API_TARGET) — no server or SPA source change, so the served SPA is the master SPA",
+  "datasetVersion": 2,
+  "dataset": "perf/snapshots/lettuce-perf-v2-2026-10-01-s1-x1.0.dump, restored with perf/run.sh restore before the run (read-only loads; sign-ins add a few account_events rows)",
+  "command": "perf/run.sh web all --run web1  (= every screen at 1x CPU, reviews-team-view again at 4x CPU, the bundle report; traces were written to the git-ignored results dir and are not committed)",
+  "runner": {
+    "browser": "chromium 153.0.8010.12 (Playwright 1.63, Desktop Chrome 1280x720, headless)",
+    "iterations": 5,
+    "coldRun": "iteration 0 of every case is reported separately under `cold`; medians are over the 5 measured iterations",
+    "settled": "every expected request finished + nothing in flight + no visible Loader/Skeleton + ready selector, stable for 400 ms; poll 25 ms",
+    "cpuThrottle": "1x everywhere; 4x (CDP Emulation.setCPUThrottlingRate) for reviews-team-view only (files *.cpu4x.json)"
+  },
+  "machine": {
+    "arch": "arm64",
+    "cpu": "Apple M5 Max (18 cores, 128 GB host)",
+    "macOS": "27.0.1",
+    "containerRuntime": "OrbStack 2.2.3, Docker server 29.4.0",
+    "vm": "18 CPUs, 16 GB (shared by every container; the browser runs on the host)"
+  },
+  "limits": {
+    "app": "cpus 2, mem_limit 512m",
+    "postgres": "cpus 2, mem_limit 1g"
+  },
+  "caveat": "one machine, loopback network, development-mode app image: milliseconds are relative, never production numbers; request/statement/transaction counts and byte sizes are exact"
+}

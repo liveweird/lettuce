@@ -211,3 +211,16 @@ remaining real logins aren't throttled either.
   the `accessibility.spec.ts` axe smoke (see above) — every WCAG 2.0/2.1 A+AA rule un-waived since v3.3.0 (`color-contrast` included).
 
 Reports/artifacts land in `playwright-report/` and `test-results/` (git-ignored).
+
+## Performance pass (not part of the suite)
+
+`e2e/perf/*.perf.ts` + `playwright.perf.config.ts` are the **front-end performance runner** — real Chromium timings of
+the SPA against the **perf stack** (`perf/run.sh up|restore`, `http://localhost:18080`), run with `npm run perf` or
+`perf/run.sh web <screen>`. It is a measurement tool, not a test suite: it lives outside `tests/` (so
+`check:scenarios` neither wants nor sees it — only `npm run typecheck` covers it), has its own config with **no
+globalSetup/teardown** (the e2e one would `docker compose up` the dev project; this one fails fast unless a *local*
+`PERF_BASE_URL` answers `/readyz`), `workers: 1`, `retries: 0`, and mints its sessions over the API
+(`perf/session.ts`, `sessionEntries`) instead of `helpers.login()`. Never run it together with the e2e suite, the server
+suite or a k6 run (they contend on CPU). Output, the metrics and the matrix: "Front end" in
+`.claude/docs/performance.md`. `PERF_SMOKE=1 PERF_BASE_URL=http://localhost:8080` is the harness self-check against the
+dev stack's seed accounts (the numbers mean nothing there).

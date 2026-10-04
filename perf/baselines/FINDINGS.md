@@ -166,6 +166,40 @@ Own-document lists (1:1s, feedback received/provided/team, impact log, KPIs, suc
 
 H1 confirmed (F2). **H2 refuted** (F1/F10: 222 statements and 11 tx per 100-row page). **H3** refuted for 1:1 lookups (F5), neither for days off (F13). H4 (decryption vs C1 JSON) not answerable without a CPU profile (M4). **H5 refuted:** the activity log is not the slowest request — HR's audit of the CEO is 6 statements / 13 ms, a manager reading a report's log 13 statements / 41 ms; the slowest single requests are the pulse trend per team (412 ms) and the CEO's chain-wide days-off budgets (69 ms). **H6 confirmed** (F11). H7 undecided (F14).
 
+## Baseline `2026-10-04-3076bbd4` — front end in a real Chromium (M5), dataset v2 — observations only
+
+Source: `perf/baselines/2026-10-04-3076bbd4/web/*.json` (5 measured iterations + a cold run per case, medians) and `bundle.json`; settings and caveats in `web-meta.json`. "Settled" = every expected request finished, no loader, stable for 400 ms. Numbers are one laptop's, relative; counts and bytes are exact. Ids are `W<n>` so they never collide with the back-end `F<n>` series.
+
+### W1. Every screen has a ~290–320 ms floor before its own data even starts to load
+
+Screens whose data is trivial (`activity-log.*.own` 297–321 ms, `one-on-ones.ic.own` 312 ms, `days-off.*.calendar-member` 294–296 ms) all settle in ≈ 300 ms with a request critical path of 14–30 ms. The waterfall shows why: the four Shell requests start at ≈ 69 ms, the screen's own first request only at ≈ 274 ms — ~200 ms of the page's chunks being fetched, parsed and rendered (67 static requests, 526 kB transferred / 1.8 MB decoded per load; CDP `scriptMs` ≈ 77 ms, `taskMs` ≈ 112 ms on the activity page). LCP is 284–324 ms on those screens (88–96 ms on the dashboard/reviews/1:1 lists, whose largest paint is the early shell).
+
+### W2. The SPA's static assets are served without any cache validators, so a warm load re-fetches almost everything
+
+`curl -I` of a hashed chunk (`/assets/react-….js`) on the perf app returns only the security headers, `Content-Length` and `Content-Type` — no `Cache-Control`, `ETag` or `Last-Modified` (also none on `/`). Consistently, the measured warm iterations (same browser context, HTTP cache available) transfer 526 kB of static assets per load against 568 kB for the cold first load (`activity-log.ceo.own`: `staticTransferBytes` 526 195 vs 567 537, 67 files either way). Cold and warm settle times are therefore indistinguishable in every case (`cold.load.settledMs` vs `median.load.settledMs`), which is also why W1's floor does not shrink on a repeat visit on loopback. On a real network the repeat-visit cost is the full ~0.5 MB.
+
+### W3. The reviews team view: the browser is not the bottleneck, the request chain is
+
+CEO "all reports" settles in **789 ms** (cold 765) at 1× CPU and 904 ms at 4× CPU; the load is 19 requests, **1 204 statements, 93 transactions**, with an API critical path of 496 ms of those ~790 ms. Main-thread cost is small: 0 long tasks at 1×, `scriptMs` 222, `taskMs` 361, 52 MB heap; at 4× CPU 3 long tasks (blocking 100 ms). The waterfall is the F2 picture seen from the browser: the roster chain is 6 sequential `teams/members?view=managed&includeIndirect=true` pages (≈ 90 ms each, 222 statements and 11 transactions per full page) running beside 4 review pages (≈ 16 ms each). Other personas: director-all 361 ms (11 requests, 165 statements), lead 340 ms (11 / 63), HR auditor 377 ms (21 requests, 90 statements), CEO direct 374 ms (14 / 92). H1 is confirmed end to end: time ≈ pages × per-page latency.
+
+Interactions after the load are cheap and client-side (no request): sort a column 60–76 ms, next page 42–52 ms (INP 24–40 ms), the Distribution view 340–363 ms (the lazily loaded recharts chunk), widening direct → all reports for the CEO 414 ms (a fresh 6-page roster chain). **Quadrants is the only heavy render**: a 57–85 ms long task and INP 64–88 ms at 1×, **226 ms of long tasks and INP 240 ms at 4× CPU** (CEO, ~510 rows). Cumulative layout shift of the load is 0.12–0.13 for every persona with a long roster (CEO-all, director-all, HR) — above the 0.1 "good" line; 0.058 for CEO-direct — i.e. the table's late fill moves content.
+
+### W4. HR's pulse results screen is the heaviest screen of the SPA: 260 requests, 23 711 statements, 7.8 s
+
+`pulse-results.hr.results` (HR has no team of their own, so the default view is all 84 teams): **260 requests (84 each of `results`, `trend`, `comments`), 23 711 statements and 23 371 transactions** for one page load, settling in **7.8 s** (cold 7.8 s). Each of the 84 `trend?teamId=…` requests is `stmt=264 tx=263` (F7, per team) and takes ≈ 6.7–6.8 s wall while its `db` window is ≈ 200–300 ms — wall ≫ db window; consistent with the requests waiting for the 20-connection pool and the browser's 6-connection-per-host cap (not separately proven). The browser pays too: CDP `scriptMs` 1 217, `taskMs` 1 832, **159 MB JS heap**, 336 layouts and 617 style recalculations (84 cards). The HR `trend` tab alone is 90 requests / 22 198 statements / 6.7 s; HR's participation tab 396 ms. For non-HR roles the same tab is cheap: IC and lead `results` ≈ 790–800 ms (10 requests, ~294 statements, 277 tx — the 2–3 teams they belong to), CEO's 319 ms (8 requests).
+
+### W5. The org chart: 95 requests, 275 transactions, and the only visible main-thread block after the data arrives
+
+`org-chart.*` (identical for admin, IC and CEO): 95 requests (one `GET /teams/{id}` per team + the 6-page users pool), 496 statements / 275 transactions, request span 349 ms (critical path 146 ms, summed request time 3.4 s — the parallel `teams/{id}` calls queue behind each other), settled in 653–674 ms. After the data, 2 long tasks totalling 254 ms (max 183 ms, blocking 154 ms) — the chart layout; the same page's `scriptMs` is 279. No back-end cost differs by persona (F8).
+
+### W6. The remaining screens sit at the W1 floor, with these exceptions
+
+Everything in `dashboard.*`, `one-on-ones.*`, `days-off.*`, `activity-log.*` settles in 294–371 ms, i.e. at the floor plus one or two quick requests; `dashboard.*.subordinates` (75 statements, 34 tx) 347–370 ms; the activity/1:1/days-off drill-downs (`*.report`, `*.audit`, `*.drilldown*`) 345–371 ms with 11 requests (the 6-page users pool again, F9) and 67–100 statements. Only exceptions: `days-off.ceo.calendar-managedAll` **494 ms** (the chain-wide calendar: one long task, blocking 95 ms, 13 kB over the wire — client render of ~510 rows) and `days-off.hr.calendar-org` 358 ms (12 kB). `Server-Timing` reached the browser on every API request of every case (`noServerTiming` = 0 in all 74 files), so each waterfall carries `stmt`/`tx` per request.
+
+### W7. Bundle: a 492 kB entry chunk, a 1.73 MB initial payload, 314 chunks
+
+`bundle.json` (raw / gzip / brotli): entry `index-….js` **491.7 / 143.6 / 121.5 kB** (Vite prints 503.5 kB in 1000-byte units); the **initial payload** — entry + the modulepreload/stylesheet links of `index.html` (`i18n` 365.8 kB, `index` css 235.2 kB, `react` 213.7 kB, `dates` 167.3 kB, one 91.8 kB shared chunk and small ones) — is **1 726 732 B raw / 480 717 B gzip**; all 314 chunks together 4.70 MB raw / 1.43 MB gzip / 1.22 MB brotli. The largest lazy chunks: `emoji-data` 420 kB, `grid-chart` 360 kB, `MarkdownEditor` 300 kB, `lexical` 274 kB, `Changelog` 258 kB, `OrgChart` 216 kB. (The vite.config chunk groups keep each lazy payload under the 500 kB warning limit; only the entry still exceeds it.)
+
 ## Found by `QueryBudgetTest` (M3, 2026-10-04) — observations only
 
 ### F17. Two more per-row lookups the screen baselines hid: `teams/members?view=managers` and the 1:1 lists
@@ -179,4 +213,4 @@ Everything else the test measured is flat in the number of rows: users, teams, `
 
 ### Not measured here (so no finding)
 
-Browser rendering (M5), the JVM CPU profile and traces (M4), `Server-Timing` is absent on anonymous routes (login, refresh, password reset) by design, the feedback detail/edit screens, the per-status split of the pulse fill-gate responses, the closed-loop saturation CPU split of `docker stats` for the 50-VU single-screen runs, and anything about production network latency (the extrapolation note of F6 applies to every count above).
+Real-device and RUM browser data (the single-machine Chromium runs are the W-series above), the JVM CPU profile and traces (M4), `Server-Timing` is absent on anonymous routes (login, refresh, password reset) by design, the feedback detail/edit screens, the per-status split of the pulse fill-gate responses, the closed-loop saturation CPU split of `docker stats` for the 50-VU single-screen runs, and anything about production network latency (the extrapolation note of F6 applies to every count above).

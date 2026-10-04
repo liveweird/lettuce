@@ -19,6 +19,11 @@ const commit =
   process.env.GIT_SHA || (sha ? (git('status --porcelain') ? `${sha}+dirty` : sha) : 'unknown')
 const commitTime = process.env.GIT_COMMIT_TIME || git('log -1 --format=%cI') || ''
 
+// Where the dev server proxies the API. Defaults to the local `:server:run` (8080); VITE_API_TARGET lets the front-end
+// profiling recipe (a dev build + React DevTools Profiler against the perf stack, .claude/docs/performance.md) point at
+// http://localhost:18080 without editing this file.
+const apiTarget = process.env.VITE_API_TARGET ?? 'http://localhost:8080'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -32,11 +37,11 @@ export default defineConfig({
     // confined to web/.
     ...(process.env.VITEST ? { fs: { allow: ['.', '../server/src/main/resources/openapi'] } } : {}),
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': apiTarget,
       // The integration GraphQL endpoint lives outside /api (see the integration-api doc); the
       // e2e integration-clients spec calls it through the SPA origin in the SPA-only posture.
       // Anchored: a bare '/integration' prefix would also swallow the SPA route /integration-clients.
-      '^/integration/': 'http://localhost:8080',
+      '^/integration/': apiTarget,
     },
   },
   build: {
