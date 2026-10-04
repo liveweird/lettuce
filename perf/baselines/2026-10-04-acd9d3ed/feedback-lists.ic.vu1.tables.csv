@@ -1,0 +1,13 @@
+relname,seq_scan,seq_tup_read,idx_scan,idx_tup_fetch,n_tup_ins,n_tup_upd,n_tup_del,est_rows,total_size
+feedbacks,18,551880,102,360,0,0,0,30660,24 MB
+users,66,34518,64,64,0,1,0,522,336 kB
+teams,12,1008,0,0,0,0,0,84,56 kB
+dictionary_entries,6,192,0,0,0,0,0,32,64 kB
+user_roles,7,21,0,0,0,0,0,2,40 kB
+login_lockouts,2,1,1,0,1,0,1,0,40 kB
+feedback_subjects,0,0,138,336,0,0,0,41163,5976 kB
+notifications,0,0,12,1632,0,0,0,91812,21 MB
+user_disabled_features,0,0,7,14,0,0,0,1044,160 kB
+user_career_positions,0,0,6,6,0,0,0,782,256 kB
+revoked_tokens,36,0,0,0,0,0,0,0,16 kB
+alerts,6,0,0,0,0,0,0,0,24 kB

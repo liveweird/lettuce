@@ -1,0 +1,5 @@
+relname,seq_scan,seq_tup_read,idx_scan,idx_tup_fetch,n_tup_ins,n_tup_upd,n_tup_del,est_rows,total_size
+user_roles,6,18,0,0,0,0,0,2,40 kB
+login_lockouts,12,6,6,0,6,0,6,0,40 kB
+users,0,0,24,24,0,6,0,522,336 kB
+user_disabled_features,0,0,6,12,0,0,0,1044,160 kB

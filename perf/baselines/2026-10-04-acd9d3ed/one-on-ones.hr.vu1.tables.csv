@@ -1,0 +1,15 @@
+relname,seq_scan,seq_tup_read,idx_scan,idx_tup_fetch,n_tup_ins,n_tup_upd,n_tup_del,est_rows,total_size
+users,33,17259,47,1970,0,2,0,522,336 kB
+user_disabled_features,15,15690,11,154,0,0,0,1044,160 kB
+teams,30,2520,2,2,0,0,0,84,56 kB
+dictionary_entries,18,576,0,0,0,0,0,32,64 kB
+user_roles,26,78,0,0,0,0,0,2,40 kB
+login_lockouts,4,2,2,0,2,0,2,0,40 kB
+one_on_one_notes,0,0,60,180,0,0,0,397800,131 MB
+one_on_one_action_items,0,0,60,192,0,0,0,429868,127 MB
+one_on_one_meetings,0,0,36,2340,0,0,0,132600,16 MB
+user_career_positions,0,0,24,2346,0,0,0,782,256 kB
+team_members,0,0,18,1554,0,0,0,518,112 kB
+notifications,0,0,12,0,0,0,0,91812,21 MB
+revoked_tokens,48,0,0,0,0,0,0,0,16 kB
+alerts,6,0,0,0,0,0,0,0,24 kB

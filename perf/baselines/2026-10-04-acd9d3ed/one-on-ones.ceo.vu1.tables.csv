@@ -1,0 +1,16 @@
+relname,seq_scan,seq_tup_read,idx_scan,idx_tup_fetch,n_tup_ins,n_tup_upd,n_tup_del,est_rows,total_size
+one_on_one_meetings,12,795600,8385,1225422,0,0,0,132600,16 MB
+users,45,23535,134,260,0,2,0,522,336 kB
+teams,54,4536,6,6,0,0,0,84,56 kB
+team_members,9,3111,33,87,0,0,0,518,112 kB
+dictionary_entries,6,192,0,0,0,0,0,32,64 kB
+user_roles,8,24,0,0,0,0,0,2,40 kB
+login_lockouts,4,2,2,0,2,0,2,0,40 kB
+one_on_one_action_items,0,0,96,783,0,0,0,429868,127 MB
+one_on_one_notes,0,0,24,657,0,0,0,397800,131 MB
+notifications,0,0,12,5016,0,0,0,91812,21 MB
+user_disabled_features,0,0,8,16,0,0,0,1044,160 kB
+user_career_positions,0,0,6,12,0,0,0,782,256 kB
+one_on_one_events,0,0,3,15,0,0,0,530291,86 MB
+revoked_tokens,48,0,0,0,0,0,0,0,16 kB
+alerts,6,0,0,0,0,0,0,0,24 kB
