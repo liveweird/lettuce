@@ -2,9 +2,10 @@ import { test as base, expect } from '@playwright/test';
 import type { components } from '../../web/src/api/schema';
 import { APP_VERSION } from '../../web/src/changelog/version';
 import { sessionEntries } from '../sessions';
+import { cardPeople, dashboardSummary, people, teams } from './people-fixtures';
 
 type Schema = components['schemas'];
-type Options = { visualRole: 'member' | 'admin'; visualLanguage: 'en' | 'pl' };
+type Options = { visualRole: 'member' | 'admin' | 'manager'; visualLanguage: 'en' | 'pl'; visualScenario: 'lists' | 'people' };
 const userId = 7001;
 const userName = 'Aleksandra Kowalska-Nowak';
 const fixedTime = Date.parse('2026-10-03T12:00:00Z');
@@ -59,7 +60,8 @@ export const provided = (['SENT', 'DRAFT', 'REQUESTED', 'WITHDRAWN'] as const).m
 export const test = base.extend<Options>({
   visualRole: ['member', { option: true }],
   visualLanguage: ['en', { option: true }],
-  page: async ({ page, context, visualRole, visualLanguage, colorScheme }, use) => {
+  visualScenario: ['lists', { option: true }],
+  page: async ({ page, context, visualRole, visualLanguage, visualScenario, colorScheme }, use) => {
     const unexpected: string[] = [];
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -83,7 +85,8 @@ export const test = base.extend<Options>({
       let body: unknown;
       if (url.pathname === `/api/v1/users/${userId}`) body = user;
       else if (url.pathname === '/api/v1/teams' && url.searchParams.get('managerId') === String(userId)) {
-        body = { items: [], page: 1, pageSize: 1, total: 0 } satisfies Schema['TeamPage'];
+        const items = visualRole === 'manager' ? [{ ...teams[0], managerId: userId, managerName: userName }] : [];
+        body = { items, page: 1, pageSize: 1, total: items.length } satisfies Schema['TeamPage'];
       } else if (url.pathname === '/api/v1/alerts/visible') body = { items: [] };
       else if (url.pathname === '/api/v1/notifications') {
         body = { items: [], page: 1, pageSize: 1, total: 0 } satisfies Schema['NotificationPage'];
@@ -94,6 +97,20 @@ export const test = base.extend<Options>({
         if (!['received', 'provided'].includes(view ?? '') || url.searchParams.get('page') !== '1') return reject();
         const items = view === 'received' ? received : provided;
         body = { items, page: 1, pageSize: Number(url.searchParams.get('pageSize')), total: items.length } satisfies Schema['FeedbackPage'];
+      } else if (visualScenario === 'people' && url.pathname === '/api/v1/dashboard/summary') {
+        body = dashboardSummary(visualRole === 'manager');
+      } else if (visualScenario === 'people' && url.pathname === '/api/v1/users' && url.searchParams.get('page') === '1') {
+        body = { items: people, page: 1, pageSize: Number(url.searchParams.get('pageSize')), total: people.length } satisfies Schema['UserPage'];
+      } else if (visualScenario === 'people' && url.pathname === '/api/v1/teams' && url.searchParams.get('page') === '1') {
+        body = { items: teams, page: 1, pageSize: Number(url.searchParams.get('pageSize')), total: teams.length } satisfies Schema['TeamPage'];
+      } else if (visualScenario === 'people' && url.pathname === '/api/v1/teams/members' && url.searchParams.get('page') === '1') {
+        const view = url.searchParams.get('view');
+        if (view !== (visualRole === 'manager' ? 'managed' : 'managers')) return reject();
+        const items = cardPeople(visualRole === 'manager');
+        body = { items, page: 1, pageSize: Number(url.searchParams.get('pageSize')), total: items.length } satisfies Schema['TeamMemberPage'];
+      } else if (visualScenario === 'people' && visualRole === 'manager' && url.pathname === '/api/v1/succession-plans'
+        && url.searchParams.get('view') === 'own' && url.searchParams.get('status') === 'OPEN' && url.searchParams.get('page') === '1') {
+        body = { items: [], page: 1, pageSize: 100, total: 0 } satisfies Schema['SuccessionPlanPage'];
       } else return reject();
       await route.fulfill({ status: 200, json: body });
     });

@@ -7,6 +7,8 @@
   verified against v4.15.2; baselines approved by the repository owner on 2026-10-04.
   The Desktop visual CI job compares them on every PR and master push. See
   [validation and findings](../../visual/baseline-review.md).
+- **Current expansion**: the approved v4.15.2 images stay unchanged; v4.15.3 sidebar/version
+  candidates are reviewed separately before promotion.
 - **Scope**: desktop web only. Fixed responses render the real SPA; these are visual tests,
   not evidence of backend authorization or end-to-end data correctness.
 - **Capture**: desktop-width full-page images include every row vertically. Normal vertical

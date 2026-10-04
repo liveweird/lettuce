@@ -9,11 +9,24 @@ master ruleset (configured separately in GitHub), so a failed comparison blocks 
 
 Open the [review gallery](review.html) and [validation/approval record](baseline-review.md).
 The accepted images retain Feedback's desktop stacking and the offscreen active dictionary
-navigation item. The sidebar issue remains a separate follow-up.
+navigation item. The sidebar fix is being reviewed in the expansion branch; the approved reference stays unchanged.
 
 This suite renders the real React/Mantine SPA with deterministic, generated-schema-typed API
 fixtures. It is separate from the live-stack functional E2E suite. It verifies appearance, not
 backend correctness or authorization. The user explicitly scoped this pilot to desktop web.
+
+
+## Current expansion review
+
+The sidebar visibility fix and Dashboard/Users/Teams coverage are on the
+`test/desktop-visual-expansion` branch. The approved v4.15.2 reference remains in `snapshots/`.
+New v4.15.3 images live in `candidates/` and are not approved; see
+[the staged expansion plan and review record](expansion-review.md).
+
+`capture` now writes **only** `candidates/`, and `compare-candidates` checks stability against
+that set. Every mode mounts approved `snapshots/` read-only. Ordinary `compare` and CI still
+use approved images, so intentional sidebar/version changes and missing new baselines must fail
+until their old/new/diff review is accepted and candidates are explicitly promoted.
 
 ## Coverage
 
@@ -41,7 +54,8 @@ a new requirement.
 ## Isolation from performance work
 
 - The visual harness owns `e2e/visual/` and `e2e/scenarios/visual/`; CI calls its isolated runner.
-- No production, backend, API, package/lockfile, shared Playwright or Compose changes.
+- The harness itself does not alter backend/API, package/lockfile, shared Playwright or Compose
+  behavior. The current review batch also contains the separately tested sidebar fix.
 - No imports of the ordinary E2E global setup/teardown or login helpers. `sessions.ts` is reused
   only for its pure storage-key mapping; the tokens here are synthetic and never sent to a server.
 - Own static SPA build/cache/report paths, one worker, loopback port **5197** with strict
@@ -82,12 +96,13 @@ export VISUAL_QUIET_WINDOW=1
 bash e2e/visual/run-container.sh compare
 # Only for an intentional, reviewable baseline update:
 # bash e2e/visual/run-container.sh capture
+# bash e2e/visual/run-container.sh compare-candidates
 ```
 
 The build installs the existing lockfiles inside its own image. It does not install into host
 `node_modules`. At runtime it publishes no ports and mounts only the visual snapshots/results.
-Reports are in `playwright-report/`, differences/traces in `test-results/`. Comparisons mount
-baselines read-only. Normal execution uses `updateSnapshots: 'none'`, so missing baselines fail.
+Reports are in `playwright-report/`, differences/traces in `test-results/`. All modes mount
+approved baselines read-only; capture writes a separate candidate directory. Normal execution uses `updateSnapshots: 'none'`, so missing baselines fail.
 
 For a local **diagnostic** run after measurements finish:
 

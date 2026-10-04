@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.15.3",
+    date: "2026-10-04",
+    en: `The sidebar now brings the active page into view when you open a link or expand the navigation. Dictionary pages near the bottom of the menu no longer leave their selected item hidden behind the pinned footer. Your page position and keyboard focus stay where they were.`,
+    pl: `Menu boczne przewija się teraz do aktywnej strony po otwarciu linku lub rozwinięciu nawigacji. Wybrana pozycja słownika na dole menu nie pozostaje już ukryta pod przypiętą stopką. Pozycja strony i fokus klawiatury pozostają bez zmian.`,
+  },
+  {
     version: "4.15.2",
     date: "2026-10-04",
     en: `Steadier pages while they load. Screens no longer jump as their data arrives: the account menu in the header keeps room for your name from the first moment, so the icons beside it stay put; the list footer (total and page buttons) appears together with the list instead of being pushed down by it; the dashboard tiles and the days-off page reserve the size of what is about to load — on "Days off" the entries list now appears together with the budget card above it, so it is no longer pushed down by a card with several leave pools — and page-header buttons that arrive late, such as "Record days off" for managers, no longer nudge the buttons next to them. Nothing else changes.`,

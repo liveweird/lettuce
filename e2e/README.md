@@ -102,6 +102,10 @@ ordinary E2E config. Canonical capture, two unchanged comparisons and deliberate
 detection have been verified against v4.15.2; the owner approved all 12 images on 2026-10-04.
 The **Desktop visual** quality job compares them on PRs and master pushes. See [the image gallery](visual/review.html) and
 [visual/README.md](visual/README.md) for findings, run recipes and approval/activation steps.
+The next review batch adds six candidate Dashboard/Users/Teams images and three desktop sidebar
+geometry/focus regressions, with companions under `scenarios/visual/{people,sidebar}.md`.
+Candidates remain separate from approved images; see [the expansion review](visual/expansion-review.md).
+
 
 Real user journeys, prioritizing the feedback lifecycle (which validates the POST-action verb
 endpoints through the UI). **Each spec's full design lives in its scenario file under

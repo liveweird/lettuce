@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const canonical = process.env.VISUAL_CANONICAL === '1' && process.platform === 'linux' && process.arch === 'x64';
+const snapshotDirectory = process.env.VISUAL_CANDIDATES === '1' ? 'candidates' : 'snapshots';
 
 export default defineConfig({
   testDir: './tests',
@@ -13,7 +14,7 @@ export default defineConfig({
   timeout: 30_000,
   updateSnapshots: 'none',
   snapshotPathTemplate: canonical
-    ? '{testDir}/../snapshots/{testFilePath}/{arg}{ext}'
+    ? `{testDir}/../${snapshotDirectory}/{testFilePath}/{arg}{ext}`
     : '{testDir}/../diagnostic-snapshots/{platform}/{testFilePath}/{arg}{ext}',
   outputDir: './test-results',
   reporter: [['list'], ['html', { outputFolder: `${here}playwright-report`, open: 'never' }]],
