@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActionIcon,
   Alert,
@@ -28,6 +28,7 @@ import FilterMultiSelect from "../components/FilterMultiSelect";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
 import ShareDialog from "../components/ShareDialog";
 import { useIsManager } from "../hooks/useIsManager";
+import { useOwnDaysOffBudgets } from "../hooks/useOwnDaysOffBudgets";
 import { isKnownTeam, useKnownPicks } from "../hooks/useKnownPicks";
 import { isOneOf, isStringArray, useStoredState } from "../hooks/useStoredState";
 import { useCurrentPath } from "../hooks/useCurrentPath";
@@ -249,6 +250,46 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
   );
 }
 
+// How long the requests list may be held back for the budget card above it (ms) — see RequestsTab.
+const BUDGET_HOLD_MS = 800;
+
+/**
+ * The requests tab: the caller's budget card, then their own entries.
+ *
+ * The card's height depends on the data (one group per paid pool, plus an optional "no
+ * allowance" hint) and cannot be known before the response, so it is a fixed-height skeleton
+ * until then. Everything BELOW it used to be on screen already (the filters, the table header)
+ * and was pushed down by the growth — a layout shift of the whole list that scales with the
+ * number of pools (CLS 0.47 for a multi-pool persona, v4.15.1 baseline). So the list stays out of
+ * the layout until the budgets are in: it is MOUNTED immediately (its query starts with the
+ * card's, so there is no extra round trip) but `display: none`, and nothing sits under the
+ * skeleton to move. If the budgets are slow or failing, the list appears after BUDGET_HOLD_MS
+ * regardless — the card is never allowed to hold the entries hostage.
+ */
+function RequestsTab({ year }: { year: number }) {
+  const { t } = useTranslation();
+  const { isLoading } = useOwnDaysOffBudgets(year);
+  const [grace, setGrace] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setGrace(false), BUDGET_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  const hold = isLoading && grace;
+  return (
+    <Stack gap="md">
+      <DaysOffBudgetCard year={year} tourId="days-off-budget" />
+      <Box display={hold ? "none" : undefined} aria-busy={hold}>
+        <DaysOffTable
+          view="own"
+          emptyAction={
+            <EmptyCtaLink to={daysOffCreateLink(daysOffListLink("requests"))}>{t("daysOff.emptyCta")}</EmptyCtaLink>
+          }
+        />
+      </Box>
+    </Stack>
+  );
+}
+
 /**
  * The nav "Days off" page: the team calendar (member scope for everyone, managed scope for
  * managers — widenable to the caller's whole transitive chain since v3.13.0), the caller's own
@@ -338,15 +379,7 @@ export default function DaysOff() {
         </Tabs.Panel>
 
         <Tabs.Panel value="requests" pt="md">
-          <Stack gap="md">
-            <DaysOffBudgetCard year={new Date().getFullYear()} tourId="days-off-budget" />
-            <DaysOffTable
-              view="own"
-              emptyAction={
-                <EmptyCtaLink to={daysOffCreateLink(daysOffListLink("requests"))}>{t("daysOff.emptyCta")}</EmptyCtaLink>
-              }
-            />
-          </Stack>
+          <RequestsTab year={new Date().getFullYear()} />
         </Tabs.Panel>
 
         {isManager && (

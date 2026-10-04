@@ -8,6 +8,13 @@ import { PAGE_SIZE_OPTIONS } from "../hooks/usePagedSort";
 // (e.g. "users.rowsPerPage") — passed in so each page keeps its existing key. Leave both
 // `onPageSizeChange` and `rowsPerPageLabelKey` out for the compact form (a fixed page size —
 // the notifications drawer): total + pager only, the arrows still named.
+//
+// `pending` (v4.15.2): the list's FIRST page is still loading, so there is no total to show —
+// render nothing instead of "0 total" + a one-page pager. The bar is the last block under the
+// table, and the table's loading row is a fraction of the page of rows that replaces it: a bar
+// mounted early is pushed down by the whole page when the data lands (a layout shift that, on
+// a long page, even leaves the viewport — Chromium then scores the maximum move distance for
+// the entire shift). Not rendering it moves nothing; it simply appears at the end.
 export default function PaginationBar({
   total,
   page,
@@ -15,6 +22,7 @@ export default function PaginationBar({
   onPageChange,
   onPageSizeChange,
   rowsPerPageLabelKey,
+  pending = false,
 }: {
   total: number;
   page: number;
@@ -22,8 +30,10 @@ export default function PaginationBar({
   onPageChange: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
   rowsPerPageLabelKey?: ParseKeys;
+  pending?: boolean;
 }) {
   const { t } = useTranslation();
+  if (pending) return null;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <Group justify="space-between" align="center">

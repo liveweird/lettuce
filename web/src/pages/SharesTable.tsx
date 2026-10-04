@@ -296,6 +296,7 @@ export default function SharesTable({ view }: { view: SharesView }) {
 
       <PaginationBar
         total={data?.total ?? 0}
+        pending={isLoading && !data}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

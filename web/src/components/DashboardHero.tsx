@@ -20,6 +20,11 @@ import classes from "./DashboardHero.module.css";
 // count (v3.4.0) — three tiles fill the row, six become 3×2.
 const GRID_COLS = { base: 2, sm: 3, lg: 5 };
 
+// The uniform tile height in px — Paper padding + border (34), two reserved label lines (2lh of
+// xs text) and the 26 px value line (lh 1.2): 98.8 px at the default font size, measured in the
+// browser (v4.15.2; the pre-fix skeleton was 92 and the Tabs below jumped 7 px on resolve).
+const TILE_HEIGHT = 99;
+
 function heroGridCols(tileCount: number) {
   return {
     base: Math.max(1, Math.min(tileCount, 2)),
@@ -108,7 +113,7 @@ export default function DashboardHero() {
         {[0, 1, 2].map((i) => (
           // Matches the uniform tile height (two reserved label lines + value), so load
           // doesn't shift the layout.
-          <Skeleton key={i} height={92} radius="md" />
+          <Skeleton key={i} height={TILE_HEIGHT} radius="md" />
         ))}
       </SimpleGrid>
     );

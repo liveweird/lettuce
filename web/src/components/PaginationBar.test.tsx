@@ -26,4 +26,12 @@ describe("PaginationBar", () => {
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.getByRole("button", { name: "Previous page" })).toBeInTheDocument();
   });
+
+  test("pending (the first page still loading) renders nothing — no \"0 total\" bar for the data to push down", () => {
+    const { container } = renderWithProviders(
+      <PaginationBar total={0} pending page={1} pageSize={20} onPageChange={vi.fn()} />,
+    );
+    expect(screen.queryByText(/total/)).toBeNull();
+    expect(container.querySelector(".mantine-Pagination-root")).toBeNull();
+  });
 });
