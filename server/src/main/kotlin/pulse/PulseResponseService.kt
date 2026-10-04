@@ -16,6 +16,9 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 
 val PulseResponseServiceKey = AttributeKey<PulseResponseService>("PulseResponseService")
 
+/** One cycle's slice for a scope: the id-free decrypted answers + the snapshotted participant count. */
+data class PulseCycleScopeData(val answers: List<PulseAnswers>, val participantCount: Int)
+
 /**
  * Pulse participation snapshots + survey responses. `user_id` on a response is AUDIT LINKAGE
  * ONLY: the only per-user read is [myResponse] (the owner's own edit-form prefill, OPEN-gated
@@ -148,7 +151,10 @@ class PulseResponseService(val database: R2dbcDatabase, private val cipher: Fiel
             .toSet()
     }
 
-    /** How many of [scope] were snapshotted as participants of [cycleId]. */
+    /**
+     * How many of [scope] were snapshotted as participants of [cycleId]. Production reads go through
+     * [scopeDataByCycle] since v4.14.0; this single-cycle reader is kept as the parity oracle of `PulseResultsTest`.
+     */
     suspend fun participantCountForScope(cycleId: UInt, scope: Set<UInt>): Int = suspendTransaction(database) {
         if (scope.isEmpty()) return@suspendTransaction 0
         PulseParticipants.selectAll()
@@ -159,7 +165,8 @@ class PulseResponseService(val database: R2dbcDatabase, private val cipher: Fiel
 
     /**
      * The scope's decrypted scored answers as the user-id-free [PulseAnswers] shape — the only
-     * form aggregation ever sees (anonymity by construction).
+     * form aggregation ever sees (anonymity by construction). Production reads go through [scopeDataByCycle]
+     * since v4.14.0; this single-cycle reader is kept as the parity oracle of `PulseResultsTest`.
      */
     suspend fun answersForScope(cycleId: UInt, scope: Set<UInt>): List<PulseAnswers> = suspendTransaction(database) {
         if (scope.isEmpty()) return@suspendTransaction emptyList()
@@ -167,6 +174,45 @@ class PulseResponseService(val database: R2dbcDatabase, private val cipher: Fiel
             .where { (PulseResponses.cycleId eq cycleId) and (PulseResponses.userId inList scope) }
             .map { it.toAnswers() }
             .toList()
+    }
+
+    /**
+     * Batched reader behind `/trend` and `/results` (v4.14.0): for every cycle in [cycleIds], the
+     * scope's decrypted answers (the user-id-free [PulseAnswers] shape — grouped by CYCLE id, so
+     * no (user -> answers) pair ever exists) and the participant-snapshot count. ONE transaction,
+     * TWO set-based statements — responses and a grouped `pulse_participants` count — whatever the
+     * number of cycles; decryption and aggregation stay in Kotlin (the ciphertext is never
+     * filtered or aggregated in SQL). Equal, cycle by cycle, to [answersForScope] +
+     * [participantCountForScope]; an empty [cycleIds] or [scope] answers the all-empty shape
+     * without a statement.
+     */
+    suspend fun scopeDataByCycle(cycleIds: Set<UInt>, scope: Set<UInt>): Map<UInt, PulseCycleScopeData> {
+        if (cycleIds.isEmpty() || scope.isEmpty()) {
+            return cycleIds.associateWith { PulseCycleScopeData(emptyList(), 0) }
+        }
+        return suspendTransaction(database) {
+            // Drain before the second statement — never nest a query inside an open flow (R2DBC).
+            val answers = PulseResponses
+                .select(
+                    PulseResponses.cycleId, PulseResponses.enps,
+                    PulseResponses.driver1, PulseResponses.driver2,
+                    PulseResponses.driver3, PulseResponses.driver4,
+                    PulseResponses.rotating,
+                )
+                .where { (PulseResponses.cycleId inList cycleIds) and (PulseResponses.userId inList scope) }
+                .map { it[PulseResponses.cycleId].value to it.toAnswers() }
+                .toList()
+                .groupBy({ it.first }, { it.second })
+            val participantCount = PulseParticipants.userId.count()
+            val counts = PulseParticipants
+                .select(PulseParticipants.cycleId, participantCount)
+                .where { (PulseParticipants.cycleId inList cycleIds) and (PulseParticipants.userId inList scope) }
+                .groupBy(PulseParticipants.cycleId)
+                .map { it[PulseParticipants.cycleId].value to it[participantCount].toInt() }
+                .toList()
+                .toMap()
+            cycleIds.associateWith { PulseCycleScopeData(answers[it].orEmpty(), counts[it] ?: 0) }
+        }
     }
 
     /**

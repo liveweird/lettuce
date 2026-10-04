@@ -424,9 +424,10 @@ class PulseResultsTest {
             closedAt = base + 10_000,
         )
         val mine = setOf(c1.id, c2.id)
-        suspend fun HttpClient.trendPoints() =
+        suspend fun HttpClient.allTrendPoints() =
             get("/api/v1/pulse-surveys/trend") { parameter("teamId", fx.teamId) }
-                .body<PulseTrendResponse>().points.filter { it.cycleId in mine }
+                .body<PulseTrendResponse>().points
+        suspend fun HttpClient.trendPoints() = allTrendPoints().filter { it.cycleId in mine }
 
         // X responded in both: c1 OK (+100), c2 under the floor.
         val x = authedClient(fx.xEmail, "pw")
@@ -456,6 +457,66 @@ class PulseResultsTest {
         val hrPoints = hr.trendPoints()
         assertEquals(PulseTrendAvailability.OK, hrPoints[0].availability)
         assertEquals(PulseTrendAvailability.NOT_ENOUGH_RESPONSES, hrPoints[1].availability)
+
+        // v4.14.0 (batched reader): one point per closed cycle, oldest first, for every caller.
+        val closedIds = TestPulse.cycles.closedCyclesAsc().map { it.id }
+        listOf(x, w, hr).forEach { client ->
+            val all = client.allTrendPoints()
+            assertEquals(closedIds, all.map { it.cycleId })
+            assertEquals(all.map { it.closedAt }.sorted(), all.map { it.closedAt })
+        }
+    }
+
+    @Test
+    fun `scopeDataByCycle equals the per-cycle reads, cycle by cycle`() = testApplication {
+        usePostgresTestcontainer()
+        TestPulse.sweepNonTerminal()
+        val fx = org()
+        val wId = TestUsers.seed(uniqueEmail("pulse-w"), "pw", roles = emptySet())
+        TestServices.teams.addMember(fx.teamId, wId)
+        val outsiderId = TestUsers.seed(uniqueEmail("pulse-out"), "pw", roles = emptySet())
+        val scope = setOf(fx.xId, fx.yId, fx.zId, wId)
+        val base = TestPulse.closedAtAfterAll()
+        // Three respondents (k passes), two respondents (under the floor), no respondents but participants.
+        val three = TestPulse.closedCycleWith(
+            respondents = mapOf(
+                fx.xId to answers(10), fx.yId to answers(9), fx.zId to answers(4, PulseScaleAnswer.DISAGREE),
+            ),
+            silentParticipants = listOf(wId),
+            closedAt = base,
+        )
+        // The outsider's answer sits in the cycle but outside the scope — it must not leak in.
+        val two = TestPulse.closedCycleWith(
+            respondents = mapOf(fx.xId to answers(2), fx.yId to answers(3), outsiderId to answers(10)),
+            silentParticipants = listOf(fx.zId, wId),
+            closedAt = base + 10_000,
+        )
+        val none = TestPulse.closedCycleWith(
+            respondents = emptyMap(),
+            silentParticipants = listOf(fx.xId, fx.yId, fx.zId, wId),
+            closedAt = base + 20_000,
+        )
+        val ids = setOf(three.id, two.id, none.id)
+
+        val batched = TestPulse.responses.scopeDataByCycle(ids, scope)
+        assertEquals(ids, batched.keys)
+        ids.forEach { c ->
+            val data = batched.getValue(c)
+            assertEquals(
+                TestPulse.responses.answersForScope(c, scope).map { it.toString() }.sorted(),
+                data.answers.map { it.toString() }.sorted(),
+                "answers of cycle $c",
+            )
+            assertEquals(TestPulse.responses.participantCountForScope(c, scope), data.participantCount, "count of cycle $c")
+        }
+        assertEquals(listOf(3, 2, 0), listOf(three, two, none).map { batched.getValue(it.id).answers.size })
+        assertEquals(listOf(4, 4, 4), listOf(three, two, none).map { batched.getValue(it.id).participantCount })
+
+        // Shapes: an empty scope or an empty cycle set costs nothing and answers the all-empty map.
+        val emptyScope = TestPulse.responses.scopeDataByCycle(ids, emptySet())
+        assertEquals(ids, emptyScope.keys)
+        assertTrue(emptyScope.values.all { it.answers.isEmpty() && it.participantCount == 0 })
+        assertTrue(TestPulse.responses.scopeDataByCycle(emptySet(), scope).isEmpty())
     }
 
     @Test
