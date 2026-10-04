@@ -467,7 +467,7 @@ fun Application.configurePulseRoutes() {
                 val params = call.request.queryParameters
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
-                val team = teamService.read(teamId)
+                val team = teamService.readRef(teamId)
                     ?: throw NotFoundException("Team not found")
                 // The identity step: HR exempt from the fill gate (audited); everyone else —
                 // ADMIN included — must have responded in THIS cycle and stay in-tree. OR (v4.12.0)
@@ -526,7 +526,7 @@ fun Application.configurePulseRoutes() {
                 val params = call.request.queryParameters
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
-                val team = teamService.read(teamId)
+                val team = teamService.readRef(teamId)
                     ?: throw NotFoundException("Team not found")
                 // Managers-and-above only (their monitored tree; HR org-wide, audited) — a
                 // plain member never reads comments, and no fill gate applies (a monitoring
@@ -573,7 +573,7 @@ fun Application.configurePulseRoutes() {
                 val params = call.request.queryParameters
                 val teamId = params.requiredTeamId()
                 val mode = params.aggregationMode()
-                val team = teamService.read(teamId)
+                val team = teamService.readRef(teamId)
                     ?: throw NotFoundException("Team not found")
                 // Team scope as results (HR org-wide, audited); the fill gate instead applies
                 // point-wise below.
@@ -584,8 +584,15 @@ fun Application.configurePulseRoutes() {
                 val via = shareAccess.readOrShared(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
                     teamService.requireResultsVisible(principal, teamId)
                 }
-                val sharers = shareAccess.passingShares(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
-                    teamService.requireResultsVisible(principal, teamId)
+                // v4.15.0: an HR own read sets `respondedCycleIds` to null below (every point visible), so a
+                // sharer's responded set cannot widen it — skip the share lookup. A non-HR own read still
+                // needs the sharers (their cycles may differ from the caller's), and a shared read always does.
+                val sharers = if (via is ReadVia.Own && caller.isHr()) {
+                    emptyList()
+                } else {
+                    shareAccess.passingShares(caller, ShareableResourceType.PULSE_TEAM_RESULTS, teamId) { principal ->
+                        teamService.requireResultsVisible(principal, teamId)
+                    }
                 }
                 val seeing = listOfNotNull(caller.takeIf { via is ReadVia.Own }) + sharers.map { it.principal }
                 val scope = teamService.teamScopeMembers(teamId, subtree = mode == PulseAggregationMode.SUBTREE)

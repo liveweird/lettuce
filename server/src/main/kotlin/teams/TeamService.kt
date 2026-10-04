@@ -130,6 +130,17 @@ class TeamService(val database: R2dbcDatabase) {
             .sortedBy { it.name }
     }
 
+    /**
+     * (id, name) of ONE non-deleted team — one statement, for callers that need only the name
+     * (the pulse results/comments/trend handlers; [read] also loads the member ids, v4.15.0).
+     */
+    suspend fun readRef(id: UInt): TeamRef? = suspendTransaction(database) {
+        Teams.select(Teams.id, Teams.name)
+            .where { (Teams.id eq id) and active() }
+            .map { TeamRef(id = it[Teams.id].value, name = it[Teams.name]) }
+            .singleOrNull()
+    }
+
     /** Every non-deleted team, name-ascending (the HR org-wide scope). */
     suspend fun allTeamRefs(): List<TeamRef> = suspendTransaction(database) {
         Teams.select(Teams.id, Teams.name)

@@ -247,6 +247,30 @@ class PulseResultsSharingTest {
         }
 
     @Test
+    fun `an HR reader's trend is identical before and after shares to them - the share-lookup skip is a no-op, results stay own-right`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val w = world()
+            val hr = member("ps-hr", roles = setOf(UserRole.HR))
+            val hrMember = member("ps-hr-member", roles = setOf(UserRole.HR))
+            TestServices.teams.addMember(w.teamId, hrMember.id)
+            val before = hr.client.trend(w.teamId).body<PulseTrendResponse>()
+            val beforeMember = hrMember.client.trend(w.teamId).body<PulseTrendResponse>()
+            // HR sees every point (no fill gate), shared or not: both closed cycles carry numbers.
+            for (cycle in listOf(w.c1, w.c2)) {
+                assertEquals(PulseTrendAvailability.OK, before.points.single { it.cycleId == cycle }.availability)
+            }
+            // X (filled C1 only) and M (filled C2 only) each share the team's results with both HR users.
+            for (sharer in listOf(w.x, w.m)) for (sharee in listOf(hr, hrMember)) share(w, sharer, sharee)
+            assertEquals(before, hr.client.trend(w.teamId).body<PulseTrendResponse>())
+            assertEquals(beforeMember, hrMember.client.trend(w.teamId).body<PulseTrendResponse>())
+            // Not a share read: no sharedBy, and a non-member HR auditor still has no own right to pass on.
+            val results = hr.client.results(w.c1, w.teamId).body<PulseTeamResults>()
+            assertNull(results.sharedBy)
+            assertFalse(results.canShare)
+        }
+
+    @Test
     fun `canReadComments runs the comments guard - two sharers where only the newer one monitors`() =
         testApplication {
             usePostgresTestcontainer()

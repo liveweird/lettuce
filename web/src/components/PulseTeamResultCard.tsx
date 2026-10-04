@@ -17,7 +17,8 @@ import {
 import ResponsiveTable from "./ResponsiveTable";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect, useRef } from "react";
+import { useIntersection } from "@mantine/hooks";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getPulseComments, getPulseResults, getPulseTrend, type PulseAggregationMode, type PulseDriverResult } from "../api/pulse";
 import { isShareLapse } from "../utils/shareLapse";
@@ -140,11 +141,22 @@ export default function PulseTeamResultCard({
   // sharer monitors the team) — which is false for an INSIDER (someone who answered this cycle in
   // the scope): a share never opens the comments to them.
   const showComments = canMonitor || data?.canReadComments === true;
+  // The mini trend chart loads lazily (v4.15.0, perf F16/W4): HR's all-teams view renders ~84 cards, and
+  // the trend request + chart per card were most of its cost. The chart section's wrapper is observed
+  // (300px prefetch margin, the Kudos `useIntersection` precedent) and the request latches on once it has
+  // been near the viewport — a card scrolled back out keeps its chart. Results and comments stay eager.
+  // The Trend tab's own `["pulseTrend", teamId, mode]` cache is shared: a cached series renders without
+  // waiting for the view.
+  const { ref: trendRef, entry: trendEntry } = useIntersection({ rootMargin: "300px" });
+  const [trendWanted, setTrendWanted] = useState(false);
+  // Latch during render (React's derived-state pattern — no effect, no extra commit): the observer reports
+  // `isIntersecting: false` again once the card scrolls out, so the first `true` is remembered.
+  if (trendEntry?.isIntersecting && !trendWanted) setTrendWanted(true);
   const trend = useQuery({
     queryKey: ["pulseTrend", teamId, mode],
     queryFn: () => getPulseTrend(teamId, mode),
     retry: false,
-    enabled: !commentsOnly,
+    enabled: !commentsOnly && trendWanted,
   });
   const comments = useQuery({
     queryKey: ["pulseComments", cycleId, teamId, mode],
@@ -292,9 +304,15 @@ export default function PulseTeamResultCard({
         )}
 
         {!commentsOnly && !lapsed && (
-          <>
-            <Divider label={t("pulse.results.trendTitle")} labelPosition="left" />
-            {trendSeries.length >= 2 ? (
+          <div ref={trendRef} aria-busy={trend.isFetching}>
+            <Divider label={t("pulse.results.trendTitle")} labelPosition="left" mb="sm" />
+            {trend.isPending ? (
+              // Placeholder at the chart's own 200px (one series) until the card is near the viewport and the
+              // series has arrived, so the COMMON outcome — the chart replacing it — does not move the layout.
+              // The rare no-chart outcome (fewer than 2 closed cycles, or an error) collapses to one text line;
+              // reserving 200px for it would waste the room on every such card.
+              <Skeleton height={200} radius="sm" />
+            ) : trendSeries.length >= 2 ? (
               <Suspense fallback={<Skeleton height={200} radius="sm" />}>
                 <PulseTrendChart
                   data={trendSeries}
@@ -306,7 +324,7 @@ export default function PulseTeamResultCard({
                 {t(trend.isError ? "pulse.results.trendUnavailable" : "pulse.results.trendPending")}
               </Text>
             )}
-          </>
+          </div>
         )}
 
         {showComments && comments.data && !comments.data.insufficientResponses && comments.data.items.length > 0 && (

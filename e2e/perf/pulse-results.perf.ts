@@ -1,8 +1,9 @@
 import { definePerfScreen, type PerfCase } from "./harness";
 
 // The Pulse hub /pulse (web/src/pages/Pulse*.tsx, components/PulseTeamResultCard.tsx) — mirrors perf/k6/pulse-results.js. The
-// results tab fires one card per visible team in parallel (results + trend, + comments for monitors/HR): the HR auditor with
-// no team of their own defaults to ALL ~80 teams, the most request-heavy screen of the SPA. The `participation` tab needs
+// results tab fires one card per visible team in parallel (results, + comments for monitors/HR; each card's small trend chart
+// loads lazily when it nears the viewport since v4.15.0): the HR auditor with no team of their own defaults to ALL ~80 teams,
+// the most request-heavy screen of the SPA (the browser run is where the lazy-load effect is measured truthfully). The `participation` tab needs
 // isManager or HR; the survey tab (the default) is a single form and not measured here.
 const CYCLES = /\/api\/v1\/pulse-surveys\/cycles/;
 const VISIBLE = /\/api\/v1\/pulse-surveys\/visible-teams/;
