@@ -1,5 +1,5 @@
 {
-  "status": "candidate-awaiting-human-review",
+  "status": "accepted",
   "applicationVersion": "4.15.2",
   "upstreamRevision": "7cb4b20a",
   "captureMergeRevision": "9166b0ef29c5e51539b04a4bb4f6559a2ae1c415",
@@ -84,5 +84,14 @@
       "height": 1000,
       "sha256": "59de43ba54d20bea8c30896372d605927a7053303692df6ece83a89309994f93"
     }
-  ]
+  ],
+  "approval": {
+    "date": "2026-10-04",
+    "reference": "Repository owner accepted the linked 12-image gallery in the Codex conversation: \"I accept\".",
+    "baselineCommit": "5418856988979d7d16395b6a2fe0699cbd0d6d2d",
+    "knownBehaviors": [
+      "Feedback rows stack at 1280px with the expanded sidebar.",
+      "Active Seniority levels and Pulse questions navigation items can fall outside the visible sidebar; retained as a documented follow-up."
+    ]
+  }
 }

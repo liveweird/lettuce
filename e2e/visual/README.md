@@ -1,13 +1,15 @@
 # Desktop visual regression pilot
 
-**Status: validated pilot; candidate baselines await human approval.** Six tests cover 12 desktop
-images of v4.15.2 after incorporating `origin/master` at `7cb4b20a`. Canonical capture and two
-unchanged comparisons passed. A temporary color defect failed at the screenshot assertion
-(279,044 changed pixels). This is not yet a required CI gate or approved product-design baseline.
+**Status: approved baselines, automatic PR comparisons.** The repository owner accepted all 12
+images of v4.15.2 on 2026-10-04, after incorporating `origin/master` at `7cb4b20a`. Canonical
+capture, repeated comparisons and deliberate color/spacing regression probes passed their
+expected checks. The **Desktop visual** job in `.github/workflows/quality.yml` runs comparisons
+on every PR, master push and manual dispatch. Required-check enforcement is configured separately
+in GitHub's ruleset; adding a workflow job alone does not require it for merge.
 
-Open the [review gallery](review.html) and [validation record](baseline-review.md). The review
-record calls out existing desktop table stacking and an offscreen active dictionary navigation
-item; approving a baseline should be an explicit decision about those visible states.
+Open the [review gallery](review.html) and [validation/approval record](baseline-review.md).
+The accepted images retain Feedback's desktop stacking and the offscreen active dictionary
+navigation item. The sidebar issue remains a separate follow-up.
 
 This suite renders the real React/Mantine SPA with deterministic, generated-schema-typed API
 fixtures. It is separate from the live-stack functional E2E suite. It verifies appearance, not
@@ -38,8 +40,8 @@ a new requirement.
 
 ## Isolation from performance work
 
-- Only `e2e/visual/`, `e2e/scenarios/visual/` and the E2E README belong to this change.
-- No production, backend, API, package/lockfile, shared Playwright, Compose or CI changes.
+- The visual harness owns `e2e/visual/` and `e2e/scenarios/visual/`; CI calls its isolated runner.
+- No production, backend, API, package/lockfile, shared Playwright or Compose changes.
 - No imports of the ordinary E2E global setup/teardown or login helpers. `sessions.ts` is reused
   only for its pure storage-key mapping; the tokens here are synthetic and never sent to a server.
 - Own static SPA build/cache/report paths, one worker, loopback port **5197** with strict
@@ -112,10 +114,17 @@ also builds the SPA, so it is not safe during performance measurements.
    intentional changes; keep baseline edits visible in review.
 5. Mark the reviewed candidate set as accepted, with the approval reference in the validation
    record. Only then add a dedicated CI job and decide which check is required. Candidate images
-   may be shared on the review branch before approval; that does not activate a gate or approve
-   the appearance. No master merge or required-check change is part of this pilot.
+   may be shared on a review branch before approval; that does not approve their appearance.
+   The initial set is now approved and CI comparisons are enabled.
 
 Build identity is fixed for capture, but the real displayed app version is retained. A version
 bump can legitimately change screenshots and still needs a reviewed update. No broad content
 masking or screenshot-only stylesheet hides layout defects. Font loading and expected content
 are awaited; no arbitrary sleep substitutes for readiness.
+
+## CI failures
+
+Download the `desktop-visual-report` artifact from the **Desktop visual** job. It contains the
+HTML report plus expected/actual/diff screenshots and failure traces. Run the same `compare`
+command locally in a quiet window to reproduce. CI never captures or commits new expectations;
+missing images and visual differences fail the job. A passing result covers these 12 states only.

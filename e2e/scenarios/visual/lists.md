@@ -4,7 +4,8 @@
 - **Actors**: synthetic ordinary team member and administrator; no live accounts.
 - **Owns**: isolated browser contexts and visual build/report directories. No server state.
 - **Status**: canonical capture, two unchanged comparisons and deliberate-regression detection
-  verified against v4.15.2; candidate baselines await human approval. See
+  verified against v4.15.2; baselines approved by the repository owner on 2026-10-04.
+  The Desktop visual CI job compares them on every PR and master push. See
   [validation and findings](../../visual/baseline-review.md).
 - **Scope**: desktop web only. Fixed responses render the real SPA; these are visual tests,
   not evidence of backend authorization or end-to-end data correctness.

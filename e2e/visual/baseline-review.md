@@ -1,8 +1,11 @@
 # Desktop visual pilot — validation and baseline review
 
-**Status: candidate images, awaiting human approval.** Runtime validation establishes that the
-comparison mechanism works; it does not establish that every current visual choice is desirable.
-No required CI check or master merge has been activated.
+**Status: accepted baselines.** On 2026-10-04, the repository owner reviewed the linked gallery
+and replied **“I accept”** in the Codex conversation. Approval applies to all 12 images committed
+in `54188569`, including the two visible behaviors documented below. No screenshot pixels were
+changed during activation. The `Desktop visual` job in `quality.yml` now compares this accepted
+set on pull requests, master pushes and manual dispatches. Required-check enforcement is a
+separate GitHub ruleset setting.
 
 - [Browse all 12 images](review.html)
 - [Runtime pin](runtime.json)
@@ -56,7 +59,7 @@ the normal test and application source remain unchanged.
 - [Deliberately enlarged row spacing](review-evidence/intentional-spacing-regression-actual.png)
 - [Detected spacing difference](review-evidence/intentional-spacing-regression-diff.png)
 
-## Findings requiring a baseline decision
+## Known behaviors retained in the accepted baseline
 
 1. **1280px Feedback uses stacked rows.** With the expanded sidebar, the content width is below
    the existing wide-table container breakpoint. All rows/actions are reachable; the capture
@@ -66,17 +69,18 @@ the normal test and application source remain unchanged.
    Seniority levels, its highlight is partly clipped by the pinned footer; on Pulse questions,
    the active leaf is below the visible scroll area. Independent image/source review confirmed
    that the active group expands without scrolling its active child into view. The page content
-   itself is correct. Consider fixing this separately before accepting those two images; the
-   pilot deliberately preserves and documents the observed behavior instead of masking it.
+   itself is correct. A sidebar fix remains a separate follow-up; the accepted
+   baseline preserves and documents the observed behavior instead of masking it.
 
 All 12 images were visually inspected across the coordinator and independent reviewer. There
 were no loading/error placeholders, missing content rows or missing row actions. The ordinary
 dictionary tables remain compact and read-only; administrators have the editor and disabled
 Save before edits. Long text inside single-line admin inputs is naturally horizontally clipped.
 
-## Remaining acceptance
+## Future baseline changes
 
-Review the gallery, decide how to handle the two findings, and record human baseline approval
-here. If the UI changes before approval, regenerate only the affected candidates in the pinned
-environment, re-review them and rerun comparisons. Once accepted, a separate change can add the
-visual job to PR CI. These tests complement the existing functional E2E and performance suites.
+This approval establishes the initial comparison reference; it does not close the sidebar issue.
+For intentional UI changes, capture affected candidates in the pinned environment, review their
+old/new/diff images, obtain human approval and update the manifest and this record before merging.
+Never regenerate baselines just to silence a CI failure. These tests complement the existing
+functional E2E and performance suites.

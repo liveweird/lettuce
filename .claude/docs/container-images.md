@@ -66,8 +66,8 @@ produces ships.
 The desktop visual pilot uses the Playwright multi-platform index pinned in
 `e2e/visual/runtime.json`, with execution fixed to **linux/amd64** for comparable screenshots.
 Its inspected runtime is Node v24.20.0 / Chromium 153.0.8010.12. See
-`e2e/visual/baseline-review.md` for validation and pending human approval; this is an isolated,
-manual test image, not a deployed application image or required CI gate. Changing its runtime
+`e2e/visual/baseline-review.md` for validation and the 2026-10-04 human approval; this isolated
+test image is used locally and by the Desktop visual CI job, not deployed as an application. Changing its runtime
 pin requires reviewing the screenshot differences as well as keeping the Playwright version
 aligned with the E2E lockfile.
 
