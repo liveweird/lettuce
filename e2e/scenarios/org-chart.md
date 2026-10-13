@@ -6,7 +6,8 @@
 - **Owns** (exclusive server-side state): nothing — read-only; no data is created or mutated
 - **Since**: v1.23.0 (the org chart), v1.30.2 (teamless people render as ordinary clickable
   nodes under "Not in any team"), v2.40.0 (left→right orientation; team nodes collapse/expand
-  their members — client-side only)
+  their members — client-side only), v4.17.0 (the "As of" date: the chart as of another day via
+  `?asOf=`, the off-today badge and the Today reset)
 
 The whole organization as a canvas: person nodes open the user-details view, team nodes open the
 roster, with manages/member edges between them. Assertions target only seeded people and teams —
@@ -39,3 +40,20 @@ they always exist, whatever else e2e runs have added to the shared database.
      "Back to Org chart" — returning to the chart, not the teams list.
 9. AAA One uses that back link.
    - *Expected*: back on the chart.
+
+## Scenario: the org chart as of a past day still renders the seed teams, flags the date and resets with Today
+
+Read-only. Seed memberships and manager lines are open-ended "since before records began", so
+yesterday's chart shows the same seed org as today's.
+
+1. AAA One signs in and opens the org chart through a direct link for yesterday (`/org?asOf=<yesterday>`).
+   - *Expected*: the CCC and AAA team nodes and Manager CCC's person node are drawn.
+2. AAA One looks at the date controls.
+   - *Expected*: the **As of** field holds yesterday's date, a badge reads "As of <that date>", and
+     a **Today** button is offered.
+3. AAA One clicks **Today**.
+   - *Expected*: the page returns to the plain `/org` URL (no `asOf`), the badge and the Today button
+     are gone and the CCC team node is still drawn.
+4. AAA One types yesterday's date into the **As of** field.
+   - *Expected*: the URL carries `asOf=<yesterday>` again, the Today button returns and the AAA team
+     node is drawn.

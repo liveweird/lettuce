@@ -112,6 +112,7 @@ export const formManagedTeam = {
   managerName: 'Aleksandra Kowalska-Nowak',
   managerDeleted: false,
   memberIds: [RELATIONSHIP_USER_ID],
+  deleted: false,
 } satisfies Schema['TeamListItem'];
 
 export const relationshipRows = [

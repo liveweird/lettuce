@@ -14,9 +14,9 @@ export const people: Schema['UserResponse'][] = [
 }));
 
 export const teams = [
-  { id: 8101, name: 'International platform reliability and customer experience', managerId: 7201, managerName: people[0].name, managerDeleted: false, memberIds: [7001, 7202] },
-  { id: 8102, name: 'Research and inclusive product design', managerId: 7202, managerName: people[1].name, managerDeleted: false, memberIds: [7001, 7201] },
-  { id: 8103, name: 'Operations', managerId: 7203, managerName: people[2].name, managerDeleted: false, memberIds: [7202] },
+  { id: 8101, name: 'International platform reliability and customer experience', managerId: 7201, managerName: people[0].name, managerDeleted: false, memberIds: [7001, 7202], deleted: false },
+  { id: 8102, name: 'Research and inclusive product design', managerId: 7202, managerName: people[1].name, managerDeleted: false, memberIds: [7001, 7201], deleted: false },
+  { id: 8103, name: 'Operations', managerId: 7203, managerName: people[2].name, managerDeleted: false, memberIds: [7202], deleted: false },
 ] satisfies Schema['TeamListItem'][];
 
 export function cardPeople(managed: boolean): Schema['TeamMemberListItem'][] {
