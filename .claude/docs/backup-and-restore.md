@@ -231,7 +231,10 @@ Fail the recovery if any archive/SQL command exits nonzero. Verify at least:
    logical key column names and uniqueness/primary/exclusion/validity flags; plus extensions,
    triggers, functions, and comments. Separately compare every CHECK definition from
    `pg_get_constraintdef` and every index definition from `pg_get_indexdef`, including expression
-   indexes and partial predicates; do not infer their equality from keys and flags.
+   indexes and partial predicates; do not infer their equality from keys and flags. Since V93
+   the views `team_members` and `teams_current` drive authorization (the management chain, team
+   scopes), so also compare their definitions with `pg_get_viewdef` — a restore that loses or
+   alters a view would silently change who can read what.
 6. All table content matches a deterministic rendering of the captured archive and a fresh dump
    of the restored database. One reviewed method is to render both custom archives with
    `pg_restore --data-only`, remove only PostgreSQL's randomized `\restrict`/`\unrestrict` guard

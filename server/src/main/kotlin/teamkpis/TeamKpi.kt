@@ -89,10 +89,10 @@ data class TeamKpiResponse(
     val id: UInt,
     val teamId: UInt,
     // Resolved team display fields; a soft-deleted team keeps its KPIs readable as history for
-    // whoever teams.manager_id still names, flagged via teamDeleted.
+    // whoever the current manager (teams_current view) still names, flagged via teamDeleted.
     val teamName: String,
     val teamDeleted: Boolean,
-    // The team's CURRENT manager, resolved from teams.manager_id at read time — never stored on
+    // The team's CURRENT manager, resolved from the teams_current view at read time — never stored on
     // the row. Every write right keys on it (plus the chain above — v2.26.0).
     val managerId: UInt,
     val managerName: String,

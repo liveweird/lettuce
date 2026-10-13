@@ -503,7 +503,7 @@ fun requirePerformanceReviewWrite(caller: CallerPrincipal, review: PerformanceRe
 // ── Team KPIs ───────────────────────────────────────────────────────────────────────────────
 // Existence disclosure: like goals, KPI routes read BEFORE guarding (missing → 404,
 // existing-but-forbidden → 403), so an id probe can learn a KPI exists — never its content.
-// The manager in these guards is the team's CURRENT manager (resolved from teams.manager_id
+// The manager in these guards is the team's CURRENT manager (resolved from the teams_current view
 // into the response at read time — never stored on the KPI row), so a reassigned team's new
 // manager takes over. Since v2.26.0 every management right extends to the chain ABOVE the
 // team's manager; the stored creator (created_by, V62) is informational only and grants

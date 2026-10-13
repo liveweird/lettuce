@@ -1,6 +1,7 @@
 package ch.nokillswit.teams
 
 import ch.nokillswit.authz.CallerPrincipal
+import ch.nokillswit.authz.ConflictException
 import ch.nokillswit.authz.requirePulseTrendAccess
 import ch.nokillswit.infra.db.containsNormalized
 import ch.nokillswit.infra.paging.PageRequest
@@ -9,6 +10,7 @@ import ch.nokillswit.infra.paging.applyPaging
 import ch.nokillswit.users.UserService
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.util.AttributeKey
+import java.time.LocalDate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.singleOrNull
 import kotlinx.coroutines.flow.toList
@@ -60,17 +62,74 @@ private val MEMBER_SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "teamName" to TeamService.Teams.name,
 )
 
-class TeamService(val database: R2dbcDatabase) {
-    object Teams : UIntIdTable() {
+/** [TeamService.updateTeam]'s result: the id of the manager period now covering today when the manager changed. */
+data class TeamUpdateOutcome(val managerPeriodId: UInt?)
+
+/** [TeamService.deleteTeam]'s counts for the audit event. */
+data class TeamDeleteOutcome(val membershipsEnded: Int, val futureRowsRemoved: Int)
+
+/** [TeamService.joinTeam]'s result; [changed] = false means the person was already a current member. */
+data class TeamJoinOutcome(
+    val changed: Boolean,
+    val membershipId: UInt?,
+    val startDate: String?,
+    /** True when a period that ended yesterday was reopened (the same-day undo of a removal). */
+    val reopened: Boolean = false,
+)
+
+/** [TeamService.leaveTeam]'s result: the new last day, or [hardDeleted] when the period started today. */
+data class TeamLeaveOutcome(val changed: Boolean, val endDate: String?, val hardDeleted: Boolean)
+
+/**
+ * Teams, rosters and the manager succession line. Since V93 (v4.17.0) the structure is DATED:
+ * [Teams] and [TeamMembers] are read-only VIEWS (`teams_current`, `team_members`) holding today's
+ * manager and today's roster, so every reader keeps its old shape; all writes go to the base tables
+ * [TeamRecords], [TeamMemberships] and [TeamManagerPeriods]. "Today" comes through the injectable
+ * [clock] seam (the `ShareService` idiom) and must agree with the views' `CURRENT_DATE` — the pooled
+ * session time zone is aligned with the JVM's in `infra/db/Database.kt`.
+ */
+class TeamService(
+    val database: R2dbcDatabase,
+    private val clock: () -> LocalDate = { LocalDate.now() },
+) {
+    /** READ-ONLY view `teams_current` (V93): each team with its manager as of today. Never written. */
+    object Teams : UIntIdTable("teams_current") {
         val name = varchar("name", length = 100)
         val managerId = reference("manager_id", UserService.Users)
         val markedAsDeleted = bool("marked_as_deleted").default(false)
     }
 
+    /** READ-ONLY view `team_members` (V93): the CURRENT memberships only. Never written. */
     object TeamMembers : Table("team_members") {
         val teamId = reference("team_id", Teams)
         val userId = reference("user_id", UserService.Users)
         override val primaryKey = PrimaryKey(teamId, userId)
+    }
+
+    /** The `teams` base table — the write side of [Teams] (name and the soft-delete flag). */
+    object TeamRecords : UIntIdTable("teams") {
+        val name = varchar("name", length = 100)
+        val markedAsDeleted = bool("marked_as_deleted").default(false)
+    }
+
+    /** Membership periods (V93); a null start = since before records, a null end = open, end inclusive. */
+    object TeamMemberships : UIntIdTable("team_memberships") {
+        val teamId = reference("team_id", TeamRecords)
+        val userId = reference("user_id", UserService.Users)
+        val startDate = varchar("start_date", length = 10).nullable()
+        val endDate = varchar("end_date", length = 10).nullable()
+        val createdAt = long("created_at")
+        val lastModified = long("last_modified")
+    }
+
+    /** The manager succession line (V93): same date semantics as [TeamMemberships]. */
+    object TeamManagerPeriods : UIntIdTable("team_manager_periods") {
+        val teamId = reference("team_id", TeamRecords)
+        val managerId = reference("manager_id", UserService.Users)
+        val startDate = varchar("start_date", length = 10).nullable()
+        val endDate = varchar("end_date", length = 10).nullable()
+        val createdAt = long("created_at")
+        val lastModified = long("last_modified")
     }
 
     /** How many distinct people currently report directly to [managerId] (non-deleted teams). */
@@ -179,14 +238,22 @@ class TeamService(val database: R2dbcDatabase) {
                 .mapValues { (_, members) -> members.sortedBy { it.second } }
         }
 
+    /** The manager and every listed member start TODAY (V93). */
     suspend fun create(team: Team): UInt = suspendTransaction(database) {
         validateMembership(team)
-        val newRecord = Teams.insert {
+        val iso = clock().toString()
+        val now = System.currentTimeMillis()
+        val teamId = TeamRecords.insert {
             it[name] = team.name
+        }[TeamRecords.id].value
+        TeamManagerPeriods.insert {
+            it[TeamManagerPeriods.teamId] = teamId
             it[managerId] = team.managerId
+            it[startDate] = iso
+            it[createdAt] = now
+            it[lastModified] = now
         }
-        val teamId = newRecord[Teams.id].value
-        insertMembers(teamId, team.memberIds)
+        team.memberIds.forEach { uid -> insertMembership(teamId, uid, iso, now) }
         teamId
     }
 
@@ -243,28 +310,87 @@ class TeamService(val database: R2dbcDatabase) {
             callerId == managerId || isInManagementChain(callerId, managerId)
         }
 
-    suspend fun update(id: UInt, team: Team): Int = suspendTransaction(database) {
+    /** [updateTeam] for callers that only need to know whether the team existed (`1`/`0`). */
+    suspend fun update(id: UInt, team: Team): Int = if (updateTeam(id, team) == null) 0 else 1
+
+    /**
+     * The `PUT /teams/{id}` write, with TODAY semantics (V93): a rename keeps the history; the roster
+     * delta is applied from today (added people join today, removed people leave — their period ends
+     * yesterday, or is hard-deleted when it started today; unchanged people are untouched); a CHANGED
+     * manager starts a new period today (corrected in place when today's period itself started today,
+     * merged into the previous period when it is the same person). `null` = missing/soft-deleted team.
+     * A future period of an added person, or a manager who would also be a member, is a 409/400.
+     */
+    suspend fun updateTeam(id: UInt, team: Team): TeamUpdateOutcome? = suspendTransaction(database) {
         validateMembership(team)
-        val updated = Teams.update({ (Teams.id eq id) and (Teams.markedAsDeleted eq false) }) {
+        lockTeam(id)
+        val renamed = TeamRecords.update({ (TeamRecords.id eq id) and (TeamRecords.markedAsDeleted eq false) }) {
             it[name] = team.name
-            it[managerId] = team.managerId
         }
-        if (updated > 0) {
-            TeamMembers.deleteWhere { TeamMembers.teamId eq id }
-            insertMembers(id, team.memberIds)
-        }
-        updated
+        if (renamed == 0) return@suspendTransaction null
+        val today = clock()
+        val now = System.currentTimeMillis()
+        applyRoster(id, team.memberIds.toSet(), today, now)
+        val managerPeriodId = handOverManager(id, team.managerId, today, now)
+        requireManagerNotMember(membershipRows(id), managerLineRows(id), today)
+        TeamUpdateOutcome(managerPeriodId)
     }
 
-    suspend fun delete(id: UInt): Int = suspendTransaction(database) {
-        Teams.update({ (Teams.id eq id) and (Teams.markedAsDeleted eq false) }) {
+    /** [deleteTeam] for callers that only need to know whether the team existed (`1`/`0`). */
+    suspend fun delete(id: UInt): Int = if (deleteTeam(id) == null) 0 else 1
+
+    /**
+     * Soft-deletes the team and closes its structure on TODAY (V93): open memberships and the final
+     * manager period get end = today (earlier as-of views still show the team), rows that start
+     * after today are hard-deleted. `null` = missing/already deleted.
+     */
+    suspend fun deleteTeam(id: UInt): TeamDeleteOutcome? = suspendTransaction(database) {
+        lockTeam(id)
+        val flagged = TeamRecords.update({ (TeamRecords.id eq id) and (TeamRecords.markedAsDeleted eq false) }) {
             it[markedAsDeleted] = true
         }
+        if (flagged == 0) return@suspendTransaction null
+        val iso = clock().toString()
+        val now = System.currentTimeMillis()
+        var membershipsEnded = 0
+        var futureRowsRemoved = 0
+        membershipRows(id).forEach { row ->
+            if (row.start != null && row.start > iso) {
+                TeamMemberships.deleteWhere { TeamMemberships.id eq row.id }
+                futureRowsRemoved++
+            } else if (row.end == null || row.end > iso) {
+                endMembership(row.id, iso, now)
+                membershipsEnded++
+            }
+        }
+        val line = managerLineRows(id)
+        line.filter { it.start != null && it.start > iso }.forEach { row ->
+            TeamManagerPeriods.deleteWhere { TeamManagerPeriods.id eq row.id }
+            futureRowsRemoved++
+        }
+        line.lastOrNull { it.start == null || it.start <= iso }
+            ?.takeIf { it.end == null || it.end > iso }
+            ?.let { last ->
+                TeamManagerPeriods.update({ TeamManagerPeriods.id eq last.id }) {
+                    it[endDate] = iso
+                    it[lastModified] = now
+                }
+            }
+        TeamDeleteOutcome(membershipsEnded, futureRowsRemoved)
     }
 
     /** `null` = team missing/soft-deleted, `true` = membership changed, `false` = already a member. */
-    suspend fun addMember(teamId: UInt, userId: UInt): Boolean? =
+    suspend fun addMember(teamId: UInt, userId: UInt): Boolean? = joinTeam(teamId, userId)?.changed
+
+    /**
+     * Adds [userId] to the team from TODAY (V93). Idempotent when they are a current member; a
+     * not-yet-started period of the same pair is a 409 (joining today would overlap it); a period
+     * that ended yesterday is reopened (the same-day undo of a removal).
+     * `null` = team missing/soft-deleted.
+     */
+    suspend fun joinTeam(teamId: UInt, userId: UInt): TeamJoinOutcome? =
         suspendTransaction(database) {
+            lockTeam(teamId)
             val managerId = Teams.selectAll()
                 .where { (Teams.id eq teamId) and active() }
                 .singleOrNull()
@@ -273,28 +399,50 @@ class TeamService(val database: R2dbcDatabase) {
             if (userId == managerId) {
                 throw BadRequestException("Manager cannot also be a standard member")
             }
-            val alreadyMember = TeamMembers.selectAll()
-                .where { (TeamMembers.teamId eq teamId) and (TeamMembers.userId eq userId) }
-                .singleOrNull() != null
-            if (!alreadyMember) {
-                TeamMembers.insert {
-                    it[TeamMembers.teamId] = teamId
-                    it[TeamMembers.userId] = userId
-                }
+            val today = clock()
+            val iso = today.toString()
+            val own = membershipRows(teamId).filter { it.userId == userId }
+            if (own.any { periodCovers(it.start, it.end, iso) }) {
+                return@suspendTransaction TeamJoinOutcome(changed = false, membershipId = null, startDate = null)
             }
-            !alreadyMember
+            if (own.any { it.start != null && it.start > iso }) {
+                throw ConflictException("A future membership of this person in the team already exists")
+            }
+            val now = System.currentTimeMillis()
+            // The same-day undo of a removal: the person's period ended exactly yesterday (only a
+            // removal today produces that), so it is reopened instead of leaving two adjacent rows.
+            val undone = own.firstOrNull { it.end == today.yesterdayIso() }
+            val outcome = if (undone != null) {
+                reopenMembership(undone.id, now)
+                TeamJoinOutcome(changed = true, membershipId = undone.id, startDate = undone.start, reopened = true)
+            } else {
+                TeamJoinOutcome(changed = true, membershipId = insertMembership(teamId, userId, iso, now), startDate = iso)
+            }
+            requireManagerNotMember(membershipRows(teamId), managerLineRows(teamId), today)
+            outcome
         }
 
     /** `null` = team missing/soft-deleted, `true` = membership changed, `false` = was not a member. */
-    suspend fun removeMember(teamId: UInt, userId: UInt): Boolean? =
+    suspend fun removeMember(teamId: UInt, userId: UInt): Boolean? = leaveTeam(teamId, userId)?.changed
+
+    /**
+     * Ends [userId]'s current membership TODAY (V93): the period ends yesterday, or is hard-deleted
+     * when it started today. A no-op (`changed = false`) when they are not a current member.
+     * `null` = team missing/soft-deleted.
+     */
+    suspend fun leaveTeam(teamId: UInt, userId: UInt): TeamLeaveOutcome? =
         suspendTransaction(database) {
+            lockTeam(teamId)
             Teams.selectAll()
                 .where { (Teams.id eq teamId) and active() }
                 .singleOrNull()
                 ?: return@suspendTransaction null
-            TeamMembers.deleteWhere {
-                (TeamMembers.teamId eq teamId) and (TeamMembers.userId eq userId)
-            } > 0
+            val today = clock()
+            val iso = today.toString()
+            val current = membershipRows(teamId)
+                .firstOrNull { it.userId == userId && periodCovers(it.start, it.end, iso) }
+                ?: return@suspendTransaction TeamLeaveOutcome(changed = false, endDate = null, hardDeleted = false)
+            leaveMembership(current, today, System.currentTimeMillis())
         }
 
     /**
@@ -481,12 +629,110 @@ class TeamService(val database: R2dbcDatabase) {
         }
     }
 
-    private suspend fun insertMembers(teamId: UInt, memberIds: List<UInt>) {
-        memberIds.forEach { uid ->
-            TeamMembers.insert {
-                it[TeamMembers.teamId] = teamId
-                it[TeamMembers.userId] = uid
+    private suspend fun insertMembership(teamId: UInt, userId: UInt, startIso: String, now: Long): UInt =
+        TeamMemberships.insert {
+            it[TeamMemberships.teamId] = teamId
+            it[TeamMemberships.userId] = userId
+            it[startDate] = startIso
+            it[createdAt] = now
+            it[lastModified] = now
+        }[TeamMemberships.id].value
+
+    private suspend fun reopenMembership(membershipId: UInt, now: Long) {
+        TeamMemberships.update({ TeamMemberships.id eq membershipId }) {
+            it[endDate] = null
+            it[lastModified] = now
+        }
+    }
+
+    private suspend fun endMembership(membershipId: UInt, endIso: String, now: Long) {
+        TeamMemberships.update({ TeamMemberships.id eq membershipId }) {
+            it[endDate] = endIso
+            it[lastModified] = now
+        }
+    }
+
+    /** Ends [row] as of [today]: yesterday is its last day, or it is hard-deleted when it started today. */
+    private suspend fun leaveMembership(row: MembershipRow, today: LocalDate, now: Long): TeamLeaveOutcome =
+        if (row.start == today.toString()) {
+            TeamMemberships.deleteWhere { TeamMemberships.id eq row.id }
+            TeamLeaveOutcome(changed = true, endDate = null, hardDeleted = true)
+        } else {
+            val yesterday = today.yesterdayIso()
+            endMembership(row.id, yesterday, now)
+            TeamLeaveOutcome(changed = true, endDate = yesterday, hardDeleted = false)
+        }
+
+    /** Applies the PUT's roster as a delta from [today]: see [updateTeam]. */
+    private suspend fun applyRoster(teamId: UInt, desired: Set<UInt>, today: LocalDate, now: Long) {
+        val iso = today.toString()
+        val rows = membershipRows(teamId)
+        val current = rows.filter { periodCovers(it.start, it.end, iso) }.associateBy { it.userId }
+        val added = (desired - current.keys).sorted()
+        added.forEach { uid ->
+            if (rows.any { it.userId == uid && it.start != null && it.start > iso }) {
+                throw ConflictException("A future membership of user $uid in the team already exists")
             }
         }
+        (current.keys - desired).sorted().forEach { uid -> leaveMembership(current.getValue(uid), today, now) }
+        val yesterday = today.yesterdayIso()
+        added.forEach { uid ->
+            // Same-day undo of a removal: reopen the period that ended yesterday instead of adding a row.
+            val undone = rows.firstOrNull { it.userId == uid && it.end == yesterday }
+            if (undone != null) reopenMembership(undone.id, now) else insertMembership(teamId, uid, iso, now)
+        }
+    }
+
+    /**
+     * Makes [managerId] the manager from [today] when they are not already: splits (or corrects in
+     * place) the period covering today, merges equal neighbours and re-checks the line. Returns the
+     * id of the period now covering today, or null when the manager did not change.
+     */
+    private suspend fun handOverManager(teamId: UInt, managerId: UInt, today: LocalDate, now: Long): UInt? {
+        val iso = today.toString()
+        val current = managerLineRows(teamId).firstOrNull { periodCovers(it.start, it.end, iso) }
+            ?: error("Team $teamId has no manager period covering $iso")
+        if (current.managerId == managerId) return null
+        if (current.start == iso) {
+            TeamManagerPeriods.update({ TeamManagerPeriods.id eq current.id }) {
+                it[TeamManagerPeriods.managerId] = managerId
+                it[lastModified] = now
+            }
+        } else {
+            TeamManagerPeriods.update({ TeamManagerPeriods.id eq current.id }) {
+                it[endDate] = today.yesterdayIso()
+                it[lastModified] = now
+            }
+            TeamManagerPeriods.insert {
+                it[TeamManagerPeriods.teamId] = teamId
+                it[TeamManagerPeriods.managerId] = managerId
+                it[startDate] = iso
+                it[endDate] = current.end
+                it[createdAt] = now
+                it[lastModified] = now
+            }
+        }
+        val line = mergeEqualNeighbours(managerLineRows(teamId), now)
+        checkManagerLine(teamId, line, today)
+        return line.first { periodCovers(it.start, it.end, iso) }.id
+    }
+
+    /** Folds adjacent periods of the same manager into the earlier row (its end extended); returns the line. */
+    private suspend fun mergeEqualNeighbours(line: List<ManagerRow>, now: Long): List<ManagerRow> {
+        val merged = mutableListOf<ManagerRow>()
+        line.forEach { row ->
+            val previous = merged.lastOrNull()
+            if (previous != null && previous.managerId == row.managerId) {
+                TeamManagerPeriods.update({ TeamManagerPeriods.id eq previous.id }) {
+                    it[endDate] = row.end
+                    it[lastModified] = now
+                }
+                TeamManagerPeriods.deleteWhere { TeamManagerPeriods.id eq row.id }
+                merged[merged.lastIndex] = previous.copy(end = row.end)
+            } else {
+                merged += row
+            }
+        }
+        return merged
     }
 }

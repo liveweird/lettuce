@@ -296,12 +296,9 @@ fun Application.configureTeamRoutes() {
                     (team.memberIds.toSet() - existing.memberIds.toSet()) +
                         (if (team.managerId != existing.managerId) setOf(team.managerId) else emptySet()),
                 )
-                val updated = requireValidReferences("Referenced user does not exist") {
-                    teamService.update(route.id, team)
-                }
-                if (updated == 0) {
-                    throw NotFoundException("Team not found")
-                }
+                val outcome = requireValidReferences("Referenced user does not exist") {
+                    teamService.updateTeam(route.id, team)
+                } ?: throw NotFoundException("Team not found")
                 // Team mutations shape who may read subordinates' feedback (the management
                 // chain), so they are audited like user.role_changed. Delta fields only when
                 // something actually changed.
@@ -317,6 +314,8 @@ fun Application.configureTeamRoutes() {
                 val removed = existing.memberIds.toSet() - team.memberIds.toSet()
                 if (added.isNotEmpty()) auditFields += "membersAdded" to added.joinToString(",")
                 if (removed.isNotEmpty()) auditFields += "membersRemoved" to removed.joinToString(",")
+                // A handover also names the manager period now covering today (V93).
+                outcome.managerPeriodId?.let { auditFields += "managerPeriodId" to it.toLong() }
                 audit("team.updated", *auditFields.toTypedArray())
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -325,13 +324,14 @@ fun Application.configureTeamRoutes() {
                 val existing = teamService.read(route.id)
                     ?: throw NotFoundException("Team not found")
                 requireAdmin(caller)
-                if (teamService.delete(route.id) == 0) {
-                    throw NotFoundException("Team not found")
-                }
+                val outcome = teamService.deleteTeam(route.id)
+                    ?: throw NotFoundException("Team not found")
                 audit(
                     "team.deleted",
                     "byUserId" to caller.userId.toLong(),
                     "teamId" to route.id.toLong(),
+                    "membershipsEnded" to outcome.membershipsEnded,
+                    "futureRowsRemoved" to outcome.futureRowsRemoved,
                 )
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -345,19 +345,19 @@ fun Application.configureTeamRoutes() {
                 if (route.userId !in existing.memberIds) {
                     userService.requireNoDeactivatedUsers(listOf(route.userId))
                 }
-                val changed = requireValidReferences("Referenced user does not exist") {
-                    teamService.addMember(route.parent.id, route.userId)
-                }
-                if (changed == null) {
-                    throw NotFoundException("Team not found")
-                }
+                val joined = requireValidReferences("Referenced user does not exist") {
+                    teamService.joinTeam(route.parent.id, route.userId)
+                } ?: throw NotFoundException("Team not found")
                 // Membership shapes the management chain — only audit when something actually changed.
-                if (changed) {
+                if (joined.changed) {
                     audit(
                         "team.member_added",
                         "byUserId" to caller.userId.toLong(),
                         "teamId" to route.parent.id.toLong(),
                         "memberUserId" to route.userId.toLong(),
+                        "membershipId" to joined.membershipId?.toLong(),
+                        "startDate" to joined.startDate,
+                        "reopened" to joined.reopened,
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)
@@ -367,16 +367,18 @@ fun Application.configureTeamRoutes() {
                 val existing = teamService.read(route.parent.id)
                     ?: throw NotFoundException("Team not found")
                 requireAdmin(caller)
-                val changed = teamService.removeMember(route.parent.id, route.userId)
-                if (changed == null) {
-                    throw NotFoundException("Team not found")
-                }
-                if (changed) {
+                val left = teamService.leaveTeam(route.parent.id, route.userId)
+                    ?: throw NotFoundException("Team not found")
+                if (left.changed) {
+                    // The period's new last day, or `hardDeleted` when it started today (V93).
+                    val ended: Pair<String, Any?> =
+                        if (left.hardDeleted) "hardDeleted" to true else "endDate" to left.endDate
                     audit(
                         "team.member_removed",
                         "byUserId" to caller.userId.toLong(),
                         "teamId" to route.parent.id.toLong(),
                         "memberUserId" to route.userId.toLong(),
+                        ended,
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)

@@ -111,7 +111,7 @@ internal object ActivityVisibility {
 
     /**
      * `requireTeamKpiReadAllowingChain` (the parent query must join `teams` — the KPI's current
-     * manager is `teams.manager_id`, never stored on the KPI): the team's current manager; a
+     * manager is the current manager (`teams_current` view), never stored on the KPI): the team's current manager; a
      * current member of the (non-deleted) team once past DRAFT; the chain ABOVE the team's
      * manager at every status (`created_by` grants nothing).
      */
@@ -143,7 +143,7 @@ internal object ActivityVisibility {
      * never learn of a share), AND the document is not soft-deleted (the adapter's `read` answers
      * null for one). Mirrors each adapter's `isAuthor`: feedback → the provider; 1:1/goal/review →
      * the stored `manager_id`; impact log → the owner; succession plan → the plan's owner; team KPI →
-     * whoever passes the manage predicate (the team's CURRENT manager `teams.manager_id`, or the
+     * whoever passes the manage predicate (the team's CURRENT manager (`teams_current` view), or the
      * chain above them); days-off calendar → the PERSON themselves (the resource id is the user
      * id; a chain manager who did not share never learns of the share — only the person does, and
      * only while they are not soft-deleted, the adapter's `read` rule); pulse team results → the team's

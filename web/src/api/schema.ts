@@ -885,12 +885,13 @@ export interface paths {
         /**
          * Replace a team
          * @description ADMIN only (v2.33.0 — team structure is org design; the manager's own edit right is gone). NEWLY adding a **deactivated** member or changing the manager to a deactivated user is rejected with `400`; resubmitting an unchanged existing reference is not validated, so a team containing a since-deactivated user stays editable.
+         *     Since v4.17.0 the structure is dated and every change applies **from today**: a rename keeps the history; added members start today; removed members' periods end yesterday (or are deleted when they started today); a changed manager starts a new manager period today. Unchanged members are untouched. A person with a not-yet-started membership in this team cannot be added today (`409`).
          */
         put: operations["replaceTeam"];
         post?: never;
         /**
          * Delete a team
-         * @description ADMIN only (v2.33.0 — team structure is org design).
+         * @description ADMIN only (v2.33.0 — team structure is org design). Since v4.17.0 the deletion day closes the team's dated structure: open memberships and the final manager period end today, and rows that start later are removed.
          */
         delete: operations["deleteTeam"];
         options?: never;
@@ -911,7 +912,7 @@ export interface paths {
         get?: never;
         /**
          * Add a member to the team (idempotent)
-         * @description ADMIN only (v2.33.0 — team structure is org design). NEWLY adding a **deactivated** user is rejected with `400`; re-adding an already-present member (even a since-deactivated one) stays the idempotent no-op.
+         * @description ADMIN only (v2.33.0 — team structure is org design). NEWLY adding a **deactivated** user is rejected with `400`; re-adding an already-present member (even a since-deactivated one) stays the idempotent no-op. Since v4.17.0 the membership starts **today**; a not-yet-started membership of the same person in this team is a `409`.
          */
         put: operations["addTeamMember"];
         post?: never;
@@ -920,7 +921,8 @@ export interface paths {
          * @description ADMIN only (v2.33.0 — team structure is org design).
          *     Idempotent: removing a user who is not (or no longer) a member is a no-op `204`.
          *     Zero-member teams are allowed, so removing the last member succeeds. The manager
-         *     is never a `team_members` row, so this endpoint cannot affect them.
+         *     is never a roster member, so this endpoint cannot affect them. Since v4.17.0 the
+         *     membership period ends **yesterday** (it is deleted when it started today).
          */
         delete: operations["removeTeamMember"];
         options?: never;
@@ -9236,6 +9238,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description Conflicts with the dated team structure (v4.17.0): a not-yet-started membership of an added person in this team, or a manager who would also be a member of it in a future period. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             413: components["responses"]["PayloadTooLarge"];
             500: components["responses"]["InternalServerError"];
         };
@@ -9312,6 +9323,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description Conflicts with the dated team structure (v4.17.0): a not-yet-started membership of an added person in this team, or a manager who would also be a member of it in a future period. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

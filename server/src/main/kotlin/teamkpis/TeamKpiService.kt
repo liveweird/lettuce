@@ -81,7 +81,7 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
 // on purpose — lists sort and substring-filter on it.
 //
 // There is no manager_id column: the KPI belongs to the TEAM, and the manager is resolved from
-// teams.manager_id at read time — so a reassigned team's new manager takes over its KPIs.
+// the teams_current view's current manager at read time — so a reassigned team's new manager takes over its KPIs.
 // created_by (V62) is purely INFORMATIONAL — the Creator column; no right ever keys on it
 // (a creator who leaves the team's chain loses access, by decision — v2.26.0).
 class TeamKpiService(val database: R2dbcDatabase, private val cipher: FieldCipher) : EncryptedAtRest {

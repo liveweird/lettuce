@@ -203,14 +203,49 @@ class AuditTest {
             assertEquals(newManagerId.toLong(), updated.keyValuePairs.first { it.key == "managerTo" }.value)
             assertEquals(memberId.toString(), updated.keyValuePairs.first { it.key == "membersAdded" }.value)
 
+            // V93: a handover names the manager period now covering today.
+            val handoverPeriod = periodRecords(teamId).single { it.managerId == newManagerId }
+            assertEquals(handoverPeriod.id.toLong(), updated.keyValuePairs.first { it.key == "managerPeriodId" }.value)
+
             val memberAdded = appender.events.find { it.message == "team.member_added" }
             assertNotNull(memberAdded, "expected a team.member_added audit event")
             assertEquals(managerId.toLong(), memberAdded.keyValuePairs.first { it.key == "memberUserId" }.value)
+            assertEquals(dayIso(0), memberAdded.keyValuePairs.first { it.key == "startDate" }.value)
+            assertNotNull(memberAdded.keyValuePairs.first { it.key == "membershipId" }.value)
 
-            assertNotNull(appender.events.find { it.message == "team.member_removed" })
+            // Added and removed on the same day: the period is hard-deleted, not end-dated.
+            val memberRemoved = appender.events.find { it.message == "team.member_removed" }
+            assertNotNull(memberRemoved)
+            assertEquals(true, memberRemoved.keyValuePairs.first { it.key == "hardDeleted" }.value)
+            assertTrue(memberRemoved.keyValuePairs.none { it.key == "endDate" })
             val deleted = appender.events.find { it.message == "team.deleted" }
             assertNotNull(deleted, "expected a team.deleted audit event")
             assertEquals(teamId.toLong(), deleted.keyValuePairs.first { it.key == "teamId" }.value)
+            // memberId joined today through the PUT and is closed today; nothing started later.
+            assertEquals(1, deleted.keyValuePairs.first { it.key == "membershipsEnded" }.value)
+            assertEquals(0, deleted.keyValuePairs.first { it.key == "futureRowsRemoved" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `removing a member of an older period audits the end date`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", roles = emptySet())
+        val teamId = ch.nokillswit.teams.TeamService(TestServices.database, clock = { java.time.LocalDate.now().minusDays(3) })
+            .create(Team(name = "Older-${UUID.randomUUID()}", managerId = managerId, memberIds = listOf(memberId)))
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+            assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/$teamId/members/$memberId").status)
+
+            val removed = appender.events.single { it.message == "team.member_removed" }
+            assertEquals(dayIso(-1), removed.keyValuePairs.first { it.key == "endDate" }.value)
+            assertTrue(removed.keyValuePairs.none { it.key == "hardDeleted" })
         } finally {
             appender.detach()
         }

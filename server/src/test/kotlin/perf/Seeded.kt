@@ -43,7 +43,8 @@ import org.jetbrains.exposed.v1.core.Table
 object Seeded {
     val tables: List<Table> = listOf(
         UserService.Users, UserService.UserRoles, UserService.UserDisabledFeatures,
-        TeamService.Teams, TeamService.TeamMembers, DictionaryService.Entries, CareerPositionService.CareerPositions,
+        TeamService.TeamRecords, TeamService.TeamMemberships, TeamService.TeamManagerPeriods,
+        DictionaryService.Entries, CareerPositionService.CareerPositions,
         ReviewPeriodService.ReviewPeriods, PerformanceReviewService.Reviews, PerformanceReviewEventService.ReviewEvents,
         OneOnOneService.Meetings, OneOnOneService.Notes, OneOnOneService.ActionItems, OneOnOneEventService.OneOnOneEvents,
         GoalService.Goals, GoalService.Milestones, GoalEventService.GoalEvents,

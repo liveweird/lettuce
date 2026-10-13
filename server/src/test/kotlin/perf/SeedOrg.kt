@@ -104,7 +104,7 @@ fun buildOrg(spec: SeedSpec, firstUserId: UInt, firstTeamId: UInt): Org {
 /** Writes users (one shared bcrypt hash), roles, the two opt-in feature flags, teams and rosters. */
 suspend fun seedOrg(ctx: SeedContext): Org {
     val db = ctx.db
-    val built = buildOrg(ctx.spec, nextFreeId(db, UserService.Users), nextFreeId(db, TeamService.Teams))
+    val built = buildOrg(ctx.spec, nextFreeId(db, UserService.Users), nextFreeId(db, TeamService.TeamRecords))
     val passwordHash = hashPassword(PERF_PASSWORD) // bcrypt cost 12, once — every account shares it
     val rng = ctx.rng("users")
     // ~10 % of the accounts never signed in. The sign-in history ([seedAccountEvents]) honours this set and
@@ -129,14 +129,23 @@ suspend fun seedOrg(ctx: SeedContext): Org {
         this[UserService.UserDisabledFeatures.userId] = p.id
         this[UserService.UserDisabledFeatures.feature] = feature
     }
-    val teams = RowSink<Team>(db, TeamService.Teams) { t ->
-        this[TeamService.Teams.id] = t.id
-        this[TeamService.Teams.name] = t.name
-        this[TeamService.Teams.managerId] = t.managerId
+    // The WRITE side of the V93 dated structure (TeamService.Teams / TeamMembers are read-only views):
+    // the converted shape — every manager period and membership open/open (NULL start, NULL end).
+    val teams = RowSink<Team>(db, TeamService.TeamRecords) { t ->
+        this[TeamService.TeamRecords.id] = t.id
+        this[TeamService.TeamRecords.name] = t.name
     }
-    val members = RowSink<Pair<UInt, UInt>>(db, TeamService.TeamMembers) { (teamId, userId) ->
-        this[TeamService.TeamMembers.teamId] = teamId
-        this[TeamService.TeamMembers.userId] = userId
+    val managerPeriods = RowSink<Team>(db, TeamService.TeamManagerPeriods) { t ->
+        this[TeamService.TeamManagerPeriods.teamId] = t.id
+        this[TeamService.TeamManagerPeriods.managerId] = t.managerId
+        this[TeamService.TeamManagerPeriods.createdAt] = ctx.anchorMillis
+        this[TeamService.TeamManagerPeriods.lastModified] = ctx.anchorMillis
+    }
+    val members = RowSink<Pair<UInt, UInt>>(db, TeamService.TeamMemberships) { (teamId, userId) ->
+        this[TeamService.TeamMemberships.teamId] = teamId
+        this[TeamService.TeamMemberships.userId] = userId
+        this[TeamService.TeamMemberships.createdAt] = ctx.anchorMillis
+        this[TeamService.TeamMemberships.lastModified] = ctx.anchorMillis
     }
 
     (org.people + org.hr).forEach { p ->
@@ -148,9 +157,10 @@ suspend fun seedOrg(ctx: SeedContext): Org {
     roles.add(org.hr)
     org.teams.forEach { t ->
         teams.add(t)
+        managerPeriods.add(t)
         t.memberIds.forEach { members.add(t.id to it) }
     }
-    SinkGroup(users, roles, flags, teams, members).flush()
-    advanceSequences(db, listOf(UserService.Users, TeamService.Teams))
+    SinkGroup(users, roles, flags, teams, managerPeriods, members).flush()
+    advanceSequences(db, listOf(UserService.Users, TeamService.TeamRecords))
     return org
 }
