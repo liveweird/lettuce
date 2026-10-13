@@ -1196,6 +1196,13 @@ paths:
             every team managed by that manager or anyone in their transitive management
             subtree (backs the KPI create picker).
           - `memberId` — restrict to teams the given user is a member of.
+          - `asOf` (v4.17.0) — strict ISO date (`YYYY-MM-DD`, any day: past or future; otherwise
+            `400`). Shows each team's manager and roster **as of that day**, read from the dated
+            structure: soft-deleted teams are included while their manager line covers the day (a
+            team deleted before the history existed is not), `managerId`/`memberId`/`name`/sort/paging
+            compose as-of, `includeIndirect` is `400` with it, and each item additionally carries
+            `members` (names of everyone on the roster that day, including since-deleted people).
+            Without `asOf` the list is today's, and `members` is absent.
 
         Each returned item includes the manager's `name` resolved via join so the UI
         does not need an N+1 lookup, and the team's `memberIds` (v4.14.0, one grouped
@@ -1223,6 +1230,13 @@ paths:
           required: false
           schema: { type: integer, format: int32, minimum: 0 }
           description: Filter to teams the given user is a member of.
+        - name: asOf
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: >-
+            Strict ISO date; the list shows the manager and roster as of that day (see the
+            operation description). Combining it with `includeIndirect` is `400`.
       responses:
         '200':
           description: A page of teams
@@ -1532,6 +1546,299 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/teams/{id}/memberships:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [teams]
+      operationId: listTeamMemberships
+      summary: A team's membership periods (history)
+      description: |
+        Every membership period of the team (v4.17.0), **unpaged**, chronological (a `null`
+        start — "since before records" — first, then by start date, then id). One row per
+        period: a person who left and rejoined has two rows. `current` is true for a period
+        covering today. A missing or deleted team is `404`. Any authenticated user may read;
+        history is for display only — every right stays "today only".
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMembershipList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [teams]
+      operationId: createTeamMembership
+      summary: Add a membership period (ADMIN only)
+      description: |
+        ADMIN only. Adds a period for `userId` with any `startDate` (`null` = since before records)
+        and `endDate` (`null` = open-ended, otherwise the inclusive last day), back-dated or
+        future-dated. Guard first, then payload validation. Dates are strict ISO `YYYY-MM-DD`;
+        `endDate` before `startDate` is `400`. `400` also: a user who does not exist or is deleted,
+        a **deactivated** user whose period reaches today or later (purely past periods are
+        allowed), and a period that would make the team's manager a member of it on a day that
+        includes today. `409`: the period overlaps another period of the same person in this
+        team, or the manager would also be a member on a past or future day. A missing or deleted
+        team is `404`. Audited as `team.membership_created`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamMembershipCreate'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new membership period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMembershipResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Overlaps the person's other period in the team, or the manager would also be a member
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/teams/{id}/memberships/{membershipId}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/MembershipIdInPath'
+    put:
+      tags: [teams]
+      operationId: replaceTeamMembership
+      summary: Correct a membership period's dates (ADMIN only)
+      description: |
+        ADMIN only. Replaces the period's `startDate`/`endDate`; the person cannot change once a
+        row exists. Same validation as the create. A **deactivated** person's period cannot be
+        extended into today or later (any such day the old period did not cover, a start moved earlier
+        included; shortening or ending it stays allowed), and a **deleted** person's cannot reach today. A row that belongs
+        to another team is `404`. A PUT that changes nothing is a `204` and mints no audit event;
+        otherwise audited as `team.membership_updated` with change-only deltas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamMembershipWrite'
+      responses:
+        '204': { description: Corrected }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Overlaps the person's other period in the team, or the manager would also be a member
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [teams]
+      operationId: deleteTeamMembership
+      summary: Remove a membership period (ADMIN only)
+      description: |
+        ADMIN only. Hard-deletes the period (the audit event `team.membership_deleted` is the
+        trail). A row that belongs to another team is `404`.
+      responses:
+        '204': { description: Removed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/teams/{id}/managers:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [teams]
+      operationId: listTeamManagerPeriods
+      summary: A team's manager succession line (history)
+      description: |
+        The team's manager line (v4.17.0), **unpaged**, chronological. The line is contiguous: a live
+        team has exactly one manager on every day from its first period on, each `endDate` being the
+        day before the next `startDate` (stored, but always derived from the next start); the last
+        period is open (`endDate` null). The first `startDate` may be `null` ("since before
+        records"). A missing or deleted team is `404`. Any authenticated user may read.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamManagerPeriodList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags: [teams]
+      operationId: createTeamManagerPeriod
+      summary: Start a manager period (ADMIN only)
+      description: |
+        ADMIN only. Inserts a period starting `startDate` (`null` = since before records): it takes
+        over the days until the next period begins and splits the period that contained that day
+        (a bounded stint is two inserts). The end is never supplied. If the next period has the same
+        manager the two merge into the new row; the response is the period now holding `startDate`.
+        `400`: a user who does not exist or is deleted, a **deactivated** manager whose period
+        reaches today or later, a manager who would also be a member of the team on a day that
+        includes today. `409`: a period already starts on that date, the person already manages the
+        team on that date (the same manager as the period it would split), the line's first start
+        would be after today, or the manager would also be a member on a past or future day.
+        Audited as `team.manager_period_created`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamManagerPeriodWrite'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the period holding the start date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamManagerPeriodResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Start collision, no-op manager, uncovered today, or the manager would also be a member
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/teams/{id}/managers/{periodId}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/PeriodIdInPath'
+    put:
+      tags: [teams]
+      operationId: replaceTeamManagerPeriod
+      summary: Correct a manager period (ADMIN only)
+      description: |
+        ADMIN only. Changes the period's manager and/or start; the end is re-derived. The new start
+        must stay strictly between the neighbouring periods' starts (`409` — a correction never
+        reorders the line, and a start another period already holds is a collision). Changing to
+        the same manager as a neighbour merges the two. A **deactivated** manager can be newly
+        assigned only to a period lying wholly in the past, and no edit may let a deactivated or deleted
+        manager's coverage of today-or-later grow (e.g. a neighbour absorbing today) — `400`. A first period's start moved after
+        today is `409`. A row that belongs to another team is `404`. Audited as
+        `team.manager_period_updated` (change-only deltas; none when nothing changes).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamManagerPeriodWrite'
+      responses:
+        '204': { description: Corrected }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Start collision or reorder, uncovered today, or the manager would also be a member
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags: [teams]
+      operationId: deleteTeamManagerPeriod
+      summary: Remove a manager period (ADMIN only)
+      description: |
+        ADMIN only. The predecessor absorbs the removed days — or the successor, when the first
+        period is removed (it inherits the removed start) — so the line stays contiguous; equal
+        neighbours then merge; a predecessor or successor that would thereby cover today or later must be
+        an active, non-deleted user (`400`). Deleting the team's only period is `409`, as is a result in which
+        the manager would also be a member. A row that belongs to another team is `404`. Audited as
+        `team.manager_period_deleted`.
+      responses:
+        '204': { description: Removed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not ADMIN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The team's only period, or the manager would also be a member
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /api/v1/users/{id}/team-history:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [users]
+      operationId: getUserTeamHistory
+      summary: A person's team membership and team management history
+      description: |
+        Every team-membership period and every period as a team's manager of the user (v4.17.0),
+        chronological (a `null` start first). Any authenticated caller; a missing or soft-deleted
+        user is `404`. Periods of soft-deleted teams are included (the team carries `deleted`),
+        except pre-V93 residue — an open-ended period of a team deleted before the history existed.
+        `current` is true for a period covering today on a live team.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserTeamHistory'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
@@ -6878,6 +7185,16 @@ components:
       in: path
       required: true
       schema: { type: integer, format: int32, minimum: 0 }
+    MembershipIdInPath:
+      name: membershipId
+      in: path
+      required: true
+      schema: { type: integer, format: int32, minimum: 0 }
+    PeriodIdInPath:
+      name: periodId
+      in: path
+      required: true
+      schema: { type: integer, format: int32, minimum: 0 }
     Page:
       name: page
       in: query
@@ -7822,9 +8139,18 @@ components:
             True when the user referenced by `managerId` has been soft-deleted. Populated by
             the single-team GET only; the create/update responses omit the key.
 
+    TeamListMember:
+      type: object
+      required: [id, name, deleted, deactivated]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        name: { type: string }
+        deleted: { type: boolean, description: True when the person has been soft-deleted. }
+        deactivated: { type: boolean, description: True when the person's account is deactivated. }
+
     TeamListItem:
       type: object
-      required: [id, name, managerId, managerName, managerDeleted, memberIds]
+      required: [id, name, managerId, managerName, managerDeleted, memberIds, deleted]
       properties:
         id: { type: integer, format: int32, minimum: 0 }
         name: { type: string }
@@ -7838,7 +8164,138 @@ components:
           description: >-
             The team's current member ids, ascending — the same list as `GET /teams/{id}`
             (v4.14.0; backs the org chart, which no longer fetches every team one by one).
+            With `asOf` (v4.17.0) it is the roster of that day.
           items: { type: integer, format: int32, minimum: 0 }
+        deleted:
+          type: boolean
+          description: >-
+            True for a soft-deleted team (v4.17.0). Only an `asOf` list can contain one, so it is
+            always false on a plain list.
+        members:
+          type: array
+          description: >-
+            The roster of the `asOf` day with names (v4.17.0), name-ascending; **present only when
+            the request carried `asOf`**, absent on a plain list.
+          items: { $ref: '#/components/schemas/TeamListMember' }
+
+    TeamMembershipCreate:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: integer, format: int32, minimum: 0 }
+        startDate:
+          type: string
+          format: date
+          nullable: true
+          description: First day of the period; null (or absent) = since before records began. Years 1900 to 9999.
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          description: Inclusive last day; null (or absent) = open-ended. Not before `startDate`; years 1900 to 9999.
+
+    TeamMembershipWrite:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+          nullable: true
+          description: First day of the period; null (or absent) = since before records began. Years 1900 to 9999.
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          description: Inclusive last day; null (or absent) = open-ended. Not before `startDate`; years 1900 to 9999.
+
+    TeamMembershipResponse:
+      type: object
+      required: [id, userId, userName, userDeleted, deactivated, startDate, endDate, current]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        userId: { type: integer, format: int32, minimum: 0 }
+        userName: { type: string }
+        userDeleted: { type: boolean }
+        deactivated: { type: boolean }
+        startDate: { type: string, format: date, nullable: true, description: Null = since before records began. }
+        endDate: { type: string, format: date, nullable: true, description: Inclusive last day; null = open-ended. }
+        current: { type: boolean, description: True when the period covers today. }
+
+    TeamMembershipList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TeamMembershipResponse' }
+          description: Chronological (a null start first, then start date, then id).
+
+    TeamManagerPeriodWrite:
+      type: object
+      required: [managerId]
+      properties:
+        managerId: { type: integer, format: int32, minimum: 0 }
+        startDate:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            First day of the period; null (or absent) = since before records began. Years 1900 to 9999.
+            The end is never supplied — it is the day before the next period's start.
+
+    TeamManagerPeriodResponse:
+      type: object
+      required: [id, managerId, managerName, managerDeleted, startDate, endDate, current]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        managerId: { type: integer, format: int32, minimum: 0 }
+        managerName: { type: string }
+        managerDeleted: { type: boolean }
+        startDate: { type: string, format: date, nullable: true, description: Null = since before records began. }
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          description: Inclusive last day, derived (stored) from the next period's start; null = the open last period.
+        current: { type: boolean, description: True when the period covers today. }
+
+    TeamManagerPeriodList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TeamManagerPeriodResponse' }
+          description: Chronological; contiguous (each end is the next start minus one day).
+
+    TeamPeriodTeam:
+      type: object
+      required: [id, name, deleted]
+      properties:
+        id: { type: integer, format: int32, minimum: 0 }
+        name: { type: string }
+        deleted: { type: boolean, description: True when the team has been soft-deleted. }
+
+    UserTeamPeriod:
+      type: object
+      required: [id, team, startDate, endDate, current]
+      properties:
+        id: { type: integer, format: int32, minimum: 0, description: The membership or manager-period id. }
+        team: { $ref: '#/components/schemas/TeamPeriodTeam' }
+        startDate: { type: string, format: date, nullable: true, description: Null = since before records began. }
+        endDate: { type: string, format: date, nullable: true, description: Inclusive last day; null = open-ended. }
+        current: { type: boolean, description: True when the period covers today on a live team. }
+
+    UserTeamHistory:
+      type: object
+      required: [memberships, managerPeriods]
+      properties:
+        memberships:
+          type: array
+          items: { $ref: '#/components/schemas/UserTeamPeriod' }
+        managerPeriods:
+          type: array
+          items: { $ref: '#/components/schemas/UserTeamPeriod' }
 
     TeamPage:
       type: object

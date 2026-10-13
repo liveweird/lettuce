@@ -42,6 +42,30 @@ private fun overlapEnd(aStart: String?, aEnd: String?, bStart: String?, bEnd: St
 
 internal fun LocalDate.yesterdayIso(): String = minusDays(1).toString()
 
+/** Sort key of a period start: a null start ("since before records") sorts before every date. */
+internal fun startKey(start: String?): String = start ?: ISO_MIN
+
+/** True iff the two periods share at least one day. */
+internal fun periodsOverlap(aStart: String?, aEnd: String?, bStart: String?, bEnd: String?): Boolean =
+    overlapEnd(aStart, aEnd, bStart, bEnd) != null
+
+/** True iff a period ending [end] (null = open) still touches [iso] or a later day. */
+internal fun reachesFrom(end: String?, iso: String): Boolean = end == null || end >= iso
+
+/**
+ * True iff the new period covers some day from [iso] on that the old one did not — i.e. the edit
+ * EXTENDS the period into today-or-later (a start moved earlier counts, a shortened period does not).
+ */
+internal fun extendsFrom(oldStart: String?, oldEnd: String?, newStart: String?, newEnd: String?, iso: String): Boolean {
+    if (!reachesFrom(newEnd, iso)) return false
+    if (!reachesFrom(oldEnd, iso)) return true
+    val contained = maxOf(startKey(oldStart), iso) <= maxOf(startKey(newStart), iso) && endKey(oldEnd) >= endKey(newEnd)
+    return !contained
+}
+
+/** Sort key of a period end: an open end sorts after every date (compares how far a period reaches). */
+internal fun endKey(end: String?): String = end ?: ISO_MAX
+
 /** Serialises the structure writes of ONE team for this transaction (released on commit/rollback). */
 internal suspend fun R2dbcTransaction.lockTeam(teamId: UInt) {
     exec(
@@ -82,21 +106,33 @@ internal suspend fun managerLineRows(teamId: UInt): List<ManagerRow> =
  * The "a manager is never a member of their own team" rule on the FINAL state of a write: no
  * membership of the team's manager may overlap their manager period from [today] on. An overlap that
  * includes [today] is the payload-shaped 400 (the rule's original message); one that only touches a
- * future day is a state 409. Purely historical overlaps are ignored — history is never re-litigated.
+ * future day is a state 409. Purely historical overlaps are ignored — history is never re-litigated —
+ * unless [ignoreHistory] is false (the explicit period-editing endpoints, which also refuse a PAST
+ * same-day overlap with a 409).
  */
-internal fun requireManagerNotMember(members: List<MembershipRow>, line: List<ManagerRow>, today: LocalDate) {
-    val iso = today.toString()
+internal fun requireManagerNotMember(
+    members: List<MembershipRow>,
+    line: List<ManagerRow>,
+    today: LocalDate,
+    ignoreHistory: Boolean = true,
+) {
     for (member in members) {
-        for (period in line) {
-            if (member.userId != period.managerId) continue
-            val lastCommonDay = overlapEnd(member.start, member.end, period.start, period.end) ?: continue
-            if (lastCommonDay < iso) continue
-            if (periodCovers(member.start, member.end, iso) && periodCovers(period.start, period.end, iso)) {
-                throw BadRequestException("Manager cannot also be a standard member")
-            }
-            throw ConflictException("Manager would also be a standard member of this team in a future period")
+        for (period in line.filter { it.managerId == member.userId }) {
+            requireNoOverlapFrom(member, period, today.toString(), ignoreHistory)
         }
     }
+}
+
+private fun requireNoOverlapFrom(member: MembershipRow, period: ManagerRow, iso: String, ignoreHistory: Boolean) {
+    val lastCommonDay = overlapEnd(member.start, member.end, period.start, period.end) ?: return
+    if (lastCommonDay < iso) {
+        if (ignoreHistory) return
+        throw ConflictException("Manager would also be a standard member of this team on an overlapping day")
+    }
+    if (periodCovers(member.start, member.end, iso) && periodCovers(period.start, period.end, iso)) {
+        throw BadRequestException("Manager cannot also be a standard member")
+    }
+    throw ConflictException("Manager would also be a standard member of this team in a future period")
 }
 
 /**

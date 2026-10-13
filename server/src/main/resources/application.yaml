@@ -39,6 +39,7 @@ ktor:
       - ch.nokillswit.users.CareerPositionRoutesKt.configureCareerPositionRoutes
       - ch.nokillswit.activity.ActivityRoutesKt.configureActivityRoutes
       - ch.nokillswit.teams.TeamRoutesKt.configureTeamRoutes
+      - ch.nokillswit.teams.TeamHistoryRoutesKt.configureTeamHistoryRoutes
       - ch.nokillswit.feedbacks.FeedbackRoutesKt.configureFeedbackRoutes
       - ch.nokillswit.oneonones.OneOnOneRoutesKt.configureOneOnOneRoutes
       - ch.nokillswit.goals.GoalRoutesKt.configureGoalRoutes

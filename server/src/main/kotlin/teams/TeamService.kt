@@ -495,6 +495,7 @@ class TeamService(
                     managerName = row[UserService.Users.name],
                     managerDeleted = row[UserService.Users.markedAsDeleted],
                     memberIds = memberIdsByTeam[row[Teams.id].value].orEmpty().sorted(),
+                    deleted = false,
                 )
             }
             TeamListResult(items = rows, total = total)

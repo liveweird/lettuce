@@ -85,8 +85,7 @@ import ch.nokillswit.teamkpis.TeamKpiEventServiceKey
 import ch.nokillswit.teamkpis.TeamKpiService
 import ch.nokillswit.teamkpis.TeamKpiServiceKey
 import ch.nokillswit.teamkpis.TeamKpiShareable
-import ch.nokillswit.teams.TeamService
-import ch.nokillswit.teams.TeamServiceKey
+import ch.nokillswit.teams.publishTeamServices
 import ch.nokillswit.templates.TemplateService
 import ch.nokillswit.templates.TemplateServiceKey
 import ch.nokillswit.users.CareerPositionEventService
@@ -290,7 +289,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(UserServiceKey, userService)
     attributes.put(CareerPositionServiceKey, CareerPositionService(database))
     attributes.put(CareerPositionEventServiceKey, CareerPositionEventService(database))
-    val teamService = TeamService(database).also { attributes.put(TeamServiceKey, it) }
+    val teamService = publishTeamServices(database)
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
     // Range-checked like every duration (v4.5.2); 0 = every call, the test suite's setting.
     val sweepIntervalMillis = requireConfigLong(

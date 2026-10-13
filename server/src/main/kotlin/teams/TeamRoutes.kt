@@ -9,6 +9,7 @@ import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.feedbacks.FeedbackServiceKey
 import ch.nokillswit.goals.GoalServiceKey
 import ch.nokillswit.infra.db.requireValidReferences
+import ch.nokillswit.infra.parseIsoDateStrict
 import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.oneonones.OneOnOneLatestStats
 import ch.nokillswit.oneonones.OneOnOneServiceKey
@@ -108,6 +109,7 @@ private fun List<TeamMemberListItem>.withLastReviews(
 
 fun Application.configureTeamRoutes() {
     val teamService = attributes[TeamServiceKey]
+    val historyService = attributes[TeamHistoryServiceKey]
     // For the members-list dashboard stats (feedback stats on all three views, 1:1 stats on
     // managers/managed) and the career-profile triple (every view) — composed here at the
     // route so TeamService never reaches into other FEATURE services' tables (its in-transaction
@@ -134,10 +136,20 @@ fun Application.configureTeamRoutes() {
                 // manager's transitive subtree — meaningless without managerId, so a lone
                 // flag is a clean 400 (the feature/featureEnabled pairing idiom).
                 val includeIndirect = params.optionalBoolean("includeIndirect")
+                // asOf (v4.17.0): the org chart's read of any day — roster and manager of THAT day, soft-deleted
+                // teams included while their manager line covers it. The subtree widening is today-only.
+                val asOf = params.optionalString("asOf")?.let { parseIsoDateStrict(it, "asOf") }
+                if (asOf != null && includeIndirect != null) {
+                    throw BadRequestException("includeIndirect cannot be combined with asOf")
+                }
                 if (includeIndirect != null && filter.managerId == null) {
                     throw BadRequestException("includeIndirect requires the managerId filter")
                 }
-                val result = teamService.list(filter, paging, includeIndirect == true)
+                val result = if (asOf != null) {
+                    historyService.listAsOf(filter, paging, asOf)
+                } else {
+                    teamService.list(filter, paging, includeIndirect == true)
+                }
                 call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             get<Teams.Members> {
