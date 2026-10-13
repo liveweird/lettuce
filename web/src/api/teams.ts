@@ -75,7 +75,7 @@ export type TeamMemberPage =
 
 export type TeamMemberListView = "member" | "managed" | "managers";
 
-type TeamMemberListQuery = {
+export type TeamMemberListQuery = {
   view: TeamMemberListView;
   page: number;
   pageSize: number;

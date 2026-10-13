@@ -27,9 +27,13 @@ function membersPage(items: Item[]): Response {
   return jsonResponse(200, { items, page: 1, pageSize: 20, total: items.length });
 }
 
-function setupMocks(mockFetch: FetchMock, items: Item[] = SEED) {
+function setupMocks(mockFetch: FetchMock, items: Item[] = SEED, hiddenInactive = 0) {
   mockFetch.mockImplementation((url: string) => {
     const path = String(url);
+    // The empty-state probe: deactivated=true, pageSize=1 — answers how many inactive people hide.
+    if (path.startsWith("/api/v1/teams/members") && path.includes("deactivated=true") && path.includes("pageSize=1&")) {
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 1, total: hiddenInactive }));
+    }
     if (path.startsWith("/api/v1/teams/members")) return Promise.resolve(membersPage(items));
     if (path.startsWith("/api/v1/succession-plans") || path.startsWith("/api/v1/teams")) {
       return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 }));
@@ -131,12 +135,21 @@ describe("TeamMembersTable account-status filter", () => {
     expect(screen.getByRole("link", { name: "1:1 meetings with Bob Brown" })).toBeInTheDocument();
   });
 
-  test("an empty list under the default Active filter hints that inactive people are hidden", async () => {
-    setupMocks(mockFetch, []);
+  test("an empty list under the default Active filter hints when an inactive person is hidden", async () => {
+    setupMocks(mockFetch, [], 1);
     renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
 
     expect(await screen.findByText("No teammates")).toBeInTheDocument();
-    expect(screen.getByText(/Inactive people are hidden/)).toBeInTheDocument();
+    expect(await screen.findByText(/Inactive people are hidden/)).toBeInTheDocument();
+  });
+
+  test("an empty list with nobody inactive shows no hint", async () => {
+    setupMocks(mockFetch, [], 0);
+    renderWithProviders(<TeamMembersTable view="member" emptyMessage="No teammates" />);
+
+    expect(await screen.findByText("No teammates")).toBeInTheDocument();
+    await waitFor(() => expect(memberUrls(mockFetch).some((u) => u.includes("deactivated=true"))).toBe(true));
+    expect(screen.queryByText(/Inactive people are hidden/)).not.toBeInTheDocument();
   });
 
   test("the hidden-inactive hint is absent once the filter is not the default", async () => {

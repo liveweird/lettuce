@@ -6,6 +6,7 @@ import { canAudit } from "../api/session";
 import { listAllTeamMembers } from "../api/teams";
 import AccountStatusSelect from "../components/AccountStatusSelect";
 import EmptyState from "../components/EmptyState";
+import { useHiddenInactive } from "../hooks/useHiddenInactive";
 import FilterPanel from "../components/FilterPanel";
 import PersonCard from "../components/PersonCard";
 import PersonCardBody from "../components/PersonCardStats";
@@ -38,6 +39,11 @@ export default function ManagersTable() {
   const gridCols = { base: 1, "44em": 2, "84em": 3 };
 
   const managers = groupTeamRows(data ?? []);
+  // The hint below shows only when the default filter really hides someone.
+  const inactiveHidden = useHiddenInactive(
+    { view: "managers" },
+    data !== undefined && managers.length === 0 && !isStatusFilterActive(statusFilter),
+  );
 
   return (
     <Stack gap="md">
@@ -101,7 +107,7 @@ export default function ManagersTable() {
           <EmptyState
             icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
             label={t("users.noManagers")}
-            description={!isStatusFilterActive(statusFilter) ? t("users.inactiveHiddenHint") : undefined}
+            description={inactiveHidden ? t("users.inactiveHiddenHint") : undefined}
           />
         )
       )}

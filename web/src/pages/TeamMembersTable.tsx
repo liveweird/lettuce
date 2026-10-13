@@ -17,6 +17,7 @@ import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/t
 import AccountStatusSelect from "../components/AccountStatusSelect";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
+import { useHiddenInactive } from "../hooks/useHiddenInactive";
 import PersonCard from "../components/PersonCard";
 import PersonCardBody from "../components/PersonCardStats";
 import FilterMultiSelect from "../components/FilterMultiSelect";
@@ -145,6 +146,18 @@ export default function TeamMembersTable({
   });
 
   const total = data?.total ?? 0;
+  // The empty-state hint shows only when the default filter really hides someone matching
+  // the grid's other filters.
+  const inactiveHidden = useHiddenInactive(
+    {
+      view,
+      name: debouncedName || undefined,
+      email: debouncedEmail || undefined,
+      teamId: effectiveTeamId,
+      includeIndirect: includeIndirect || undefined,
+    },
+    data !== undefined && total === 0 && !isStatusFilterActive(statusFilter),
+  );
 
   // The screen this grid lives in, so feedback/1:1 flows can return here on Cancel — the
   // Dashboard tab by default, the team-scoped view when embedded there.
@@ -315,7 +328,7 @@ export default function TeamMembersTable({
           <EmptyState
             icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
             label={emptyMessage}
-            description={!isStatusFilterActive(statusFilter) ? t("users.inactiveHiddenHint") : undefined}
+            description={inactiveHidden ? t("users.inactiveHiddenHint") : undefined}
           />
         )
       )}

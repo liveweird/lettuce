@@ -507,15 +507,32 @@ describe("ManagersTable", () => {
     expect(screen.getByRole("link", { name: "1:1 meetings with Manager Two" })).toBeInTheDocument();
   });
 
-  test("an empty list under the default Active filter hints that inactive people are hidden; Any drops the hint", async () => {
-    // A fresh Response per call: the filter change refetches and a body can be read once.
+  test("an empty list under the default Active filter hints only when someone inactive is hidden", async () => {
+    // No inactive manager either: the probe (deactivated=true) finds nobody, so no hint.
     mockFetch.mockImplementation(() =>
       Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 })),
     );
     renderWithProviders(<ManagersTable />);
 
     expect(await screen.findByText("No managers")).toBeInTheDocument();
-    expect(screen.getByText(/Inactive people are hidden/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockFetch.mock.calls.some(([url]) => String(url).includes("deactivated=true"))).toBe(true),
+    );
+    expect(screen.queryByText(/Inactive people are hidden/)).not.toBeInTheDocument();
+  });
+
+  test("an empty list hiding an inactive manager hints at the Status filter; Any drops the hint", async () => {
+    // A fresh Response per call: the filter change refetches and a body can be read once. The
+    // pageSize-1 probe (deactivated=true) finds one hidden manager.
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(
+        jsonResponse(200, { items: [], page: 1, pageSize: 100, total: String(url).includes("deactivated=true") ? 1 : 0 }),
+      ),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    expect(await screen.findByText("No managers")).toBeInTheDocument();
+    expect(await screen.findByText(/Inactive people are hidden/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /filters/i }));
     fireEvent.click(screen.getByLabelText("Status", { selector: "input" }));
