@@ -70,7 +70,11 @@ function renderTab() {
 describe("ReviewsDashboard tab", () => {
   let mockFetch: FetchMock;
 
-  function setupMocks({ periods = PERIODS, reviews = [REVIEW] }: { periods?: unknown[]; reviews?: unknown[] } = {}) {
+  function setupMocks({
+    periods = PERIODS,
+    reviews = [REVIEW],
+    members = MEMBERS,
+  }: { periods?: unknown[]; reviews?: unknown[]; members?: unknown[] } = {}) {
     mockFetch.mockImplementation((url: string) => {
       const u = String(url);
       if (u.includes("/api/v1/review-periods")) {
@@ -78,7 +82,7 @@ describe("ReviewsDashboard tab", () => {
       }
       if (u.includes("/api/v1/teams/members")) {
         return Promise.resolve(
-          jsonResponse(200, { items: MEMBERS, page: 1, pageSize: 100, total: MEMBERS.length }),
+          jsonResponse(200, { items: members, page: 1, pageSize: 100, total: members.length }),
         );
       }
       if (u.includes("/api/v1/performance-reviews")) {
@@ -138,6 +142,40 @@ describe("ReviewsDashboard tab", () => {
       .find((u) => u.includes("/api/v1/performance-reviews?"));
     expect(reviewsCall).toContain("periodId=5");
     expect(reviewsCall).toContain("includeIndirect=true");
+  });
+
+  test("the Status filter defaults to Active, hides deactivated reports, and Inactive/Any reveal them with the pill", async () => {
+    setupMocks({
+      members: [...MEMBERS, { userId: 12, name: "Dee Gone", email: "d@x", teamId: 2, teamName: "BBB", deactivated: true }],
+    });
+    renderTab();
+
+    await screen.findByText("Ann Alpha");
+    const table = screen.getByRole("table");
+    expect(within(table).queryByText("Dee Gone")).toBeNull();
+    // The default is not an applied filter: the roster is fetched whole, no badge on the toggle.
+    expect(within(screen.getByRole("button", { name: /^filters/i })).queryByText("1")).toBeNull();
+    expect(within(table).queryByText("Inactive")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
+    fireEvent.click(screen.getByLabelText("Status", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Inactive" }));
+    const dee = (await screen.findByText("Dee Gone")).closest("tr") as HTMLElement;
+    expect(within(dee).getByText("Inactive")).toBeInTheDocument();
+    expect(within(screen.getByRole("table")).queryByText("Ann Alpha")).toBeNull();
+    expect(JSON.parse(localStorage.getItem("lettuce.viewSettings.dashboardReviews.filter.accountStatus") ?? "x")).toBe("true");
+  });
+
+  test("a deactivated report without a review gets no New review action (the create deep link drops them)", async () => {
+    setupMocks({
+      members: [...MEMBERS, { userId: 12, name: "Dee Gone", email: "d@x", teamId: 2, teamName: "BBB", deactivated: true }],
+    });
+    localStorage.setItem("lettuce.viewSettings.dashboardReviews.filter.accountStatus", "null");
+    renderTab();
+
+    await screen.findByText("Dee Gone");
+    expect(screen.getByRole("link", { name: "New performance review for Zoe Zeta" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New performance review for Dee Gone" })).not.toBeInTheDocument();
   });
 
   test("a manager gets the Share reviews entry for the selected period (v4.10.0)", async () => {
@@ -550,8 +588,12 @@ describe("ReviewsDashboard tab", () => {
     expect(screen.getByLabelText("Reports", { selector: "input" })).toBeDisabled();
     expect(screen.getByText("Ann Alpha")).toBeInTheDocument();
     expect(screen.getByText("Zoe Zeta")).toBeInTheDocument();
-    // The deactivated user never joins the roster (ACTIVE users only).
+    // The deactivated user is hidden by the default Active filter (it no longer drops them silently).
     expect(screen.queryByText("Gone Deactivated")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Status", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Active" })); // re-pick = Any
+    const gone = (await screen.findByText("Gone Deactivated")).closest("tr") as HTMLElement;
+    expect(within(gone).getByText("Inactive")).toBeInTheDocument();
     // Read-only: no create action, even for the report-less row.
     expect(screen.queryByRole("link", { name: /New performance review/ })).toBeNull();
     // An auditor-only reader shares nothing: the mass-share entry is hidden on this scope.

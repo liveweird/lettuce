@@ -48,6 +48,7 @@ import OrderedTextListEditor from "../components/OrderedTextListEditor";
 import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
 import {
+  activeOnly,
   renderUserOption,
   userOption,
   type UserOption,
@@ -120,13 +121,8 @@ function buildCandidateOptions(
   const keepId = plan.nominations.find(
     (n) => n.id === nominationId,
   )?.candidateId;
-  return (userPool ?? [])
-    .filter(
-      (u) =>
-        u.id !== plan.userId &&
-        (!u.deactivated || u.id === keepId) &&
-        !taken.has(u.id),
-    )
+  return activeOnly(userPool ?? [], keepId != null ? [keepId] : [])
+    .filter((u) => u.id !== plan.userId && !taken.has(u.id))
     .map((u) =>
       userOption(
         u.id,

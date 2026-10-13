@@ -511,9 +511,14 @@ class TeamRoutesTest {
             setBody(Team(name = "T", managerId = managerId, memberIds = listOf(memberA)))
         }.body<TeamResponse>()
 
-        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/users/$managerId").status)
+        // A soft-deleted account's access token stops working at once (the token window is closed),
+        // so the delete — and the read afterwards — go through a second, surviving admin's session.
+        val adminEmail = uniqueEmail("survivor")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val admin = authedClient(adminEmail, "pw")
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/$managerId").status)
 
-        val after = client.get("/api/v1/teams/${team.id}").body<TeamResponse>()
+        val after = admin.get("/api/v1/teams/${team.id}").body<TeamResponse>()
         assertEquals(managerId, after.managerId)
     }
 

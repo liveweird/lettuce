@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -61,6 +61,7 @@ type MemberRow = {
   careerSpecialization?: { id: number; values: { en: string; pl?: string } } | null;
   seniorityLevel?: { id: number; values: { en: string; pl?: string } } | null;
   lastLoginAt?: number | null;
+  deactivated?: boolean;
 };
 
 const BOB_ROW: MemberRow = {
@@ -88,6 +89,7 @@ function mockApi(
       careerSpecialization?: { id: number; values: { en: string; pl?: string } } | null;
       seniorityLevel?: { id: number; values: { en: string; pl?: string } } | null;
       lastLoginAt?: number | null;
+      deactivated?: boolean;
     }>;
     teams?: Array<{ id: number; name: string }>;
     // The viewer's own OPEN plans pool (v2.47.0) — {planId, seat userId} pairs.
@@ -168,6 +170,30 @@ describe("UserDetails page", () => {
     expect(screen.queryByRole("link", { name: /new 1:1/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /new 1:1/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /1:1 actions for/i })).not.toBeInTheDocument();
+  });
+
+  test("a deactivated person gets the Inactive pill beside the name in the header — once, not on the card too", async () => {
+    mockApi(mockFetch, { managed: [{ ...BOB_ROW, deactivated: true }] });
+    renderDetails();
+
+    // The ?name= hint titles the page before the data lands; the pill arrives with the person.
+    const heading = await screen.findByRole("heading", { level: 2, name: /Bob/ });
+    expect(await within(heading.parentElement as HTMLElement).findByText("Inactive")).toBeInTheDocument();
+    expect(screen.getAllByText("Inactive")).toHaveLength(1);
+  });
+
+  test("the no-relationship fallback carries the flag too; an active person has no pill", async () => {
+    mockApi(mockFetch, {
+      users: [{ id: 5, name: "Bob", email: "bob@example.com", roles: [], deactivated: true }],
+    });
+    renderDetails();
+    expect(await screen.findByText("Inactive")).toBeInTheDocument();
+    cleanup();
+
+    mockApi(mockFetch, { managed: [BOB_ROW] });
+    renderDetails();
+    await screen.findByText("bob@example.com");
+    expect(screen.queryByText("Inactive")).not.toBeInTheDocument();
   });
 
   test("a user found in the managed view renders the subordinate-flavored card", async () => {

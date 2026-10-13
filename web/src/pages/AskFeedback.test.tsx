@@ -16,6 +16,7 @@ vi.mock("../hooks/useAllUsers", () => ({
     userPool: [
       { id: 3, name: "Me Myself" },
       { id: 10, name: "Manny Manager" },
+      { id: 11, name: "Dee Deactivated", deactivated: true },
     ],
     usersLoading: false,
     usersError: false,
@@ -78,6 +79,13 @@ describe("AskFeedback page", () => {
     renderAskFeedback("?providerId=999&providerName=Impostor");
     expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");
     expect(screen.queryByText("Impostor")).toBeNull();
+  });
+
+  test("bounces back when the provider is deactivated — no new reference to a deactivated account", () => {
+    mockFetch.mockResolvedValue(jsonResponse(404, {}));
+    renderAskFeedback("?providerId=11");
+    expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=managers");
+    expect(screen.queryByText("Dee Deactivated")).toBeNull();
   });
 
   test("warns early and disables the request when this ask is already pending", async () => {

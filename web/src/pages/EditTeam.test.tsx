@@ -93,6 +93,34 @@ describe("EditTeam page", () => {
     });
   });
 
+  test("the manager picker hides deactivated people but keeps the team's current (deactivated) manager", async () => {
+    const pool = {
+      ...MANAGER_POOL,
+      items: [
+        { id: 10, name: "Mona Manager", email: "mona@example.com", roles: ["ADMIN"], deactivated: true },
+        { id: 11, name: "Bob Manager", email: "bob@example.com", roles: [], deactivated: false },
+        { id: 12, name: "Dee Deactivated", email: "dee@example.com", roles: [], deactivated: true },
+      ],
+      total: 3,
+    };
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/2") return Promise.resolve(jsonResponse(200, TEAM));
+      if (url.startsWith("/api/v1/users?")) return Promise.resolve(jsonResponse(200, pool));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderEditTeam(2);
+
+    const manager = (await screen.findByLabelText("Manager", { selector: "input" })) as HTMLInputElement;
+    // The current manager stays selected (the Select would blank without their option)…
+    await waitFor(() => expect(manager.value).toBe("Mona Manager"));
+    // …and the options keep them, offer Bob, and never Dee.
+    await userEvent.click(manager);
+    const options = (await screen.findAllByRole("option", { hidden: true })).map((o) => o.textContent);
+    expect(options).toContain("Mona Manager");
+    expect(options).toContain("Bob Manager");
+    expect(options).not.toContain("Dee Deactivated");
+  });
+
   test.each([
     [403, /don't have permission to edit this team/i],
     [404, /team no longer exists/i],

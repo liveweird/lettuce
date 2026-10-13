@@ -9,7 +9,7 @@ import { invalidateFeedback } from "../utils/feedbackQueries";
 import DuplicateFeedbackAlert from "../components/DuplicateFeedbackAlert";
 import FeedbackForm from "../components/FeedbackForm";
 import RecipientsMultiSelect from "../components/RecipientsMultiSelect";
-import { userOption } from "../components/userOptions";
+import { activeOnly, userOption } from "../components/userOptions";
 import { useAllUsers } from "../hooks/useAllUsers";
 import { useFeedbackDuplicates } from "../hooks/useFeedbackDuplicate";
 import { feedbackEditLink } from "../utils/feedbackLinks";
@@ -60,8 +60,10 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   const { userPool, usersError, usersReady } = useAllUsers(true);
   // A URL-crafted SELF subject resolves to nothing (feedback about yourself is gone since
   // v2.36.0 — the server rejects it), so it falls back to the picker like any unknown id.
+  // Likewise a deactivated one (the picker rule — a new reference never targets a deactivated
+  // account): it falls back to the picker, where they are not offered either.
   const urlSubject = urlSubjectRequested
-    ? (userPool ?? []).find((u) => u.id === urlSubjectId && u.id !== providerId)
+    ? activeOnly(userPool ?? []).find((u) => u.id === urlSubjectId && u.id !== providerId)
     : undefined;
   const pickerMode = !urlSubjectRequested || (usersReady && !urlSubject);
 
@@ -69,7 +71,7 @@ export default function CreateFeedback({ kudo = false }: { kudo?: boolean }) {
   // supported (the self-reflection feature was retired in v2.36.0; the Impact log replaces it).
   const subjectOptions = useMemo(
     () =>
-      (userPool ?? [])
+      activeOnly(userPool ?? [])
         .filter((u) => u.id !== providerId)
         .map((u) => userOption(u.id, u.name, (u.teams ?? []).map((team) => team.name)))
         .sort((a, b) => a.label.localeCompare(b.label)),

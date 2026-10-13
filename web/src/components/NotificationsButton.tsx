@@ -35,6 +35,7 @@ import {
   IconStairsUp,
   IconTargetArrow,
   IconTrash,
+  IconUserCheck,
   IconX,
 } from "@tabler/icons-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -126,6 +127,8 @@ const EVENT_KEY: Record<NotificationItem["type"], string> = {
   PULSE_RESULTS_SHARED: "pulseResultsShared",
   PULSE_RESULTS_SHARE_WITHDRAWN: "pulseResultsShareWithdrawn",
   PASSWORD_CHANGED: "passwordChanged",
+  // The reactivated person's own notice (params `{}`, no link, locked on like the password one).
+  ACCOUNT_REACTIVATED: "accountReactivated",
 };
 
 // The per-key param formatting spec — the third table beside EVENT_KEY/TYPE_META: which raw
@@ -340,6 +343,7 @@ const TYPE_META: Record<NotificationItem["type"], { icon: typeof IconBell; color
   PULSE_RESULTS_SHARED: { icon: IconShare, color: "blue" },
   PULSE_RESULTS_SHARE_WITHDRAWN: { icon: IconShare, color: "orange" },
   PASSWORD_CHANGED: { icon: IconKey, color: "orange" },
+  ACCOUNT_REACTIVATED: { icon: IconUserCheck, color: "teal" },
 };
 
 // Poll the bell so notifications minted elsewhere (e.g. someone sending you feedback) show up

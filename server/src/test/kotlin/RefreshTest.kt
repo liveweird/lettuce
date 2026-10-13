@@ -19,6 +19,7 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import java.util.Date
 import java.util.UUID
+import kotlinx.coroutines.delay
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -219,7 +220,7 @@ class RefreshTest {
     }
 
     @Test
-    fun `refresh rejects a deactivated user's token, and reactivation restores it`() = testApplication {
+    fun `refresh rejects a deactivated user's token, also after reactivation`() = testApplication {
         usePostgresTestcontainer()
         val email = uniqueEmail("refresh-deactivated")
         val userId = TestUsers.seed(email = email, password = "pw")
@@ -229,8 +230,14 @@ class RefreshTest {
         TestServices.users.setDeactivated(userId, true)
         assertEquals(HttpStatusCode.Unauthorized, postRefresh(client, first.refreshToken).status)
 
-        // Reversibility: the same (still unexpired) refresh token works again after reactivation.
+        // Deactivation stamps the refresh cutoff (password_changed_at), so a session from before
+        // it stays dead after reactivation — only a fresh login works again.
         TestServices.users.setDeactivated(userId, false)
-        assertEquals(HttpStatusCode.OK, postRefresh(client, first.refreshToken).status)
+        assertEquals(HttpStatusCode.Unauthorized, postRefresh(client, first.refreshToken).status)
+        // The cutoff is the start of the second AFTER the deactivation (iat is whole seconds), so
+        // a login inside that same second would be cut off too — wait it out (humans always do).
+        delay(1_100)
+        val second = loginBody(client, email, "pw")
+        assertEquals(HttpStatusCode.OK, postRefresh(client, second.refreshToken).status)
     }
 }

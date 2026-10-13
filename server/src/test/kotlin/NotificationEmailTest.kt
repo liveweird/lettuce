@@ -253,6 +253,20 @@ class NotificationEmailTest {
     }
 
     @Test
+    fun `account reactivated is a security-notice email in both languages`() {
+        val en = notificationEmailContent(
+            "R", NotificationType.ACCOUNT_REACTIVATED, emptyMap(), null, null, "en",
+        )!!
+        assertTrue("Your account was reactivated." in en.body, en.body)
+        assertEquals("Lettuce: security notice", en.subject)
+        val pl = notificationEmailContent(
+            "R", NotificationType.ACCOUNT_REACTIVATED, emptyMap(), null, null, "pl",
+        )!!
+        assertTrue("Twoje konto zostało ponownie aktywowane." in pl.body, pl.body)
+        assertEquals("Lettuce: powiadomienie o bezpieczeństwie", pl.subject)
+    }
+
+    @Test
     fun `subjects are per feature area and per language`() {
         fun subject(type: NotificationType, lang: String) =
             notificationEmailContent("R", type, allParams, null, null, lang)!!.subject

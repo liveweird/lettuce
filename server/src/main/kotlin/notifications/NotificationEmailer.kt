@@ -27,8 +27,8 @@ import org.slf4j.LoggerFactory
  *  - the catalog returns null (deliberately-not-emailed wordings) → skip.
  *
  * The V51 opt-out, the disabled-feature check, and the per-type EMAIL check are ALL skipped
- * outright for a [NotificationType.lockedOn] type (`PASSWORD_CHANGED`) — a security receipt
- * stays on for both channels regardless of any preference, master switch included; only the
+ * outright for a [NotificationType.lockedOn] type (`PASSWORD_CHANGED`, `ACCOUNT_REACTIVATED`) — a
+ * security receipt stays on for both channels regardless of any preference, master switch included; only the
  * deactivated/soft-deleted checks above still apply to it.
  */
 class NotificationEmailer(

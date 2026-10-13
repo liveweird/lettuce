@@ -122,6 +122,24 @@ describe("NotificationsButton", () => {
     expect(screen.getByText("You documented a 1:1 meeting with Sam Subject (2026-07-12).")).toBeInTheDocument();
   });
 
+  test("renders ACCOUNT_REACTIVATED (params {}, no link) with its own wording", async () => {
+    const rows: Item[] = [
+      {
+        id: 31, recipientId: 7, timestamp: Date.now(), wasSeen: false,
+        type: "ACCOUNT_REACTIVATED",
+        params: {},
+        link: null,
+      },
+    ];
+    setupMocks(mockFetch, rows, 1);
+    renderWithProviders(<Harness />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: /notifications/i }));
+
+    expect(await screen.findByText("Your account was reactivated — you can sign in again.")).toBeInTheDocument();
+    // Link-less like the password notice: no "open" affordance.
+    expect(screen.queryByRole("button", { name: /open/i })).toBeNull();
+  });
+
   test("renders the four goal-transition kinds with the manager's name and the goal title", async () => {
     const rows: Item[] = (
       [

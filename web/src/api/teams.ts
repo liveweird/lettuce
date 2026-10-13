@@ -75,7 +75,7 @@ export type TeamMemberPage =
 
 export type TeamMemberListView = "member" | "managed" | "managers";
 
-type TeamMemberListQuery = {
+export type TeamMemberListQuery = {
   view: TeamMemberListView;
   page: number;
   pageSize: number;
@@ -86,6 +86,9 @@ type TeamMemberListQuery = {
   teamId?: number | number[];
   /** Only valid with view=managed: widen from direct reports to the whole management chain. */
   includeIndirect?: boolean;
+  /** Strict-boolean account-status filter: true = only deactivated, false = only active,
+   *  absent = both (`false` IS sent — buildQuery keeps it). */
+  deactivated?: boolean;
 };
 
 export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMemberPage> {
@@ -98,6 +101,7 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
     email: q.email,
     teamId: q.teamId,
     includeIndirect: q.includeIndirect || undefined,
+    deactivated: q.deactivated,
   });
   return jsonRequest<TeamMemberPage>(`/api/v1/teams/members?${params}`);
 }
@@ -118,15 +122,18 @@ export async function listAllTeams(
 
 /** Every row of one caller-relative view, paging until the server total is reached — the
  * listAllTeams idiom, for callers that need to find a specific person rather than a page.
- * `includeIndirect` widens the managed view to the transitive chain (the reviews dashboard). */
+ * `includeIndirect` widens the managed view to the transitive chain (the reviews dashboard);
+ * `deactivated` narrows to inactive/active accounts (absent = both — the pickers and the
+ * details/roster lookups want everyone). */
 export async function listAllTeamMembers(
   view: TeamMemberListView,
   includeIndirect?: boolean,
+  deactivated?: boolean,
 ): Promise<TeamMemberPage["items"]> {
   const items: TeamMemberPage["items"] = [];
   let page = 1;
   for (;;) {
-    const result = await listTeamMembers({ view, page, pageSize: 100, includeIndirect });
+    const result = await listTeamMembers({ view, page, pageSize: 100, includeIndirect, deactivated });
     items.push(...result.items);
     if (items.length >= result.total || result.items.length === 0) return items;
     page += 1;

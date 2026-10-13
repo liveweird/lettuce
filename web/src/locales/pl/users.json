@@ -253,6 +253,7 @@
   "statusActive": "Aktywny",
   "statusInactive": "Nieaktywny",
   "inactiveBadge": "Nieaktywny",
+  "inactiveHiddenHint": "Nieaktywne osoby są ukryte — zmień filtr statusu, aby je zobaczyć.",
   "uniqueId": "Unikalny identyfikator",
   "uniqueIdHint": "Opcjonalny; unikalny wśród aktywnych osób. Zostaw puste, aby zachować obecną wartość — ustawiony identyfikator można zmienić, ale nie wyczyścić.",
   "languageHint": "Język interfejsu i e-maili tej osoby — może go później zmienić samodzielnie.",

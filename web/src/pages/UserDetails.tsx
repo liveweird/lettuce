@@ -9,6 +9,7 @@ import { canAudit, getUserId } from "../api/session";
 import { listUsers, type UserPage } from "../api/users";
 import { listAllTeamMembers, listTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
+import InactivePill from "../components/InactivePill";
 import PageHeader from "../components/PageHeader";
 import PersonCard from "../components/PersonCard";
 import PersonCardActions, { type PersonCardActionsProps } from "../components/PersonCardActions";
@@ -71,6 +72,7 @@ async function fetchUserDetails(userId: number): Promise<UserDetailsData> {
       userId: found.id,
       name: found.name,
       email: found.email,
+      deactivated: found.deactivated,
       teams: teams.items.map((team) => ({ id: team.id, name: team.name })),
       teamNames: teams.items.map((team) => team.name),
       lastOneOnOneDate: null,
@@ -185,6 +187,7 @@ export default function UserDetails() {
             userId: person.userId,
             name: person.name,
             labels: "users",
+            deactivated: person.deactivated,
             back: backHere,
             drillFrom: "details",
             drillBack: backHere,
@@ -207,6 +210,7 @@ export default function UserDetails() {
               userId: person.userId,
               name: person.name,
               labels: "teams",
+              deactivated: person.deactivated,
               back: backHere,
               drillFrom: "details",
               drillBack: backHere,
@@ -234,6 +238,7 @@ export default function UserDetails() {
               userId: person.userId,
               name: person.name,
               labels: "teams",
+              deactivated: person.deactivated,
               back: backHere,
               drillFrom: "details",
               drillBack: backHere,
@@ -257,6 +262,9 @@ export default function UserDetails() {
       <PageHeader
         back={{ to: origin.to, label: t("feedback.backToLabel", { label: t(origin.labelKey) }) }}
         title={name ?? t("users.detailsTitle")}
+        // A deactivated account is marked beside the name (the card below stays unmarked, so the
+        // pill is not doubled); active people get none.
+        badge={person?.deactivated ? <InactivePill /> : undefined}
         description={relationship ? t(`users.relationship.${relationship}`) : undefined}
       />
 

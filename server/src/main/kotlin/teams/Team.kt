@@ -80,6 +80,9 @@ data class TeamMemberListItem(
     val email: String,
     val teamId: UInt,
     val teamName: String,
+    // The person's V44 deactivated flag (read from the Users join the list already does). The
+    // `deactivated` query filter narrows on it; the row carries it so the card can mark it.
+    val deactivated: Boolean,
     // Dashboard stats. The 1:1/lastFeedbackAt trio is populated for view=managers and
     // view=managed (direction follows the view: managers — the row user is the meeting's
     // manager / feedback provider; managed — the caller is); the given/received pair below

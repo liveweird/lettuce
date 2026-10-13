@@ -16,8 +16,9 @@ import kotlin.test.assertEquals
 /**
  * `caller()` (authz/Principal.kt) parses the JWT claims into a [ch.nokillswit.authz.CallerPrincipal]
  * and throws [ch.nokillswit.authz.UnauthorizedException] -> 401 when a claim is missing or invalid.
- * The JWT `validate` block only checks audience + revocation, so a token with a valid
- * signature/issuer/audience but a missing/garbled claim still authenticates and reaches `caller()`.
+ * The JWT `validate` block checks audience, revocation and account state (the account must still
+ * be active) but not the custom claims, so a token with a valid signature/issuer/audience but a
+ * missing/garbled claim still authenticates and reaches `caller()`.
  */
 class PrincipalAuthTest {
 

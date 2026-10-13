@@ -135,6 +135,7 @@
     "passwordChanged": "Twoje hasło zostało zmienione.",
     "passwordChanged_admin": "Administrator zmienił Twoje hasło.",
     "passwordChanged_reset": "Twoje hasło zostało zresetowane przez e-mail.",
+    "accountReactivated": "Twoje konto zostało ponownie aktywowane — możesz się znowu zalogować.",
     "pulseCycleScheduled": "Ankieta pulsu zostanie otwarta {{openDate}}.",
     "pulseCycleOpened": "Ankieta pulsu jest otwarta — odpowiedz do {{closeDate}}.",
     "pulseResultsAvailable": "Wyniki ankiety pulsu są już dostępne.",
@@ -207,7 +208,8 @@
     "DAYS_OFF_CALENDARS_BATCH_SHARED": "Ktoś udostępnił mi kalendarze dni wolnych zbiorczo",
     "PULSE_RESULTS_SHARED": "Ktoś udostępnił mi wyniki ankiety pulsu",
     "PULSE_RESULTS_SHARE_WITHDRAWN": "Ktoś wycofał mój dostęp do udostępnionych wyników ankiety pulsu",
-    "PASSWORD_CHANGED": "Moje hasło zostało zmienione"
+    "PASSWORD_CHANGED": "Moje hasło zostało zmienione",
+    "ACCOUNT_REACTIVATED": "Moje konto zostało ponownie aktywowane"
   },
   "delete": "Usuń",
   "deleteAria": "Usuń powiadomienie {{id}}"

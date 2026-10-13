@@ -59,12 +59,15 @@
    user's email (the shared long-lived database — never assume the row sits on page 1).
 2. From the row's **Modify ▾** menu the admin chooses "Deactivate ‹name›" and confirms in the
    modal.
-3. The admin reloads the Users list and filters by the email again.
+3. The admin reloads the Users list and filters by the email again. The Status filter defaults
+   to **Active**, so the deactivated row is hidden; the admin switches Status to **Inactive**.
    - *Expected*: the row carries the **Inactive** badge.
 4. The admin signs out; the user tries to sign in with their **correct** credentials.
    - *Expected*: sign-in is rejected with the distinct "this account has been deactivated"
      message — not the generic invalid-credentials one.
-5. The admin signs back in, filters to the row, and chooses **Modify ▾ → "Reactivate ‹name›"**.
+5. The admin signs back in, filters to the row (Status **Inactive** — the row is still
+   deactivated, so it is hidden under the default Active), and chooses
+   **Modify ▾ → "Reactivate ‹name›"**.
 6. The admin signs out; the user signs in with the same credentials.
    - *Expected*: access is restored — the sign-in succeeds.
 

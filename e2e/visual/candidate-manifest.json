@@ -1,9 +1,9 @@
 {
   "status": "accepted",
   "stage": 2,
-  "applicationVersion": "4.15.3",
-  "sourceRevision": "6118bee019d11652962a8ca76387a30a94440290",
-  "approvedReferenceRevision": "4c1e30abc037fa154988313b6d97b74552a332eb",
+  "applicationVersion": "4.16.0 (displayed version pinned to 0.0.0)",
+  "sourceRevision": "feat/deactivated-users-consistency (committed with this record)",
+  "approvedReferenceRevision": "f4f4edce",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -17,193 +17,193 @@
       "file": "candidates/forms.spec.ts/feedback-create-initial-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "43b3bb9e06481958a6df666481c1de35a3237a210222ba30ca9a42cfb78255c6",
+      "sha256": "08f8d9a161b69c27437ebb5cc1dd7e4c277ebcbd2975b5a4038e5f531177beb4",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/feedback-draft-edit-multi-recipient-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "c274f882645a9a919211caa77775fec900635eff11f08d276535907c1e3011ec",
+      "sha256": "4139fc74525ff489444e382e3e589bde5a5aa621348875f91170f9324ac3d7be",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/feedback-sent-detail-provider-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "268b3cc76d4f89f568429a6f0beb279823e258764072d47b971caef990813f5a",
+      "sha256": "4b2ca1cda7cf70a06e495f743bcf3ffc190c3a305981dcd77aa76571fedf9522",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/team-create-invalid-empty-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "30877920a6fc47580db65d26c98945ed2b3176eba9b9e704a3d7a899d2ff5b65",
+      "sha256": "ae6abdef3396b71f91401e1d36896d2c7f001bde61d14ce86f4308d9c7b77885",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/team-detail-member-roster-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "a9fcfb7eebf8f8ee8cb75a686a11c255704bfcd83b05f2d32d366ba9415aca4a",
+      "sha256": "1ecca9d9a1ab65ddb573df2e6de1ff4cdd78264ec70d3359a8dd82c786ec4ee7",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/user-detail-subordinate-person-card-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "2e6e38b3fbd6d1a331f58452045e9bed6a984fee8a8968cb388e0aa7a2cc396a",
+      "sha256": "cc1e6d7d264c1ecea3891b8eda950ca722b8be96e96532ba3b5c674f0e20a12f",
       "status": "accepted"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "dc7a88c35f63ffb893cfbf0cfa0e1a67328e8b28f5ca1bbbcf744050462c6229",
-      "status": "unchanged-approved-reference",
+      "sha256": "6888841aa50cc4d4b55e8d2f36fb8c54306c157dea148a83371f018cb6971b2c",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "24be86b1698df45853ab0de50b3a36a3528e357af31a35b3a9713b64ce6ea20f",
-      "status": "unchanged-approved-reference",
+      "sha256": "38d34c62e42744085ca8b8488ca879a24a0c52d43e95a929a4d620eef0e65294",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "9a8680c7b88397926bcb954e36897fa29c0c38b728eff4bf2804514884b16b2d",
-      "status": "unchanged-approved-reference",
+      "sha256": "e803de191ad924aa1d5a679ce7523e80da6b478c7c6ec947d418f2970c2cddfa",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "ec18c9583455e1b7626228ddf772d3b534e40987ec7ab293783626b38f636b5d",
-      "status": "unchanged-approved-reference",
+      "sha256": "f59d4966f0ea9035115b2b0754593c3dbf9d9482b770854579cc092e1e0b9a37",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "3a53d40a5300f43b91d71a0b6d3c870d048326648ed2870b3a2abaa405e9ee58",
-      "status": "unchanged-approved-reference",
+      "sha256": "8335ba5159ac1bd7e8b10381070074508cf16f36fcd6ac475b95e92a002677ac",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "179d647a457ba9bde6f0647ac92ba278cfe43e71d716a2a76893554c86627fd8",
-      "status": "unchanged-approved-reference",
+      "sha256": "ddefa46bfe928fb8578e957fe324e24fc148ae8cb8f5ec3f47459516dd1818be",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "760edb546d3a1387ee07c221cb4ac1250b0ce2f7b0b737501185ec1498660cc8",
-      "status": "unchanged-approved-reference",
+      "sha256": "3a4206c5ce1a0c778b5fde89b93708b561c8f9cd4fb3609a180eee15238cd6a5",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/feedback-provided-en-light-1280.png",
       "width": 1280,
       "height": 1472,
-      "sha256": "1f7e07c0e5285c40231d10ab8ec6a77ded039ab881a0da25f7f02edc03ca09e0",
-      "status": "unchanged-approved-reference",
+      "sha256": "927cb85c0807462c1485458fd07e7abda9d9759e692bee730fc2b09371cebbf4",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/feedback-provided-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "5fc81898345af33cbf06f81435fbdd21f217e1e692671b521049093a054dfc5f",
-      "status": "unchanged-approved-reference",
+      "sha256": "4087ac1dbbbe2b38d5f8ef1734c39850ccdb72a3d7abfa41243c7bd4e302c7f3",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png"
     },
     {
       "file": "candidates/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "width": 1280,
       "height": 1472,
-      "sha256": "9f1513443a5ce5b21a4e3c4e68599fcdb8e80c2f9a4c9f7c306513b18df61c52",
-      "status": "unchanged-approved-reference",
+      "sha256": "d6a08f001e26a04ab563e37004cd5653fc6f17d5faea00cff8e45babc1fca8c8",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/feedback-received-en-light-1280.png",
       "width": 1280,
       "height": 1147,
-      "sha256": "8fa855d7fdff9e01e48f730966c5a06fe8ce87a0b3f15d439c7fec2da2e13b7b",
-      "status": "unchanged-approved-reference",
+      "sha256": "27f8c3ace1b431fd95dd51c11a3381c6e3e3379c58ac3bcd4c4516406e6db1e6",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/feedback-received-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "2d53789d6cf9eaa7d7e8c507541c61955284edf2c411d688672f89ad3fafe052",
-      "status": "unchanged-approved-reference",
+      "sha256": "bc0e54c59354731d2a940b013bbdee16bbd04cb81e08d21678c4afa5ebd8fd30",
+      "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png"
     },
     {
       "file": "candidates/people.spec.ts/dashboard-manager-en-light-1280.png",
       "width": 1280,
       "height": 1363,
-      "sha256": "d19703a5579ca4e8dd22514ab34e49341f2221b9f0a64bc8d32b62beab460752",
-      "status": "unchanged-approved-reference",
+      "sha256": "a78a20be07522dd61006c2b9e051351e71e14b334ef48111ada201f36637a0a4",
+      "status": "accepted",
       "previous": "snapshots/people.spec.ts/dashboard-manager-en-light-1280.png"
     },
     {
       "file": "candidates/people.spec.ts/dashboard-member-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "d20fe59e1a5979a29b1f4d9f65e4dbdac406483970b000a10eb9fe04160f5a08",
-      "status": "unchanged-approved-reference",
+      "sha256": "efe1dbf48b89795cc0c9d2bbb1d9b6f1403e351b153de03cd5808530ca1da25b",
+      "status": "accepted",
       "previous": "snapshots/people.spec.ts/dashboard-member-en-light-1440.png"
     },
     {
       "file": "candidates/people.spec.ts/teams-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "d8837a92854500e15ec5392376340533d67ac3317c2fca26a6c98f9ce76c872e",
-      "status": "unchanged-approved-reference",
+      "sha256": "932071ce38b4918c7200afd113a9c909d1db1de94ffb5b3d87197427b38b5f4f",
+      "status": "accepted",
       "previous": "snapshots/people.spec.ts/teams-admin-en-light-1440.png"
     },
     {
       "file": "candidates/people.spec.ts/teams-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "0954cc3303470d768c9838667f72d709f113dc63a7890bf3a22fe93421366e77",
-      "status": "unchanged-approved-reference",
+      "sha256": "6141aafb8f7ba89e67488cd522d6d95aa3ef3420b33827b16fd977c771972785",
+      "status": "accepted",
       "previous": "snapshots/people.spec.ts/teams-member-en-light-1280.png"
     },
     {
       "file": "candidates/people.spec.ts/users-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "42ff70112167cad43d6972e0ac8fcc5451b75e62bb8413ef39061094f058ca17",
-      "status": "unchanged-approved-reference",
+      "sha256": "8b0ec48ce9f0b6f50b8d774ed37a74766657b301fe064e91cc4b3c97d1ba42ed",
+      "status": "accepted",
       "previous": "snapshots/people.spec.ts/users-admin-en-light-1440.png"
     },
     {
       "file": "candidates/people.spec.ts/users-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "f1bbd6c774aaf0ff0f5bbfe93f9183c91dab8fb836e312cde222366d9c2f032a",
-      "status": "unchanged-approved-reference",
+      "sha256": "fb4353d29582cd428f6d96d83ab60a4baa87e6ac3a1923680c31daf7cf8f7896",
+      "status": "accepted",
       "previous": "snapshots/people.spec.ts/users-member-en-light-1280.png"
     }
   ],
   "approval": {
-    "date": "2026-10-05",
-    "reference": "Repository owner approved the six new stage 2 images in the Codex conversation: \"Approved. Commit, merge, push. Let's park for now, when you do that.\"",
-    "reviewedArtifactsCommit": "5ad82149c7642de4fa8b0cdf240466755611d8f7",
-    "scope": "Six new forms/detail images; the previous 18 approved images are unchanged."
+    "date": "2026-10-13",
+    "reference": "Repository owner reviewed the v4.16.0 candidates in the Claude Code conversation and replied \"approved\".",
+    "reviewedArtifactsCommit": null,
+    "scope": "All 24 images re-approved: the sidebar version stamp is now pinned to v0.0.0 (pinned-version.ts), and the member dashboard's My managers tab gains the account Status filter toggle. No other change."
   }
 }

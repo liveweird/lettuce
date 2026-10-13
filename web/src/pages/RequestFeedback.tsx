@@ -28,7 +28,7 @@ import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
 import PersonaChip from "../components/PersonaChip";
 import RowActions from "../components/RowActions";
-import { renderUserOption, userOption } from "../components/userOptions";
+import { activeOnly, renderUserOption, userOption } from "../components/userOptions";
 import { useDiscardGuard } from "../hooks/useDiscardGuard";
 import { REQUESTER_VISIBILITIES } from "../utils/feedbackVisibility";
 import { resolveFeedbackExpiresOn, type ExpirationPreset } from "../utils/feedbackForm";
@@ -94,7 +94,8 @@ export default function RequestFeedback() {
   const subjectIdIsValid = Number.isFinite(subjectId) && subjectId > 0;
   // The subject's display name resolves from the org pool — never from a URL param (v2.35.0);
   // an id matching no user bounces back once the pool settles.
-  const subject = subjectIdIsValid ? (userPool ?? []).find((u) => u.id === subjectId) : undefined;
+  // A deactivated subject bounces like an unknown id (the picker rule: no new reference to them).
+  const subject = subjectIdIsValid ? activeOnly(userPool ?? []).find((u) => u.id === subjectId) : undefined;
 
   // Early no-duplicate check, one triple per picked provider: providers whose feedback is
   // already in progress get an inline warning with a link, and Request stays disabled until
@@ -125,7 +126,7 @@ export default function RequestFeedback() {
   // feature), and cannot be already chosen.
   const addOptions = useMemo(() => {
     const chosen = new Set(selected.map((p) => p.id));
-    return (userPool ?? [])
+    return activeOnly(userPool ?? [])
       .filter((u) => u.id !== requesterId && u.id !== subjectId && !chosen.has(u.id))
       .map((u) => userOption(u.id, u.name, (u.teams ?? []).map((team) => team.name)))
       .sort((a, b) => a.label.localeCompare(b.label));
@@ -139,7 +140,7 @@ export default function RequestFeedback() {
   function add() {
     if (!pick) return;
     const id = Number(pick);
-    const user = (userPool ?? []).find((u) => u.id === id);
+    const user = activeOnly(userPool ?? []).find((u) => u.id === id);
     if (!user) return;
     setSelected((prev) => (prev.some((p) => p.id === id) ? prev : [...prev, { id, name: user.name }]));
     setPick(null);

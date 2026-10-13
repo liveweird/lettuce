@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
-import { renderWithProviders, screen } from "../test/render";
+import { renderWithProviders, screen, within } from "../test/render";
 import OrgChart from "./OrgChart";
 import { jsonResponse } from "../test/http";
 
@@ -104,6 +104,28 @@ describe("OrgChart page", () => {
     // memberIds ride the teams list: no per-team GET /api/v1/teams/{id} (the v4.14.0 fix).
     const urls = mockFetch.mock.calls.map(([url]) => String(url));
     expect(urls.filter((u) => /^\/api\/v1\/teams\/\d+/.test(u))).toEqual([]);
+  });
+
+  test("a deactivated person's node is marked: the Inactive pill and a dashed, tinted node; active nodes are plain", async () => {
+    mockApi(
+      mockFetch,
+      TEAMS,
+      USERS.map((u) => (u.id === 1 ? { ...u, deactivated: true } : { ...u, deactivated: false })),
+    );
+    renderOrg();
+
+    const node = (await screen.findByRole("button", { name: "User details for AAA One" })).closest(
+      ".mantine-Paper-root",
+    ) as HTMLElement;
+    expect(within(node).getByText("Inactive")).toBeInTheDocument();
+    expect(node.style.borderStyle).toBe("dashed");
+    // The aria-label stays the stable "User details for …" and only that one person is marked.
+    expect(screen.getAllByText("Inactive")).toHaveLength(1);
+    const active = screen.getByRole("button", { name: "User details for Manager AAA" }).closest(
+      ".mantine-Paper-root",
+    ) as HTMLElement;
+    expect(within(active).queryByText("Inactive")).not.toBeInTheDocument();
+    expect(active.style.borderStyle).not.toBe("dashed");
   });
 
   test("person nodes open the details view with the org origin — except self and deleted", async () => {

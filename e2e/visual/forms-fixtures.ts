@@ -119,6 +119,7 @@ export const relationshipRows = [
     userId: RELATIONSHIP_USER_ID,
     name: 'Maximilian Alexander von Hohenberg',
     email: 'maximilian@example.invalid',
+    deactivated: false,
     teamId: 602,
     teamName: 'International Experience',
     lastOneOnOneDate: '2026-09-28',

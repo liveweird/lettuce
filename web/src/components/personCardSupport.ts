@@ -147,6 +147,11 @@ export const OPERATIONAL_ACTIONS: readonly ButtonKey[] = [
   "oneOnOnes",
   "goals",
 ];
+// The CREATE actions: pickers and deep links drop deactivated people, so on a deactivated
+// person's card (visible under the Status = Any/Inactive filter) these would dead-end. They are
+// hidden there; every READ drill-down (feedbacks, 1:1s, goals, activity, career, …) stays.
+export const CREATE_ACTIONS: ReadonlySet<ButtonKey> = new Set(["provide", "ask", "request", "newOneOnOne"]);
+
 export const PERFORMANCE_ACTIONS: readonly ButtonKey[] = ["reviews", "impactLog"];
 export const DAYS_OFF_ACTIONS: readonly ButtonKey[] = ["daysOff"];
 
@@ -158,12 +163,14 @@ export function hasVisibleActions(
     labels: "users" | "teams";
     show: Partial<Record<ButtonKey, boolean>>;
     audit?: boolean;
+    deactivated?: boolean;
   },
   subset: readonly ButtonKey[],
 ): boolean {
   const labelSource = props.audit ? PERSON_CARD_ACTION_LABELS.audit : PERSON_CARD_ACTION_LABELS[props.labels];
   return subset.some((key) => {
     const feature = FEATURE_OF[key];
+    if (props.deactivated && CREATE_ACTIONS.has(key)) return false;
     return props.show[key] && labelSource[key] != null && (feature == null || hasFeature(feature));
   });
 }

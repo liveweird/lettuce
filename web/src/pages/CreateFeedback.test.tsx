@@ -284,6 +284,29 @@ describe("CreateFeedback page", () => {
     expect(options).not.toContain("Meredith Me");
   });
 
+  test("a deactivated person is never offered as a recipient; a deep link to one falls back to the picker", async () => {
+    const withInactive = [...USERS, { id: 11, name: "Dora Deactivated", email: "d@x.test", deactivated: true }];
+    mockFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.startsWith("/api/v1/users")) {
+        return Promise.resolve(
+          jsonResponse(200, { items: withInactive, page: 1, pageSize: 100, total: withInactive.length }),
+        );
+      }
+      return Promise.resolve(pickerHandler(u));
+    });
+    const user = userEvent.setup();
+    // subjectId=11 is the deactivated person: it must not become the fixed subject.
+    renderCreateFeedback("?subjectId=11");
+
+    const picker = await screen.findByPlaceholderText("Pick a user");
+    await user.click(picker);
+    const options = (await screen.findAllByRole("option", { hidden: true })).map((o) => o.textContent);
+    expect(options).toContain("Alice Able");
+    expect(options).not.toContain("Dora Deactivated");
+    expect(screen.queryByText("Dora Deactivated")).toBeNull();
+  });
+
   test("picking a subject enables saving and submits the picked subjectId with the chosen visibility", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       if (String(url) === "/api/v1/feedbacks" && init?.method === "POST") {

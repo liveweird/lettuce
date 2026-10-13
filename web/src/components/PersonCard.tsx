@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Avatar, Group, Paper, Stack, Text } from "@mantine/core";
+import InactivePill from "./InactivePill";
 import TeamBadges from "./TeamBadges";
 import type { TeamRef } from "../utils/teamRows";
 import classes from "./PersonCard.module.css";
@@ -14,11 +15,14 @@ export default function PersonCard({
   name,
   email,
   teams,
+  inactive = false,
   body,
 }: {
   name: string;
   email: string;
   teams: TeamRef[];
+  /** A deactivated account — the gray Inactive pill beside the name (active people get none). */
+  inactive?: boolean;
   body?: ReactNode;
 }) {
   return (
@@ -31,6 +35,7 @@ export default function PersonCard({
               <Text fw={600} size="sm" truncate style={{ minWidth: 0 }}>
                 {name}
               </Text>
+              {inactive && <InactivePill />}
               <TeamBadges teams={teams} />
             </Group>
             <Text size="xs" c="dimmed" truncate>

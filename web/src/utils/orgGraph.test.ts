@@ -33,6 +33,12 @@ const USERS = new Map<number, string>([
 ]);
 
 describe("buildOrgGraph", () => {
+  test("flags the deactivated accounts on their person nodes (managers and members alike)", () => {
+    const { nodes } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS, new Set([1, 10]));
+    const flagged = nodes.filter((n) => n.kind === "person" && n.deactivated).map((n) => n.id);
+    expect(flagged.sort()).toEqual([personNodeId(1), personNodeId(10)].sort());
+  });
+
   test("builds unique person nodes with manages and member edges", () => {
     const { nodes, edges } = buildOrgGraph(TEAMS, MEMBERSHIPS, USERS);
 
@@ -48,6 +54,7 @@ describe("buildOrgGraph", () => {
       userId: 99,
       name: "Floater",
       deleted: false,
+      deactivated: false,
     });
     expect(edges.some((e) => e.source === personNodeId(99) || e.target === personNodeId(99))).toBe(
       false,

@@ -351,6 +351,10 @@ private fun sentences(type: NotificationType, p: Map<String, String>): Localized
             pl = "Twoje hasło zostało zmienione.",
         )
     }
+    NotificationType.ACCOUNT_REACTIVATED -> LocalizedText(
+        en = "Your account was reactivated. You can sign in again.",
+        pl = "Twoje konto zostało ponownie aktywowane. Możesz się znowu zalogować.",
+    )
 }
 
 /**

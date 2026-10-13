@@ -343,8 +343,10 @@ export interface paths {
          * Deactivate a user account (ADMIN only)
          * @description Reversibly disables the account (any current state other than active is `409`).
          *     **ADMIN-only**, and never one's own account (`403`). A deactivated user cannot sign
-         *     in (`403` at login once the password verifies), existing sessions end at the next
-         *     refresh, self-service password reset is silently skipped, and the user cannot be
+         *     in (`403` at login once the password verifies), existing sessions end at once (a live
+         *     access token answers `401` on its very next request, and the refresh is refused),
+         *     self-service password reset is silently skipped, no notification of any kind is created
+         *     for them (in-app, email or Teams) while deactivated, and the user cannot be
          *     NEWLY assigned anywhere (team member/manager, goal/1:1/review subordinate, feedback
          *     party, a new career position — `400` at those create endpoints). Deactivation also
          *     CLOSES the career timeline (v2.17.0): the final active career position gets today
@@ -378,8 +380,9 @@ export interface paths {
          *     **ADMIN-only.** The user can sign in again with their existing password, and the
          *     stored end date deactivation stamped on their final career position is cleared —
          *     the position resumes as the open-ended current one (v2.17.0); nothing else changes —
-         *     their data, roles, and email were never touched. Audited as `user.reactivated`
-         *     (plus `careerPositionId` when a position was reopened).
+         *     their data, roles, and email were never touched. The user receives the locked-on
+         *     `ACCOUNT_REACTIVATED` notification (in-app + email + Teams). Audited as
+         *     `user.reactivated` (plus `careerPositionId` when a position was reopened).
          */
         post: operations["activateUser"];
         delete?: never;
@@ -474,7 +477,7 @@ export interface paths {
          *     renders both from one call. Types belonging to one of the target's currently-disabled
          *     features (V46) are still listed (the client hides those groups) so a later re-enable
          *     shows the real stored state rather than a fresh default. `locked` is true only for
-         *     `PASSWORD_CHANGED` — a security receipt that stays on for every channel regardless of
+         *     `PASSWORD_CHANGED` and `ACCOUNT_REACTIVATED` — receipts that stay on for every channel regardless of
          *     any stored preference row (`inApp`/`email`/`teams` are always true when `locked` is true).
          *     **Target user or ADMIN** (`requireSelfOrAdmin`, the `email-notifications` precedent);
          *     deliberately ungated by feature like every other users route; a deactivated target is
@@ -490,7 +493,7 @@ export interface paths {
          *     in-app row and just skips that channel's mirror. TEAMS pairs are always accepted
          *     regardless of whether this deployment currently has a live Teams channel (see
          *     `teamsAvailable` on the GET), so a preference set in advance takes effect the moment
-         *     Teams becomes available. Disabling `PASSWORD_CHANGED` on any channel is `400` — it
+         *     Teams becomes available. Disabling `PASSWORD_CHANGED` or `ACCOUNT_REACTIVATED` on any channel is `400` — they
          *     cannot be silenced.
          *     Idempotent (a same-set re-PUT is `204` again). **Target user or ADMIN**
          *     (`requireSelfOrAdmin`); a deactivated target is allowed (inert until reactivation).
@@ -849,9 +852,10 @@ export interface paths {
          *       - `name` — case- and accent-insensitive substring match against the member's name.
          *       - `email` — case- and accent-insensitive substring match against the member's email.
          *       - `teamId` — exact match against the team's id.
+         *       - `deactivated` — strict boolean, only deactivated (`true`) or only active (`false`) people.
          *
          *     Malformed query parameters (unknown view, unknown sort field, non-numeric
-         *     teamId, non-boolean includeIndirect, `includeIndirect` combined with a view other
+         *     teamId, non-boolean includeIndirect or deactivated, `includeIndirect` combined with a view other
          *     than `managed`, out-of-range page/pageSize) respond with `400` and a
          *     `ProblemDetail` body.
          */
@@ -4511,7 +4515,7 @@ export interface components {
         NotificationPreferenceItem: {
             type: components["schemas"]["NotificationType"];
             /**
-             * @description The feature area this type belongs to (mirrors the `Feature` schema — inlined here rather than `$ref`'d because a nullable enum reached only through `allOf` fails response validation under this project's swagger-request-validator setup), for client-side grouping — null for the two feature-neutral types (`PASSWORD_CHANGED`, `CAREER_POSITION_STARTED_TO_USER`, which the client groups under "Other"). Mirrors `NotificationType.feature`; present even when that feature is currently disabled for the target (the client hides the group, not the data).
+             * @description The feature area this type belongs to (mirrors the `Feature` schema — inlined here rather than `$ref`'d because a nullable enum reached only through `allOf` fails response validation under this project's swagger-request-validator setup), for client-side grouping — null for the feature-neutral types (`PASSWORD_CHANGED`, `ACCOUNT_REACTIVATED`, `CAREER_POSITION_STARTED_TO_USER`, which the client groups under "Other"). Mirrors `NotificationType.feature`; present even when that feature is currently disabled for the target (the client hides the group, not the data).
              * @enum {string|null}
              */
             feature?: "DAYS_OFF" | "FEEDBACKS" | "GOALS" | "IMPACT_LOG" | "MFA" | "ONE_ON_ONES" | "PERFORMANCE_REVIEWS" | "PULSE_SURVEYS" | "SUCCESSION_PLANS" | "TEAM_KPIS" | "TEAMS_NOTIFICATIONS" | null;
@@ -4521,7 +4525,7 @@ export interface components {
             email: boolean;
             /** @description Whether a Microsoft Teams direct message is sent for this type (v4.5.0). True unless the recipient disabled it — stored and returned even when `NotificationPreferencesResponse.teamsAvailable` is false, so a preference saved before Teams becomes available still takes effect the moment it does. */
             teams: boolean;
-            /** @description True for `PASSWORD_CHANGED` only (v4.0.0) — a security receipt that cannot be disabled on any channel; `inApp`/`email`/`teams` are always true when this is true. */
+            /** @description True for `PASSWORD_CHANGED` (v4.0.0) and `ACCOUNT_REACTIVATED` — account-state receipts that cannot be disabled on any channel; `inApp`/`email`/`teams` are always true when this is true. */
             locked: boolean;
         };
         NotificationPreferencesResponse: {
@@ -4537,7 +4541,7 @@ export interface components {
             channel: components["schemas"]["NotificationChannel"];
         };
         NotificationPreferencesUpdateRequest: {
-            /** @description The complete new disabled `(type, channel)` set (wholesale replace) — an empty array re-enables everything. Disabling a locked type (`PASSWORD_CHANGED`) is `400`. An unknown type or channel name is rejected with `400`. A duplicate `(type, channel)` pair is rejected with `400` rather than silently de-duplicated. */
+            /** @description The complete new disabled `(type, channel)` set (wholesale replace) — an empty array re-enables everything. Disabling a locked type (`PASSWORD_CHANGED`, `ACCOUNT_REACTIVATED`) is `400`. An unknown type or channel name is rejected with `400`. A duplicate `(type, channel)` pair is rejected with `400` rather than silently de-duplicated. */
             disabled: components["schemas"]["DisabledNotificationPreference"][];
         };
         RefreshRequest: {
@@ -4907,6 +4911,8 @@ export interface components {
             /** Format: int32 */
             teamId: number;
             teamName: string;
+            /** @description The row user's account is deactivated (V44, reversible; they cannot sign in and get no new assignments). For `view=managers` the row user is the manager. */
+            deactivated: boolean;
             /**
              * @description Populated for `view=managers` and `view=managed`; always `null` for
              *     `view=member`. ISO `YYYY-MM-DD` date of the latest non-deleted 1:1 of the
@@ -7001,7 +7007,7 @@ export interface components {
          * @description Notification kind — see `NotificationResponse.type` for what each carries and `NotificationPreferenceItem` for the per-type on/off switches (v4.0.0).
          * @enum {string}
          */
-        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEWS_BATCH_SHARED" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDAR_SHARED" | "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDARS_BATCH_SHARED" | "PULSE_RESULTS_SHARED" | "PULSE_RESULTS_SHARE_WITHDRAWN" | "PASSWORD_CHANGED";
+        NotificationType: "FEEDBACK_REQUESTED_TO_PROVIDER" | "FEEDBACK_REQUESTED_TO_REQUESTER" | "FEEDBACK_SENT_TO_SUBJECT" | "FEEDBACK_SENT_TO_PROVIDER" | "FEEDBACK_SENT_TO_REQUESTER" | "FEEDBACK_SENT_TO_MANAGER" | "FEEDBACK_REJECTED_TO_REQUESTER" | "FEEDBACK_PICKED_UP_TO_REQUESTER" | "FEEDBACK_WITHDRAWN_TO_SUBJECT" | "FEEDBACK_WITHDRAWN_TO_REQUESTER" | "FEEDBACK_DELETED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_REQUESTER" | "FEEDBACK_REQUEST_EXPIRED_TO_PROVIDER" | "ONE_ON_ONE_CREATED_TO_SUBORDINATE" | "ONE_ON_ONE_CREATED_TO_MANAGER" | "GOAL_ACTIVATED_TO_SUBORDINATE" | "GOAL_DEACTIVATED_TO_SUBORDINATE" | "GOAL_ARCHIVED_TO_SUBORDINATE" | "GOAL_REOPENED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_SUBORDINATE" | "GOAL_PROGRESS_UPDATED_TO_MANAGER" | "TEAM_KPI_ACTIVATED_TO_MEMBER" | "TEAM_KPI_DEACTIVATED_TO_MEMBER" | "TEAM_KPI_ARCHIVED_TO_MEMBER" | "TEAM_KPI_VALUE_RECORDED_TO_MEMBER" | "TEAM_KPI_VALUE_CORRECTED_TO_MEMBER" | "TEAM_KPI_VALUE_REMOVED_TO_MEMBER" | "TEAM_KPI_REOPENED_TO_MEMBER" | "PERFORMANCE_REVIEW_PUBLISHED_TO_SUBORDINATE" | "PERFORMANCE_REVIEW_UNPUBLISHED_TO_SUBORDINATE" | "DAYS_OFF_CREATED" | "DAYS_OFF_DELETED" | "DAYS_OFF_CORRECTED_TO_OWNER" | "DAYS_OFF_ALLOWANCE_CHANGED" | "PULSE_CYCLE_SCHEDULED" | "PULSE_CYCLE_OPENED" | "PULSE_RESULTS_AVAILABLE" | "PULSE_CYCLE_CANCELLED" | "IMPACT_ENTRY_CREATED_TO_MANAGER" | "IMPACT_ENTRY_UPDATED_TO_MANAGER" | "IMPACT_ENTRY_DELETED_TO_MANAGER" | "CAREER_POSITION_STARTED_TO_USER" | "FEEDBACK_SHARED" | "FEEDBACK_SHARE_WITHDRAWN" | "ONE_ON_ONE_SHARED" | "ONE_ON_ONE_SHARE_WITHDRAWN" | "GOAL_SHARED" | "GOAL_SHARE_WITHDRAWN" | "TEAM_KPI_SHARED" | "TEAM_KPI_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEW_SHARED" | "PERFORMANCE_REVIEW_SHARE_WITHDRAWN" | "PERFORMANCE_REVIEWS_BATCH_SHARED" | "IMPACT_ENTRY_SHARED" | "IMPACT_ENTRY_SHARE_WITHDRAWN" | "SUCCESSION_PLAN_SHARED" | "SUCCESSION_PLAN_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDAR_SHARED" | "DAYS_OFF_CALENDAR_SHARE_WITHDRAWN" | "DAYS_OFF_CALENDARS_BATCH_SHARED" | "PULSE_RESULTS_SHARED" | "PULSE_RESULTS_SHARE_WITHDRAWN" | "PASSWORD_CHANGED" | "ACCOUNT_REACTIVATED";
         NotificationResponse: {
             /** Format: int32 */
             id: number;
@@ -7056,6 +7062,9 @@ export interface components {
              *     `PULSE_RESULTS_SHARE_WITHDRAWN` kinds (v4.12.0 — a team's pulse survey results) additionally
              *     carry `team`, the team's display name; the shared notice links to
              *     `/pulse?tab=results&view=shared&team={teamId}` (the sharee's "Shared with me" results view).
+             *     `ACCOUNT_REACTIVATED` (an administrator reactivated the recipient's account) carries no
+             *     params and no link; it is minted only for an active recipient — no notification of
+             *     any kind is ever created for a deactivated or deleted account.
              */
             params: {
                 [key: string]: string;
@@ -9136,6 +9145,8 @@ export interface operations {
                 email?: string;
                 /** @description Match members of any of the given teams (one row per member and team). Repeat the key to match any of several values. */
                 teamId?: number[];
+                /** @description Strict boolean (the `GET /users` semantics) — only deactivated (true) or only active (false) people; absent = both. Applies to the row user (for `view=managers`, the manager); `total` counts the filtered set. */
+                deactivated?: boolean;
             };
             header?: never;
             path?: never;

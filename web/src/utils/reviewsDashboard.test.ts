@@ -57,6 +57,20 @@ describe("reviewsDashboard", () => {
     expect(rows[1].review).toBeNull();
   });
 
+  test("the account-status filter: Any keeps everyone, Active/Inactive split on the flag", () => {
+    const rows = buildReviewsDashboardRows(
+      [member(1, "Ann", "AAA"), member(2, "Zoe", "AAA", { deactivated: true })],
+      [],
+    );
+    const names = (accountStatus: "true" | "false" | null) =>
+      filterReviewsDashboardRows(rows, { ...EMPTY_REVIEWS_DASHBOARD_FILTERS, accountStatus }).map(
+        (r) => r.person.name,
+      );
+    expect(names(null)).toEqual(["Ann", "Zoe"]);
+    expect(names("false")).toEqual(["Ann"]);
+    expect(names("true")).toEqual(["Zoe"]);
+  });
+
   test("filters narrow by team name and career entry ids", () => {
     const rows = buildReviewsDashboardRows(
       [

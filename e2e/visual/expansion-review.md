@@ -81,3 +81,12 @@ Playwright visibility while an ancestor clips them. The corrected regression ass
 group state and zero viewport intersection, then full visibility after reopening. Independent
 review found no weakened behavior checks. No application code, screenshot pixels or tolerances
 changed; the complete canonical rerun passed.
+
+## v4.16.0 re-approval (2026-10-13)
+
+The owner replied **“approved”** after reviewing the recaptured candidates. Scope: all 24 images —
+the sidebar version stamp now reads the pinned `v0.0.0` (`pinned-version.ts`, so release bumps no
+longer change baselines; a fake `4.99.10` bump compared clean), and `dashboard-member-en-light-1440`
+shows the new account Status filter toggle above the My managers cards (deactivated-users
+consistency, v4.16.0). Capture 21/21, unchanged candidate comparison 21/21 (twice), promotion
+copies the candidates byte-for-byte (hashes in `baseline-manifest.json`).

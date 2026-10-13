@@ -519,7 +519,10 @@ fun Application.configureAuthRoutes() {
                 if (blocklist.isRevoked(jti)) {
                     reject("revoked", rawUserId)
                 }
-                val userId = rawUserId?.toUInt() ?: reject("malformed")
+                // Range-checked like the bearer side (plugins/Security.kt): a negative claim
+                // must not wrap to a huge UInt.
+                val userId = rawUserId?.takeIf { it in 0..UInt.MAX_VALUE.toLong() }?.toUInt()
+                    ?: reject("malformed", rawUserId)
                 // One read: confirm the user still exists and isn't soft-deleted, and pick up their
                 // current roles/email/feature flags so changes take effect on the next refresh.
                 val user = userService.read(userId)

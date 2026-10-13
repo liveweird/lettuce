@@ -98,10 +98,15 @@ enum class NotificationType {
     PULSE_RESULTS_SHARED,
     PULSE_RESULTS_SHARE_WITHDRAWN,
     PASSWORD_CHANGED,
+    // An administrator reactivated the recipient's deactivated account (V44). Feature-neutral and
+    // locked on like PASSWORD_CHANGED; params {} (the admin is deliberately not named). Minted
+    // only after the reactivation commit, when the account is active again — the one notice a
+    // deactivated person's account can receive, because it is minted for an ACTIVE recipient.
+    ACCOUNT_REACTIVATED,
 }
 
 /**
- * The feature each notification type belongs to — null (PASSWORD_CHANGED) = feature-neutral,
+ * The feature each notification type belongs to — null (PASSWORD_CHANGED, ACCOUNT_REACTIVATED) = feature-neutral,
  * never filtered. Backs the per-user feature-flag exclusion in the recipient's list/total
  * (V46): rows whose type maps to a disabled feature are hidden (and uncounted) while the flag
  * is off, and reappear on re-enable — minting is never suppressed. The exhaustive `when`
@@ -183,6 +188,7 @@ val NotificationType.feature: Feature?
         // password notice, never filtered by a flag.
         NotificationType.CAREER_POSITION_STARTED_TO_USER,
         NotificationType.PASSWORD_CHANGED,
+        NotificationType.ACCOUNT_REACTIVATED,
         -> null
     }
 
