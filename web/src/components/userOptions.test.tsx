@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "../test/render";
-import { renderUserOption, userOption } from "./userOptions";
+import { activeOnly, renderUserOption, userOption } from "./userOptions";
 
 describe("userOption", () => {
   test("builds the option's keywords by joining the team names", () => {
@@ -20,6 +20,24 @@ describe("userOption", () => {
       teamNames: [],
       keywords: "",
     });
+  });
+});
+
+describe("activeOnly", () => {
+  const POOL = [
+    { id: 1, name: "Ann", deactivated: false },
+    { id: 2, name: "Bob", deactivated: true },
+    { id: 3, name: "Cy" },
+    { id: 4, name: "Di", deactivated: true },
+  ];
+
+  test("drops deactivated people and keeps everyone else in order", () => {
+    expect(activeOnly(POOL).map((u) => u.id)).toEqual([1, 3]);
+  });
+
+  test("keeps a deactivated person whose id is already selected", () => {
+    expect(activeOnly(POOL, [4]).map((u) => u.id)).toEqual([1, 3, 4]);
+    expect(activeOnly(POOL, new Set([2, 4])).map((u) => u.id)).toEqual([1, 2, 3, 4]);
   });
 });
 

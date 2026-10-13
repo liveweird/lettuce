@@ -6,10 +6,19 @@ import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.goals.GoalCreateRequest
 import ch.nokillswit.goals.GoalType
+import ch.nokillswit.auth.LoginRequest
+import ch.nokillswit.auth.LoginResponse
+import ch.nokillswit.notifications.Notification
+import ch.nokillswit.notifications.NotificationMirror
+import ch.nokillswit.notifications.NotificationPageResponse
+import ch.nokillswit.notifications.NotificationService
+import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.oneonones.OneOnOneCreateRequest
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.reviews.PerformanceReviewCreateRequest
 import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.TeamMemberPageResponse
+import ch.nokillswit.users.PasswordUpdateRequest
 import ch.nokillswit.users.CareerPositionList
 import ch.nokillswit.users.CareerPositionWrite
 import ch.nokillswit.users.UserPageResponse
@@ -18,11 +27,13 @@ import ch.nokillswit.users.UserResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
@@ -31,11 +42,18 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.r2dbc.selectAll
+import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
+import kotlinx.coroutines.flow.toList
 
 /**
  * The reversible-deactivation feature end to end: the POST deactivate/activate transition
  * matrix, the unchanged-readability guarantee, the list filter, and the NEW-assignment blocks
  * (team member/manager, goal/1:1/review subordinate, feedback party — delta-validated).
+ * Also pinned here (the "one consistent treatment" change): the `deactivated` flag + filter on
+ * the `/teams/members` rows, immediate invalidation of a live access token, no notification row
+ * ever minted for a deactivated or deleted recipient, and the ACCOUNT_REACTIVATED notice.
  * The login/lockout/refresh interactions live with their features (LoginTest,
  * LoginLockoutTest, RefreshTest); the password-reset skip in PasswordResetTest; the audit
  * events in AuditTest.
@@ -349,6 +367,232 @@ class UserDeactivationTest {
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertTrue(response.body<ProblemDetail>().detail!!.contains("deactivated"))
     }
+
+    // ---- member-row flag + filter ----------------------------------------------------------
+
+    @Test
+    fun `team member rows carry the deactivated flag and the strict-boolean filter narrows every view`() = testApplication {
+        usePostgresTestcontainer()
+        val callerEmail = uniqueEmail("tm-caller")
+        val callerId = TestUsers.seed(callerEmail, "pw", roles = emptySet())
+        val activeReport = TestUsers.seed(uniqueEmail("tm-active"), "pw", roles = emptySet())
+        val dormantReport = TestUsers.seed(uniqueEmail("tm-dormant"), "pw", roles = emptySet())
+        val bossId = TestUsers.seed(uniqueEmail("tm-boss"), "pw", roles = emptySet())
+        val activePeer = TestUsers.seed(uniqueEmail("tm-peer-a"), "pw", roles = emptySet())
+        val dormantPeer = TestUsers.seed(uniqueEmail("tm-peer-d"), "pw", roles = emptySet())
+        val dormantManager = TestUsers.seed(uniqueEmail("tm-dmgr"), "pw", roles = emptySet())
+        // managed: the caller manages a team of one active + one deactivated report.
+        val managedTeam = TestServices.teams.create(Team(name = "tm-m-${UUID.randomUUID()}", managerId = callerId))
+        TestServices.teams.addMember(managedTeam, activeReport)
+        TestServices.teams.addMember(managedTeam, dormantReport)
+        // member: the caller sits on a boss's team with an active and a deactivated peer.
+        val peerTeam = TestServices.teams.create(Team(name = "tm-p-${UUID.randomUUID()}", managerId = bossId))
+        TestServices.teams.addMember(peerTeam, callerId)
+        TestServices.teams.addMember(peerTeam, activePeer)
+        TestServices.teams.addMember(peerTeam, dormantPeer)
+        // managers: the caller is also a member of a team run by a (later) deactivated manager.
+        val dormantMgrTeam = TestServices.teams.create(Team(name = "tm-d-${UUID.randomUUID()}", managerId = dormantManager))
+        TestServices.teams.addMember(dormantMgrTeam, callerId)
+        listOf(dormantReport, dormantPeer, dormantManager).forEach { TestServices.users.setDeactivated(it, true) }
+
+        val caller = authedClient(callerEmail, "pw")
+        suspend fun members(view: String, deactivated: String? = null) =
+            caller.get("/api/v1/teams/members") {
+                parameter("view", view)
+                parameter("pageSize", "100")
+                if (deactivated != null) parameter("deactivated", deactivated)
+            }.body<TeamMemberPageResponse>()
+
+        val managed = members("managed")
+        assertEquals(mapOf(activeReport to false, dormantReport to true), managed.items.associate { it.userId to it.deactivated })
+        assertEquals(setOf(dormantReport), members("managed", "true").items.map { it.userId }.toSet())
+        assertEquals(1L, members("managed", "true").total)
+        assertEquals(setOf(activeReport), members("managed", "false").items.map { it.userId }.toSet())
+        assertEquals(1L, members("managed", "false").total)
+
+        val peers = members("member")
+        assertEquals(mapOf(activePeer to false, dormantPeer to true), peers.items.associate { it.userId to it.deactivated })
+        assertEquals(setOf(dormantPeer), members("member", "true").items.map { it.userId }.toSet())
+        assertEquals(setOf(activePeer), members("member", "false").items.map { it.userId }.toSet())
+
+        // managers: the row user is the manager — the flag/filter apply to HIM.
+        val managers = members("managers")
+        assertEquals(
+            mapOf(bossId to false, dormantManager to true),
+            managers.items.associate { it.userId to it.deactivated },
+        )
+        assertEquals(setOf(dormantManager), members("managers", "true").items.map { it.userId }.toSet())
+        assertEquals(setOf(bossId), members("managers", "false").items.map { it.userId }.toSet())
+
+        // Strict boolean, the GET /users semantics: anything else is a 400.
+        val garbage = caller.get("/api/v1/teams/members") { parameter("deactivated", "banana") }
+        assertEquals(HttpStatusCode.BadRequest, garbage.status)
+    }
+
+    // ---- live access tokens ----------------------------------------------------------------
+
+    private suspend fun io.ktor.client.HttpClient.tokenFor(email: String, password: String): String =
+        post("/api/v1/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email, password))
+        }.body<LoginResponse>().token
+
+    @Test
+    fun `a live access token stops working on the next request after deactivation or soft-delete`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw-123456789")
+        val admin = authedClient(adminEmail, "pw-123456789")
+        val client = jsonClient()
+        val dormantEmail = uniqueEmail("tok-dormant")
+        val dormantId = TestUsers.seed(dormantEmail, "pw", roles = emptySet())
+        val goneEmail = uniqueEmail("tok-gone")
+        val goneId = TestUsers.seed(goneEmail, "pw", roles = emptySet())
+        val bystanderEmail = uniqueEmail("tok-bystander")
+        TestUsers.seed(bystanderEmail, "pw", roles = emptySet())
+        val dormantToken = client.tokenFor(dormantEmail, "pw")
+        val goneToken = client.tokenFor(goneEmail, "pw")
+        val bystanderToken = client.tokenFor(bystanderEmail, "pw")
+        suspend fun status(token: String) = client.get("/api/v1/notifications") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.status
+
+        // Before: all three sessions are live.
+        assertEquals(HttpStatusCode.OK, status(dormantToken))
+        assertEquals(HttpStatusCode.OK, status(goneToken))
+
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$dormantId/deactivate").status)
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/users/$goneId").status)
+
+        // The access tokens have ~15 minutes left, yet both die at once (deactivation / soft-delete
+        // is checked on every request, together with the jti blocklist, in ONE statement)…
+        assertEquals(HttpStatusCode.Unauthorized, status(dormantToken))
+        assertEquals(HttpStatusCode.Unauthorized, status(goneToken))
+        // …while an unrelated active user's token is untouched.
+        assertEquals(HttpStatusCode.OK, status(bystanderToken))
+
+        // Nothing is revoked: after reactivation the person's own unexpired ACCESS token is live
+        // again (bounded by the access TTL) — the refresh side stays dead, see RefreshTest.
+        assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$dormantId/activate").status)
+        assertEquals(HttpStatusCode.OK, status(dormantToken))
+    }
+
+    // ---- notification suppression ----------------------------------------------------------
+
+    private suspend fun notificationCount(recipientId: UInt): Int =
+        suspendTransaction(TestBlocklist.service.database) {
+            NotificationService.Notifications.selectAll()
+                .where { NotificationService.Notifications.recipientId eq recipientId }
+                .toList().size
+        }
+
+    @Test
+    fun `no notification row is ever minted for a deactivated or soft-deleted recipient, locked-on types included`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val awake = TestUsers.seed(uniqueEmail("ns-awake"), "pw", roles = emptySet())
+            val dormant = TestUsers.seed(uniqueEmail("ns-dormant"), "pw", roles = emptySet())
+            val gone = TestUsers.seed(uniqueEmail("ns-gone"), "pw", roles = emptySet())
+            TestServices.users.setDeactivated(dormant, true)
+            TestServices.users.delete(gone)
+            fun normal(id: UInt) = Notification(id, NotificationType.FEEDBACK_SENT_TO_SUBJECT, mapOf("subject" to "S"))
+            fun locked(id: UInt) = Notification(id, NotificationType.PASSWORD_CHANGED)
+            val service = TestNotifications.service
+
+            // create(): the active recipient gets a row, the others get null — locked-on or not.
+            assertTrue(service.create(normal(awake)) != null)
+            assertTrue(service.create(locked(awake)) != null)
+            listOf(dormant, gone).forEach { id ->
+                assertEquals(null, service.create(normal(id)))
+                assertEquals(null, service.create(locked(id)), "a locked-on type is not exempt from the account-state rule")
+            }
+            // createAll(): the same rule across a mixed batch, in one pass.
+            service.createAll(listOf(normal(awake), normal(dormant), locked(dormant), normal(gone), locked(gone)))
+
+            assertEquals(3, notificationCount(awake))
+            assertEquals(0, notificationCount(dormant))
+            assertEquals(0, notificationCount(gone))
+        }
+
+    @Test
+    fun `create and createAll never dispatch an inactive recipient's notification to the mirrors`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val awake = TestUsers.seed(uniqueEmail("md-awake"), "pw", roles = emptySet())
+            val dormant = TestUsers.seed(uniqueEmail("md-dormant"), "pw", roles = emptySet())
+            val gone = TestUsers.seed(uniqueEmail("md-gone"), "pw", roles = emptySet())
+            TestServices.users.setDeactivated(dormant, true)
+            TestServices.users.delete(gone)
+            fun normal(id: UInt) = Notification(id, NotificationType.FEEDBACK_SENT_TO_SUBJECT, mapOf("subject" to "S"))
+            fun locked(id: UInt) = Notification(id, NotificationType.PASSWORD_CHANGED)
+            val dispatched = mutableListOf<UInt>()
+            val recorder = object : NotificationMirror {
+                override fun dispatch(notifications: List<Notification>) {
+                    dispatched += notifications.map { it.recipientId }
+                }
+            }
+            val service = NotificationService(TestServices.database, listOf(recorder))
+
+            listOf(dormant, gone).forEach { id ->
+                service.create(normal(id))
+                service.create(locked(id))
+            }
+            assertEquals(emptyList(), dispatched, "create must not dispatch an inactive recipient")
+            service.createAll(listOf(normal(dormant), locked(dormant), normal(gone), locked(gone)))
+            assertEquals(emptyList(), dispatched, "createAll must not dispatch an inactive recipient")
+
+            // The active recipient still dispatches — the recorder is wired, not vacuously empty.
+            service.create(normal(awake))
+            service.createAll(listOf(normal(awake), normal(dormant)))
+            assertEquals(listOf(awake, awake), dispatched)
+        }
+
+    @Test
+    fun `an admin password change on a deactivated account mints nothing, reactivation mints exactly ACCOUNT_REACTIVATED`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val adminEmail = uniqueEmail("admin")
+            TestUsers.seed(email = adminEmail, password = "pw-123456789")
+            val admin = authedClient(adminEmail, "pw-123456789")
+            val email = uniqueEmail("ra-user")
+            val userId = TestUsers.seed(email, "old-password-1", roles = emptySet())
+            val mail = LogCapture("ch.nokillswit.mail")
+            try {
+                assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$userId/deactivate").status)
+                // A locked-on PASSWORD_CHANGED for a deactivated recipient is skipped too.
+                assertEquals(
+                    HttpStatusCode.NoContent,
+                    admin.put("/api/v1/users/$userId/password") {
+                        contentType(ContentType.Application.Json)
+                        setBody(PasswordUpdateRequest(password = "admin-set-pass-1"))
+                    }.status,
+                )
+                assertEquals(0, notificationCount(userId))
+
+                // Reactivation mints the one notice, for the (now active) person.
+                assertEquals(HttpStatusCode.NoContent, admin.post("/api/v1/users/$userId/activate").status)
+                assertEquals(1, notificationCount(userId))
+
+                // Listed after they sign in again: typed, feature-neutral, no params, no link.
+                val note = authedClient(email, "admin-set-pass-1")
+                    .get("/api/v1/notifications").body<NotificationPageResponse>().items.single()
+                assertEquals(NotificationType.ACCOUNT_REACTIVATED, note.type)
+                assertEquals(emptyMap(), note.params)
+                assertEquals(null, note.link)
+                assertEquals(false, note.wasSeen)
+
+                // The email mirror sent the reactivation notice, and nothing for the skipped password change.
+                val message = mail.requireEvent("the reactivation email") {
+                    "To: $email" in it.formattedMessage
+                }.formattedMessage
+                assertTrue("Your account was reactivated." in message, message)
+                assertTrue(
+                    mail.events.none { "To: $email" in it.formattedMessage && "An administrator changed" in it.formattedMessage },
+                )
+            } finally {
+                mail.detach()
+            }
+        }
 
     // ---- service unit ----------------------------------------------------------------------
 

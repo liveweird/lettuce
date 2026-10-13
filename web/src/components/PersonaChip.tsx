@@ -9,10 +9,13 @@ export default function PersonaChip({
   name,
   to,
   ariaLabel,
+  dimmed = false,
 }: {
   name: string;
   to?: string;
   ariaLabel?: string;
+  /** Render the plain (non-link) name in the dimmed ink — the org chart's deactivated nodes. */
+  dimmed?: boolean;
 }) {
   return (
     // The chip itself must be able to shrink inside a flex/table cell (min-width: auto would
@@ -32,7 +35,7 @@ export default function PersonaChip({
           {name}
         </Anchor>
       ) : (
-        <Text size="sm" truncate style={{ minWidth: 0 }}>
+        <Text size="sm" c={dimmed ? "dimmed" : undefined} truncate style={{ minWidth: 0 }}>
           {name}
         </Text>
       )}

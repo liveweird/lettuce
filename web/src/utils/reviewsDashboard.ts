@@ -3,6 +3,7 @@
 // and the filter predicates are unit-testable without rendering.
 
 import type { PerformanceReviewListItem } from "../api/reviews";
+import { matchesAccountStatus, type AccountStatus } from "../hooks/useAccountStatusFilter";
 import { pickLocalized } from "./localized";
 import { RATING_VALUES, type ReviewCategory } from "./reviewRatings";
 import type { PersonCard, TeamRow } from "./teamRows";
@@ -44,6 +45,8 @@ export type ReviewsDashboardFilters = {
   careerPathIds: string[];
   careerSpecializationIds: string[];
   seniorityLevelIds: string[];
+  /** The Any / Active / Inactive account filter; null = Any (the page defaults to Active). */
+  accountStatus: AccountStatus;
 };
 
 export const EMPTY_REVIEWS_DASHBOARD_FILTERS: ReviewsDashboardFilters = {
@@ -51,6 +54,7 @@ export const EMPTY_REVIEWS_DASHBOARD_FILTERS: ReviewsDashboardFilters = {
   careerPathIds: [],
   careerSpecializationIds: [],
   seniorityLevelIds: [],
+  accountStatus: null,
 };
 
 /** An empty pick matches everything; otherwise the (possibly unset) entry id must be one of them. */
@@ -62,6 +66,7 @@ export function filterReviewsDashboardRows(
   filters: ReviewsDashboardFilters,
 ): ReviewsDashboardRow[] {
   return rows.filter(({ person }) => {
+    if (!matchesAccountStatus(filters.accountStatus, person.deactivated)) return false;
     if (filters.teamNames.length > 0 && !filters.teamNames.some((n) => person.teamNames.includes(n))) {
       return false;
     }

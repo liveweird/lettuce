@@ -374,6 +374,23 @@ describe("TeamDetails page", () => {
     }
   });
 
+  test("add picker never offers a deactivated person", async () => {
+    const pool = [...ALL_USERS, { id: 12, name: "Dee Deactivated", email: "dee@example.com", roles: [], deactivated: true }];
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") return Promise.resolve(jsonResponse(200, TEAM));
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(pool));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const user = userEvent.setup();
+    renderTeamDetails(3);
+
+    await screen.findByText("Carol");
+    await user.click(screen.getByPlaceholderText("Pick a user"));
+    const listbox = await screen.findByRole("listbox", { hidden: true });
+    expect(within(listbox).getAllByRole("option", { hidden: true }).map((o) => o.textContent)).toEqual(["Erin"]);
+  });
+
   test("add picker excludes current members and the manager, and PUTs the membership", async () => {
     mockFetch.mockImplementation((url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";

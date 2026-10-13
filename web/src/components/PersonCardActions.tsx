@@ -35,6 +35,7 @@ import { successionPlanViewLink, userSuccessionLink } from "../utils/successionL
 import { canAudit, hasFeature } from "../api/session";
 import {
   ACTION_GROUPS,
+  CREATE_ACTIONS,
   FEATURE_OF,
   PERSON_CARD_ACTION_LABELS,
   type ActionGroupId,
@@ -104,6 +105,9 @@ export type PersonCardActionsProps = {
   manages?: boolean;
   /** The HR-audit flavor: `mode=audit` drill-downs with `users.audit.*` aria-labels. */
   audit?: boolean;
+  /** The person is deactivated: the create actions (Provide/Ask/Request feedback, New 1:1) are
+   *  hidden — pickers and deep links drop deactivated people — the read drill-downs stay. */
+  deactivated?: boolean;
   /** Restrict to a subset of buttons (the card body's per-section rendering); order unchanged. */
   only?: readonly ButtonKey[];
   /** `buttons` (default) = the captioned buttons; `icons` (v3.4.0) = one compact row of icon
@@ -123,6 +127,7 @@ export default function PersonCardActions({
   drillBack,
   manages,
   audit,
+  deactivated,
   only,
   variant = "buttons",
 }: PersonCardActionsProps) {
@@ -160,6 +165,7 @@ export default function PersonCardActions({
     const feature = FEATURE_OF[key];
     return (
       show[key] &&
+      !(deactivated && CREATE_ACTIONS.has(key)) &&
       (only == null || only.includes(key)) &&
       labelSource[key] != null &&
       (feature == null || hasFeature(feature))

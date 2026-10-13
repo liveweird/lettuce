@@ -22,6 +22,9 @@ export const teams = [
 export function cardPeople(managed: boolean): Schema['TeamMemberListItem'][] {
   return people.slice(0, managed ? 3 : 2).map((person, index) => ({
     userId: person.id, name: person.name, email: person.email,
+    // The card fixtures stay active people (the real server hides deactivated ones behind the
+    // default Active filter, and the pill is unit-tested) — keeps the approved baselines valid.
+    deactivated: false,
     teamId: teams[index].id, teamName: teams[index].name,
     careerPath: index === 0 ? { id: 101, values: { en: 'Engineering', pl: 'Inżynieria' } } : null,
     careerSpecialization: index === 0 ? { id: 201, values: { en: 'Distributed systems and platform reliability', pl: 'Systemy rozproszone' } } : null,

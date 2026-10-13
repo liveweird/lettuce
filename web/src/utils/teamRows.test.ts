@@ -101,6 +101,18 @@ describe("groupTeamRows", () => {
     expect(card.teamNames).toEqual(["Platform", "Support"]);
   });
 
+  test("carries the deactivated flag through (absent = active)", () => {
+    const cards = groupTeamRows([
+      row({ userId: 1 }),
+      row({ userId: 2, name: "Bob Brown", deactivated: true }),
+      row({ userId: 2, name: "Bob Brown", deactivated: true, teamName: "Support" }),
+    ]);
+    expect(cards.map((c) => [c.userId, c.deactivated])).toEqual([
+      [1, false],
+      [2, true],
+    ]);
+  });
+
   test("returns an empty list for no rows", () => {
     expect(groupTeamRows([])).toEqual([]);
   });
@@ -143,9 +155,12 @@ describe("usersToPersonCards", () => {
     expect(card.lastLoginAt).toBeNull();
   });
 
-  test("excludes deactivated users — the roster is ACTIVE users only", () => {
+  test("keeps deactivated users, flagged — the roster's Status filter decides who shows", () => {
     const cards = usersToPersonCards([user({ id: 1 }), user({ id: 2, deactivated: true })]);
-    expect(cards.map((c) => c.userId)).toEqual([1]);
+    expect(cards.map((c) => [c.userId, c.deactivated])).toEqual([
+      [1, false],
+      [2, true],
+    ]);
   });
 
   test("defaults an absent teams array to no teams", () => {

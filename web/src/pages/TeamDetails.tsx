@@ -33,7 +33,7 @@ import { feedbackRowMenu } from "../components/feedbackActionsMenu";
 import PersonaChip from "../components/PersonaChip";
 import MetaStrip from "../components/MetaStrip";
 import PageHeader from "../components/PageHeader";
-import { renderUserOption, userOption } from "../components/userOptions";
+import { activeOnly, renderUserOption, userOption } from "../components/userOptions";
 import TeamMembersTable from "./TeamMembersTable";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
@@ -146,7 +146,9 @@ export default function TeamDetails() {
 
   const members = [...(allMembers ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const memberIds = new Set(members.map((m) => m.id));
-  const addOptions = (userPool ?? [])
+  // Only active people can be ADDED (the picker rule); the roster itself keeps showing members
+  // who were deactivated after joining.
+  const addOptions = activeOnly(userPool ?? [])
     .filter((u) => !memberIds.has(u.id) && u.id !== team?.managerId)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((u) => userOption(u.id, u.name, (u.teams ?? []).map((teamRef) => teamRef.name)));

@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import {
   test,
   expect,
@@ -13,6 +14,18 @@ import {
 // password-change flows (admin reset vs. self-change with current password), and delete.
 // Everything runs on throwaway users created through the real UI — seeded accounts that other
 // specs log in with are never mutated.
+
+// The Users list's Status filter defaults to Active, so a deactivated row is hidden until the
+// filter is switched. The choice persists per browser context (lettuce.viewSettings.*) and
+// re-picking the selected option would DESELECT it (Any) — so this only clicks when the shown
+// value differs. The Select is not searchable, so it is clicked, not filled.
+async function setStatusFilter(page: Page, status: "Active" | "Inactive"): Promise<void> {
+  const input = page.getByRole("combobox", { name: "Status", exact: true });
+  if ((await input.inputValue()) === status) return;
+  await input.click();
+  await page.getByRole("option", { name: status, exact: true }).click();
+  await expect(input).toHaveValue(status);
+}
 
 test("the one-time password is masked until revealed, and hides again", async ({ page }) => {
   await login(page, ADMIN);
@@ -141,12 +154,14 @@ test("admin deactivates a user; the account cannot sign in until reactivated", a
     ),
     page.getByRole("dialog").getByRole("button", { name: "Deactivate", exact: true }).click(),
   ]);
-  // Fresh load (the delete test's refetch-race lesson): the row shows the Inactive badge.
+  // Fresh load (the delete test's refetch-race lesson). The default Status filter (Active) now
+  // hides the deactivated row, so switch it to Inactive first — then the row shows the badge.
   // Scoped to #main-content — the Status filter Select keeps a hidden "Inactive" OPTION node
   // in the DOM outside it even while closed (the documented Mantine strict-mode gotcha).
   await page.goto("/users");
   await openFilters(page);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
+  await setStatusFilter(page, "Inactive");
   await expect(page.locator("#main-content").getByText("Inactive", { exact: true })).toBeVisible();
   await logout(page);
 
@@ -158,6 +173,8 @@ test("admin deactivates a user; the account cannot sign in until reactivated", a
   await page.goto("/users");
   await openFilters(page);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
+  // The row is still inactive, so it only shows under Inactive (the choice persisted from above).
+  await setStatusFilter(page, "Inactive");
   await page.getByRole("button", { name: `Modify actions for ${user.name}` }).click();
   await Promise.all([
     page.waitForResponse(

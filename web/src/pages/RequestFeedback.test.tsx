@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ const USER_POOL = [
   { id: 7, name: "Mona Subject", email: "mona@example.com", roles: [] as const },
   { id: 10, name: "Alice Provider", email: "alice@example.com", roles: [] as const },
   { id: 11, name: "Bob Provider", email: "bob@example.com", roles: [] as const },
+  { id: 12, name: "Dee Provider", email: "dee@example.com", roles: [] as const, deactivated: true },
 ];
 
 function setupMocks(mockFetch: FetchMock, onFeedbacks: (init?: RequestInit) => Response) {
@@ -112,6 +113,22 @@ describe("RequestFeedback page", () => {
     await user.type(picker, "M");
     expect(screen.queryByRole("option", { name: "Mona Subject", hidden: true })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Me Myself", hidden: true })).not.toBeInTheDocument();
+  });
+
+  test("a deactivated person is not offered as a provider, and a deactivated subject bounces back", async () => {
+    setupMocks(mockFetch, () => jsonResponse(201, { id: 1 }));
+    const user = userEvent.setup();
+    renderRequestFeedback();
+
+    const picker = await screen.findByPlaceholderText("Pick a user");
+    await user.click(picker);
+    await user.type(picker, "Provider");
+    expect(await screen.findByRole("option", { name: "Alice Provider", hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Dee Provider", hidden: true })).not.toBeInTheDocument();
+    cleanup();
+
+    renderRequestFeedback("?subjectId=12");
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("/?tab=subordinates"));
   });
 
   test("a selected provider with an existing request is flagged and blocks submitting", async () => {

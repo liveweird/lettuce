@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { getUserId } from "../api/session";
 import { useAllUsers } from "../hooks/useAllUsers";
 import { accessibleRenderPill } from "./accessiblePill";
-import { renderUserOption, userOption } from "./userOptions";
+import { activeOnly, renderUserOption, userOption } from "./userOptions";
 
 /**
  * The "share with" people picker shared by the single-document ShareDialog and the mass-share
@@ -32,12 +32,9 @@ export default function SharePeoplePicker({
 
   const options = useMemo(
     () =>
-      (userPool ?? [])
-        .filter(
-          (u) =>
-            value.includes(String(u.id)) ||
-            (u.id !== currentUserId && !u.deactivated && !excludedIds.has(u.id)),
-        )
+      // The picker rule: deactivated people are never offered, a value already picked stays.
+      activeOnly(userPool ?? [], value.map(Number))
+        .filter((u) => value.includes(String(u.id)) || (u.id !== currentUserId && !excludedIds.has(u.id)))
         .map((u) => userOption(u.id, u.name, (u.teams ?? []).map((team) => team.name)))
         .sort((a, b) => a.label.localeCompare(b.label)),
     [userPool, currentUserId, excludedIds, value],

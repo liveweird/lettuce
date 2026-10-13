@@ -20,6 +20,21 @@ export function userOption(id: number, name: string, teamNames: string[]): UserO
   return { value: String(id), label: name, teamNames, keywords: teamNames.join(" ") };
 }
 
+/**
+ * THE picker rule for deactivated people: a picker that creates a NEW reference (a recipient,
+ * a provider, a manager, a member, a sharee, a candidate) never offers a deactivated account —
+ * the server answers 400 on submit — but a value that is ALREADY selected/stored stays
+ * (`keepIds`), so editing an existing record never blanks its Select. List FILTER dropdowns
+ * are not pickers of new references (they select historical data) and do not use this.
+ */
+export function activeOnly<T extends { id: number; deactivated?: boolean | null }>(
+  users: readonly T[],
+  keepIds: Iterable<number> = [],
+): T[] {
+  const keep = new Set(keepIds);
+  return users.filter((u) => !u.deactivated || keep.has(u.id));
+}
+
 // The shared person-picker renderOption (modelled on PeriodOptionLabel in
 // useReviewPeriodOptions.tsx): the name always, and — only when the person belongs to at least
 // one team — a dimmed second line of team names joined by " · ". Deliberately NOT part of the

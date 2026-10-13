@@ -155,6 +155,7 @@ fun Application.configureTeamRoutes() {
                     name = params.optionalString("name"),
                     email = params.optionalString("email"),
                     teamIds = params.optionalUIntSet("teamId"),
+                    deactivated = params.optionalBoolean("deactivated"),
                 )
                 val result = teamService.listMembers(
                     view,

@@ -15,6 +15,12 @@ import { groupTeamRows } from "../utils/teamRows";
  * page of 100 truncates around ~50 reports across two teams; groupTeamRows dedupes to one
  * person, name-sorted here so every picker lists identically. Consumers surface
  * `reportsError` as the Select's `error` (the no-silent-blanks rule).
+ *
+ * Deactivated reports are DROPPED (the activeOnly picker rule — every consumer creates a new
+ * reference, and the server 400s one to a deactivated account). A preselected `?subordinateId=`
+ * of a deactivated report therefore resolves to nothing and falls back to the picker, exactly
+ * like an unknown id; EditOneOnOne's "New 1:1" gate reads the same pool, so the button hides
+ * for a deactivated subordinate.
  */
 export function useManagedReports(enabled: boolean): {
   reports: { userId: number; name: string; teamNames: string[] }[];
@@ -32,6 +38,7 @@ export function useManagedReports(enabled: boolean): {
   const reports = useMemo(
     () =>
       groupTeamRows(data ?? [])
+        .filter((p) => !p.deactivated)
         .map((p) => ({ userId: p.userId, name: p.name, teamNames: p.teamNames }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [data],

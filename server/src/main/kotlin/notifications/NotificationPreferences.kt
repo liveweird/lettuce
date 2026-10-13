@@ -24,7 +24,7 @@ val NotificationPreferenceServiceKey = AttributeKey<NotificationPreferenceServic
 enum class NotificationChannel { IN_APP, EMAIL, TEAMS }
 
 /**
- * `true` only for [NotificationType.PASSWORD_CHANGED] — a security receipt that stays on for
+ * `true` only for [NotificationType.PASSWORD_CHANGED] and [NotificationType.ACCOUNT_REACTIVATED] — a security receipt that stays on for
  * both channels regardless of what the user's preferences say
  * ([NotificationPreferenceService.replace] rejects any attempt to disable it). The exhaustive
  * `when` (no `else`) is the sibling of [NotificationType.feature] in `Notification.kt`: it forces
@@ -32,7 +32,9 @@ enum class NotificationChannel { IN_APP, EMAIL, TEAMS }
  */
 val NotificationType.lockedOn: Boolean
     get() = when (this) {
-        NotificationType.PASSWORD_CHANGED -> true
+        NotificationType.PASSWORD_CHANGED,
+        NotificationType.ACCOUNT_REACTIVATED,
+        -> true
         NotificationType.FEEDBACK_REQUESTED_TO_PROVIDER,
         NotificationType.FEEDBACK_REQUESTED_TO_REQUESTER,
         NotificationType.FEEDBACK_SENT_TO_SUBJECT,
@@ -127,8 +129,8 @@ class NotificationPreferenceService(val database: R2dbcDatabase) {
      * Wholesale-replaces [userId]'s disabled set (the `setDisabledFeatures` shape), returning the
      * set that was in place immediately before the write — `null` when the id is unknown or
      * soft-deleted (the route 404s). Rejects a [disabled] set that disables any
-     * [NotificationType.lockedOn] type with a 400 — `PASSWORD_CHANGED` cannot be silenced
-     * regardless of what the caller submits — before the transaction even opens. Idempotent — a
+     * [NotificationType.lockedOn] type with a 400 — `PASSWORD_CHANGED` and `ACCOUNT_REACTIVATED` cannot be
+     * silenced regardless of what the caller submits — before the transaction even opens. Idempotent — a
      * same-set re-PUT is a no-op replace, not a transition.
      *
      * **Concurrency (v4.0.3):** the existence check locks the user row
@@ -229,7 +231,7 @@ private suspend fun readDisabledInTransaction(userId: UInt): Map<NotificationTyp
 @Serializable
 data class NotificationPreferenceItem(
     val type: NotificationType,
-    // Nullable like NotificationType.feature — null (PASSWORD_CHANGED, CAREER_POSITION_STARTED_TO_USER)
+    // Nullable like NotificationType.feature — null (PASSWORD_CHANGED, ACCOUNT_REACTIVATED, CAREER_POSITION_STARTED_TO_USER)
     // groups under "Other" client-side, never hidden by a feature flag.
     val feature: Feature?,
     val inApp: Boolean,

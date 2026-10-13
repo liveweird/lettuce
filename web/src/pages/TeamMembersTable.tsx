@@ -14,6 +14,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useOwnSuccessionPlans } from "../hooks/useOwnSuccessionPlans";
 import { canAudit } from "../api/session";
 import { listAllTeams, listTeamMembers, type TeamMemberListView } from "../api/teams";
+import AccountStatusSelect from "../components/AccountStatusSelect";
 import ClearableTextInput from "../components/ClearableTextInput";
 import EmptyState from "../components/EmptyState";
 import PersonCard from "../components/PersonCard";
@@ -22,6 +23,11 @@ import FilterMultiSelect from "../components/FilterMultiSelect";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
 import ReportsScopeSelect from "../components/ReportsScopeSelect";
+import {
+  deactivatedParam,
+  isStatusFilterActive,
+  useAccountStatusFilter,
+} from "../hooks/useAccountStatusFilter";
 import { isKnownTeam, useKnownPicks } from "../hooks/useKnownPicks";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { isOneOf, isString, isStringArray, useStoredState } from "../hooks/useStoredState";
@@ -83,6 +89,8 @@ export default function TeamMembersTable({
     "direct",
     isOneOf(["direct", "all"]),
   );
+  // The Any / Active / Inactive filter (default Active), sent server-side as `deactivated`.
+  const [statusFilter, setStatusFilter] = useAccountStatusFilter(settingsKey);
   const includeIndirect = !pinned && view === "managed" && reportsScope === "all";
   // A pinned managed team is inherently direct reports, so the direct-only affordances
   // (stats, 1:1s, goals) stay available without the Reports filter.
@@ -93,7 +101,8 @@ export default function TeamMembersTable({
     (nameFilter.trim() ? 1 : 0) +
     (emailFilter.trim() ? 1 : 0) +
     (!pinned && teamFilter.length > 0 ? 1 : 0) +
-    (includeIndirect ? 1 : 0);
+    (includeIndirect ? 1 : 0) +
+    (isStatusFilterActive(statusFilter) ? 1 : 0);
 
   const [debouncedName] = useDebouncedValue(nameFilter, 300);
   const [debouncedEmail] = useDebouncedValue(emailFilter, 300);
@@ -101,7 +110,7 @@ export default function TeamMembersTable({
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, sortParam, toggleSort } =
     usePagedSort<SortField>(
       "name",
-      [debouncedName, debouncedEmail, teamId, teamFilter, includeIndirect],
+      [debouncedName, debouncedEmail, teamId, teamFilter, includeIndirect, statusFilter],
       { key: settingsKey, sortFields: SORT_FIELDS },
     );
 
@@ -118,6 +127,7 @@ export default function TeamMembersTable({
       debouncedEmail,
       effectiveTeamId,
       includeIndirect,
+      statusFilter,
     ],
     queryFn: () =>
       listTeamMembers({
@@ -129,6 +139,7 @@ export default function TeamMembersTable({
         email: debouncedEmail || undefined,
         teamId: effectiveTeamId,
         includeIndirect: includeIndirect || undefined,
+        deactivated: deactivatedParam(statusFilter),
       }),
     placeholderData: keepPreviousData,
   });
@@ -187,6 +198,7 @@ export default function TeamMembersTable({
           {view === "managed" && !pinned && (
             <ReportsScopeSelect value={reportsScope} onChange={setReportsScope} />
           )}
+          <AccountStatusSelect value={statusFilter} onChange={setStatusFilter} />
         </FilterPanel>
         {/* Column headers are gone with the table — sorting lives up here instead. */}
         <Group gap="xs" wrap="nowrap">
@@ -232,6 +244,7 @@ export default function TeamMembersTable({
               name={m.name}
               email={m.email}
               teams={m.teams}
+              inactive={m.deactivated}
               // Peer cards show the two feedback directions; subordinate cards show the
               // 1:1 + feedback stats, but only while every card is a direct report (same
               // rationale as the 1:1 button gate below): rows carry no direct/indirect
@@ -260,6 +273,7 @@ export default function TeamMembersTable({
                     userId: m.userId,
                     name: m.name,
                     labels: "teams",
+                    deactivated: m.deactivated,
                     back: backTo,
                     drillFrom,
                     drillTeamId,
@@ -301,6 +315,7 @@ export default function TeamMembersTable({
           <EmptyState
             icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
             label={emptyMessage}
+            description={!isStatusFilterActive(statusFilter) ? t("users.inactiveHiddenHint") : undefined}
           />
         )
       )}

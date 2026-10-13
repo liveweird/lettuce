@@ -25,6 +25,8 @@ import {
   IconAlertCircle
 } from "@tabler/icons-react";
 import PersonaChip from "../components/PersonaChip";
+import AccountStatusSelect from "../components/AccountStatusSelect";
+import InactivePill from "../components/InactivePill";
 import StatusPill from "../components/StatusPill";
 import { getUserId, hasFeature, isAdmin, USER_ROLES, type UserRole } from "../api/session";
 import { logout } from "../api/auth";
@@ -46,6 +48,12 @@ import PaginationBar from "../components/PaginationBar";
 import SortHeader from "../components/SortHeader";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { usePagedSort } from "../hooks/usePagedSort";
+import {
+  deactivatedParam,
+  DEFAULT_ACCOUNT_STATUS,
+  isStatusFilterActive,
+  useAccountStatusFilter,
+} from "../hooks/useAccountStatusFilter";
 import { isOneOfOrNull, isString, useStoredState } from "../hooks/useStoredState";
 import { invalidateUser } from "../utils/userQueries";
 import PageHeader from "../components/PageHeader";
@@ -74,12 +82,9 @@ export default function Users() {
     null,
     isOneOfOrNull([...USER_ROLES]),
   );
-  // "true" = inactive only, "false" = active only, null = any (the Alerts isActive idiom).
-  const [statusFilter, setStatusFilter] = useStoredState<BooleanFilter>(
-    `${SETTINGS_KEY}.filter.deactivated`,
-    null,
-    isOneOfOrNull(["true", "false"]),
-  );
+  // "true" = inactive only, "false" = active only (the DEFAULT), null = any — the shared
+  // Status filter; a previously stored choice (including an explicit Any) still wins.
+  const [statusFilter, setStatusFilter] = useAccountStatusFilter(SETTINGS_KEY);
   const [uniqueIdFilter, setUniqueIdFilter] = useStoredState(
     `${SETTINGS_KEY}.filter.uniqueId`,
     "",
@@ -97,13 +102,13 @@ export default function Users() {
   const activeFilterCount =
     (emailFilter.trim() ? 1 : 0) +
     (roleFilter ? 1 : 0) +
-    (statusFilter ? 1 : 0) +
+    (isStatusFilterActive(statusFilter) ? 1 : 0) +
     (uniqueIdFilter.trim() ? 1 : 0) +
     (uniqueIdMissingFilter ? 1 : 0);
   function clearPanelFilters() {
     setEmailFilter("");
     setRoleFilter(null);
-    setStatusFilter(null);
+    setStatusFilter(DEFAULT_ACCOUNT_STATUS);
     setUniqueIdFilter("");
     setUniqueIdMissingFilter(null);
   }
@@ -148,7 +153,7 @@ export default function Users() {
         name: debouncedName || undefined,
         email: debouncedEmail || undefined,
         role: roleFilter ?? undefined,
-        deactivated: statusFilter == null ? undefined : statusFilter === "true",
+        deactivated: deactivatedParam(statusFilter),
         uniqueId: debouncedUniqueId || undefined,
         uniqueIdMissing: uniqueIdMissingFilter == null ? undefined : uniqueIdMissingFilter === "true"
       }),
@@ -306,17 +311,7 @@ export default function Users() {
           onChange={(v) => setRoleFilter((v as UserRole | null) ?? null)}
           clearable
         />
-        <Select
-          label={t("users.statusFilterLabel")}
-          placeholder={t("common.state.any")}
-          data={[
-            { value: "false", label: t("users.statusActive") },
-            { value: "true", label: t("users.statusInactive") },
-          ]}
-          value={statusFilter}
-          onChange={(v) => setStatusFilter((v as BooleanFilter) ?? null)}
-          clearable
-        />
+        <AccountStatusSelect value={statusFilter} onChange={setStatusFilter} />
         <ClearableTextInput
           label={t("users.uniqueId")}
           value={uniqueIdFilter}
@@ -402,12 +397,10 @@ export default function Users() {
                       to={u.id !== currentUserId ? userDetailsLink(u.id, u.name, "users") : undefined}
                       ariaLabel={t("users.detailsFor", { name: u.name })}
                     />
-                    {/* The ONLY place the account state surfaces — everywhere else a
-                        deactivated user renders exactly like an active one. Gray on purpose:
-                        neither the brand accent nor a semantic state color. */}
-                    {u.deactivated && (
-                      <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>
-                    )}
+                    {/* The account state: the shared gray Inactive pill (InactivePill), also on
+                        the person cards, the details header, the rosters and the org chart —
+                        deliberately NOT on document tables, whose rows are history. */}
+                    {u.deactivated && <InactivePill />}
                   </Group>
                 </ResponsiveTable.Td>
                 <ResponsiveTable.Td label={t("common.field.email")} primary>

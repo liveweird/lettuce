@@ -13,7 +13,14 @@ import { renderUserOption } from "./userOptions";
  */
 export default function TeamFormFields({ form }: { form: UseFormReturnType<TeamFormValues> }) {
   const { t } = useTranslation();
-  const { managerOptions, managersLoading, managersError } = useManagerOptions(isAdmin());
+  // The team's current manager (the form's loaded value) stays pickable even when since
+  // deactivated — only NEW assignments hide deactivated people (the activeOnly picker rule).
+  // A cleared Select can hand the form null at runtime (the type says string), so drop every
+  // falsy id — Number(null) would otherwise keep a bogus id 0.
+  const keepIds = [form.values.managerId, form.getInitialValues().managerId]
+    .filter((id): id is string => !!id)
+    .map(Number);
+  const { managerOptions, managersLoading, managersError } = useManagerOptions(isAdmin(), keepIds);
   return (
     <>
       <TextInput

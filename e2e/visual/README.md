@@ -11,6 +11,10 @@ tests plus three sidebar geometry/focus tests). The approval source is implement
 `6118bee0`, artifact `5ad82149`, with the exact reply **“Approved. Commit, merge, push. Let's park
 for now, when you do that.”**
 
+On 2026-10-13 (app v4.16.0) the owner re-approved all 24 images with the reply **“approved”**: the
+sidebar version stamp is now pinned to `v0.0.0` (see below), and the member dashboard's My managers
+tab gained the account Status filter toggle; nothing else changed.
+
 Open the [review gallery](review.html) and [validation/approval record](expansion-review.md).
 The current gallery shows the 24 approved v4.15.3 baselines. The historical v4.15.2 review is
 preserved at [review-history/v4.15.2/review.html](review-history/v4.15.2/review.html), with its
@@ -142,8 +146,12 @@ also builds the SPA, so it is not safe during performance measurements.
    may be shared on a review branch before approval; that does not approve their appearance.
    The reviewed candidate set is approved before promotion and CI activation.
 
-Build identity is fixed for capture, but the real displayed app version is retained. A version
-bump can legitimately change screenshots and still needs a reviewed update. No broad content
+Build identity is fixed for capture, including the displayed app version (since v4.16.0): the
+sidebar stamp always reads `v0.0.0 · visual-fixture · 2026-10-01 12:00`. `vite.config.mjs` pins
+the commit and time, and its `lettuce-visual-pin-app-version` plugin swaps
+`web/src/changelog/version.ts` for `pinned-version.ts`, which `fixtures.ts` also marks as the seen
+changelog version (no what's-new dot). The stamp is still rendered, so its layout stays covered,
+but a release bump no longer changes any baseline (probed: a fake `4.99.10` compares clean). No broad content
 masking or screenshot-only stylesheet hides layout defects. Font loading and expected content
 are awaited; no arbitrary sleep substitutes for readiness.
 

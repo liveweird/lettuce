@@ -278,6 +278,14 @@ class UserService(val database: R2dbcDatabase) {
     suspend fun setDeactivated(id: UInt, deactivated: Boolean): Int = suspendTransaction(database) {
         Users.update({ (Users.id eq id) and active() }) {
             it[Users.deactivated] = deactivated
+            if (deactivated) {
+                // Deactivation ends every outstanding session for good: password_changed_at is
+                // the refresh cutoff (/refresh rejects iat < it, compared in whole seconds), so
+                // a refresh token minted before deactivation stays dead after a REACTIVATION
+                // too — the person signs in again. The cutoff is the START of the next second,
+                // so a token minted in the deactivation's own second is cut off as well.
+                it[passwordChangedAt] = (System.currentTimeMillis() / 1000 + 1) * 1000
+            }
         }
     }
 

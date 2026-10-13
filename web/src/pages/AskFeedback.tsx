@@ -24,6 +24,7 @@ import { showSuccessToast } from "../utils/toast";
 import { invalidateFeedback } from "../utils/feedbackQueries";
 import { safeBackParam } from "../utils/url";
 import { useAllUsers } from "../hooks/useAllUsers";
+import { activeOnly } from "../components/userOptions";
 
 // The asker is the requester, so "Ask for feedback" offers the requester-inclusive
 // visibilities — the ones under which the requester (themselves) can read the result.
@@ -65,7 +66,8 @@ export default function AskFeedback() {
   // (v2.35.0: a crafted name param could label the ask as someone else while the id
   // addresses the real provider); an id matching no user bounces back once the pool settles.
   const { userPool, usersReady } = useAllUsers();
-  const provider = providerIdIsValid ? (userPool ?? []).find((u) => u.id === providerId) : undefined;
+  // A deactivated provider bounces like an unknown id (the picker rule: no new reference to them).
+  const provider = providerIdIsValid ? activeOnly(userPool ?? []).find((u) => u.id === providerId) : undefined;
   // Warn up-front when this exact ask already exists (subject == requester == me).
   const duplicate = useFeedbackDuplicate(
     providerIdIsValid && requesterId != null

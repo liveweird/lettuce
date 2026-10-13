@@ -68,6 +68,7 @@ const ITEMS = [
   { type: "GOAL_ACTIVATED_TO_SUBORDINATE", feature: "GOALS", inApp: true, email: true, teams: true, locked: false },
   { type: "PULSE_CYCLE_OPENED", feature: "PULSE_SURVEYS", inApp: true, email: true, teams: true, locked: false },
   { type: "PASSWORD_CHANGED", feature: null, inApp: true, email: true, teams: true, locked: true },
+  { type: "ACCOUNT_REACTIVATED", feature: null, inApp: true, email: true, teams: true, locked: true },
 ];
 
 const PREFS = { emailEnabled: true, teamsAvailable: false, items: ITEMS };
@@ -144,11 +145,13 @@ describe("NotificationPreferences page", () => {
     ).toBeTruthy();
 
     expect(screen.getByText("My password was changed")).toBeInTheDocument();
-    expect(screen.getByText("(Always on)")).toBeInTheDocument();
+    // The second locked row (the reactivation notice) lands under Other too, always on.
+    expect(screen.getByText("My account was reactivated")).toBeInTheDocument();
+    expect(screen.getAllByText("(Always on)")).toHaveLength(2);
     const lockedSwitches = screen.getAllByRole("switch", {
-      name: /My password was changed/,
+      name: /My password was changed|My account was reactivated/,
     }) as HTMLInputElement[];
-    expect(lockedSwitches).toHaveLength(2);
+    expect(lockedSwitches).toHaveLength(4);
     for (const s of lockedSwitches) {
       expect(s.checked).toBe(true);
       expect(s.disabled).toBe(true);

@@ -34,6 +34,8 @@ import FilterMultiSelect from "../components/FilterMultiSelect";
 import RowActions from "../components/RowActions";
 import FilterPanel from "../components/FilterPanel";
 import PaginationBar from "../components/PaginationBar";
+import AccountStatusSelect from "../components/AccountStatusSelect";
+import InactivePill from "../components/InactivePill";
 import PersonCell from "../components/PersonCell";
 import PerformanceReviewStatusBadge from "../components/PerformanceReviewStatusBadge";
 import { RatingCells } from "../components/RatingBadge";
@@ -45,6 +47,7 @@ import SortHeader from "../components/SortHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
 import { usePagedSort } from "../hooks/usePagedSort";
 import { renderPeriodOption, useReviewPeriodOptions } from "../hooks/useReviewPeriodOptions";
+import { isStatusFilterActive, useAccountStatusFilter } from "../hooks/useAccountStatusFilter";
 import { isOneOf, isString, isStringArray, useStoredState } from "../hooks/useStoredState";
 import { massShareLink, reviewCreateLink, reviewEditLink, reviewViewLink } from "../utils/performanceReviewLinks";
 import { REVIEW_CATEGORIES } from "../utils/reviewRatings";
@@ -137,6 +140,8 @@ export default function ReviewsDashboard() {
   const [view, setView] = useStoredState<(typeof VIEW_MODES)[number]>(
     `${SETTINGS_KEY}.view`, "table", isOneOf(VIEW_MODES),
   );
+  // The Any / Active / Inactive roster filter (default Active), client-side over the loaded rows.
+  const [statusFilter, setStatusFilter] = useAccountStatusFilter(SETTINGS_KEY);
   const [storedPeriod, setStoredPeriod] = useStoredState(`${SETTINGS_KEY}.period`, "", isString);
   // Multi-value filters (v4.13.0) live under NEW keys — the legacy scalar keys are orphaned.
   const [storedTeams, setTeamFilter] = useStoredState(
@@ -222,7 +227,7 @@ export default function ReviewsDashboard() {
   const { page, setPage, pageSize, setPageSize, sortField, sortDir, toggleSort } =
     usePagedSort<ReviewsDashboardSortField>(
       "name",
-      [periodId, reportsScope, teamFilter, pathFilter, specFilter, seniorityFilter],
+      [periodId, reportsScope, teamFilter, pathFilter, specFilter, seniorityFilter, statusFilter],
       { key: SETTINGS_KEY, sortFields: REVIEWS_DASHBOARD_SORT_FIELDS },
     );
 
@@ -231,12 +236,14 @@ export default function ReviewsDashboard() {
     careerPathIds: pathFilter,
     careerSpecializationIds: specFilter,
     seniorityLevelIds: seniorityFilter,
+    accountStatus: statusFilter,
   };
   const activeFilterCount =
     (teamFilter.length > 0 ? 1 : 0) +
     (pathFilter.length > 0 ? 1 : 0) +
     (specFilter.length > 0 ? 1 : 0) +
     (seniorityFilter.length > 0 ? 1 : 0) +
+    (isStatusFilterActive(statusFilter) ? 1 : 0) +
     (includeIndirect ? 1 : 0);
   const filteredRows = sortReviewsDashboardRows(
     filterReviewsDashboardRows(allRows, filters),
@@ -349,6 +356,7 @@ export default function ReviewsDashboard() {
             onChange={setReportsScope}
           />
         )}
+        <AccountStatusSelect value={statusFilter} onChange={setStatusFilter} />
         <FilterMultiSelect
           label={t("performanceReview.dashboard.team")}
           data={teamOptions.map((n) => ({ value: n, label: n }))}
@@ -490,11 +498,14 @@ export default function ReviewsDashboard() {
               return (
                 <ResponsiveTable.Tr key={person.userId}>
                   <ResponsiveTable.Td label={t("performanceReview.subordinate")}>
-                    <PersonCell
-                      userId={person.userId}
-                      name={person.name}
-                      currentUserId={currentUserId}
-                    />
+                    <Group gap="xs" wrap="wrap">
+                      <PersonCell
+                        userId={person.userId}
+                        name={person.name}
+                        currentUserId={currentUserId}
+                      />
+                      {person.deactivated && <InactivePill />}
+                    </Group>
                   </ResponsiveTable.Td>
                   <ResponsiveTable.Td label={t("performanceReview.dashboard.team")}>
                     <Group gap={4}>
@@ -555,9 +566,10 @@ export default function ReviewsDashboard() {
                             : reviewViewLink(review.id, undefined, BACK_TO),
                         }}
                       />
-                    ) : reportsScope === "direct" ? (
+                    ) : reportsScope === "direct" && !person.deactivated ? (
                       // Creation needs a direct report; the indirect scope can't tell which
                       // rows qualify, so the action exists only while the scope guarantees it.
+                      // A deactivated report gets none: the create deep link drops them.
                       <RowActions
                         primary={{
                           icon: <IconPlus size={16} />,

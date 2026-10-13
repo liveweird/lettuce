@@ -43,6 +43,8 @@ data class TeamMemberListFilter(
     val email: String? = null,
     /** Repeated-key `IN` (API-LIST-004): rows of ANY of these teams. */
     val teamIds: Set<UInt>? = null,
+    /** Strict boolean (the `GET /users` semantics): true = only deactivated, false = only active, null = any. */
+    val deactivated: Boolean? = null,
 )
 
 data class TeamMemberListResult(
@@ -416,6 +418,7 @@ class TeamService(val database: R2dbcDatabase) {
                 UserService.Users.email,
                 Teams.id,
                 Teams.name,
+                UserService.Users.deactivated,
             )
             .where { predicate }
             .applyPaging(stablePaging, MEMBER_SORTABLE_COLUMNS)
@@ -426,6 +429,7 @@ class TeamService(val database: R2dbcDatabase) {
                     email = row[UserService.Users.email],
                     teamId = row[Teams.id].value,
                     teamName = row[Teams.name],
+                    deactivated = row[UserService.Users.deactivated],
                 )
             }
             .toList()
@@ -461,6 +465,9 @@ class TeamService(val database: R2dbcDatabase) {
         }
         filter.teamIds?.let {
             op = op and (Teams.id inList it)
+        }
+        filter.deactivated?.let {
+            op = op and (UserService.Users.deactivated eq it)
         }
         return op
     }

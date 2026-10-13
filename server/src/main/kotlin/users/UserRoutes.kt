@@ -6,6 +6,7 @@ import ch.nokillswit.auth.exceedsBcryptLimit
 import ch.nokillswit.auth.hashPassword
 import ch.nokillswit.auth.verifyPassword
 import ch.nokillswit.dictionaries.DEFAULT_LANGUAGE
+import ch.nokillswit.infra.catchingFailures
 import ch.nokillswit.infra.mail.mailAppUrl
 import ch.nokillswit.infra.validation.sanitizeSingleLine
 import ch.nokillswit.infra.mail.mailer
@@ -177,6 +178,16 @@ fun Application.configureUserRoutes() {
         } else {
             careerPositionService.reopenFinalPosition(targetId)?.let {
                 auditFields += "careerPositionId" to it.toLong()
+            }
+            // The person learns their account works again (in-app + email + Teams, locked on).
+            // Route-side, after the flag commit (the consistency-model convention) — and the
+            // account is active by now, so the mint's inactive-recipient skip lets it through.
+            // Minted BEFORE the audit event so the audit line stays the "everything happened"
+            // barrier tests await — and best-effort: a failed mint is logged, never allowed to
+            // swallow the user.reactivated audit record (the flag is already committed).
+            catchingFailures({ notificationService.create(accountReactivatedNotification(targetId)) }) { cause ->
+                call.application.log.error("ACCOUNT_REACTIVATED notification for user $targetId failed", cause)
+                null
             }
         }
         audit(

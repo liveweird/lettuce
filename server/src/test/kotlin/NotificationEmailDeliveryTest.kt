@@ -6,6 +6,7 @@ import ch.nokillswit.feedbacks.FeedbackStatus
 import ch.nokillswit.feedbacks.FeedbackVisibility
 import ch.nokillswit.infra.mail.LogMailer
 import ch.nokillswit.notifications.Notification
+import ch.nokillswit.notifications.NotificationEmailer
 import ch.nokillswit.notifications.NotificationType
 import ch.nokillswit.users.Feature
 import io.ktor.client.call.body
@@ -145,7 +146,7 @@ class NotificationEmailDeliveryTest {
     }
 
     @Test
-    fun `deactivated and soft-deleted recipients are skipped`() = testApplication {
+    fun `the emailer's send-time check skips deactivated and soft-deleted recipients`() = testApplication {
         usePostgresTestcontainer()
         val deactivatedEmail = uniqueEmail("deact")
         val deletedEmail = uniqueEmail("softdel")
@@ -156,9 +157,17 @@ class NotificationEmailDeliveryTest {
         val mail = LogCapture("ch.nokillswit.mail")
         try {
             coroutineScope {
-                val service = TestNotifications.withEmailer(this, LogMailer(), null)
-                service.create(sentNote(deactivatedId))
-                service.create(sentNote(deletedId))
+                // NotificationService.create no longer dispatches an inactive recipient to its
+                // mirrors, so the emailer's own send-time skip is pinned by calling dispatch
+                // directly (the race backstop: an account deactivated after the mint).
+                val emailer = NotificationEmailer(
+                    this,
+                    LogMailer(),
+                    null,
+                    TestServices.users,
+                    TestServices.notificationPreferences,
+                )
+                emailer.dispatch(listOf(sentNote(deactivatedId), sentNote(deletedId)))
             }
             assertNull(mail.events.firstOrNull { "To: $deactivatedEmail" in it.formattedMessage })
             assertNull(mail.events.firstOrNull { "To: $deletedEmail" in it.formattedMessage })

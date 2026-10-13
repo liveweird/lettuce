@@ -16,7 +16,15 @@ export type OrgTeamInput = {
 
 export type OrgMembership = { teamId: number; memberIds: number[] };
 
-type OrgPersonNode = { id: string; kind: "person"; userId: number; name: string; deleted: boolean };
+type OrgPersonNode = {
+  id: string;
+  kind: "person";
+  userId: number;
+  name: string;
+  deleted: boolean;
+  /** A deactivated account (V44) — the node renders dimmed with the Inactive pill. */
+  deactivated: boolean;
+};
 type OrgTeamNode = { id: string; kind: "team"; teamId: number; name: string };
 /** The "Not in any team" label heading the unattached-people rows (see layoutOrgGraph). */
 type OrgSectionNode = { id: string; kind: "section" };
@@ -60,12 +68,14 @@ function sizeOf(node: OrgNode): { width: number; height: number } {
  * flag ride on the team row; a member id missing from the map (deleted mid-fetch) is skipped.
  * Every remaining user gets a node too — people in no team (and managing none) must still
  * appear in the chart; they end up edge-less, which is what routes them to the layout's
- * "Not in any team" section.
+ * "Not in any team" section. `deactivatedIds` (from the users list) marks the deactivated
+ * accounts: they stay in the chart (the org's shape does not change) but render marked.
  */
 export function buildOrgGraph(
   teams: OrgTeamInput[],
   memberships: OrgMembership[],
   usersById: Map<number, string>,
+  deactivatedIds: ReadonlySet<number> = new Set(),
 ): { nodes: OrgNode[]; edges: OrgEdge[] } {
   const persons = new Map<number, OrgPersonNode>();
   const nodes: OrgNode[] = [];
@@ -74,7 +84,14 @@ export function buildOrgGraph(
   const ensurePerson = (userId: number, name: string, deleted: boolean) => {
     const existing = persons.get(userId);
     if (existing) return existing;
-    const node: OrgPersonNode = { id: personNodeId(userId), kind: "person", userId, name, deleted };
+    const node: OrgPersonNode = {
+      id: personNodeId(userId),
+      kind: "person",
+      userId,
+      name,
+      deleted,
+      deactivated: deactivatedIds.has(userId),
+    };
     persons.set(userId, node);
     nodes.push(node);
     return node;

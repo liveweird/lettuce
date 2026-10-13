@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, screen } from "../test/render";
+import { fireEvent, renderWithProviders, screen, waitFor, within } from "../test/render";
 import ManagersTable from "./ManagersTable";
 import { jsonResponse } from "../test/http";
 
@@ -52,6 +52,68 @@ describe("ManagersTable", () => {
 
     const url = String(mockFetch.mock.calls[0][0]);
     expect(url).toContain("/api/v1/teams/members?view=managers");
+  });
+
+  test("the Status filter defaults to Active (deactivated=false); Any drops the param and persists", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 1,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    await screen.findByText("Manager One");
+    expect(String(mockFetch.mock.calls[0][0])).toContain("deactivated=false");
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    // The default is not an applied filter: no badge.
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    const status = screen.getByLabelText("Status", { selector: "input" });
+    expect(status).toHaveValue("Active");
+    // Re-picking the selected option deselects it → Any → no deactivated param.
+    const before = mockFetch.mock.calls.length;
+    fireEvent.click(status);
+    fireEvent.click(await screen.findByRole("option", { name: "Active" }));
+    await waitFor(() => {
+      const later = mockFetch.mock.calls.slice(before).map(([url]) => String(url));
+      expect(later.length).toBeGreaterThan(0);
+      expect(later.every((url) => !url.includes("deactivated"))).toBe(true);
+    });
+    expect(localStorage.getItem("lettuce.viewSettings.managers.filter.accountStatus")).toBe("null");
+    expect(within(toggle).getByText("1")).toBeInTheDocument();
+  });
+
+  test("a deactivated manager's card carries the Inactive pill; active cards do not", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+          {
+            userId: 2,
+            name: "Manager Two",
+            email: "m2@example.com",
+            teamId: 6,
+            teamName: "beta",
+            deactivated: true,
+          },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 2,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    const two = (await screen.findByText("Manager Two")).closest("li") as HTMLElement;
+    expect(within(two).getByText("Inactive")).toBeInTheDocument();
+    const one = screen.getByText("Manager One").closest("li") as HTMLElement;
+    expect(within(one).queryByText("Inactive")).not.toBeInTheDocument();
   });
 
   test("renders a Provide feedback menu item per manager card", async () => {
@@ -422,5 +484,44 @@ describe("ManagersTable", () => {
     renderWithProviders(<ManagersTable />);
 
     expect(await screen.findByText("No managers")).toBeInTheDocument();
+  });
+
+  test("a deactivated manager's card hides the create actions and keeps the read ones", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { userId: 1, name: "Manager One", email: "m1@example.com", teamId: 5, teamName: "alpha" },
+          { userId: 2, name: "Manager Two", email: "m2@example.com", teamId: 6, teamName: "beta", deactivated: true },
+        ],
+        page: 1,
+        pageSize: 100,
+        total: 2,
+      }),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    await screen.findByText("Manager Two");
+    expect(screen.getByRole("button", { name: "Feedback actions for Manager One" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Feedback actions for Manager Two" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Feedbacks with Manager Two" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "1:1 meetings with Manager Two" })).toBeInTheDocument();
+  });
+
+  test("an empty list under the default Active filter hints that inactive people are hidden; Any drops the hint", async () => {
+    // A fresh Response per call: the filter change refetches and a body can be read once.
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 100, total: 0 })),
+    );
+    renderWithProviders(<ManagersTable />);
+
+    expect(await screen.findByText("No managers")).toBeInTheDocument();
+    expect(screen.getByText(/Inactive people are hidden/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Status", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Active" })); // re-pick = Any
+    // The new query key loads from scratch (skeleton first), then the plain empty state shows.
+    expect(await screen.findByText("No managers")).toBeInTheDocument();
+    expect(screen.queryByText(/Inactive people are hidden/)).not.toBeInTheDocument();
   });
 });

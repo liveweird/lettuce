@@ -78,4 +78,5 @@ export const PREFERENCE_LABEL_KEY: Record<NotificationItem["type"], ParseKeys> =
   PULSE_RESULTS_SHARED: "notifications.preference.PULSE_RESULTS_SHARED",
   PULSE_RESULTS_SHARE_WITHDRAWN: "notifications.preference.PULSE_RESULTS_SHARE_WITHDRAWN",
   PASSWORD_CHANGED: "notifications.preference.PASSWORD_CHANGED",
+  ACCOUNT_REACTIVATED: "notifications.preference.ACCOUNT_REACTIVATED",
 };

@@ -164,6 +164,33 @@ describe("CreateOneOnOne page", () => {
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
   });
 
+  test("a deactivated report is never offered, and a preselected deactivated id falls back to the picker", async () => {
+    const withInactive = {
+      ...REPORTS,
+      items: [
+        ...REPORTS.items,
+        { userId: 12, name: "Dee Deactivated", email: "dee@x", teamId: 1, teamName: "AAA", deactivated: true },
+      ],
+      total: 4,
+    };
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes("/api/v1/teams/members")) {
+        return Promise.resolve(jsonResponse(200, withInactive));
+      }
+      return Promise.resolve(jsonResponse(200, { items: [], page: 1, pageSize: 20, total: 0 }));
+    });
+    renderCreate("/one-on-ones/new?subordinateId=12");
+
+    // The preselected deactivated report does not become the fixed subordinate…
+    const picker = await screen.findByRole("combobox", { name: "Team member" });
+    expect(screen.queryByText("Dee Deactivated")).toBeNull();
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    // …and the picker does not offer them either, while active reports stay.
+    await userEvent.click(picker);
+    expect(await screen.findByRole("option", { name: /Zoe Zebra/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Dee Deactivated/ })).toBeNull();
+  });
+
   test("Cancel on an untouched form returns to the originating Dashboard tab without a confirm", async () => {
     mockFetch.mockImplementation((input: RequestInfo | URL) => {
       if (String(input).includes("/api/v1/teams/members")) {

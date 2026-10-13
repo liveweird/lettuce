@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * snapshots, baselines and `perf/results/seed-<version>.json` are keyed on it, so two numbers are
  * only comparable when their dataset version matches.
  */
-const val DATASET_VERSION = 2
+const val DATASET_VERSION = 3
 
 /** The one shared sign-in password of every generated account (one bcrypt hash, computed once). */
 const val PERF_PASSWORD = "perf-pass-2026"

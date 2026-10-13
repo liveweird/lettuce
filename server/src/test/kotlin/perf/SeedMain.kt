@@ -143,6 +143,7 @@ suspend fun runSeed(config: SeedConfig, log: (String) -> Unit = ::println): Seed
     step("succession", started, log) { seedSuccession(ctx, org) }
     step("shares", started, log) { seedShares(ctx, org, mint) }
     step("account-events", started, log) { seedAccountEvents(ctx, org) }
+    step("reactivations", started, log) { seedReactivations(ctx, org, mint) }
     step("notifications", started, log) { mint.finish() }
     return SeedResult(spec, rowCounts(db), mint, (System.nanoTime() - started) / 1_000_000_000)
 }

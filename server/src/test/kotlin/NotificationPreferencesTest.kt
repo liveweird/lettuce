@@ -73,8 +73,16 @@ class NotificationPreferencesTest {
         assertEquals(NotificationType.entries.size, body.items.size)
         assertTrue(body.items.all { it.inApp && it.email && it.teams })
         assertTrue(body.items.first { it.type == NotificationType.PASSWORD_CHANGED }.locked)
-        assertTrue(body.items.none { it.type != NotificationType.PASSWORD_CHANGED && it.locked })
-        assertTrue(body.items.any { it.feature == null }, "PASSWORD_CHANGED/CAREER_POSITION_STARTED_TO_USER are feature-neutral")
+        assertTrue(body.items.first { it.type == NotificationType.ACCOUNT_REACTIVATED }.locked)
+        assertTrue(
+            body.items.none {
+                it.type != NotificationType.PASSWORD_CHANGED && it.type != NotificationType.ACCOUNT_REACTIVATED && it.locked
+            },
+        )
+        assertTrue(
+            body.items.any { it.feature == null },
+            "PASSWORD_CHANGED/ACCOUNT_REACTIVATED/CAREER_POSITION_STARTED_TO_USER are feature-neutral",
+        )
     }
 
     @Test

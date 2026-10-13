@@ -6,7 +6,7 @@ import { pickLocalized } from "../utils/localized";
 import type { MassShareColumn, MassSharePageProps } from "./massShareTypes";
 import PersonCell from "./PersonCell";
 import ResponsiveTable from "./ResponsiveTable";
-import StatusPill from "./StatusPill";
+import InactivePill from "./InactivePill";
 import TeamBadges from "./TeamBadges";
 
 /** One person: checkbox (disabled with the reason as its name when unshareable), the profile cells, the kind's cells. */
@@ -50,7 +50,7 @@ const MassShareTableRow = memo(function MassShareTableRow({
       <ResponsiveTable.Td label={personLabel}>
         <Group gap="xs" wrap="wrap">
           <PersonCell userId={p.userId} name={p.name} currentUserId={currentUserId} />
-          {p.deactivated && <StatusPill color="gray">{t("users.inactiveBadge")}</StatusPill>}
+          {p.deactivated && <InactivePill />}
         </Group>
       </ResponsiveTable.Td>
       <ResponsiveTable.Td label={t("performanceReview.dashboard.team")}>

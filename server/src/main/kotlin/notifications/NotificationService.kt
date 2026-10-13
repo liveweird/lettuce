@@ -115,21 +115,29 @@ class NotificationService(
     private val lastPurgeAtMillis = AtomicLong(0)
 
     /**
-     * Inserts a notification, UNLESS the recipient disabled that type's IN_APP channel (v4.0.0 —
-     * [NotificationType.lockedOn] types, e.g. `PASSWORD_CHANGED`, are never suppressible). The
+     * Inserts a notification, UNLESS the recipient is a deactivated (V44) or soft-deleted account
+     * (never any row or mirror for them, [NotificationType.lockedOn] types included) or disabled
+     * that type's IN_APP channel (v4.0.0 — [NotificationType.lockedOn] types, e.g.
+     * `PASSWORD_CHANGED`, are never suppressible by preference). The
      * disabled-set read runs INSIDE this insert transaction — the `GoalService`/`ImpactLogService`
      * cross-feature table-read shape (`disabledForInTransaction` queries
      * `NotificationPreferenceService.UserNotificationPreferences` directly rather than calling
      * that service's own method, which would open a second transaction). Returns the new row's id,
      * or `null` when the insert was suppressed — no caller in this codebase uses the id. The
      * generation timestamp and the unseen flag are set here, never taken from a caller. Invoked
-     * by the activities that trigger notifications (no HTTP create endpoint exists). The email
-     * mirror is dispatched UNCONDITIONALLY (in-app suppression and email suppression are
+     * by the activities that trigger notifications (no HTTP create endpoint exists). The mirrors
+     * are dispatched to every ACTIVE recipient regardless of the preference suppression (in-app suppression and email suppression are
      * independent per-channel switches — [NotificationEmailer.sendOne] applies its own EMAIL-set
      * check).
      */
     suspend fun create(notification: Notification): UInt? {
+        var recipientActive = true
         val id = suspendTransaction(database) {
+            // A deactivated (V44) or soft-deleted recipient never receives a row, whatever the
+            // type — lockedOn included (a locked-on receipt is unsuppressible by PREFERENCE, not
+            // by account state). One batched select, read inside this same transaction.
+            recipientActive = notification.recipientId in activeRecipientsInTransaction(listOf(notification.recipientId))
+            if (!recipientActive) return@suspendTransaction null
             val suppressed = !notification.type.lockedOn &&
                 notification.type in disabledForInTransaction(
                     listOf(notification.recipientId),
@@ -152,26 +160,29 @@ class NotificationService(
         // Own transaction, after the insert commits — a big DELETE must not hold the mint's locks.
         purgeStale()
         // Mirrors AFTER the commit, fire-and-forget, regardless of the IN_APP suppression above —
-        // see NotificationMirror.
-        mirrors.forEach { it.dispatch(listOf(notification)) }
+        // see NotificationMirror — but never for an inactive recipient (their own send-time
+        // checks stay as the backstop for state that changes after this read).
+        if (recipientActive) mirrors.forEach { it.dispatch(listOf(notification)) }
         return id
     }
 
     /**
      * Batch [create] for wide fan-outs (the pulse cycle events notify the whole eligible org):
-     * one transaction instead of N, one disabled-IN_APP-set read for every recipient instead of
-     * one per row. Same server-managed timestamp/unseen semantics and per-row suppression as
-     * [create]; an all-suppressed batch simply inserts nothing (an empty-insert no-op, never an
-     * error) and still dispatches every notification to the emailer.
+     * one transaction instead of N, one active-recipient read and one disabled-IN_APP-set read
+     * for every recipient instead of one per row. Same server-managed timestamp/unseen semantics,
+     * inactive-recipient skip and per-row suppression as [create]; an all-suppressed batch simply
+     * inserts nothing (an empty-insert no-op, never an error) and still dispatches every
+     * notification to an active recipient to the mirrors.
      */
     suspend fun createAll(notifications: List<Notification>) {
-        suspendTransaction(database) {
+        val reachable = suspendTransaction(database) {
             val now = System.currentTimeMillis()
-            val disabled = disabledForInTransaction(
-                notifications.map { it.recipientId }.toSet(),
-                NotificationChannel.IN_APP,
-            )
-            notifications.forEach { notification ->
+            val recipients = notifications.map { it.recipientId }.toSet()
+            // One batched read of who is still an active account — see create().
+            val active = activeRecipientsInTransaction(recipients)
+            val disabled = disabledForInTransaction(active, NotificationChannel.IN_APP)
+            val reachable = notifications.filter { it.recipientId in active }
+            reachable.forEach { notification ->
                 val suppressed = !notification.type.lockedOn &&
                     notification.type in disabled.getOrDefault(notification.recipientId, emptySet())
                 if (suppressed) return@forEach
@@ -184,12 +195,33 @@ class NotificationService(
                     it[wasSeen] = false
                 }
             }
+            reachable
         }
         // Own transaction, after the insert commits — see create().
         purgeStale()
         // Mirrors AFTER the commit — one background loop per mirror for the whole batch, every
-        // notification regardless of IN_APP suppression (see create()).
-        mirrors.forEach { it.dispatch(notifications) }
+        // notification to an active recipient regardless of IN_APP suppression (see create()).
+        mirrors.forEach { it.dispatch(reachable) }
+    }
+
+    /**
+     * Which of [recipientIds] are still active accounts — neither deactivated (V44) nor
+     * soft-deleted — in ONE `IN` select; no transaction of its own (the caller's insert
+     * transaction, the `disabledForInTransaction` shape). The cross-feature table read the
+     * persistence doc sanctions: calling `UserService` would open a second transaction.
+     */
+    private suspend fun activeRecipientsInTransaction(recipientIds: Collection<UInt>): Set<UInt> {
+        if (recipientIds.isEmpty()) return emptySet()
+        val users = UserService.Users
+        return users.select(users.id)
+            .where {
+                (users.id inList recipientIds.toSet()) and
+                    (users.deactivated eq false) and
+                    (users.markedAsDeleted eq false)
+            }
+            .map { it[users.id].value }
+            .toList()
+            .toSet()
     }
 
     /**

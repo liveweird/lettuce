@@ -328,16 +328,17 @@ class NotificationTeamsDeliveryTest {
     }
 
     @Test
-    fun `deactivated and soft-deleted recipients are skipped`(): Unit = runBlocking {
+    fun `the sender's send-time check skips deactivated and soft-deleted recipients`(): Unit = runBlocking {
         val deactivatedId = freshRecipient("teams-deact")
         val deletedId = freshRecipient("teams-softdel")
         assertEquals(1, TestServices.users.setDeactivated(deactivatedId, true))
         assertEquals(1, TestServices.users.delete(deletedId))
         val fake = FakeTeamsMessenger()
         coroutineScope {
-            val service = TestNotifications.withTeamsSender(sender(fake, this))
-            service.create(sentNote(deactivatedId))
-            service.create(sentNote(deletedId))
+            // NotificationService.create no longer dispatches an inactive recipient to its
+            // mirrors, so the sender's own send-time skip is pinned by calling dispatch directly
+            // (the race backstop: an account deactivated after the mint).
+            sender(fake, this).dispatch(listOf(sentNote(deactivatedId), sentNote(deletedId)))
         }
         assertEquals(0, fake.sendCalls.size)
     }

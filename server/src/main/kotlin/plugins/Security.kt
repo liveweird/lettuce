@@ -96,9 +96,18 @@ fun Application.configureSecurity() {
                 // Structural, so neither ever reaches the database.
                 if (credential.payload.expiresAt == null) return@validate null
                 val jti = credential.payload.id ?: return@validate null
-                // A cancelled call (client gone) mid-lookup unwinds — catchingFailures never
-                // swallows cancellation.
-                val revoked = catchingFailures({ application.attributes[TokenBlocklistServiceKey].isRevoked(jti) }) { cause ->
+                // The userId claim names the account; a token without one is rejected here too
+                // (caller() would 401 it anyway). Structural, so it never reaches the database.
+                val userId = credential.payload.getClaim("userId").asLong()
+                    ?.takeIf { it in 0..UInt.MAX_VALUE.toLong() }?.toUInt()
+                    ?: return@validate null
+                // ONE lookup: the jti is not revoked AND the account is still active — neither
+                // deactivated nor soft-deleted — so deactivation ends a live session on its next
+                // request rather than at the access token's expiry. A cancelled call (client
+                // gone) mid-lookup unwinds — catchingFailures never swallows cancellation.
+                val live = catchingFailures({
+                    application.attributes[TokenBlocklistServiceKey].isSessionLive(jti, userId)
+                }) { cause ->
                     // The lookup itself failed (database unreachable, pool acquire timeout) —
                     // that is an outage, not an invalid token. Ktor's JWT provider turns ANY
                     // throw out of validate into a plain challenge, so the cause is stashed
@@ -108,7 +117,7 @@ fun Application.configureSecurity() {
                     attributes.put(BlocklistFailureKey, cause)
                     return@validate null
                 }
-                if (!revoked) JWTPrincipal(credential.payload) else null
+                if (live) JWTPrincipal(credential.payload) else null
             }
             // The challenge runs outside StatusPages, so emit the RFC 7807 body here too.
             challenge { _, _ ->

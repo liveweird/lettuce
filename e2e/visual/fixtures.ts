@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import type { components } from '../../web/src/api/schema';
-import { APP_VERSION } from '../../web/src/changelog/version';
+import { APP_VERSION } from './pinned-version';
 import { sessionEntries } from '../sessions';
 import { formManagedTeam, resolveFormsGet } from './forms-fixtures';
 import { cardPeople, dashboardSummary, people, teams } from './people-fixtures';

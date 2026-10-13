@@ -125,6 +125,7 @@
     "passwordChanged": "Your password was changed.",
     "passwordChanged_admin": "An administrator changed your password.",
     "passwordChanged_reset": "Your password was reset via email.",
+    "accountReactivated": "Your account was reactivated — you can sign in again.",
     "pulseCycleScheduled": "A pulse survey is scheduled to open on {{openDate}}.",
     "pulseCycleOpened": "The pulse survey is open — share your answers by {{closeDate}}.",
     "pulseResultsAvailable": "Pulse survey results are available.",
@@ -197,7 +198,8 @@
     "DAYS_OFF_CALENDARS_BATCH_SHARED": "Someone shared days-off calendars with me in bulk",
     "PULSE_RESULTS_SHARED": "Someone shared pulse survey results with me",
     "PULSE_RESULTS_SHARE_WITHDRAWN": "Someone withdrew my access to shared pulse survey results",
-    "PASSWORD_CHANGED": "My password was changed"
+    "PASSWORD_CHANGED": "My password was changed",
+    "ACCOUNT_REACTIVATED": "My account was reactivated"
   },
   "delete": "Delete",
   "deleteAria": "Delete notification {{id}}"

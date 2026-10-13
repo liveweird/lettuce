@@ -620,6 +620,44 @@ describe("Users page", () => {
     );
   });
 
+  test("the Status filter defaults to Active (deactivated=false) and the default is not an applied filter", async () => {
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    expect(userUrls(mockFetch).every((u) => u.includes("deactivated=false"))).toBe(true);
+    const toggle = screen.getByRole("button", { name: /filters/i });
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText("Status", { selector: "input" })).toHaveValue("Active");
+  });
+
+  test("the pre-v4.16.0 .filter.deactivated key is orphaned: a stored null there no longer pins Any", async () => {
+    localStorage.setItem("lettuce.viewSettings.users.filter.deactivated", "null");
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    expect(userUrls(mockFetch).every((u) => u.includes("deactivated=false"))).toBe(true);
+  });
+
+  test("a stored Any choice wins over the Active default; Clear filters restores Active", async () => {
+    localStorage.setItem("lettuce.viewSettings.users.filter.accountStatus", "null");
+    mockUsers(mockFetch);
+    renderUsers();
+
+    await screen.findByText("Alice");
+    expect(userUrls(mockFetch).every((u) => !u.includes("deactivated"))).toBe(true);
+    const toggle = screen.getByRole("button", { name: /^filters/i });
+    // Any is a non-default choice → it counts as an applied filter.
+    expect(within(toggle).getByText("1")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(userUrls(mockFetch).some((u) => u.includes("deactivated=false"))).toBe(true));
+    expect(within(toggle).queryByText("1")).not.toBeInTheDocument();
+  });
+
   test("non-admin sees no Modify menu (and hence no Deactivate)", async () => {
     localStorage.setItem(ROLE_KEY, "[]");
     mockListThen(mockFetch);

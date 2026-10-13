@@ -139,7 +139,7 @@ export async function getNotificationPreferences(id: number): Promise<Notificati
 
 /**
  * Wholesale-replaces the disabled `(type, channel)` set (v4.0.0) — an empty array re-enables
- * everything. Disabling a locked type (`PASSWORD_CHANGED`) is rejected by the server with 400.
+ * everything. Disabling a locked type (`PASSWORD_CHANGED`, `ACCOUNT_REACTIVATED`) is rejected by the server with 400.
  */
 export async function setNotificationPreferences(
   id: number,

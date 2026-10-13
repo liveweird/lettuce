@@ -10,6 +10,8 @@ export type TeamRow = {
   userId: number;
   name: string;
   email: string;
+  /** The account is deactivated (V44; every `/teams/members` row carries it). */
+  deactivated?: boolean;
   teamId: number;
   teamName: string;
   // Dashboard stats, identical on every row of a user: the 1:1/lastFeedbackAt trio on
@@ -42,6 +44,8 @@ export type PersonCard = {
   userId: number;
   name: string;
   email: string;
+  /** Deactivated account — the card shows the Inactive pill, pickers never offer the person. */
+  deactivated: boolean;
   /** The person's teams with ids — the card badges link to team details (v2.5.4). */
   teams: TeamRef[];
   /** Names only, derived from [teams] — kept for the name-keyed consumers (reviews dashboard). */
@@ -78,18 +82,18 @@ export type AuditableUser = {
 };
 
 /**
- * Maps the open users list (ACTIVE users only) to [PersonCard]s — the HR auditor scope's
- * roster source (v4.3.0, the reviews dashboard's "Everyone (auditor)" scope): the caller-scoped
+ * Maps the open users list to [PersonCard]s (deactivated users included, flagged — the roster's
+ * Status filter decides who shows) — the HR auditor scope's roster source (v4.3.0, the reviews dashboard's "Everyone (auditor)" scope): the caller-scoped
  * `/teams/members` enrichment stats (1:1s, feedback, goals, reviews, days off) don't apply
  * org-wide, so every stat but the career triple and team membership is null.
  */
 export function usersToPersonCards(users: AuditableUser[]): PersonCard[] {
   return users
-    .filter((u) => !u.deactivated)
     .map((u) => ({
       userId: u.id,
       name: u.name,
       email: u.email,
+      deactivated: u.deactivated,
       teams: u.teams ?? [],
       teamNames: (u.teams ?? []).map((team) => team.name),
       lastOneOnOneDate: null,
@@ -125,6 +129,7 @@ export function groupTeamRows(rows: TeamRow[]): PersonCard[] {
         userId: r.userId,
         name: r.name,
         email: r.email,
+        deactivated: r.deactivated ?? false,
         teams: [{ id: r.teamId, name: r.teamName }],
         teamNames: [r.teamName],
         // Normalize absent → null so every grid can render its "never" empty states

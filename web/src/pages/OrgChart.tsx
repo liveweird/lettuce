@@ -34,6 +34,7 @@ import { getUserId } from "../api/session";
 import { listAllUsers } from "../api/users";
 import { listAllTeams } from "../api/teams";
 import EmptyState from "../components/EmptyState";
+import InactivePill from "../components/InactivePill";
 import PersonaChip from "../components/PersonaChip";
 import {
   applyCollapse,
@@ -56,11 +57,12 @@ async function fetchOrg() {
   const [teams, users] = await Promise.all([listAllTeams(), listAllUsers()]);
   const memberships: OrgMembership[] = teams.map((t) => ({ teamId: t.id, memberIds: t.memberIds }));
   const usersById = new Map(users.map((u) => [u.id, u.name]));
-  return buildOrgGraph(teams, memberships, usersById);
+  const deactivatedIds = new Set(users.filter((u) => u.deactivated).map((u) => u.id));
+  return buildOrgGraph(teams, memberships, usersById, deactivatedIds);
 }
 
 type PersonNodeType = Node<
-  { userId: number; name: string; deleted: boolean; self: boolean },
+  { userId: number; name: string; deleted: boolean; deactivated: boolean; self: boolean },
   "person"
 >;
 type TeamNodeType = Node<
@@ -91,6 +93,12 @@ function PersonNode({ data }: NodeProps<PersonNodeType>) {
     <Text size="sm" c="dimmed" truncate>
       {data.name} {t("org.deletedTag")}
     </Text>
+  ) : data.deactivated ? (
+    // A deactivated person: dimmed name (the AA-guarded dimmed token) + the Inactive pill.
+    <Group gap={6} wrap="nowrap" style={{ minWidth: 0, maxWidth: "100%" }}>
+      <PersonaChip name={data.name} dimmed />
+      <InactivePill />
+    </Group>
   ) : (
     <PersonaChip name={data.name} />
   );
@@ -99,11 +107,16 @@ function PersonNode({ data }: NodeProps<PersonNodeType>) {
       withBorder
       radius="md"
       px="sm"
+      // A deactivated person's node is visibly different: the quiet tint surface (the same
+      // token pair the filter panel uses) and a dashed border — never opacity, which would
+      // drag the name's contrast under AA.
+      bg={data.deactivated ? "var(--lettuce-surface-tint)" : undefined}
       style={{
         width: PERSON_NODE_SIZE.width,
         height: PERSON_NODE_SIZE.height,
         display: "flex",
         alignItems: "center",
+        ...(data.deactivated ? { borderStyle: "dashed" } : {}),
       }}
     >
       <Handle type="target" position={Position.Left} style={HANDLE_STYLE} isConnectable={false} />
@@ -254,7 +267,13 @@ export default function OrgChart() {
               id: n.id,
               type: "person",
               position: { x: n.x, y: n.y },
-              data: { userId: n.userId, name: n.name, deleted: n.deleted, self: n.userId === currentUserId },
+              data: {
+                userId: n.userId,
+                name: n.name,
+                deleted: n.deleted,
+                deactivated: n.deactivated,
+                self: n.userId === currentUserId,
+              },
               draggable: false,
             } satisfies Node)
           : n.kind === "team"
