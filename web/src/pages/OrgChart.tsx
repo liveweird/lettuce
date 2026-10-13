@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
+  Badge,
   Box,
+  Button,
   Center,
   Group,
   Loader,
@@ -33,6 +35,7 @@ import "@xyflow/react/dist/style.css";
 import { getUserId } from "../api/session";
 import { listAllUsers } from "../api/users";
 import { listAllTeams } from "../api/teams";
+import DateField from "../components/DateField";
 import EmptyState from "../components/EmptyState";
 import InactivePill from "../components/InactivePill";
 import PersonaChip from "../components/PersonaChip";
@@ -45,6 +48,7 @@ import {
   TEAM_NODE_SIZE,
   type OrgMembership,
 } from "../utils/orgGraph";
+import { formatIsoDate, isValidIsoDate, todayIsoDate } from "../utils/datetime";
 import { teamDetailsLink } from "../utils/teamLinks";
 import { userDetailsLink } from "../utils/userLinks";
 import { loadErrorMessage } from "../utils/saveError";
@@ -53,12 +57,31 @@ import { loadErrorMessage } from "../utils/saveError";
 // teams + managers + memberIds from the teams list (rows carry memberIds since v4.14.0 — no
 // per-team fetch), names from the users list; the two loops run in parallel.
 // Returns the raw graph — layout runs in the component, downstream of the collapse state.
-async function fetchOrg() {
-  const [teams, users] = await Promise.all([listAllTeams(), listAllUsers()]);
+async function fetchOrg(asOf: string) {
+  if (asOf === todayIsoDate()) {
+    const [teams, users] = await Promise.all([listAllTeams(), listAllUsers()]);
+    const memberships: OrgMembership[] = teams.map((t) => ({ teamId: t.id, memberIds: t.memberIds }));
+    const usersById = new Map(users.map((u) => [u.id, u.name]));
+    const deactivatedIds = new Set(users.filter((u) => u.deactivated).map((u) => u.id));
+    return buildOrgGraph(teams, memberships, usersById, deactivatedIds);
+  }
+  // Another day (v4.17.0): the structure comes from the as-of teams list, whose rows name the
+  // roster (people since deleted are absent from today's directory); today's users only supply
+  // the "Not in any team" section — the people the as-of rosters do not place.
+  const [teams, users] = await Promise.all([listAllTeams({ asOf }), listAllUsers()]);
   const memberships: OrgMembership[] = teams.map((t) => ({ teamId: t.id, memberIds: t.memberIds }));
   const usersById = new Map(users.map((u) => [u.id, u.name]));
   const deactivatedIds = new Set(users.filter((u) => u.deactivated).map((u) => u.id));
-  return buildOrgGraph(teams, memberships, usersById, deactivatedIds);
+  const deletedIds = new Set<number>();
+  for (const team of teams) {
+    for (const member of team.members ?? []) {
+      usersById.set(member.id, member.name);
+      if (member.deleted) deletedIds.add(member.id);
+      if (member.deactivated) deactivatedIds.add(member.id);
+      else deactivatedIds.delete(member.id);
+    }
+  }
+  return buildOrgGraph(teams, memberships, usersById, deactivatedIds, deletedIds);
 }
 
 type PersonNodeType = Node<
@@ -70,6 +93,9 @@ type TeamNodeType = Node<
     teamId: number;
     name: string;
     collapsed: boolean;
+    deleted: boolean;
+    /** Where the team page's Back returns to when the chart is off today (`/org?asOf=…`). */
+    backTo: string | undefined;
     memberCount: number;
     onToggle: () => void;
   },
@@ -153,11 +179,15 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
         alignItems: "center",
         gap: 6,
         borderColor: "var(--mantine-color-lettuce-filled)",
+        // A team deleted since the chart's date: dashed and quiet (never opacity — contrast).
+        ...(data.deleted
+          ? { borderStyle: "dashed", borderColor: "var(--mantine-color-dimmed)" }
+          : {}),
       }}
     >
       <Handle type="target" position={Position.Left} style={HANDLE_STYLE} isConnectable={false} />
       {/* Tree-style expander before the name; teams with no members have nothing to fold. */}
-      {data.memberCount > 0 && (
+      {data.memberCount > 0 && !data.deleted && (
         <ActionIcon
           variant="subtle"
           color="gray"
@@ -170,18 +200,29 @@ function TeamNode({ data }: NodeProps<TeamNodeType>) {
           {data.collapsed ? <IconChevronRight size={16} /> : <IconChevronDown size={16} />}
         </ActionIcon>
       )}
-      <UnstyledButton
-        onClick={() => navigate(teamDetailsLink(data.teamId, { from: "org" }))}
-        aria-label={t("teams.membersOfAria", { name: data.name })}
-        style={{ minWidth: 0 }}
-      >
-        <Group gap="xs" wrap="nowrap">
-          <IconUsersGroup size={18} color="var(--mantine-color-lettuce-filled)" />
-          <Text size="sm" fw={600} truncate>
-            {data.name}
+      {data.deleted ? (
+        // A team deleted since the chart's date has no live page to open and nothing to fold:
+        // plain, dimmed text; its members stay on the chart.
+        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+          <IconUsersGroup size={18} color="var(--mantine-color-dimmed)" />
+          <Text size="sm" fw={600} truncate c="dimmed">
+            {data.name} {t("org.deletedTeamTag")}
           </Text>
         </Group>
-      </UnstyledButton>
+      ) : (
+        <UnstyledButton
+          onClick={() => navigate(teamDetailsLink(data.teamId, { from: "org", back: data.backTo }))}
+          aria-label={t("teams.membersOfAria", { name: data.name })}
+          style={{ minWidth: 0 }}
+        >
+          <Group gap="xs" wrap="nowrap">
+            <IconUsersGroup size={18} color="var(--mantine-color-lettuce-filled)" />
+            <Text size="sm" fw={600} truncate>
+              {data.name}
+            </Text>
+          </Group>
+        </UnstyledButton>
+      )}
       {data.collapsed && (
         <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
           {t("org.hiddenMembers", { n: data.memberCount })}
@@ -226,11 +267,28 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
 }
 
 export default function OrgChart() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const currentUserId = getUserId();
+  // The chart's date lives in `?asOf=` (v4.17.0): absent, malformed or today = the live chart.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const today = todayIsoDate();
+  const asOfParam = searchParams.get("asOf");
+  const asOf = asOfParam != null && isValidIsoDate(asOfParam) ? asOfParam : today;
+  const offToday = asOf !== today;
+  function setAsOf(iso: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (iso === "" || iso === today) next.delete("asOf");
+        else next.set("asOf", iso);
+        return next;
+      },
+      { replace: true },
+    );
+  }
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["orgChart"],
-    queryFn: fetchOrg,
+    queryKey: ["orgChart", asOf],
+    queryFn: () => fetchOrg(asOf),
   });
 
   // Collapsed team node ids — client-side view state only, everything expanded by default.
@@ -285,6 +343,8 @@ export default function OrgChart() {
                   teamId: n.teamId,
                   name: n.name,
                   collapsed: collapsed.has(n.id),
+                  deleted: n.deleted,
+                  backTo: offToday ? `/org?asOf=${asOf}` : undefined,
                   memberCount: memberCounts.get(n.id) ?? 0,
                   onToggle: () => toggleTeam(n.id),
                 },
@@ -299,7 +359,7 @@ export default function OrgChart() {
                 selectable: false, // a plain label — nothing to click (cf. the note below)
               } satisfies Node),
       ),
-    [visible, collapsed, memberCounts, currentUserId, toggleTeam],
+    [visible, collapsed, memberCounts, currentUserId, toggleTeam, offToday, asOf],
   );
   const rfEdges: Edge[] = useMemo(
     () =>
@@ -339,6 +399,27 @@ export default function OrgChart() {
         <Text size="sm" c="dimmed">
           {t("org.hint")}
         </Text>
+        <Group gap="sm" align="flex-end" wrap="wrap">
+          <DateField
+            label={t("org.asOf")}
+            value={offToday ? asOf : today}
+            onChange={setAsOf}
+            w={170}
+          />
+          {offToday && (
+            <>
+              <Badge variant="light" color="lettuce" style={{ textTransform: "none" }}>
+                {t("org.asOfDate", { date: formatIsoDate(asOf, i18n.language) })}
+              </Badge>
+              <Button size="compact-xs" variant="light" onClick={() => setAsOf(today)}>
+                {t("org.backToToday")}
+              </Button>
+              <Text size="xs" c="dimmed">
+                {t("org.asOfUnattachedHint")}
+              </Text>
+            </>
+          )}
+        </Group>
       </Stack>
 
       {isError ? (
@@ -352,7 +433,7 @@ export default function OrgChart() {
       ) : rfNodes.length === 0 ? (
         <EmptyState
           icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
-          label={t("org.empty")}
+          label={t(offToday ? "org.emptyAsOf" : "org.empty")}
         />
       ) : (
         <Box style={{ height: "calc(100vh - 240px)", minHeight: 420 }}>

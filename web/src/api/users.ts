@@ -2,7 +2,7 @@
 // Thin endpoint wrappers: transport (authedFetch/ApiError) in ./http, session state in ./session.
 
 import { ApiError, buildQuery, jsonRequest, voidRequest } from "./http";
-import type { paths } from "./schema";
+import type { components, paths } from "./schema";
 import { type Feature, getUserId, setStoredDisabledFeatures, type UserRole } from "./session";
 
 export type UserPage = paths["/api/v1/users"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -202,4 +202,13 @@ export async function listAllUsers(filter: { teamId?: number | number[] } = {}):
     if (items.length >= result.total || result.items.length === 0) return items;
     page += 1;
   }
+}
+
+export type UserTeamHistory = components["schemas"]["UserTeamHistory"];
+export type UserTeamPeriod = components["schemas"]["UserTeamPeriod"];
+
+/** The person's dated team memberships and the teams they managed, past and upcoming included
+ *  (v4.17.0; readable by any authenticated caller). */
+export async function getUserTeamHistory(id: number): Promise<UserTeamHistory> {
+  return jsonRequest<UserTeamHistory>(`/api/v1/users/${id}/team-history`);
 }

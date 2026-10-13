@@ -273,5 +273,16 @@
     "featuresSaved": "Features saved"
   },
   "impactLog": "Impact log",
-  "successionPlans": "Succession plans"
+  "successionPlans": "Succession plans",
+  "teamHistory": {
+    "heading": "Team history",
+    "hint": "Past and upcoming periods too. Open a team's history to see its whole line or, as an admin, to correct it.",
+    "memberships": "Memberships",
+    "managed": "Teams managed",
+    "noMemberships": "Has not joined any team.",
+    "noManaged": "Has not managed any team.",
+    "from": "From",
+    "until": "Until",
+    "loadFailed": "Failed to load the team history"
+  }
 }

@@ -18,15 +18,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUsersGroup } from "@tabler/icons-react";
 import { ApiError } from "../api/http";
 import { getUserId, isAdmin } from "../api/session";
-import { getUser } from "../api/users";
+import { getUser, getUserTeamHistory, type UserTeamPeriod } from "../api/users";
 import { addTeamMember, listAllTeams, removeTeamMember } from "../api/teams";
 import { userDetailsLink } from "../utils/userLinks";
-import { teamDetailsLink } from "../utils/teamLinks";
+import { teamDetailsLink, teamHistoryLink } from "../utils/teamLinks";
+import { formatIsoDate, todayIsoDate } from "../utils/datetime";
+import { newestFirstPeriods, periodStatus } from "../utils/teamPeriods";
 import { showSuccessToast } from "../utils/toast";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import TableLoadingRow from "../components/TableLoadingRow";
+import TeamPeriodStatusPill from "../components/TeamPeriodStatusPill";
 import PersonaChip from "../components/PersonaChip";
 import RowActions from "../components/RowActions";
 import { useCurrentPath } from "../hooks/useCurrentPath";
@@ -35,6 +38,80 @@ import { useUserDisplayName } from "../hooks/useDashboardDrillDown";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 
 type TeamRow = { id: number; name: string };
+
+// One read-only table of a person's dated team periods (memberships or managed teams): the team
+// (linking to its history page — a deleted team stays plain text with the "(deleted)" tag),
+// when the period began and ended, and the Current / Past / Upcoming pill.
+function TeamPeriodsTable({
+  periods,
+  emptyLabel,
+}: {
+  /** Undefined while the history is loading. */
+  periods: UserTeamPeriod[] | undefined;
+  emptyLabel: string;
+}) {
+  const { t, i18n } = useTranslation();
+  const here = useCurrentPath();
+  const today = todayIsoDate();
+  return (
+    <ResponsiveTable density="normal">
+      <ResponsiveTable.Thead>
+        <ResponsiveTable.Tr>
+          <ResponsiveTable.Th>{t("users.team")}</ResponsiveTable.Th>
+          <ResponsiveTable.Th>{t("users.teamHistory.from")}</ResponsiveTable.Th>
+          <ResponsiveTable.Th>{t("users.teamHistory.until")}</ResponsiveTable.Th>
+          <ResponsiveTable.Th>{t("common.field.status")}</ResponsiveTable.Th>
+        </ResponsiveTable.Tr>
+      </ResponsiveTable.Thead>
+      <ResponsiveTable.Tbody>
+        {periods == null ? (
+          <TableLoadingRow colSpan={4} />
+        ) : periods.length === 0 ? (
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Td colSpan={4}>
+              <EmptyState
+                icon={<IconUsersGroup size={32} stroke={1.2} color="var(--mantine-color-dimmed)" />}
+                label={emptyLabel}
+              />
+            </ResponsiveTable.Td>
+          </ResponsiveTable.Tr>
+        ) : (
+          newestFirstPeriods(periods).map((p) => (
+            <ResponsiveTable.Tr key={p.id}>
+              <ResponsiveTable.Td label={t("users.team")} primary>
+                {p.team.deleted ? (
+                  <Text size="sm" c="dimmed">
+                    {p.team.name} {t("users.deletedTag")}
+                  </Text>
+                ) : (
+                  <Anchor
+                    component={RouterLink}
+                    to={teamHistoryLink(p.team.id, { back: here })}
+                    size="sm"
+                    aria-label={t("teams.history.openFor", { name: p.team.name })}
+                  >
+                    {p.team.name}
+                  </Anchor>
+                )}
+              </ResponsiveTable.Td>
+              <ResponsiveTable.Td label={t("users.teamHistory.from")}>
+                {p.startDate != null
+                  ? formatIsoDate(p.startDate, i18n.language)
+                  : t("teams.history.beforeRecordsShort")}
+              </ResponsiveTable.Td>
+              <ResponsiveTable.Td label={t("users.teamHistory.until")}>
+                {p.endDate != null ? formatIsoDate(p.endDate, i18n.language) : t("teams.history.noEnd")}
+              </ResponsiveTable.Td>
+              <ResponsiveTable.Td label={t("common.field.status")}>
+                <TeamPeriodStatusPill status={periodStatus(p, today)} />
+              </ResponsiveTable.Td>
+            </ResponsiveTable.Tr>
+          ))
+        )}
+      </ResponsiveTable.Tbody>
+    </ResponsiveTable>
+  );
+}
 
 export default function UserTeams() {
   const { t } = useTranslation();
@@ -80,6 +157,16 @@ export default function UserTeams() {
     enabled: idIsValid,
   });
 
+  const {
+    data: teamHistory,
+    isError: historyIsError,
+    error: historyError,
+  } = useQuery({
+    queryKey: ["userTeamHistory", id],
+    queryFn: () => getUserTeamHistory(id),
+    enabled: idIsValid,
+  });
+
   const { data: allTeams } = useQuery({
     queryKey: ["teams", "all"],
     queryFn: () => listAllTeams(),
@@ -92,6 +179,7 @@ export default function UserTeams() {
       setSelectedTeam(null);
       setAddError(null);
       await queryClient.invalidateQueries({ queryKey: ["userTeams", id] });
+      await queryClient.invalidateQueries({ queryKey: ["userTeamHistory", id] });
       showSuccessToast(t("teams.toast.memberAdded"));
     },
     onError: (err) => {
@@ -111,6 +199,7 @@ export default function UserTeams() {
     mutationFn: (row) => removeTeamMember(row.id, id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["userTeams", id] });
+      await queryClient.invalidateQueries({ queryKey: ["userTeamHistory", id] });
     },
     successMessage: t("teams.toast.memberRemoved"),
   });
@@ -280,6 +369,41 @@ export default function UserTeams() {
       <Text size="sm" c="dimmed">
         {t("common.table.total", { count: memberTeams.length })}
       </Text>
+
+      {/* The read-only dated history (v4.17.0): past and upcoming periods too. Rows link to the
+          team's history page, where an ADMIN corrects them. */}
+      <Stack gap="sm" component="section" aria-labelledby="user-team-history">
+        <div>
+          <Title order={3} id="user-team-history">
+            {t("users.teamHistory.heading")}
+          </Title>
+          <Text size="sm" c="dimmed">
+            {t("users.teamHistory.hint")}
+          </Text>
+        </div>
+        {historyIsError ? (
+          <Alert color="red" variant="light" title={t("users.teamHistory.loadFailed")}>
+            {loadErrorMessage(historyError, t)}
+          </Alert>
+        ) : (
+          <>
+            <Text size="sm" fw={600}>
+              {t("users.teamHistory.memberships")}
+            </Text>
+            <TeamPeriodsTable
+              periods={teamHistory?.memberships}
+              emptyLabel={t("users.teamHistory.noMemberships")}
+            />
+            <Text size="sm" fw={600}>
+              {t("users.teamHistory.managed")}
+            </Text>
+            <TeamPeriodsTable
+              periods={teamHistory?.managerPeriods}
+              emptyLabel={t("users.teamHistory.noManaged")}
+            />
+          </>
+        )}
+      </Stack>
 
       <ConfirmDeleteModal
         confirm={removeConfirm}

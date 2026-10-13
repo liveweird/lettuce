@@ -243,3 +243,36 @@ describe("layoutOrgGraph", () => {
     expect(layoutOrgGraph(nodes, edges)).toHaveLength(4);
   });
 });
+
+describe("buildOrgGraph — deleted teams and since-deleted members (v4.17.0)", () => {
+  test("a deleted team's node carries the flag; a plain team is not deleted", () => {
+    const { nodes } = buildOrgGraph(
+      [
+        { ...TEAMS[0], deleted: true },
+        { ...TEAMS[1] },
+      ],
+      [],
+      USERS,
+    );
+    const teams = nodes.filter((n) => n.kind === "team");
+    expect(teams.map((n) => n.kind === "team" && [n.name, n.deleted])).toEqual([
+      ["AAA", true],
+      ["BBB", false],
+    ]);
+  });
+
+  test("members flagged in deletedIds render as deleted person nodes", () => {
+    const { nodes } = buildOrgGraph(
+      TEAMS.slice(0, 1),
+      [{ teamId: 1, memberIds: [1, 2] }],
+      USERS,
+      new Set(),
+      new Set([2]),
+    );
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const two = byId.get(personNodeId(2));
+    const one = byId.get(personNodeId(1));
+    expect(two?.kind === "person" && two.deleted).toBe(true);
+    expect(one?.kind === "person" && one.deleted).toBe(false);
+  });
+});

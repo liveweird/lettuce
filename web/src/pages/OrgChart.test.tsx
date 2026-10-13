@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
-import { renderWithProviders, screen, within } from "../test/render";
+import { fireEvent, renderWithProviders, screen, waitFor, within } from "../test/render";
 import OrgChart from "./OrgChart";
 import { jsonResponse } from "../test/http";
+import { todayIsoDate } from "../utils/datetime";
 
 // happy-dom can't measure the canvas, so React Flow itself is mocked — but the mock renders
 // the page's REAL custom node components (via nodeTypes), so PersonNode/TeamNode logic
@@ -200,5 +201,158 @@ describe("OrgChart page", () => {
     renderOrg();
 
     expect(await screen.findByText("Failed to load the organization")).toBeInTheDocument();
+  });
+  describe("as of a date (v4.17.0)", () => {
+    const PAST = "2025-03-01";
+    // The as-of list: team 1 live then, team 7 since deleted (dimmed); Gone is a person deleted
+    // since — absent from today's directory, so the roster rows carry the name.
+    const AS_OF_TEAMS = [
+      {
+        id: 1, name: "AAA", managerId: 10, managerName: "Manager AAA", managerDeleted: false, deleted: false,
+        memberIds: [1, 60],
+        members: [
+          { id: 1, name: "AAA One", deleted: false, deactivated: false },
+          { id: 60, name: "Gone", deleted: true, deactivated: false },
+        ],
+      },
+      {
+        id: 7, name: "Defunct", managerId: 12, managerName: "Manager CCC", managerDeleted: false, deleted: true,
+        memberIds: [], members: [],
+      },
+    ];
+
+    function mockAsOfApi() {
+      mockFetch.mockImplementation((url: string) => {
+        const u = String(url);
+        if (u.startsWith("/api/v1/teams?")) {
+          const asOf = new URL(u, "http://x").searchParams.get("asOf");
+          const items = asOf ? AS_OF_TEAMS : TEAMS;
+          return Promise.resolve(jsonResponse(200, { items, page: 1, pageSize: 100, total: items.length }));
+        }
+        if (u.startsWith("/api/v1/users?"))
+          return Promise.resolve(jsonResponse(200, { items: USERS, page: 1, pageSize: 100, total: USERS.length }));
+        return Promise.resolve(jsonResponse(404, {}));
+      });
+    }
+
+    function renderAt(route: string) {
+      return renderWithProviders(
+        <Routes>
+          <Route
+            path="/org"
+            element={
+              <>
+                <OrgChart />
+                <PathProbe />
+              </>
+            }
+          />
+        </Routes>,
+        { route },
+      );
+    }
+
+    const teamsUrls = () =>
+      mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/v1/teams?"));
+
+    test("no param is today: the unchanged fast path (no asOf), no badge, the field shows today", async () => {
+      mockAsOfApi();
+      renderAt("/org");
+
+      expect(await screen.findByText("AAA One")).toBeInTheDocument();
+      expect(teamsUrls().every((u) => !u.includes("asOf"))).toBe(true);
+      expect(screen.getByLabelText("As of")).toHaveValue(todayIsoDate());
+      expect(screen.queryByRole("button", { name: "Today" })).not.toBeInTheDocument();
+    });
+
+    test("?asOf= fetches the as-of list, names people from its rosters, dims a deleted team and shows the badge", async () => {
+      mockAsOfApi();
+      renderAt(`/org?asOf=${PAST}`);
+
+      // A person deleted since is named by the as-of roster and marked deleted.
+      expect(await screen.findByText(/Gone \(deleted\)/)).toBeInTheDocument();
+      expect(teamsUrls().some((u) => u.includes(`asOf=${PAST}`))).toBe(true);
+      // The deleted team is still on the chart: dashed, dimmed, tagged, with no button to open
+      // a live page and no expand/collapse toggle (nothing to fold; its members stay visible).
+      const defunct = screen.getByText(/Defunct \(deleted\)/);
+      expect(screen.queryByRole("button", { name: "Members of Defunct" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /team Defunct/ })).not.toBeInTheDocument();
+      const node = defunct.closest(".mantine-Paper-root") as HTMLElement;
+      expect(node.style.borderStyle).toBe("dashed");
+      // A live team is not tagged.
+      expect(screen.queryByText(/AAA \(deleted\)/)).not.toBeInTheDocument();
+      // Off today: the badge, the reset and the hint about the "Not in any team" source.
+      expect(screen.getByText(/^As of /)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Today" })).toBeInTheDocument();
+      expect(screen.getByText(/taken from today's directory/)).toBeInTheDocument();
+      // Today's users still supply the unattached section.
+      expect(screen.getByText("Floater")).toBeInTheDocument();
+    });
+
+    test("picking a date writes ?asOf= and refetches; Today resets the param and the fetch", async () => {
+      mockAsOfApi();
+      const user = userEvent.setup();
+      renderAt("/org");
+      await screen.findByText("AAA One");
+
+      const field = screen.getByLabelText("As of");
+      fireEvent.change(field, { target: { value: PAST } });
+      fireEvent.blur(field);
+      await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent(`/org?asOf=${PAST}`));
+      expect(await screen.findByText(/Gone \(deleted\)/)).toBeInTheDocument();
+      expect(teamsUrls().some((u) => u.includes(`asOf=${PAST}`))).toBe(true);
+
+      await user.click(screen.getByRole("button", { name: "Today" }));
+      await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent(/^\/org$/));
+      expect(await screen.findByText("Manager AAA")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Today" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Gone/)).not.toBeInTheDocument();
+    });
+
+    test("clicking a deleted team's node navigates nowhere", async () => {
+      mockAsOfApi();
+      const user = userEvent.setup();
+      renderAt(`/org?asOf=${PAST}`);
+
+      await user.click(await screen.findByText(/Defunct \(deleted\)/));
+      expect(screen.getByTestId("probe")).toHaveTextContent(`/org?asOf=${PAST}`);
+    });
+
+    test("a live team opened from an off-today chart returns to that chart (back=/org?asOf=…)", async () => {
+      mockAsOfApi();
+      const user = userEvent.setup();
+      renderWithProviders(
+        <Routes>
+          <Route path="/org" element={<OrgChart />} />
+          <Route path="/teams/:id/details" element={<PathProbe />} />
+        </Routes>,
+        { route: `/org?asOf=${PAST}` },
+      );
+
+      await user.click(await screen.findByRole("button", { name: "Members of AAA" }));
+      expect(screen.getByTestId("probe")).toHaveTextContent(
+        `/teams/1/details?from=org&back=${encodeURIComponent(`/org?asOf=${PAST}`)}`,
+      );
+    });
+
+    test("a future date is an ordinary as-of date (badge, as-of fetch)", async () => {
+      mockAsOfApi();
+      const future = "2099-01-01";
+      renderAt(`/org?asOf=${future}`);
+
+      expect(await screen.findByText(/Gone \(deleted\)/)).toBeInTheDocument();
+      expect(teamsUrls().some((u) => u.includes(`asOf=${future}`))).toBe(true);
+      expect(screen.getByText(/^As of /)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Today" })).toBeInTheDocument();
+    });
+
+    test("a malformed ?asOf= falls back to today", async () => {
+      mockAsOfApi();
+      renderAt("/org?asOf=not-a-date");
+
+      expect(await screen.findByText("AAA One")).toBeInTheDocument();
+      expect(teamsUrls().every((u) => !u.includes("asOf"))).toBe(true);
+      expect(screen.queryByRole("button", { name: "Today" })).not.toBeInTheDocument();
+    });
   });
 });

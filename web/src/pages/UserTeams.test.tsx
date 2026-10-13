@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import UserTeams from "./UserTeams";
 import { jsonResponse, userLookupResponse, usersListRequests } from "../test/http";
+import { addIsoDays, todayIsoDate } from "../utils/datetime";
 
 const TOKEN_KEY = "lettuce.auth.token";
 const ROLE_KEY = "lettuce.auth.roles";
@@ -428,5 +429,71 @@ describe("UserTeams page", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /^remove$/i }));
     expect(within(dialog).getByRole("button", { name: /cancel/i })).toBeDisabled();
+  });
+  describe("team history section (v4.17.0)", () => {
+    const TODAY = todayIsoDate();
+    const HISTORY = {
+      memberships: [
+        { id: 11, team: { id: 9, name: "Defunct", deleted: true }, startDate: null, endDate: addIsoDays(TODAY, -100), current: false },
+        { id: 12, team: { id: 2, name: "Mobile", deleted: false }, startDate: addIsoDays(TODAY, -90), endDate: addIsoDays(TODAY, -10), current: false },
+        { id: 13, team: { id: 1, name: "Platform", deleted: false }, startDate: addIsoDays(TODAY, -5), endDate: null, current: true },
+        { id: 14, team: { id: 4, name: "Future", deleted: false }, startDate: addIsoDays(TODAY, 20), endDate: null, current: false },
+      ],
+      managerPeriods: [
+        { id: 21, team: { id: 3, name: "Solo", deleted: false }, startDate: addIsoDays(TODAY, -300), endDate: null, current: true },
+      ],
+    };
+
+    function mockHistory(history: unknown = HISTORY, status = 200) {
+      mockFetch.mockImplementation((url: string) => {
+        if (url === "/api/v1/users/7/team-history") return Promise.resolve(jsonResponse(status, history));
+        if (url === "/api/v1/users/7") return Promise.resolve(jsonResponse(200, TARGET_USER));
+        if (isMembersUrl(url)) return Promise.resolve(teamsPage(MEMBER_TEAMS));
+        if (isAllTeamsUrl(url)) return Promise.resolve(teamsPage(ALL_TEAMS));
+        return Promise.resolve(jsonResponse(404, {}));
+      });
+    }
+
+    test("lists memberships (pills, newest first) and managed teams, with the deleted tag and history links", async () => {
+      mockHistory();
+      renderUserTeams(7);
+
+      const heading = await screen.findByRole("heading", { name: "Team history" });
+      const section = heading.closest("section") as HTMLElement;
+      // Memberships newest first: Future (upcoming), Platform (current), Mobile and Defunct (past).
+      const rows = (await within(section).findAllByRole("row")).slice(1);
+      const labels = rows.map((r) => within(r).queryByText(/^(Future|Platform|Mobile|Defunct)/)?.textContent);
+      expect(labels.slice(0, 4)).toEqual(["Future", "Platform", "Mobile", "Defunct (deleted)"]);
+      expect(within(rows[0]).getByText("Upcoming")).toBeInTheDocument();
+      expect(within(rows[1]).getByText("Current")).toBeInTheDocument();
+      expect(within(rows[2]).getByText("Past")).toBeInTheDocument();
+      expect(within(rows[3]).getByText("Before records began")).toBeInTheDocument();
+      // Live teams link to their history page (returning here); a deleted team is plain text.
+      expect(within(section).getByRole("link", { name: "Team history of Platform" })).toHaveAttribute(
+        "href",
+        "/teams/1/history?back=%2Fusers%2F7%2Fteams",
+      );
+      expect(within(section).queryByRole("link", { name: "Team history of Defunct" })).not.toBeInTheDocument();
+      // The managed table.
+      expect(within(section).getByRole("link", { name: "Team history of Solo" })).toBeInTheDocument();
+      // The current table and its add/remove controls are untouched.
+      expect(screen.getByRole("link", { name: "Team details for Platform" })).toBeInTheDocument();
+    });
+
+    test("is read-only for a non-admin and shows the empty states", async () => {
+      localStorage.setItem(ROLE_KEY, "[]");
+      mockHistory({ memberships: [], managerPeriods: [] });
+      renderUserTeams(7, "?name=Alice");
+
+      expect(await screen.findByText("Has not joined any team.")).toBeInTheDocument();
+      expect(screen.getByText("Has not managed any team.")).toBeInTheDocument();
+    });
+
+    test("a failed history load is an alert, not a blank", async () => {
+      mockHistory({}, 500);
+      renderUserTeams(7);
+
+      expect(await screen.findByText("Failed to load the team history")).toBeInTheDocument();
+    });
   });
 });

@@ -15,3 +15,13 @@ export function teamDetailsLink(
   const queryString = query.toString();
   return `/teams/${teamId}/details${queryString ? `?${queryString}` : ""}`;
 }
+
+// Builder for the team-history view URL (`/teams/:id/history`, v4.17.0): the dated manager line
+// and membership periods. `back` is the exact in-app URL the link was clicked on (sanitized by
+// `safeBackParam` on read); without one the page returns to the team details.
+export function teamHistoryLink(teamId: number, opts?: { back?: string }): string {
+  const query = new URLSearchParams();
+  if (opts?.back) query.set("back", opts.back);
+  const queryString = query.toString();
+  return `/teams/${teamId}/history${queryString ? `?${queryString}` : ""}`;
+}

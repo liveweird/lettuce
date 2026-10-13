@@ -281,5 +281,16 @@
     "featuresSaved": "Funkcje zapisane"
   },
   "impactLog": "Dziennik wpływu",
-  "successionPlans": "Plany sukcesji"
+  "successionPlans": "Plany sukcesji",
+  "teamHistory": {
+    "heading": "Historia zespołów",
+    "hint": "Także okresy minione i przyszłe. Otwórz historię zespołu, aby zobaczyć całość albo — jako administrator/ka — ją poprawić.",
+    "memberships": "Członkostwa",
+    "managed": "Zespoły, którymi zarządzał/a",
+    "noMemberships": "Nie dołączył/a do żadnego zespołu.",
+    "noManaged": "Nie zarządzał/a żadnym zespołem.",
+    "from": "Od",
+    "until": "Do",
+    "loadFailed": "Nie udało się wczytać historii zespołów"
+  }
 }

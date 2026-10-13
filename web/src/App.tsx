@@ -133,6 +133,7 @@ const CreateTeam = lazyPage(() => import("./pages/CreateTeam"));
 const EditTeam = lazyPage(() => import("./pages/EditTeam"));
 const Teams = lazyPage(() => import("./pages/Teams"));
 const TeamDetails = lazyPage(() => import("./pages/TeamDetails"));
+const TeamHistory = lazyPage(() => import("./pages/TeamHistory"));
 
 // The team-details page's historical URLs: /teams/:id/members (renamed v2.5.7 — the page had
 // been team details since v2.5.3) and /teams/:id/subordinates (merged in, v2.5.5). Both keep
@@ -483,6 +484,7 @@ export const appRoutes = createRoutesFromElements(
             <Route path="teams/new" element={<CreateTeam />} />
             <Route path="teams/:id/edit" element={<EditTeam />} />
             <Route path="teams/:id/details" element={<TeamDetails />} />
+            <Route path="teams/:id/history" element={<TeamHistory />} />
             <Route path="teams/:teamId/members" element={<TeamDetailsRedirect />} />
             <Route path="teams/:teamId/subordinates" element={<TeamDetailsRedirect />} />
             <Route path="org" element={<OrgChart />} />
