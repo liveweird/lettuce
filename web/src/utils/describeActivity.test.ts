@@ -119,6 +119,31 @@ const CASES: [ActivityArea, string, Record<string, string>][] = [
   ["ACCOUNT", "SIGNED_IN", { mfa: "false" }],
   ["ACCOUNT", "SIGNED_IN", { mfa: "true" }],
   ["ACCOUNT", "SIGNED_OUT", {}],
+  ["TEAM_MEMBERSHIP", "TEAM_CREATED", { team: "Platform", managerId: "4", manager: "Ann Lee", memberCount: "3" }],
+  ["TEAM_MEMBERSHIP", "TEAM_CREATED", { team: "Platform", memberCount: "0" }],
+  ["TEAM_MEMBERSHIP", "TEAM_UPDATED", { team: "Core", nameFrom: "Platform", nameTo: "Core" }],
+  ["TEAM_MEMBERSHIP", "TEAM_UPDATED", { team: "Core", nameFrom: "Platform", nameTo: "Core", managerFrom: "4", managerFromName: "Ann Lee", managerTo: "5", managerToName: "Bob Roe", membersAdded: "7,8", membersAddedNames: "Jane Doe, Joe Poe", membersRemoved: "9", membersRemovedNames: "Kim Moe" }],
+  ["TEAM_MEMBERSHIP", "TEAM_UPDATED", { team: "Core", managerTo: "5", membersAdded: "7,8", membersRemoved: "9" }],
+  ["TEAM_MEMBERSHIP", "TEAM_UPDATED", { team: "Core" }],
+  ["TEAM_MEMBERSHIP", "TEAM_DELETED", { team: "Core", membershipsEnded: "2", futureRowsRemoved: "0" }],
+  ["TEAM_MEMBERSHIP", "MEMBER_ADDED", { team: "Platform", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05" }],
+  ["TEAM_MEMBERSHIP", "MEMBER_ADDED", { team: "Platform", memberUserId: "7" }],
+  ["TEAM_MEMBERSHIP", "MEMBER_REMOVED", { team: "Platform", memberUserId: "7", member: "Jane Doe", endDate: "2026-10-13" }],
+  ["TEAM_MEMBERSHIP", "MEMBER_REMOVED", { team: "Platform", memberUserId: "7", member: "Jane Doe", hardDeleted: "true" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_CREATED", { team: "Platform", membershipId: "1", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05", endDate: "2026-03-01" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_CREATED", { team: "Platform", membershipId: "1", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_CREATED", { team: "Platform", membershipId: "1", memberUserId: "7", member: "Jane Doe", endDate: "2026-03-01" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_CREATED", { team: "Platform", membershipId: "1", memberUserId: "7", member: "Jane Doe" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_UPDATED", { team: "Platform", membershipId: "1", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-06", startDateFrom: "2026-01-05", startDateTo: "2026-01-06", endDateTo: "2026-03-01" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_UPDATED", { team: "Platform", membershipId: "1", memberUserId: "7", member: "Jane Doe", endDateFrom: "2026-03-01" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_UPDATED", { team: "Platform", memberUserId: "7" }],
+  ["TEAM_MEMBERSHIP", "MEMBERSHIP_DELETED", { team: "Platform", membershipId: "1", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05", endDate: "2026-03-01" }],
+  ["TEAM_MEMBERSHIP", "MANAGER_PERIOD_CREATED", { team: "Platform", periodId: "3", managerId: "4", manager: "Ann Lee", startDate: "2026-03-01" }],
+  ["TEAM_MEMBERSHIP", "MANAGER_PERIOD_CREATED", { team: "Platform", periodId: "3", managerId: "4", manager: "Ann Lee" }],
+  ["TEAM_MEMBERSHIP", "MANAGER_PERIOD_UPDATED", { team: "Platform", periodId: "3", managerId: "5", manager: "Bob Roe", startDate: "2026-03-02", managerFrom: "4", managerFromName: "Ann Lee", managerTo: "5", managerToName: "Bob Roe", startDateFrom: "2026-03-01", startDateTo: "2026-03-02" }],
+  ["TEAM_MEMBERSHIP", "MANAGER_PERIOD_UPDATED", { team: "Platform", periodId: "3", managerId: "4", manager: "Ann Lee", startDateTo: "2026-03-02" }],
+  ["TEAM_MEMBERSHIP", "MANAGER_PERIOD_UPDATED", { team: "Platform", periodId: "3", managerId: "4", manager: "Ann Lee", startDate: "2026-03-01" }],
+  ["TEAM_MEMBERSHIP", "MANAGER_PERIOD_DELETED", { team: "Platform", periodId: "3", managerId: "4", manager: "Ann Lee", startDate: "2026-03-01", endDate: "2026-06-30", absorbedByPeriodId: "2" }],
 ];
 
 const SHARE_AREAS = [
@@ -170,6 +195,76 @@ describe("describeActivity", () => {
       }
     },
   );
+
+  test("team-structure rows are worded from the frozen snapshots, dates formatted per locale", () => {
+    const en = ctxFor("en");
+    const t = (type: string, params: Record<string, string>, extra: Partial<ActivityEntry> = {}) =>
+      describeActivity(entry("TEAM_MEMBERSHIP", type, params, extra), en);
+    expect(t("TEAM_CREATED", { team: "Platform", managerId: "4", manager: "Ann Lee" })).toBe("Created team Platform, managed by Ann Lee");
+    expect(t("TEAM_CREATED", { team: "Platform" })).toBe("Created team Platform");
+    expect(t("TEAM_UPDATED", { team: "Core", nameFrom: "Platform", nameTo: "Core" })).toBe("Renamed team Platform → Core");
+    expect(
+      t("TEAM_UPDATED", { team: "Core", nameFrom: "Platform", nameTo: "Core", managerTo: "5", managerToName: "Bob Roe", membersAdded: "7,8", membersAddedNames: "Jane Doe, Joe Poe", membersRemoved: "9" }),
+    ).toBe("Changed team Core: Renamed team Platform → Core; manager not set → Bob Roe; added Jane Doe, Joe Poe; removed #9");
+    expect(t("TEAM_UPDATED", { team: "Core" })).toBe("Changed team Core");
+    expect(t("TEAM_DELETED", { team: "Core" })).toBe("Deleted team Core");
+    expect(t("MEMBER_ADDED", { team: "Platform", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05" })).toBe(
+      "Added Jane Doe to Platform from Jan 5, 2026",
+    );
+    expect(t("MEMBER_ADDED", { team: "Platform", memberUserId: "7", member: "Jane Doe" })).toBe("Added Jane Doe to Platform");
+    expect(t("MEMBER_REMOVED", { team: "Platform", memberUserId: "7", member: "Jane Doe", endDate: "2026-10-13" })).toBe(
+      "Removed Jane Doe from Platform (last day Oct 13, 2026)",
+    );
+    expect(t("MEMBER_REMOVED", { team: "Platform", memberUserId: "7", member: "Jane Doe", hardDeleted: "true" })).toBe(
+      "Removed Jane Doe from Platform",
+    );
+    expect(t("MEMBERSHIP_CREATED", { team: "Platform", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05" })).toBe(
+      "Added a membership period of Jane Doe in Platform: from Jan 5, 2026",
+    );
+    expect(t("MEMBERSHIP_CREATED", { team: "Platform", memberUserId: "7", member: "Jane Doe", endDate: "2026-03-01" })).toBe(
+      "Added a membership period of Jane Doe in Platform: from before records began until Mar 1, 2026",
+    );
+    expect(t("MEMBERSHIP_CREATED", { team: "Platform", memberUserId: "7", member: "Jane Doe" })).toBe(
+      "Added a membership period of Jane Doe in Platform: from before records began",
+    );
+    expect(
+      t("MEMBERSHIP_UPDATED", { team: "Platform", memberUserId: "7", member: "Jane Doe", startDateFrom: "2026-01-05", endDateTo: "2026-03-01" }),
+    ).toBe("Changed the membership period of Jane Doe in Platform: start Jan 5, 2026 → before records began; end open-ended → Mar 1, 2026");
+    expect(t("MEMBERSHIP_DELETED", { team: "Platform", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05", endDate: "2026-03-01" })).toBe(
+      "Deleted a membership period of Jane Doe in Platform: Jan 5, 2026 – Mar 1, 2026",
+    );
+    expect(t("MANAGER_PERIOD_CREATED", { team: "Platform", managerId: "4", manager: "Ann Lee", startDate: "2026-03-01" })).toBe(
+      "Added a manager period of Platform: Ann Lee manages from Mar 1, 2026",
+    );
+    expect(
+      t("MANAGER_PERIOD_UPDATED", { team: "Platform", managerId: "5", manager: "Bob Roe", managerFrom: "4", managerFromName: "Ann Lee", managerTo: "5", managerToName: "Bob Roe", startDateFrom: "2026-03-01", startDateTo: "2026-03-02" }),
+    ).toBe("Changed a manager period of Platform: manager Ann Lee → Bob Roe; start Mar 1, 2026 → Mar 2, 2026");
+    expect(t("MANAGER_PERIOD_UPDATED", { team: "Platform", managerId: "5", manager: "Bob Roe", startDate: "2026-03-02" })).toBe(
+      "Changed a manager period of Platform: Bob Roe manages from Mar 2, 2026",
+    );
+    expect(t("MANAGER_PERIOD_DELETED", { team: "Platform", managerId: "4", manager: "Ann Lee", startDate: "2026-03-01" })).toBe(
+      "Deleted a manager period of Platform: Ann Lee, from Mar 1, 2026",
+    );
+    // Missing snapshots fall back to the ids, then to a bare placeholder — never "undefined".
+    expect(t("MEMBER_ADDED", { memberUserId: "7" }, { documentId: 12 })).toBe("Added #7 to #12");
+    expect(t("MEMBER_ADDED", {})).toBe("Added ? to ?");
+    expect(t("SOMETHING_NEW", {})).toBe("SOMETHING_NEW");
+  });
+
+  test("team-structure rows read in Polish with the inclusive voice", () => {
+    const pl = ctxFor("pl");
+    const t = (type: string, params: Record<string, string>) => describeActivity(entry("TEAM_MEMBERSHIP", type, params), pl);
+    expect(t("MEMBER_ADDED", { team: "Platform", memberUserId: "7", member: "Jane Doe", startDate: "2026-01-05" })).toMatch(
+      /^Dodał\/a osobę Jane Doe do zespołu Platform od /,
+    );
+    expect(t("MEMBER_REMOVED", { team: "Platform", memberUserId: "7", member: "Jane Doe", endDate: "2026-10-13" })).toMatch(
+      /^Usunął\/usunęła osobę Jane Doe z zespołu Platform \(ostatni dzień: /,
+    );
+    expect(t("TEAM_UPDATED", { team: "Core", nameFrom: "Platform", nameTo: "Core" })).toBe("Zmienił/a nazwę zespołu Platform → Core");
+    expect(t("MANAGER_PERIOD_CREATED", { team: "Platform", managerId: "4", manager: "Ann Lee" })).toBe(
+      "Dodał/a okres kierowania zespołem Platform: Ann Lee kieruje od przed początkiem zapisów",
+    );
+  });
 
   test("an event kind this build does not know renders its raw type (forward-compat)", () => {
     expect(describeActivity(entry("GOAL", "SOMETHING_NEW"), ctxFor("en"))).toBe("SOMETHING_NEW");
