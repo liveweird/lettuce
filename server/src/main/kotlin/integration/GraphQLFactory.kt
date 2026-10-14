@@ -80,7 +80,7 @@ fun parseIntegrationSchema(sdl: String): graphql.schema.GraphQLSchema =
 
 /** Builds the executable schema from the committed SDL (the contract — the runtime schema IS
  *  the file; IntegrationSchemaContractTest pins the round-trip) plus the guardrails. */
-fun buildIntegrationGraphQL(sdl: String, services: IntegrationServices): GraphQL {
+internal fun buildIntegrationGraphQL(sdl: String, services: IntegrationServices): GraphQL {
     val registry = SchemaParser().parse(sdl)
     val wiring = RuntimeWiring.newRuntimeWiring()
         .scalar(longScalar)
@@ -211,6 +211,8 @@ private fun TypeRuntimeWiring.Builder.userFetchers(): TypeRuntimeWiring.Builder 
             ?: env.listLoader("teamsByUser").load(env.parentId())
     }
     .dataFetcher("performanceReviews") { env -> env.listLoader("reviewsBySubordinate").load(env.parentId()) }
+    .dataFetcher("teamMemberships") { env -> env.teamHistory("memberships") }
+    .dataFetcher("managedTeamPeriods") { env -> env.teamHistory("managerPeriods") }
     .dataFetcher("daysOff") { env ->
         env.yearScopedLoader("daysOffByUser").load(env.parentId() to env.yearArgument("year"))
     }
@@ -236,6 +238,8 @@ private fun TypeRuntimeWiring.Builder.teamFetchers(): TypeRuntimeWiring.Builder 
     }
     .dataFetcher("members") { env -> env.listLoader("membersByTeam").load(env.parentId()) }
     .dataFetcher("kpis") { env -> env.listLoader("kpisByTeam").load(env.parentId()) }
+    .dataFetcher("memberships") { env -> env.listLoader("membershipsByTeam").load(env.parentId()) }
+    .dataFetcher("managerPeriods") { env -> env.listLoader("managerPeriodsByTeam").load(env.parentId()) }
 
 /** DictionaryEntry.values: the serialized language→text map, flattened to the schema's list. */
 private fun dictionaryValues(env: DataFetchingEnvironment): List<Map<String, Any?>> {
@@ -248,6 +252,11 @@ private fun dictionaryValues(env: DataFetchingEnvironment): List<Map<String, Any
 
 private fun DataFetchingEnvironment.parentId(): Long =
     (checkNotNull(getSource<Map<String, Any?>>())["id"] as Number).toLong()
+
+private fun DataFetchingEnvironment.teamHistory(list: String) =
+    checkNotNull(getDataLoader<Long, Map<String, Any?>>("teamHistoryByUser"))
+        .load(parentId())
+        .thenApply { it[list] }
 
 private fun DataFetchingEnvironment.listLoader(name: String): DataLoader<Long, List<Map<String, Any?>>> =
     checkNotNull(getDataLoader(name)) { "DataLoader $name is not registered" }

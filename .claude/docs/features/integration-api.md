@@ -15,7 +15,7 @@ controller, so an IN-CLUSTER consumer must call the public front-door host, not 
 admin-issued API key. **The deliberate product rule: integration reads bypass ALL per-caller
 authorization** — every family in scope is readable in full (DRAFTs included, encrypted content
 decrypted), and per-user feature flags don't apply (caller-side gates). Scope v1: users +
-career timelines, teams + memberships + KPIs, days off (requests/budgets — per paid pool since v3.2.0 — /corrections, plus the pool kinds registry),
+career timelines, teams + memberships + manager periods + KPIs, days off (requests/budgets — per paid pool since v3.2.0 — /corrections, plus the pool kinds registry),
 performance reviews, review periods. **NOT in scope** (deliberate, each addition is its own
 decision): succession plans (invisible-to-subjects is the product rule), feedbacks, 1:1s,
 goals, impact log, pulse, notifications, alerts, templates.
@@ -84,8 +84,10 @@ goals, impact log, pulse, notifications, alerts, templates.
 - **Schema v1 roots** (all documented in the SDL): `users(page, pageSize, name, email,
   deactivated)` / `user(id)` (+ nested careerHistory, teams, daysOff(year),
   daysOffBudget(year!) — the DEFAULT paid pool's row since v3.2.0 — daysOffBudgets(year!) — every
-  pool, v3.2.0, with `poolArchived` since v3.2.1 — daysOffCorrections(year), performanceReviews), `teams(page, pageSize,
-  name)` / `team(id)` (+ manager, members, kpis → values), `reviewPeriods`, and the bulk-sync
+  pool, v3.2.0, with `poolArchived` since v3.2.1 — daysOffCorrections(year), performanceReviews,
+  and since v4.18.0 the team history `teamMemberships`/`managedTeamPeriods`), `teams(page, pageSize,
+  name)` / `team(id)` (+ manager, members, kpis → values, and since v4.18.0 the dated history
+  `memberships`/`managerPeriods`), `reviewPeriods`, and the bulk-sync
   roots `daysOff(from, to, userId)`, `daysOffPoolTypes` (v3.2.0 — the active paid pool
   kinds, default first), `performanceReviews(periodId, subordinateId)`,
   `teamKpis(teamId, status)` — REST-mirroring `{items, page, pageSize, total}` envelopes,
@@ -98,6 +100,7 @@ goals, impact log, pulse, notifications, alerts, templates.
   instead (a MINOR release's `@deprecated` window naming the exact removal version, then the
   removal itself only in that MAJOR app release) — see "Contract & evolution" in
   `GRAPHQL-GUIDELINES.md`.
+- **Team history (v4.18.0, additive)**: `Team.memberships` (every dated membership row, past/current/upcoming, start order with a null start first, then id) and `Team.managerPeriods` (the manager succession line, oldest first), plus `User.teamMemberships` / `User.managedTeamPeriods` (the person's history — `UserTeamPeriod` rows naming their team through `TeamHistoryRef {id, name, deleted}`; a deleted team's periods stay, flagged `deleted: true` and never `current`). Types `TeamMembershipPeriod`, `TeamManagerPeriod`, `UserTeamPeriod`, `TeamHistoryRef`; dates are nullable ISO strings (null start = since before records, null end = open, the end is the INCLUSIVE last day); `current` is date-relative (covers the server's today), not caller-relative, so it is not a GQL-SEC-003 capability flag. The person-history fields apply the same **residue hide rule** as `GET /users/{id}/team-history` (a NULL-end period of a soft-deleted team is pre-V93 residue and omitted) because both ride `TeamHistoryService.historyByUserIds`. Resolvers read through `TeamHistoryService` only (`membershipsByTeamIds`, `managerPeriodsByTeamIds`, `historyByUserIds` — ONE transaction each, one grouped statement per list, shared with the REST single-id reads so both paths apply the same rules) behind three DataLoaders (`membershipsByTeam`, `managerPeriodsByTeam`, and ONE `teamHistoryByUser` shared by both person fields, so selecting both costs one `historyByUserIds` call); `Team.memberships`/`managerPeriods` apply no residue filter because a `Team` is only reachable for a live team (`team`/`teams` read `teams_current`) — add one if a deleted team ever becomes reachable; `IntegrationServices` gained `teamHistory` (so it, `newDataLoaderRegistry` and `buildIntegrationGraphQL` are `internal`, `TeamHistoryService` being internal). No root-field change and deliberately no `teams(asOf:)` argument: `Team.manager`/`members` resolve from today's views, so consumers derive any day from the period lists. The `*Deleted` flags of this registered future addition now exist for these history rows (`userDeleted`, `managerDeleted`, `TeamHistoryRef.deleted`); the remaining deferred ones stay below.
 - **Audit**: every executed request → `integration.request` (clientId, clientName,
   operationName, root field names — never query text/variables); `integration.auth_failed`
   (reason) on every rejected key.
@@ -116,10 +119,10 @@ goals, impact log, pulse, notifications, alerts, templates.
   revoke and the `last_used_at` stamp are race-safe conditional updates; `toGraphQL()` uses
   `encodeDefaults = true`; the SDL documents every enum value, the dangling-reference rule
   (soft-deleted users/teams stay embedded as historical labels — the `*Deleted` flag fields
-  remain a REGISTERED FUTURE ADDITIVE addition), and the three previously order-silent nested
+  remain a REGISTERED FUTURE ADDITIVE addition — done for the v4.18.0 team-history rows only), and the three previously order-silent nested
   lists; audit `rootFields` are RESPONSE KEYS (alias names under aliases — documented
   trade-off) and `operationName` is length-capped. Deferred (registered): the `*Deleted`
-  boolean fields on DaysOff/PerformanceReview/Team/TeamKpi, the careerHistory loader's second
+  boolean fields on DaysOff/PerformanceReview/Team/TeamKpi (the v4.18.0 history rows carry theirs), the careerHistory loader's second
   transaction when the batch is empty, the SPA's failed-create alert lingering while editing.
 - **Tests**: `IntegrationClientTest` (CRUD/403 incl. HR/validation/audit),
   `IntegrationGraphQlTest` (config gate, uniform 401 matrix incl. revoked, per-family reads

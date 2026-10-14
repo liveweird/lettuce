@@ -14,7 +14,7 @@ import org.dataloader.MappedBatchLoader
  * of parents costs a handful of SQL statements instead of one per row. Keys are the Long ids
  * the parent Map trees carry (see GraphQLJson.kt); year-scoped loaders key on (id, year).
  */
-fun newDataLoaderRegistry(services: IntegrationServices, scope: CoroutineScope): DataLoaderRegistry {
+internal fun newDataLoaderRegistry(services: IntegrationServices, scope: CoroutineScope): DataLoaderRegistry {
     val registry = DataLoaderRegistry()
     registry.registerUserLoaders(services, scope)
     registry.registerDaysOffLoaders(services, scope)
@@ -47,6 +47,22 @@ private fun DataLoaderRegistry.registerUserLoaders(services: IntegrationServices
         mappedLoader(scope) { keys: Set<Long> ->
             val byUser = services.reviews.listBySubordinateIds(keys.toUIntSet())
             keys.associateWith { key -> byUser[key.toUInt()].orEmpty().map { it.toGraphQL() } }
+        },
+    )
+    // ONE loader behind both person-history fields (User.teamMemberships and
+    // User.managedTeamPeriods): historyByUserIds reads both lists in one transaction, so a query
+    // selecting both fields pays for it once; each fetcher projects its own list.
+    register(
+        "teamHistoryByUser",
+        mappedLoader(scope) { keys: Set<Long> ->
+            val byUser = services.teamHistory.historyByUserIds(keys.toUIntSet())
+            keys.associateWith { key ->
+                val history = byUser[key.toUInt()]
+                mapOf(
+                    "memberships" to history?.memberships.orEmpty().map { it.toGraphQL() },
+                    "managerPeriods" to history?.managerPeriods.orEmpty().map { it.toGraphQL() },
+                )
+            }
         },
     )
 }
@@ -131,7 +147,32 @@ private fun DataLoaderRegistry.registerTeamLoaders(services: IntegrationServices
             }
         },
     )
+    register(
+        "membershipsByTeam",
+        mappedLoader(scope) { keys: Set<Long> ->
+            val byTeam = services.teamHistory.membershipsByTeamIds(keys.toUIntSet())
+            keys.associateWith { key ->
+                byTeam[key.toUInt()].orEmpty().map { period ->
+                    period.toGraphQL() + ("user" to userRef(period.userId, period.userName))
+                }
+            }
+        },
+    )
+    register(
+        "managerPeriodsByTeam",
+        mappedLoader(scope) { keys: Set<Long> ->
+            val byTeam = services.teamHistory.managerPeriodsByTeamIds(keys.toUIntSet())
+            keys.associateWith { key ->
+                byTeam[key.toUInt()].orEmpty().map { period ->
+                    period.toGraphQL() + ("manager" to userRef(period.managerId, period.managerName))
+                }
+            }
+        },
+    )
 }
+
+/** The UserRef map (UInt ids must become Long — see GraphQLJson.kt). */
+private fun userRef(id: UInt, name: String): Map<String, Any?> = mapOf("id" to id.toLong(), "name" to name)
 
 private fun Collection<Long>.toUIntSet(): Set<UInt> = map { it.toUInt() }.toSet()
 

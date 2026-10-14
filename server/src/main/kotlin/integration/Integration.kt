@@ -7,6 +7,7 @@ import ch.nokillswit.daysoff.DaysOffServiceKey
 import ch.nokillswit.reviews.PerformanceReviewServiceKey
 import ch.nokillswit.reviews.ReviewPeriodServiceKey
 import ch.nokillswit.teamkpis.TeamKpiServiceKey
+import ch.nokillswit.teams.TeamHistoryServiceKey
 import ch.nokillswit.teams.TeamServiceKey
 import ch.nokillswit.users.CareerPositionServiceKey
 import ch.nokillswit.users.UserServiceKey
@@ -53,6 +54,7 @@ fun Application.configureIntegration() {
         users = attributes[UserServiceKey],
         careerPositions = attributes[CareerPositionServiceKey],
         teams = attributes[TeamServiceKey],
+        teamHistory = attributes[TeamHistoryServiceKey],
         daysOff = attributes[DaysOffServiceKey],
         reviews = attributes[PerformanceReviewServiceKey],
         reviewPeriods = attributes[ReviewPeriodServiceKey],

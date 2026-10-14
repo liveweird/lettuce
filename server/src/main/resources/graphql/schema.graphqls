@@ -194,6 +194,8 @@ type User {
   "Current seniority level, from the latest career position; null when none." seniorityLevel: DictionaryEntry
   "The full chronological career-position timeline (start ascending)." careerHistory: [CareerPosition!]!
   "Teams this user is currently a member of (name ascending)." teams: [TeamRef!]!
+  "The user's team-membership history: every dated membership period in any team, past, current and upcoming, in start order (a null start first), then team name, then id. Includes periods in since-deleted teams (flagged by team.deleted); rows of teams deleted before dated records began (open-ended residue) are omitted." teamMemberships: [UserTeamPeriod!]!
+  "The user's manager history: every dated period in which they managed a team, in start order (a null start first), then team name, then id. Same deleted-team rules as teamMemberships." managedTeamPeriods: [UserTeamPeriod!]!
   "The user's days-off requests, id ascending, optionally limited to startDates of one calendar year (2000..2100)." daysOff("Calendar year filter (e.g. 2026)." year: Int): [DaysOff!]!
   "The user's DEFAULT paid pool budget for a year (closed-form; null never occurs — an unconfigured allowance yields a zero budget). Since v3.2.0 one of possibly several pools — see daysOffBudgets." daysOffBudget("The budget year (2000..2100)." year: Int!): DaysOffBudget!
   "The user's budgets in EVERY paid pool for a year (v3.2.0): the default pool first, then every other pool by name — active grants and archived pools that still hold history in that year alike (see poolArchived)." daysOffBudgets("The budget year (2000..2100)." year: Int!): [DaysOffBudget!]!
@@ -220,6 +222,45 @@ type Team {
   "The team's current manager (may be a since-deleted user — see the schema note)." manager: UserRef!
   "Current members with display names." members: [UserRef!]!
   "The team's KPIs (every status)." kpis: [TeamKpi!]!
+  "Every dated membership period of the team's roster (past, current and upcoming), ordered by startDate (a null start first), then id. The same person may appear several times (a rejoin is a new period); a person's membership never overlaps itself within the team." memberships: [TeamMembershipPeriod!]!
+  "The team's manager succession line, oldest first: contiguous periods, the last one open-ended while the team is live." managerPeriods: [TeamManagerPeriod!]!
+}
+
+"One membership period of a person in a team. Dates are ISO YYYY-MM-DD; a null startDate means the membership began before records were kept, a null endDate means it is open-ended, otherwise endDate is the INCLUSIVE last day."
+type TeamMembershipPeriod {
+  "The membership period id." id: Int!
+  "The member (may be a since-deleted user — see userDeleted)." user: UserRef!
+  "true = the member's account has been deleted (the name is kept as a historical label)." userDeleted: Boolean!
+  "true = the member's account is administratively deactivated." deactivated: Boolean!
+  "ISO YYYY-MM-DD first day of the membership; null = since before records." startDate: String
+  "ISO YYYY-MM-DD inclusive last day of the membership; null = open-ended." endDate: String
+  "true = the period covers today (the server's date)." current: Boolean!
+}
+
+"One period of a team's manager succession line. Dates follow TeamMembershipPeriod: each period ends the day before the next one starts and the last one is open-ended."
+type TeamManagerPeriod {
+  "The manager period id." id: Int!
+  "The manager during this period (may be a since-deleted user — see managerDeleted)." manager: UserRef!
+  "true = the manager's account has been deleted (the name is kept as a historical label)." managerDeleted: Boolean!
+  "ISO YYYY-MM-DD first day of the period; null = since before records." startDate: String
+  "ISO YYYY-MM-DD inclusive last day of the period; null = open-ended." endDate: String
+  "true = the period covers today (the server's date)." current: Boolean!
+}
+
+"One period of a person's team history: a membership period (User.teamMemberships) or a managed-team period (User.managedTeamPeriods). Dates follow TeamMembershipPeriod."
+type UserTeamPeriod {
+  "The period id (a membership id or a manager-period id, depending on the field)." id: Int!
+  "The team the period belongs to." team: TeamHistoryRef!
+  "ISO YYYY-MM-DD first day of the period; null = since before records." startDate: String
+  "ISO YYYY-MM-DD inclusive last day of the period; null = open-ended." endDate: String
+  "true = the period covers today and the team is not deleted." current: Boolean!
+}
+
+"A team named by a history row; carries the deletion flag because history outlives the team."
+type TeamHistoryRef {
+  "The team id." id: Int!
+  "The team name." name: String!
+  "true = the team has been deleted (its periods ended on the deletion day)." deleted: Boolean!
 }
 
 "One row of a user's career timeline."

@@ -56,6 +56,8 @@ private fun withRemoved(fields: MutableList<Pair<String, Any?>>, removed: List<U
 fun Application.configureTeamHistoryRoutes() {
     val history = attributes[TeamHistoryServiceKey]
     val userService = attributes[UserServiceKey]
+    // The team-structure action trail (V94) behind the activity log — appended after each commit and audit line.
+    val eventService = attributes[TeamStructureEventServiceKey]
 
     routing {
         authenticate {
@@ -79,6 +81,9 @@ fun Application.configureTeamHistoryRoutes() {
                     "memberUserId" to created.userId.toLong(),
                     "startDate" to created.startDate,
                     "endDate" to created.endDate,
+                )
+                eventService.create(
+                    membershipCreatedEvent(caller.userId, route.id, eventService.names(route.id, emptyList()).team.orEmpty(), created),
                 )
                 call.response.header(
                     HttpHeaders.Location,
@@ -107,7 +112,12 @@ fun Application.configureTeamHistoryRoutes() {
                     fields += "endDateTo" to update.after.end
                 }
                 // Change-only: a PUT that changes nothing mints no event.
-                if (update.after != update.before) audit("team.membership_updated", *fields.toTypedArray())
+                if (update.after != update.before) {
+                    audit("team.membership_updated", *fields.toTypedArray())
+                    val names = eventService.names(route.parent.id, listOf(update.before.userId))
+                    membershipUpdatedEvent(caller.userId, route.parent.id, names.team.orEmpty(), update, names.users)
+                        ?.let { eventService.create(it) }
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<TeamMembershipsRoute.Row> { route ->
@@ -122,6 +132,10 @@ fun Application.configureTeamHistoryRoutes() {
                     "memberUserId" to removed.userId.toLong(),
                     "startDate" to removed.start,
                     "endDate" to removed.end,
+                )
+                val names = eventService.names(route.parent.id, listOf(removed.userId))
+                eventService.create(
+                    membershipDeletedEvent(caller.userId, route.parent.id, names.team.orEmpty(), removed, names.users),
                 )
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -148,6 +162,12 @@ fun Application.configureTeamHistoryRoutes() {
                 )
                 withRemoved(createdFields, creation.removedPeriodIds)
                 audit("team.manager_period_created", *createdFields.toTypedArray())
+                eventService.create(
+                    managerPeriodCreatedEvent(
+                        caller.userId, route.id, eventService.names(route.id, emptyList()).team.orEmpty(), creation,
+                        write.startDate,
+                    ),
+                )
                 call.response.header(
                     HttpHeaders.Location,
                     call.application.href(TeamManagersRoute.Row(route, created.id)),
@@ -180,6 +200,11 @@ fun Application.configureTeamHistoryRoutes() {
                     if (update.after.id != route.periodId) fields += "mergedIntoPeriodId" to update.after.id.toLong()
                     withRemoved(fields, update.removedPeriodIds)
                     audit("team.manager_period_updated", *fields.toTypedArray())
+                    val names = eventService.names(route.parent.id, listOf(update.before.managerId, write.managerId))
+                    managerPeriodUpdatedEvent(
+                        caller.userId, route.parent.id, names.team.orEmpty(), route.periodId, update,
+                        write.managerId, write.startDate, names.users,
+                    )?.let { eventService.create(it) }
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -198,6 +223,12 @@ fun Application.configureTeamHistoryRoutes() {
                 )
                 withRemoved(deletedFields, removal.removedPeriodIds)
                 audit("team.manager_period_deleted", *deletedFields.toTypedArray())
+                val names = eventService.names(route.parent.id, listOf(removal.deleted.managerId))
+                eventService.create(
+                    managerPeriodDeletedEvent(
+                        caller.userId, route.parent.id, names.team.orEmpty(), removal, route.periodId, names.users,
+                    ),
+                )
                 call.respond(HttpStatusCode.NoContent)
             }
 

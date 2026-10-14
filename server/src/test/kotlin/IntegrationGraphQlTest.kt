@@ -2,8 +2,15 @@ package ch.nokillswit
 
 import ch.nokillswit.daysoff.DaysOffCreateRequest
 import ch.nokillswit.daysoff.DaysOffType
+import ch.nokillswit.infra.db.RequestDbMetrics
+import ch.nokillswit.infra.paging.PageRequest
+import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.integration.IntegrationClientCreateResponse
 import ch.nokillswit.integration.IntegrationClientRequest
+import ch.nokillswit.integration.IntegrationServices
+import ch.nokillswit.integration.SCOPE_CONTEXT_KEY
+import ch.nokillswit.integration.buildIntegrationGraphQL
+import ch.nokillswit.integration.newDataLoaderRegistry
 import ch.nokillswit.plugins.ProblemDetail
 import ch.nokillswit.reviews.CategoryAssessment
 import ch.nokillswit.reviews.PerformanceReviewCreateRequest
@@ -12,6 +19,13 @@ import ch.nokillswit.teamkpis.TeamKpiCreateRequest
 import ch.nokillswit.teamkpis.TeamKpiResponse
 import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.TeamHistoryService
+import ch.nokillswit.teams.TeamListFilter
+import ch.nokillswit.teams.TeamManagerPeriodWrite
+import ch.nokillswit.teams.TeamMembershipList
+import ch.nokillswit.teams.TeamMembershipWrite
+import graphql.ExecutionInput
+import graphql.GraphQLContext
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -31,12 +45,17 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 import java.util.UUID
+import java.util.function.Consumer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.future.await
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -665,6 +684,224 @@ class IntegrationGraphQlTest {
         val teams = plain.graphql(key, """{ teams(name: "$teamName") { total items { name } } }""")
             .data()["teams"]!!.jsonObject
         assertEquals(1, teams["total"]!!.jsonPrimitive.content.toInt())
+    }
+
+    private fun JsonObject.bool(key: String) = this[key]!!.jsonPrimitive.content.toBoolean()
+
+    private fun JsonObject.text(key: String) = this[key]!!.jsonPrimitive.content
+
+    @Test
+    fun `team history - a back-dated manager line and an ended membership read through Team`() = testApplication {
+        enabledApp()
+        val (admin, key) = freshKey("gql-hist")
+        val plain = jsonClient()
+        val (manager, _) = seedPerson("gql-h-mgr", name = "Hist Manager")
+        val (successor, _) = seedPerson("gql-h-succ", name = "Hist Successor")
+        val (alice, _) = seedPerson("gql-h-alice", name = "Hist Alice")
+        val (bob, _) = seedPerson("gql-h-bob", name = "Hist Bob")
+        val team = backdatedTeam(10, manager, listOf(alice, bob), name = "gql-hist-${UUID.randomUUID()}")
+        // Bob left five days ago; the successor took over three days ago (a back-dated handover).
+        val bobRow = admin.get("/api/v1/teams/$team/memberships").body<TeamMembershipList>().items.single { it.userId == bob }
+        assertEquals(
+            HttpStatusCode.NoContent,
+            admin.putJson("/api/v1/teams/$team/memberships/${bobRow.id}", TeamMembershipWrite(dayIso(-10), dayIso(-5))).status,
+        )
+        assertEquals(
+            HttpStatusCode.Created,
+            admin.postJson("/api/v1/teams/$team/managers", TeamManagerPeriodWrite(successor, dayIso(-3))).status,
+        )
+
+        val result = plain.graphql(
+            key,
+            """{ team(id: ${team.toInt()}) {
+                 memberships { id user { id name } userDeleted deactivated startDate endDate current }
+                 managerPeriods { id manager { id name } managerDeleted startDate endDate current } } }""",
+        ).data()["team"]!!.jsonObject
+
+        val memberships = result["memberships"]!!.jsonArray.map { it.jsonObject }
+        fun JsonObject.userId() = this["user"]!!.jsonObject.text("id").toInt()
+        assertEquals(setOf(alice.toInt(), bob.toInt()), memberships.map { it.userId() }.toSet())
+        val bobPeriod = memberships.single { it.userId() == bob.toInt() }
+        assertEquals("Hist Bob", bobPeriod["user"]!!.jsonObject.text("name"))
+        assertEquals(dayIso(-10), bobPeriod.text("startDate"))
+        assertEquals(dayIso(-5), bobPeriod.text("endDate"))
+        assertEquals(false, bobPeriod.bool("current"))
+        assertEquals(false, bobPeriod.bool("userDeleted"))
+        assertEquals(false, bobPeriod.bool("deactivated"))
+        val alicePeriod = memberships.single { it.userId() == alice.toInt() }
+        assertEquals(true, alicePeriod.bool("current"))
+        assertTrue(alicePeriod["endDate"] is JsonNull, "an open membership has a null end")
+
+        val line = result["managerPeriods"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(
+            listOf("Hist Manager", "Hist Successor"),
+            line.map { it["manager"]!!.jsonObject.text("name") },
+            "oldest first",
+        )
+        assertEquals(dayIso(-10), line[0].text("startDate"))
+        assertEquals(dayIso(-4), line[0].text("endDate"))
+        assertEquals(dayIso(-3), line[1].text("startDate"))
+        assertTrue(line[1]["endDate"] is JsonNull)
+        assertEquals(listOf(false, true), line.map { it.bool("current") })
+        assertEquals(listOf(false, false), line.map { it.bool("managerDeleted") })
+        // Today's views are untouched by the history fields: the successor is the current manager.
+        assertEquals(
+            "Hist Successor",
+            plain.graphql(key, "{ team(id: ${team.toInt()}) { manager { name } } }")
+                .data()["team"]!!.jsonObject["manager"]!!.jsonObject.text("name"),
+        )
+    }
+
+    @Test
+    fun `team history - a person's periods include deleted teams and hide pre-V93 residue`() = testApplication {
+        enabledApp()
+        val (admin, key) = freshKey("gql-uhist")
+        val plain = jsonClient()
+        val tag = "gqluh" + UUID.randomUUID().toString().take(8)
+        val (manager, _) = seedPerson("gql-uh-mgr")
+        val (person, _) = seedPerson("gql-uh-person", name = "Hist Person")
+        backdatedTeam(6, manager, listOf(person), name = "$tag-live")
+        val doomed = backdatedTeam(6, manager, listOf(person), name = "$tag-doomed")
+        val managed = backdatedTeam(4, person, name = "$tag-managed")
+        val residue = backdatedTeam(6, manager, listOf(person), name = "$tag-residue")
+        softDeleteTeamRow(residue)
+        assertEquals(HttpStatusCode.NoContent, admin.delete("/api/v1/teams/$doomed").status)
+
+        val user = plain.graphql(
+            key,
+            """{ user(id: ${person.toInt()}) {
+                 teamMemberships { id team { id name deleted } startDate endDate current }
+                 managedTeamPeriods { id team { id name deleted } startDate endDate current } } }""",
+        ).data()["user"]!!.jsonObject
+
+        fun JsonObject.teamName() = this["team"]!!.jsonObject.text("name")
+        val memberships = user["teamMemberships"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(setOf("$tag-live", "$tag-doomed"), memberships.map { it.teamName() }.toSet(), "the residue team is hidden")
+        val liveRow = memberships.single { it.teamName() == "$tag-live" }
+        assertEquals(false, liveRow["team"]!!.jsonObject.bool("deleted"))
+        assertEquals(true, liveRow.bool("current"))
+        val doomedRow = memberships.single { it.teamName() == "$tag-doomed" }
+        assertEquals(true, doomedRow["team"]!!.jsonObject.bool("deleted"))
+        assertEquals(dayIso(0), doomedRow.text("endDate"), "the deletion stamps the end")
+        assertEquals(false, doomedRow.bool("current"))
+
+        val managedRows = user["managedTeamPeriods"]!!.jsonArray.map { it.jsonObject }
+        val managedRow = managedRows.single()
+        assertEquals("$tag-managed", managedRow.teamName())
+        assertEquals(managed.toInt(), managedRow["team"]!!.jsonObject.text("id").toInt())
+        assertEquals(dayIso(-4), managedRow.text("startDate"))
+        assertTrue(managedRow["endDate"] is JsonNull)
+    }
+
+    @Test
+    fun `team history fields batch - the statement count does not grow with the number of parents`() = testApplication {
+        enabledApp()
+        val tag = "gqlb" + UUID.randomUUID().toString().take(8)
+        val (manager, _) = seedPerson("gql-b-mgr")
+        val (member, _) = seedPerson("gql-b-member")
+        backdatedTeam(5, manager, listOf(member), name = "$tag-single")
+        repeat(3) { backdatedTeam(5, manager, listOf(member), name = "$tag-multi-$it") }
+
+        // In-process execution with the route's own wiring, under a RequestDbMetrics element so the
+        // statements the loaders issue can be counted: 1 parent vs 3 parents must cost the same.
+        val history = TeamHistoryService(TestServices.database)
+        val services = IntegrationServices(
+            users = TestServices.users,
+            careerPositions = TestServices.careerPositions,
+            teams = TestServices.teams,
+            teamHistory = history,
+            daysOff = TestDaysOff.service,
+            reviews = TestServices.performanceReviews,
+            reviewPeriods = TestServices.reviewPeriods,
+            teamKpis = TestServices.teamKpis,
+        )
+        val sdl = checkNotNull(javaClass.getResource("/graphql/schema.graphqls")).readText()
+        val graphQL = buildIntegrationGraphQL(sdl, services)
+
+        suspend fun execute(query: String): Triple<Int, Int, Map<String, Any?>> {
+            val metrics = RequestDbMetrics()
+            val data = withContext(metrics) {
+                supervisorScope {
+                    val scope = this
+                    val result = graphQL.executeAsync(
+                        ExecutionInput.newExecutionInput()
+                            .query(query)
+                            .graphQLContext(Consumer<GraphQLContext.Builder> { it.put(SCOPE_CONTEXT_KEY, scope) })
+                            .dataLoaderRegistry(newDataLoaderRegistry(services, scope))
+                            .build(),
+                    ).await()
+                    assertTrue(result.errors.isEmpty(), "unexpected errors: ${result.errors}")
+                    result.getData<Map<String, Any?>>()!!
+                }
+            }
+            return Triple(metrics.statements, metrics.transactions, data)
+        }
+
+        suspend fun run(nameFilter: String): Triple<Int, Int, List<Int>> {
+            val (statements, transactions, data) = execute(
+                """{ teams(name: "$nameFilter") { items {
+                     memberships { id user { name } } managerPeriods { id manager { name } } } } }""",
+            )
+            val items = (data["teams"] as Map<*, *>)["items"] as List<*>
+            return Triple(statements, transactions, items.map { ((it as Map<*, *>)["memberships"] as List<*>).size })
+        }
+
+        val (singleStatements, singleTransactions, singleSizes) = run("$tag-single")
+        val (multiStatements, multiTransactions, multiSizes) = run("$tag-multi")
+        assertEquals(listOf(1), singleSizes)
+        assertEquals(listOf(1, 1, 1), multiSizes)
+        assertEquals(singleStatements, multiStatements, "statements must not grow per parent")
+        assertEquals(singleTransactions, multiTransactions, "transactions must not grow per parent")
+
+        // The person side: BOTH User.teamMemberships and User.managedTeamPeriods share the one
+        // `teamHistoryByUser` loader, so 1 vs 3 parent users cost the same statements and transactions.
+        val personTeamLead = seedPerson("gql-b-lead").first
+        seedPerson("gql-b-one", name = "$tag-one-0").first.let { backdatedTeam(5, it, listOf(personTeamLead), "$tag-p-one") }
+        repeat(3) { i ->
+            seedPerson("gql-b-many", name = "$tag-many-$i").first.let { backdatedTeam(5, it, listOf(personTeamLead), "$tag-p-many-$i") }
+        }
+
+        suspend fun runUsers(
+            nameFilter: String,
+            fields: String = "teamMemberships { id } managedTeamPeriods { id }",
+        ): Triple<Int, Int, List<Int>> {
+            val (statements, transactions, data) = execute(
+                """{ users(name: "$nameFilter") { items { $fields } } }""",
+            )
+            val items = (data["users"] as Map<*, *>)["items"] as List<*>
+            return Triple(statements, transactions, items.map { ((it as Map<*, *>).values.last() as List<*>).size })
+        }
+
+        val (oneStatements, oneTransactions, oneSizes) = runUsers("$tag-one-")
+        val (manyStatements, manyTransactions, manySizes) = runUsers("$tag-many-")
+        assertEquals(listOf(1), oneSizes)
+        assertEquals(listOf(1, 1, 1), manySizes)
+        assertEquals(oneStatements, manyStatements, "person-side statements must not grow per parent user")
+        assertEquals(oneTransactions, manyTransactions, "person-side transactions must not grow per parent user")
+        // Selecting both fields costs no more than selecting one: the shared loader ran historyByUserIds once.
+        val (singleFieldStatements, singleFieldTransactions, _) = runUsers("$tag-many-", "managedTeamPeriods { id }")
+        assertEquals(singleFieldStatements, manyStatements, "the second history field must reuse the shared loader")
+        assertEquals(singleFieldTransactions, manyTransactions)
+
+        // The batched reads themselves: ONE transaction, one statement per list however many ids.
+        val ids = TestServices.teams.list(
+            TeamListFilter(name = "$tag-multi"),
+            PageRequest(page = 1, pageSize = 100, sort = listOf(SortField("id", descending = false))),
+        ).items.map { it.id }.toSet()
+        assertEquals(3, ids.size)
+        val memberMetrics = RequestDbMetrics()
+        val byTeam = withContext(memberMetrics) { history.membershipsByTeamIds(ids) }
+        assertEquals(ids, byTeam.keys)
+        assertEquals(1, memberMetrics.statements)
+        assertEquals(1, memberMetrics.transactions)
+        val managerMetrics = RequestDbMetrics()
+        withContext(managerMetrics) { history.managerPeriodsByTeamIds(ids) }
+        assertEquals(1, managerMetrics.statements)
+        assertEquals(1, managerMetrics.transactions)
+        val personMetrics = RequestDbMetrics()
+        withContext(personMetrics) { history.historyByUserIds(setOf(member, manager)) }
+        assertEquals(2, personMetrics.statements, "one statement per list")
+        assertEquals(1, personMetrics.transactions)
     }
 
     @Test

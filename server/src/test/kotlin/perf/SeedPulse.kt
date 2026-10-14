@@ -17,7 +17,7 @@ import org.jetbrains.exposed.v1.r2dbc.transactions.suspendTransaction
 import java.time.LocalDate
 
 /** The ADMIN seed account (V6) — the actor of every cycle transition; never a recipient. */
-private const val ADMIN_ID = 1u
+internal const val ADMIN_ID = 1u
 
 private const val CADENCE_DAYS = 14L
 private const val OPEN_DAYS = 7L

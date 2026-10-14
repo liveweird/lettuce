@@ -1,8 +1,8 @@
-### Activity log (v4.9.0, V87–V90)
+### Activity log (v4.9.0, V87–V90; the team-structure trail v4.18.0, V94)
 
 A chronological, per-person log of **what that person did** — `GET /api/v1/users/{id}/activity`
 (package `activity/`). Every feature already keeps a per-document history (the seven `*_events`
-tables, one `EventLogTable` shape; V88/V89 add person-keyed ones for days-off and career positions); nothing answered "what did this person do, in order". This
+tables, one `EventLogTable` shape; V88/V89 add person-keyed ones for days-off and career positions, V94 a team-keyed one for team structure); nothing answered "what did this person do, in order". This
 doc is the authoritative design (the last section says what shipped).
 
 #### Decisions (user-locked 2026-10-02)
@@ -43,12 +43,12 @@ migration.
   `CREATE VIEW` over the same SELECTs queried through a plain `Table`; nothing above the service
   would change.
 - **One branch.** Exposed has no one-branch set operation, so a lone branch is paired with its own
-  `WHERE FALSE` twin — same rows, one code path. Of the eleven areas, the seven document areas and
+  `WHERE FALSE` twin — same rows, one code path. Of the twelve areas, the seven document areas and
   DAYS_OFF contribute an event branch plus the two share branches (created/withdrawn — never fewer
   than three; DAYS_OFF carries the calendar's share rows since v4.11.0), the share-only
   PULSE_TEAM_RESULTS area (v4.12.0, pulse has no event trail) contributes exactly two (the share
-  branches), and CAREER_POSITION and ACCOUNT are a single branch each: `area=CAREER_POSITION` /
-  `area=ACCOUNT` exercise the twin today (an area the viewer has disabled answers an empty page
+  branches), and CAREER_POSITION, ACCOUNT and TEAM_MEMBERSHIP are a single branch each: `area=CAREER_POSITION` /
+  `area=ACCOUNT` / `area=TEAM_MEMBERSHIP` exercise the twin today (an area the viewer has disabled answers an empty page
   without a query; every area has a branch).
 - **V87 indexes.** `(user_id, created_at)` on each of the seven event tables turns every branch
   into one index range scan (`user_id` is nullable since V80 — a NULL actor is never in the
@@ -69,12 +69,12 @@ fields are always encoded as explicit nulls).
   only sortable field is `createdAt` (default `-createdAt`; ascending reverses the WHOLE key — the
   tiebreak directions flip with it, so ascending is the exact reverse of the default). This is
   a registered deviation from API-LIST-003 (see the rulebook's known-gaps register).
-- `area` = eleven values: the seven document `ShareableResourceType` names (so `link` is the sharing
+- `area` = twelve values: the seven document `ShareableResourceType` names (so `link` is the sharing
   adapter's `viewPath`), `PULSE_TEAM_RESULTS` (v4.12.0 — share rows only, no event trail), plus
   `DAYS_OFF` (person-scoped, step 4; it also carries the `DAYS_OFF_CALENDAR` share rows, v4.11.0 — the
   nine `ShareableResourceType` names project onto areas through the exhaustive `activityArea` `when`,
   so there is no `DAYS_OFF_CALENDAR` area), `CAREER_POSITION` (person-scoped, step 5), `ACCOUNT` (step 6) —
-  declared up front (the OpenAPI enum is append-only); every value now produces rows.
+  declared up front (the OpenAPI enum is append-only; every one of them produces rows) — and, appended in v4.18.0, `TEAM_MEMBERSHIP` (the team-keyed team-structure trail, V94).
 - **`params`** is the event's content-free map, the same one the document's History tab renders
   (localized client-side by dispatching `area` + `eventType` to the existing describers). The goal
   progress comment and every other encrypted column are **never read** by this service — the union
@@ -197,6 +197,35 @@ names FROZEN at mint time (see "Activity trail" in the career section of `dictio
 decision, the seniority-privacy confirmation and what mints nothing — account deactivation's
 position-closing stamp). No `link`/`details`: the SPA derives `/users/:id/career` from
 `subjectUserId`.
+
+#### Team-structure rows (v4.18.0, V94 `team_structure_events`)
+
+`TEAM_MEMBERSHIP` is the log of **team-structure actions** — all ADMIN-only writes (`teams.md`): the
+eleventh event table, keyed on the TEAM the action concerns (`team_id`; `user_id` = the acting admin,
+nullable per V80), forward-only from the V94 deploy (V93's period rows carry no actor). **Actor-only,
+owner decision (2026-10-14):** a change shows in the log of the admin who made it, never in the log of
+the person it concerned — the affected person's own history is the Teams page's History section
+(`GET /users/{id}/team-history`), so no exception to the actor-only rule was needed. The routes append
+ONE event after each commit and `audit("team.…")` line (`TeamStructureEventService`,
+`teams/TeamStructureEvents.kt`, pure builders): `TEAM_CREATED`, `TEAM_UPDATED` (change-only: rename /
+manager handover / roster delta; a PUT changing none mints nothing), `TEAM_DELETED`, `MEMBER_ADDED`,
+`MEMBER_REMOVED`, `MEMBERSHIP_CREATED|UPDATED|DELETED`, `MANAGER_PERIOD_CREATED|UPDATED|DELETED` (the last
+two groups change-only). Params are ids, ISO dates and **name snapshots** frozen at mint time (`team`, and
+`member`/`manager`/`managerFromName`/`managerToName` beside their ids; several people as comma-joined ids
+plus `…Names`) next to the change-only `…From`/`…To` deltas — the full vocabulary is in the OpenAPI
+`ActivityEntry.params` description. The names come from the service result where it already has them, else
+from ONE extra two-statement read (`TeamStructureEventService.names`) per mutation — none of it on a
+measured list/read path, so no `QueryBudgetTest` row changed.
+
+The union branch is **open**: `EventSource(TEAM_MEMBERSHIP, TeamStructureEvents, parent = null, open = true)`
+adds no chain predicate, because team structure is readable by every authenticated user. So a chain viewer,
+HR and the admin themselves all list every row of the target's log, nothing is withheld or redacted, and
+there is no feature flag to gate the area (teams have none). The entry carries `documentId` = the team id and
+`link` = `/teams/{id}/history`, **null when the team is soft-deleted for an own-right or chain viewer** (the page and `GET /teams/{id}` answer 404 for a deleted team) but kept for the HR auditor (`EVERYTHING` — the deleted-document precedent: its link answers 404); the soft-delete flags come from ONE batched `TeamRecords` read per page, issued only when the page holds team rows, so no `QueryBudgetTest` row changed; `details` and
+`subjectUser*` are null (the params are self-describing). `ActivityVisibility.readable` answers `FALSE` for the
+area like the other event-only areas (never reached). Pinned by `ActivityVisibilityParityTest` (every viewer, every
+mode lists every row, whichever team), `ActivityLogTest` (the admin's rows, the lead/member's empty logs, chain, HR,
+area filter, deleted team — link null for own/chain, kept for HR — ungated), `TeamStructureEventsTest` (each route) and `TeamStructureEventMintingTest`.
 
 #### Sign-in rows (step 6, V90 `account_events`)
 
