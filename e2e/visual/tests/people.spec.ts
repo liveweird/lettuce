@@ -24,12 +24,13 @@ async function dashboardReady(page: Page, managed: boolean) {
   }
 }
 
-async function usersReady(page: Page, admin: boolean) {
+/** `expected` = the people the list's account Status filter lets through (the default is Active). */
+async function usersReady(page: Page, admin: boolean, expected: typeof people) {
   await page.goto('/users');
   const main = page.locator('#main-content');
   await expect(main.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
-  await expect(main.locator('tbody tr')).toHaveCount(people.length);
-  for (const person of people) {
+  await expect(main.locator('tbody tr')).toHaveCount(expected.length);
+  for (const person of expected) {
     const row = main.locator('tbody tr').filter({ hasText: person.email });
     await expect(row.getByText(person.name, { exact: true })).toBeVisible();
     const teamsLink = row.getByRole('link', { name: `Teams for ${person.name}`, exact: true });
@@ -38,7 +39,7 @@ async function usersReady(page: Page, admin: boolean) {
     await expect(teamsLink).toBeInViewport();
     await expect(row.getByRole('button', { name: `Modify actions for ${person.name}`, exact: true })).toHaveCount(admin ? 1 : 0);
   }
-  await expect(main.getByText('Inactive', { exact: true })).toHaveCount(1);
+  await expect(main.getByText('Inactive', { exact: true })).toHaveCount(expected.filter((person) => person.deactivated).length);
   await expect(main.getByText('Not set', { exact: true })).toHaveCount(1);
   await expect(main.getByRole('link', { name: 'New user', exact: true })).toHaveCount(admin ? 1 : 0);
   await expect(main.getByRole('link', { name: 'Mass import', exact: true })).toHaveCount(admin ? 1 : 0);
@@ -66,7 +67,8 @@ test('member dashboard retains its summary tiles and manager cards', async ({ pa
 });
 
 test('member users list retains readable identity and accessible actions', async ({ page }) => {
-  await usersReady(page, false);
+  // The default Status filter (Active) hides the one inactive account.
+  await usersReady(page, false, people.filter((person) => !person.deactivated));
   await capture(page, 'users-member-en-light-1280.png');
 });
 
@@ -86,7 +88,9 @@ test.describe('manager dashboard', () => {
 test.describe('administrator directory', () => {
   test.use({ visualRole: 'admin', viewport: { width: 1440, height: 1000 } });
   test('administrator users list retains account controls and mixed account states', async ({ page }) => {
-    await usersReady(page, true);
+    // An explicit "Any" Status filter (a stored null) shows active and inactive accounts together.
+    await page.addInitScript(() => localStorage.setItem('lettuce.viewSettings.users.filter.accountStatus', 'null'));
+    await usersReady(page, true, people);
     await capture(page, 'users-admin-en-light-1440.png');
   });
   test('administrator teams list retains editing actions with long names', async ({ page }) => {

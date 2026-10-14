@@ -19,8 +19,9 @@
 ## Scenario: member users list retains readable identity and accessible actions
 
 1. Open Users as an ordinary member at 1280px.
-   - *Expected*: three supplied users include a long email, a missing unique ID, mixed roles
-     and one inactive account. Teams links remain reachable; account modification and New are absent.
+   - *Expected*: under the default Active status filter, the two active supplied users appear
+     (a long email, a missing unique ID, mixed roles); the inactive account is hidden. Teams links
+     remain reachable; account modification and New are absent.
 2. Compare the populated page with its reviewed image.
    - *Expected*: identity, status and action columns retain their appearance without horizontal overflow.
 
@@ -41,8 +42,8 @@
 
 ## Scenario: administrator users list retains account controls and mixed account states
 
-1. Open Users as an administrator at 1440px.
-   - *Expected*: the same three users appear, together with New user, Mass import and each
+1. Open Users as an administrator at 1440px with the status filter set to Any.
+   - *Expected*: all three supplied users appear, including the inactive account, together with New user, Mass import and each
      user's account-modification menu. No edits are made.
 2. Compare the page with its reviewed image.
    - *Expected*: long identity fields, roles, inactive/missing indicators and actions retain their layout.

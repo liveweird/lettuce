@@ -111,7 +111,10 @@ export const test = base.extend<Options>({
       } else if (visualScenario === 'people' && url.pathname === '/api/v1/dashboard/summary') {
         body = dashboardSummary(visualRole === 'manager');
       } else if (visualScenario === 'people' && url.pathname === '/api/v1/users' && url.searchParams.get('page') === '1') {
-        body = { items: people, page: 1, pageSize: Number(url.searchParams.get('pageSize')), total: people.length } satisfies Schema['UserPage'];
+        // The account Status filter (`deactivated`, default Active) is honoured like the server does.
+        const deactivated = url.searchParams.get('deactivated');
+        const items = deactivated == null ? people : people.filter((person) => String(person.deactivated) === deactivated);
+        body = { items, page: 1, pageSize: Number(url.searchParams.get('pageSize')), total: items.length } satisfies Schema['UserPage'];
       } else if (visualScenario === 'people' && url.pathname === '/api/v1/teams' && url.searchParams.get('page') === '1') {
         body = { items: teams, page: 1, pageSize: Number(url.searchParams.get('pageSize')), total: teams.length } satisfies Schema['TeamPage'];
       } else if (visualScenario === 'people' && url.pathname === '/api/v1/teams/members' && url.searchParams.get('page') === '1') {
