@@ -60,10 +60,10 @@ translations are intentional fixtures. Existing functional E2E and responsive ge
 remain unchanged; this pilot adds no mobile targets.
 
 Images include the full page vertically, with a separate assertion against horizontal overflow.
-Normal vertical scrolling is allowed: at a 1280px desktop viewport the expanded sidebar leaves
-enough of a narrow content area that the existing wide-table container breakpoint stacks feedback
-rows. All rows must remain reachable and appear in the image; fitting them on one screen is not
-a new requirement.
+Normal vertical scrolling is allowed; all rows must remain reachable and appear in the image, and
+fitting them on one screen is not a requirement. Since v4.18.1 the feedback table uses the
+`normal` container density, so it keeps its table layout at 1280px with the expanded sidebar
+(under `wide` it stacked every row into a card there).
 
 ## Isolation from performance work
 
