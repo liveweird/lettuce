@@ -171,6 +171,25 @@ test("admin records a team's manager and membership history and sees it on the p
   await expect(memberRow).toHaveCount(1);
   await expect(memberRow).toContainText("Past");
 
+  // The admin's own activity log (v4.18.0) records the change under the Team membership area —
+  // actor-only, so it is the admin's log, and the row links back to the team's history.
+  await page.goto("/activity");
+  await expect(page.getByRole("heading", { level: 2, name: "My activity" })).toBeVisible();
+  await openFilters(page);
+  await page.getByRole("combobox", { name: "Area", exact: true }).click();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/v1\/users\/\d+\/activity\?/.test(r.url()) && r.url().includes("area=TEAM_MEMBERSHIP") && r.ok(),
+    ),
+    page.getByRole("option", { name: "Team membership", exact: true }).click(),
+  ]);
+  const activityRow = page.getByText(`Added a membership period of ${pastMember.name} in ${teamName}`);
+  await expect(activityRow).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`Added a manager period of ${teamName}: ${earlierManager.name} manages`)),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the team history" }).first()).toBeVisible();
+
   // The person's own page lists it under Team history (Memberships)...
   await page.goto(`/users/${pastMember.id}/teams`);
   await expect(page.getByRole("heading", { name: "Team history", exact: true })).toBeVisible();

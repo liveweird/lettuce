@@ -23,11 +23,6 @@ A finished item is removed (the release history lives in `web/src/changelog/entr
 - [new] MassShareDialog retry across midnight — a retry validates a hidden "until" date field, so after local midnight it can silently do nothing (LOW, pre-existing).
 - [new] Visual users-list fixture ignores the account Status filter — `e2e/visual/fixtures.ts` returns all three people regardless of `deactivated`, so the admin users-list baseline shows an Inactive row under the default Active filter (kept so the screenshot covers both account states).
 
-## Features
-
-- [new] Team-membership activity-log area — membership and manager-period changes as a `TEAM_MEMBERSHIP` activity-log area. Today only the audit log (`team.membership_*` / `team.manager_period_*` events) records them.
-- [new] GraphQL team history fields — the integration API's `Team` / `User.teams` still expose today's structure only (v4.17.0 added dated memberships and manager periods behind views); expose the history as new SDL fields under `GRAPHQL-GUIDELINES.md`.
-
 ## UI cosmetics
 
 - [parked] Tutorials submenu overlaps the main menu on phones — cosmetic; parked by the owner.
