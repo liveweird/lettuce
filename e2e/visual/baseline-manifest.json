@@ -1,8 +1,8 @@
 {
   "status": "accepted",
-  "applicationVersion": "4.16.0 (displayed version pinned to 0.0.0)",
-  "sourceRevision": "feat/deactivated-users-consistency (committed with this record)",
-  "previousBaselineRevision": "f4f4edce",
+  "applicationVersion": "4.17.0 (displayed version pinned to 0.0.0)",
+  "sourceRevision": "feat/team-history (committed with this record)",
+  "previousBaselineRevision": "d59eb22e",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -148,7 +148,7 @@
       "file": "snapshots/forms.spec.ts/team-detail-member-roster-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "1ecca9d9a1ab65ddb573df2e6de1ff4cdd78264ec70d3359a8dd82c786ec4ee7"
+      "sha256": "3396f3df57107e9a5a69822876fcd20675c3b434f99a37be87adeead89b58e7a"
     },
     {
       "file": "snapshots/forms.spec.ts/user-detail-subordinate-person-card-en-light-1440.png",
@@ -158,12 +158,18 @@
     }
   ],
   "approval": {
-    "date": "2026-10-13",
-    "reference": "Repository owner reviewed the v4.16.0 candidates in the Claude Code conversation and replied \"approved\".",
+    "date": "2026-10-14",
+    "reference": "Repository owner reviewed the v4.17.0 team-detail candidate in the Claude Code conversation and answered \"Approved\".",
     "reviewedArtifactsCommit": null,
-    "scope": "All 24 images re-approved: the sidebar version stamp is now pinned to v0.0.0 (pinned-version.ts), and the member dashboard's My managers tab gains the account Status filter toggle. No other change."
+    "scope": "One image changed: the team-detail member roster gains the History button in its page header (v4.17.0 team history). The other 23 approved images are unchanged."
   },
   "previousApprovals": [
+    {
+      "date": "2026-10-13",
+      "reference": "Repository owner reviewed the v4.16.0 candidates in the Claude Code conversation and replied \"approved\".",
+      "reviewedArtifactsCommit": null,
+      "scope": "All 24 images re-approved: the sidebar version stamp is now pinned to v0.0.0 (pinned-version.ts), and the member dashboard's My managers tab gains the account Status filter toggle. No other change."
+    },
     {
       "date": "2026-10-05",
       "reference": "Repository owner approved the six new stage 2 images in the Codex conversation: \"Approved. Commit, merge, push. Let's park for now, when you do that.\"",
