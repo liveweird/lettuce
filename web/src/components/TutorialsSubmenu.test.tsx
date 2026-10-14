@@ -98,4 +98,49 @@ describe("TutorialsSubmenu", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Quick app tour" }));
     expect(startTour).toHaveBeenCalledTimes(1);
   });
+
+  describe("on a phone (below the sm breakpoint, v4.18.1)", () => {
+    const originalMatchMedia = window.matchMedia;
+    beforeEach(() => {
+      const narrow = window.matchMedia;
+      window.matchMedia = (query: string) =>
+        query.includes("min-width")
+          ? ({
+              matches: false,
+              media: query,
+              onchange: null,
+              addListener: () => {},
+              removeListener: () => {},
+              addEventListener: () => {},
+              removeEventListener: () => {},
+              dispatchEvent: () => false,
+            } as unknown as MediaQueryList)
+          : narrow(query);
+    });
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    test("the entries render inline under a Tutorials label, with no flyout", async () => {
+      isManager.value = true;
+      renderSubmenu();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "User menu" }));
+      await screen.findByRole("menuitem", { name: "Quick app tour" });
+      expect(screen.getByText("Tutorials")).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Tutorials" })).not.toBeInTheDocument();
+      expect(tutorialItems()).toEqual(ALL);
+    });
+
+    test("tapping an inline entry launches it", async () => {
+      const { startTour, launchTutorial } = renderSubmenu();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "User menu" }));
+      await user.click(await screen.findByRole("menuitem", { name: "How goals work" }));
+      expect(launchTutorial).toHaveBeenCalledWith("goals");
+      await user.click(screen.getByRole("button", { name: "User menu" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Quick app tour" }));
+      expect(startTour).toHaveBeenCalledTimes(1);
+    });
+  });
 });

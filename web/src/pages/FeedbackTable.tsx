@@ -380,7 +380,9 @@ export default function FeedbackTable({
         </Alert>
       )}
 
-      <ResponsiveTable density="wide">
+      {/* `normal`, not `wide` (v4.18.1): at a 1280px laptop the expanded nav leaves the table
+          ~1,000px, under `wide`'s 68rem, and every row stacked into a card. */}
+      <ResponsiveTable density="normal">
         <ResponsiveTable.Thead>
           <ResponsiveTable.Tr>
             <ResponsiveTable.Th sortable>
