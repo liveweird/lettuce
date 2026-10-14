@@ -247,6 +247,58 @@ class TeamRoutesTest {
     }
 
     @Test
+    fun `a not-yet-started membership of the same person makes joining today a 409`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val futureId = TestUsers.seed(email = uniqueEmail("future"), password = "pw", roles = emptySet())
+        val client = authedClient(adminEmail, "pw")
+        val team = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "F", managerId = managerId))
+        }.body<TeamResponse>()
+        insertMembershipRow(team.id, futureId, dayIso(10), null)
+
+        assertEquals(HttpStatusCode.Conflict, client.put("/api/v1/teams/${team.id}/members/$futureId").status)
+        val put = client.put("/api/v1/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "F2", managerId = managerId, memberIds = listOf(futureId)))
+        }
+        assertEquals(HttpStatusCode.Conflict, put.status)
+        // The failed PUT rolled back as a whole: the rename did not happen either.
+        assertEquals("F", client.get("/api/v1/teams/${team.id}").body<TeamResponse>().name)
+        assertTrue(client.get("/api/v1/teams/${team.id}").body<TeamResponse>().memberIds.isEmpty())
+    }
+
+    @Test
+    fun `a same-day add and remove leaves no history, and a rename keeps it`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val keptId = TestUsers.seed(email = uniqueEmail("kept"), password = "pw", roles = emptySet())
+        val fleetingId = TestUsers.seed(email = uniqueEmail("fleeting"), password = "pw", roles = emptySet())
+        val client = authedClient(adminEmail, "pw")
+        val team = client.post("/api/v1/teams") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "H", managerId = managerId, memberIds = listOf(keptId)))
+        }.body<TeamResponse>()
+        val keptRow = membershipRecords(team.id).single()
+
+        assertEquals(HttpStatusCode.NoContent, client.put("/api/v1/teams/${team.id}/members/$fleetingId").status)
+        assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/${team.id}/members/$fleetingId").status)
+        assertEquals(HttpStatusCode.NoContent, client.put("/api/v1/teams/${team.id}") {
+            contentType(ContentType.Application.Json)
+            setBody(Team(name = "H-renamed", managerId = managerId, memberIds = listOf(keptId)))
+        }.status)
+
+        assertEquals(listOf(keptRow), membershipRecords(team.id), "no row for the fleeting member; the kept row is untouched")
+        assertEquals(1, periodRecords(team.id).size)
+        assertEquals("H-renamed", client.get("/api/v1/teams/${team.id}").body<TeamResponse>().name)
+    }
+
+    @Test
     fun `adding manager as member via sub-resource is rejected`() = testApplication {
         usePostgresTestcontainer()
         val managerEmail = uniqueEmail("mgr")

@@ -59,6 +59,16 @@ data class TeamDetail(
 @Serializable
 data class TeamRef(val id: UInt, val name: String)
 
+/** A roster member of an as-of team row (`GET /teams?asOf=`): enough to name a person who has since been deleted. */
+@Serializable
+data class TeamListMember(
+    val id: UInt,
+    val name: String,
+    val deleted: Boolean,
+    val deactivated: Boolean,
+)
+
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class TeamListItem(
     val id: UInt,
@@ -69,6 +79,12 @@ data class TeamListItem(
     // The team's current member ids, ascending (v4.14.0) — the same list GET /teams/{id}
     // returns, loaded for the whole page in one grouped statement; backs the org chart.
     val memberIds: List<UInt>,
+    // True for a soft-deleted team; only an as-of list (v4.17.0) can contain one, so it is false on a plain list.
+    val deleted: Boolean,
+    // The roster with names, in as-of mode ONLY (`?asOf=`, v4.17.0 — the kudos-view `content` idiom): the org
+    // chart must name people who have since been deleted. A plain list omits the key entirely.
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val members: List<TeamListMember>? = null,
 )
 
 typealias TeamPageResponse = PageResponse<TeamListItem>

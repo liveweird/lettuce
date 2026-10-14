@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { teamDetailsLink } from "./teamLinks";
+import { teamDetailsLink, teamHistoryLink } from "./teamLinks";
 import { teamKpisLink } from "./teamKpiLinks";
 import { userDetailsLink } from "./userLinks";
 
@@ -37,5 +37,14 @@ describe("userDetailsLink", () => {
       "/users/7/details?back=%2Ffeedback%3Ftab%3Dreceived",
     );
     expect(userDetailsLink(7, "Ann")).toBe("/users/7/details?name=Ann");
+  });
+});
+
+describe("teamHistoryLink", () => {
+  test("builds the history path, with an optional encoded back target", () => {
+    expect(teamHistoryLink(3)).toBe("/teams/3/history");
+    expect(teamHistoryLink(3, { back: "/org?asOf=2025-03-01" })).toBe(
+      "/teams/3/history?back=%2Forg%3FasOf%3D2025-03-01",
+    );
   });
 });

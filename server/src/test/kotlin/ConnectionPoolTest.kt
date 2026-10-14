@@ -277,6 +277,28 @@ class ConnectionPoolTest {
     }
 
     @Test
+    fun `pooled sessions run in the JVM's time zone so CURRENT_DATE agrees with LocalDate now`() = testApplication {
+        // V93's team_members / teams_current views compare against CURRENT_DATE, while the app computes
+        // "today" with LocalDate.now(): the session TimeZone must be the JVM's. The JVM zone is moved far
+        // from the Testcontainer's UTC (UTC+14, no DST) so a missing alignment shows up on every run.
+        val original = java.util.TimeZone.getDefault()
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Pacific/Kiritimati"))
+        try {
+            configureApp("postgres.pool.applicationName" to "pool-tz-${UUID.randomUUID()}")
+            startApplication()
+            val db = application.attributes[R2dbcDatabaseKey]
+            val zone = suspendTransaction(db) { exec("SHOW TimeZone") { row -> row.get(0, String::class.java) }?.toList() }
+            assertEquals(listOf("Pacific/Kiritimati"), zone)
+            val sqlToday = suspendTransaction(db) {
+                exec("SELECT to_char(CURRENT_DATE, 'YYYY-MM-DD')") { row -> row.get(0, String::class.java) }?.toList()
+            }
+            assertEquals(listOf(java.time.LocalDate.now().toString()), sqlToday)
+        } finally {
+            java.util.TimeZone.setDefault(original)
+        }
+    }
+
+    @Test
     fun `the hung-database bounds are range-checked at boot`() {
         for ((key, value) in listOf(
             "postgres.pool.maxValidationTimeSeconds" to "0",

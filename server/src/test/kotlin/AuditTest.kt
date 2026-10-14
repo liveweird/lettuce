@@ -203,14 +203,156 @@ class AuditTest {
             assertEquals(newManagerId.toLong(), updated.keyValuePairs.first { it.key == "managerTo" }.value)
             assertEquals(memberId.toString(), updated.keyValuePairs.first { it.key == "membersAdded" }.value)
 
+            // V93: a handover names the manager period now covering today.
+            val handoverPeriod = periodRecords(teamId).single { it.managerId == newManagerId }
+            assertEquals(handoverPeriod.id.toLong(), updated.keyValuePairs.first { it.key == "managerPeriodId" }.value)
+
             val memberAdded = appender.events.find { it.message == "team.member_added" }
             assertNotNull(memberAdded, "expected a team.member_added audit event")
             assertEquals(managerId.toLong(), memberAdded.keyValuePairs.first { it.key == "memberUserId" }.value)
+            assertEquals(dayIso(0), memberAdded.keyValuePairs.first { it.key == "startDate" }.value)
+            assertNotNull(memberAdded.keyValuePairs.first { it.key == "membershipId" }.value)
 
-            assertNotNull(appender.events.find { it.message == "team.member_removed" })
+            // Added and removed on the same day: the period is hard-deleted, not end-dated.
+            val memberRemoved = appender.events.find { it.message == "team.member_removed" }
+            assertNotNull(memberRemoved)
+            assertEquals(true, memberRemoved.keyValuePairs.first { it.key == "hardDeleted" }.value)
+            assertTrue(memberRemoved.keyValuePairs.none { it.key == "endDate" })
             val deleted = appender.events.find { it.message == "team.deleted" }
             assertNotNull(deleted, "expected a team.deleted audit event")
             assertEquals(teamId.toLong(), deleted.keyValuePairs.first { it.key == "teamId" }.value)
+            // memberId joined today through the PUT and is closed today; nothing started later.
+            assertEquals(1, deleted.keyValuePairs.first { it.key == "membershipsEnded" }.value)
+            assertEquals(0, deleted.keyValuePairs.first { it.key == "futureRowsRemoved" }.value)
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `team history sub-resources emit audit events with change-only deltas`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        val adminId = TestUsers.seed(email = adminEmail, password = "pw")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val otherManagerId = TestUsers.seed(email = uniqueEmail("mgr2"), password = "pw", roles = emptySet())
+        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", roles = emptySet())
+        val teamId = backdatedTeam(10, managerId)
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+            val team = "/api/v1/teams/$teamId"
+            fun fields(message: String) = appender.events.single { it.message == message }.keyValuePairs.associate { it.key to it.value }
+
+            val membership = client.postJson(
+                "$team/memberships",
+                ch.nokillswit.teams.TeamMembershipCreate(memberId, dayIso(-5), dayIso(-1)),
+            ).body<ch.nokillswit.teams.TeamMembershipResponse>()
+            val created = fields("team.membership_created")
+            assertEquals(adminId.toLong(), created["byUserId"])
+            assertEquals(teamId.toLong(), created["teamId"])
+            assertEquals(membership.id.toLong(), created["membershipId"])
+            assertEquals(memberId.toLong(), created["memberUserId"])
+            assertEquals(dayIso(-5), created["startDate"])
+            assertEquals(dayIso(-1), created["endDate"])
+
+            // A PUT that changes nothing mints no event; a real change carries only the changed deltas.
+            client.putJson("$team/memberships/${membership.id}", ch.nokillswit.teams.TeamMembershipWrite(dayIso(-5), dayIso(-1)))
+            assertTrue(appender.events.none { it.message == "team.membership_updated" })
+            client.putJson("$team/memberships/${membership.id}", ch.nokillswit.teams.TeamMembershipWrite(dayIso(-5), dayIso(-2)))
+            val updated = fields("team.membership_updated")
+            assertEquals(dayIso(-1), updated["endDateFrom"])
+            assertEquals(dayIso(-2), updated["endDateTo"])
+            assertTrue("startDateFrom" !in updated && "startDateTo" !in updated)
+            client.delete("$team/memberships/${membership.id}")
+            val deleted = fields("team.membership_deleted")
+            assertEquals(membership.id.toLong(), deleted["membershipId"])
+            assertEquals(dayIso(-2), deleted["endDate"])
+
+            val period = client.postJson("$team/managers", ch.nokillswit.teams.TeamManagerPeriodWrite(otherManagerId, dayIso(-4)))
+                .body<ch.nokillswit.teams.TeamManagerPeriodResponse>()
+            val periodCreated = fields("team.manager_period_created")
+            assertEquals(period.id.toLong(), periodCreated["periodId"])
+            assertEquals(otherManagerId.toLong(), periodCreated["managerId"])
+            assertEquals(dayIso(-4), periodCreated["startDate"])
+
+            client.putJson("$team/managers/${period.id}", ch.nokillswit.teams.TeamManagerPeriodWrite(otherManagerId, dayIso(-3)))
+            val periodUpdated = fields("team.manager_period_updated")
+            assertEquals(dayIso(-4), periodUpdated["startDateFrom"])
+            assertEquals(dayIso(-3), periodUpdated["startDateTo"])
+            assertTrue("managerIdFrom" !in periodUpdated)
+
+            client.delete("$team/managers/${period.id}")
+            val periodDeleted = fields("team.manager_period_deleted")
+            assertEquals(period.id.toLong(), periodDeleted["periodId"])
+            assertEquals(otherManagerId.toLong(), periodDeleted["managerId"])
+            assertEquals(periodRecords(teamId).single().id.toLong(), periodDeleted["absorbedByPeriodId"])
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `automatic manager-period merges name the removed rows`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val otherId = TestUsers.seed(email = uniqueEmail("mgr2"), password = "pw", roles = emptySet())
+        val teamId = backdatedTeam(10, managerId)
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+            val team = "/api/v1/teams/$teamId"
+            fun fields(message: String, last: Boolean = false) =
+                (if (last) appender.events.last { it.message == message } else appender.events.single { it.message == message })
+                    .keyValuePairs.associate { it.key to it.value }
+            // M(-10..-6), N(-5..-4), M(-3..): a stint of N in the middle.
+            client.postJson("$team/managers", ch.nokillswit.teams.TeamManagerPeriodWrite(otherId, dayIso(-5)))
+            client.postJson("$team/managers", ch.nokillswit.teams.TeamManagerPeriodWrite(managerId, dayIso(-3)))
+            val before = periodRecords(teamId)
+            assertEquals(3, before.size)
+            // The creation of the third row is a plain split: nothing was merged away, and no stale field is logged.
+            val created = fields("team.manager_period_created", last = true)
+            assertTrue("removedPeriodIds" !in created && "survivingStartDate" !in created)
+
+            // Re-assigning N's row to M merges all three: the later two rows disappear.
+            client.putJson("$team/managers/${before[1].id}", ch.nokillswit.teams.TeamManagerPeriodWrite(managerId, dayIso(-5)))
+            val updated = fields("team.manager_period_updated")
+            assertEquals(before[1].id.toLong(), updated["periodId"])
+            assertEquals(before[0].id.toLong(), updated["mergedIntoPeriodId"])
+            assertEquals(listOf(before[1].id, before[2].id).sorted().joinToString(","), updated["removedPeriodIds"])
+
+            // Deleting the middle of M, N, M: the explicit row is not listed, the merged-away row is.
+            client.postJson("$team/managers", ch.nokillswit.teams.TeamManagerPeriodWrite(otherId, dayIso(-5)))
+            client.postJson("$team/managers", ch.nokillswit.teams.TeamManagerPeriodWrite(managerId, dayIso(-3)))
+            val line = periodRecords(teamId)
+            client.delete("$team/managers/${line[1].id}")
+            val deleted = fields("team.manager_period_deleted")
+            assertEquals(line[0].id.toLong(), deleted["absorbedByPeriodId"])
+            assertEquals(line[2].id.toString(), deleted["removedPeriodIds"])
+        } finally {
+            appender.detach()
+        }
+    }
+
+    @Test
+    fun `removing a member of an older period audits the end date`() = testApplication {
+        usePostgresTestcontainer()
+        val adminEmail = uniqueEmail("admin")
+        TestUsers.seed(email = adminEmail, password = "pw")
+        val managerId = TestUsers.seed(email = uniqueEmail("mgr"), password = "pw", roles = emptySet())
+        val memberId = TestUsers.seed(email = uniqueEmail("member"), password = "pw", roles = emptySet())
+        val teamId = ch.nokillswit.teams.TeamService(TestServices.database, clock = { java.time.LocalDate.now().minusDays(3) })
+            .create(Team(name = "Older-${UUID.randomUUID()}", managerId = managerId, memberIds = listOf(memberId)))
+        val appender = LogCapture("ch.nokillswit.audit")
+        try {
+            val client = authedClient(adminEmail, "pw")
+            assertEquals(HttpStatusCode.NoContent, client.delete("/api/v1/teams/$teamId/members/$memberId").status)
+
+            val removed = appender.events.single { it.message == "team.member_removed" }
+            assertEquals(dayIso(-1), removed.keyValuePairs.first { it.key == "endDate" }.value)
+            assertTrue(removed.keyValuePairs.none { it.key == "hardDeleted" })
         } finally {
             appender.detach()
         }

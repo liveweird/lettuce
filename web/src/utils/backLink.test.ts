@@ -12,6 +12,7 @@ describe("backLabelKey", () => {
     ["/", "appShell.nav.dashboard"],
     ["/users/7/details?name=A", "feedback.origin.details"],
     ["/teams/3/details?from=org", "teams.detailsTitle"],
+    ["/teams/3/history", "teams.history.pageTitle"],
     ["/feedback?tab=received", "appShell.nav.feedback"],
     ["/goals?tab=own#x", "appShell.nav.goals"],
     ["/users", "appShell.nav.users"],

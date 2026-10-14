@@ -30,6 +30,7 @@ export function backLabelKey(path: string): ParseKeys {
   }
   if (/^\/users\/\d+\/details$/.test(pathname)) return "feedback.origin.details";
   if (/^\/teams\/\d+\/details$/.test(pathname)) return "teams.detailsTitle";
+  if (/^\/teams\/\d+\/history$/.test(pathname)) return "teams.history.pageTitle";
   return navLeafLabel(pathname) ?? "feedback.origin.previous";
 }
 

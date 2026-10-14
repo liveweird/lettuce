@@ -102,6 +102,11 @@ class QueryBudgetTest {
             "users?id" to Budget(8, 2), // 8/2 -> 8/2 (v4.15.0: the drill-down name lookup; IN over 1 vs 50 ids)
             "teams?name" to Budget(4, 2), // 4/2 -> 4/2 (v4.14.0: +1 grouped memberIds statement per page)
             "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1); the org chart reads memberIds from the teams list, F8)
+            // v4.17.0 team history: as-of list = count + page + ONE grouped roster; the sub-resource lists and the person history are O(1).
+            "teams?asOf" to Budget(4, 2), // 4/2 -> 4/2
+            "teams/{id}/memberships" to Budget(4, 2), // 4/2 -> 4/2
+            "teams/{id}/managers" to Budget(4, 2), // 4/2 -> 4/2
+            "users/{id}/team-history" to Budget(6, 3), // 6/3 -> 6/3
             // F1/F10/F17, fixed in v4.14.0: one DISTINCT ON statement per enrichment (latest 1:1, latest review on
             // `managed`; latest 1:1 on `managers`) instead of one LIMIT 1 lookup per row.
             "teams/members?view=managed" to Budget(18, 11), // 18/11 -> 18/11
@@ -282,6 +287,10 @@ class QueryBudgetTest {
                     ),
                     Probe("teams?name", ownerClient, "/api/v1/teams?name=$tag-x&pageSize=100"),
                     Probe("teams/{id}", ownerClient, "/api/v1/teams/$firstTeam", rows = null),
+                    Probe("teams?asOf", ownerClient, "/api/v1/teams?name=$tag-x&asOf=$today&pageSize=100"),
+                    Probe("teams/{id}/memberships", ownerClient, "/api/v1/teams/$firstTeam/memberships", rows = null),
+                    Probe("teams/{id}/managers", ownerClient, "/api/v1/teams/$firstTeam/managers", rows = null),
+                    Probe("users/{id}/team-history", ownerClient, "/api/v1/users/${owner.id}/team-history", rows = null),
                 )
             },
         )

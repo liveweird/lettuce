@@ -93,7 +93,7 @@ private val partnerLabelUsers = Users.alias("act_user_b")
 /**
  * One `*_events` table feeding the union, with the area its rows belong to and the [parent]
  * document table the chain-mode predicate reads (team KPIs additionally join `teams`: the KPI's
- * current manager is `teams.manager_id`, never stored on the KPI).
+ * current manager is the `teams_current` view's manager, never stored on the KPI).
  */
 private class EventSource(val area: ActivityArea, val table: EventLogTable, val parent: IdTable<UInt>?) {
     /** The table joined to its parent document — only for document areas (a person-scoped one has none). */

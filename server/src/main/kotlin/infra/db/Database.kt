@@ -85,8 +85,7 @@ import ch.nokillswit.teamkpis.TeamKpiEventServiceKey
 import ch.nokillswit.teamkpis.TeamKpiService
 import ch.nokillswit.teamkpis.TeamKpiServiceKey
 import ch.nokillswit.teamkpis.TeamKpiShareable
-import ch.nokillswit.teams.TeamService
-import ch.nokillswit.teams.TeamServiceKey
+import ch.nokillswit.teams.publishTeamServices
 import ch.nokillswit.templates.TemplateService
 import ch.nokillswit.templates.TemplateServiceKey
 import ch.nokillswit.users.CareerPositionEventService
@@ -110,6 +109,7 @@ import io.r2dbc.spi.ValidationDepth
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabaseConfig
 import java.time.Duration
+import java.util.TimeZone
 
 /** Upper bounds for the maintenance knobs below (v4.5.2): a day between sweeps, ten years kept. */
 private const val MAX_SWEEP_INTERVAL_SECONDS = 86_400L
@@ -197,6 +197,13 @@ private fun Application.connectPooled(): R2dbcDatabase {
         // NOT a driver option here — see defaultQueryTimeout in the Exposed config below.
         .option(ConnectionFactoryOptions.CONNECT_TIMEOUT, Duration.ofSeconds(bounds.connectTimeoutSeconds))
         .option(PostgresqlConnectionFactoryProvider.TCP_KEEPALIVE, true)
+        // v4.17.0 (V93): the `team_members` / `teams_current` views compare dated rows against
+        // CURRENT_DATE, i.e. the SESSION time zone, while the app computes "today" with
+        // LocalDate.now() (the JVM zone). r2dbc-postgresql 1.1.3 already defaults to the JVM zone;
+        // it is set EXPLICITLY so the alignment never rests on a driver default (a Warsaw JVM
+        // against a UTC server would otherwise disagree for two hours after every midnight).
+        // ConnectionPoolTest pins it with a deliberately non-UTC JVM zone.
+        .option(PostgresqlConnectionFactoryProvider.TIME_ZONE, TimeZone.getDefault())
         .build()
     val rawFactory = ConnectionFactories.get(options)
     val pool = ConnectionPool(
@@ -282,7 +289,7 @@ suspend fun Application.configureDatabase() {
     attributes.put(UserServiceKey, userService)
     attributes.put(CareerPositionServiceKey, CareerPositionService(database))
     attributes.put(CareerPositionEventServiceKey, CareerPositionEventService(database))
-    val teamService = TeamService(database).also { attributes.put(TeamServiceKey, it) }
+    val teamService = publishTeamServices(database)
     // configureCrypto runs before this module (application.yaml order), so the cipher is present.
     // Range-checked like every duration (v4.5.2); 0 = every call, the test suite's setting.
     val sweepIntervalMillis = requireConfigLong(

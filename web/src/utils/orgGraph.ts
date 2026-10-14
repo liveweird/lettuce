@@ -12,6 +12,8 @@ export type OrgTeamInput = {
   managerId: number;
   managerName: string;
   managerDeleted: boolean;
+  /** A soft-deleted team (v4.17.0 — only an as-of chart can contain one): rendered dimmed. */
+  deleted?: boolean;
 };
 
 export type OrgMembership = { teamId: number; memberIds: number[] };
@@ -25,7 +27,7 @@ type OrgPersonNode = {
   /** A deactivated account (V44) — the node renders dimmed with the Inactive pill. */
   deactivated: boolean;
 };
-type OrgTeamNode = { id: string; kind: "team"; teamId: number; name: string };
+type OrgTeamNode = { id: string; kind: "team"; teamId: number; name: string; deleted: boolean };
 /** The "Not in any team" label heading the unattached-people rows (see layoutOrgGraph). */
 type OrgSectionNode = { id: string; kind: "section" };
 export type OrgNode = OrgPersonNode | OrgTeamNode | OrgSectionNode;
@@ -70,12 +72,15 @@ function sizeOf(node: OrgNode): { width: number; height: number } {
  * appear in the chart; they end up edge-less, which is what routes them to the layout's
  * "Not in any team" section. `deactivatedIds` (from the users list) marks the deactivated
  * accounts: they stay in the chart (the org's shape does not change) but render marked.
+ * `deletedIds` (v4.17.0, the as-of chart) marks roster members that have since been deleted —
+ * they are absent from the live users list, so their names ride the as-of team rows instead.
  */
 export function buildOrgGraph(
   teams: OrgTeamInput[],
   memberships: OrgMembership[],
   usersById: Map<number, string>,
   deactivatedIds: ReadonlySet<number> = new Set(),
+  deletedIds: ReadonlySet<number> = new Set(),
 ): { nodes: OrgNode[]; edges: OrgEdge[] } {
   const persons = new Map<number, OrgPersonNode>();
   const nodes: OrgNode[] = [];
@@ -100,7 +105,13 @@ export function buildOrgGraph(
   const membersByTeam = new Map(memberships.map((m) => [m.teamId, m.memberIds]));
 
   for (const team of teams) {
-    nodes.push({ id: teamNodeId(team.id), kind: "team", teamId: team.id, name: team.name });
+    nodes.push({
+      id: teamNodeId(team.id),
+      kind: "team",
+      teamId: team.id,
+      name: team.name,
+      deleted: team.deleted === true,
+    });
     ensurePerson(team.managerId, team.managerName, team.managerDeleted);
     edges.push({
       id: `manages-${team.id}`,
@@ -111,7 +122,7 @@ export function buildOrgGraph(
     for (const memberId of membersByTeam.get(team.id) ?? []) {
       const name = usersById.get(memberId);
       if (name == null) continue;
-      ensurePerson(memberId, name, false);
+      ensurePerson(memberId, name, deletedIds.has(memberId));
       edges.push({
         id: `member-${team.id}-${memberId}`,
         source: teamNodeId(team.id),

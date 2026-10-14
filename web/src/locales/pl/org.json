@@ -9,5 +9,11 @@
   "deletedTag": "(usunięty/a)",
   "unattachedLabel": "Poza zespołami",
   "empty": "Nie ma jeszcze zespołów — struktura pojawi się, gdy powstanie pierwszy zespół.",
-  "loadFailed": "Nie udało się wczytać organizacji"
+  "loadFailed": "Nie udało się wczytać organizacji",
+  "asOf": "Stan na",
+  "asOfDate": "Stan na {{date}}",
+  "backToToday": "Dziś",
+  "asOfUnattachedHint": "Sekcja \"Poza zespołami\" pokazuje osoby niezaliczone w tym dniu do żadnego zespołu, według dzisiejszej listy użytkowników.",
+  "emptyAsOf": "W tym dniu nie istniały żadne zespoły.",
+  "deletedTeamTag": "(usunięty)"
 }

@@ -51,13 +51,13 @@ INSERT INTO verify_checks SELECT 'review periods are gapless', count(*) FROM (
 
 -- 3. Org consistency: a review's / goal's / 1:1's manager is the manager of a team the subordinate belongs to.
 INSERT INTO verify_checks SELECT 'performance_reviews.manager_id is the subordinate''s team manager', count(*) FROM performance_reviews r
-  WHERE NOT EXISTS (SELECT 1 FROM team_members tm JOIN teams t ON t.id = tm.team_id
+  WHERE NOT EXISTS (SELECT 1 FROM team_members tm JOIN teams_current t ON t.id = tm.team_id
                     WHERE tm.user_id = r.subordinate_id AND t.manager_id = r.manager_id);
 INSERT INTO verify_checks SELECT 'goals.manager_id is the subordinate''s team manager', count(*) FROM goals g
-  WHERE NOT EXISTS (SELECT 1 FROM team_members tm JOIN teams t ON t.id = tm.team_id
+  WHERE NOT EXISTS (SELECT 1 FROM team_members tm JOIN teams_current t ON t.id = tm.team_id
                     WHERE tm.user_id = g.subordinate_id AND t.manager_id = g.manager_id);
 INSERT INTO verify_checks SELECT 'one_on_one_meetings.manager_id is the subordinate''s team manager', count(*) FROM one_on_one_meetings m
-  WHERE NOT EXISTS (SELECT 1 FROM team_members tm JOIN teams t ON t.id = tm.team_id
+  WHERE NOT EXISTS (SELECT 1 FROM team_members tm JOIN teams_current t ON t.id = tm.team_id
                     WHERE tm.user_id = m.subordinate_id AND t.manager_id = m.manager_id);
 
 -- 4. 1:1 invariants: chronological per pair, one meeting per (pair, date), carry-over only from the pair's own earlier meeting.
@@ -116,7 +116,7 @@ INSERT INTO verify_checks SELECT 'PERCENTAGE team KPI values and targets lie in 
   WHERE k.type = 'PERCENTAGE' AND (k.target_value NOT BETWEEN 0 AND 100
      OR EXISTS (SELECT 1 FROM team_kpi_values v WHERE v.team_kpi_id = k.id AND v.value NOT BETWEEN 0 AND 100));
 INSERT INTO verify_checks SELECT 'every team KPI is created by its team''s manager and has a CREATED event', count(*) FROM team_kpis k
-  WHERE NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = k.team_id AND t.manager_id = k.created_by)
+  WHERE NOT EXISTS (SELECT 1 FROM teams_current t WHERE t.id = k.team_id AND t.manager_id = k.created_by)
      OR (SELECT count(*) FROM team_kpi_events e WHERE e.team_kpi_id = k.id AND e.event_type = 'CREATED') <> 1;
 
 -- 9. Days off (days-off.md): costs are positive and one calendar year, no overlap per person, a PAID entry draws on an
@@ -149,9 +149,9 @@ INSERT INTO verify_checks SELECT 'impact log: every entry has exactly one CREATE
 -- 11. Succession (succession-plans.md): the seat's person sits in the owner's transitive chain, the candidate is never the
 --     seat's person, at most one PRIMARY per plan, one OPEN plan per (owner, person), the plan carries a CREATED event.
 WITH RECURSIVE reports(manager_id, user_id) AS (
-  SELECT t.manager_id, tm.user_id FROM teams t JOIN team_members tm ON tm.team_id = t.id WHERE NOT t.marked_as_deleted
+  SELECT t.manager_id, tm.user_id FROM teams_current t JOIN team_members tm ON tm.team_id = t.id WHERE NOT t.marked_as_deleted
   UNION
-  SELECT r.manager_id, tm.user_id FROM reports r JOIN teams t ON t.manager_id = r.user_id AND NOT t.marked_as_deleted
+  SELECT r.manager_id, tm.user_id FROM reports r JOIN teams_current t ON t.manager_id = r.user_id AND NOT t.marked_as_deleted
   JOIN team_members tm ON tm.team_id = t.id)
 INSERT INTO verify_checks SELECT 'succession: the seat''s person is in the owner''s transitive chain', count(*) FROM succession_plans p
   WHERE NOT EXISTS (SELECT 1 FROM reports r WHERE r.manager_id = p.manager_id AND r.user_id = p.user_id);
@@ -159,9 +159,9 @@ INSERT INTO verify_checks SELECT 'succession: candidate is not the seat''s perso
   SELECT 1 FROM succession_nominations n JOIN succession_plans p ON p.id = n.plan_id WHERE n.candidate_id = p.user_id
   UNION ALL SELECT 1 FROM (SELECT plan_id FROM succession_nominations WHERE nomination_type = 'PRIMARY' AND NOT marked_as_deleted GROUP BY 1 HAVING count(*) > 1) x) d;
 WITH RECURSIVE reports(manager_id, user_id) AS (
-  SELECT t.manager_id, tm.user_id FROM teams t JOIN team_members tm ON tm.team_id = t.id WHERE NOT t.marked_as_deleted
+  SELECT t.manager_id, tm.user_id FROM teams_current t JOIN team_members tm ON tm.team_id = t.id WHERE NOT t.marked_as_deleted
   UNION
-  SELECT r.manager_id, tm.user_id FROM reports r JOIN teams t ON t.manager_id = r.user_id AND NOT t.marked_as_deleted
+  SELECT r.manager_id, tm.user_id FROM reports r JOIN teams_current t ON t.manager_id = r.user_id AND NOT t.marked_as_deleted
   JOIN team_members tm ON tm.team_id = t.id)
 INSERT INTO verify_checks SELECT 'succession: a candidate is never the plan''s owner nor anyone above the seat''s person', count(*) FROM succession_nominations n
   JOIN succession_plans p ON p.id = n.plan_id
@@ -181,9 +181,9 @@ INSERT INTO verify_checks SELECT 'shares: the sharer is the author of the shared
     WHEN 'PERFORMANCE_REVIEW' THEN EXISTS (SELECT 1 FROM performance_reviews d WHERE d.id = s.resource_id AND d.manager_id = s.sharer_id)
     WHEN 'IMPACT_LOG_ENTRY' THEN EXISTS (SELECT 1 FROM impact_log_entries d WHERE d.id = s.resource_id AND d.user_id = s.sharer_id)
     WHEN 'SUCCESSION_PLAN' THEN EXISTS (SELECT 1 FROM succession_plans d WHERE d.id = s.resource_id AND d.manager_id = s.sharer_id)
-    WHEN 'TEAM_KPI' THEN EXISTS (SELECT 1 FROM team_kpis d JOIN teams t ON t.id = d.team_id WHERE d.id = s.resource_id AND t.manager_id = s.sharer_id)
+    WHEN 'TEAM_KPI' THEN EXISTS (SELECT 1 FROM team_kpis d JOIN teams_current t ON t.id = d.team_id WHERE d.id = s.resource_id AND t.manager_id = s.sharer_id)
     WHEN 'DAYS_OFF_CALENDAR' THEN s.resource_id = s.sharer_id
-    WHEN 'PULSE_TEAM_RESULTS' THEN EXISTS (SELECT 1 FROM teams t WHERE t.id = s.resource_id AND t.manager_id = s.sharer_id)
+    WHEN 'PULSE_TEAM_RESULTS' THEN EXISTS (SELECT 1 FROM teams_current t WHERE t.id = s.resource_id AND t.manager_id = s.sharer_id)
     ELSE FALSE END;
 INSERT INTO verify_checks SELECT 'shares: details snapshot present, no duplicate (document, sharee)', count(*) FROM (
   SELECT 1 FROM document_shares WHERE details IS NULL
@@ -240,7 +240,7 @@ BEGIN
     'feedback_events', 'notifications', 'pulse_cycles', 'pulse_responses', 'team_kpis', 'team_kpi_values', 'team_kpi_events',
     'public_holidays', 'days_off_pool_types', 'days_off_pools', 'days_off_requests', 'days_off_corrections', 'days_off_events',
     'impact_log_entries', 'impact_log_events', 'succession_plans', 'succession_nominations', 'succession_plan_events',
-    'document_shares', 'career_position_events', 'account_events'] LOOP
+    'document_shares', 'career_position_events', 'account_events', 'team_memberships', 'team_manager_periods'] LOOP
     seq := pg_get_serial_sequence(t, 'id');
     EXECUTE format('SELECT COALESCE(max(id), 0) FROM %I', t) INTO mx;
     EXECUTE format('SELECT last_value FROM %s', seq) INTO n;
@@ -248,6 +248,25 @@ BEGIN
   END LOOP;
   INSERT INTO verify_checks VALUES ('serial sequences are at or beyond max(id)', bad);
 END $$;
+
+-- 15. Dated team structure (V93, teams.md): every live team has a manager period covering today (teams_current is an
+--     INNER JOIN, so a team without one would vanish from every reader), the manager line is contiguous, and a person
+--     never holds two overlapping membership periods in one team.
+INSERT INTO verify_checks SELECT 'team structure: every live team resolves a manager through teams_current', count(*) FROM teams t
+  WHERE NOT t.marked_as_deleted AND NOT EXISTS (SELECT 1 FROM teams_current c WHERE c.id = t.id);
+INSERT INTO verify_checks SELECT 'team structure: every live team has a manager period covering the dataset''s today', count(*) FROM teams t
+  WHERE NOT t.marked_as_deleted AND NOT EXISTS (
+    SELECT 1 FROM team_manager_periods p WHERE p.team_id = t.id
+      AND (p.start_date IS NULL OR p.start_date <= to_char(CURRENT_DATE, 'YYYY-MM-DD'))
+      AND (p.end_date IS NULL OR p.end_date >= to_char(CURRENT_DATE, 'YYYY-MM-DD')));
+INSERT INTO verify_checks SELECT 'team structure: manager periods are contiguous (end = next start - 1 day)', count(*) FROM (
+  SELECT p.end_date, lead(p.start_date) OVER (PARTITION BY p.team_id ORDER BY p.start_date NULLS FIRST) AS next_start
+  FROM team_manager_periods p) l
+  WHERE l.next_start IS NOT NULL AND (l.end_date IS NULL OR to_char(to_date(l.end_date, 'YYYY-MM-DD') + 1, 'YYYY-MM-DD') <> l.next_start);
+INSERT INTO verify_checks SELECT 'team structure: no overlapping membership periods per (team, person)', count(*) FROM team_memberships a
+  JOIN team_memberships b ON b.team_id = a.team_id AND b.user_id = a.user_id AND b.id > a.id
+  WHERE COALESCE(a.start_date, '0000-00-00') <= COALESCE(b.end_date, '9999-99-99')
+    AND COALESCE(b.start_date, '0000-00-00') <= COALESCE(a.end_date, '9999-99-99');
 
 -- Report + gate.
 SELECT CASE WHEN violations = 0 THEN 'ok   ' ELSE 'FAIL ' END || name || CASE WHEN violations = 0 THEN '' ELSE '  (' || violations || ' violation(s))' END AS verify
@@ -264,6 +283,8 @@ END $$;
 -- Row counts for the record (compare with perf/results/seed-<version>.json).
 SELECT 'users' AS "table", count(*) FROM users
 UNION ALL SELECT 'teams', count(*) FROM teams
+UNION ALL SELECT 'team_memberships', count(*) FROM team_memberships
+UNION ALL SELECT 'team_manager_periods', count(*) FROM team_manager_periods
 UNION ALL SELECT 'review_periods', count(*) FROM review_periods
 UNION ALL SELECT 'performance_reviews', count(*) FROM performance_reviews
 UNION ALL SELECT 'one_on_one_meetings', count(*) FROM one_on_one_meetings

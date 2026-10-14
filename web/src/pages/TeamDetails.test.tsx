@@ -659,4 +659,21 @@ describe("TeamDetails page", () => {
     await screen.findByText("Carol");
     expect(screen.queryByRole("link", { name: "Team KPIs" })).not.toBeInTheDocument();
   });
+  test("every viewer gets a History button linking to the team's history page (v4.17.0)", async () => {
+    localStorage.setItem(ROLE_KEY, "[]"); // a plain member: no KPIs link, but History is open to all
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/teams/3") {
+        return Promise.resolve(jsonResponse(200, { ...TEAM, canManageKpis: false }));
+      }
+      if (isMembersUrl(url)) return Promise.resolve(usersPage(MEMBERS));
+      if (isPoolUrl(url)) return Promise.resolve(usersPage(ALL_USERS));
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    renderTeamDetails(3);
+
+    const link = await screen.findByRole("link", { name: "History" });
+    // The page's own URL rides along, so History's Back returns here with the origin intact.
+    expect(link).toHaveAttribute("href", `/teams/3/history?back=${encodeURIComponent("/teams/3/details")}`);
+    expect(screen.queryByRole("link", { name: "Team KPIs" })).not.toBeInTheDocument();
+  });
 });

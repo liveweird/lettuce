@@ -773,6 +773,13 @@ export interface paths {
          *         every team managed by that manager or anyone in their transitive management
          *         subtree (backs the KPI create picker).
          *       - `memberId` — restrict to teams the given user is a member of.
+         *       - `asOf` (v4.17.0) — strict ISO date (`YYYY-MM-DD`, any day: past or future; otherwise
+         *         `400`). Shows each team's manager and roster **as of that day**, read from the dated
+         *         structure: soft-deleted teams are included while their manager line covers the day (a
+         *         team deleted before the history existed is not), `managerId`/`memberId`/`name`/sort/paging
+         *         compose as-of, `includeIndirect` is `400` with it, and each item additionally carries
+         *         `members` (names of everyone on the roster that day, including since-deleted people).
+         *         Without `asOf` the list is today's, and `members` is absent.
          *
          *     Each returned item includes the manager's `name` resolved via join so the UI
          *     does not need an N+1 lookup, and the team's `memberIds` (v4.14.0, one grouped
@@ -885,12 +892,13 @@ export interface paths {
         /**
          * Replace a team
          * @description ADMIN only (v2.33.0 — team structure is org design; the manager's own edit right is gone). NEWLY adding a **deactivated** member or changing the manager to a deactivated user is rejected with `400`; resubmitting an unchanged existing reference is not validated, so a team containing a since-deactivated user stays editable.
+         *     Since v4.17.0 the structure is dated and every change applies **from today**: a rename keeps the history; added members start today; removed members' periods end yesterday (or are deleted when they started today); a changed manager starts a new manager period today. Unchanged members are untouched. A person with a not-yet-started membership in this team cannot be added today (`409`).
          */
         put: operations["replaceTeam"];
         post?: never;
         /**
          * Delete a team
-         * @description ADMIN only (v2.33.0 — team structure is org design).
+         * @description ADMIN only (v2.33.0 — team structure is org design). Since v4.17.0 the deletion day closes the team's dated structure: open memberships and the final manager period end today, and rows that start later are removed.
          */
         delete: operations["deleteTeam"];
         options?: never;
@@ -911,7 +919,7 @@ export interface paths {
         get?: never;
         /**
          * Add a member to the team (idempotent)
-         * @description ADMIN only (v2.33.0 — team structure is org design). NEWLY adding a **deactivated** user is rejected with `400`; re-adding an already-present member (even a since-deactivated one) stays the idempotent no-op.
+         * @description ADMIN only (v2.33.0 — team structure is org design). NEWLY adding a **deactivated** user is rejected with `400`; re-adding an already-present member (even a since-deactivated one) stays the idempotent no-op. Since v4.17.0 the membership starts **today**; a not-yet-started membership of the same person in this team is a `409`.
          */
         put: operations["addTeamMember"];
         post?: never;
@@ -920,9 +928,185 @@ export interface paths {
          * @description ADMIN only (v2.33.0 — team structure is org design).
          *     Idempotent: removing a user who is not (or no longer) a member is a no-op `204`.
          *     Zero-member teams are allowed, so removing the last member succeeds. The manager
-         *     is never a `team_members` row, so this endpoint cannot affect them.
+         *     is never a roster member, so this endpoint cannot affect them. Since v4.17.0 the
+         *     membership period ends **yesterday** (it is deleted when it started today).
          */
         delete: operations["removeTeamMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{id}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A team's membership periods (history)
+         * @description Every membership period of the team (v4.17.0), **unpaged**, chronological (a `null`
+         *     start — "since before records" — first, then by start date, then id). One row per
+         *     period: a person who left and rejoined has two rows. `current` is true for a period
+         *     covering today. A missing or deleted team is `404`. Any authenticated user may read;
+         *     history is for display only — every right stays "today only".
+         */
+        get: operations["listTeamMemberships"];
+        put?: never;
+        /**
+         * Add a membership period (ADMIN only)
+         * @description ADMIN only. Adds a period for `userId` with any `startDate` (`null` = since before records)
+         *     and `endDate` (`null` = open-ended, otherwise the inclusive last day), back-dated or
+         *     future-dated. Guard first, then payload validation. Dates are strict ISO `YYYY-MM-DD`;
+         *     `endDate` before `startDate` is `400`. `400` also: a user who does not exist or is deleted,
+         *     a **deactivated** user whose period reaches today or later (purely past periods are
+         *     allowed), and a period that would make the team's manager a member of it on a day that
+         *     includes today. `409`: the period overlaps another period of the same person in this
+         *     team, or the manager would also be a member on a past or future day. A missing or deleted
+         *     team is `404`. Audited as `team.membership_created`.
+         */
+        post: operations["createTeamMembership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{id}/memberships/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                membershipId: components["parameters"]["MembershipIdInPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Correct a membership period's dates (ADMIN only)
+         * @description ADMIN only. Replaces the period's `startDate`/`endDate`; the person cannot change once a
+         *     row exists. Same validation as the create. A **deactivated** person's period cannot be
+         *     extended into today or later (any such day the old period did not cover, a start moved earlier
+         *     included; shortening or ending it stays allowed), and a **deleted** person's cannot reach today. A row that belongs
+         *     to another team is `404`. A PUT that changes nothing is a `204` and mints no audit event;
+         *     otherwise audited as `team.membership_updated` with change-only deltas.
+         */
+        put: operations["replaceTeamMembership"];
+        post?: never;
+        /**
+         * Remove a membership period (ADMIN only)
+         * @description ADMIN only. Hard-deletes the period (the audit event `team.membership_deleted` is the
+         *     trail). A row that belongs to another team is `404`.
+         */
+        delete: operations["deleteTeamMembership"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{id}/managers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A team's manager succession line (history)
+         * @description The team's manager line (v4.17.0), **unpaged**, chronological. The line is contiguous: a live
+         *     team has exactly one manager on every day from its first period on, each `endDate` being the
+         *     day before the next `startDate` (stored, but always derived from the next start); the last
+         *     period is open (`endDate` null). The first `startDate` may be `null` ("since before
+         *     records"). A missing or deleted team is `404`. Any authenticated user may read.
+         */
+        get: operations["listTeamManagerPeriods"];
+        put?: never;
+        /**
+         * Start a manager period (ADMIN only)
+         * @description ADMIN only. Inserts a period starting `startDate` (`null` = since before records): it takes
+         *     over the days until the next period begins and splits the period that contained that day
+         *     (a bounded stint is two inserts). The end is never supplied. If the next period has the same
+         *     manager the two merge into the new row; the response is the period now holding `startDate`.
+         *     `400`: a user who does not exist or is deleted, a **deactivated** manager whose period
+         *     reaches today or later, a manager who would also be a member of the team on a day that
+         *     includes today. `409`: a period already starts on that date, the person already manages the
+         *     team on that date (the same manager as the period it would split), the line's first start
+         *     would be after today, or the manager would also be a member on a past or future day.
+         *     Audited as `team.manager_period_created`.
+         */
+        post: operations["createTeamManagerPeriod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{id}/managers/{periodId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                periodId: components["parameters"]["PeriodIdInPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Correct a manager period (ADMIN only)
+         * @description ADMIN only. Changes the period's manager and/or start; the end is re-derived. The new start
+         *     must stay strictly between the neighbouring periods' starts (`409` — a correction never
+         *     reorders the line, and a start another period already holds is a collision). Changing to
+         *     the same manager as a neighbour merges the two. A **deactivated** manager can be newly
+         *     assigned only to a period lying wholly in the past, and no edit may let a deactivated or deleted
+         *     manager's coverage of today-or-later grow (e.g. a neighbour absorbing today) — `400`. A first period's start moved after
+         *     today is `409`. A row that belongs to another team is `404`. Audited as
+         *     `team.manager_period_updated` (change-only deltas; none when nothing changes).
+         */
+        put: operations["replaceTeamManagerPeriod"];
+        post?: never;
+        /**
+         * Remove a manager period (ADMIN only)
+         * @description ADMIN only. The predecessor absorbs the removed days — or the successor, when the first
+         *     period is removed (it inherits the removed start) — so the line stays contiguous; equal
+         *     neighbours then merge; a predecessor or successor that would thereby cover today or later must be
+         *     an active, non-deleted user (`400`). Deleting the team's only period is `409`, as is a result in which
+         *     the manager would also be a member. A row that belongs to another team is `404`. Audited as
+         *     `team.manager_period_deleted`.
+         */
+        delete: operations["deleteTeamManagerPeriod"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/team-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A person's team membership and team management history
+         * @description Every team-membership period and every period as a team's manager of the user (v4.17.0),
+         *     chronological (a `null` start first). Any authenticated caller; a missing or soft-deleted
+         *     user is `404`. Periods of soft-deleted teams are included (the team carries `deleted`),
+         *     except pre-V93 residue — an open-ended period of a team deleted before the history existed.
+         *     `current` is true for a period covering today on a live team.
+         */
+        get: operations["getUserTeamHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4880,6 +5064,15 @@ export interface components {
             /** @description True when the user referenced by `managerId` has been soft-deleted. Populated by the single-team GET only; the create/update responses omit the key. */
             managerDeleted?: boolean;
         };
+        TeamListMember: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            /** @description True when the person has been soft-deleted. */
+            deleted: boolean;
+            /** @description True when the person's account is deactivated. */
+            deactivated: boolean;
+        };
         TeamListItem: {
             /** Format: int32 */
             id: number;
@@ -4889,8 +5082,127 @@ export interface components {
             managerName: string;
             /** @description True when the user referenced by `managerId` has been soft-deleted. */
             managerDeleted: boolean;
-            /** @description The team's current member ids, ascending — the same list as `GET /teams/{id}` (v4.14.0; backs the org chart, which no longer fetches every team one by one). */
+            /** @description The team's current member ids, ascending — the same list as `GET /teams/{id}` (v4.14.0; backs the org chart, which no longer fetches every team one by one). With `asOf` (v4.17.0) it is the roster of that day. */
             memberIds: number[];
+            /** @description True for a soft-deleted team (v4.17.0). Only an `asOf` list can contain one, so it is always false on a plain list. */
+            deleted: boolean;
+            /** @description The roster of the `asOf` day with names (v4.17.0), name-ascending; **present only when the request carried `asOf`**, absent on a plain list. */
+            members?: components["schemas"]["TeamListMember"][];
+        };
+        TeamMembershipCreate: {
+            /** Format: int32 */
+            userId: number;
+            /**
+             * Format: date
+             * @description First day of the period; null (or absent) = since before records began. Years 1900 to 9999.
+             */
+            startDate?: string | null;
+            /**
+             * Format: date
+             * @description Inclusive last day; null (or absent) = open-ended. Not before `startDate`; years 1900 to 9999.
+             */
+            endDate?: string | null;
+        };
+        TeamMembershipWrite: {
+            /**
+             * Format: date
+             * @description First day of the period; null (or absent) = since before records began. Years 1900 to 9999.
+             */
+            startDate?: string | null;
+            /**
+             * Format: date
+             * @description Inclusive last day; null (or absent) = open-ended. Not before `startDate`; years 1900 to 9999.
+             */
+            endDate?: string | null;
+        };
+        TeamMembershipResponse: {
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            userId: number;
+            userName: string;
+            userDeleted: boolean;
+            deactivated: boolean;
+            /**
+             * Format: date
+             * @description Null = since before records began.
+             */
+            startDate: string | null;
+            /**
+             * Format: date
+             * @description Inclusive last day; null = open-ended.
+             */
+            endDate: string | null;
+            /** @description True when the period covers today. */
+            current: boolean;
+        };
+        TeamMembershipList: {
+            /** @description Chronological (a null start first, then start date, then id). */
+            items: components["schemas"]["TeamMembershipResponse"][];
+        };
+        TeamManagerPeriodWrite: {
+            /** Format: int32 */
+            managerId: number;
+            /**
+             * Format: date
+             * @description First day of the period; null (or absent) = since before records began. Years 1900 to 9999. The end is never supplied — it is the day before the next period's start.
+             */
+            startDate?: string | null;
+        };
+        TeamManagerPeriodResponse: {
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            managerId: number;
+            managerName: string;
+            managerDeleted: boolean;
+            /**
+             * Format: date
+             * @description Null = since before records began.
+             */
+            startDate: string | null;
+            /**
+             * Format: date
+             * @description Inclusive last day, derived (stored) from the next period's start; null = the open last period.
+             */
+            endDate: string | null;
+            /** @description True when the period covers today. */
+            current: boolean;
+        };
+        TeamManagerPeriodList: {
+            /** @description Chronological; contiguous (each end is the next start minus one day). */
+            items: components["schemas"]["TeamManagerPeriodResponse"][];
+        };
+        TeamPeriodTeam: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            /** @description True when the team has been soft-deleted. */
+            deleted: boolean;
+        };
+        UserTeamPeriod: {
+            /**
+             * Format: int32
+             * @description The membership or manager-period id.
+             */
+            id: number;
+            team: components["schemas"]["TeamPeriodTeam"];
+            /**
+             * Format: date
+             * @description Null = since before records began.
+             */
+            startDate: string | null;
+            /**
+             * Format: date
+             * @description Inclusive last day; null = open-ended.
+             */
+            endDate: string | null;
+            /** @description True when the period covers today on a live team. */
+            current: boolean;
+        };
+        UserTeamHistory: {
+            memberships: components["schemas"]["UserTeamPeriod"][];
+            managerPeriods: components["schemas"]["UserTeamPeriod"][];
         };
         TeamPage: {
             items: components["schemas"]["TeamListItem"][];
@@ -7948,6 +8260,8 @@ export interface components {
     parameters: {
         ResourceId: number;
         UserIdInPath: number;
+        MembershipIdInPath: number;
+        PeriodIdInPath: number;
         /** @description 1-based page index. Defaults to 1. */
         Page: number;
         /** @description Rows per page. Defaults to 20, maximum 100. */
@@ -9034,6 +9348,8 @@ export interface operations {
                 includeIndirect?: components["parameters"]["IncludeIndirect"];
                 /** @description Filter to teams the given user is a member of. */
                 memberId?: number;
+                /** @description Strict ISO date; the list shows the manager and roster as of that day (see the operation description). Combining it with `includeIndirect` is `400`. */
+                asOf?: string;
             };
             header?: never;
             path?: never;
@@ -9236,6 +9552,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description Conflicts with the dated team structure (v4.17.0): a not-yet-started membership of an added person in this team, or a manager who would also be a member of it in a future period. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             413: components["responses"]["PayloadTooLarge"];
             500: components["responses"]["InternalServerError"];
         };
@@ -9312,6 +9637,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description Conflicts with the dated team structure (v4.17.0): a not-yet-started membership of an added person in this team, or a manager who would also be a member of it in a future period. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -9345,6 +9679,359 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTeamMemberships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMembershipList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createTeamMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamMembershipCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the new membership period */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMembershipResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Overlaps the person's other period in the team, or the manager would also be a member */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceTeamMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                membershipId: components["parameters"]["MembershipIdInPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamMembershipWrite"];
+            };
+        };
+        responses: {
+            /** @description Corrected */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Overlaps the person's other period in the team, or the manager would also be a member */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteTeamMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                membershipId: components["parameters"]["MembershipIdInPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTeamManagerPeriods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamManagerPeriodList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createTeamManagerPeriod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamManagerPeriodWrite"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description URL of the period holding the start date */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamManagerPeriodResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Start collision, no-op manager, uncovered today, or the manager would also be a member */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    replaceTeamManagerPeriod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                periodId: components["parameters"]["PeriodIdInPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamManagerPeriodWrite"];
+            };
+        };
+        responses: {
+            /** @description Corrected */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Start collision or reorder, uncovered today, or the manager would also be a member */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteTeamManagerPeriod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                periodId: components["parameters"]["PeriodIdInPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Caller is not ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The team's only period, or the manager would also be a member */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getUserTeamHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserTeamHistory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };

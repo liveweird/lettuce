@@ -16,6 +16,7 @@ import ResponsiveTable from "../components/ResponsiveTable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconChartLine,
+  IconHistory,
   IconPlus,
   IconTrash,
   IconUsers,
@@ -38,7 +39,7 @@ import TeamMembersTable from "./TeamMembersTable";
 import { useDeleteConfirm } from "../hooks/useDeleteConfirm";
 import { feedbackAskLink, feedbackProvideLink, userFeedbacksLink } from "../utils/feedbackLinks";
 import { userDetailsLink } from "../utils/userLinks";
-import { teamDetailsLink } from "../utils/teamLinks";
+import { teamDetailsLink, teamHistoryLink } from "../utils/teamLinks";
 import { teamKpisLink } from "../utils/teamKpiLinks";
 import { loadErrorMessage, saveErrorMessage } from "../utils/saveError";
 import { useAllUsers } from "../hooks/useAllUsers";
@@ -219,16 +220,27 @@ export default function TeamDetails() {
         back={{ to: backTo, label: backLabel }}
         title={t("teams.detailsTitle")}
         actions={
-          showKpisLink ? (
+          <>
+            {showKpisLink && (
+              <Button
+                component={RouterLink}
+                to={teamKpisLink(id, { from: "team", back: backHere })}
+                leftSection={<IconChartLine size={16} />}
+                variant="default"
+              >
+                {t("teams.kpis")}
+              </Button>
+            )}
+            {/* The dated manager line and membership periods (v4.17.0) — open to everyone. */}
             <Button
               component={RouterLink}
-              to={teamKpisLink(id, { from: "team", back: backHere })}
-              leftSection={<IconChartLine size={16} />}
+              to={teamHistoryLink(id, { back: backHere })}
+              leftSection={<IconHistory size={16} />}
               variant="default"
             >
-              {t("teams.kpis")}
+              {t("teams.history.button")}
             </Button>
-          ) : undefined
+          </>
         }
       />
 

@@ -15,6 +15,8 @@ type TeamListQuery = {
   /** Only with managerId (v2.26.0): widen to that manager's transitive subtree of teams. */
   includeIndirect?: boolean;
   memberId?: number;
+  /** Strict ISO date (v4.17.0): the manager and roster as of that day, deleted teams included. */
+  asOf?: string;
 };
 
 type CreateTeamBody =
@@ -58,6 +60,7 @@ export async function listTeams(q: TeamListQuery): Promise<TeamPage> {
     managerId: q.managerId,
     includeIndirect: q.includeIndirect || undefined,
     memberId: q.memberId,
+    asOf: q.asOf,
   });
   return jsonRequest<TeamPage>(`/api/v1/teams?${params}`);
 }
@@ -108,7 +111,7 @@ export async function listTeamMembers(q: TeamMemberListQuery): Promise<TeamMembe
 
 /** Every team (optionally: of one member), paging until the server total is reached. */
 export async function listAllTeams(
-  filter: { memberId?: number; managerId?: number; includeIndirect?: boolean } = {},
+  filter: { memberId?: number; managerId?: number; includeIndirect?: boolean; asOf?: string } = {},
 ): Promise<TeamPage["items"]> {
   const items: TeamPage["items"] = [];
   let page = 1;
@@ -141,3 +144,75 @@ export async function listAllTeamMembers(
 }
 
 export type TeamRef = components["schemas"]["TeamRef"];
+
+// --- Dated team structure (v4.17.0): membership periods and the manager succession line. ---
+
+export type TeamMembership = components["schemas"]["TeamMembershipResponse"];
+export type TeamMembershipCreateBody = components["schemas"]["TeamMembershipCreate"];
+export type TeamMembershipBody = components["schemas"]["TeamMembershipWrite"];
+export type TeamManagerPeriod = components["schemas"]["TeamManagerPeriodResponse"];
+export type TeamManagerPeriodBody = components["schemas"]["TeamManagerPeriodWrite"];
+
+export async function listTeamMemberships(teamId: number): Promise<TeamMembership[]> {
+  const page = await jsonRequest<components["schemas"]["TeamMembershipList"]>(
+    `/api/v1/teams/${teamId}/memberships`,
+  );
+  return page.items;
+}
+
+export async function createTeamMembership(
+  teamId: number,
+  body: TeamMembershipCreateBody,
+): Promise<TeamMembership> {
+  return jsonRequest<TeamMembership>(`/api/v1/teams/${teamId}/memberships`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateTeamMembership(
+  teamId: number,
+  membershipId: number,
+  body: TeamMembershipBody,
+): Promise<void> {
+  await voidRequest(`/api/v1/teams/${teamId}/memberships/${membershipId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteTeamMembership(teamId: number, membershipId: number): Promise<void> {
+  await voidRequest(`/api/v1/teams/${teamId}/memberships/${membershipId}`, { method: "DELETE" });
+}
+
+export async function listTeamManagerPeriods(teamId: number): Promise<TeamManagerPeriod[]> {
+  const page = await jsonRequest<components["schemas"]["TeamManagerPeriodList"]>(
+    `/api/v1/teams/${teamId}/managers`,
+  );
+  return page.items;
+}
+
+export async function createTeamManagerPeriod(
+  teamId: number,
+  body: TeamManagerPeriodBody,
+): Promise<TeamManagerPeriod> {
+  return jsonRequest<TeamManagerPeriod>(`/api/v1/teams/${teamId}/managers`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateTeamManagerPeriod(
+  teamId: number,
+  periodId: number,
+  body: TeamManagerPeriodBody,
+): Promise<void> {
+  await voidRequest(`/api/v1/teams/${teamId}/managers/${periodId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteTeamManagerPeriod(teamId: number, periodId: number): Promise<void> {
+  await voidRequest(`/api/v1/teams/${teamId}/managers/${periodId}`, { method: "DELETE" });
+}

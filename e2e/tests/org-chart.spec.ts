@@ -1,8 +1,17 @@
-import { AAA_ONE, expect, login, test } from "./helpers";
+import { AAA_ONE, expect, fillDate, login, test } from "./helpers";
+
+// A local-time ISO day offset from today (the SPA reads the browser's local day, so does this).
+function isoDayFromToday(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 // The org chart (v1.23.0): the whole organization as a React Flow canvas — person nodes
 // (clickable → user details), team nodes (clickable → roster), manages/member edges; team
 // nodes collapse/expand their members (v2.40.0, client-side only).
+// The "As of" date (v4.17.0) redraws it as of another day via ?asOf=.
 // Read-only: no data is created or mutated.
 
 test("the org chart renders the seed org and drills into details and rosters", async ({ page }) => {
@@ -53,4 +62,38 @@ test("the org chart renders the seed org and drills into details and rosters", a
   await expect(page.getByText("AAA", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: /Back to Org chart/ }).click();
   await expect(page).toHaveURL(/\/org$/);
+});
+
+test("the org chart as of a past day still renders the seed teams, flags the date and resets with Today", async ({
+  page,
+}) => {
+  const yesterday = isoDayFromToday(-1);
+  await login(page, AAA_ONE);
+
+  // A direct link to yesterday: the seed teams (their memberships and managers are open-ended
+  // since before records began) and the manager chain are all still there.
+  await page.goto(`/org?asOf=${yesterday}`);
+  await expect(page.getByRole("button", { name: "Members of CCC" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Members of AAA" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "User details for Manager CCC" })).toBeVisible();
+
+  // The date field carries the day; the badge and the Today button flag it as off-today.
+  await expect(page.getByLabel("As of", { exact: true })).toHaveValue(yesterday);
+  const shown = new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
+    new Date(`${yesterday}T00:00:00`),
+  );
+  await expect(page.getByText(`As of ${shown}`, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Today", exact: true })).toBeVisible();
+
+  // Today drops the parameter and the flags, leaving the live chart.
+  await page.getByRole("button", { name: "Today", exact: true }).click();
+  await expect(page).toHaveURL(/\/org$/);
+  await expect(page.getByRole("button", { name: "Today", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Members of CCC" })).toBeVisible();
+
+  // Typing a day into the field takes the chart off today again, and the URL follows.
+  await fillDate(page, "As of", yesterday);
+  await expect(page).toHaveURL(new RegExp(`/org\\?asOf=${yesterday}$`));
+  await expect(page.getByRole("button", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Members of AAA" })).toBeVisible();
 });
