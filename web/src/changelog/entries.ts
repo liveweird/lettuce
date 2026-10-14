@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.18.2",
+    date: "2026-10-14",
+    en: `Performance review ratings have new colours. A 3, "Meets expectations", is now a calm grey-green instead of yellow, so the expected result no longer looks like a warning. The scale runs orange (1), yellow (2), grey-green (3), light green (4), green (5) and violet (6, "Exceptional"), each rating in its own colour. The rating pills in tables and on the review page are now pale with dark numbers, so every number is easy to read in both the light and the dark theme, and the rating numbers along the edges of the "Quadrants" view are easier to read too.`,
+    pl: `Skala ocen w ocenach okresowych ma nowe kolory. Ocena 3, "Spełnia oczekiwania", jest teraz spokojna, szarozielona zamiast żółtej, więc oczekiwany wynik nie wygląda już jak ostrzeżenie. Skala biegnie od pomarańczowego (1), przez żółty (2), szarozielony (3), jasnozielony (4) i zielony (5), do fioletowego (6, "Poziom wyjątkowy"), a każda ocena ma własny kolor. Znaczniki ocen w tabelach i na stronie oceny są teraz jasne, z ciemną cyfrą, więc każdą ocenę łatwo odczytać zarówno w jasnym, jak i w ciemnym motywie; łatwiej też odczytać numery ocen na krawędziach widoku "Kwadranty".`,
+  },
+  {
     version: "4.18.1",
     date: "2026-10-14",
     en: `Three small fixes. On a phone, the account menu now lists the tutorials directly under a "Tutorials" heading; the submenu used to cover the menu itself, and tapping it did not open it. The feedback list keeps its table layout on a 1280-pixel laptop screen with the side menu open, instead of turning every feedback into a card. And when you share many documents at once with an end date, part of the batch fails, and you press "Retry" after midnight, the now-past "Until" date is shown with its error so you can pick a new one; before, the retry silently did nothing.`,

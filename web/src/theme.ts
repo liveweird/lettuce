@@ -36,6 +36,21 @@ const lettuce: MantineColorsTuple = [
   "#14532d",
 ];
 
+// "Sage" — a muted grey-green (light → dark, 0–9) for the neutral midpoint of the review
+// rating scale (3 = meets expectations, v4.18.2): calm, still on the green side, never a warning.
+const sage: MantineColorsTuple = [
+  "#f3f6f3",
+  "#e4ebe5",
+  "#cbd8cd",
+  "#b0c3b3",
+  "#97ae9a",
+  "#809a84",
+  "#6b866f",
+  "#5f7a63",
+  "#556f5a",
+  "#4c6651",
+];
+
 // Inter is bundled (via @fontsource-variable/inter, imported in main.tsx) so it loads same-origin
 // and satisfies the CSP `font-src 'self'`; the system stack is the fallback (e.g. in tests).
 const sans =
@@ -54,7 +69,8 @@ const BADGE_DIMENSIONS: Record<string, { height: string; fz: string; px: string 
 // never impersonate the brand; the canvas is a quiet near-white (dark: dark-8) that surfaces
 // lift off with hairline borders rather than shadows. Colour tokens (text, dimmed, borders,
 // the light-variant inks) live in themeVariables.ts. Don't reintroduce stock-blue actions or
-// stock-green success states.
+// stock-green success states. (The review rating scale in utils/reviewRatings.ts is a data
+// scale, not a state colour — its stock green/lime/violet hues are deliberate.)
 //
 // Theme overrides for components the shell does NOT render (Table, Select, MultiSelect,
 // SegmentedControl, Tabs, DateInput, InputWrapper, Modal, Drawer) are PLAIN objects checked by a
@@ -70,7 +86,7 @@ export const theme = createTheme({
   autoContrast: true,
   defaultRadius: "md",
   radius: { xs: rem(4), sm: rem(6), md: rem(8), lg: rem(12), xl: rem(16) },
-  colors: { lettuce },
+  colors: { lettuce, sage },
   fontFamily: sans,
   // Visible only on keyboard focus; the ring is the brand shade (≥ 3:1 on both grounds).
   focusRing: "auto",

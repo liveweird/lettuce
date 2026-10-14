@@ -6,7 +6,7 @@ import { getUserId } from "../api/session";
 import { useCurrentPath } from "../hooks/useCurrentPath";
 import { isOneOf, useStoredState } from "../hooks/useStoredState";
 import { mantineColorVar } from "../utils/pulseSurveyForm";
-import { ratingColor, RATING_VALUES, REVIEW_CATEGORIES, type ReviewCategory } from "../utils/reviewRatings";
+import { ratingColor, ratingInk, RATING_VALUES, REVIEW_CATEGORIES, type ReviewCategory } from "../utils/reviewRatings";
 import { quadrantCellKey, quadrantCells, type ReviewsDashboardRow } from "../utils/reviewsDashboard";
 import { userDetailsLink } from "../utils/userLinks";
 
@@ -14,7 +14,7 @@ import { userDetailsLink } from "../utils/userLinks";
 const Y_ROWS = [...RATING_VALUES].reverse();
 
 /** The cell tint: the combined score's rating color at low alpha, so the plane fades from
- * orange (bottom-left) to green (top-right) over either theme's surface. */
+ * orange (bottom-left) through sage and green to violet (top-right) over either theme's surface. */
 function cellBackground(x: number, y: number): string {
   const token = ratingColor(Math.round((x + y) / 2));
   return `color-mix(in srgb, ${mantineColorVar(token)} 14%, transparent)`;
@@ -110,7 +110,7 @@ export default function ReviewQuadrants({ rows }: { rows: ReviewsDashboardRow[] 
           >
             {Y_ROWS.map((y) => (
               <Fragment key={y}>
-                <Text size="xs" fw={600} c={ratingColor(y)} pr={6} style={{ alignSelf: "center" }}>
+                <Text size="xs" fw={600} c={ratingInk(y)} pr={6} style={{ alignSelf: "center" }}>
                   {y}
                 </Text>
                 {RATING_VALUES.map((x) => {
@@ -164,7 +164,7 @@ export default function ReviewQuadrants({ rows }: { rows: ReviewsDashboardRow[] 
             ))}
             <span />
             {RATING_VALUES.map((x) => (
-              <Text key={x} size="xs" fw={600} c={ratingColor(x)} ta="center">
+              <Text key={x} size="xs" fw={600} c={ratingInk(x)} ta="center">
                 {x}
               </Text>
             ))}

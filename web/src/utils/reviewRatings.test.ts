@@ -3,6 +3,8 @@ import type { TFunction } from "i18next";
 import {
   isReviewComplete,
   ratingColor,
+  ratingHue,
+  ratingInk,
   ratingOptions,
   ratingText,
   reviewFormValidation,
@@ -23,15 +25,25 @@ const COMPLETE: ReviewFormValues = {
 };
 
 describe("reviewRatings", () => {
-  test("ratingColor walks the orange→green gradient and falls back to gray", () => {
-    expect(ratingColor(1)).toBe("orange.8");
-    expect(ratingColor(2)).toBe("orange.5");
-    expect(ratingColor(3)).toBe("yellow.6");
+  test("ratingColor gives every rating its own hue and falls back to gray", () => {
+    expect(ratingColor(1)).toBe("orange.7");
+    expect(ratingColor(2)).toBe("yellow.6");
+    expect(ratingColor(3)).toBe("sage.5");
     expect(ratingColor(4)).toBe("lime.6");
-    expect(ratingColor(5)).toBe("green.5");
-    expect(ratingColor(6)).toBe("green.8");
+    expect(ratingColor(5)).toBe("green.7");
+    expect(ratingColor(6)).toBe("violet.6");
     expect(ratingColor(0)).toBe("gray");
     expect(ratingColor(7)).toBe("gray");
+    // The pill is a tint of the hue alone — six ratings, six distinct hues.
+    expect(new Set([1, 2, 3, 4, 5, 6].map(ratingHue)).size).toBe(6);
+    expect(ratingHue(3)).toBe("sage");
+    expect(ratingHue(0)).toBe("gray");
+  });
+
+  test("ratingInk is the hue's AA light-variant ink, gray when out of range", () => {
+    expect(ratingInk(3)).toBe("var(--mantine-color-sage-light-color)");
+    expect(ratingInk(6)).toBe("var(--mantine-color-violet-light-color)");
+    expect(ratingInk(9)).toBe("var(--mantine-color-gray-light-color)");
   });
 
   test("ratingText keeps the number next to its wording and options cover 1..6", () => {

@@ -450,9 +450,9 @@ describe("ReviewsDashboard tab", () => {
     // Ann's attitudeRating 4 lands in the 4-bucket, Zoe (no review) stays out of the bars.
     const chart = await screen.findByTestId("bar-chart");
     expect(chart).toHaveAttribute("data-buckets", "1:0,2:0,3:0,4:1,5:0,6:0");
-    // Per-bar rating colors ride the data rows (the RatingBadge orange→green scale).
-    expect(chart.getAttribute("data-colors")).toContain("orange.8");
-    expect(chart.getAttribute("data-colors")).toContain("green.8");
+    // Per-bar rating colors ride the data rows (the RatingBadge scale).
+    expect(chart.getAttribute("data-colors")).toContain("orange.7");
+    expect(chart.getAttribute("data-colors")).toContain("violet.6");
     expect(screen.getByText("1 of 2 people rated")).toBeInTheDocument();
     // The custom tooltip labels bars with the scale wording.
     expect(screen.getByTestId("chart-tooltip")).toHaveTextContent("4 — Sometimes exceeds expectations");

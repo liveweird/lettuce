@@ -74,7 +74,7 @@ describe("PerformanceReviewHistory", () => {
 });
 
 describe("RatingBadge", () => {
-  test("renders the number in a pill colored by the orange→green scale", async () => {
+  test("renders the number in a pill colored by the rating scale", async () => {
     const { default: RatingBadge } = await import("./RatingBadge");
     renderWithProviders(
       <>
@@ -86,7 +86,7 @@ describe("RatingBadge", () => {
     const high = screen.getByText("6");
     expect(low).toBeInTheDocument();
     expect(high).toBeInTheDocument();
-    // The scale's poles carry different Mantine colors (orange.8 vs green.8) — the badges'
+    // The scale's poles carry different Mantine colors (orange vs violet hues) — the badges'
     // inline styles (where Mantine resolves the color) must differ.
     const badgeOf = (el: HTMLElement) => el.closest(".mantine-Badge-root") as HTMLElement;
     expect(badgeOf(low).getAttribute("style")).not.toBe(badgeOf(high).getAttribute("style"));
