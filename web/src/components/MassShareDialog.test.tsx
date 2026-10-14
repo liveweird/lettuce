@@ -462,6 +462,46 @@ describe("MassShareDialog", () => {
     expect(posts(calls)).toHaveLength(2);
   });
 
+  test("a retry after local midnight shows the stale end date's error instead of silently doing nothing", async () => {
+    // Only Date is faked: userEvent and the queries still need real timers.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date(2026, 9, 14, 23, 58));
+      const calls = mockApi((body, n) => (n === 1 ? problem(429, "slow") : allCreated(body)));
+      const userEv = userEvent.setup();
+      renderWithProviders(<Harness />);
+      await pick(userEv, /Rita Recipient/);
+      fireEvent.change(screen.getByLabelText("Until"), { target: { value: "2026-10-14" } });
+      fireEvent.blur(screen.getByLabelText("Until"));
+      await submit(userEv);
+      expect(await screen.findByText("You are sharing too fast. Try again in a minute.")).toBeInTheDocument();
+      // The form, and its Until field, gave way to the result panel.
+      expect(screen.queryByLabelText("Until")).toBeNull();
+
+      vi.setSystemTime(new Date(2026, 9, 15, 0, 1));
+      await userEv.click(screen.getByRole("button", { name: "Retry the remaining 2 reviews" }));
+      expect(await screen.findByText("The end date cannot be in the past.")).toBeInTheDocument();
+      expect(screen.getByLabelText("Until")).toBeInTheDocument();
+      expect(posts(calls)).toHaveLength(1);
+
+      fireEvent.change(screen.getByLabelText("Until"), { target: { value: "2026-10-20" } });
+      fireEvent.blur(screen.getByLabelText("Until"));
+      await userEv.click(screen.getByRole("button", { name: "Retry the remaining 2 reviews" }));
+      expect(await screen.findByText("New shares: 2")).toBeInTheDocument();
+      expect(posts(calls)).toHaveLength(2);
+      expect(posts(calls)[1].body).toEqual({
+        resourceType: "PERFORMANCE_REVIEW",
+        resourceIds: [10, 20],
+        shareeIds: [11],
+        expiresOn: "2026-10-20",
+      });
+      // A valid retry hides the field again.
+      expect(screen.queryByLabelText("Until")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("a whole-request 403 / 404 is one readable alert and no retry — only a way back to the form", async () => {
     mockApi(() => problem(403, "no"));
     const userEv = userEvent.setup();

@@ -92,6 +92,10 @@ function MassShareForm({
   const [picked, setPicked] = useState<string[]>([]);
   const untilDate = useUntilDate();
   const [run, setRun] = useState<Run | null>(null);
+  // A Retry from the result panel whose "until" date went stale (local midnight passed since the
+  // first run): the form, and with it the field, is gone, so the panel shows the field and its
+  // error until the next valid submit — otherwise the Retry would silently do nothing.
+  const [untilStale, setUntilStale] = useState(false);
   // The result heading takes focus when a run settles: the Share button that had it just unmounted.
   const resultHeadingRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -116,7 +120,11 @@ function MassShareForm({
 
   async function submit(ids: readonly number[]) {
     if (picked.length === 0 || ids.length === 0) return;
-    if (!untilDate.validate()) return;
+    if (!untilDate.validate()) {
+      if (run != null) setUntilStale(true);
+      return;
+    }
+    setUntilStale(false);
     setSubmitting(true);
     // The pre-run rows: the candidates refetch below can turn a just-shared person unshareable,
     // and the summary would then print them as "#id".
@@ -201,21 +209,26 @@ function MassShareForm({
       </Stack>
     );
     resultActions = (
-      <Group justify="flex-end">
-        {failure && !isRetryable(failure.error) && (
-          <Button variant="default" onClick={() => setRun(null)}>
-            {t("sharing.batch.backToForm")}
-          </Button>
+      <Stack gap="sm">
+        {untilStale && (
+          <UntilDateField value={untilDate.until} onChange={untilDate.setUntil} error={untilDate.untilError} />
         )}
-        {failure && isRetryable(failure.error) && (
-          <Button loading={submitting} onClick={() => void submit(failure.resourceIds)}>
-            {t("sharing.batch.retry", { context, count: failure.resourceIds.length })}
+        <Group justify="flex-end">
+          {failure && !isRetryable(failure.error) && (
+            <Button variant="default" onClick={() => setRun(null)}>
+              {t("sharing.batch.backToForm")}
+            </Button>
+          )}
+          {failure && isRetryable(failure.error) && (
+            <Button loading={submitting} onClick={() => void submit(failure.resourceIds)}>
+              {t("sharing.batch.retry", { context, count: failure.resourceIds.length })}
+            </Button>
+          )}
+          <Button variant={failure ? "default" : "filled"} onClick={onClose} disabled={submitting}>
+            {t("common.action.close")}
           </Button>
-        )}
-        <Button variant={failure ? "default" : "filled"} onClick={onClose} disabled={submitting}>
-          {t("common.action.close")}
-        </Button>
-      </Group>
+        </Group>
+      </Stack>
     );
   }
 
