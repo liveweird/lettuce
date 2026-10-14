@@ -481,7 +481,8 @@ describe("MassShareDialog", () => {
       vi.setSystemTime(new Date(2026, 9, 15, 0, 1));
       await userEv.click(screen.getByRole("button", { name: "Retry the remaining 2 reviews" }));
       expect(await screen.findByText("The end date cannot be in the past.")).toBeInTheDocument();
-      expect(screen.getByLabelText("Until")).toBeInTheDocument();
+      // Focus moves into the field, so the error is announced.
+      expect(screen.getByLabelText("Until")).toHaveFocus();
       expect(posts(calls)).toHaveLength(1);
 
       fireEvent.change(screen.getByLabelText("Until"), { target: { value: "2026-10-20" } });

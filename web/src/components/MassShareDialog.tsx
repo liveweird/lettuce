@@ -96,6 +96,11 @@ function MassShareForm({
   // first run): the form, and with it the field, is gone, so the panel shows the field and its
   // error until the next valid submit — otherwise the Retry would silently do nothing.
   const [untilStale, setUntilStale] = useState(false);
+  // ...and moves focus into it, so the error is announced (the Retry button keeps focus otherwise).
+  const staleUntilRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (untilStale) staleUntilRef.current?.querySelector("input")?.focus();
+  }, [untilStale]);
   // The result heading takes focus when a run settles: the Share button that had it just unmounted.
   const resultHeadingRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -211,7 +216,9 @@ function MassShareForm({
     resultActions = (
       <Stack gap="sm">
         {untilStale && (
-          <UntilDateField value={untilDate.until} onChange={untilDate.setUntil} error={untilDate.untilError} />
+          <div ref={staleUntilRef}>
+            <UntilDateField value={untilDate.until} onChange={untilDate.setUntil} error={untilDate.untilError} />
+          </div>
         )}
         <Group justify="flex-end">
           {failure && !isRetryable(failure.error) && (
