@@ -17,6 +17,7 @@
   "rowsPerPage": "Entries per page",
   "documentUnavailable": "No longer available",
   "openDocument": "Open the document",
+  "openTeamHistory": "Open the team history",
   "forPerson": "For {{name}}",
   "area": {
     "FEEDBACK": "Feedback",
@@ -29,6 +30,7 @@
     "DAYS_OFF": "Days off",
     "CAREER_POSITION": "Career",
     "ACCOUNT": "Sign-ins",
+    "TEAM_MEMBERSHIP": "Team membership",
     "PULSE_TEAM_RESULTS": "Pulse survey results"
   },
   "shareNoun": {
@@ -63,6 +65,14 @@
     "unpaid": "unpaid"
   },
   "unset": "not set",
+  "beforeRecords": "before records began",
+  "openEnded": "open-ended",
+  "period": {
+    "range": "{{start}} – {{end}}",
+    "from": "from {{start}}",
+    "untilOnly": "from before records began until {{end}}",
+    "sinceBefore": "from before records began"
+  },
   "event": {
     "shareCreated": "Shared {{noun}} with {{sharee}}",
     "shareCreated_until": "Shared {{noun}} with {{sharee}} until {{date}}",
@@ -104,7 +114,30 @@
     "careerRefChange": "{{label}}: {{from}} → {{to}}",
     "signedIn": "Signed in",
     "signedIn_mfa": "Signed in (with a sign-in code)",
-    "signedOut": "Signed out"
+    "signedOut": "Signed out",
+    "teamCreated": "Created team {{team}}",
+    "teamCreated_manager": "Created team {{team}}, managed by {{manager}}",
+    "teamRenamed": "Renamed team {{from}} → {{to}}",
+    "teamUpdated": "Changed team {{team}}: {{changes}}",
+    "teamUpdated_empty": "Changed team {{team}}",
+    "teamManagerChange": "manager {{from}} → {{to}}",
+    "teamMembersAdded": "added {{names}}",
+    "teamMembersRemoved": "removed {{names}}",
+    "teamDeleted": "Deleted team {{team}}",
+    "memberAdded": "Added {{member}} to {{team}}",
+    "memberAdded_from": "Added {{member}} to {{team}} from {{date}}",
+    "memberRemoved": "Removed {{member}} from {{team}}",
+    "memberRemoved_endDate": "Removed {{member}} from {{team}} (last day {{date}})",
+    "membershipCreated": "Added a membership period of {{member}} in {{team}}: {{period}}",
+    "membershipUpdated": "Changed the membership period of {{member}} in {{team}}: {{changes}}",
+    "membershipUpdated_empty": "Changed the membership period of {{member}} in {{team}}",
+    "membershipDeleted": "Deleted a membership period of {{member}} in {{team}}: {{period}}",
+    "periodStartChange": "start {{from}} → {{to}}",
+    "periodEndChange": "end {{from}} → {{to}}",
+    "managerPeriodCreated": "Added a manager period of {{team}}: {{manager}} manages {{period}}",
+    "managerPeriodUpdated": "Changed a manager period of {{team}}: {{changes}}",
+    "managerPeriodUpdated_empty": "Changed a manager period of {{team}}: {{manager}} manages {{period}}",
+    "managerPeriodDeleted": "Deleted a manager period of {{team}}: {{manager}}, {{period}}"
   },
   "pool": {
     "named": "the \"{{name}}\" pool",

@@ -909,7 +909,15 @@ paths:
         subject, so they carry no `subjectUser*`, document, link or details; a chain manager
         and HR see them like `users.lastLoginAt` (self, chain, HR). The sign-in history is the one
         trail that is PURGED: rows older than the deployment's retention (90 days by default, 0 =
-        forever) are deleted.
+        forever) are deleted. `TEAM_MEMBERSHIP` rows (v4.18.0, forward-only from V94: a team created,
+        renamed or deleted, its roster changed, and its dated membership and manager-period rows
+        edited — all ADMIN actions) live in the log of the ADMIN who acted, never in that of the
+        person they concerned. They are keyed on the TEAM: `documentId` is the team id and `link` its
+        history page (`/teams/{id}/history`; `null` for a soft-deleted team unless the viewer is
+        the HR auditor, since the page answers `404` for a deleted team), `details` and `subjectUser*`
+        are null, and the self-describing `params` carry the frozen team and people names. Team
+        structure is readable by every authenticated user, so such a row is never withheld: a chain
+        manager and HR see all of the target's rows, and no feature flag gates the area.
 
         Who may read: the user themselves, the HR auditor (audited as `hr.list`, resource
         `activity`), and a manager in the user's TRANSITIVE management chain — anyone else, ADMIN
@@ -11682,6 +11690,7 @@ components:
         - CAREER_POSITION
         - ACCOUNT
         - PULSE_TEAM_RESULTS
+        - TEAM_MEMBERSHIP
       description: >-
         The areas an activity row can belong to (v4.9.0). The first seven name a document kind
         (equal to `ShareableResourceType`, so the row's `link` is that kind's view path);
@@ -11691,7 +11700,9 @@ components:
         (v4.9.0 — the account's own completed sign-ins and explicit sign-outs) are declared up
         front — the enum is append-only — and every value now produces rows. `PULSE_TEAM_RESULTS`
         (v4.12.0) names a document kind too (a team's pulse results; pulse has no event trail, so
-        it carries share rows only).
+        it carries share rows only). `TEAM_MEMBERSHIP` (v4.18.0) is the team-structure trail: team
+        creation, renaming and deletion, roster changes and edits of the dated membership and
+        manager-period rows, in the log of the ADMIN who acted (keyed on the team).
 
     ActivityEntry:
       type: object
@@ -11727,6 +11738,11 @@ components:
             `POSITION_UPDATED` (only when the start date or a ref changed) and `POSITION_DELETED`. `ACCOUNT`
             rows (V90) carry `SIGNED_IN` (a completed sign-in; param `mfa` = "true" when the second factor
             was used, else "false") and `SIGNED_OUT` (an explicit sign-out; no params).
+            `TEAM_MEMBERSHIP` rows (V94) carry one of eleven types: `TEAM_CREATED`, `TEAM_UPDATED` (only
+            when the name, the manager or the roster changed), `TEAM_DELETED`, `MEMBER_ADDED`,
+            `MEMBER_REMOVED`, `MEMBERSHIP_CREATED`, `MEMBERSHIP_UPDATED` (only when a bound changed),
+            `MEMBERSHIP_DELETED`, `MANAGER_PERIOD_CREATED`, `MANAGER_PERIOD_UPDATED` (only when the manager
+            or the start changed) and `MANAGER_PERIOD_DELETED`.
         params:
           type: object
           additionalProperties: { type: string }
@@ -11753,7 +11769,27 @@ components:
             `<ref>From`/`<ref>FromName` (absent when it was unset) and `<ref>To`/`<ref>ToName`
             (absent when cleared) with `<ref>` one of `careerPath`, `careerSpecialization`,
             `seniorityLevel`. `ACCOUNT` rows: `SIGNED_IN` `{mfa}` (`"true"` when the second factor
-            completed the sign-in, else `"false"`), `SIGNED_OUT` `{}`.
+            completed the sign-in, else `"false"`), `SIGNED_OUT` `{}`. `TEAM_MEMBERSHIP` rows (strings,
+            frozen at the action; a date is absent when null — no `startDate` = since before records, no
+            `endDate` = open-ended — and a person's `…Name` beside their id is the display name at that
+            moment): every type carries `team` (the team's name then); `TEAM_CREATED` `{team, managerId,
+            manager?, memberCount}`; `TEAM_UPDATED` `{team, nameFrom?, nameTo?, managerFrom?,
+            managerFromName?, managerTo?, managerToName?, managerPeriodId?, membersAdded?,
+            membersAddedNames?, membersRemoved?, membersRemovedNames?}` (change-only; the id lists are
+            comma-joined ascending, the name lists ", "-joined in that order); `TEAM_DELETED` `{team,
+            membershipsEnded, futureRowsRemoved}`; `MEMBER_ADDED` `{team, memberUserId, member?,
+            membershipId?, startDate?, reopened?}`; `MEMBER_REMOVED` `{team, memberUserId, member?,
+            endDate? | hardDeleted?}`; `MEMBERSHIP_CREATED`/`MEMBERSHIP_DELETED` `{team, membershipId,
+            memberUserId, member?, startDate?, endDate?}`; `MEMBERSHIP_UPDATED` `{team, membershipId,
+            memberUserId, member?, startDate?, endDate?}` plus `startDateFrom?`/`startDateTo?` and
+            `endDateFrom?`/`endDateTo?` for a CHANGED bound (`From` absent when it was unset, `To` when
+            cleared); `MANAGER_PERIOD_CREATED` `{team, periodId, managerId, manager?, startDate?,
+            removedPeriodIds?}`; `MANAGER_PERIOD_UPDATED` `{team, periodId, managerId, manager?,
+            startDate?, managerFrom?, managerFromName?, managerTo?, managerToName?, startDateFrom?,
+            startDateTo?, mergedIntoPeriodId?, removedPeriodIds?}` (`startDate` is the start as WRITTEN
+            even when the period merged into a neighbour — `mergedIntoPeriodId` then names the
+            surviving period, which can carry a different start); `MANAGER_PERIOD_DELETED` `{team,
+            periodId, managerId, manager?, startDate?, endDate?, absorbedByPeriodId, removedPeriodIds?}`.
         documentId:
           type: integer
           format: int32
@@ -11761,7 +11797,7 @@ components:
           nullable: true
           description: >-
             The document the event belongs to; null for the person-scoped areas' event rows (a days-off
-            calendar SHARE row carries the person's user id).
+            calendar SHARE row carries the person's user id). For `TEAM_MEMBERSHIP` rows it is the TEAM id.
         link:
           type: string
           nullable: true
@@ -11771,7 +11807,10 @@ components:
             event rows of the user's own log — a chain manager's rows are filtered instead; share rows
             always carry it, and opening it for a deleted or no-longer-readable document answers the
             document's own 404/403) — and always null for the person-scoped areas' event rows. The HR auditor always receives it,
-            even for a deleted document (opening it then answers `404`).
+            even for a deleted document (opening it then answers `404`). `TEAM_MEMBERSHIP` rows carry
+            `/teams/{documentId}/history` (team structure is openly readable) — except that the page
+            answers `404` for a soft-deleted team, so the link is `null` for the self and chain
+            viewers once the team is deleted; the HR auditor keeps it (the deleted-document rule above).
         details:
           type: object
           nullable: true

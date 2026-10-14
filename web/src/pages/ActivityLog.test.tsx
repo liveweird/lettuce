@@ -179,6 +179,51 @@ describe("ActivityLog page", () => {
     expect(screen.queryByText("No longer available")).toBeNull();
   });
 
+  test("a team-structure row words the change from its snapshots and links to the team's history with a back= (v4.18.0)", async () => {
+    mockApi({
+      items: [
+        row("TEAM_MEMBERSHIP:EVENT:3", "TEAM_MEMBERSHIP", "MEMBER_ADDED", {
+          team: "Platform", memberUserId: "9", member: "Jane Doe", startDate: "2026-01-05",
+        }, { documentId: 4, link: "/teams/4/history" }),
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText("Added Jane Doe to Platform from Jan 5, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Team membership")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the team history" })).toHaveAttribute(
+      "href",
+      `/teams/4/history?back=${encodeURIComponent("/activity")}`,
+    );
+  });
+
+  test("a team-structure row of a deleted team has a null link and renders no history anchor", async () => {
+    mockApi({
+      items: [
+        row("TEAM_MEMBERSHIP:EVENT:4", "TEAM_MEMBERSHIP", "MEMBER_ADDED", {
+          team: "Platform", memberUserId: "9", member: "Jane Doe", startDate: "2026-01-05",
+        }, { documentId: 4, link: null }),
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText("Added Jane Doe to Platform from Jan 5, 2026")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open the team history" })).toBeNull();
+  });
+
+  test("the team-membership area is offered ungated and filters the request", async () => {
+    localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["GOALS", "FEEDBACKS", "DAYS_OFF"]));
+    const urls = mockApi();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Signed out");
+
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText("Area", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Team membership" }));
+    await waitFor(() => expect(last(urls)).toContain("area=TEAM_MEMBERSHIP"));
+  });
+
   test("a pulse results share row names the team and opens the Results tab with the team marked, never the sharee's view (v4.12.0)", async () => {
     mockApi({
       items: [

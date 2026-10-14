@@ -9,6 +9,7 @@ import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.reviews.PerformanceReviewService
 import ch.nokillswit.reviews.ReviewPeriodService
 import ch.nokillswit.teamkpis.TeamKpiService
+import ch.nokillswit.teams.TeamHistoryService
 import ch.nokillswit.teams.TeamService
 import ch.nokillswit.users.CareerPositionService
 import ch.nokillswit.users.UserService
@@ -22,11 +23,12 @@ import kotlinx.coroutines.future.future
 /** The graphQLContext key carrying the request's CoroutineScope (set by the route handler). */
 internal const val SCOPE_CONTEXT_KEY = "lettuce.scope"
 
-/** The feature services the resolvers read through (decryption stays inside each service). */
-class IntegrationServices(
+/** The feature services the resolvers read through (decryption stays inside each service). Internal because `TeamHistoryService` is. */
+internal class IntegrationServices(
     val users: UserService,
     val careerPositions: CareerPositionService,
     val teams: TeamService,
+    val teamHistory: TeamHistoryService,
     val daysOff: DaysOffService,
     val reviews: PerformanceReviewService,
     val reviewPeriods: ReviewPeriodService,

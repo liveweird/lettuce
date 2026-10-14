@@ -25,7 +25,9 @@ import ch.nokillswit.succession.SuccessionEventService.SuccessionPlanEvents
 import ch.nokillswit.succession.SuccessionPlanService.Plans
 import ch.nokillswit.teamkpis.TeamKpiEventService.TeamKpiEvents
 import ch.nokillswit.teamkpis.TeamKpiService.TeamKpis
+import ch.nokillswit.teams.TeamService.TeamRecords
 import ch.nokillswit.teams.TeamService.Teams
+import ch.nokillswit.teams.TeamStructureEventService.TeamStructureEvents
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.teams.transitiveSubordinateIds
 import ch.nokillswit.users.CareerPositionEventService.CareerPositionEvents
@@ -93,9 +95,16 @@ private val partnerLabelUsers = Users.alias("act_user_b")
 /**
  * One `*_events` table feeding the union, with the area its rows belong to and the [parent]
  * document table the chain-mode predicate reads (team KPIs additionally join `teams`: the KPI's
- * current manager is the `teams_current` view's manager, never stored on the KPI).
+ * current manager is the `teams_current` view's manager, never stored on the KPI). An [open] source
+ * (team structure, V94) is readable by every authenticated user, so a chain viewer gets no extra
+ * predicate: every row of the target's log is listed.
  */
-private class EventSource(val area: ActivityArea, val table: EventLogTable, val parent: IdTable<UInt>?) {
+private class EventSource(
+    val area: ActivityArea,
+    val table: EventLogTable,
+    val parent: IdTable<UInt>?,
+    val open: Boolean = false,
+) {
     /** The table joined to its parent document — only for document areas (a person-scoped one has none). */
     fun joinedToParent(): ColumnSet {
         val parent = checkNotNull(parent) { "$area is person-scoped: no parent document" }
@@ -111,7 +120,7 @@ private class EventSource(val area: ActivityArea, val table: EventLogTable, val 
 /** The chain viewer's own-right filter: [viewer] and their transitive subordinates ([chain]). */
 private class ChainFilter(val viewer: UInt, val chain: Set<UInt>)
 
-/** The event trails feeding the union: the seven document ones plus the person-keyed days-off, career-position and sign-in ones. */
+/** The event trails feeding the union: the seven document ones plus the days-off, career-position, sign-in and team-structure ones. */
 private val EVENT_SOURCES = listOf(
     EventSource(ActivityArea.FEEDBACK, FeedbackEvents, Feedbacks),
     EventSource(ActivityArea.ONE_ON_ONE, OneOnOneEvents, Meetings),
@@ -126,6 +135,8 @@ private val EVENT_SOURCES = listOf(
     // The sign-in trail (V90): the owner IS the actor (the account itself) — chain viewers filter on it like
     // the other person-scoped areas, and the guard has already required the target in their chain.
     EventSource(ActivityArea.ACCOUNT, AccountEvents, parent = null),
+    // Team structure (V94): keyed on the TEAM, openly readable (no chain predicate, no feature flag).
+    EventSource(ActivityArea.TEAM_MEMBERSHIP, TeamStructureEvents, parent = null, open = true),
 )
 
 /** How the hydration phase decides `readable` for a document. */
@@ -161,7 +172,8 @@ private class UnionRow(
 /**
  * The per-user activity log (v4.9.0): a chronological "what did this person do" read model built
  * at QUERY TIME as a `UNION ALL` over the seven per-document `*_events` tables and the person-keyed
- * `days_off_events`, `career_position_events` and `account_events` (one branch each) and the two
+ * `days_off_events`, `career_position_events`, `account_events` and the team-keyed `team_structure_events`
+ * (one branch each) and the two
  * `document_shares` sources (shares the person created / withdrew), filtered on the ACTING user —
  * no new table, no dual write, nothing to drift (`.claude/docs/features/activity-log.md`).
  *
@@ -266,7 +278,7 @@ class ActivityService(
             var op: Op<Boolean> = if (matching) table.userId eq targetUserId else Op.FALSE
             filter.createdAtGte?.let { op = op and (table.timestamp greaterEq it) }
             filter.createdAtLte?.let { op = op and (table.timestamp lessEq it) }
-            if (chainFilter != null) {
+            if (chainFilter != null && !source.open) {
                 op = op and if (source.parent == null) {
                     ActivityVisibility.personScoped(table.ownerId, chainFilter.viewer, chainFilter.chain)
                 } else {
@@ -375,18 +387,29 @@ class ActivityService(
         val (shareRows, eventRows) = rows.partition { it.source != SOURCE_EVENT }
         // Person-scoped event rows carry the concerned person's id in `documentId`.
         val (personRows, otherRows) = eventRows.partition { it.area.isPersonScoped }
-        // Sign-in rows (ACCOUNT) are self-evident and carry nothing but the event itself.
-        val (_, documentRows) = otherRows.partition { it.area == ActivityArea.ACCOUNT }
+        // Sign-in rows (ACCOUNT) are self-evident and team-structure rows (TEAM_MEMBERSHIP) self-describing:
+        // neither is hydrated per document.
+        val (_, documentRows) = otherRows.partition {
+            it.area == ActivityArea.ACCOUNT || it.area == ActivityArea.TEAM_MEMBERSHIP
+        }
         val persons = personNames(personRows.map { it.documentId }.toSet())
         val facts = documentRows.groupBy({ it.area }, { it.documentId }).mapValues { (area, ids) ->
             factsFor(area, ids.toSet(), readability)
         }
         val shares = shareFacts(shareRows.map { it.eventId }.toSet())
+        // Team-structure rows link to the team's history page, which 404s for a soft-deleted team: ONE
+        // batched read of the deleted flags (only when the page holds such rows) decides which links to drop.
+        val deletedTeamIds = if (viewer.scope == ActivityScope.EVERYTHING) {
+            emptySet()
+        } else {
+            deletedTeams(otherRows.filter { it.area == ActivityArea.TEAM_MEMBERSHIP }.map { it.documentId }.toSet())
+        }
         return rows.map { row ->
             // (Event ids and share ids are separate sequences — only a SHARE row may take this branch.)
             if (row.source != SOURCE_EVENT) shares[row.eventId]?.let { return@map shareEntry(row, it) }
             if (row.area.isPersonScoped) return@map personEntry(row, persons[row.documentId])
             if (row.area == ActivityArea.ACCOUNT) return@map accountEntry(row)
+            if (row.area == ActivityArea.TEAM_MEMBERSHIP) return@map teamStructureEntry(row, row.documentId !in deletedTeamIds)
             val fact = facts[row.area]?.get(row.documentId)
             val visible = fact?.readable ?: (readability is Readability.Everything)
             ActivityEntry(
@@ -440,6 +463,39 @@ class ActivityService(
         subjectUserId = null,
         subjectUserName = null,
     )
+
+    /**
+     * A team-structure row (`TEAM_MEMBERSHIP`): the union's `document_id` is the TEAM id, exposed as
+     * `documentId`, and the link is the team's history page. Open structure, so the link is never
+     * withheld for readability, but the page answers 404 for a soft-deleted team: the own-right and
+     * chain viewers get a null link then ([linkable] = false), the HR auditor keeps it (the
+     * deleted-document precedent of [ActivityScope.EVERYTHING]). `details` stays null — the params
+     * carry the frozen team and people names.
+     */
+    private fun teamStructureEntry(row: UnionRow, linkable: Boolean) = ActivityEntry(
+        id = "${row.area.name}:${row.source}:${row.eventId}",
+        createdAt = row.createdAt,
+        area = row.area,
+        eventType = row.eventType,
+        params = decodeParams(row.params),
+        documentId = row.documentId,
+        link = if (linkable) "/teams/${row.documentId}/history" else null,
+        details = null,
+        subjectUserId = null,
+        subjectUserName = null,
+    )
+
+    /** Which of these team ids are soft-deleted — one statement, none when the page holds no team rows. */
+    private suspend fun deletedTeams(ids: Set<UInt>): Set<UInt> =
+        if (ids.isEmpty()) {
+            emptySet()
+        } else {
+            TeamRecords.select(TeamRecords.id)
+                .where { (TeamRecords.id inList ids) and (TeamRecords.markedAsDeleted eq true) }
+                .map { it[TeamRecords.id].value }
+                .toList()
+                .toSet()
+        }
 
     private suspend fun personNames(ids: Set<UInt>): Map<UInt, String> =
         if (ids.isEmpty()) {
@@ -514,8 +570,9 @@ class ActivityService(
             ActivityArea.SUCCESSION_PLAN -> successionFacts(ids, readability)
             // Person-scoped (days-off, career) and sign-in rows are never hydrated per document; the pulse
             // area has no event rows at all (its share rows carry the stored snapshot).
-            ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.PULSE_TEAM_RESULTS ->
-                emptyMap()
+            ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.PULSE_TEAM_RESULTS,
+            ActivityArea.TEAM_MEMBERSHIP,
+            -> emptyMap()
         }
 
     /**

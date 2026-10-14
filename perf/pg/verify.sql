@@ -195,6 +195,9 @@ INSERT INTO verify_checks SELECT 'career_position_events: the named position bel
   WHERE NOT EXISTS (SELECT 1 FROM user_career_positions p WHERE p.id = (e.params::jsonb ->> 'positionId')::bigint AND p.user_id = e.owner_id);
 INSERT INTO verify_checks SELECT 'account_events: owner = actor, nothing older than the 90-day window', count(*) FROM account_events
   WHERE user_id IS DISTINCT FROM owner_id OR created_at < (SELECT max(created_at) FROM account_events) - 91::bigint * 86400000;
+INSERT INTO verify_checks SELECT 'team_structure_events: a MEMBER_ADDED row names a member of its team', count(*) FROM team_structure_events e
+  WHERE e.event_type = 'MEMBER_ADDED' AND NOT EXISTS (
+    SELECT 1 FROM team_memberships m WHERE m.team_id = e.team_id AND m.user_id = (e.params::jsonb ->> 'memberUserId')::bigint);
 
 -- The sign-in history and users.last_login_at agree: a perf account that never signed in has no SIGNED_IN row and
 -- last_login_at = 0, every other one's last_login_at is its newest SIGNED_IN.
@@ -214,7 +217,8 @@ BEGIN
     ('team_kpi_events', 'created_at', 'true'), ('performance_review_events', 'created_at', 'true'),
     ('impact_log_events', 'created_at', 'true'), ('succession_plan_events', 'created_at', 'true'),
     ('days_off_events', 'created_at', 'true'), ('career_position_events', 'created_at', 'true'),
-    ('account_events', 'created_at', 'true'), ('document_shares', 'created_at', 'true'),
+    ('account_events', 'created_at', 'true'), ('team_structure_events', 'created_at', 'true'),
+    ('document_shares', 'created_at', 'true'),
     ('document_shares', 'withdrawn_at', 'withdrawn_at IS NOT NULL'),
     ('days_off_requests', 'created_at', 'true'), ('days_off_corrections', 'created_at', 'true'),
     ('succession_plans', 'last_reviewed_at', 'true')
@@ -240,7 +244,8 @@ BEGIN
     'feedback_events', 'notifications', 'pulse_cycles', 'pulse_responses', 'team_kpis', 'team_kpi_values', 'team_kpi_events',
     'public_holidays', 'days_off_pool_types', 'days_off_pools', 'days_off_requests', 'days_off_corrections', 'days_off_events',
     'impact_log_entries', 'impact_log_events', 'succession_plans', 'succession_nominations', 'succession_plan_events',
-    'document_shares', 'career_position_events', 'account_events', 'team_memberships', 'team_manager_periods'] LOOP
+    'document_shares', 'career_position_events', 'account_events', 'team_structure_events', 'team_memberships',
+    'team_manager_periods'] LOOP
     seq := pg_get_serial_sequence(t, 'id');
     EXECUTE format('SELECT COALESCE(max(id), 0) FROM %I', t) INTO mx;
     EXECUTE format('SELECT last_value FROM %s', seq) INTO n;
@@ -313,5 +318,6 @@ UNION ALL SELECT 'succession_plan_events', count(*) FROM succession_plan_events
 UNION ALL SELECT 'document_shares', count(*) FROM document_shares
 UNION ALL SELECT 'career_position_events', count(*) FROM career_position_events
 UNION ALL SELECT 'account_events', count(*) FROM account_events
+UNION ALL SELECT 'team_structure_events', count(*) FROM team_structure_events
 UNION ALL SELECT 'database size', pg_database_size(current_database())
 ORDER BY 1;

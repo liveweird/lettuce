@@ -35,6 +35,7 @@ import ch.nokillswit.teamkpis.TeamKpiCreateRequest
 import ch.nokillswit.teamkpis.TeamKpiResponse
 import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.TeamResponse
 import ch.nokillswit.users.Feature
 import ch.nokillswit.users.OPT_IN_FEATURES
 import ch.nokillswit.users.UserRole
@@ -890,6 +891,73 @@ class ActivityLogTest {
                 gated.client.page(w.manager.id, "pageSize=100").items
                     .all { it.area == ActivityArea.CAREER_POSITION || it.area == ActivityArea.ACCOUNT },
             )
+        }
+
+    // ——— team-structure rows (TEAM_MEMBERSHIP, V94) ———
+
+    @Test
+    fun `an admin's team-structure actions are rows of the ADMIN's log only, open to chain and HR, ungated`() =
+        testApplication {
+            usePostgresTestcontainer()
+            val admin = person("tmadmin", roles = setOf(UserRole.ADMIN))
+            val lead = person("tmlead")
+            val member = person("tmmember")
+            val boss = person("tmboss")
+            // `boss` manages the admin (the admin sits on boss's roster): a chain viewer of the admin's log.
+            TestServices.teams.create(Team("Bosses-${boss.id}", boss.id, listOf(admin.id)))
+            val created = admin.client.post("/api/v1/teams") {
+                contentType(ContentType.Application.Json)
+                setBody(Team("Platform-${admin.id}", lead.id, emptyList()))
+            }
+            assertEquals(HttpStatusCode.Created, created.status)
+            val teamId = created.body<TeamResponse>().id
+            assertEquals(HttpStatusCode.NoContent, admin.client.put("/api/v1/teams/$teamId/members/${member.id}").status)
+
+            val rows = admin.client.page(admin.id, "area=TEAM_MEMBERSHIP&pageSize=100").items
+            assertEquals(listOf("MEMBER_ADDED", "TEAM_CREATED"), rows.map { it.eventType })
+            rows.forEach {
+                assertEquals(ActivityArea.TEAM_MEMBERSHIP, it.area)
+                assertEquals(teamId, it.documentId)
+                assertEquals("/teams/$teamId/history", it.link)
+                assertNull(it.details)
+                assertNull(it.subjectUserId)
+                assertEquals("Platform-${admin.id}", it.params["team"])
+            }
+            assertEquals(member.name, rows.first().params["member"])
+            assertEquals(lead.name, rows.last().params["manager"])
+            assertTotalOrder(rows)
+
+            // The people it concerned did not act: nothing in their logs.
+            assertEquals(0L, lead.client.page(lead.id, "area=TEAM_MEMBERSHIP").total)
+            assertEquals(0L, member.client.page(member.id, "area=TEAM_MEMBERSHIP").total)
+            // The chain manager of the admin and HR see every row (open structure — nothing is withheld).
+            assertEquals(2L, boss.client.page(admin.id, "area=TEAM_MEMBERSHIP").total)
+            val hr = person("tmhr", roles = setOf(UserRole.HR))
+            assertEquals(2L, hr.client.page(admin.id, "area=TEAM_MEMBERSHIP").total)
+            // The area filter separates it from the rest of the log; the unfiltered log carries it too.
+            assertEquals(0L, admin.client.page(admin.id, "area=GOAL").total)
+            assertTrue(admin.client.page(admin.id, "pageSize=100").items.any { it.area == ActivityArea.TEAM_MEMBERSHIP })
+            // A peer is forbidden outright.
+            assertEquals(HttpStatusCode.Forbidden, person("tmpeer").client.activity(admin.id).status)
+            // A deleted team's rows stay listed, but the history page 404s for a deleted team: the link is
+            // null for the own-right (self) and chain viewers and kept for the HR auditor.
+            assertEquals(HttpStatusCode.NoContent, admin.client.delete("/api/v1/teams/$teamId").status)
+            val afterDelete = admin.client.page(admin.id, "area=TEAM_MEMBERSHIP&pageSize=100").items
+            assertEquals(listOf("TEAM_DELETED", "MEMBER_ADDED", "TEAM_CREATED"), afterDelete.map { it.eventType })
+            assertTrue(afterDelete.all { it.link == null }, "self: $afterDelete")
+            assertTrue(afterDelete.all { it.documentId == teamId })
+            val chainAfter = boss.client.page(admin.id, "area=TEAM_MEMBERSHIP&pageSize=100").items
+            assertEquals(3, chainAfter.size)
+            assertTrue(chainAfter.all { it.link == null }, "chain: $chainAfter")
+            val hrAfter = hr.client.page(admin.id, "area=TEAM_MEMBERSHIP&pageSize=100").items
+            assertEquals(3, hrAfter.size)
+            assertTrue(hrAfter.all { it.link == "/teams/$teamId/history" }, "hr: $hrAfter")
+            // Ungated: a viewer with every feature disabled still lists the area.
+            val gated = person(
+                "tmgated", roles = setOf(UserRole.HR),
+                disabled = Feature.entries.filter { it !in OPT_IN_FEATURES }.toSet(),
+            )
+            assertEquals(3L, gated.client.page(admin.id, "area=TEAM_MEMBERSHIP").total)
         }
 
     // ——— sign-in rows (ACCOUNT, V90) ———

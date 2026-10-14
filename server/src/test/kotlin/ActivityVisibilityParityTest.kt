@@ -42,6 +42,7 @@ import ch.nokillswit.teamkpis.TeamKpiService.TeamKpis
 import ch.nokillswit.teamkpis.TeamKpiStatus
 import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teams.Team
+import ch.nokillswit.teams.TeamStructureEventService.TeamStructureEvents
 import ch.nokillswit.teams.isInManagementChain
 import ch.nokillswit.users.CareerPositionEventService.CareerPositionEvents
 import io.ktor.server.testing.testApplication
@@ -334,6 +335,43 @@ class ActivityVisibilityParityTest {
                 o.t, ActivityViewer(o.o, emptySet(), ActivityScope.CHAIN), ActivityFilter(area = area), firstPage,
             )
             assertEquals(setOf(o.o), outsiderSees.items.map { it.subjectUserId }.toSet(), "$area")
+        }
+    }
+
+    /**
+     * TEAM_MEMBERSHIP (V94) is keyed on a TEAM and the structure is readable by every authenticated user
+     * (teams GETs are open), so there is no predicate to disagree with the guard: EVERY viewer of T's log
+     * — chain, HR, or T themselves in self mode — lists every one of T's team rows, whichever team they
+     * concern (live, soft-deleted, and one the viewer has nothing to do with), each with the team-history link —
+     * except a soft-deleted team's, which only the HR auditor keeps (the page 404s for a deleted team,
+     * so the self and chain viewers get a null link).
+     */
+    @Test
+    fun `team-structure rows are open - every viewer lists every row of the actor in every mode`() = testApplication {
+        usePostgresTestcontainer()
+        val service = application.attributes[ActivityServiceKey]
+        val o = org()
+        val now = System.currentTimeMillis()
+        val teams = listOf(o.leads, o.squad, o.peers, o.old)
+        suspendTransaction(TestServices.database) {
+            for (team in teams) event(TeamStructureEvents, team, o.t, now)
+            // Another actor's row is nobody else's activity.
+            event(TeamStructureEvents, o.squad, o.g, now)
+        }
+        val firstPage = PageRequest(1, 100, listOf(SortField("createdAt", descending = true)))
+        val modes = o.viewers.map { it to ActivityScope.CHAIN } + (o.t to ActivityScope.OWN_RIGHT) + (o.o to ActivityScope.EVERYTHING)
+        for ((viewer, scope) in modes) {
+            val rows = service.list(
+                o.t, ActivityViewer(viewer, emptySet(), scope), ActivityFilter(area = ActivityArea.TEAM_MEMBERSHIP), firstPage,
+            )
+            assertEquals(teams.toSet(), rows.items.map { it.documentId!! }.toSet(), "viewer $viewer $scope")
+            assertEquals(teams.size.toLong(), rows.total, "viewer $viewer $scope")
+            rows.items.forEach {
+                // The history page 404s for a soft-deleted team: only the HR auditor (EVERYTHING) keeps that link.
+                val expected = if (it.documentId == o.old && scope != ActivityScope.EVERYTHING) null else "/teams/${it.documentId}/history"
+                assertEquals(expected, it.link, "viewer $viewer $scope team ${it.documentId}")
+                assertEquals(null, it.subjectUserId)
+            }
         }
     }
 

@@ -25,6 +25,7 @@ import ch.nokillswit.succession.SuccessionPlanService
 import ch.nokillswit.teamkpis.TeamKpiEventService
 import ch.nokillswit.teamkpis.TeamKpiService
 import ch.nokillswit.teams.TeamService
+import ch.nokillswit.teams.TeamStructureEventService
 import ch.nokillswit.users.CareerPositionEventService
 import ch.nokillswit.users.CareerPositionService
 import ch.nokillswit.users.UserService
@@ -58,6 +59,7 @@ object Seeded {
         SuccessionPlanService.Plans, SuccessionPlanService.Nominations, SuccessionPlanService.NominationGoals,
         SuccessionEventService.SuccessionPlanEvents,
         ShareService.DocumentShares, CareerPositionEventService.CareerPositionEvents, AccountEventService.AccountEvents,
+        TeamStructureEventService.TeamStructureEvents,
     )
 
     val names: Set<String> = tables.map { it.tableName.lowercase() }.toSet()

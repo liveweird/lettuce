@@ -17,6 +17,7 @@
   "rowsPerPage": "Wpisów na stronę",
   "documentUnavailable": "Już niedostępny",
   "openDocument": "Otwórz dokument",
+  "openTeamHistory": "Otwórz historię zespołu",
   "forPerson": "Dla: {{name}}",
   "area": {
     "FEEDBACK": "Feedback",
@@ -29,6 +30,7 @@
     "DAYS_OFF": "Dni wolne",
     "CAREER_POSITION": "Kariera",
     "ACCOUNT": "Logowania",
+    "TEAM_MEMBERSHIP": "Członkostwo w zespołach",
     "PULSE_TEAM_RESULTS": "Wyniki ankiety pulsu"
   },
   "shareNoun": {
@@ -63,6 +65,14 @@
     "unpaid": "bezpłatne"
   },
   "unset": "nie ustawiono",
+  "beforeRecords": "przed początkiem zapisów",
+  "openEnded": "bez końca",
+  "period": {
+    "range": "{{start}} – {{end}}",
+    "from": "od {{start}}",
+    "untilOnly": "od przed początkiem zapisów do {{end}}",
+    "sinceBefore": "od przed początkiem zapisów"
+  },
   "event": {
     "shareCreated": "Udostępnił/a {{noun}} osobie {{sharee}}",
     "shareCreated_until": "Udostępnił/a {{noun}} osobie {{sharee}} do {{date}}",
@@ -128,6 +138,29 @@
     "careerRefChange": "{{label}}: {{from}} → {{to}}",
     "signedIn": "Zalogował/a się",
     "signedIn_mfa": "Zalogował/a się (z kodem logowania)",
+    "teamCreated": "Utworzył/a zespół {{team}}",
+    "teamCreated_manager": "Utworzył/a zespół {{team}}, którym kieruje {{manager}}",
+    "teamRenamed": "Zmienił/a nazwę zespołu {{from}} → {{to}}",
+    "teamUpdated": "Zmienił/a zespół {{team}}: {{changes}}",
+    "teamUpdated_empty": "Zmienił/a zespół {{team}}",
+    "teamManagerChange": "menedżer/ka {{from}} → {{to}}",
+    "teamMembersAdded": "dodane osoby: {{names}}",
+    "teamMembersRemoved": "usunięte osoby: {{names}}",
+    "teamDeleted": "Usunął/usunęła zespół {{team}}",
+    "memberAdded": "Dodał/a osobę {{member}} do zespołu {{team}}",
+    "memberAdded_from": "Dodał/a osobę {{member}} do zespołu {{team}} od {{date}}",
+    "memberRemoved": "Usunął/usunęła osobę {{member}} z zespołu {{team}}",
+    "memberRemoved_endDate": "Usunął/usunęła osobę {{member}} z zespołu {{team}} (ostatni dzień: {{date}})",
+    "membershipCreated": "Dodał/a okres członkostwa osoby {{member}} w zespole {{team}}: {{period}}",
+    "membershipUpdated": "Zmienił/a okres członkostwa osoby {{member}} w zespole {{team}}: {{changes}}",
+    "membershipUpdated_empty": "Zmienił/a okres członkostwa osoby {{member}} w zespole {{team}}",
+    "membershipDeleted": "Usunął/usunęła okres członkostwa osoby {{member}} w zespole {{team}}: {{period}}",
+    "periodStartChange": "początek {{from}} → {{to}}",
+    "periodEndChange": "koniec {{from}} → {{to}}",
+    "managerPeriodCreated": "Dodał/a okres kierowania zespołem {{team}}: {{manager}} kieruje {{period}}",
+    "managerPeriodUpdated": "Zmienił/a okres kierowania zespołem {{team}}: {{changes}}",
+    "managerPeriodUpdated_empty": "Zmienił/a okres kierowania zespołem {{team}}: {{manager}} kieruje {{period}}",
+    "managerPeriodDeleted": "Usunął/usunęła okres kierowania zespołem {{team}}: {{manager}}, {{period}}",
     "signedOut": "Wylogował/a się"
   },
   "pool": {

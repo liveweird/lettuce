@@ -59,8 +59,11 @@ internal object ActivityVisibility {
         // only ever applied to document areas' event rows — a person-scoped area's event branch uses
         // `personScoped`, and its share rows are gated by `authoredShares` — so it is never reached.
         // PULSE_TEAM_RESULTS (v4.12.0) likewise carries only SHARE rows (`authoredShares`) — no event rows.
-        ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.PULSE_TEAM_RESULTS ->
-            Op.FALSE
+        // TEAM_MEMBERSHIP (V94) is openly readable: its branch applies NO chain predicate (`EventSource.open`),
+        // and its rows are never gated on readability.
+        ActivityArea.DAYS_OFF, ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.PULSE_TEAM_RESULTS,
+        ActivityArea.TEAM_MEMBERSHIP,
+        -> Op.FALSE
     }
 
     /**

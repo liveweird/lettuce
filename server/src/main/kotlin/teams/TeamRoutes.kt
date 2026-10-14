@@ -120,6 +120,8 @@ fun Application.configureTeamRoutes() {
     val userService = attributes[UserServiceKey]
     val performanceReviewService = attributes[PerformanceReviewServiceKey]
     val daysOffService = attributes[DaysOffServiceKey]
+    // The team-structure action trail (V94) behind the activity log — appended after each commit and audit line.
+    val eventService = attributes[TeamStructureEventServiceKey]
 
     routing {
         authenticate {
@@ -274,6 +276,8 @@ fun Application.configureTeamRoutes() {
                     "teamId" to id.toLong(),
                     "managerId" to team.managerId.toLong(),
                 )
+                val names = eventService.names(null, listOf(team.managerId)).users
+                eventService.create(teamCreatedEvent(caller.userId, id, team, names))
                 call.response.header(HttpHeaders.Location, call.application.href(Teams.Id(id = id)))
                 call.respond(
                     HttpStatusCode.Created,
@@ -329,6 +333,17 @@ fun Application.configureTeamRoutes() {
                 // A handover also names the manager period now covering today (V93).
                 outcome.managerPeriodId?.let { auditFields += "managerPeriodId" to it.toLong() }
                 audit("team.updated", *auditFields.toTypedArray())
+                // Change-only: a PUT that changes name, manager and roster alike mints no activity event.
+                // The names read runs only when the event will be minted (the builder repeats this test).
+                val changed = existing.name != team.name || existing.managerId != team.managerId ||
+                    added.isNotEmpty() || removed.isNotEmpty()
+                if (changed) {
+                    val involved = setOf(existing.managerId, team.managerId) + added + removed
+                    teamUpdatedEvent(
+                        caller.userId, route.id, existing, team, outcome.managerPeriodId,
+                        eventService.names(null, involved).users,
+                    )?.let { eventService.create(it) }
+                }
                 call.respond(HttpStatusCode.NoContent)
             }
             delete<Teams.Id> { route ->
@@ -345,6 +360,7 @@ fun Application.configureTeamRoutes() {
                     "membershipsEnded" to outcome.membershipsEnded,
                     "futureRowsRemoved" to outcome.futureRowsRemoved,
                 )
+                eventService.create(teamDeletedEvent(caller.userId, route.id, existing.name, outcome))
                 call.respond(HttpStatusCode.NoContent)
             }
             put<Teams.Id.Member> { route ->
@@ -371,6 +387,12 @@ fun Application.configureTeamRoutes() {
                         "startDate" to joined.startDate,
                         "reopened" to joined.reopened,
                     )
+                    eventService.create(
+                        memberAddedEvent(
+                            caller.userId, route.parent.id, existing.name, route.userId, joined,
+                            eventService.names(null, listOf(route.userId)).users,
+                        ),
+                    )
                 }
                 call.respond(HttpStatusCode.NoContent)
             }
@@ -391,6 +413,12 @@ fun Application.configureTeamRoutes() {
                         "teamId" to route.parent.id.toLong(),
                         "memberUserId" to route.userId.toLong(),
                         ended,
+                    )
+                    eventService.create(
+                        memberRemovedEvent(
+                            caller.userId, route.parent.id, existing.name, route.userId, left,
+                            eventService.names(null, listOf(route.userId)).users,
+                        ),
                     )
                 }
                 call.respond(HttpStatusCode.NoContent)

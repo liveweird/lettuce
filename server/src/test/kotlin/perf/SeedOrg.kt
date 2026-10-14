@@ -1,7 +1,11 @@
 package ch.nokillswit.perf
 
 import ch.nokillswit.auth.hashPassword
+import ch.nokillswit.teams.TeamJoinOutcome
 import ch.nokillswit.teams.TeamService
+import ch.nokillswit.teams.TeamStructureEventService
+import ch.nokillswit.teams.memberAddedEvent
+import ch.nokillswit.teams.teamCreatedEvent
 import ch.nokillswit.users.OPT_IN_FEATURES
 import ch.nokillswit.users.UserRole
 import ch.nokillswit.users.UserService
@@ -162,5 +166,38 @@ suspend fun seedOrg(ctx: SeedContext): Org {
     }
     SinkGroup(users, roles, flags, teams, managerPeriods, members).flush()
     advanceSequences(db, listOf(UserService.Users, TeamService.TeamRecords))
+    seedTeamStructureEvents(ctx, org)
     return org
+}
+
+/** Most members that get an individual `MEMBER_ADDED` row per team — "a few rows per team", not the whole roster. */
+private const val MEMBER_EVENTS_PER_TEAM = 2
+
+/**
+ * The team-structure action trail (`team_structure_events`, V94): the seed ADMIN (the V6 account, as in the
+ * pulse cycle transitions) created every team near the start of the history — one `TEAM_CREATED` — and added
+ * its first [MEMBER_EVENTS_PER_TEAM] members a few days later (`MEMBER_ADDED`), through the pure production
+ * builders. The activity log's `TEAM_MEMBERSHIP` area therefore has rows in the seed admin's log only.
+ */
+private suspend fun seedTeamStructureEvents(ctx: SeedContext, org: Org) {
+    val rng = ctx.rng("team-structure")
+    val events = EventStream(ctx.db, TeamStructureEventService.TeamStructureEvents)
+    events.init(ctx.db)
+    val historyStart = ctx.config.anchor.minusMonths(ctx.spec.months.toLong())
+    org.teams.forEach { team ->
+        val createdOn = historyStart.plusDays(rng.int(0, 120).toLong())
+        val created = teamCreatedEvent(
+            ADMIN_ID, team.id, ch.nokillswit.teams.Team(team.name, team.managerId, team.memberIds), org.names,
+        )
+        events.add(team.id, ADMIN_ID, ctx.millis(createdOn), created.type.name, created.params)
+        team.memberIds.take(MEMBER_EVENTS_PER_TEAM).forEachIndexed { i, memberId ->
+            val addedOn = createdOn.plusDays(1L + i)
+            val added = memberAddedEvent(
+                ADMIN_ID, team.id, team.name, memberId, TeamJoinOutcome(true, null, addedOn.toString()), org.names,
+            )
+            events.add(team.id, ADMIN_ID, ctx.millis(addedOn), added.type.name, added.params)
+        }
+    }
+    events.sink.flush()
+    advanceSequences(ctx.db, listOf(TeamStructureEventService.TeamStructureEvents))
 }

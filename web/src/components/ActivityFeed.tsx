@@ -41,6 +41,7 @@ const AREAS: readonly ActivityArea[] = [
   "PULSE_TEAM_RESULTS",
   "DAYS_OFF",
   "CAREER_POSITION",
+  "TEAM_MEMBERSHIP",
   "ACCOUNT",
 ];
 
@@ -115,6 +116,12 @@ function ActivityRow({
                 {t("activity.documentUnavailable")}
               </Text>
             ))}
+          {entry.area === "TEAM_MEMBERSHIP" && entry.link != null && (
+            // A team-structure row opens the team's history page; the server nulls the link for a deleted team (no anchor then).
+            <Anchor component={RouterLink} to={shareOpenLink(entry.link, here)} size="sm">
+              {t("activity.openTeamHistory")}
+            </Anchor>
+          )}
           {showSubject && subjectLink != null && (
             // Several rows can name the same person: the accessible name carries the sentence too.
             <Anchor

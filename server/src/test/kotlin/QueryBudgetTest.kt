@@ -104,8 +104,8 @@ class QueryBudgetTest {
             "teams/{id}" to Budget(3, 3), // 3/3 -> 3/3 (O(1); the org chart reads memberIds from the teams list, F8)
             // v4.17.0 team history: as-of list = count + page + ONE grouped roster; the sub-resource lists and the person history are O(1).
             "teams?asOf" to Budget(4, 2), // 4/2 -> 4/2
-            "teams/{id}/memberships" to Budget(4, 2), // 4/2 -> 4/2
-            "teams/{id}/managers" to Budget(4, 2), // 4/2 -> 4/2
+            "teams/{id}/memberships" to Budget(3, 2), // 4/2 -> 3/2 (v4.18.0: the people join folded into the row statement)
+            "teams/{id}/managers" to Budget(3, 2), // 4/2 -> 3/2 (v4.18.0: likewise)
             "users/{id}/team-history" to Budget(6, 3), // 6/3 -> 6/3
             // F1/F10/F17, fixed in v4.14.0: one DISTINCT ON statement per enrichment (latest 1:1, latest review on
             // `managed`; latest 1:1 on `managers`) instead of one LIMIT 1 lookup per row.

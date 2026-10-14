@@ -23,10 +23,11 @@ import org.jetbrains.exposed.v1.r2dbc.R2dbcDatabase
 
 internal val TeamHistoryServiceKey = AttributeKey<TeamHistoryService>("TeamHistoryService")
 
-/** Builds the team services over [database] and publishes both keys; the one call `configureDatabase` makes. */
+/** Builds the team services over [database] and publishes their keys (incl. the V94 event trail) in one call. */
 fun Application.publishTeamServices(database: R2dbcDatabase): TeamService = TeamService(database).also {
     attributes.put(TeamServiceKey, it)
     attributes.put(TeamHistoryServiceKey, TeamHistoryService(database))
+    attributes.put(TeamStructureEventServiceKey, TeamStructureEventService(database))
 }
 
 /** [TeamHistoryService.replaceMembership]'s result: the row before and after (equal = a no-op PUT). */
@@ -45,6 +46,10 @@ internal data class PeriodDeletion(val deleted: ManagerRow, val absorbedBy: UInt
 private class LineResult(val rows: List<ManagerRow>, val removedPeriodIds: List<UInt>)
 
 private data class PersonInfo(val name: String, val deleted: Boolean, val deactivated: Boolean)
+
+/** The person columns of a row joined with `users`. */
+private fun ResultRow.toPersonInfo() =
+    PersonInfo(this[UserService.Users.name], this[UserService.Users.markedAsDeleted], this[UserService.Users.deactivated])
 
 private val AS_OF_SORTABLE: Map<String, Column<*>> = mapOf(
     "id" to TeamRecords.id,
@@ -69,10 +74,7 @@ internal class TeamHistoryService(
 
     suspend fun listMemberships(teamId: UInt): TeamMembershipList = suspendTransaction(database) {
         requireLiveTeam(teamId)
-        val iso = clock().toString()
-        val rows = membershipRows(teamId).sortedWith(compareBy({ startKey(it.start) }, { it.id }))
-        val people = people(rows.map { it.userId })
-        TeamMembershipList(rows.map { it.toResponse(people.getValue(it.userId), iso) })
+        TeamMembershipList(membershipsFor(setOf(teamId), clock().toString())[teamId].orEmpty())
     }
 
     suspend fun createMembership(teamId: UInt, userId: UInt, start: String?, end: String?): TeamMembershipResponse =
@@ -148,7 +150,7 @@ internal class TeamHistoryService(
 
     suspend fun listPeriods(teamId: UInt): TeamManagerPeriodList = suspendTransaction(database) {
         requireLiveTeam(teamId)
-        TeamManagerPeriodList(periodResponses(managerLineRows(teamId), clock().toString()))
+        TeamManagerPeriodList(managerPeriodsFor(setOf(teamId), clock().toString())[teamId].orEmpty())
     }
 
     /**
@@ -230,35 +232,67 @@ internal class TeamHistoryService(
     // ——— Reads across teams ———
 
     /** One person's membership and managed-team periods; a NULL-end period of a soft-deleted team is pre-V93 residue and hidden. */
-    suspend fun userHistory(userId: UInt): UserTeamHistory = suspendTransaction(database) {
-        val iso = clock().toString()
-        val memberships = TeamMemberships
-            .join(TeamRecords, JoinType.INNER, onColumn = TeamMemberships.teamId, otherColumn = TeamRecords.id)
-            .select(
-                TeamMemberships.id, TeamMemberships.startDate, TeamMemberships.endDate,
-                TeamRecords.id, TeamRecords.name, TeamRecords.markedAsDeleted,
-            )
-            .where {
-                (TeamMemberships.userId eq userId) and
-                    ((TeamRecords.markedAsDeleted eq false) or TeamMemberships.endDate.isNotNull())
+    suspend fun userHistory(userId: UInt): UserTeamHistory =
+        historyByUserIds(setOf(userId))[userId] ?: UserTeamHistory(emptyList(), emptyList())
+
+    /**
+     * Every dated membership row of each of [teamIds] (past, current and upcoming), ordered by start
+     * (a null start first) then id — one transaction, one statement however many teams. A team without
+     * rows (or an unknown id) is absent from the map. The batched read behind the integration API's
+     * `Team.memberships`; the single-team [listMemberships] rides the same code.
+     */
+    suspend fun membershipsByTeamIds(teamIds: Set<UInt>): Map<UInt, List<TeamMembershipResponse>> =
+        if (teamIds.isEmpty()) emptyMap() else suspendTransaction(database) { membershipsFor(teamIds, clock().toString()) }
+
+    /** Each of [teamIds]' manager succession line, oldest first — one transaction, one statement (see [membershipsByTeamIds]). */
+    suspend fun managerPeriodsByTeamIds(teamIds: Set<UInt>): Map<UInt, List<TeamManagerPeriodResponse>> =
+        if (teamIds.isEmpty()) emptyMap() else suspendTransaction(database) { managerPeriodsFor(teamIds, clock().toString()) }
+
+    /**
+     * Each of [userIds]' membership and managed-team periods (the [userHistory] rules, residue hidden) —
+     * one transaction, two statements (one per list) however many people. A person with no rows is absent.
+     */
+    suspend fun historyByUserIds(userIds: Set<UInt>): Map<UInt, UserTeamHistory> {
+        if (userIds.isEmpty()) return emptyMap()
+        return suspendTransaction(database) {
+            val iso = clock().toString()
+            val memberships = TeamMemberships
+                .join(TeamRecords, JoinType.INNER, onColumn = TeamMemberships.teamId, otherColumn = TeamRecords.id)
+                .select(
+                    TeamMemberships.id, TeamMemberships.userId, TeamMemberships.startDate, TeamMemberships.endDate,
+                    TeamRecords.id, TeamRecords.name, TeamRecords.markedAsDeleted,
+                )
+                .where {
+                    (TeamMemberships.userId inList userIds) and
+                        ((TeamRecords.markedAsDeleted eq false) or TeamMemberships.endDate.isNotNull())
+                }
+                .map {
+                    it[TeamMemberships.userId].value to
+                        userPeriod(it[TeamMemberships.id].value, it[TeamMemberships.startDate], it[TeamMemberships.endDate], it, iso)
+                }
+                .toList()
+                .groupBy({ it.first }, { it.second })
+            val managed = TeamManagerPeriods
+                .join(TeamRecords, JoinType.INNER, onColumn = TeamManagerPeriods.teamId, otherColumn = TeamRecords.id)
+                .select(
+                    TeamManagerPeriods.id, TeamManagerPeriods.managerId, TeamManagerPeriods.startDate,
+                    TeamManagerPeriods.endDate, TeamRecords.id, TeamRecords.name, TeamRecords.markedAsDeleted,
+                )
+                .where {
+                    (TeamManagerPeriods.managerId inList userIds) and
+                        ((TeamRecords.markedAsDeleted eq false) or TeamManagerPeriods.endDate.isNotNull())
+                }
+                .map {
+                    it[TeamManagerPeriods.managerId].value to userPeriod(
+                        it[TeamManagerPeriods.id].value, it[TeamManagerPeriods.startDate], it[TeamManagerPeriods.endDate], it, iso,
+                    )
+                }
+                .toList()
+                .groupBy({ it.first }, { it.second })
+            (memberships.keys + managed.keys).associateWith {
+                UserTeamHistory(memberships[it].orEmpty().chronological(), managed[it].orEmpty().chronological())
             }
-            .map { userPeriod(it[TeamMemberships.id].value, it[TeamMemberships.startDate], it[TeamMemberships.endDate], it, iso) }
-            .toList()
-        val managed = TeamManagerPeriods
-            .join(TeamRecords, JoinType.INNER, onColumn = TeamManagerPeriods.teamId, otherColumn = TeamRecords.id)
-            .select(
-                TeamManagerPeriods.id, TeamManagerPeriods.startDate, TeamManagerPeriods.endDate,
-                TeamRecords.id, TeamRecords.name, TeamRecords.markedAsDeleted,
-            )
-            .where {
-                (TeamManagerPeriods.managerId eq userId) and
-                    ((TeamRecords.markedAsDeleted eq false) or TeamManagerPeriods.endDate.isNotNull())
-            }
-            .map {
-                userPeriod(it[TeamManagerPeriods.id].value, it[TeamManagerPeriods.startDate], it[TeamManagerPeriods.endDate], it, iso)
-            }
-            .toList()
-        UserTeamHistory(memberships.chronological(), managed.chronological())
+        }
     }
 
     /**
@@ -367,20 +401,69 @@ internal class TeamHistoryService(
         current = periodCovers(start, end, iso),
     )
 
+    /** Runs in the caller's transaction: one joined statement for all [teamIds]' membership rows and their people. */
+    private suspend fun membershipsFor(teamIds: Set<UInt>, iso: String): Map<UInt, List<TeamMembershipResponse>> =
+        TeamMemberships
+            .join(UserService.Users, JoinType.INNER, onColumn = TeamMemberships.userId, otherColumn = UserService.Users.id)
+            .select(
+                TeamMemberships.id, TeamMemberships.teamId, TeamMemberships.userId, TeamMemberships.startDate,
+                TeamMemberships.endDate, UserService.Users.name, UserService.Users.markedAsDeleted,
+                UserService.Users.deactivated,
+            )
+            .where { TeamMemberships.teamId inList teamIds }
+            .map {
+                val row = MembershipRow(
+                    it[TeamMemberships.id].value, it[TeamMemberships.userId].value,
+                    it[TeamMemberships.startDate], it[TeamMemberships.endDate],
+                )
+                val person = it.toPersonInfo()
+                it[TeamMemberships.teamId].value to (row to person)
+            }
+            .toList()
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, rows) ->
+                rows.sortedWith(compareBy({ startKey(it.first.start) }, { it.first.id }))
+                    .map { (row, person) -> row.toResponse(person, iso) }
+            }
+
+    /** Runs in the caller's transaction: one joined statement for all [teamIds]' manager lines and their people. */
+    private suspend fun managerPeriodsFor(teamIds: Set<UInt>, iso: String): Map<UInt, List<TeamManagerPeriodResponse>> =
+        TeamManagerPeriods
+            .join(UserService.Users, JoinType.INNER, onColumn = TeamManagerPeriods.managerId, otherColumn = UserService.Users.id)
+            .select(
+                TeamManagerPeriods.id, TeamManagerPeriods.teamId, TeamManagerPeriods.managerId, TeamManagerPeriods.startDate,
+                TeamManagerPeriods.endDate, UserService.Users.name, UserService.Users.markedAsDeleted,
+                UserService.Users.deactivated,
+            )
+            .where { TeamManagerPeriods.teamId inList teamIds }
+            .map {
+                val row = ManagerRow(
+                    it[TeamManagerPeriods.id].value, it[TeamManagerPeriods.managerId].value,
+                    it[TeamManagerPeriods.startDate], it[TeamManagerPeriods.endDate],
+                )
+                val person = it.toPersonInfo()
+                it[TeamManagerPeriods.teamId].value to (row to person)
+            }
+            .toList()
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, rows) ->
+                rows.sortedWith(compareBy({ startKey(it.first.start) }, { it.first.id }))
+                    .map { (row, person) -> row.toResponse(person, iso) }
+            }
+
+    private fun ManagerRow.toResponse(person: PersonInfo, iso: String) = TeamManagerPeriodResponse(
+        id = id,
+        managerId = managerId,
+        managerName = person.name,
+        managerDeleted = person.deleted,
+        startDate = start,
+        endDate = end,
+        current = periodCovers(start, end, iso),
+    )
+
     private suspend fun periodResponses(rows: List<ManagerRow>, iso: String): List<TeamManagerPeriodResponse> {
         val people = people(rows.map { it.managerId })
-        return rows.map {
-            val person = people.getValue(it.managerId)
-            TeamManagerPeriodResponse(
-                id = it.id,
-                managerId = it.managerId,
-                managerName = person.name,
-                managerDeleted = person.deleted,
-                startDate = it.start,
-                endDate = it.end,
-                current = periodCovers(it.start, it.end, iso),
-            )
-        }
+        return rows.map { it.toResponse(people.getValue(it.managerId), iso) }
     }
 
     private fun userPeriod(id: UInt, start: String?, end: String?, row: ResultRow, iso: String): UserTeamPeriod {

@@ -226,6 +226,155 @@ function accountSentence(entry: ActivityEntry, c: ActivityContext): string {
   return entry.eventType;
 }
 
+// A person from a team-structure snapshot: the frozen name, else "#id", else a bare placeholder.
+function personRef(name: string | undefined, id: string | undefined): string {
+  if (name != null && name !== "") return name;
+  return id != null && id !== "" ? `#${id}` : "?";
+}
+
+// A comma-joined id list's names (", "-joined by the server), falling back to the ids as "#id".
+function peopleRef(names: string | undefined, ids: string): string {
+  if (names != null && names !== "") return names;
+  return ids
+    .split(",")
+    .filter((id) => id !== "")
+    .map((id) => `#${id}`)
+    .join(", ");
+}
+
+// A dated period as the history page words it: "5 Jan – 13 Oct", "from 5 Jan" (open-ended), "from
+// before records began [until 13 Oct]" — an absent start is "since before records", an absent end open.
+function periodText(start: string | undefined, end: string | undefined, c: ActivityContext): string {
+  const { t, locale } = c;
+  if (start && end) return t("activity.period.range", { start: date(start, locale), end: date(end, locale) });
+  if (start) return t("activity.period.from", { start: date(start, locale) });
+  if (end) return t("activity.period.untilOnly", { end: date(end, locale) });
+  return t("activity.period.sinceBefore");
+}
+
+// One changed bound of a period ("start 1 Jan → 5 Jan"); a side that was/became unset reads as such.
+function boundChange(
+  p: Record<string, string>,
+  key: "startDate" | "endDate",
+  c: ActivityContext,
+): string | null {
+  const from = p[`${key}From`];
+  const to = p[`${key}To`];
+  if (from == null && to == null) return null;
+  const unset = c.t(key === "startDate" ? "activity.beforeRecords" : "activity.openEnded");
+  return c.t(key === "startDate" ? "activity.event.periodStartChange" : "activity.event.periodEndChange", {
+    from: from ? date(from, c.locale) : unset,
+    to: to ? date(to, c.locale) : unset,
+  });
+}
+
+function teamUpdatedSentence(p: Record<string, string>, team: string, c: ActivityContext): string {
+  const { t } = c;
+  const unset = t("activity.unset");
+  const renamed = p.nameFrom != null && p.nameTo != null;
+  const changes: string[] = [];
+  if (renamed) changes.push(t("activity.event.teamRenamed", { from: p.nameFrom, to: p.nameTo }));
+  if (p.managerFrom != null || p.managerTo != null) {
+    changes.push(
+      t("activity.event.teamManagerChange", {
+        from: p.managerFrom != null ? personRef(p.managerFromName, p.managerFrom) : unset,
+        to: p.managerTo != null ? personRef(p.managerToName, p.managerTo) : unset,
+      }),
+    );
+  }
+  if (p.membersAdded) {
+    changes.push(t("activity.event.teamMembersAdded", { names: peopleRef(p.membersAddedNames, p.membersAdded) }));
+  }
+  if (p.membersRemoved) {
+    changes.push(t("activity.event.teamMembersRemoved", { names: peopleRef(p.membersRemovedNames, p.membersRemoved) }));
+  }
+  // A rename on its own reads as the rename itself, not as a one-item list of changes.
+  if (renamed && changes.length === 1) return changes[0];
+  return t("activity.event.teamUpdated", {
+    team,
+    changes: changes.join("; "),
+    context: changes.length === 0 ? "empty" : undefined,
+  });
+}
+
+function managerPeriodUpdatedSentence(p: Record<string, string>, team: string, manager: string, c: ActivityContext): string {
+  const changes: string[] = [];
+  if (p.managerFrom != null || p.managerTo != null) {
+    changes.push(
+      c.t("activity.event.teamManagerChange", {
+        from: p.managerFrom != null ? personRef(p.managerFromName, p.managerFrom) : c.t("activity.unset"),
+        to: p.managerTo != null ? personRef(p.managerToName, p.managerTo) : c.t("activity.unset"),
+      }),
+    );
+  }
+  const start = boundChange(p, "startDate", c);
+  if (start != null) changes.push(start);
+  return c.t("activity.event.managerPeriodUpdated", {
+    team,
+    manager,
+    period: periodText(p.startDate, undefined, c),
+    changes: changes.join("; "),
+    context: changes.length === 0 ? "empty" : undefined,
+  });
+}
+
+// The team-structure trail (v4.18.0): ADMIN actions on a team, worded from the frozen name
+// snapshots in the row's params (a team or person renamed/deleted later keeps its log line).
+function teamStructureSentence(entry: ActivityEntry, c: ActivityContext): string {
+  const { t, locale } = c;
+  const p = entry.params;
+  const team = p.team != null && p.team !== "" ? p.team : entry.documentId != null ? `#${entry.documentId}` : "?";
+  const member = personRef(p.member, p.memberUserId);
+  const manager = personRef(p.manager, p.managerId);
+  switch (entry.eventType) {
+    case "TEAM_CREATED":
+      return t("activity.event.teamCreated", {
+        team,
+        manager,
+        context: p.managerId != null ? "manager" : undefined,
+      });
+    case "TEAM_UPDATED":
+      return teamUpdatedSentence(p, team, c);
+    case "TEAM_DELETED":
+      return t("activity.event.teamDeleted", { team });
+    case "MEMBER_ADDED":
+      return t("activity.event.memberAdded", {
+        member,
+        team,
+        date: date(p.startDate, locale),
+        context: p.startDate ? "from" : undefined,
+      });
+    case "MEMBER_REMOVED":
+      return t("activity.event.memberRemoved", {
+        member,
+        team,
+        date: date(p.endDate, locale),
+        context: p.endDate ? "endDate" : undefined,
+      });
+    case "MEMBERSHIP_CREATED":
+      return t("activity.event.membershipCreated", { member, team, period: periodText(p.startDate, p.endDate, c) });
+    case "MEMBERSHIP_UPDATED": {
+      const changes = [boundChange(p, "startDate", c), boundChange(p, "endDate", c)].filter((x): x is string => x != null);
+      return t("activity.event.membershipUpdated", {
+        member,
+        team,
+        changes: changes.join("; "),
+        context: changes.length === 0 ? "empty" : undefined,
+      });
+    }
+    case "MEMBERSHIP_DELETED":
+      return t("activity.event.membershipDeleted", { member, team, period: periodText(p.startDate, p.endDate, c) });
+    case "MANAGER_PERIOD_CREATED":
+      return t("activity.event.managerPeriodCreated", { team, manager, period: periodText(p.startDate, undefined, c) });
+    case "MANAGER_PERIOD_UPDATED":
+      return managerPeriodUpdatedSentence(p, team, manager, c);
+    case "MANAGER_PERIOD_DELETED":
+      return t("activity.event.managerPeriodDeleted", { team, manager, period: periodText(p.startDate, p.endDate, c) });
+    default:
+      return entry.eventType;
+  }
+}
+
 // The KPI's value type, from the row's label facts or the event params; when neither carries it
 // (a share-row snapshot has none, an event row may be hidden) the values render BARE — a plain
 // locale number with no unit — rather than guessing a "%" either way.
@@ -278,6 +427,8 @@ export function describeActivity(entry: ActivityEntry, c: ActivityContext): stri
       return careerSentence(entry, c);
     case "ACCOUNT":
       return accountSentence(entry, c);
+    case "TEAM_MEMBERSHIP":
+      return teamStructureSentence(entry, c);
     default:
       // Forward-compat: an area this client build doesn't know yet — show the raw event type.
       return (entry as ActivityEntry).eventType;

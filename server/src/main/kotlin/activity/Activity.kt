@@ -14,7 +14,8 @@ val ActivityServiceKey = AttributeKey<ActivityService>("ActivityService")
  * row's `link` comes from the sharing adapter's `viewPath`. [DAYS_OFF] (V88, person-scoped),
  * [CAREER_POSITION] (V89) and [ACCOUNT] are declared from the start (the OpenAPI enum is append-only —
  * API-EVOL); [DAYS_OFF] and [CAREER_POSITION] produce rows (person-scoped), [ACCOUNT] the account's own
- * sign-in history (V90 — owner = actor, retention-purged, no subject person).
+ * sign-in history (V90 — owner = actor, retention-purged, no subject person); [TEAM_MEMBERSHIP] (V94,
+ * appended in v4.18.0) the team-structure trail.
  */
 @Serializable
 enum class ActivityArea {
@@ -31,6 +32,14 @@ enum class ActivityArea {
 
     /** v4.12.0 — carries the SHARE rows of a team's pulse results only (pulse has no event trail). */
     PULSE_TEAM_RESULTS,
+
+    /**
+     * v4.18.0 (V94) — team-structure actions (a team created/renamed/deleted, its roster and dated
+     * membership / manager-period rows edited), logged for the ADMIN who acted. Keyed on the TEAM:
+     * the entry's `documentId` is the team id and its `link` the team's history page. Open
+     * structure — readable by every authenticated user — so no feature flag and no chain filter.
+     */
+    TEAM_MEMBERSHIP,
 }
 
 /** The activity area of a shareable document type — an exhaustive `when`, never name matching. */
@@ -74,7 +83,7 @@ val ActivityArea.shareType: ShareableResourceType?
         ActivityArea.SUCCESSION_PLAN -> ShareableResourceType.SUCCESSION_PLAN
         ActivityArea.DAYS_OFF -> ShareableResourceType.DAYS_OFF_CALENDAR
         ActivityArea.PULSE_TEAM_RESULTS -> ShareableResourceType.PULSE_TEAM_RESULTS
-        ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> null
+        ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.TEAM_MEMBERSHIP -> null
     }
 
 /**
@@ -93,7 +102,7 @@ val ActivityArea.feature: Feature?
         ActivityArea.SUCCESSION_PLAN -> Feature.SUCCESSION_PLANS
         ActivityArea.DAYS_OFF -> Feature.DAYS_OFF
         ActivityArea.PULSE_TEAM_RESULTS -> Feature.PULSE_SURVEYS
-        ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT -> null
+        ActivityArea.CAREER_POSITION, ActivityArea.ACCOUNT, ActivityArea.TEAM_MEMBERSHIP -> null
     }
 
 /**

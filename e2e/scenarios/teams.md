@@ -51,24 +51,29 @@ needs no clock control; the manager's own period starts the day the team is crea
 5. In the **Membership history** form the admin picks P as **Person**, sets **From** 2024-01-01 and
    **Until** 2024-06-30 and clicks **Add membership period**.
    - *Expected*: a "Membership period added" toast; P's row appears with the **Past** pill.
-6. The admin opens P's **Teams** page (`/users/:id/teams`).
+6. The admin opens their own **My activity** page (`/activity`), opens the filters and picks
+   **Team membership** as **Area**.
+   - *Expected*: the log (actor-only — the admin made the changes) lists "Added a membership period
+     of P in {team}" and "Added a manager period of {team}: O manages …", with an "Open the team
+     history" link.
+7. The admin opens P's **Teams** page (`/users/:id/teams`).
    - *Expected*: the **Team history** section (subheadings **Memberships** and **Teams managed**)
      lists the team through a "Team history of {team}" link, as **Past**.
-7. The admin opens O's Teams page.
+8. The admin opens O's Teams page.
    - *Expected*: the same team link is listed under **Teams managed**, as **Past** (O's period ended
      the day before M's began).
-8. The admin opens the org chart as of 2024-03-01 (`/org?asOf=2024-03-01`).
+9. The admin opens the org chart as of 2024-03-01 (`/org?asOf=2024-03-01`).
    - *Expected*: the team node, O as its manager and P as its member are drawn. (M, who only
      started managing today, may still appear under "Not in any team" — that section is taken
      from today's directory.)
-9. Back on the team's History page the admin deletes P's membership from the row's **More actions**
-   menu and confirms "Delete membership period?", then deletes O's manager period from its
-   **Delete** button and confirms "Delete manager period?".
-   - *Expected*: P's row is gone; one manager row remains (the deleted first period's days are
-     absorbed by its successor, so the line still covers 2024).
-10. The admin deletes the team from the filtered Teams list (the existing flow) and reloads the
+10. Back on the team's History page the admin deletes P's membership from the row's **More actions**
+    menu and confirms "Delete membership period?", then deletes O's manager period from its
+    **Delete** button and confirms "Delete manager period?".
+    - *Expected*: P's row is gone; one manager row remains (the deleted first period's days are
+      absorbed by its successor, so the line still covers 2024).
+11. The admin deletes the team from the filtered Teams list (the existing flow) and reloads the
     filtered list.
     - *Expected*: "No teams" for the team's name.
-11. The admin opens the org chart as of 2024-03-01 again.
+12. The admin opens the org chart as of 2024-03-01 again.
     - *Expected*: the deleted team is still drawn on that earlier day, tagged "(deleted)" — deleting
       a team ends its structure on the deletion day and leaves earlier days intact.
