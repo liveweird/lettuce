@@ -1,8 +1,8 @@
 {
   "status": "accepted",
-  "applicationVersion": "4.17.0 (displayed version pinned to 0.0.0)",
-  "sourceRevision": "feat/team-history (committed with this record)",
-  "previousBaselineRevision": "d59eb22e",
+  "applicationVersion": "4.18.1 (displayed version pinned to 0.0.0)",
+  "sourceRevision": "fix/backlog-ui-polish (committed with this record)",
+  "previousBaselineRevision": "28c5545e",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -57,8 +57,8 @@
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png",
       "width": 1280,
-      "height": 1472,
-      "sha256": "927cb85c0807462c1485458fd07e7abda9d9759e692bee730fc2b09371cebbf4"
+      "height": 1000,
+      "sha256": "42bbf5f0fdd8042d8960ac21f1517ecc6952d761104f346cd0c15226743ec8d5"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png",
@@ -69,14 +69,14 @@
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "width": 1280,
-      "height": 1472,
-      "sha256": "d6a08f001e26a04ab563e37004cd5653fc6f17d5faea00cff8e45babc1fca8c8"
+      "height": 1000,
+      "sha256": "6317700eb666c3898767fc012353da6eb0cb53c37d6291800c7c4984be5eeb44"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png",
       "width": 1280,
-      "height": 1147,
-      "sha256": "27f8c3ace1b431fd95dd51c11a3381c6e3e3379c58ac3bcd4c4516406e6db1e6"
+      "height": 1000,
+      "sha256": "41093bd9b148bc3cb2af46994ed71bca0bd6746a4f7fc00a70da5495e10c1632"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png",
@@ -112,13 +112,13 @@
       "file": "snapshots/people.spec.ts/users-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "8b0ec48ce9f0b6f50b8d774ed37a74766657b301fe064e91cc4b3c97d1ba42ed"
+      "sha256": "aaf19a37e7088ddd264e8b45ed56102c38333bd09777463768438148712fef1f"
     },
     {
       "file": "snapshots/people.spec.ts/users-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "fb4353d29582cd428f6d96d83ab60a4baa87e6ac3a1923680c31daf7cf8f7896"
+      "sha256": "ee2b0ca92fab0ac4159432fb35f762ac85c999f451011bb545ce07d25f6d57fa"
     },
     {
       "file": "snapshots/forms.spec.ts/feedback-create-initial-member-en-light-1280.png",
@@ -159,11 +159,17 @@
   ],
   "approval": {
     "date": "2026-10-14",
-    "reference": "Repository owner reviewed the v4.17.0 team-detail candidate in the Claude Code conversation and answered \"Approved\".",
+    "reference": "Repository owner reviewed the five v4.18.1 candidates in the Claude Code conversation and chose \"Approve all 5 as they are\".",
     "reviewedArtifactsCommit": null,
-    "scope": "One image changed: the team-detail member roster gains the History button in its page header (v4.17.0 team history). The other 23 approved images are unchanged."
+    "scope": "Five images changed: the three 1280px feedback lists keep their table layout (FeedbackTable density wide -> normal), the member users list honours the default Active status filter (the inactive account is hidden), and the administrator users list picks the Any status filter explicitly (Filters 1 / Clear filters). The other 19 approved images are unchanged."
   },
   "previousApprovals": [
+    {
+      "date": "2026-10-14",
+      "reference": "Repository owner reviewed the v4.17.0 team-detail candidate in the Claude Code conversation and answered \"Approved\".",
+      "reviewedArtifactsCommit": null,
+      "scope": "One image changed: the team-detail member roster gains the History button in its page header (v4.17.0 team history). The other 23 approved images are unchanged."
+    },
     {
       "date": "2026-10-13",
       "reference": "Repository owner reviewed the v4.16.0 candidates in the Claude Code conversation and replied \"approved\".",

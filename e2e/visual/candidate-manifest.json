@@ -114,8 +114,8 @@
     {
       "file": "candidates/lists.spec.ts/feedback-provided-en-light-1280.png",
       "width": 1280,
-      "height": 1472,
-      "sha256": "927cb85c0807462c1485458fd07e7abda9d9759e692bee730fc2b09371cebbf4",
+      "height": 1000,
+      "sha256": "42bbf5f0fdd8042d8960ac21f1517ecc6952d761104f346cd0c15226743ec8d5",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png"
     },
@@ -130,16 +130,16 @@
     {
       "file": "candidates/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "width": 1280,
-      "height": 1472,
-      "sha256": "d6a08f001e26a04ab563e37004cd5653fc6f17d5faea00cff8e45babc1fca8c8",
+      "height": 1000,
+      "sha256": "6317700eb666c3898767fc012353da6eb0cb53c37d6291800c7c4984be5eeb44",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png"
     },
     {
       "file": "candidates/lists.spec.ts/feedback-received-en-light-1280.png",
       "width": 1280,
-      "height": 1147,
-      "sha256": "27f8c3ace1b431fd95dd51c11a3381c6e3e3379c58ac3bcd4c4516406e6db1e6",
+      "height": 1000,
+      "sha256": "41093bd9b148bc3cb2af46994ed71bca0bd6746a4f7fc00a70da5495e10c1632",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png"
     },
@@ -187,7 +187,7 @@
       "file": "candidates/people.spec.ts/users-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "8b0ec48ce9f0b6f50b8d774ed37a74766657b301fe064e91cc4b3c97d1ba42ed",
+      "sha256": "aaf19a37e7088ddd264e8b45ed56102c38333bd09777463768438148712fef1f",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/users-admin-en-light-1440.png"
     },
@@ -195,7 +195,7 @@
       "file": "candidates/people.spec.ts/users-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "fb4353d29582cd428f6d96d83ab60a4baa87e6ac3a1923680c31daf7cf8f7896",
+      "sha256": "ee2b0ca92fab0ac4159432fb35f762ac85c999f451011bb545ce07d25f6d57fa",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/users-member-en-light-1280.png"
     }

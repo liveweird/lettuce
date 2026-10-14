@@ -15,6 +15,11 @@ On 2026-10-13 (app v4.16.0) the owner re-approved all 24 images with the reply *
 sidebar version stamp is now pinned to `v0.0.0` (see below), and the member dashboard's My managers
 tab gained the account Status filter toggle; nothing else changed.
 
+On 2026-10-14 (app v4.18.1) the owner approved five changed images ("Approve all 5 as they are"):
+the three 1280px feedback lists keep their table layout, the member users list honours the
+default Active status filter, and the administrator users list picks "Any" explicitly so it still
+shows both account states. The other 19 images are unchanged.
+
 Open the [review gallery](review.html) and [validation/approval record](expansion-review.md).
 The current gallery shows the 24 approved v4.15.3 baselines. The historical v4.15.2 review is
 preserved at [review-history/v4.15.2/review.html](review-history/v4.15.2/review.html), with its
