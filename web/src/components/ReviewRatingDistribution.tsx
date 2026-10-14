@@ -23,7 +23,7 @@ export default function ReviewRatingDistribution({ rows }: { rows: ReviewsDashbo
     isOneOf(REVIEW_CATEGORIES),
   );
 
-  // Every bar keeps its own rating color (the RatingBadge orange→green scale): Mantine's cell
+  // Every bar keeps its own rating color (the RatingBadge scale): Mantine's cell
   // resolution lets a per-row `color` field win over the series color, which only serves as
   // the fallback. getBarColor is the wrong hook — it receives the Y value (the count).
   const series = [{ name: "count", label: t("performanceReview.dashboard.chart.people"), color: "lettuce.6" }];

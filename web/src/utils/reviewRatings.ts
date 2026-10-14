@@ -11,21 +11,37 @@ export const RATING_VALUES = [1, 2, 3, 4, 5, 6] as const;
 export const REVIEW_CATEGORIES = ["attitude", "delivery", "skills", "aptitude", "overall"] as const;
 export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
 
-// The consistent rating color scale: a monotonic orange→green gradient (the lower the more
-// orange, the higher the more green), with the extremes deepened so 1 and 6 read as the poles.
+// The consistent rating color scale (v4.18.2): ONE HUE PER RATING — orange and yellow below the
+// bar, a calm grey-green "sage" (a theme palette) for 3 = meets expectations so the expected
+// outcome never reads as a warning, lime then green above it, and violet for 6 — deliberately
+// off the gradient so the exceptional rating stands out. The pill (RatingBadge) is a pale tint
+// of the hue alone (`ratingHue`); the shades are for the filled uses (distribution bars,
+// quadrant tints, the editor's swatches).
 const RATING_COLORS: Record<number, string> = {
-  1: "orange.8",
-  2: "orange.5",
-  3: "yellow.6",
+  1: "orange.7",
+  2: "yellow.6",
+  3: "sage.5",
   4: "lime.6",
-  5: "green.5",
-  6: "green.8",
+  5: "green.7",
+  6: "violet.6",
 };
 
 /** The Mantine color for a rating — used everywhere a rating value is shown (RatingBadge, the
  * editor's option swatches). Out-of-range values fall back to gray (forward-compat). */
 export function ratingColor(rating: number): string {
   return RATING_COLORS[rating] ?? "gray";
+}
+
+/** The rating's hue without a shade — what a `variant="light"` badge takes: handed a shade, Mantine
+ * fills the badge with that solid colour under the hue's dark ink (≈2:1, the pre-v4.18.2 pills). */
+export function ratingHue(rating: number): string {
+  return ratingColor(rating).split(".")[0];
+}
+
+/** The rating's TEXT colour: its hue's light-variant ink, AA-readable in both schemes
+ * (themeVariables.ts) — a raw mid shade as text is ~2:1 on white. */
+export function ratingInk(rating: number): string {
+  return `var(--mantine-color-${ratingHue(rating)}-light-color)`;
 }
 
 /** The localized scale wording for a rating ("Sometimes exceeds expectations"). */

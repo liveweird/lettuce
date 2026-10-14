@@ -1,11 +1,12 @@
 import { Badge, Text, type MantineSize } from "@mantine/core";
-import { ratingColor, REVIEW_CATEGORIES } from "../utils/reviewRatings";
+import { ratingHue, REVIEW_CATEGORIES } from "../utils/reviewRatings";
 import ResponsiveTable from "./ResponsiveTable";
 
 /**
- * A rating value (1–6) as a colored pill on the consistent orange→green scale — the one look
- * for ratings everywhere (tables, the dashboard, the view screen). The number stays the
- * content; the color is the scan signal.
+ * A rating value (1–6) as a pale-tinted pill on the consistent rating scale — the one look for
+ * ratings everywhere (tables, the dashboard, the view screen). The number stays the content; the
+ * color is the scan signal. It takes the rating's hue alone (`ratingHue`, v4.18.2), so the pill is
+ * the theme's AA tint + ink rather than a solid shade under a low-contrast ink.
  *
  * `data-atomic` (v3.25.1) exempts it from the ResponsiveTable cell's `min-width: 0 !important`
  * badge rule, which used to beat this inline `minWidth` — a one-digit pill in a 42px rating
@@ -23,7 +24,7 @@ export default function RatingBadge({
   return (
     <Badge
       variant="light"
-      color={ratingColor(rating)}
+      color={ratingHue(rating)}
       size={size}
       data-atomic
       style={{ minWidth: "max-content" }}

@@ -26,7 +26,10 @@ function darken(hex: string, alpha: number): string {
 const WHITE = "#ffffff";
 // Mantine 9 paints a light-variant surface with the hue's SOLID 1-shade in the light scheme
 // (`--mantine-color-<hue>-light: var(--mantine-color-<hue>-1)`) — the ink must clear AA on it.
-const LETTUCE_1 = "#dcfce7";
+// A hue's 10 shades: the theme's own palettes (lettuce, sage) first, then Mantine's defaults.
+function scaleOf(hue: string): readonly string[] | undefined {
+  return theme.colors?.[hue] ?? DEFAULT_THEME.colors[hue];
+}
 // The dark-scheme body colour (`--mantine-color-body` = dark-7).
 const DARK_BODY = DEFAULT_THEME.colors.dark[7];
 const AA = 4.5;
@@ -44,8 +47,8 @@ describe("theme colour tokens (WCAG AA)", () => {
 
   it("every light-variant ink clears 4.5:1 on its hue's light surface (the 1-shade)", () => {
     for (const [hue, ink] of Object.entries(LIGHT_VARIANT_INKS)) {
-      const surface = hue === "lettuce" ? LETTUCE_1 : DEFAULT_THEME.colors[hue][1];
-      expect(surface, `unknown hue ${hue}`).toBeDefined();
+      const surface = scaleOf(hue)?.[1] ?? "";
+      expect(surface, `unknown hue ${hue}`).not.toBe("");
       expect(contrast(ink, surface), `${hue} ink ${ink} on ${surface}`).toBeGreaterThanOrEqual(AA);
       // The same ink also sits on white/canvas surfaces (links, filled-on-light text).
       expect(contrast(ink, WHITE), `${hue} ink ${ink} on white`).toBeGreaterThanOrEqual(AA);
@@ -54,7 +57,7 @@ describe("theme colour tokens (WCAG AA)", () => {
 
   it("the dark scheme keeps Mantine's own light-variant pairs (0-shade over a darkened 9-shade)", () => {
     for (const hue of Object.keys(LIGHT_VARIANT_INKS)) {
-      const scale = hue === "lettuce" ? theme.colors!.lettuce! : DEFAULT_THEME.colors[hue];
+      const scale = scaleOf(hue)!;
       expect(contrast(scale[0], darken(scale[9], 0.5)), `${hue} dark light-variant`).toBeGreaterThanOrEqual(AA);
     }
   });

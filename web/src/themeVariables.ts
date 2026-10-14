@@ -57,6 +57,7 @@ export const LIGHT_VARIANT_INKS = {
   violet: "#5f3dc4",
   pink: "#a61e4d",
   lime: "#3f6a05",
+  sage: "#3b4f3f",
 } as const;
 
 function schemeVariables(tokens: typeof LIGHT_TOKENS | typeof DARK_TOKENS): Record<string, string> {
