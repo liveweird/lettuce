@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.18.1",
+    date: "2026-10-14",
+    en: `Three small fixes. On a phone, the account menu now lists the tutorials directly under a "Tutorials" heading; the submenu used to cover the menu itself, and tapping it did not open it. The feedback list keeps its table layout on a 1280-pixel laptop screen with the side menu open, instead of turning every feedback into a card. And when you share many documents at once with an end date, part of the batch fails, and you press "Retry" after midnight, the now-past "Until" date is shown with its error so you can pick a new one; before, the retry silently did nothing.`,
+    pl: `Trzy drobne poprawki. Na telefonie menu konta pokazuje teraz samouczki bezpośrednio, pod nagłówkiem "Samouczki"; wcześniej podmenu zasłaniało samo menu, a dotknięcie go nie otwierało. Lista feedbacku zachowuje układ tabeli na ekranie laptopa o szerokości 1280 pikseli z otwartym menu bocznym, zamiast zamieniać każdy feedback w kartę. A gdy udostępniasz wiele dokumentów naraz z datą końcową, część partii się nie powiedzie i po północy naciśniesz "Ponów", data "Do dnia", która właśnie minęła, pojawia się z komunikatem błędu, żebyś mógł/mogła wybrać nową; wcześniej ponowienie po cichu nic nie robiło.`,
+  },
+  {
     version: "4.18.0",
     date: "2026-10-14",
     en: `The activity log now records team-structure changes. Everything an admin does to the structure of teams (creating, renaming and deleting a team, adding and removing members, handing a team to a new manager, and editing the dated membership and manager periods) appears in that admin's own activity log under a new "Team membership" filter, worded with the team and people as they were named at that moment. Each entry links to the team's history page. The log of the person a change concerned does not show it; their own team history is on their "Teams" page, as before. Only changes made from now on are recorded. For integrations: the GraphQL API now exposes team membership and manager history ("Team.memberships", "Team.managerPeriods", "User.teamMemberships" and "User.managedTeamPeriods").`,
