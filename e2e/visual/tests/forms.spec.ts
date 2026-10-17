@@ -40,7 +40,7 @@ test('feedback draft edit keeps rich markdown multiple recipients and footer act
   await page.goto(`/feedback/${DRAFT_FEEDBACK_ID}/edit`);
   const main = page.locator('#main-content');
   await expect(main.getByRole('heading', { name: 'Edit feedback', exact: true })).toBeVisible();
-  await expect(main.getByText('Draft', { exact: true })).toBeVisible();
+  await expect(main.getByLabel('Status', { exact: true }).getByText('Draft', { exact: true })).toBeVisible();
   for (const recipient of draftFeedback.subjects) {
     await expect(main.getByText(recipient.name, { exact: true })).toBeVisible();
   }
@@ -59,7 +59,7 @@ test('sent feedback detail keeps content metadata status and provider actions', 
   await page.goto(`/feedback/${SENT_FEEDBACK_ID}/view?as=provider`);
   const main = page.locator('#main-content');
   await expect(main.getByRole('heading', { name: 'Feedback', exact: true })).toBeVisible();
-  await expect(main.getByText('Sent', { exact: true })).toBeVisible();
+  await expect(main.getByLabel('Status', { exact: true }).getByText('Sent', { exact: true })).toBeVisible();
   await expect(main.getByLabel('Visibility: Provider + requester + subject')).toBeVisible();
   await expect(main.getByText('You', { exact: true })).toBeVisible();
   for (const recipient of sentFeedback.subjects) {
