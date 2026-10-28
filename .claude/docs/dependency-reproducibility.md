@@ -58,9 +58,9 @@ The **Dependency scan** CI job (v4.5.2, see "Automatic CI gates" in `.claude/doc
 runs Trivy over every lockfile and fails on HIGH/CRITICAL advisories. A flagged module that the
 build only reaches transitively gets a **version floor**, never a gate exception: a platform or
 `constraints` entry in `server/build.gradle.kts` for the runtime/test classpaths (the
-`jackson-bom`/`scram` catalog lines, with their comment naming the advisory), or a literal
-`buildscript` constraint for the plugin classpath (the Ktor plugin's Jackson, plexus-utils and
-log4j). Then regenerate as below.
+`jackson-bom`/`scram`/`guava` catalog lines, with their comment naming the advisory), or a literal
+`buildscript` constraint for the plugin classpath (the Ktor plugin's Jackson, plexus-utils, log4j
+and Guava). Then regenerate as below.
 
 **Known gap — shaded copies.** The scan reads lockfile coordinates, so a library a jar SHADES is
 invisible to it and to every version floor. Today: the PostgreSQL JDBC driver 42.7.13 (Flyway's

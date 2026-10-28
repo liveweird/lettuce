@@ -22,6 +22,10 @@ buildscript {
             classpath("com.fasterxml.jackson.core:jackson-annotations:2.22")
             classpath("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.3")
             classpath("org.codehaus.plexus:plexus-utils:4.0.3")
+            // Guava 33.7.2 (CVE-2026-102554, denial of service via unthrottled memory allocation
+            // during deserialization): the plugins bring 32.1.2. Keep in step with the `guava`
+            // catalog line.
+            classpath("com.google.guava:guava:33.7.2-jre")
             // MEDIUM only (below the scan's gate), cleared anyway so the report starts at zero:
             // log4j 2.25.1 (CVE-2025-68161, CVE-2026-34477/-34478/-34480, CVE-2026-49844).
             classpath("org.apache.logging.log4j:log4j-core:2.25.5")
@@ -146,12 +150,13 @@ dependencies {
     // checkDependencyAlignment below.
     implementation(platform(libs.netty.bom))
     implementation(libs.reactor.netty.core)
-    // Advisory floors — see the `jackson-bom`/`scram` comment in gradle/libs.versions.toml. Both
-    // families arrive transitively only; the platform/constraints raise them to the fixed versions.
+    // Advisory floors — see the `jackson-bom`/`scram`/`guava` comment in gradle/libs.versions.toml. All
+    // three families arrive transitively only; the platform/constraints raise them to the fixed versions.
     implementation(platform(libs.jackson.bom))
     constraints {
         implementation(libs.scram.client) { because("CVE-2026-53712 (r2dbc-postgresql pulls 3.2)") }
         implementation(libs.scram.common) { because("CVE-2026-53712 (r2dbc-postgresql pulls 3.2)") }
+        implementation(libs.guava) { because("CVE-2026-102554 (jwks-rsa pulls 33.6.0, swagger-core 32.1.3-android)") }
     }
     // kotlin-reflect rides in transitively (Ktor loads the config modules through it) at whatever
     // version Ktor/Exposed were built with; declaring it lets the Kotlin plugin align it with the

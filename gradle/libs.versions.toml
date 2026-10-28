@@ -53,12 +53,17 @@ reactor-bom = "2025.0.7"
 # server/build.gradle.kts hold them at or above the fixed versions: jackson 2.22.3
 # (CVE-2026-68497, CPU denial of service in databind; CVE-2026-91776/-91777, published
 # 2026-09-23 and caught by the scan's first CI run, fixed in 2.22.3; also the 2.21.x RCE pair on the test
-# classpath) and scram 3.3 (CVE-2026-53712, authentication downgrade via TLS channel binding).
+# classpath) and scram 3.3 (CVE-2026-53712, authentication downgrade via TLS channel binding), and
+# guava 33.7.2 (CVE-2026-102554, denial of service via unthrottled memory allocation during
+# deserialization; Guava arrives transitively only - jwks-rsa on the runtime classpath, swagger-core
+# on the test one - and the plugin classpath's copy is held by a literal buildscript constraint in
+# server/build.gradle.kts, keep the two in step).
 # KNOWN GAP: the JDBC driver (`postgresql` below, used only by Flyway at boot) SHADES its own
 # scram-client 3.2 under org/postgresql/shaded/ - no constraint reaches it and the lockfile scan
 # cannot see it. Exposure needs a TLS connection to PostgreSQL (channel binding); the reference
 # stacks connect in plain text in-cluster. On every driver bump, check the jar's
 # META-INF/licenses/com.ongres.scram/ folder and drop this note once it bundles >= 3.3.
+guava = "33.7.2-jre"
 jackson-bom = "2.22.3"
 scram = "3.3"
 swagger-request-validator = "3.0.0"
@@ -72,6 +77,7 @@ exposed-r2dbc = { module = "org.jetbrains.exposed:exposed-r2dbc", version.ref = 
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 graphql-java = { module = "com.graphql-java:graphql-java", version.ref = "graphql-java" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 opentelemetry-instrumentationBomAlpha = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha", version.ref = "opentelemetry-ktor" }
 opentelemetry-exporterLogging = { module = "io.opentelemetry:opentelemetry-exporter-logging", version.ref = "opentelemetry" }
