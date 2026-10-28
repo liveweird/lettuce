@@ -52,6 +52,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Optional build identity for the telemetry process row (unset = empty = recorded as null).
+      args:
+        LETTUCE_BUILD_VERSION: ${LETTUCE_BUILD_VERSION:-}
+        LETTUCE_BUILD_COMMIT: ${LETTUCE_BUILD_COMMIT:-}
     container_name: lettuce-app
     restart: unless-stopped
     depends_on:

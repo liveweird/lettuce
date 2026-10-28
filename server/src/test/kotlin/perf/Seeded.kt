@@ -103,6 +103,8 @@ val NOT_SEEDED: Map<String, String> = mapOf(
     "mfa_challenges" to RUNTIME,
     "password_reset_requests" to RUNTIME,
     "revoked_tokens" to RUNTIME,
+    "telemetry_processes" to RUNTIME,
+    "telemetry_samples" to RUNTIME,
     "templates" to "$MIGRATION (V10/V14 feedback templates)",
     "user_notification_preferences" to "absent row = the defaults; nobody customised them in the dataset",
     "user_teams_identities" to "Teams-resolution cache, written only when the Teams channel sends",

@@ -60,5 +60,13 @@ ENV KTOR_DEVELOPMENT=false
 # deployment sets MAIL_TRANSPORT=smtp with real SMTP_* settings (production mode
 # refuses the passwords-into-logs `log` transport).
 ENV MAIL_TRANSPORT=disabled
+# The build identity the telemetry sampler records beside the process (`telemetry_processes.build_version`/`build_commit`,
+# `.claude/docs/features/telemetry.md`). Empty by default (a plain `docker build` or `docker compose up --build` leaves them unset
+# and the columns null); pass `--build-arg LETTUCE_BUILD_VERSION=... --build-arg LETTUCE_BUILD_COMMIT=...` to stamp them. Declared
+# after every COPY and RUN of the stage on purpose: an ARG value change only invalidates the layers after it, never the COPY layers above.
+ARG LETTUCE_BUILD_VERSION=""
+ARG LETTUCE_BUILD_COMMIT=""
+ENV LETTUCE_BUILD_VERSION=$LETTUCE_BUILD_VERSION \
+    LETTUCE_BUILD_COMMIT=$LETTUCE_BUILD_COMMIT
 EXPOSE 8080
 ENTRYPOINT ["/app/bin/server"]

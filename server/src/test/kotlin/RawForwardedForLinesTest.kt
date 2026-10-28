@@ -27,6 +27,7 @@ class RawForwardedForLinesTest {
         val server = EngineMain.createServer(
             arrayOf(
                 "-port=0",
+                "-P:telemetry.enabled=false",
                 "-P:ktor.development=true",
                 "-P:postgres.jdbcUrl=${PostgresTestSupport.jdbcUrl}",
                 "-P:postgres.r2dbcUrl=${PostgresTestSupport.r2dbcUrl}",
@@ -90,6 +91,7 @@ class RawForwardedForLinesTest {
         val server = EngineMain.createServer(
             arrayOf(
                 "-port=0",
+                "-P:telemetry.enabled=false",
                 "-P:ktor.development=true",
                 "-P:postgres.jdbcUrl=${PostgresTestSupport.jdbcUrl}",
                 "-P:postgres.r2dbcUrl=${PostgresTestSupport.r2dbcUrl}",

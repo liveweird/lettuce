@@ -103,7 +103,7 @@ class TelemetryRegistry(
      * - past the fixed global names ([KTOR_CALLS_DURATION], `active`, `exceptions`, `ktor.calls.status.<code>`), a family name is
      *   registered only when it IS a route's `.meter` (only a routed call creates one) or its route's `.meter` is already
      *   registered - so a flood of unrouted URLs registers nothing and cannot crowd the cap out from the routes hit later;
-     * - the family is capped at [maxCallNames] names (routed names are ~4 per route: a few hundred), with one WARN.
+     * - the family is capped at [maxCallNames] names (a meter, a timer and one per status seen, per routed leaf), with one WARN.
      * Past any of these the caller gets a detached instrument that counts nothing anyone can read and dies with the call. Names
      * outside the family are untouched.
      */
@@ -150,8 +150,11 @@ internal const val KTOR_CALLS_DURATION = "ktor.calls.duration"
 /** The plugin's other fixed global names, created once at install. */
 private val GLOBAL_CALL_NAMES = setOf(KTOR_CALLS_DURATION, "ktor.calls.active", "ktor.calls.exceptions")
 
-/** The most `ktor.calls.` names a [TelemetryRegistry] registers (routed series are ~4 per route: well under it). */
-const val MAX_CALL_METRIC_NAMES = 2_000
+/**
+ * The most `ktor.calls.` names a [TelemetryRegistry] registers: a meter, a timer and one name per status seen, per routed leaf
+ * (path + method) - pinned against the real routing tree by `LatencyCollectorTest`.
+ */
+const val MAX_CALL_METRIC_NAMES = 5_000
 
 /**
  * Published by [configureMonitoring]: the Dropwizard registry Ktor's request meters write into. The telemetry sampler reads the

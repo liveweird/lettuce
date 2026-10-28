@@ -34,6 +34,8 @@ ktor:
       - ch.nokillswit.infra.db.FlywayKt.configureFlyway
       - ch.nokillswit.infra.db.DatabaseKt.configureDatabase
       - ch.nokillswit.infra.db.BootstrapKt.configureBootstrap
+      # The telemetry sampler (telemetry/): reads the keys Database publishes, so it runs right after Bootstrap.
+      - ch.nokillswit.telemetry.TelemetryKt.configureTelemetry
       # — features
       - ch.nokillswit.users.UserRoutesKt.configureUserRoutes
       - ch.nokillswit.users.CareerPositionRoutesKt.configureCareerPositionRoutes
