@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import type { ParseKeys } from "i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { Accordion, ActionIcon, Alert, AppShell, Group, ScrollArea, SegmentedCon
 import { IconX } from "@tabler/icons-react";
 import { getTelemetryCurrent, type TelemetryCurrent, type TelemetryRange } from "../api/telemetry";
 import { isOneOf, useStoredState } from "../hooks/useStoredState";
+import { takeTelemetryPanelFocusRequest } from "../hooks/useTelemetryPanel";
 import { formatDateTime } from "../utils/datetime";
 import CenteredLoader from "./CenteredLoader";
 import TelemetryJvmSection from "./TelemetryJvmSection";
@@ -65,6 +66,12 @@ export default function TelemetryPanel({ onClose }: { onClose: () => void }) {
   // A section stays rendered once opened (so it can finish its close transition and keep its figures); its history queries run
   // only while it is expanded (`active`).
   const [opened, setOpened] = useState<ReadonlySet<SectionId>>(() => new Set(expanded));
+  // Opened from the menu: focus the heading, so a keyboard user lands in the panel instead of tabbing through the whole page (the
+  // aside follows <main> in the DOM). Mantine's menu returns focus to its button only when focus has not moved in the meantime.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (takeTelemetryPanelFocusRequest()) headingRef.current?.focus();
+  }, []);
   const data = current.data;
   const sampled = data?.processes.reduce<number | null>((newest, p) => (p.sampledAt == null ? newest : Math.max(newest ?? 0, p.sampledAt)), null);
   return (
@@ -73,7 +80,7 @@ export default function TelemetryPanel({ onClose }: { onClose: () => void }) {
         <Stack gap="xs">
           <Group justify="space-between" wrap="nowrap">
             <Stack gap={0}>
-              <Title order={2} size="h4">
+              <Title order={2} size="h4" ref={headingRef} tabIndex={-1}>
                 {t("telemetry.title")}
               </Title>
               {sampled != null && (

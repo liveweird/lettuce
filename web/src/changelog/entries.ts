@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.20.1",
+    date: "2026-10-29",
+    en: `The telemetry panel is easier to use from the keyboard. Opening it from the account menu now moves the focus into the panel, to its "Telemetry" heading, so the next Tab reaches its controls instead of walking through the whole page first. On narrower screens, where the panel covers the page, the page behind it can no longer be reached with Tab while the panel is open. Closing the panel returns the focus to the page, as before, and a panel that was already open when you reload the page leaves the focus where it was.`,
+    pl: `Panel telemetrii jest wygodniejszy w obsłudze z klawiatury. Otwarcie go z menu konta przenosi teraz fokus do panelu, na nagłówek "Telemetria", więc kolejne naciśnięcie Tab trafia do jego elementów zamiast najpierw przechodzić przez całą stronę. Na węższych ekranach, gdzie panel zasłania stronę, przy otwartym panelu Tab nie przechodzi już do strony pod nim. Zamknięcie panelu, jak dotąd, zwraca fokus na stronę, a panel otwarty już w chwili przeładowania strony nie przejmuje fokusu.`,
+  },
+  {
     version: "4.20.0",
     date: "2026-10-28",
     en: `Admins can now watch the app's own vital signs. A new "Telemetry panel" item in the account menu opens a panel beside the page with four sections: Memory (how much of its memory the server uses), Database (connections in use out of the pool, the size of the database and of each feature's data, and how many users, feedbacks, 1:1 meetings, goals, reviews and other records it holds), Requests (how many calls the server answered, how fast, and how many failed or were rate-limited, in total and per API route) and JVM (threads, garbage collection and processor use). Each section has a trend chart for the last 24 hours, 7 days or 90 days, with the exact figures one click away. The server records these figures every five minutes and keeps them for up to 90 days; they describe the server, never people or their content. The panel remembers on this device whether it is open, and only admins can see it.`,

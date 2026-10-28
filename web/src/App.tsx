@@ -331,6 +331,10 @@ function Shell() {
   const panelStored = useTelemetryPanelOpen();
   const showPanel = isAdmin() && panelStored;
   const closePanel = () => setTelemetryPanelOpen(false);
+  // Below `lg` the panel covers the page edge to edge: the covered navbar and page are inert (out of the tab order and the
+  // accessibility tree) while it is open; the header stays usable.
+  const panelBesidePage = useMediaQuery(`(min-width: ${mantineTheme.breakpoints.lg})`, true, { getInitialValueInEffect: false });
+  const pageCovered = showPanel && !panelBesidePage;
 
   async function handleLogout() {
     flagSignedOut();
@@ -413,7 +417,7 @@ function Shell() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p={rail ? "xs" : "sm"}>
+      <AppShell.Navbar p={rail ? "xs" : "sm"} inert={pageCovered}>
         {/* The link list scrolls when expanded groups outgrow the viewport (min-height 0 lets
             the flex child actually shrink — without it the list grew under the pinned footer
             and the last leaves looked clipped); the footer below stays pinned. */}
@@ -436,7 +440,7 @@ function Shell() {
         />
       </AppShell.Navbar>
 
-      <AppShell.Main id="main-content" tabIndex={-1}>
+      <AppShell.Main id="main-content" tabIndex={-1} inert={pageCovered}>
         {/* A page crash stays inside the main area — header/nav keep working, and navigating
             anywhere remounts the boundary (see components/ErrorBoundary.tsx). The inner
             Suspense (v2.24.0) keeps the shell mounted while a lazy page chunk loads — the
