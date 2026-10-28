@@ -56,7 +56,7 @@ Current migrations are `V1`–`V94`. **The per-migration catalog lives in `.clau
   resolves to a version other than the BOM's. Move the `reactor-bom` catalog line together with
   the `netty` pin.
 - **Reference:** `infra/db/Database.kt` (`connectPooled`, `readPoolBounds`), `application.yaml`
-  `postgres.pool`.
+  `postgres.pool`. The RAW pool is published as `ConnectionPoolKey` (v4.20.0) before `tracedConnectionFactory` may wrap it, so its `metrics` (acquired/idle/pending/allocated) are readable whichever factory Exposed talks through.
   The `tx` count of the `Server-Timing` header ("Per-request DB metrics" in `.claude/docs/observability.md`) is the number of validation round trips a request pays.
 - **Enforcement:** `ConnectionPoolTest` — concurrent transactions never exceed `maxSize` in
   `pg_stat_activity`, a saturated pool times out an acquire instead of hanging, the pool releases

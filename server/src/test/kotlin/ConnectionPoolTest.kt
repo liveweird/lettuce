@@ -1,5 +1,6 @@
 package ch.nokillswit
 
+import ch.nokillswit.infra.db.ConnectionPoolKey
 import ch.nokillswit.infra.db.R2dbcDatabaseKey
 import ch.nokillswit.users.UserService
 import io.ktor.client.request.get
@@ -329,4 +330,24 @@ class ConnectionPoolTest {
                 }
             }
         }
+
+    @Test
+    fun `the published pool reports metrics that follow its use, the telemetry sampler's pool seam`() = testApplication {
+        configureApp("postgres.pool.applicationName" to "pool-metrics-${UUID.randomUUID()}")
+        startApplication()
+        val pool = application.attributes[ConnectionPoolKey]
+        // r2dbc-pool exposes PoolMetrics; an upgrade that dropped it would silently blank the pool figures of the telemetry panel.
+        assertTrue(pool.metrics.isPresent, "r2dbc-pool exposes PoolMetrics")
+        val metrics = pool.metrics.get()
+        assertEquals(0, metrics.acquiredSize())
+        assertEquals(0, metrics.pendingAcquireSize())
+        assertTrue(
+            metrics.allocatedSize() >= 1 && metrics.idleSize() == metrics.allocatedSize(),
+            "everything allocated is idle: allocated ${metrics.allocatedSize()}, idle ${metrics.idleSize()}",
+        )
+        suspendTransaction(application.attributes[R2dbcDatabaseKey]) {
+            touchDatabase()
+            assertEquals(1, metrics.acquiredSize(), "the open transaction holds one connection")
+        }
+    }
 }
