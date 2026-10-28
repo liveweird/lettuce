@@ -196,8 +196,17 @@ fun Application.configureMonitoring() {
     monitor.subscribe(ApplicationStopped) { reporter?.stop() }
     install(CallId) {
         header(HttpHeaders.XRequestId)
-        verify { callId: String ->
-            callId.isNotEmpty()
-        }
+        verify(::isAcceptableCallId)
     }
 }
+
+/** The longest client-supplied `X-Request-Id` kept as the call id: a UUID (36) or a W3C trace id (32) fits with room to spare. */
+internal const val MAX_CALL_ID_LENGTH = 64
+
+/**
+ * Whether a client-supplied `X-Request-Id` becomes the call id. It is client-controlled text bound for logs and telemetry
+ * attributes, so only 1..[MAX_CALL_ID_LENGTH] URL-safe characters (ASCII letters, digits, `-`, `_`, `.`) are kept; anything else
+ * (control characters, spaces, quotes, non-ASCII, an oversized value) is IGNORED - the call simply has no id, never an error.
+ */
+internal fun isAcceptableCallId(callId: String): Boolean =
+    callId.length in 1..MAX_CALL_ID_LENGTH && callId.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it in "-_." }
