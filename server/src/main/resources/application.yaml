@@ -63,6 +63,9 @@ ktor:
       # — document sharing (after AuthRoutes: its mutation routes wrap the per-caller "shares" and
       #   "shares-batch" RateLimit buckets AuthRoutes' single install registers)
       - ch.nokillswit.sharing.ShareRoutesKt.configureShareRoutes
+      # — the ADMIN telemetry reads (after AuthRoutes: the routes wrap the per-user "telemetry" RateLimit bucket its single
+      #   install registers; they read the tables the sampler writes, whether or not this process samples)
+      - ch.nokillswit.telemetry.TelemetryRoutesKt.configureTelemetryRoutes
       # — integration API (after AuthRoutes: its route wrapper needs the RateLimit bucket
       #   AuthRoutes' single install registers; registers nothing when integration.enabled=false)
       - ch.nokillswit.integration.IntegrationKt.configureIntegration

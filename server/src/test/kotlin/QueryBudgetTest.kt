@@ -25,6 +25,7 @@ import ch.nokillswit.succession.SuccessionPlanCreateRequest
 import ch.nokillswit.teamkpis.TeamKpiCreateRequest
 import ch.nokillswit.teamkpis.TeamKpiType
 import ch.nokillswit.teams.Team
+import ch.nokillswit.telemetry.TelemetryMetrics
 import ch.nokillswit.users.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -116,6 +117,11 @@ class QueryBudgetTest {
             "teams/members?view=managers" to Budget(8, 7), // 8/7 -> 8/7
             "teams/members?view=member" to Budget(9, 8), // 9/8 -> 9/8
             "dashboard/summary" to Budget(10, 8), // 10/8 -> 10/8 (F11)
+            // v4.20.0 ADMIN telemetry reads (one live process seeded). current = blocklist + the processes + the sample
+            // window + the cluster figures (2 statements, 1 tx); history 7d = blocklist + (the newest hourly row + the one
+            // aggregate, 1 tx) + the oldest process start.
+            "telemetry/current" to Budget(5, 4), // 5/4 -> 5/4
+            "telemetry/history" to Budget(4, 3), // 4/3 -> 4/3
             // F17, fixed in v4.14.0: `isLatest` is one DISTINCT ON statement over the page's pairs, not one per pair.
             // F12, fixed in v4.15.0: `latestOnly` is a DISTINCT ON subquery + the V92 index — the gain is time, the count stays 6/2.
             "one-on-ones?view=managed" to Budget(6, 2), // 6/2 -> 6/2
@@ -299,6 +305,38 @@ class QueryBudgetTest {
                 )
             },
         )
+    }
+
+    @Test
+    fun `the ADMIN telemetry reads`() = testApplication {
+        usePostgresTestcontainer()
+        val admin = person("qb-telemetry-admin", roles = setOf(UserRole.ADMIN))
+        // The tables are the telemetry tests' own (emptied before each of them); one live process with a fresh sample, so
+        // `current` runs its sample read and not just the empty-store path. Nothing grows with the "row count": the figures are
+        // the fixed shape of the two reads (the series are bounded by construction).
+        val store = telemetryStore()
+        wipeTelemetry(store)
+        try {
+            val now = System.currentTimeMillis()
+            val pid = store.seedProcess(lastSeen = now)
+            val bucket = now - Math.floorMod(now, TELE_RAW_SECONDS * 1000L)
+            store.put(
+                rawRow(pid, bucket, TelemetryMetrics.HEAP_USED, 1.0), rawRow(pid, bucket, TelemetryMetrics.HTTP_COUNT, 5.0, "*"),
+                rawRow(pid, bucket, TelemetryMetrics.DB_SIZE, 1.0),
+            )
+            budgets(
+                grow = {},
+                probes = {
+                    val adminClient = authedClient(admin.email, PASSWORD)
+                    listOf(
+                        Probe("telemetry/current", adminClient, "/api/v1/telemetry/current", rows = null),
+                        Probe("telemetry/history", adminClient, "/api/v1/telemetry/history?group=requests&range=7d", rows = null),
+                    )
+                },
+            )
+        } finally {
+            wipeTelemetry(store)
+        }
     }
 
     @Test
