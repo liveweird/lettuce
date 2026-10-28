@@ -41,6 +41,16 @@ describe("ErrorBoundary", () => {
     expect(reload).toHaveBeenCalled();
   });
 
+  test("a caller-supplied fallback replaces the generic one", () => {
+    renderWithProviders(
+      <ErrorBoundary fallback={<p>custom way out</p>}>
+        <Bomb />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText("custom way out")).toBeInTheDocument();
+    expect(screen.queryByText("Something went wrong")).toBeNull();
+  });
+
   test("RouteErrorBoundary recovers when the user navigates away from the crashed page", async () => {
     renderWithProviders(
       <Routes>
