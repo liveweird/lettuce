@@ -12,8 +12,10 @@ import ch.nokillswit.infra.db.orVanished
 import ch.nokillswit.infra.db.requireValidReferences
 import ch.nokillswit.infra.paging.SortField
 import ch.nokillswit.infra.paging.optionalBoolean
+import ch.nokillswit.infra.paging.optionalEnum
 import ch.nokillswit.infra.paging.optionalIncludeIndirect
 import ch.nokillswit.infra.paging.optionalString
+import ch.nokillswit.infra.paging.optionalUInt
 import ch.nokillswit.infra.paging.parsePaging
 import ch.nokillswit.infra.paging.toPage
 import ch.nokillswit.infra.paging.uintOnlyForView
@@ -311,6 +313,23 @@ fun Application.configureOneOnOneRoutes() {
                     HttpStatusCode.OK,
                     OneOnOneEventListResponse(if (read.via is ReadVia.Shared) events.forSharee() else events),
                 )
+            }
+            get<OneOnOnes.ActionItems> {
+                // The feature 403 first; the scope is the caller's own authored meetings, so no
+                // further guard. Every shape 400 runs before the query.
+                val caller = call.oneOnOneCaller()
+                val params = call.request.queryParameters
+                val paging = call.parsePaging(
+                    sortable = setOf("dueDate", "meetingDate", "subordinateName", "id"),
+                    defaultSort = listOf(SortField("dueDate", descending = false)),
+                )
+                val filter = OpenActionItemFilter(
+                    owner = params.optionalEnum<ActionItemOwner>("owner"),
+                    subordinateId = params.optionalUInt("subordinateId"),
+                    subordinateName = params.optionalString("subordinateName"),
+                )
+                val result = oneOnOneService.listOpenActionItems(caller.userId, filter, paging)
+                call.respond(HttpStatusCode.OK, paging.toPage(result.items, result.total))
             }
             get<OneOnOnes.ActionItems.Id.History> { route ->
                 val caller = call.oneOnOneCaller()

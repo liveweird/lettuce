@@ -310,6 +310,9 @@ describe("ManagersTable", () => {
       expect(await screen.findByText("Last 1:1")).toBeInTheDocument();
       expect(screen.getByText("last week")).toBeInTheDocument(); // 11 days ago, week unit
       expect(screen.getByText("2 open items")).toBeInTheDocument();
+      // "My managers" cards never link the badge — the Open action items tab lists the
+      // viewer's own meetings as a manager only (v4.19.0).
+      expect(screen.queryByRole("link", { name: /open item/ })).toBeNull();
       expect(screen.getByText("Last feedback")).toBeInTheDocument();
       expect(screen.getByText("2 days ago")).toBeInTheDocument();
       // Exact values ride in the title attributes.

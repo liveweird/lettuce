@@ -30,24 +30,25 @@ describe("ONE_ON_ONES_TUTORIAL step list", () => {
     localStorage.removeItem(DISABLED_FEATURES_KEY);
   });
 
-  test("6 steps for a non-manager, 13 for a manager — exactly the managerOnly targets widen it", () => {
+  test("6 steps for a non-manager, 14 for a manager — exactly the managerOnly targets widen it", () => {
     const t = (k: string) => k;
     const nonManager = buildSteps(ONE_ON_ONES_TUTORIAL.steps, t, false);
     const manager = buildSteps(ONE_ON_ONES_TUTORIAL.steps, t, true);
 
-    // The six DOM-anchored managerOnly steps ("edit" shares the "body" target with the
+    // The seven DOM-anchored managerOnly steps ("edit" shares the "body" target with the
     // non-managerOnly concept steps, so it can't be asserted the same way — its presence is
     // covered by the body-step count below instead).
     const managerOnlyTargets = [
       '[data-tour="one-on-one-managed"]',
       '[data-tour="one-on-one-team"]',
+      '[data-tour="one-on-one-action-items"]',
       '[data-tour="one-on-one-new"]',
       '[data-tour="one-on-one-form"]',
       '[data-tour="one-on-one-form-actions"]',
       '[data-tour="dashboard-subordinates"]',
     ];
     expect(nonManager).toHaveLength(6);
-    expect(manager).toHaveLength(13);
+    expect(manager).toHaveLength(14);
     for (const target of managerOnlyTargets) {
       expect(nonManager.some((s) => s.target === target), target).toBe(false);
       expect(manager.some((s) => s.target === target), target).toBe(true);
@@ -73,6 +74,7 @@ describe("ONE_ON_ONES_TUTORIAL step list", () => {
       { target: '[data-tour="one-on-one-filters"]', path: "/one-on-ones?tab=own" },
       { target: '[data-tour="one-on-one-managed"]', path: "/one-on-ones?tab=managed" },
       { target: '[data-tour="one-on-one-team"]', path: "/one-on-ones?tab=team" },
+      { target: '[data-tour="one-on-one-action-items"]', path: "/one-on-ones?tab=action-items" },
       { target: '[data-tour="one-on-one-new"]', path: "/one-on-ones?tab=managed" },
       { target: '[data-tour="one-on-one-form"]', path: FORM_URL },
       { target: '[data-tour="one-on-one-form-actions"]', path: FORM_URL },
@@ -206,6 +208,7 @@ describe("1:1 meetings tutorial anchors exist on the real pages", () => {
     for (const target of [
       '[data-tour="one-on-one-managed"]',
       '[data-tour="one-on-one-team"]',
+      '[data-tour="one-on-one-action-items"]',
       '[data-tour="one-on-one-new"]',
     ]) {
       expect(document.querySelector(target), target).not.toBeNull();

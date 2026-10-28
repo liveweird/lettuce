@@ -64,3 +64,21 @@
      "Save and continue" saved.
 6. Cleanup: the manager deletes both meetings.
    - *Expected*: neither meeting remains on the managed tab.
+
+## Scenario: a manager finds an open action item on the Open action items tab, resolves it in the editor, and it drops off the list
+
+1. Manager AAA signs in and documents a meeting with AAA Three containing one unresolved,
+   unique-worded action item (the last entry slot, since carry-over from earlier runs may already
+   occupy leading positions).
+2. They open the 1:1 hub's "Open action items" tab (manager-only) and narrow it with the "Team
+   member" name filter, typing "AAA Three" — the filter keeps the row on page 1 however many open
+   items the shared database's other pairs hold.
+   - *Expected*: the tab is selected and the item's row is listed.
+3. They click the row's "Open the 1:1 with AAA Three" action.
+   - *Expected*: the browser lands on that meeting's edit screen (it is the pair's latest meeting).
+4. They tick the item "Resolved" and Save.
+   - *Expected*: the save returns them to the Open action items tab (the row carried the tab as
+     its return target), the tab's refreshed list no longer contains the item, and the item's text
+     is not on the page.
+5. Cleanup: the manager deletes the meeting from its edit screen.
+   - *Expected*: the meeting no longer appears anywhere on the managed tab.

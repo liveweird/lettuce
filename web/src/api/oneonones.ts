@@ -48,6 +48,36 @@ export async function listOneOnOnes(q: OneOnOneListQuery): Promise<OneOnOnePage>
   return jsonRequest<OneOnOnePage>(`/api/v1/one-on-ones?${params}`);
 }
 
+export type OpenActionItemPage =
+  paths["/api/v1/one-on-ones/action-items"]["get"]["responses"]["200"]["content"]["application/json"];
+
+type OpenActionItemQuery = {
+  page: number;
+  pageSize: number;
+  sort?: string;
+  /** Keep only items assigned to this party. */
+  owner?: ActionItemOwner;
+  /** Keep only items of the meeting pair with this report. */
+  subordinateId?: number;
+  subordinateName?: string;
+};
+
+/**
+ * The manager's cross-report list of unresolved action items (v4.19.0): each pair's latest
+ * meeting only, the caller as the manager. Read-only — resolving happens in the 1:1 editor.
+ */
+export async function listOpenActionItems(q: OpenActionItemQuery): Promise<OpenActionItemPage> {
+  const params = buildQuery({
+    page: q.page,
+    pageSize: q.pageSize,
+    sort: q.sort,
+    owner: q.owner,
+    subordinateId: q.subordinateId,
+    subordinateName: q.subordinateName,
+  });
+  return jsonRequest<OpenActionItemPage>(`/api/v1/one-on-ones/action-items?${params}`);
+}
+
 export type CreateOneOnOneBody =
   paths["/api/v1/one-on-ones"]["post"]["requestBody"]["content"]["application/json"];
 export type OneOnOneResponse =

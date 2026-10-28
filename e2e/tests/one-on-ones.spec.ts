@@ -210,3 +210,44 @@ test("the edit screen's New 1:1 button saves in-progress notes and starts a fres
   await expect(page.locator(`a[href*="/one-on-ones/${firstId}/"]`)).toHaveCount(0);
   await expect(page.locator(`a[href*="/one-on-ones/${secondId}/"]`)).toHaveCount(0);
 });
+
+test("a manager finds an open action item on the Open action items tab, resolves it in the editor, and it drops off the list", async ({ page }) => {
+  const action = uniqueText("E2E-1on1-open-item");
+
+  await login(page, MANAGER_AAA);
+  const id = await createMeeting(page, "AAA Three");
+  await page.getByRole("button", { name: "Add action item" }).click();
+  // Carry-over from earlier runs may already occupy leading positions — fill the last entry.
+  await page.getByRole("textbox", { name: /Action items — entry \d+/ }).last().fill(action);
+  await saveMeeting(page, id);
+
+  // The manager-only tab lists it; the report-name filter keeps the row on page 1 however many
+  // open items the shared database's other pairs hold.
+  await page.goto("/one-on-ones?tab=action-items");
+  await expect(page.getByRole("tab", { name: "Open action items" })).toHaveAttribute("aria-selected", "true");
+  await openFilters(page);
+  await page.getByRole("textbox", { name: "Team member" }).fill("AAA Three");
+  const row = page.getByRole("row").filter({ hasText: action });
+  await expect(row).toBeVisible();
+
+  // The row opens the pair's latest meeting in the editor...
+  await row.getByRole("link", { name: "Open the 1:1 with AAA Three" }).click();
+  await expect(page).toHaveURL(new RegExp(`/one-on-ones/${id}/edit`));
+
+  // ...where ticking the item resolved and saving returns to the tab (the back override), with
+  // the item gone from the refreshed list. The unique item is the last slot, so is its checkbox.
+  await page.getByRole("checkbox", { name: "Resolved" }).last().check();
+  const refreshed = page.waitForResponse(
+    (r) => r.url().includes("/api/v1/one-on-ones/action-items?") && r.request().method() === "GET" && r.ok(),
+  );
+  await saveMeeting(page, id);
+  await expect(page).toHaveURL(/\/one-on-ones\?tab=action-items/);
+  expect(JSON.stringify((await (await refreshed).json()).items)).not.toContain(action);
+  await expect(page.getByText(action)).toHaveCount(0);
+
+  // Cleanup: delete the meeting.
+  await deleteMeeting(page, id);
+  await page.goto("/one-on-ones?tab=managed");
+  await expect(page.getByRole("heading", { name: "1:1 meetings" })).toBeVisible();
+  await expect(page.locator(`a[href*="/one-on-ones/${id}/"]`)).toHaveCount(0);
+});

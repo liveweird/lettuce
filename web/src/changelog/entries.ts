@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.19.0",
+    date: "2026-10-28",
+    en: `Managers can now see every open action item from their 1:1 meetings in one place. A new "Open action items" tab on the 1:1 meetings page lists the unfinished items from your latest meeting with each team member, whether they are yours or the team member's, so nothing has to wait for the next meeting to be remembered. Items with the nearest due date come first, overdue ones are marked "Overdue", and "Open since" shows when an item first appeared. You can filter by owner or team member, open the meeting to resolve an item, or see its history across meetings. On the Dashboard, the open-items count on a team member's card now opens this list for that person.`,
+    pl: `Menedżerowie widzą teraz w jednym miejscu wszystkie otwarte zadania ze swoich spotkań 1:1. Nowa zakładka "Otwarte zadania" na stronie spotkań 1:1 pokazuje niezakończone zadania z ostatniego spotkania z każdym członkiem zespołu, zarówno Twoje, jak i członka zespołu, więc o żadnym nie trzeba pamiętać aż do następnego spotkania. Na początku są zadania z najbliższym terminem, przeterminowane są oznaczone "Po terminie", a kolumna "Otwarte od" pokazuje, kiedy zadanie pojawiło się po raz pierwszy. Możesz filtrować według właściciela lub członka zespołu, otworzyć spotkanie, żeby zamknąć zadanie, albo zobaczyć jego historię na kolejnych spotkaniach. Na pulpicie liczba otwartych zadań na karcie członka zespołu otwiera teraz tę listę dla tej osoby.`,
+  },
+  {
     version: "4.18.2",
     date: "2026-10-14",
     en: `Performance review ratings have new colours. A 3, "Meets expectations", is now a calm grey-green instead of yellow, so the expected result no longer looks like a warning. The scale runs orange (1), yellow (2), grey-green (3), light green (4), green (5) and violet (6, "Exceptional"), each rating in its own colour. The rating pills in tables and on the review page are now pale with dark numbers, so every number is easy to read in both the light and the dark theme, and the rating numbers along the edges of the "Quadrants" view are easier to read too.`,

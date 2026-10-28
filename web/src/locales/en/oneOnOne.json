@@ -4,7 +4,8 @@
   "tab": {
     "own": "I'm a subordinate",
     "managed": "I'm a manager",
-    "team": "My subordinate's a manager"
+    "team": "My subordinate's a manager",
+    "actionItems": "Open action items"
   },
   "oneOnOnesWith": "1:1 meetings with {{who}}",
   "oneOnOnesWithHint": "Every 1:1 between you and {{who}}, whoever ran it.",
@@ -103,6 +104,20 @@
     "dueDateChanged": "Due date of action item {{position}} changed from {{from}} to {{to}}.",
     "dueDateCleared": "Due date of action item {{position}} removed.",
     "ownerChanged": "Owner of action item {{position}} changed from {{from}} to {{to}}."
+  },
+  "openItems": {
+    "item": "Action item",
+    "openSince": "Open since",
+    "overdue": "Overdue",
+    "openMeeting": "Open meeting",
+    "openMeetingAria": "Open the 1:1 with {{name}}",
+    "historyOf": "History of the action item for {{name}}",
+    "onlyWith": "Only items with {{name}}",
+    "onlyWithFallback": "Only items with one person",
+    "clearPerson": "Show items with all team members",
+    "noItems": "No open action items.",
+    "noItemsFiltered": "No open action items match these filters.",
+    "loadError": "Failed to load open action items"
   },
   "oneOnOnesAudit": "All 1:1 meetings of {{who}}",
   "oneOnOnesAuditHint": "Every 1:1 meeting {{who}} took part in, in either role. Read-only.",

@@ -180,6 +180,10 @@
   "openItemsBadge_few": "{{count}} otwarte zadania",
   "openItemsBadge_many": "{{count}} otwartych zadań",
   "openItemsBadge_other": "{{count}} otwartego zadania",
+  "openItemsLink_one": "{{count}} otwarte zadanie — zadania z osobą {{name}}",
+  "openItemsLink_few": "{{count}} otwarte zadania — zadania z osobą {{name}}",
+  "openItemsLink_many": "{{count}} otwartych zadań — zadania z osobą {{name}}",
+  "openItemsLink_other": "{{count}} otwartego zadania — zadania z osobą {{name}}",
   "rolesNone": "Brak dodatkowych ról",
   "removeRole": "Usuń rolę {{role}}",
   "audit": {

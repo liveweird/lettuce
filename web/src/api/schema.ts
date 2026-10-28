@@ -1600,6 +1600,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/one-on-ones/action-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's open 1:1 action items across all their reports
+         * @description The manager's cross-report to-do list: every **unresolved** action item in the **latest
+         *     non-deleted meeting of each (manager, report) pair the caller manages** — items of either
+         *     owner. Carry-over copies every unresolved item into each new meeting, so the pair's latest
+         *     meeting holds its current open set; copies in older meetings are history and are not
+         *     listed again. Scope is the caller's own authored meetings only (the caller is the
+         *     meeting's manager) — a chain manager above the author sees nothing here, and ADMIN is an
+         *     ordinary caller. Items of a report who has since been **soft-deleted or deactivated** are
+         *     left out. `403` when the caller's 1:1 meetings feature is disabled. Read-only; items are
+         *     resolved by editing the meeting.
+         *
+         *     Each row carries the item's id in that latest meeting (the id the item history route
+         *     takes), its decrypted `content`, the meeting it sits in, the report, and `firstAppearedOn`
+         *     — the date of the item's earliest surviving appearance in its carry-over chain (the same
+         *     value the meeting single-GET reports; null for an item authored in the latest meeting).
+         *
+         *     Supports offset pagination, sorting and filtering.
+         *
+         *     - Sortable fields: `dueDate`, `meetingDate`, `subordinateName`, `id`. Default sort is
+         *       `dueDate` **ascending**. Items **without a due date always sort last**, in both
+         *       directions (`-dueDate` too). `id` ascending is always appended as a deterministic
+         *       tiebreaker.
+         *     - Filters (all optional, all whitelisted):
+         *       - `owner` — `MANAGER` or `SUBORDINATE`, exact match; anything else → `400`.
+         *       - `subordinateId` — the report's user id, exact match.
+         *       - `subordinateName` — case- and accent-insensitive substring match against the
+         *         report's name.
+         *
+         *     Malformed query parameters (unknown sort field, bad `owner` or `subordinateId`,
+         *     repeated scalar key, out-of-range page/pageSize) respond with `400` and a `ProblemDetail`
+         *     body.
+         */
+        get: operations["listOpenActionItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/one-on-ones/action-items/{id}/history": {
         parameters: {
             query?: never;
@@ -5860,6 +5909,43 @@ export interface components {
              * @default true
              */
             isLatest: boolean;
+        };
+        OneOnOneOpenActionItem: {
+            /**
+             * Format: int32
+             * @description The action item's id in the pair's latest meeting (the id the item history route takes).
+             */
+            id: number;
+            content: string;
+            /** @enum {string} */
+            owner: "MANAGER" | "SUBORDINATE";
+            /** Format: date */
+            dueDate: string | null;
+            /**
+             * Format: date
+             * @description ISO date of the item's earliest surviving appearance in its carry-over chain (the same value as `firstAppearedOn` on the meeting single-GET); null when the item was authored in its current meeting or the chain no longer survives.
+             */
+            firstAppearedOn: string | null;
+            /**
+             * Format: int32
+             * @description The pair's latest meeting, which holds this item.
+             */
+            meetingId: number;
+            /** Format: date */
+            meetingDate: string;
+            /** Format: int32 */
+            subordinateId: number;
+            subordinateName: string;
+        };
+        OneOnOneOpenActionItemPage: {
+            items: components["schemas"]["OneOnOneOpenActionItem"][];
+            page: number;
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Row count after filters, before pagination.
+             */
+            total: number;
         };
         OneOnOnePage: {
             items: components["schemas"]["OneOnOneListItem"][];
@@ -10765,6 +10851,57 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["OneOnOneNotReadable"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listOpenActionItems: {
+        parameters: {
+            query?: {
+                /** @description 1-based page index. Defaults to 1. */
+                page?: components["parameters"]["Page"];
+                /** @description Rows per page. Defaults to 20, maximum 100. */
+                pageSize?: components["parameters"]["PageSize"];
+                /**
+                 * @description Sort spec. Format: `field` (ascending) or `-field` (descending). Multiple fields are
+                 *     comma-separated, leftmost wins: `sort=-lastModified,id`. The endpoint declares its
+                 *     sortable-field whitelist; unknown fields are rejected with `400`. `id` ascending is
+                 *     always appended as a deterministic tiebreaker — except where an operation documents a
+                 *     composite tiebreak instead (registered gap, API-LIST-003; the activity log).
+                 */
+                sort?: components["parameters"]["Sort"];
+                /** @description Keep only items assigned to this party. */
+                owner?: "MANAGER" | "SUBORDINATE";
+                /** @description Keep only items of the meeting pair with this report. */
+                subordinateId?: number;
+                /** @description Case- and accent-insensitive substring match against the report's name. */
+                subordinateName?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of open action items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OneOnOneOpenActionItemPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The caller's 1:1 meetings feature is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };

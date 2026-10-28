@@ -7,10 +7,11 @@ import { useCurrentPath } from "../hooks/useCurrentPath";
 import { oneOnOneCreateLink } from "../utils/oneOnOneLinks";
 import { useIsManager } from "../hooks/useIsManager";
 import OneOnOneTable from "./OneOnOneTable";
+import OpenActionItemsTable from "./OpenActionItemsTable";
 import PageHeader from "../components/PageHeader";
 import TutorialButton from "../components/TutorialButton";
 
-const TABS = ["own", "managed", "team"] as const;
+const TABS = ["own", "managed", "team", "action-items"] as const;
 type OneOnOneTab = (typeof TABS)[number];
 
 function isOneOnOneTab(value: string | null): value is OneOnOneTab {
@@ -35,6 +36,8 @@ export default function OneOnOnes() {
     if (!isOneOnOneTab(value)) return;
     setSearchParams((params) => {
       params.set("tab", value);
+      // The Dashboard badge link's person filter belongs to the action-items tab only.
+      params.delete("subordinateId");
       return params;
     });
   }
@@ -74,6 +77,11 @@ export default function OneOnOnes() {
               {t("oneOnOne.tab.team")}
             </Tabs.Tab>
           )}
+          {isManager && (
+            <Tabs.Tab value="action-items" data-tour="one-on-one-action-items">
+              {t("oneOnOne.tab.actionItems")}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
 
         {isManager && (
@@ -87,6 +95,11 @@ export default function OneOnOnes() {
         {isManager && (
           <Tabs.Panel value="team" pt="md">
             <OneOnOneTable view="team" />
+          </Tabs.Panel>
+        )}
+        {isManager && (
+          <Tabs.Panel value="action-items" pt="md">
+            <OpenActionItemsTable />
           </Tabs.Panel>
         )}
       </Tabs>
