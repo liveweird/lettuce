@@ -164,6 +164,14 @@ class TelemetryRoutesTest {
     }
 
     @Test
+    fun `an HR auditor is refused 403 on both routes - process vitals are ADMIN tooling, not an audit read`() = testApplication {
+        boot()
+        val hr = seededClient("telemetry-hr", UserRole.HR)
+        assertEquals(HttpStatusCode.Forbidden, hr.get("/api/v1/telemetry/current").status)
+        assertEquals(HttpStatusCode.Forbidden, hr.get("/api/v1/telemetry/history?group=memory&range=24h").status)
+    }
+
+    @Test
     fun `an unknown, missing, blank or repeated group or range is a 400 for an ADMIN`() = testApplication {
         boot()
         val admin = seededClient("telemetry-400", UserRole.ADMIN)
