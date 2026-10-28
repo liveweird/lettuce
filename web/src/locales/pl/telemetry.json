@@ -107,7 +107,7 @@
     "hideTable": "Ukryj wartości",
     "time": "Czas",
     "historyFrom": "Historia zaczyna się {{date}}.",
-    "truncated": "Dopasowano więcej linii, niż pokazujemy.",
+    "truncated": "Serwer dopasował więcej linii, niż pokazujemy.",
     "poolTitle": "Połączenia",
     "sizeTitle": "Rozmiar",
     "rowsTitle": "Wiersze",

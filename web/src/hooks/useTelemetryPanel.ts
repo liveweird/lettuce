@@ -10,10 +10,14 @@ const KEY = "telemetry.panelOpen";
 
 const listeners = new Set<() => void>();
 
+// Another tab's write arrives as a `storage` event: re-reading the snapshot is cheap, and useSyncExternalStore re-renders only when
+// the boolean actually changed.
 function subscribe(listener: () => void) {
   listeners.add(listener);
+  window.addEventListener("storage", listener);
   return () => {
     listeners.delete(listener);
+    window.removeEventListener("storage", listener);
   };
 }
 
@@ -29,6 +33,11 @@ export function setTelemetryPanelOpen(open: boolean) {
   writeStoredJson(KEY, open);
   listeners.forEach((notify) => notify());
   if (!open) document.getElementById("main-content")?.focus();
+}
+
+/** Flips the stored flag - read at click time, so a tab that has not re-rendered since another tab's write still toggles correctly. */
+export function toggleTelemetryPanel() {
+  setTelemetryPanelOpen(!readOpen());
 }
 
 /** The stored open flag. Combine with `isAdmin()` before showing anything. */

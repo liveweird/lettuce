@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { setTelemetryPanelOpen, useTelemetryPanelOpen } from "./useTelemetryPanel";
+import { setTelemetryPanelOpen, toggleTelemetryPanel, useTelemetryPanelOpen } from "./useTelemetryPanel";
 
 describe("useTelemetryPanelOpen", () => {
   afterEach(() => {
@@ -34,6 +34,21 @@ describe("useTelemetryPanelOpen", () => {
     } finally {
       main.remove();
     }
+  });
+
+  test("follows another tab's write, and a toggle reads the stored flag rather than a stale render", () => {
+    const { result } = renderHook(() => useTelemetryPanelOpen());
+    expect(result.current).toBe(false);
+    // Another tab writes the flag: this tab learns of it only through the storage event.
+    localStorage.setItem("lettuce.viewSettings.telemetry.panelOpen", "true");
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "lettuce.viewSettings.telemetry.panelOpen" }));
+    });
+    expect(result.current).toBe(true);
+    act(() => toggleTelemetryPanel());
+    expect(result.current).toBe(false);
+    act(() => toggleTelemetryPanel());
+    expect(result.current).toBe(true);
   });
 
   test("anything but a stored true reads as closed", () => {

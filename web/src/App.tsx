@@ -64,7 +64,7 @@ import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 import ErrorBoundary, { RouteErrorBoundary } from "./components/ErrorBoundary";
 import TelemetryPanelCrash from "./components/TelemetryPanelCrash";
-import { setTelemetryPanelOpen, useTelemetryPanelOpen } from "./hooks/useTelemetryPanel";
+import { setTelemetryPanelOpen, toggleTelemetryPanel, useTelemetryPanelOpen } from "./hooks/useTelemetryPanel";
 import CenteredLoader from "./components/CenteredLoader";
 import { AppNav, NavFooter } from "./appShell/AppNav";
 import { activeLeaf, resolveNav } from "./appShell/navModel";
@@ -251,7 +251,7 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
             leftSection={<IconActivity size={14} />}
             rightSection={telemetryOpen ? <IconCheck size={14} /> : undefined}
             aria-current={telemetryOpen ? "true" : undefined}
-            onClick={() => setTelemetryPanelOpen(!telemetryOpen)}
+            onClick={toggleTelemetryPanel}
           >
             {t("telemetry.menuItem")}
           </Menu.Item>
