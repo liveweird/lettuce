@@ -13,7 +13,9 @@ export default function TelemetryValueTable({ label, rows }: { label: string; ro
                 {row.label}
               </Text>
             </Table.Th>
-            <Table.Td ta="right">{row.value}</Table.Td>
+            <Table.Td ta="right" style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+              {row.value}
+            </Table.Td>
           </Table.Tr>
         ))}
       </Table.Tbody>
