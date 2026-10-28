@@ -601,6 +601,65 @@ describe("App shell", () => {
       expect(document.getElementById("main-content")).toHaveFocus();
     });
 
+    test("opening it from the menu moves focus to the panel's heading, and the closing menu does not take it back", async () => {
+      localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
+      stubTelemetry();
+      const user = userEvent.setup();
+      renderApp("/");
+      await user.click(await screen.findByRole("button", { name: "User menu" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Telemetry panel" }));
+      const aside = await screen.findByRole("complementary", { name: "Telemetry" });
+      const heading = await within(aside).findByRole("heading", { level: 2, name: "Telemetry" });
+      await waitFor(() => expect(heading).toHaveFocus());
+      // Mantine's menu returns focus to its button 10 ms after closing - only when focus has not moved meanwhile.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(heading).toHaveFocus();
+    });
+
+    test("a panel restored open by a reload does not take focus from the page", async () => {
+      localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
+      localStorage.setItem(PANEL_KEY, "true");
+      stubTelemetry();
+      renderApp("/");
+      const aside = await screen.findByRole("complementary", { name: "Telemetry" });
+      const heading = await within(aside).findByRole("heading", { level: 2, name: "Telemetry" });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(heading).not.toHaveFocus();
+    });
+
+    test("below lg the covered navbar and page are inert while the panel is open; from lg up they stay usable", async () => {
+      localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
+      localStorage.setItem(PANEL_KEY, "true");
+      stubTelemetry();
+      const wide = (query: string) => query.includes("min-width") && !query.includes("max-width");
+      for (const besidePage of [false, true]) {
+        const matchMedia = vi.spyOn(window, "matchMedia").mockImplementation(
+          (query: string) =>
+            ({
+              matches: besidePage ? wide(query) : false,
+              media: query,
+              onchange: null,
+              addEventListener: () => {},
+              removeEventListener: () => {},
+              addListener: () => {},
+              removeListener: () => {},
+              dispatchEvent: () => false,
+            }) as MediaQueryList,
+        );
+        try {
+          const { unmount } = renderApp("/");
+          await screen.findByRole("complementary", { name: "Telemetry" });
+          const main = document.getElementById("main-content");
+          const navbar = document.querySelector(".mantine-AppShell-navbar");
+          expect(main?.hasAttribute("inert")).toBe(!besidePage);
+          expect(navbar?.hasAttribute("inert")).toBe(!besidePage);
+          unmount();
+        } finally {
+          matchMedia.mockRestore();
+        }
+      }
+    });
+
     test("closed by default: an admin who never opened it has no aside and nothing is requested", async () => {
       localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
       const fetchMock = stubTelemetry();

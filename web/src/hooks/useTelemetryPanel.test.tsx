@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { setTelemetryPanelOpen, toggleTelemetryPanel, useTelemetryPanelOpen } from "./useTelemetryPanel";
+import { setTelemetryPanelOpen, takeTelemetryPanelFocusRequest, toggleTelemetryPanel, useTelemetryPanelOpen } from "./useTelemetryPanel";
 
 describe("useTelemetryPanelOpen", () => {
   afterEach(() => {
     localStorage.clear();
+    // The focus request is module state: an opening no panel consumed must not leak into the next test.
+    takeTelemetryPanelFocusRequest();
   });
 
   test("is closed by default, follows a write in every mounted consumer and survives a remount", () => {
@@ -49,6 +51,19 @@ describe("useTelemetryPanelOpen", () => {
     expect(result.current).toBe(false);
     act(() => toggleTelemetryPanel());
     expect(result.current).toBe(true);
+  });
+
+  test("an opening asks the panel for focus exactly once; a close or a stored flag never does", () => {
+    expect(takeTelemetryPanelFocusRequest()).toBe(false);
+    act(() => setTelemetryPanelOpen(true));
+    expect(takeTelemetryPanelFocusRequest()).toBe(true);
+    expect(takeTelemetryPanelFocusRequest()).toBe(false);
+    act(() => setTelemetryPanelOpen(true));
+    act(() => setTelemetryPanelOpen(false));
+    expect(takeTelemetryPanelFocusRequest()).toBe(false);
+    localStorage.setItem("lettuce.viewSettings.telemetry.panelOpen", "true");
+    expect(renderHook(() => useTelemetryPanelOpen()).result.current).toBe(true);
+    expect(takeTelemetryPanelFocusRequest()).toBe(false);
   });
 
   test("anything but a stored true reads as closed", () => {
