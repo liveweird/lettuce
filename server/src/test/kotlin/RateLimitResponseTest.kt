@@ -2,7 +2,9 @@ package ch.nokillswit
 
 import ch.nokillswit.auth.LoginRequest
 import ch.nokillswit.plugins.ProblemDetail
+import ch.nokillswit.users.UserRole
 import io.ktor.client.call.body
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -45,6 +47,24 @@ class RateLimitResponseTest {
         assertEquals(HttpStatusCode.TooManyRequests, limited.status)
         assertEquals("application/problem+json", limited.contentType()?.withoutParameters()?.toString())
         val problem = limited.body<ProblemDetail>()
+        assertEquals(429, problem.status)
+        assertTrue(problem.detail!!.contains("Rate limit exceeded"))
+    }
+
+    @Test
+    fun `exhausting the per-user telemetry bucket answers a 429 problem body`() = testApplication {
+        configureApp()
+        startApplication()
+        val admin = seededClient("telemetry-429", UserRole.ADMIN)
+
+        repeat(30) {
+            assertEquals(HttpStatusCode.OK, admin.get("/api/v1/telemetry/current").status)
+        }
+        val throttled = admin.get("/api/v1/telemetry/current")
+
+        assertEquals(HttpStatusCode.TooManyRequests, throttled.status)
+        assertEquals("application/problem+json", throttled.contentType()?.withoutParameters()?.toString())
+        val problem = throttled.body<ProblemDetail>()
         assertEquals(429, problem.status)
         assertTrue(problem.detail!!.contains("Rate limit exceeded"))
     }

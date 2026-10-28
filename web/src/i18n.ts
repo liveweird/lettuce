@@ -27,6 +27,7 @@ import enDaysOff from "./locales/en/daysOff.json";
 import enPulse from "./locales/en/pulse.json";
 import enUsers from "./locales/en/users.json";
 import enTeams from "./locales/en/teams.json";
+import enTelemetry from "./locales/en/telemetry.json";
 import enTemplates from "./locales/en/templates.json";
 import enDictionaries from "./locales/en/dictionaries.json";
 import enNotifications from "./locales/en/notifications.json";
@@ -96,6 +97,7 @@ export const en = {
   pulse: enPulse,
   users: enUsers,
   teams: enTeams,
+  telemetry: enTelemetry,
   templates: enTemplates,
   // Mounted as the singular area `dictionary` (the goals.json -> goal filename precedent).
   dictionary: enDictionaries,

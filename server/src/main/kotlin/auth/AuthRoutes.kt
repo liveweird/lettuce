@@ -62,6 +62,11 @@ private const val DEFAULT_INTEGRATION_RATE_LIMIT = 120
 private const val DEFAULT_SHARES_RATE_LIMIT = 60
 private const val DEFAULT_SHARES_BATCH_RATE_LIMIT = 10
 
+// The ADMIN telemetry reads' per-user bucket. Declared here, not in telemetry/, because telemetry is the top layer: nothing outside
+// it may import it (TelemetryLayeringTest), while the routes there may import this name. A constant, not a knob.
+internal const val TELEMETRY_RATE_LIMIT = "telemetry"
+private const val TELEMETRY_REQUESTS_PER_MINUTE = 30
+
 @Serializable
 data class LoginRequest(val email: String, val password: String)
 
@@ -363,6 +368,16 @@ fun Application.configureAuthRoutes() {
         // share and never consumes its tokens. Same keying as "shares".
         register(RateLimitName(SHARES_BATCH_RATE_LIMIT)) {
             rateLimiter(limit = sharesBatchLimit, refillPeriod = 60.seconds)
+            requestKey { call ->
+                call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asLong()
+                    ?: call.request.origin.remoteHost
+            }
+        }
+        // The ADMIN telemetry reads (telemetry/TelemetryRoutes.kt), 30/min PER USER: the routes mount it INSIDE `authenticate`, so the
+        // verified principal's userId is the key, as for "shares". The host fallback is unreachable there and only keeps a
+        // mis-mounted bucket from throwing.
+        register(RateLimitName(TELEMETRY_RATE_LIMIT)) {
+            rateLimiter(limit = TELEMETRY_REQUESTS_PER_MINUTE, refillPeriod = 60.seconds)
             requestKey { call ->
                 call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asLong()
                     ?: call.request.origin.remoteHost

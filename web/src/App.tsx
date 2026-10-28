@@ -21,7 +21,9 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
+  IconActivity,
   IconBell,
+  IconCheck,
   IconChevronDown,
   IconHelp,
   IconKey,
@@ -60,12 +62,16 @@ import { isBoolean, useStoredState } from "./hooks/useStoredState";
 import { useIsManager } from "./hooks/useIsManager";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
-import { RouteErrorBoundary } from "./components/ErrorBoundary";
+import ErrorBoundary, { RouteErrorBoundary } from "./components/ErrorBoundary";
+import TelemetryPanelCrash from "./components/TelemetryPanelCrash";
+import { setTelemetryPanelOpen, toggleTelemetryPanel, useTelemetryPanelOpen } from "./hooks/useTelemetryPanel";
 import CenteredLoader from "./components/CenteredLoader";
 import { AppNav, NavFooter } from "./appShell/AppNav";
 import { activeLeaf, resolveNav } from "./appShell/navModel";
 import { HEADER_HEIGHT, NAV_WIDTH, RAIL_WIDTH } from "./appShell/layout";
 import lazyPage from "./lazyPage";
+// The ADMIN telemetry panel (v4.20.0): a lazy chunk a non-admin never downloads (it is mounted only for an ADMIN with the panel open).
+const TelemetryPanel = lazyPage(() => import("./components/TelemetryPanel"));
 const Dashboard = lazyPage(() => import("./pages/Dashboard"));
 const Feedback = lazyPage(() => import("./pages/Feedback"));
 const Kudos = lazyPage(() => import("./pages/Kudos"));
@@ -181,6 +187,7 @@ const USER_NAME_SLOT_WIDTH = 160;
  *  affordance never depends on a successful GET /users/{id}. */
 function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
   const { t } = useTranslation();
+  const telemetryOpen = useTelemetryPanelOpen();
   const userId = getUserId();
   const { data, isLoading } = useQuery({
     queryKey: ["currentUser", userId],
@@ -237,6 +244,18 @@ function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
           {t("appShell.nav.notificationPreferences")}
         </Menu.Item>
         <TutorialsSubmenu />
+        {isAdmin() && (
+          // ADMIN-only tooling, not a feature or a nav leaf (v4.20.0): a toggle for the shell's telemetry aside. The check
+          // mark (and aria-current, since Mantine fixes the item's role) says it is on.
+          <Menu.Item
+            leftSection={<IconActivity size={14} />}
+            rightSection={telemetryOpen ? <IconCheck size={14} /> : undefined}
+            aria-current={telemetryOpen ? "true" : undefined}
+            onClick={toggleTelemetryPanel}
+          >
+            {t("telemetry.menuItem")}
+          </Menu.Item>
+        )}
         <Menu.Divider />
         <Menu.Item leftSection={<IconLogout size={14} />} onClick={onLogout}>
           {t("common.action.logout")}
@@ -308,6 +327,10 @@ function Shell() {
   // The icon rail: the desktop toggle narrows the navbar to icons; the mobile overlay keeps
   // full labels (`opened` is only ever true below the sm breakpoint, where the Burger lives).
   const rail = navCollapsed && !opened;
+  // The telemetry panel: the stored flag is device-level, but a stored `true` shows nothing to a non-admin.
+  const panelStored = useTelemetryPanelOpen();
+  const showPanel = isAdmin() && panelStored;
+  const closePanel = () => setTelemetryPanelOpen(false);
 
   async function handleLogout() {
     flagSignedOut();
@@ -331,6 +354,9 @@ function Shell() {
         breakpoint: "sm",
         collapsed: { mobile: !opened, desktop: false },
       }}
+      // 420 px beside the page from `lg` up; below it the panel covers the page edge to edge (a pushed 420 px next to the navbar
+      // would leave a sliver). Collapsed by default: with the stored flag false nothing is rendered or reserved.
+      aside={{ width: 420, breakpoint: "lg", collapsed: { desktop: !showPanel, mobile: !showPanel } }}
       padding="md"
     >
       <AppShell.Header>
@@ -421,6 +447,17 @@ function Shell() {
           </Suspense>
         </RouteErrorBoundary>
       </AppShell.Main>
+
+      {showPanel && (
+        <AppShell.Aside aria-label={t("telemetry.title")}>
+          {/* Outside every route boundary: its own, with a way to close it (the open flag survives a reload). */}
+          <ErrorBoundary fallback={<TelemetryPanelCrash onClose={closePanel} />}>
+            <Suspense fallback={<CenteredLoader />}>
+              <TelemetryPanel onClose={closePanel} />
+            </Suspense>
+          </ErrorBoundary>
+        </AppShell.Aside>
+      )}
     </AppShell>
     </TourProvider>
   );

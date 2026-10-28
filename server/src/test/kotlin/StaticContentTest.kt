@@ -280,6 +280,7 @@ class StaticContentTest {
         val server = EngineMain.createServer(
             arrayOf(
                 "-port=0",
+                "-P:telemetry.enabled=false",
                 "-P:postgres.jdbcUrl=${PostgresTestSupport.jdbcUrl}",
                 "-P:postgres.r2dbcUrl=${PostgresTestSupport.r2dbcUrl}",
                 "-P:postgres.user=${PostgresTestSupport.user}",

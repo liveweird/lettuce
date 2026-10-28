@@ -66,6 +66,9 @@ fun TestApplicationBuilder.configureApp(vararg overrides: Pair<String, String>) 
                 "notifications.purgeIntervalSeconds" to "0",
                 // Same idiom for the v4.9.0 sign-in history purge (retention stays the 90-day default).
                 "activity.accountPurgeIntervalSeconds" to "0",
+                // The suite starts no telemetry sampler: a sampler per test app would write into the one shared
+                // container (.claude/docs/testing.md); telemetry tests build the sampler directly or opt in with "true".
+                "telemetry.enabled" to "false",
                 *overrides,
             )
         )

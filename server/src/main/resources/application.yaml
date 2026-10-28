@@ -34,6 +34,8 @@ ktor:
       - ch.nokillswit.infra.db.FlywayKt.configureFlyway
       - ch.nokillswit.infra.db.DatabaseKt.configureDatabase
       - ch.nokillswit.infra.db.BootstrapKt.configureBootstrap
+      # The telemetry sampler (telemetry/): reads the keys Database publishes, so it runs right after Bootstrap.
+      - ch.nokillswit.telemetry.TelemetryKt.configureTelemetry
       # — features
       - ch.nokillswit.users.UserRoutesKt.configureUserRoutes
       - ch.nokillswit.users.CareerPositionRoutesKt.configureCareerPositionRoutes
@@ -61,6 +63,9 @@ ktor:
       # — document sharing (after AuthRoutes: its mutation routes wrap the per-caller "shares" and
       #   "shares-batch" RateLimit buckets AuthRoutes' single install registers)
       - ch.nokillswit.sharing.ShareRoutesKt.configureShareRoutes
+      # — the ADMIN telemetry reads (after AuthRoutes: the routes wrap the per-user "telemetry" RateLimit bucket its single
+      #   install registers; they read the tables the sampler writes, whether or not this process samples)
+      - ch.nokillswit.telemetry.TelemetryRoutesKt.configureTelemetryRoutes
       # — integration API (after AuthRoutes: its route wrapper needs the RateLimit bucket
       #   AuthRoutes' single install registers; registers nothing when integration.enabled=false)
       - ch.nokillswit.integration.IntegrationKt.configureIntegration
@@ -180,6 +185,22 @@ perf:
   # A request taking at least this many milliseconds logs ONE INFO line on `ch.nokillswit.perf`
   # (always on, independent of the header). Boot-validated 1..600000.
   slowRequestMs: "$PERF_SLOW_REQUEST_MS:1000"
+
+monitoring:
+  # How often the Dropwizard registry is dumped to the `metrics` logger (plugins/Monitoring.kt). 0 = off (metrics are still
+  # collected); otherwise 30..3600. Was a fixed 10 s: a dump every 10 s, with the JVM gauge sets enumerating every thread, was a
+  # steady idle-allocation and log-volume cost for lines nothing consumes; five minutes still leaves a trail to look back on.
+  reporterIntervalSeconds: "$METRICS_REPORT_INTERVAL_SECONDS:300"
+
+telemetry:
+  # The in-app telemetry sampler (telemetry/, `.claude/docs/features/telemetry.md`): the process writes its own
+  # memory/JVM/pool/requests/database figures to telemetry_samples. All values are validated on every boot, enabled or not.
+  enabled: "$TELEMETRY_ENABLED:true"
+  # How often the process samples itself (whole seconds, 60..1800 and a divisor of 3600, so an hour's samples tile it); stored as
+  # the raw rows' `resolution`. Also the window of the request timers, capped at 300.
+  sampleIntervalSeconds: "$TELEMETRY_SAMPLE_INTERVAL_SECONDS:300"
+  # How often the database sizes and row counts are measured (900..86400).
+  storageIntervalSeconds: "$TELEMETRY_STORAGE_INTERVAL_SECONDS:3600"
 
 web:
   # When set, the server serves the built React SPA from this directory (static

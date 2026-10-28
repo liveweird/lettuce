@@ -123,6 +123,13 @@ private const val MAX_RETENTION_DAYS = 3_650L
 val R2dbcDatabaseKey = AttributeKey<R2dbcDatabase>("R2dbcDatabase")
 
 /**
+ * Published by [configureDatabase]: the RAW [ConnectionPool] (before [tracedConnectionFactory] may wrap it in the span-emitting
+ * proxy), whose `metrics` (acquired / idle / pending / allocated) the telemetry sampler reads and `ConnectionPoolTest` pins.
+ * The pool's figures are its own whichever factory Exposed talks through.
+ */
+val ConnectionPoolKey = AttributeKey<ConnectionPool>("ConnectionPool")
+
+/**
  * The bounded pool sizing read from `postgres.pool.*` (`.claude/docs/persistence.md`
  * "Connection pool") — boot-validated through the shared [requireConfigInt]/[requireConfigLong]
  * (`infra/config/`), so a malformed or out-of-range bound refuses startup with a config-error
@@ -228,6 +235,7 @@ private fun Application.connectPooled(): R2dbcDatabase {
             .build(),
     )
     monitor.subscribe(ApplicationStopped) { pool.dispose() }
+    attributes.put(ConnectionPoolKey, pool)
     val databaseConfig = R2dbcDatabaseConfig.Builder().apply {
         connectionFactoryOptions = options
         // ONE attempt per suspendTransaction: Exposed's default of three retries any

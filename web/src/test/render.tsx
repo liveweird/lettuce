@@ -12,13 +12,12 @@ import SessionCacheBoundary from "../api/SessionCacheBoundary";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
   route?: string;
+  /** A client the test owns, to inspect its cache or observers; default a fresh one with retries off. */
+  queryClient?: QueryClient;
 }
 
 export function renderWithProviders(ui: ReactElement, options: Options = {}) {
-  const { route = "/", ...rest } = options;
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+  const { route = "/", queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }), ...rest } = options;
   return render(ui, {
     wrapper: ({ children }) => (
       <MantineProvider env="test" theme={theme} cssVariablesResolver={cssVariablesResolver}>

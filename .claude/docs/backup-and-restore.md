@@ -25,6 +25,8 @@ access policy:
   key in the dump, its manifest, command output, logs, or tickets. Losing every key that can decrypt
   a stored envelope makes the affected business content unrecoverable.
 
+The two telemetry tables (`telemetry_processes`, `telemetry_samples`, V95) hold regenerated observations of the process's own vital signs, never business data, and are pruned by retention (raw 7 days, hourly 90). A dump MAY skip their rows with `pg_dump --exclude-table-data='telemetry_*'` (the schema stays, so the offline definition comparator is unaffected); restoring them is never required — the next sampler tick starts a fresh history.
+
 Use encrypted storage and transport, restrict temporary directories to mode `0700` and files to
 `0600`, record checksums without printing dump contents, and remove plaintext temporary files as
 soon as verification finishes. Define retention, immutable/off-host copies, access logging,
@@ -330,7 +332,7 @@ printf '%s\n' \
   "POSTGRES_JDBC_URL=jdbc:postgresql://restored-postgres:5432/$SOURCE_DB" \
   "POSTGRES_R2DBC_URL=r2dbc:postgresql://restored-postgres:5432/$SOURCE_DB" \
   'KTOR_DEVELOPMENT=true' 'MAIL_TRANSPORT=disabled' \
-  'INTEGRATION_ENABLED=false' 'OTEL_SDK_DISABLED=true' \
+  'INTEGRATION_ENABLED=false' 'OTEL_SDK_DISABLED=true' 'TELEMETRY_ENABLED=false' \
   >> "$BACKUP_DIR/restore-app.env"
 chmod 600 "$BACKUP_DIR/restore-app.env"
 

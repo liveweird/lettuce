@@ -88,6 +88,9 @@ services:
       # Same reason for the notification purge (seen rows older than 30 real-clock days are hard-deleted on mint — the
       # mixed run mints): 0 disables it, so a later restore + run still reads the seeded retention-shaped set.
       NOTIFICATION_RETENTION_DAYS: "0"
+      # The telemetry sampler writes its own rows (and a heavy count sweep) into the database being measured: off, so pg_stat_statements
+      # windows stay request-only. Its sampling is the thing measured elsewhere (.claude/docs/features/telemetry.md).
+      TELEMETRY_ENABLED: "false"
       # The base file turns the integration API on for the demo; nothing on the perf path uses it.
       INTEGRATION_ENABLED: "false"
       MAIL_APP_URL: http://localhost:18080

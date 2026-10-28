@@ -81,6 +81,10 @@ Admin-set per-user flags over the feature areas (`FEEDBACKS`/`ONE_ON_ONES`/`GOAL
 
 **MANDATORY read before touching the activity log: `web/docs/activity-log.md`** — the SPA side (server rules: `.claude/docs/features/activity-log.md`): `ActivityFeed`, `/activity` and `/users/:userId/activity`, the entry points and event describers.
 
+## Telemetry panel (v4.20.0)
+
+**MANDATORY read before touching the telemetry panel or adding a chart: `web/docs/telemetry.md`** — the ADMIN-only 420 px aside (user-menu toggle, stored open flag, own error boundary, lazy chunk), its four sections (Memory, Database, Requests, JVM) over `GET /api/v1/telemetry/*`, and the chart rules (lazy chunk importing `@mantine/charts/styles.css`, one unit per chart, the validated `chartColors.ts` palette + dash patterns, figures behind `FiguresDisclosure`). Server rules: `.claude/docs/features/telemetry.md`.
+
 ## Feature tutorials (v3.14.0)
 
 **MANDATORY read before adding or changing a tutorial or the tour: `web/docs/tutorials.md`** — the read-only Joyride walkthroughs in `web/src/tutorials/`, the recipe for the next one, and the menu-only whirlwind tour (v3.23.0).

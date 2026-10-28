@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import { renderAppAt } from "./test/render";
 import { APP_VERSION } from "./changelog/version";
+import { jsonResponse } from "./test/http";
+import { currentFixture, historyFixture } from "./test/telemetryFixtures";
 
 // The guided tour mounts react-joyride (which measures DOM rects) in the authenticated shell;
 // stub it out here so these shell tests don't exercise its layout engine under happy-dom.
@@ -10,6 +12,9 @@ vi.mock("react-joyride", () => ({
   Joyride: () => null,
   STATUS: {},
 }));
+
+// The telemetry panel's lazy chart chunk draws with recharts, which has no layout under happy-dom.
+vi.mock("@mantine/charts", () => ({ LineChart: () => <div data-testid="line-chart" /> }));
 
 const TOKEN_KEY = "lettuce.auth.token";
 const USER_ID_KEY = "lettuce.auth.userId";
@@ -551,6 +556,103 @@ describe("App shell", () => {
       const header = screen.getByRole("banner");
       expect(header.querySelector(".mantine-Avatar-root")).not.toBeNull();
       expect(within(header).getByText("AL")).toBeInTheDocument();
+    });
+  });
+
+  describe("the telemetry panel", () => {
+    const PANEL_KEY = "lettuce.viewSettings.telemetry.panelOpen";
+    const ROLES_KEY = "lettuce.auth.roles";
+
+    /** Answers the telemetry reads; every other request stays pending (the shell tests' bare stub). */
+    function stubTelemetry(current: unknown = currentFixture()) {
+      const fetchMock = vi.fn((url: string) => {
+        if (String(url).startsWith("/api/v1/telemetry/current")) return Promise.resolve(jsonResponse(200, current));
+        if (String(url).startsWith("/api/v1/telemetry/history")) return Promise.resolve(jsonResponse(200, historyFixture("memory", "24h", [])));
+        return new Promise<Response>(() => {});
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    beforeEach(() => {
+      localStorage.setItem(TOKEN_KEY, "fake-token");
+    });
+    afterEach(() => {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(ROLES_KEY);
+      localStorage.removeItem(PANEL_KEY);
+    });
+
+    test("an admin opens it from the user menu (it lands in an aside), and closes it with its own button, which hands focus to the page", async () => {
+      localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
+      stubTelemetry();
+      const user = userEvent.setup();
+      renderApp("/");
+      await user.click(await screen.findByRole("button", { name: "User menu" }));
+      const item = await screen.findByRole("menuitem", { name: "Telemetry panel" });
+      expect(item).not.toHaveAttribute("aria-current");
+      await user.click(item);
+      const aside = await screen.findByRole("complementary", { name: "Telemetry" });
+      expect(await within(aside).findByRole("button", { name: "Memory" })).toHaveAttribute("aria-expanded", "true");
+      expect(localStorage.getItem(PANEL_KEY)).toBe("true");
+      await user.click(within(aside).getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("complementary", { name: "Telemetry" })).not.toBeInTheDocument());
+      expect(localStorage.getItem(PANEL_KEY)).toBe("false");
+      expect(document.getElementById("main-content")).toHaveFocus();
+    });
+
+    test("closed by default: an admin who never opened it has no aside and nothing is requested", async () => {
+      localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
+      const fetchMock = stubTelemetry();
+      renderApp("/");
+      await screen.findByRole("heading", { level: 2, name: "Dashboard" });
+      expect(screen.queryByRole("complementary", { name: "Telemetry" })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/telemetry/"))).toBe(false);
+    });
+
+    test("a stored open flag never shows it to a regular user, and nothing is requested", async () => {
+      localStorage.setItem(PANEL_KEY, "true");
+      const fetchMock = stubTelemetry();
+      renderApp("/");
+      await screen.findByRole("heading", { level: 2, name: "Dashboard" });
+      expect(screen.queryByRole("complementary", { name: "Telemetry" })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/telemetry/"))).toBe(false);
+      // A regular user's user menu has no item for it either.
+      await userEvent.setup().click(screen.getByRole("button", { name: "User menu" }));
+      await screen.findByRole("menuitem", { name: /Change password/ });
+      expect(screen.queryByRole("menuitem", { name: "Telemetry panel" })).not.toBeInTheDocument();
+    });
+
+    test("an admin with the flag stored finds it open after a reload, and the menu item says it is on", async () => {
+      localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
+      localStorage.setItem(PANEL_KEY, "true");
+      stubTelemetry();
+      const user = userEvent.setup();
+      renderApp("/");
+      expect(await screen.findByRole("complementary", { name: "Telemetry" })).toBeInTheDocument();
+      await user.click(await screen.findByRole("button", { name: "User menu" }));
+      expect(await screen.findByRole("menuitem", { name: "Telemetry panel" })).toHaveAttribute("aria-current", "true");
+    });
+
+    test("a render crash inside the panel keeps the page and offers Close panel, which clears the stored flag", async () => {
+      localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
+      localStorage.setItem(PANEL_KEY, "true");
+      // A malformed answer (no processes) crashes the panel's render.
+      stubTelemetry({ generatedAt: 1 });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      const user = userEvent.setup();
+      try {
+        renderApp("/");
+        const aside = await screen.findByRole("complementary", { name: "Telemetry" });
+        expect(await within(aside).findByText("The telemetry panel stopped working")).toBeInTheDocument();
+        // The shell around it survives.
+        expect(screen.getByRole("heading", { level: 2, name: "Dashboard" })).toBeInTheDocument();
+        await user.click(within(aside).getByRole("button", { name: "Close panel" }));
+        await waitFor(() => expect(screen.queryByRole("complementary", { name: "Telemetry" })).not.toBeInTheDocument());
+        expect(localStorage.getItem(PANEL_KEY)).toBe("false");
+      } finally {
+        consoleError.mockRestore();
+      }
     });
   });
 
