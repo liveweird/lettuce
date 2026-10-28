@@ -2653,6 +2653,77 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
 
+  /api/v1/one-on-ones/action-items:
+    get:
+      tags: [one-on-ones]
+      operationId: listOpenActionItems
+      summary: List the caller's open 1:1 action items across all their reports
+      description: |
+        The manager's cross-report to-do list: every **unresolved** action item in the **latest
+        non-deleted meeting of each (manager, report) pair the caller manages** — items of either
+        owner. Carry-over copies every unresolved item into each new meeting, so the pair's latest
+        meeting holds its current open set; copies in older meetings are history and are not
+        listed again. Scope is the caller's own authored meetings only (the caller is the
+        meeting's manager) — a chain manager above the author sees nothing here, and ADMIN is an
+        ordinary caller. Items of a report who has since been **soft-deleted or deactivated** are
+        left out. `403` when the caller's 1:1 meetings feature is disabled. Read-only; items are
+        resolved by editing the meeting.
+
+        Each row carries the item's id in that latest meeting (the id the item history route
+        takes), its decrypted `content`, the meeting it sits in, the report, and `firstAppearedOn`
+        — the date of the item's earliest surviving appearance in its carry-over chain (the same
+        value the meeting single-GET reports; null for an item authored in the latest meeting).
+
+        Supports offset pagination, sorting and filtering.
+
+        - Sortable fields: `dueDate`, `meetingDate`, `subordinateName`, `id`. Default sort is
+          `dueDate` **ascending**. Items **without a due date always sort last**, in both
+          directions (`-dueDate` too). `id` ascending is always appended as a deterministic
+          tiebreaker.
+        - Filters (all optional, all whitelisted):
+          - `owner` — `MANAGER` or `SUBORDINATE`, exact match; anything else → `400`.
+          - `subordinateId` — the report's user id, exact match.
+          - `subordinateName` — case- and accent-insensitive substring match against the
+            report's name.
+
+        Malformed query parameters (unknown sort field, bad `owner` or `subordinateId`,
+        repeated scalar key, out-of-range page/pageSize) respond with `400` and a `ProblemDetail`
+        body.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - name: owner
+          in: query
+          required: false
+          schema: { type: string, enum: [MANAGER, SUBORDINATE] }
+          description: Keep only items assigned to this party.
+        - name: subordinateId
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 0 }
+          description: Keep only items of the meeting pair with this report.
+        - name: subordinateName
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case- and accent-insensitive substring match against the report's name.
+      responses:
+        '200':
+          description: A page of open action items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneOnOneOpenActionItemPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The caller's 1:1 meetings feature is disabled
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
   /api/v1/one-on-ones/action-items/{id}/history:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
@@ -9213,6 +9284,53 @@ components:
           description: >-
             Whether this row is its pair's latest non-deleted meeting — see
             `OneOnOneResponse.isLatest`. Drives the client's Edit-vs-View affordance.
+
+    OneOnOneOpenActionItem:
+      type: object
+      required: [id, content, owner, dueDate, firstAppearedOn, meetingId, meetingDate, subordinateId, subordinateName]
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The action item's id in the pair's latest meeting (the id the item history route takes).
+        content: { type: string }
+        owner:
+          type: string
+          enum: [MANAGER, SUBORDINATE]
+        dueDate: { type: string, format: date, nullable: true }
+        firstAppearedOn:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            ISO date of the item's earliest surviving appearance in its carry-over chain (the
+            same value as `firstAppearedOn` on the meeting single-GET); null when the item was
+            authored in its current meeting or the chain no longer survives.
+        meetingId:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The pair's latest meeting, which holds this item.
+        meetingDate: { type: string, format: date }
+        subordinateId: { type: integer, format: int32, minimum: 0 }
+        subordinateName: { type: string }
+
+    OneOnOneOpenActionItemPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneOnOneOpenActionItem'
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Row count after filters, before pagination.
 
     OneOnOnePage:
       type: object

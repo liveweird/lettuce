@@ -4,7 +4,8 @@
   "tab": {
     "own": "Jestem podwładnym/ą",
     "managed": "Jestem menedżerem/ką",
-    "team": "Mój podwładny/a jest menedżerem/ką"
+    "team": "Mój podwładny/a jest menedżerem/ką",
+    "actionItems": "Otwarte zadania"
   },
   "oneOnOnesWith": "Spotkania 1:1 z {{who}}",
   "oneOnOnesWithHint": "Wszystkie spotkania 1:1 między Tobą a {{who}}, niezależnie od tego, kto je prowadził.",
@@ -105,6 +106,20 @@
     "dueDateChanged": "Zmieniono termin zadania {{position}} z {{from}} na {{to}}.",
     "dueDateCleared": "Usunięto termin zadania {{position}}.",
     "ownerChanged": "Zmieniono właściciela zadania {{position}} z {{from}} na {{to}}."
+  },
+  "openItems": {
+    "item": "Zadanie",
+    "openSince": "Otwarte od",
+    "overdue": "Po terminie",
+    "openMeeting": "Otwórz spotkanie",
+    "openMeetingAria": "Otwórz 1:1 z {{name}}",
+    "historyOf": "Historia zadania ({{name}})",
+    "onlyWith": "Tylko zadania: {{name}}",
+    "onlyWithFallback": "Tylko zadania jednej osoby",
+    "clearPerson": "Pokaż zadania wszystkich członków zespołu",
+    "noItems": "Brak otwartych zadań.",
+    "noItemsFiltered": "Brak otwartych zadań spełniających te filtry.",
+    "loadError": "Nie udało się wczytać otwartych zadań"
   },
   "oneOnOnesAudit": "Wszystkie spotkania 1:1: {{who}}",
   "oneOnOnesAuditHint": "Każde spotkanie 1:1, w którym {{who}} brał/a udział, w dowolnej roli. Tylko do odczytu.",

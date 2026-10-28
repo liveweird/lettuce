@@ -46,6 +46,18 @@ data class OneOnOneListFilter(
     val latestOnly: Boolean = false,
 )
 
+/** Filters of [OneOnOneService.listOpenActionItems]; all optional. */
+data class OpenActionItemFilter(
+    val owner: ActionItemOwner? = null,
+    val subordinateId: UInt? = null,
+    val subordinateName: String? = null,
+)
+
+data class OpenActionItemListResult(
+    val items: List<OneOnOneOpenActionItem>,
+    val total: Long,
+)
+
 data class OneOnOneListResult(
     val items: List<OneOnOneListItem>,
     val total: Long,
@@ -78,6 +90,13 @@ private val SORTABLE_COLUMNS: Map<String, Column<*>> = mapOf(
     "managerName" to managerUsers[UserService.Users.name],
     "subordinateName" to subordinateUsers[UserService.Users.name],
     "lastModified" to OneOnOneService.Meetings.lastModified,
+)
+
+private val OPEN_ITEM_SORTABLE: Map<String, Column<*>> = mapOf(
+    "id" to OneOnOneService.ActionItems.id,
+    "dueDate" to OneOnOneService.ActionItems.dueDate,
+    "meetingDate" to OneOnOneService.Meetings.meetingDate,
+    "subordinateName" to subordinateUsers[UserService.Users.name],
 )
 
 // The note/action-item content columns are encrypted at rest (see infra/crypto/FieldCipher.kt):
@@ -395,7 +414,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .where { ActionItems.meetingId eq id }
             .orderBy(ActionItems.position to SortOrder.ASC, ActionItems.id to SortOrder.ASC)
             .toList()
-        val firstAppearances = firstAppearanceDates(items)
+        val firstAppearances = firstAppearanceDates(items.associate { it[ActionItems.id].value to it[ActionItems.copiedFromId]?.value })
         // The latest-only write rule: PUT/DELETE reject non-latest meetings, the SPA hides
         // their edit affordances.
         val managerId = row[Meetings.managerId].value
@@ -595,6 +614,93 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     }
 
     /**
+     * The caller's open action items across all reports (`GET /one-on-ones/action-items`): the
+     * UNRESOLVED items of each (caller-as-manager, report) pair's absolute latest non-deleted
+     * meeting — [latestOnlyPredicate] over the managed scope, reused as-is, so pair-latest
+     * semantics and the V92 index-only scan come for free; carried copies in older meetings are
+     * history and never appear. Reports who are soft-deleted OR deactivated are excluded (open
+     * items with someone who has left are noise). One transaction: count + page + the batched
+     * [firstAppearanceDates] walk; content is decrypted per page row only (never filtered or
+     * sorted in SQL). Sorting puts items without a due date LAST in both directions.
+     */
+    suspend fun listOpenActionItems(
+        callerUserId: UInt,
+        filter: OpenActionItemFilter,
+        paging: PageRequest,
+    ): OpenActionItemListResult = suspendTransaction(database) {
+        val scopeOn = listScope(OneOnOneListView.MANAGED, callerUserId, false, null, null)
+        var predicate: Op<Boolean> = scopeOn(Meetings.managerId, Meetings.subordinateId) and
+            active() and
+            latestOnlyPredicate(scopeOn) and
+            (ActionItems.resolved eq false) and
+            (subordinateUsers[UserService.Users.markedAsDeleted] eq false) and
+            (subordinateUsers[UserService.Users.deactivated] eq false)
+        filter.owner?.let { predicate = predicate and (ActionItems.owner eq it) }
+        filter.subordinateId?.let { predicate = predicate and (Meetings.subordinateId eq it) }
+        filter.subordinateName?.takeIf { it.isNotBlank() }?.let {
+            predicate = predicate and subordinateUsers[UserService.Users.name].containsNormalized(it)
+        }
+        val join = ActionItems
+            .join(Meetings, JoinType.INNER, onColumn = ActionItems.meetingId, otherColumn = Meetings.id)
+            .join(
+                subordinateUsers,
+                JoinType.INNER,
+                onColumn = Meetings.subordinateId,
+                otherColumn = subordinateUsers[UserService.Users.id],
+            )
+        val total = join.selectAll().where { predicate }.count()
+        val order = paging.sort.map { sf ->
+            val column = OPEN_ITEM_SORTABLE[sf.name]
+                ?: error("Sort field '${sf.name}' has no mapped column (paging helper invariant violated)")
+            // Explicit NULLS LAST both ways: PostgreSQL's DESC default would put undated items first.
+            column to when {
+                sf.name == "dueDate" && sf.descending -> SortOrder.DESC_NULLS_LAST
+                sf.name == "dueDate" -> SortOrder.ASC_NULLS_LAST
+                sf.descending -> SortOrder.DESC
+                else -> SortOrder.ASC
+            }
+        }
+        val rows = join
+            .select(
+                ActionItems.id,
+                ActionItems.content,
+                ActionItems.owner,
+                ActionItems.dueDate,
+                ActionItems.copiedFromId,
+                Meetings.id,
+                Meetings.meetingDate,
+                Meetings.subordinateId,
+                subordinateUsers[UserService.Users.name],
+            )
+            .where { predicate }
+            .orderBy(*order.toTypedArray())
+            .limit(paging.pageSize)
+            .offset(((paging.page - 1).toLong()) * paging.pageSize)
+            .map { it }
+            .toList()
+        val firstAppearances = firstAppearanceDates(
+            rows.associate { it[ActionItems.id].value to it[ActionItems.copiedFromId]?.value },
+        )
+        OpenActionItemListResult(
+            items = rows.map { row ->
+                val itemId = row[ActionItems.id].value
+                OneOnOneOpenActionItem(
+                    id = itemId,
+                    content = cipher.decrypt(row[ActionItems.content]),
+                    owner = row[ActionItems.owner],
+                    dueDate = row[ActionItems.dueDate],
+                    firstAppearedOn = firstAppearances[itemId],
+                    meetingId = row[Meetings.id].value,
+                    meetingDate = row[Meetings.meetingDate],
+                    subordinateId = row[Meetings.subordinateId].value,
+                    subordinateName = row[subordinateUsers[UserService.Users.name]],
+                )
+            },
+            total = total,
+        )
+    }
+
+    /**
      * The full history of an action item: every appearance across the chain of carried-over
      * copies — ancestors via `copied_from_id`, descendants (including branches off ancestors) via
      * a frontier walk — newest meeting first. Entries whose meeting is soft-deleted are
@@ -691,38 +797,44 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
     )
 
     /**
-     * itemId → ISO date of each carried item's earliest surviving appearance: the copiedFromId
-     * ancestors are walked per item (chains are a handful of hops, one indexed select each,
-     * cycle-guarded like [actionItemHistory]; ancestor rows are cached across items since
-     * chains of one meeting never overlap but malformed data might), then one batched meeting
-     * lookup picks the smallest non-soft-deleted meeting date — the same meeting the history
-     * modal shows first. Items authored in this meeting (null copiedFromId) are skipped: their
-     * first appearance IS this meeting. Runs in the caller's transaction.
+     * itemId → ISO date of each carried item's earliest surviving appearance, for [copiedFrom]
+     * (itemId → its `copied_from_id`, null for an item authored in its own meeting — those are
+     * skipped: their first appearance IS their meeting). A batched frontier walk: ONE
+     * `ActionItems.id IN (frontier)` select per hop depth for ALL items together (ancestor rows
+     * are cached, a malformed cycle is cut per item like [actionItemHistory]; a missing row ends
+     * that item's walk), then one batched meeting lookup picks the smallest non-soft-deleted
+     * meeting date — the same meeting the history modal shows first. So the statement count grows
+     * with the deepest carry-over chain in [copiedFrom] (one select per hop), never with the number of items. Items whose every
+     * ancestor meeting is soft-deleted drop out (null, like a broken chain). In-txn.
      */
-    private suspend fun firstAppearanceDates(items: List<ResultRow>): Map<UInt, String> {
-        val carried = items.filter { it[ActionItems.copiedFromId] != null }
-        if (carried.isEmpty()) return emptyMap()
+    private suspend fun firstAppearanceDates(copiedFrom: Map<UInt, UInt?>): Map<UInt, String> {
+        // itemId → the ancestor id to fetch next; an item leaves the map when its walk ends.
+        var next: Map<UInt, UInt> = copiedFrom.mapNotNull { (itemId, from) -> from?.let { itemId to it } }.toMap()
+        if (next.isEmpty()) return emptyMap()
 
-        val rowCache = mutableMapOf<UInt, ResultRow?>()
-        val ancestorMeetingIds = mutableMapOf<UInt, Set<UInt>>()
-        for (item in carried) {
-            val itemId = item[ActionItems.id].value
-            val visited = mutableSetOf(itemId)
-            val meetingIds = mutableSetOf<UInt>()
-            var ancestorId = item[ActionItems.copiedFromId]?.value
-            while (ancestorId != null && ancestorId !in visited) {
-                val currentId = ancestorId
-                visited += currentId
-                val row = rowCache.getOrPut(currentId) {
-                    ActionItems.selectAll()
-                        .where { ActionItems.id eq currentId }
-                        .map { it }
-                        .singleOrNull()
-                } ?: break
-                meetingIds += row[ActionItems.meetingId].value
-                ancestorId = row[ActionItems.copiedFromId]?.value
+        val visited = next.keys.associateWith { mutableSetOf(it) }
+        val ancestorMeetingIds = mutableMapOf<UInt, MutableSet<UInt>>()
+        // ancestor id → (its meeting id, its own copied_from_id); a null value = no such row.
+        val rowCache = mutableMapOf<UInt, Pair<UInt, UInt?>?>()
+        while (next.isNotEmpty()) {
+            // Cycle guard: an ancestor this item already visited ends its walk (malformed data).
+            next = next.filter { (itemId, ancestorId) -> visited.getValue(itemId).add(ancestorId) }
+            val missing = next.values.toSet() - rowCache.keys
+            if (missing.isNotEmpty()) {
+                val found = ActionItems.select(ActionItems.id, ActionItems.meetingId, ActionItems.copiedFromId)
+                    .where { ActionItems.id inList missing }
+                    .map { it[ActionItems.id].value to (it[ActionItems.meetingId].value to it[ActionItems.copiedFromId]?.value) }
+                    .toList()
+                    .toMap()
+                missing.forEach { rowCache[it] = found[it] }
             }
-            if (meetingIds.isNotEmpty()) ancestorMeetingIds[itemId] = meetingIds
+            val advanced = mutableMapOf<UInt, UInt>()
+            for ((itemId, ancestorId) in next) {
+                val (meetingId, parentId) = rowCache[ancestorId] ?: continue
+                ancestorMeetingIds.getOrPut(itemId) { mutableSetOf() } += meetingId
+                if (parentId != null) advanced[itemId] = parentId
+            }
+            next = advanced
         }
         if (ancestorMeetingIds.isEmpty()) return emptyMap()
 
@@ -733,8 +845,7 @@ class OneOnOneService(val database: R2dbcDatabase, private val cipher: FieldCiph
             .toList()
             .toMap()
 
-        // ISO dates: lexicographic min == chronological min. Items whose every ancestor meeting
-        // is soft-deleted drop out (null firstAppearedOn, like a broken chain).
+        // ISO dates: lexicographic min == chronological min.
         return ancestorMeetingIds
             .mapNotNull { (itemId, meetingIds) ->
                 meetingIds.mapNotNull { activeDates[it] }.minOrNull()?.let { itemId to it }

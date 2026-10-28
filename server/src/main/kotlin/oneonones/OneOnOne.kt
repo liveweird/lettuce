@@ -138,6 +138,27 @@ data class OneOnOneListItem(
 
 typealias OneOnOnePageResponse = PageResponse<OneOnOneListItem>
 
+/**
+ * One row of `GET /one-on-ones/action-items`: an unresolved action item of the caller's latest
+ * meeting with a report. [id] is the item's id in that latest meeting (the history route's key).
+ * Nullable fields have no default so they always serialize (explicit null).
+ */
+@Serializable
+data class OneOnOneOpenActionItem(
+    val id: UInt,
+    val content: String,
+    val owner: ActionItemOwner,
+    val dueDate: String?,
+    // See OneOnOneActionItemResponse.firstAppearedOn — the same value, same semantics.
+    val firstAppearedOn: String?,
+    val meetingId: UInt,
+    val meetingDate: String,
+    val subordinateId: UInt,
+    val subordinateName: String,
+)
+
+typealias OneOnOneOpenActionItemPage = PageResponse<OneOnOneOpenActionItem>
+
 /** One appearance of an action item (or a copy of it) in a meeting, for the history view. */
 @Serializable
 data class ActionItemHistoryEntry(

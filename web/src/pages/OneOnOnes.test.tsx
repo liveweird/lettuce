@@ -66,7 +66,44 @@ describe("OneOnOnes page", () => {
     );
     expect(screen.queryByRole("tab", { name: "I'm a manager" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "My subordinate's a manager" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Open action items" })).toBeNull();
     expect(screen.queryByRole("link", { name: "New 1:1" })).toBeNull();
+  });
+
+  test("a non-manager's ?tab=action-items falls back to the subordinate tab and never queries the list", async () => {
+    stubFetch(mockFetch, { isManager: false });
+    renderOneOnOnes("/one-on-ones?tab=action-items&subordinateId=8");
+
+    const own = await screen.findByRole("tab", { name: "I'm a subordinate" });
+    await waitFor(() =>
+      expect(mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/teams?"))).toBe(true),
+    );
+    expect(own).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "Open action items" })).toBeNull();
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/one-on-ones?view=own")),
+      ).toBe(true),
+    );
+    expect(
+      mockFetch.mock.calls.some(([u]) => String(u).includes("/api/v1/one-on-ones/action-items")),
+    ).toBe(false);
+  });
+
+  test("a manager gets the Open action items tab, which queries the cross-report list", async () => {
+    stubFetch(mockFetch, { isManager: true });
+    renderOneOnOnes();
+
+    const tab = await screen.findByRole("tab", { name: "Open action items" });
+    await userEvent.click(tab);
+    expect(tab).toHaveAttribute("aria-selected", "true");
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some(([u]) =>
+          String(u).startsWith("/api/v1/one-on-ones/action-items?page=1&pageSize=20&sort=dueDate"),
+        ),
+      ).toBe(true),
+    );
   });
 
   test("a manager sees all three tabs, the create button, and can switch tabs", async () => {

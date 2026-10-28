@@ -25,6 +25,7 @@ const MANAGER_LANDMARKS = [
   "carried over into it automatically",
   "I'm a manager lists",
   "My subordinate's a manager shows",
+  "Open action items lists",
   "A new 1:1 starts here",
   "Pick the team member",
   "Create saves the meeting",
@@ -62,7 +63,7 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-test("the 1:1 meetings tutorial walks a manager through 13 read-only steps and returns to the 1:1 meetings page", async ({
+test("the 1:1 meetings tutorial walks a manager through 14 read-only steps and returns to the 1:1 meetings page", async ({
   page,
 }) => {
   await login(page, MANAGER_AAA);
@@ -73,7 +74,7 @@ test("the 1:1 meetings tutorial walks a manager through 13 read-only steps and r
 
   const seen = await walkTutorial(page);
 
-  expect(seen).toHaveLength(13);
+  expect(seen).toHaveLength(14);
   assertLandmarkOrder(seen, MANAGER_LANDMARKS);
   await expect(page).toHaveURL(/\/one-on-ones\?tab=own/);
 

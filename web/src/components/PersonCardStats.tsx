@@ -1,5 +1,6 @@
 import { Badge, Divider, Group, Text, Tooltip } from "@mantine/core";
 import { useTranslation } from "react-i18next";
+import { Link as RouterLink } from "react-router-dom";
 import type { PerformanceReviewStatus } from "../api/reviews";
 import { canAudit, hasFeature } from "../api/session";
 import { formatIsoDate, formatMonthRangeShort, formatRelativeTime, formatDateTime } from "../utils/datetime";
@@ -220,6 +221,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 function CollaborationRows({
   person,
   directional,
+  linkOpenItems,
   peer,
   canOneOnOne,
   canFeedback,
@@ -227,6 +229,10 @@ function CollaborationRows({
 }: {
   person: PersonCardData;
   directional: boolean;
+  /** The pictured person is the viewer's direct report: the open-items badge links to the
+   *  manager's Open action items tab filtered to them (v4.19.0). The "My managers" card never
+   *  links — that list holds the viewer's OWN meetings as a manager only. */
+  linkOpenItems: boolean;
   peer: boolean;
   canOneOnOne: boolean;
   canFeedback: boolean;
@@ -245,14 +251,31 @@ function CollaborationRows({
                   i18n.language,
                 )}
               </Text>
-              <Badge
-                size="sm"
-                variant="light"
-                color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
-                style={{ minWidth: "max-content" }}
-              >
-                {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
-              </Badge>
+              {linkOpenItems ? (
+                <Badge
+                  component={RouterLink}
+                  to={`/one-on-ones?tab=action-items&subordinateId=${person.userId}`}
+                  aria-label={t("users.openItemsLink", {
+                    count: person.lastOneOnOneOpenItems ?? 0,
+                    name: person.name,
+                  })}
+                  size="sm"
+                  variant="light"
+                  color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
+                  style={{ minWidth: "max-content", cursor: "pointer" }}
+                >
+                  {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+                </Badge>
+              ) : (
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color={(person.lastOneOnOneOpenItems ?? 0) > 0 ? "yellow" : "teal"}
+                  style={{ minWidth: "max-content" }}
+                >
+                  {t("users.openItemsBadge", { count: person.lastOneOnOneOpenItems ?? 0 })}
+                </Badge>
+              )}
             </>
           ) : (
             <NeverText />
@@ -419,6 +442,9 @@ export default function PersonCardBody({
           <CollaborationRows
             person={person}
             directional={directional}
+            // A deactivated report's items are left out of the Open action items list, so the badge stays
+            // plain text for them rather than linking to an empty page.
+            linkOpenItems={stats === "subordinate" && !person.deactivated}
             peer={stats === "peer"}
             canOneOnOne={canOneOnOne}
             canFeedback={canFeedback}

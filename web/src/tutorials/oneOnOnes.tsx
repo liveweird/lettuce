@@ -61,6 +61,14 @@ const STEPS: readonly TourStepDef[] = [
     feature: "ONE_ON_ONES",
   },
   {
+    target: '[data-tour="one-on-one-action-items"]',
+    contentKey: "tutorials.oneOnOnes.steps.openItems",
+    placement: "bottom",
+    navTo: "/one-on-ones?tab=action-items",
+    managerOnly: true,
+    feature: "ONE_ON_ONES",
+  },
+  {
     target: '[data-tour="one-on-one-new"]',
     contentKey: "tutorials.oneOnOnes.steps.new",
     placement: "bottom",

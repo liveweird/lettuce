@@ -11,6 +11,8 @@ import ch.nokillswit.goals.GoalEventType
 import ch.nokillswit.goals.GoalMilestoneInput
 import ch.nokillswit.goals.GoalType
 import ch.nokillswit.impactlog.ImpactEntryRequest
+import ch.nokillswit.oneonones.ActionItemOwner
+import ch.nokillswit.oneonones.OneOnOneActionItemInput
 import ch.nokillswit.oneonones.OneOnOneCreateRequest
 import ch.nokillswit.pulse.PulseResponseSubmitRequest
 import ch.nokillswit.pulse.PulseScaleAnswer
@@ -118,6 +120,9 @@ class QueryBudgetTest {
             // F12, fixed in v4.15.0: `latestOnly` is a DISTINCT ON subquery + the V92 index — the gain is time, the count stays 6/2.
             "one-on-ones?view=managed" to Budget(6, 2), // 6/2 -> 6/2
             "one-on-ones?view=managed&latestOnly" to Budget(6, 2), // 6/2 -> 6/2
+            // v4.19.0: the open action items list = count + page + one frontier-walk select per hop + one meeting-date lookup;
+            // the fixture carries every item one hop (uniform depth), so the walk is constant in the number of rows.
+            "one-on-ones/action-items" to Budget(5, 2), // 5/2 -> 5/2
             "goals?view=managed" to Budget(4, 2), // 4/2 -> 4/2
             "performance-reviews?view=managed" to Budget(3, 2), // 3/2 -> 3/2
             "performance-reviews?view=all" to Budget(3, 2), // 3/2 -> 3/2
@@ -368,6 +373,32 @@ class QueryBudgetTest {
                         "/api/v1/performance-reviews?view=all&periodId=${period.id}&subordinateName=$tag-s&pageSize=100",
                     ),
                 )
+            },
+        )
+    }
+
+    @Test
+    fun `open 1-1 action items`() = testApplication {
+        usePostgresTestcontainer()
+        val tag = tag()
+        val org = org(tag)
+        budgets(
+            grow = { n ->
+                org.grow(n) { _, sub ->
+                    // Two meetings per report: the second carries the first's item (chain depth 1 for every row).
+                    TestServices.oneOnOnes.create(
+                        org.manager.id,
+                        OneOnOneCreateRequest(
+                            sub.id, today,
+                            actionItems = listOf(OneOnOneActionItemInput(content = "$tag item", owner = ActionItemOwner.MANAGER)),
+                        ),
+                    )
+                    TestServices.oneOnOnes.create(org.manager.id, OneOnOneCreateRequest(sub.id, today))
+                }
+            },
+            probes = {
+                val manager = authedClient(org.manager.email, PASSWORD)
+                listOf(Probe("one-on-ones/action-items", manager, "/api/v1/one-on-ones/action-items?pageSize=100"))
             },
         )
     }

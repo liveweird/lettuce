@@ -172,6 +172,8 @@
   "statNever": "never",
   "openItemsBadge_one": "{{count}} open item",
   "openItemsBadge_other": "{{count}} open items",
+  "openItemsLink_one": "{{count}} open item — action items with {{name}}",
+  "openItemsLink_other": "{{count}} open items — action items with {{name}}",
   "rolesNone": "No additional roles",
   "removeRole": "Remove role {{role}}",
   "audit": {
