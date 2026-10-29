@@ -687,14 +687,14 @@ cmd_jfr() {
   done
   [ -n "$run" ] || run="$(new_run_id)"
   safe_name "--run" "$run"
-  local variant="c2" opts="" mem="512m" heap_mb
+  local variant="c2" opts="" mem="1024m" heap_mb
   if [ "$c1" -eq 1 ]; then opts="$opts -XX:TieredStopAtLevel=1"; variant="c1"; fi
   if [ -n "$heap" ]; then
     case "$heap" in [0-9]*m) ;; *) die "--heap must look like 512m" ;; esac
     heap_mb="${heap%m}"
     case "$heap_mb" in *[!0-9]*) die "--heap must look like 512m" ;; esac
     opts="$opts -Xmx${heap}"
-    mem="$((heap_mb + 256))m"
+    mem="$(( heap_mb + 256 > 1024 ? heap_mb + 256 : 1024 ))m"
     variant="$variant-heap$heap"
   fi
   local file="$run.$name.$variant.jfr" dir="$ROOT/perf/results/$run"

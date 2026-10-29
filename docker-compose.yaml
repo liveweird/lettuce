@@ -105,8 +105,11 @@ services:
       - "127.0.0.1:8080:8080"
     # Ceiling for the tuned JVM (SerialGC + -Xmx256m, C2 on since v4.14.0, baked into bin/server):
     # ~270-310 MiB RSS idle, ~400 MiB under load, 427 MiB at the 50-VU closed-loop peak (v4.14.0
-    # baseline 2026-10-04-ce513a41), so 512 MiB leaves headroom and bounds the container.
-    mem_limit: 512m
+    # baseline 2026-10-04-ce513a41). Raised 512m -> 1g on 2026-10-29: the v4.20.0 telemetry panel showed
+    # the container's working set at 75-100 % of 512 MiB for a whole day (RSS ~480 MiB with the heap at
+    # ~46 of 256 MiB - native memory and page cache, not the heap), so the heap cap stays and the
+    # container gets headroom.
+    mem_limit: 1g
     # Liveness for `docker compose ps` / `docker inspect` (checkup #38 A1): /healthz is process-alive
     # only, never touches the DB (so a PostgreSQL blip does not flip the app unhealthy — /readyz is the
     # DB-aware one). curl ships in the eclipse-temurin JRE runtime image. The shipped image carries NO

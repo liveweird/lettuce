@@ -169,13 +169,15 @@ spec:
               protocol: TCP
           # Sized for the tuned JVM baked into the image (SerialGC + -Xmx256m, C2 on since v4.14.0):
           # ~270-310 MiB RSS idle, ~400 MiB under load, 427 MiB at the 50-VU closed-loop peak (perf baseline
-          # 2026-10-04-ce513a41). The request reserves the loaded footprint; the 512 MiB limit bounds the peak.
+          # 2026-10-04-ce513a41). The request reserves the loaded footprint (~480 MiB RSS measured by the v4.20.0
+          # telemetry panel); the 1 GiB limit (512 MiB until 2026-10-29) leaves headroom for native memory and
+          # page cache - the heap cap (-Xmx256m) is unchanged.
           resources:
             requests:
               cpu: "250m"
-              memory: "448Mi"
-            limits:
               memory: "512Mi"
+            limits:
+              memory: "1Gi"
           # Pod hardening (Checkup #34 Tier A): the image already runs as numeric uid/gid 1000
           # (no named user — see Dockerfile), so runAsNonRoot only enforces what's already true; the
           # container never needs Linux capabilities, privilege escalation, or a writable root
