@@ -1,4 +1,5 @@
-import { Badge, Center, Group, Loader, Modal, Text, Timeline } from "@mantine/core";
+import { Badge, Center, Group, Modal, Text, Timeline } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getActionItemHistory } from "../api/oneonones";
@@ -35,7 +36,7 @@ export default function ActionItemHistoryModal({
     <Modal opened={itemId != null} onClose={onClose} title={t("oneOnOne.itemHistoryTitle")} centered>
       {isLoading ? (
         <Center py="md">
-          <Loader size="sm" />
+          <LoadingSpinner size="sm" />
         </Center>
       ) : isError ? (
         <Text c="var(--lettuce-ink-error)" size="sm">

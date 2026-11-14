@@ -1,5 +1,6 @@
 import { Suspense, lazy, useState } from "react";
-import { ActionIcon, Loader, Popover } from "@mantine/core";
+import { ActionIcon, Popover } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 import { IconMoodSmile } from "@tabler/icons-react";
 
 const EmojiPicker = lazy(() => import("./EmojiPicker"));
@@ -38,7 +39,7 @@ export default function EmojiButton({
       </Popover.Target>
       <Popover.Dropdown p={0}>
         {opened && (
-          <Suspense fallback={<Loader size="sm" m="md" />}>
+          <Suspense fallback={<LoadingSpinner size="sm" m="md" />}>
             <EmojiPicker
               onSelect={(native) => {
                 onSelect(native);

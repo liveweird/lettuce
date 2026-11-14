@@ -1,8 +1,10 @@
 /* The leave-planner grid: one row per person, one narrow cell per day of the month. Hand-rolled
    (no calendar dependency) and theme-aware via Mantine CSS vars. */
 
+/* Scrolling, the edge shadows and the pinned person column come from scrollEdges.module.css
+   (the `.scroller` class is added in DaysOffMonthGrid.tsx; the name cells carry data-primary). */
 .wrapper {
-  overflow-x: auto;
+  min-width: 0;
 }
 
 .scrollHint {
@@ -22,10 +24,6 @@
 }
 
 .nameCell {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--mantine-color-body);
   padding: 4px 12px 4px 0;
   text-align: left;
   width: 180px;
@@ -120,8 +118,53 @@
 }
 
 /* The deep-linked row (v4.11.0, `?user=`): an accent bar and a light tint on the name cell only —
-   the day cells keep their weekend/holiday/today styling, so who is off stays as readable as ever. */
-.highlightName {
-  background: var(--mantine-primary-color-light);
+   the day cells keep their weekend/holiday/today styling, so who is off stays as readable as ever.
+   The name cell is pinned (scrollEdges.module.css), so it must stay OPAQUE or day cells would
+   scroll visibly through it: the translucent tint is layered over the pin's opaque colour. */
+.grid .highlightName {
+  background: linear-gradient(var(--mantine-primary-color-light), var(--mantine-primary-color-light)),
+    var(--pin-bg, var(--mantine-color-body));
   box-shadow: inset 3px 0 0 var(--mantine-primary-color-filled);
+}
+
+/* Windows High Contrast / forced colors (v4.21.0): the browser replaces every background colour,
+   so the bars that ARE the data (paid / unpaid) and the weekend / holiday / today column cues
+   would all vanish. System colours (which forced-colors mode keeps) and borders carry them
+   instead: paid = a solid Highlight bar, unpaid = an outlined bar, today = a Highlight edge
+   pair, weekend = dotted and holiday = solid GrayText column edges. The legend swatches share
+   these classes, so they stay truthful. */
+@media (forced-colors: active) {
+  .paid {
+    background-color: Highlight;
+  }
+
+  .unpaid {
+    background-color: Canvas;
+    border: 2px solid CanvasText;
+    box-sizing: border-box;
+  }
+
+  .weekendDay {
+    border-inline: 1px dotted GrayText;
+  }
+
+  .holidayDay {
+    border-inline: 1px solid GrayText;
+  }
+
+  .todayColumn,
+  .todaySwatch {
+    border-inline: 2px solid Highlight;
+  }
+
+  .todayHeader {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  /* The deep-linked row's accent bar is a box-shadow, which forced colors remove. */
+  .grid .highlightName {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }

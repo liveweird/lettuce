@@ -47,7 +47,7 @@ const MassShareTableRow = memo(function MassShareTableRow({
           onChange={(e) => onToggle(p.userId, e.currentTarget.checked)}
         />
       </ResponsiveTable.Td>
-      <ResponsiveTable.Td label={personLabel}>
+      <ResponsiveTable.Td label={personLabel} primary>
         <Group gap="xs" wrap="wrap">
           <PersonCell userId={p.userId} name={p.name} currentUserId={currentUserId} />
           {p.deactivated && <InactivePill />}

@@ -177,7 +177,7 @@ describe("UserDetails page", () => {
     renderDetails();
 
     // The ?name= hint titles the page before the data lands; the pill arrives with the person.
-    const heading = await screen.findByRole("heading", { level: 2, name: /Bob/ });
+    const heading = await screen.findByRole("heading", { level: 1, name: /Bob/ });
     expect(await within(heading.parentElement as HTMLElement).findByText("Inactive")).toBeInTheDocument();
     expect(screen.getAllByText("Inactive")).toHaveLength(1);
   });

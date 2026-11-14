@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, screen } from "@testing-library/react";
+import { MemoryRouter, type RouteObject } from "react-router-dom";
+import { MantineProvider } from "@mantine/core";
+import { render } from "@testing-library/react";
 import { renderWithProviders } from "../test/render";
 import { AppNav } from "./AppNav";
 import { resolveNav } from "./navModel";
+import { IntentPreloadContext } from "../hooks/useIntentPreload";
+import { preloadRoute } from "../routePreload";
 
 const sections = resolveNav({ isAdmin: false, isManager: false, hasFeature: () => true }, null).sections;
 
@@ -158,5 +163,46 @@ describe("AppNav active-link visibility", () => {
       </div>,
     );
     expect(viewport.scrollTop).toBe(40);
+  });
+});
+
+describe("AppNav intent preload", () => {
+  function renderWithPreload(rail: boolean, preloads: Record<string, () => Promise<void>>) {
+    const pageFor = (preload: () => Promise<void>) => {
+      const Page = () => null;
+      Page.preload = preload;
+      return Page;
+    };
+    const Goals = pageFor(preloads.goals);
+    const Seniority = pageFor(preloads.seniority);
+    const routes: RouteObject[] = [
+      { path: "/goals", element: <Goals /> },
+      { path: "/dictionaries/seniority-levels", element: <Seniority /> },
+    ];
+    render(
+      <MantineProvider env="test">
+        <MemoryRouter>
+          <IntentPreloadContext.Provider value={(to) => void preloadRoute(routes, to)}>
+            <AppNav sections={sections} activeTo={null} rail={rail} onNavigate={() => {}} />
+          </IntentPreloadContext.Provider>
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+  }
+
+  test("hovering and focusing a nav leaf preloads its page", async () => {
+    const goals = vi.fn().mockResolvedValue(undefined);
+    renderWithPreload(false, { goals, seniority: vi.fn().mockResolvedValue(undefined) });
+    await userEvent.hover(screen.getByRole("link", { name: "Goals" }));
+    expect(goals).toHaveBeenCalledTimes(1);
+    fireEvent.focus(screen.getByRole("link", { name: "Goals" }));
+    expect(goals).toHaveBeenCalledTimes(2);
+  });
+
+  test("the rail form preloads too", async () => {
+    const goals = vi.fn().mockResolvedValue(undefined);
+    renderWithPreload(true, { goals, seniority: vi.fn().mockResolvedValue(undefined) });
+    await userEvent.hover(screen.getByRole("link", { name: "Goals" }));
+    expect(goals).toHaveBeenCalledTimes(1);
   });
 });

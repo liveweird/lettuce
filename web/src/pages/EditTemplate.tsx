@@ -10,10 +10,10 @@ import {
   Button,
   Center,
   Container,
-  Loader,
   Paper,
   Stack,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useForm } from "@mantine/form";
 import { templateFormValidation, type TemplateFormValues } from "../utils/templateForm";
 import { useTranslation } from "react-i18next";
@@ -108,7 +108,7 @@ export default function EditTemplate() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : notFound ? (
             <Stack>

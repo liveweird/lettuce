@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
 import type { RouteObject } from "react-router-dom";
 import { appRoutes } from "./App";
-import { preloadFirstRoute } from "./routePreload";
+import { preloadFirstRoute, preloadRoute } from "./routePreload";
 
 type Preloadable = { preload: () => Promise<void> };
 
@@ -75,5 +75,19 @@ describe("preloadFirstRoute", () => {
 
   it("resolves when no route matches", async () => {
     await expect(preloadFirstRoute([], "/anything", true)).resolves.toBeUndefined();
+  });
+});
+
+describe("preloadRoute", () => {
+  it("preloads the page a path renders, once per call, without the auth redirect", async () => {
+    const editUser = spyOn("users/:id/edit");
+    await preloadRoute(appRoutes, "/users/5/edit");
+    expect(editUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("never rejects when the page fails to load", async () => {
+    const page = pageAt("");
+    vi.spyOn(page!, "preload").mockRejectedValue(new Error("chunk 404"));
+    await expect(preloadRoute(appRoutes, "/")).resolves.toBeUndefined();
   });
 });

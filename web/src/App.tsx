@@ -60,6 +60,9 @@ import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useChangelogUnseen } from "./hooks/useChangelogSeen";
 import { isBoolean, useStoredState } from "./hooks/useStoredState";
 import { useIsManager } from "./hooks/useIsManager";
+import { usePageTitleAndFocus } from "./hooks/usePageTitleAndFocus";
+import { IntentPreloadContext } from "./hooks/useIntentPreload";
+import { preloadRoute } from "./routePreload";
 import { TourProvider } from "./components/Tour";
 import { useTour } from "./components/tourSupport";
 import ErrorBoundary, { RouteErrorBoundary } from "./components/ErrorBoundary";
@@ -300,6 +303,15 @@ function ReplayTourButton() {
   );
 }
 
+/**
+ * Warms the lazy page a path renders (the nav's intent preload, hooks/useIntentPreload.ts). Defined here, next to the route
+ * table, and handed down through context: the nav cannot import `appRoutes` — the table contains this Shell, which contains the
+ * nav. Read at call time, so `appRoutes` being declared further down is fine.
+ */
+function warmRoute(to: string) {
+  void preloadRoute(appRoutes, to);
+}
+
 function Shell() {
   const { t } = useTranslation();
   const [opened, { toggle, close }] = useDisclosure();
@@ -319,6 +331,8 @@ function Shell() {
   const navigate = useNavigate();
   const userId = getUserId();
   const { pathname } = useLocation();
+  // Document title from the page's h1 + focus to it on a route change (v4.21.0, WCAG 2.4.2).
+  usePageTitleAndFocus(pathname, t("appShell.brand"));
   // The grouped navigation (v3.3.0, appShell/navModel.ts): feature/manager/admin gates applied
   // BEFORE the active-leaf lookup, so active-highlight stays coherent.
   const nav = resolveNav({ isAdmin: isAdmin(), isManager, hasFeature }, userId);
@@ -350,6 +364,7 @@ function Shell() {
 
   return (
     // The tour targets navbar items — expanding on start keeps every step's anchor visible.
+    <IntentPreloadContext.Provider value={warmRoute}>
     <TourProvider onStart={() => setNavCollapsed(false)}>
     <AppShell
       header={{ height: HEADER_HEIGHT + alertsBarHeight }}
@@ -464,6 +479,7 @@ function Shell() {
       )}
     </AppShell>
     </TourProvider>
+    </IntentPreloadContext.Provider>
   );
 }
 

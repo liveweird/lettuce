@@ -8,13 +8,13 @@ import {
   Divider,
   Fieldset,
   Group,
-  Loader,
   Modal,
   Paper,
   Stack,
   Tabs,
   Text,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -234,7 +234,7 @@ export default function EditOneOnOne() {
           <Stack>
             {isLoading ? (
               <Center py="xl">
-                <Loader />
+                <LoadingSpinner />
               </Center>
             ) : isError ? (
               <>

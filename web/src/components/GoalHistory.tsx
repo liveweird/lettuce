@@ -26,7 +26,7 @@ export default function GoalHistory({ goalId }: { goalId: number }) {
         e.comment != null && e.comment !== "" ? (
           // The progress update's optional context comment (v2.8.0) — plain text, pre-wrap
           // like the archive summary (it is captured in a plain textarea, not markdown).
-          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+          <Text size="sm" style={{ whiteSpace: "pre-wrap", maxInlineSize: "var(--lettuce-reading-width)" }}>
             {e.comment}
           </Text>
         ) : null

@@ -8,7 +8,6 @@ import {
   Center,
   Checkbox,
   Group,
-  Loader,
   Paper,
   Select,
   Stack,
@@ -16,6 +15,7 @@ import {
   Timeline,
   Title,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { IconHistory, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
@@ -229,7 +229,7 @@ function ManagersSection({ teamId, canManage }: { teamId: number; canManage: boo
   return (
     <Stack gap="sm" component="section" aria-labelledby="team-history-managers">
       <div>
-        <Title order={3} id="team-history-managers">
+        <Title order={2} size="h3" id="team-history-managers">
           {t("teams.history.managers.heading")}
         </Title>
         <Text size="sm" c="dimmed">
@@ -244,7 +244,7 @@ function ManagersSection({ teamId, canManage }: { teamId: number; canManage: boo
           </Alert>
         ) : isLoading || !data ? (
           <Center py="md">
-            <Loader size="sm" />
+            <LoadingSpinner size="sm" />
           </Center>
         ) : newestFirst.length === 0 ? (
           <Text size="sm" c="dimmed" ta="center" py="md">
@@ -502,7 +502,7 @@ function MembershipsSection({ teamId, canManage }: { teamId: number; canManage: 
   return (
     <Stack gap="sm" component="section" aria-labelledby="team-history-members">
       <div>
-        <Title order={3} id="team-history-members">
+        <Title order={2} size="h3" id="team-history-members">
           {t("teams.history.members.heading")}
         </Title>
         <Text size="sm" c="dimmed">
@@ -662,9 +662,9 @@ export default function TeamHistory() {
   if (isLoading) {
     return (
       <Stack gap="md">
-        <Title order={2}>{t("teams.history.pageTitle")}</Title>
+        <Title order={1} size="h2">{t("teams.history.pageTitle")}</Title>
         <Center py="xl">
-          <Loader />
+          <LoadingSpinner />
         </Center>
       </Stack>
     );
@@ -674,7 +674,7 @@ export default function TeamHistory() {
     const notFound = error instanceof ApiError && error.status === 404;
     return (
       <Stack gap="md">
-        <Title order={2}>{t("teams.history.pageTitle")}</Title>
+        <Title order={1} size="h2">{t("teams.history.pageTitle")}</Title>
         <Alert color="red" variant="light">
           {notFound ? t("teams.teamNotFound") : t("teams.loadTeamFailed", { suffix: error instanceof ApiError ? ` (${error.status})` : "" })}
         </Alert>

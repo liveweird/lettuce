@@ -6,7 +6,8 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { Alert, Button, Center, Container, Loader, Paper, Stack, Text } from "@mantine/core";
+import { Alert, Button, Center, Container, Paper, Stack, Text } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useDisclosure } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -155,7 +156,7 @@ export default function EditFeedback() {
           <Paper withBorder shadow="sm" p="xl" radius="md">
             {isLoading ? (
               <Center py="xl">
-                <Loader />
+                <LoadingSpinner />
               </Center>
             ) : (
               <Stack>

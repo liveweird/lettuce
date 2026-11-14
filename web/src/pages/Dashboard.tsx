@@ -38,7 +38,7 @@ export default function Dashboard() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("dashboard.title")}</Title>
+      <Title order={1} size="h2">{t("dashboard.title")}</Title>
       <DashboardHero />
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>

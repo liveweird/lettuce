@@ -22,7 +22,7 @@ export default function Changelog() {
     <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>{t("changelog.title")}</Title>
+          <Title order={1} size="h2">{t("changelog.title")}</Title>
           <Timeline bulletSize={12} lineWidth={2}>
             {CHANGELOG.map((entry) => (
               <Timeline.Item key={entry.version} title={`v${entry.version}`}>

@@ -1,0 +1,23 @@
+/* The rotating chevron of a disclosure toggle (RequesterMessage, ImpactEntrySections,
+   FilterPanel). The turn is spatial motion, so the transition exists only for users who have not
+   asked for reduced motion (v4.21.0); under `reduce` the chevron still lands on its final
+   rotation, it just does not animate there. */
+.chevron {
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: rotate 150ms ease;
+  }
+}
+
+/* A right-pointing chevron that turns down when its section is open. */
+.quarterTurn[data-open] {
+  rotate: 90deg;
+}
+
+/* A down-pointing chevron that flips up when its panel is open. */
+.halfTurn[data-open] {
+  rotate: 180deg;
+}

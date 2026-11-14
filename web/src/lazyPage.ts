@@ -10,7 +10,8 @@ const resolved = new Map<Loader<never>, ComponentType<never>>();
  * no sooner than 300 ms after the fallback it replaces, even when the module is already
  * loaded). `main.tsx` preloads the first matched route before the first render
  * (`routePreload.ts`); navigations were never affected (React Router wraps them in a
- * transition). Without a preload it behaves exactly like `lazy`.
+ * transition). `preloadRoute` (routePreload.ts) also warms a page on navigation-link hover/focus.
+ * Without a preload it behaves exactly like `lazy`.
  */
 export default function lazyPage<P extends object>(loader: Loader<P>) {
   const Lazy = lazy(loader);
@@ -20,9 +21,22 @@ export default function lazyPage<P extends object>(loader: Loader<P>) {
     const [Component] = useState(() => (resolved.get(loader as Loader<never>) as ComponentType<P> | undefined) ?? Lazy);
     return createElement(Component, props);
   }
-  Page.preload = () =>
-    loader().then((m) => {
-      resolved.set(loader as Loader<never>, m.default as ComponentType<never>);
-    });
+  // Memoised: hover/focus intent preloads (routePreload.ts) call this repeatedly, and a chunk
+  // must load once. A rejection clears the memo so a later attempt (the real navigation, or the
+  // next hover) retries; the loaded case never re-enters the loader at all.
+  let pending: Promise<void> | undefined;
+  Page.preload = () => {
+    if (resolved.has(loader as Loader<never>)) return Promise.resolve();
+    pending ??= loader().then(
+      (m) => {
+        resolved.set(loader as Loader<never>, m.default as ComponentType<never>);
+      },
+      (error: unknown) => {
+        pending = undefined;
+        throw error;
+      },
+    );
+    return pending;
+  };
   return Page;
 }

@@ -41,7 +41,10 @@
 /* Neutral, compact table headers: dimmed 600-weight sentence-case labels on a faint surface
    tint, with a crisper rule under the header row. */
 .tableHead {
-  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  /* Exposed as a token so a pinned (sticky) header cell can paint the SAME opaque tint
+     (components/scrollEdges.module.css) instead of showing the scrolled content through it. */
+  --table-head-bg: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  background-color: var(--table-head-bg);
 }
 
 .tableHead th {
@@ -92,6 +95,18 @@
   font-weight: 600;
 }
 
+/* Forced colors (Windows High Contrast, v4.21.0) repaint every background to Canvas, so a
+   light-variant badge / status pill would lose its shape and read as loose text. A system-colour
+   outline keeps the pill a pill (the tint does not survive). An inset outline rather than a
+   border: Mantine sets the badge's own border from an inline custom property this file cannot
+   outrank, and an outline never changes the box. */
+@media (forced-colors: active) {
+  .badge {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+}
+
 .button {
   font-weight: 500;
 }
@@ -110,6 +125,17 @@
 .tab[data-active] {
   font-weight: 600;
   color: var(--mantine-color-text);
+}
+
+/* Selected states painted by background colour alone vanish in forced colors (the fill is
+   repainted to Canvas): the active nav destination and the active SegmentedControl segment get a
+   system-colour outline (v4.21.0). Tabs keep their Mantine underline, which is a border. */
+@media (forced-colors: active) {
+  .navLink[data-active],
+  .segmentedLabel[data-active] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 .dialogTitle {

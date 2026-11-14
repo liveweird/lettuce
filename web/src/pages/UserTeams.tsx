@@ -7,12 +7,12 @@ import {
   Button,
   Center,
   Group,
-  Loader,
   Select,
   Stack,
   Text,
   Title,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconTrash, IconUsersGroup } from "@tabler/icons-react";
@@ -222,9 +222,9 @@ export default function UserTeams() {
   if (userLoading) {
     return (
       <Stack gap="md">
-        <Title order={2}>{t("users.teams")}</Title>
+        <Title order={1} size="h2">{t("users.teams")}</Title>
         <Center py="xl">
-          <Loader />
+          <LoadingSpinner />
         </Center>
       </Stack>
     );
@@ -233,7 +233,7 @@ export default function UserTeams() {
   if (userNotFound || userIsError) {
     return (
       <Stack gap="md">
-        <Title order={2}>{t("users.teams")}</Title>
+        <Title order={1} size="h2">{t("users.teams")}</Title>
         <Alert color="red" variant="light">
           {userNotFound
             ? t("users.userNotFound")
@@ -374,7 +374,7 @@ export default function UserTeams() {
           team's history page, where an ADMIN corrects them. */}
       <Stack gap="sm" component="section" aria-labelledby="user-team-history">
         <div>
-          <Title order={3} id="user-team-history">
+          <Title order={2} size="h3" id="user-team-history">
             {t("users.teamHistory.heading")}
           </Title>
           <Text size="sm" c="dimmed">

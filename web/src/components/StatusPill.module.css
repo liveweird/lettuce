@@ -7,3 +7,14 @@
   border-radius: 50%;
   background-color: var(--pill-dot);
 }
+
+/* Forced colors (v4.21.0): the dot is the hue — colour-only information with an adjacent text
+   label — so it must not be repainted to Canvas (which would erase it). Keep it, in a system
+   colour that contrasts with the pill's forced Canvas surface. The pill's own outline comes from
+   the theme-wide badge border (theme.module.css). */
+@media (forced-colors: active) {
+  .dot {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+}

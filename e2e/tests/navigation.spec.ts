@@ -2,7 +2,9 @@ import { expect, login, test, AAA_ONE, MANAGER_AAA } from "./helpers";
 
 // Shell-level navigation contracts (2026-08 audit round): the in-shell 404 catch-all
 // (v2.22.0 — previously unit-tested only), the two legacy performance redirects, and the
-// dashboard Peers tab — the one dashboard tab no other spec ever renders. Read-only:
+// dashboard Peers tab — the one dashboard tab no other spec ever renders — plus (v4.21.0) the
+// page title + heading focus after a keyboard navigation and a matrix table's pinned person
+// column (geometry happy-dom cannot prove). Read-only:
 // this spec owns no server-side state.
 
 test("an unknown URL renders the in-shell 404 page and its dashboard link recovers", async ({ page }) => {
@@ -37,4 +39,42 @@ test("the dashboard Peers tab shows teammates as cards with both feedback direct
   await expect(page.getByText("AAA Three", { exact: true })).toBeVisible();
   await expect(page.getByText("Feedback from me").first()).toBeVisible();
   await expect(page.getByText("Feedback from them").first()).toBeVisible();
+});
+
+test("a keyboard navigation names the page in the tab title and moves focus to its heading", async ({ page }) => {
+  await login(page, AAA_ONE);
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
+  await expect(page).toHaveTitle("Dashboard · Lettuce");
+  // One h1 per page (v4.21.0): the page title, nothing else.
+  await expect(page.locator("h1")).toHaveCount(1);
+  const goals = page.getByRole("navigation").getByRole("link", { name: "Goals", exact: true }).first();
+  await goals.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/goals/);
+  const heading = page.getByRole("heading", { level: 1, name: "Goals" });
+  await expect(heading).toBeFocused();
+  await expect(page).toHaveTitle("Goals · Lettuce");
+});
+
+test("a wide table keeps the person column pinned while it scrolls sideways", async ({ page }) => {
+  // Narrow enough that the mass-share matrix overflows its scroll region.
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await login(page, MANAGER_AAA);
+  await page.goto("/days-off/mass-share");
+  await expect(page.getByRole("heading", { level: 1, name: "Share days-off calendars" })).toBeVisible();
+  const region = page.getByRole("region").filter({ has: page.getByRole("table") }).first();
+  const person = region.getByRole("link", { name: "User details for AAA One", exact: true });
+  await expect(person).toBeVisible();
+  const overflow = await region.evaluate((e) => e.scrollWidth - e.clientWidth);
+  expect(overflow).toBeGreaterThan(0);
+  await region.evaluate((e) => {
+    e.scrollLeft = e.scrollWidth;
+  });
+  // The person cell stays inside the region's visible box, at its start edge.
+  const regionBox = await region.boundingBox();
+  const personBox = await person.boundingBox();
+  expect(regionBox && personBox).toBeTruthy();
+  expect(personBox!.x).toBeGreaterThanOrEqual(regionBox!.x);
+  expect(personBox!.x + personBox!.width).toBeLessThanOrEqual(regionBox!.x + regionBox!.width);
+  expect(personBox!.x - regionBox!.x).toBeLessThan(200);
 });

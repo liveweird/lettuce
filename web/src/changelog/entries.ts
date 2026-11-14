@@ -17,6 +17,32 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.21.0",
+    date: "2026-11-15",
+    en: `A round of accessibility and polish across the whole app.
+
+- **Every page has its own title.** The browser tab, history and bookmarks now name the page you are on ("Goals · Lettuce" instead of just "Lettuce"), and each page's title is its main heading, so screen readers can jump straight to it.
+- **Moving between pages is easier with a keyboard or screen reader.** After you open another page, the focus moves to its title, so the next Tab starts on the new page and screen readers announce where you are. A page that puts the cursor in a field itself keeps doing so.
+- **Signing in works better with password managers.** The sign-in form now tells password managers which field is the login, and changing a password saves the new one against the right account. The six-digit sign-in code reads each box by its position.
+- **Loading is announced.** Spinners now tell screen readers that something is loading.
+- **Wide tables are easier to read.** Tables that scroll sideways, such as the reviews dashboard, pulse results, mass share and the leave planner, show a soft shadow on the side where more columns are hidden, and keep the person column pinned while you scroll.
+- **Cut-off names can be read in full.** When a name or email is too long for its card or table cell, hovering over it or focusing its link shows the whole text.
+- **Comfortable line length.** Long texts such as feedback, goals and 1:1 notes no longer stretch across wide screens, and paragraphs avoid ending with a single stray word.
+- **Windows High Contrast mode.** Status dots, labels and the leave planner's day markers stay visible when Windows forces its high-contrast colours.
+- **Small touches.** On phones the browser bar follows the app's light or dark scheme and the sign-in screen no longer jumps when the address bar hides. Cards and dashboard tiles respond to keyboard focus and to a press, and their hover effect no longer sticks after a tap. Pages you are about to open start loading as soon as you point at their link in the menu.`,
+    pl: `Seria usprawnień dostępności i dopracowania w całej aplikacji.
+
+- **Każda strona ma własny tytuł.** Karta przeglądarki, historia i zakładki nazywają teraz stronę, na której jesteś ("Cele · Lettuce" zamiast samego "Lettuce"), a tytuł każdej strony jest jej głównym nagłówkiem, więc czytnik ekranu przeskakuje do niego od razu.
+- **Przechodzenie między stronami jest łatwiejsze z klawiatury i czytnika ekranu.** Po otwarciu innej strony fokus przechodzi na jej tytuł, więc kolejne naciśnięcie Tab zaczyna się na nowej stronie, a czytnik ekranu ogłasza, gdzie jesteś. Strona, która sama ustawia kursor w polu, nadal to robi.
+- **Logowanie lepiej współpracuje z menedżerami haseł.** Formularz logowania wskazuje menedżerom haseł, które pole jest loginem, a zmiana hasła zapisuje nowe hasło przy właściwym koncie. Czytnik ekranu odczytuje każde pole sześciocyfrowego kodu logowania według jego pozycji.
+- **Czytniki ekranu ogłaszają ładowanie.** Wskaźniki ładowania informują teraz czytnik ekranu, że coś się wczytuje.
+- **Łatwiej przeczytasz szerokie tabele.** Tabele przewijane w bok, takie jak panel ocen, wyniki ankiet pulse, udostępnianie zbiorcze i planer nieobecności, pokazują delikatny cień po stronie, gdzie kryją się kolejne kolumny, i przypinają kolumnę z osobą podczas przewijania.
+- **Przeczytasz ucięte nazwy w całości.** Gdy imię i nazwisko lub e-mail nie mieści się w karcie lub komórce tabeli, najechanie na nie albo ustawienie fokusu na jego linku pokazuje cały tekst.
+- **Wygodna długość wiersza.** Długie teksty, takie jak feedback, cele i notatki 1:1, nie rozciągają się już na całą szerokość dużych ekranów, a akapity unikają kończenia się jednym samotnym słowem.
+- **Tryb wysokiego kontrastu Windows.** Kropki statusu, etykiety i oznaczenia dni w planerze nieobecności pozostają widoczne, gdy Windows wymusza kolory wysokiego kontrastu.
+- **Drobne usprawnienia.** Na telefonach pasek przeglądarki dopasowuje się do jasnego lub ciemnego motywu aplikacji, a ekran logowania nie przeskakuje już, gdy chowa się pasek adresu. Karty i kafelki pulpitu reagują na fokus z klawiatury i na naciśnięcie, a efekt najechania nie zostaje już po stuknięciu. Strony, które zamierzasz otworzyć, zaczynają się wczytywać, gdy tylko wskażesz ich link w menu.`,
+  },
+  {
     version: "4.20.1",
     date: "2026-10-29",
     en: `The telemetry panel is easier to use from the keyboard. Opening it from the account menu now moves the focus into the panel, to its "Telemetry" heading, so the next Tab reaches its controls instead of walking through the whole page first. On narrower screens, where the panel covers the page, the page behind it can no longer be reached with Tab while the panel is open. Closing the panel returns the focus to the page, as before, and a panel that was already open when you reload the page leaves the focus where it was.`,

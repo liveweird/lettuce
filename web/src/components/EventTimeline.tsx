@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Alert, Loader, Text, Timeline } from "@mantine/core";
+import { Alert, Text, Timeline } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "../utils/datetime";
 import { loadErrorMessage } from "../utils/saveError";
@@ -39,7 +40,7 @@ export default function EventTimeline<E extends TimelineEvent>({
 }) {
   const { t, i18n } = useTranslation();
 
-  if (isLoading) return <Loader size="sm" />;
+  if (isLoading) return <LoadingSpinner size="sm" />;
   if (isError) {
     // A failed history load must not masquerade as an empty history (v2.24.0).
     return (

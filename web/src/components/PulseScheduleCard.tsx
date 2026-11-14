@@ -76,7 +76,7 @@ export default function PulseScheduleCard({
   return (
     <Paper withBorder shadow="sm" p="lg" radius="md">
       <Stack gap="sm">
-        <Title order={4}>{t("pulse.admin.scheduleTitle")}</Title>
+        <Title order={2} size="h4">{t("pulse.admin.scheduleTitle")}</Title>
         <Text size="sm" c="dimmed">
           {t("pulse.admin.scheduleHint")}
         </Text>

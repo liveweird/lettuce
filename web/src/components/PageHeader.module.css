@@ -1,5 +1,11 @@
 /* The page header block (PageHeader.tsx, v3.3.0): every page opens with it, so the title
    rank, the description measure, and the action placement are decided once here. */
+/* The header is an inline-size container: its layout answers to its OWN width (a narrow header
+   in a split pane stacks too), not the viewport's — see the actions rules below. */
+.root {
+  container-type: inline-size;
+}
+
 .title {
   min-width: 0;
   max-width: 100%;
@@ -19,21 +25,25 @@
   border-bottom: 1px solid var(--mantine-color-default-border);
 }
 
-/* Below the sm breakpoint the actions drop under the title as a full-width row. */
-@media (max-width: $mantine-breakpoint-sm) {
+/* Below 30em (480px) of HEADER width the actions drop under the title as a full-width row. The
+   threshold is the header's own width, not the viewport's: that is a phone, or the narrow column
+   next to the open telemetry / notifications panel. Every laptop width (≥ ~768px viewport with the
+   240px nav) stays above it, so the actions keep sitting right-aligned beside the title (whose
+   Group wraps by itself when it must). */
+@container (width < 30em) {
   .actions {
     width: 100%;
   }
 }
 
-/* From sm up the actions slot takes the row's remaining width and packs its buttons against the
+/* From 30em of header width up the actions slot takes the row's remaining width and packs its buttons against the
    right edge (v4.15.2). Visually identical to the old shrink-wrapped group — but its own box no
    longer changes when a button arrives late (a manager-only action waiting for the managed-teams
    probe): a shrink-wrapped, right-anchored group grows LEFTWARD, which moves its left edge and is
-   scored as a layout shift of up to the button's width. Placed after the mobile rule, same
+   scored as a layout shift of up to the button's width. The two container rules are exclusive; placed after the narrow rule, same
    specificity as Mantine's Group class (which sets justify-content inline-var style), so the
    doubled class selector makes the intent explicit. */
-@media (min-width: $mantine-breakpoint-sm) {
+@container (width >= 30em) {
   .actions.actions {
     flex: 1 1 auto;
     justify-content: flex-end;

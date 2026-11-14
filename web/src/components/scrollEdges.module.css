@@ -1,0 +1,212 @@
+/* Scroll-edge shadows for horizontally scrolling TABLES (v4.21.0): ResponsiveTable's matrix
+   viewport and DaysOffMonthGrid's wrapper. Source: the "scrollability affordance hints" web
+   guidance, shadow variant — tables need legible content right up to the edge, so a shadow
+   (content tucked under the edge), never a fade. No extra markup: the scroller's own
+   ::before/::after are its first/last flex items, and `position: sticky` keeps them on the edges
+   of the scrollport; the negative margin cancels their width, so they take no room.
+
+   One twist the guide does not cover: a table that pins its first (and last) column has no
+   content "under the scrollport edge" — the content slides under the PINNED CELL. So the pinned
+   cells carry the edge shadow on their own ::after, and the scroller-level pseudo-element is
+   hidden at an edge that a pinned column already owns. Pinned columns:
+     start = a cell marked `data-primary`, else (a row with none) its first cell;
+     end   = a cell marked `data-actions`.
+   Spanning rows (`colspan`: loading / empty states) never pin. Mark BOTH the header and the body
+   cell of a column `primary` (ResponsiveTable.Th/Td) so the two pin the same column.
+
+   Three mechanisms draw the same shadows, by browser support:
+     1. scroll-state container queries (Chrome/Edge 144+) — the shadow shows exactly while there is
+        content beyond that edge;
+     2. a scroll-driven animation (@supports not scroll-state) — the shadow fades in over the first
+        2rem of scrolling away from its edge, and out over the last 2rem;
+     3. attributes `data-more-start`/`data-more-end`, set by hooks/useScrollEdgeFallback.ts, where
+        neither exists.
+   The scroller is used by composing `.scroller` (class-based, in TSX). */
+
+.scroller {
+  display: flex;
+  overflow-x: auto;
+  min-width: 0;
+  container-type: scroll-state;
+  /* How far a shadow reaches into the content, and its ink (black on light, heavier on dark). */
+  --edge-size: 0.75rem;
+  --edge-shadow: light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.55));
+  /* Gradient geometry is physical, so it flips for right-to-left. */
+  --edge-start-at: 0 50%;
+  --edge-end-at: 100% 50%;
+  --edge-start-dir: to right;
+  --edge-end-dir: to left;
+}
+
+.scroller:dir(rtl) {
+  --edge-start-at: 100% 50%;
+  --edge-end-at: 0 50%;
+  --edge-start-dir: to left;
+  --edge-end-dir: to right;
+}
+
+/* The table (the only real child) keeps its own width: 100% of the scroller, or its min-width. */
+.scroller > * {
+  flex: 0 0 auto;
+}
+
+/* ---- Pinned columns (sticky). `:where()` keeps the specificity at one class so a component's
+   own rule (DaysOffMonthGrid's highlighted name cell) can still override the background. ---- */
+.scroller :where(tr > [data-primary]:not([colspan]), tr:not(:has(> [data-primary])) > :first-child:not([colspan])) {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 2;
+  background-color: var(--pin-bg, var(--mantine-color-body));
+  /* A hairline on the pinned edge (the shadow below is the soft part). */
+  box-shadow: inset -1px 0 0 var(--mantine-color-default-border);
+}
+
+.scroller :where(tr > [data-actions]:not([colspan])) {
+  position: sticky;
+  inset-inline-end: 0;
+  z-index: 2;
+  background-color: var(--pin-bg, var(--mantine-color-body));
+  box-shadow: inset 1px 0 0 var(--mantine-color-default-border);
+}
+
+/* A pinned header cell is opaque in the HEADER's tint (theme.module.css exposes it). */
+.scroller thead :where(tr > [data-primary], tr > :first-child, tr > [data-actions]) {
+  --pin-bg: var(--table-head-bg, var(--mantine-color-body));
+}
+
+/* A hovered row keeps its hover colour across the opaque pinned cells. */
+@media (hover: hover) {
+  .scroller tbody tr:hover > :where([data-primary], :first-child, [data-actions]):not([colspan]) {
+    background-color: var(--tr-hover-bg, var(--pin-bg, var(--mantine-color-body)));
+  }
+}
+
+/* ---- The shadows. Hidden (opacity 0) until a mechanism below shows them. ---- */
+.scroller::before,
+.scroller::after,
+.scroller :where(tr > [data-primary]:not([colspan]), tr:not(:has(> [data-primary])) > :first-child:not([colspan]), tr > [data-actions]:not([colspan]))::after {
+  content: "";
+  display: block;
+  pointer-events: none;
+  opacity: 0;
+  inline-size: var(--edge-size);
+}
+
+.scroller::before,
+.scroller::after {
+  position: sticky;
+  flex: none;
+  z-index: 3;
+}
+
+.scroller::before {
+  inset-inline-start: 0;
+  margin-inline-end: calc(-1 * var(--edge-size));
+  background: radial-gradient(farthest-side at var(--edge-start-at), var(--edge-shadow), transparent);
+}
+
+.scroller::after {
+  inset-inline-end: 0;
+  margin-inline-start: calc(-1 * var(--edge-size));
+  background: radial-gradient(farthest-side at var(--edge-end-at), var(--edge-shadow), transparent);
+}
+
+/* A pinned cell's shadow falls onto the content sliding under it. */
+.scroller :where(tr > [data-primary]:not([colspan]), tr:not(:has(> [data-primary])) > :first-child:not([colspan]))::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 100%;
+  background: linear-gradient(var(--edge-start-dir), var(--edge-shadow), transparent);
+}
+
+.scroller :where(tr > [data-actions]:not([colspan]))::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 100%;
+  background: linear-gradient(var(--edge-end-dir), var(--edge-shadow), transparent);
+}
+
+/* A table always pins its first column, and that column owns the start edge; the actions column
+   owns the end edge where there is one. */
+.scroller:has(tr)::before,
+.scroller:has(tr > [data-actions])::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scroller::before,
+  .scroller::after,
+  .scroller :where(tr > [data-primary], tr > :first-child, tr > [data-actions])::after {
+    transition: opacity 0.2s;
+  }
+}
+
+/* 1. Scroll-state container queries. */
+@container scroll-state(scrollable: inline-start) {
+  .scroller::before,
+  .scroller :where(tr > [data-primary]:not([colspan]), tr:not(:has(> [data-primary])) > :first-child:not([colspan]))::after {
+    opacity: 1;
+  }
+}
+
+@container scroll-state(scrollable: inline-end) {
+  .scroller::after,
+  .scroller :where(tr > [data-actions]:not([colspan]))::after {
+    opacity: 1;
+  }
+}
+
+/* 2. Scroll-driven animation where scroll-state queries are missing. The pseudo-elements sit
+   inside the scroller, so scroll() resolves to it; with nothing to scroll the timeline is
+   inactive and the shadows stay hidden. */
+@supports not (container-type: scroll-state) {
+  @supports (animation-timeline: scroll()) {
+    .scroller::before,
+    .scroller :where(tr > [data-primary]:not([colspan]), tr:not(:has(> [data-primary])) > :first-child:not([colspan]))::after {
+      animation: show-edge linear both;
+      animation-timeline: scroll(nearest inline);
+      animation-range: 0 2rem;
+    }
+
+    .scroller::after,
+    .scroller :where(tr > [data-actions]:not([colspan]))::after {
+      animation: show-edge linear both;
+      animation-direction: reverse;
+      animation-timeline: scroll(nearest inline);
+      animation-range: calc(100% - 2rem) 100%;
+    }
+  }
+}
+
+@keyframes show-edge {
+  to {
+    opacity: 1;
+  }
+}
+
+/* 3. Neither: the attributes the hook maintains. */
+@supports not ((container-type: scroll-state) or (animation-timeline: scroll())) {
+  .scroller[data-more-start]::before,
+  .scroller[data-more-start] :where(tr > [data-primary]:not([colspan]), tr:not(:has(> [data-primary])) > :first-child:not([colspan]))::after,
+  .scroller[data-more-end]::after,
+  .scroller[data-more-end] :where(tr > [data-actions]:not([colspan]))::after {
+    opacity: 1;
+  }
+}
+
+/* Forced colors drop gradients and box-shadows: the pinned edge becomes a real border instead. */
+@media (forced-colors: active) {
+  .scroller::before,
+  .scroller::after,
+  .scroller tr > *::after {
+    display: none;
+  }
+
+  .scroller :where(tr > [data-primary]:not([colspan]), tr:not(:has(> [data-primary])) > :first-child:not([colspan])) {
+    border-inline-end: 1px solid CanvasText;
+  }
+
+  .scroller :where(tr > [data-actions]:not([colspan])) {
+    border-inline-start: 1px solid CanvasText;
+  }
+}

@@ -11,11 +11,12 @@ import {
   Button,
   Center,
   Container,
-  Loader,
   Paper,
   PasswordInput,
   Stack,
+  VisuallyHidden,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { matchesField, useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -118,7 +119,7 @@ export default function ChangeUserPassword() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : notFound ? (
             <Stack>
@@ -147,6 +148,19 @@ export default function ChangeUserPassword() {
           ) : (
             <form onSubmit={form.onSubmit(onSubmit)} noValidate>
               <Stack>
+                {/* The account the password belongs to (self or the admin-edited user), so a password
+                    manager saves the new password against the right username. Not a control for
+                    people: visually hidden, read-only, out of the tab order and the a11y tree. */}
+                <VisuallyHidden aria-hidden>
+                  <input
+                    type="text"
+                    name="username"
+                    autoComplete="username"
+                    value={data?.email ?? ""}
+                    readOnly
+                    tabIndex={-1}
+                  />
+                </VisuallyHidden>
                 {isSelf && (
                   <PasswordInput
                     label={t("users.currentPassword")}

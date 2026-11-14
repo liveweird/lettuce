@@ -1,24 +1,52 @@
-/* Hero tiles are links: quiet card at rest, gentle lift on hover (the PersonCard motion). */
+/* Hero tiles are links: quiet card at rest, gentle lift on hover (the PersonCard motion).
+   Every state looks different (v4.21.0): hover = shadow lift (pointer devices only — a touch tap
+   must not leave a stuck "hover"), press = a slight scale-down, keyboard focus = a ring that
+   stays visible in forced colors too. */
 .tile {
   display: block;
   color: inherit;
   text-decoration: none;
   background-color: var(--mantine-color-body);
-  transition: box-shadow 150ms ease;
 }
 
-.tile:hover {
+@media (prefers-reduced-motion: no-preference) {
+  .tile {
+    transition: box-shadow 150ms ease, scale 150ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    box-shadow: var(--mantine-shadow-md);
+  }
+}
+
+/* The dark scheme's filled accent (shade 8) is ~2.2:1 on the dark canvas — under the 3:1
+   non-text guideline — so the ring uses a lighter shade there (the days-off today line's rule). */
+.tile:focus-visible {
+  outline: 2px solid light-dark(var(--mantine-primary-color-filled), var(--mantine-color-lettuce-4));
+  outline-offset: 2px;
   box-shadow: var(--mantine-shadow-md);
+}
+
+.tile:active {
+  box-shadow: var(--mantine-shadow-xs);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tile:active {
+    scale: 0.985;
+  }
+}
+
+@media (forced-colors: active) {
+  .tile:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 /* Always reserve two label lines so the values sit on one baseline across the row,
    whether a label wraps or not (PL labels are longer than EN). */
 .label {
   min-height: 2lh;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tile {
-    transition: none;
-  }
 }

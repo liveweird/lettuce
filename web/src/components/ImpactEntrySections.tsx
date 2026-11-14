@@ -6,6 +6,7 @@ import type { ParseKeys } from "i18next";
 import { IMPACT_SECTIONS, type ImpactSectionField } from "../utils/impactLogForm";
 import MarkdownView from "./MarkdownView";
 import ProseBox from "./ProseBox";
+import chevron from "./DisclosureChevron.module.css";
 
 // One collapsible section: the label doubles as the toggle (the RequesterMessage idiom —
 // rotating chevron + aria-expanded), starting EXPANDED; the state is per-section and local.
@@ -21,7 +22,8 @@ function Section({ labelKey, value }: { labelKey: ParseKeys; value: string }) {
       >
         <IconChevronRight
           size={14}
-          style={{ transform: opened ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }}
+          className={`${chevron.chevron} ${chevron.quarterTurn}`}
+          data-open={opened || undefined}
         />
         <Text size="sm" fw={500} component="span">
           {t(labelKey)}

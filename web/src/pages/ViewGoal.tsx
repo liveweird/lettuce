@@ -266,7 +266,7 @@ export default function ViewGoal() {
                         // pre-wrap (not markdown).
                         <Input.Wrapper label={t("goal.summary")}>
                           <ProseBox>
-                            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+                            <Text size="sm" style={{ whiteSpace: "pre-wrap", maxInlineSize: "var(--lettuce-reading-width)" }}>
                               {data.summary}
                             </Text>
                           </ProseBox>

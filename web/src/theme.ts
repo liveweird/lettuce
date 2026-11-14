@@ -95,8 +95,9 @@ export const theme = createTheme({
     fontFamily: sans,
     fontWeight: "600",
     textWrap: "balance",
-    // Pages title themselves with order={2}: 1.5rem gives the page title clear rank over
-    // section (h3) and card (h4) titles without the stock 1.625rem's poster feel.
+    // Page titles are h1 elements at the h2 SIZE (`order={1} size="h2"`, v4.21.0): 1.5rem gives the
+    // page title clear rank over section (h3-size) and card (h4-size) titles without the stock
+    // 1.625rem's poster feel. The h1 size itself is unused by pages.
     sizes: {
       h1: { fontSize: "1.75rem", lineHeight: "1.25" },
       h2: { fontSize: "1.5rem", lineHeight: "1.3" },

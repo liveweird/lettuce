@@ -4,9 +4,9 @@ import { renderWithProviders, screen } from "../test/render";
 import PageHeader from "./PageHeader";
 
 describe("PageHeader", () => {
-  test("renders the title as a level-2 heading carrying the tour anchor", () => {
+  test("renders the title as the page's level-1 heading carrying the tour anchor", () => {
     renderWithProviders(<PageHeader title="Users" tourId="config-users" />);
-    const heading = screen.getByRole("heading", { level: 2, name: "Users" });
+    const heading = screen.getByRole("heading", { level: 1, name: "Users" });
     expect(heading).toHaveAttribute("data-tour", "config-users");
     expect(heading.closest("header")).not.toBeNull();
   });

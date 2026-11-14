@@ -1,0 +1,41 @@
+/* Rendered markdown reads at a comfortable measure (v4.21.0): capped near 75 characters per line
+   (--lettuce-reading-width, src/index.css), left-aligned in its box. Headings, lists, quotes and
+   code inside are all part of the capped column. */
+.prose {
+  max-inline-size: var(--lettuce-reading-width);
+}
+
+/* Markdown headings are demoted one level (MarkdownView.tsx) so the page keeps its single h1;
+   Mantine's Typography sizes headings by TAG, which would shrink every one of them a step. These
+   rules give each heading back the size and line height of the level it was WRITTEN at. Mantine's
+   own rules are :where(hN) (class-level specificity), so the attribute selector outranks them
+   whatever the stylesheet order. */
+.prose [data-md-level="1"] {
+  font-size: var(--mantine-h1-font-size);
+  line-height: var(--mantine-h1-line-height);
+}
+
+.prose [data-md-level="2"] {
+  font-size: var(--mantine-h2-font-size);
+  line-height: var(--mantine-h2-line-height);
+}
+
+.prose [data-md-level="3"] {
+  font-size: var(--mantine-h3-font-size);
+  line-height: var(--mantine-h3-line-height);
+}
+
+.prose [data-md-level="4"] {
+  font-size: var(--mantine-h4-font-size);
+  line-height: var(--mantine-h4-line-height);
+}
+
+.prose [data-md-level="5"] {
+  font-size: var(--mantine-h5-font-size);
+  line-height: var(--mantine-h5-line-height);
+}
+
+.prose [data-md-level="6"] {
+  font-size: var(--mantine-h6-font-size);
+  line-height: var(--mantine-h6-line-height);
+}

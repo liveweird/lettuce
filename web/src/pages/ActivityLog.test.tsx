@@ -113,7 +113,7 @@ describe("ActivityLog page", () => {
 
     expect(await screen.findByText("Progress updated from 10 to 20.")).toBeInTheDocument();
     expect(urls[0]).toBe("/api/v1/users/7/activity?page=1&pageSize=20&sort=-createdAt");
-    expect(screen.getByRole("heading", { level: 2, name: "My activity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "My activity" })).toBeInTheDocument();
     expect(screen.getByText("Shared feedback with Ben Bystander until Dec 31, 2026")).toBeInTheDocument();
     expect(screen.getByText("Withdrew Sue Sharer's share of a 1:1 meeting with Cy")).toBeInTheDocument();
     expect(screen.getByText('Recorded days off Aug 3, 2026 – Aug 7, 2026 (5 days, paid, "Vacation" pool)')).toBeInTheDocument();

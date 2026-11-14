@@ -54,6 +54,7 @@ The SPA is expected to fail gracefully under every failure class — render cras
 - **No silent blanks (v2.24.0)**: a failed load must not look like an empty result. The history components share the `components/EventTimeline.tsx` shell (v2.30.0 — spinner, `loadErrorMessage` Alert, empty note, the Timeline; each area keeps only its query + `describeEvent`), and `TeamKpiChart` renders a `loadErrorMessage` Alert on error; the picker hooks (`useAllUsers`/`useManagerOptions`/`useManagedReports`/`useDictionaryOptions`) expose an error flag that FORM pickers surface as the Select's `error` (`common.error.optionsFailed`) — filter pickers deliberately degrade to unfiltered instead. `PulseSettingsCard` flags a failed settings load (its form shows defaults otherwise). Dictionary's saved-but-stale state (PUT committed, re-read failed) freezes the editor behind a reload prompt — a resubmit without the minted ids would insert duplicates.
 - **Route transitions stay inside the shell (v2.24.0)**: the `Suspense` around the Shell's `<Outlet />` keeps header/nav mounted while a lazy page chunk loads; the App-level Suspense only covers the unauthenticated pages.
 - **First route preloaded (v4.15.1)**: pages are `lazyPage(() => import(...))` (`lazyPage.ts`), and `main.tsx` preloads the first matched route (`routePreload.ts`, capped at 1 s) before the first render — a lazy page that suspends on first render commits ≥ 300 ms after its fallback (React's fallback throttle); navigations were never affected. New pages use `lazyPage`, never bare `lazy`.
+- **Intent preload (v4.21.0)**: nav links warm the target's lazy chunk on pointer-enter/focus via `useIntentPreload()` (`routePreload.ts`); the route table is injected by the Shell, never imported — detail in `web/docs/page-structure.md`.
 
 ## Sidebar active destination
 
@@ -68,6 +69,13 @@ Focused AppNav tests and `e2e/visual/tests/sidebar.spec.ts` cover this behavior.
 **MANDATORY read before building or changing any list, table, person-card grid, detail page or form: `web/docs/list-pages.md`** — the shared list scaffolding (`ResponsiveTable` and its densities, `usePagedSort`/`PaginationBar`, persisted list settings, the row/cell visual language, the v3.3.0 page blocks, back affordances, delete confirms, success toasts and error alerts, theme-owned searchable-select filtering, feedback link builders, the UserDetails/OrgChart/FeedbackTable notes, and their testing notes). One rule stays here because it applies to every page:
 
 - **Identity is never rendered from the URL (v2.35.0, the monkey-test SPA-1 fix)**: the create screens (1:1/goal/review/KPI/feedback, plus Ask/Request) accept only the numeric id from the URL and resolve the display name from the caller's own fetched pool (`useManagedReports`/`useAllUsers`/the managed-teams query — each exposes a `*Ready` flag); an id outside the pool falls back to the picker (creates) or bounces to the default list (Ask/Request) once the pool settles, and the `*Name` query params are gone from the link builders. View/edit headers render the fetched record's names only; the per-person drill-down headings resolve the name with one `users?id=` lookup (`useUserDisplayName`, v4.15.0 — not the whole pool). A new prefilled screen must follow this — a URL-carried name could label the form as one person while the id acts on another.
+
+## Page structure & accessibility (v4.21.0)
+
+**MANDATORY read before adding a page, a heading, a spinner or an auth form: `web/docs/page-structure.md`** — heading levels, the Shell's title + focus-on-navigation hook, spinners, intent preload, sign-in autofill. Always on:
+
+- **One `h1` per page** — `<Title order={1} size="h2">` (`PageHeader` does it); sections are `order={2}` and up, never a skipped level.
+- **Spinners are `components/LoadingSpinner.tsx`** — never a bare Mantine `<Loader>`.
 
 ## Per-user feature flags (v1.53.0)
 

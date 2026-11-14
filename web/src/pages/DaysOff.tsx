@@ -6,14 +6,14 @@ import {
   Button,
   Center,
   Group,
-  Loader,
   SegmentedControl,
   Select,
   Stack,
   Tabs,
   Text,
-  Tooltip
+  Tooltip,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { IconChevronLeft, IconChevronRight, IconPlus, IconShare } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
@@ -218,7 +218,7 @@ function CalendarTab({ isManager }: { isManager: boolean }) {
         </Alert>
       ) : isLoading || !data ? (
         <Center py="xl">
-          <Loader />
+          <LoadingSpinner />
         </Center>
       ) : data.users.length === 0 ? (
         <Text size="sm" c="dimmed">

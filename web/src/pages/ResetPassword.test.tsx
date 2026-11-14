@@ -19,6 +19,17 @@ describe("ResetPassword page", () => {
     await user.click(screen.getByRole("button", { name: /send new password/i }));
   }
 
+  test("the email field carries the autofill contract and the page is titled", () => {
+    renderWithProviders(<ResetPassword />, { route: "/reset-password" });
+
+    const email = screen.getByLabelText(/email/i);
+    expect(email).toHaveAttribute("type", "email");
+    expect(email).toHaveAttribute("name", "email");
+    expect(email).toHaveAttribute("autocomplete", "username");
+    expect(email).toHaveAttribute("spellcheck", "false");
+    expect(document.title).toMatch(/ · Lettuce$/);
+  });
+
   test("posts the email and shows the neutral confirmation on 202", async () => {
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 202 }));

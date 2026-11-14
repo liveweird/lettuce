@@ -21,14 +21,15 @@ export type PageHeaderProps = {
 };
 
 /**
- * The one page header (v3.3.0): back link → h2 title (+ badge) with the actions on the right →
- * description. Pages title themselves with `order={2}` — tests pin the level — and the
+ * The one page header (v3.3.0): back link → h1 title (+ badge) with the actions on the right →
+ * description. Pages title themselves with `order={1}` (v4.21.0 — one h1 per page, styled with
+ * `size="h2"`; tests pin the level) and the
  * primary action always lives here, never below the list. Rendered as `<header>` inside
  * `<main>`, so it is not a landmark (the app header keeps the `banner` role).
  */
 export default function PageHeader({ title, tourId, description, back, badge, actions, sticky = false, mb }: PageHeaderProps) {
   return (
-    <Box component="header" className={sticky ? classes.sticky : undefined} mb={mb}>
+    <Box component="header" className={sticky ? `${classes.root} ${classes.sticky}` : classes.root} mb={mb}>
       <Stack gap={4}>
         {back && (
           <Anchor component={RouterLink} to={back.to} size="sm">
@@ -37,7 +38,7 @@ export default function PageHeader({ title, tourId, description, back, badge, ac
         )}
         <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
           <Group gap="sm" align="center" wrap="wrap" style={{ minWidth: 0, maxWidth: "100%" }}>
-            <Title order={2} data-tour={tourId} className={classes.title}>
+            <Title order={1} size="h2" data-tour={tourId} className={classes.title}>
               {title}
             </Title>
             {badge}

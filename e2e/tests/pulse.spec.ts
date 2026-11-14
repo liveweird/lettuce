@@ -369,7 +369,7 @@ test("a respondent shares the team's results with an outsider, who reads them un
   await expect(shared.getByRole("button", { name: "Share", exact: true })).toHaveCount(0);
   // The Shared screen lists it under its frozen label.
   await page.goto("/shares");
-  await expect(page.getByRole("heading", { level: 2, name: "Shared" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Shared" })).toBeVisible();
   await expect(page.locator("tr", { hasText: "Pulse survey results of AAA" }).first()).toBeVisible();
   await logout(page);
 

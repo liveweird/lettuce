@@ -6,12 +6,12 @@ import {
   Button,
   Center,
   Group,
-  Loader,
   Select,
   Stack,
   Text,
   Title,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import ResponsiveTable from "../components/ResponsiveTable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -179,9 +179,9 @@ export default function TeamDetails() {
   if (teamLoading) {
     return (
       <Stack gap="md">
-        <Title order={2}>{t("teams.detailsTitle")}</Title>
+        <Title order={1} size="h2">{t("teams.detailsTitle")}</Title>
         <Center py="xl">
-          <Loader />
+          <LoadingSpinner />
         </Center>
       </Stack>
     );
@@ -190,7 +190,7 @@ export default function TeamDetails() {
   if (teamNotFound || teamIsError) {
     return (
       <Stack gap="md">
-        <Title order={2}>{t("teams.detailsTitle")}</Title>
+        <Title order={1} size="h2">{t("teams.detailsTitle")}</Title>
         <Alert color="red" variant="light">
           {teamNotFound
             ? t("teams.teamNotFound")
@@ -280,7 +280,7 @@ export default function TeamDetails() {
           UI); everyone else gets the roster alone. */}
       {isManager && (
         <>
-          <Title order={3}>{t("teams.subordinates")}</Title>
+          <Title order={2} size="h3">{t("teams.subordinates")}</Title>
           <Text size="sm" c="dimmed">
             {t("dashboard.teamSubordinatesHint")}
           </Text>
@@ -296,7 +296,7 @@ export default function TeamDetails() {
 
       {showRoster && (
         <>
-      <Title order={3}>{t("teams.members")}</Title>
+      <Title order={2} size="h3">{t("teams.members")}</Title>
 
       {canManage && (
         <Group align="flex-end" gap="sm">

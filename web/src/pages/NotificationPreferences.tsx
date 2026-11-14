@@ -7,13 +7,13 @@ import {
   Center,
   Container,
   Group,
-  Loader,
   Paper,
   Stack,
   Switch,
   Text,
   Title,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
 import { FEATURES, getUserId, isAdmin, type Feature } from "../api/session";
@@ -220,10 +220,10 @@ export default function NotificationPreferences() {
     <Container size="md" px={0}>
       <Paper withBorder shadow="sm" p="md" radius="md">
         <Stack>
-          <Title order={2}>{t("notificationPreferences.title")}</Title>
+          <Title order={1} size="h2">{t("notificationPreferences.title")}</Title>
           {isLoading ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : !ready ? (
             <>

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import MarkdownView from "./MarkdownView";
+import classes from "./MarkdownView.module.css";
 
 function renderView(markdown: string) {
   return render(
@@ -28,5 +29,19 @@ describe("MarkdownView", () => {
     renderView("| a | b |\n| - | - |\n| 1 | :tada: |");
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByText("🎉")).toBeInTheDocument();
+  });
+
+  test("the rendered column is capped at the reading width", () => {
+    renderView("A paragraph of prose.");
+    expect(screen.getByText("A paragraph of prose.").parentElement).toHaveClass(classes.prose);
+  });
+
+  test("demotes headings one level so the page keeps its single h1", () => {
+    renderView("# Title\n\n### Deeper\n\n###### Last");
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    const title = screen.getByRole("heading", { level: 2, name: "Title" });
+    expect(title).toHaveAttribute("data-md-level", "1");
+    expect(screen.getByRole("heading", { level: 4, name: "Deeper" })).toHaveAttribute("data-md-level", "3");
+    expect(screen.getByRole("heading", { level: 6, name: "Last" })).toHaveAttribute("data-md-level", "6");
   });
 });

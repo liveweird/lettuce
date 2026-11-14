@@ -5,7 +5,9 @@ import type { DaysOffCalendarEntry, DaysOffCalendarResponse, DaysOffCalendarUser
 import { getUserId } from "../api/session";
 import { todayIsoDate } from "../utils/datetime";
 import { formatDays } from "../utils/daysOffCost";
+import { useScrollEdgeFallback } from "../hooks/useScrollEdgeFallback";
 import classes from "./DaysOffMonthGrid.module.css";
+import edges from "./scrollEdges.module.css";
 
 // The month's ISO dates, 1..last day.
 function monthDates(month: string): string[] {
@@ -82,6 +84,8 @@ export default function DaysOffMonthGrid({
   const todayClass = (iso: string, className: string) => (iso === today ? ` ${className}` : "");
   const idPrefix = useId();
   const highlightRef = useRef<HTMLTableRowElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useScrollEdgeFallback(wrapperRef);
   const hasHighlightedRow = highlightUserId != null && data.users.some((u) => u.userId === highlightUserId);
   useEffect(() => {
     // happy-dom (and very old browsers) lack scrollIntoView; the highlight itself still renders.
@@ -98,7 +102,8 @@ export default function DaysOffMonthGrid({
         {t("common.table.scrollHint")}
       </Text>
       <div
-        className={classes.wrapper}
+        ref={wrapperRef}
+        className={`${classes.wrapper} ${edges.scroller}`}
         tabIndex={0}
         role="region"
         aria-label={t("common.table.scrollRegion")}
@@ -106,7 +111,7 @@ export default function DaysOffMonthGrid({
       <table className={classes.grid} aria-label={t("daysOff.calendar.gridAria")}>
         <thead>
           <tr>
-            <th className={classes.nameCell} scope="col">
+            <th className={classes.nameCell} scope="col" data-primary>
               {t("daysOff.calendar.personColumn")}
             </th>
             {dates.map((iso) => {
@@ -143,6 +148,7 @@ export default function DaysOffMonthGrid({
                 <th
                   className={`${classes.nameCell}${highlighted ? ` ${classes.highlightName}` : ""}`}
                   scope="row"
+                  data-primary
                   // The row header's accessible name is the person's name ONLY — not the team and
                   // "Shared by" lines, nor the row action's own label that lives inside it.
                   aria-labelledby={nameId}

@@ -163,7 +163,7 @@ describe("Dictionary page", () => {
     );
     renderPage();
 
-    expect(screen.getByRole("heading", { level: 2, name: "Career paths" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Career paths" })).toBeInTheDocument();
     expect(document.querySelector(".mantine-Loader-root")).not.toBeNull();
     resolveList(jsonResponse(200, { items: ENTRIES }));
     expect(await screen.findByText("Engineering")).toBeInTheDocument();

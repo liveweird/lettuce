@@ -75,7 +75,7 @@ export default function TeamKpis() {
         <Anchor component={RouterLink} to={backLinkTo} size="sm">
           {backLinkLabel}
         </Anchor>
-        <Title order={2}>
+        <Title order={1} size="h2">
           {t("teamKpi.kpisOf", { team: teamLabel })}
         </Title>
         <Text size="sm" c="dimmed">

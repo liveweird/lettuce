@@ -523,7 +523,7 @@ describe("PulseResults — sharing (v4.12.0)", () => {
     expect(await screen.findByRole("heading", { name: "BBB" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "CCC" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "AAA" })).toBeNull();
-    expect(screen.getAllByRole("heading", { level: 4 })).toHaveLength(2);
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(2);
     // The list is fed by the ACTIVE withMe shares of the pulse kind only.
     expect(
       mockFetch.mock.calls.some(([url]) =>

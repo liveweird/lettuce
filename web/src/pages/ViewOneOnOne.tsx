@@ -180,7 +180,7 @@ export default function ViewOneOnOne() {
                                   </Text>
                                 </ResponsiveTable.Td>
                                 <ResponsiveTable.Td label={t("common.field.content")} primary>
-                                  <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+                                  <Text size="sm" maw="75ch" style={{ whiteSpace: "pre-wrap" }}>
                                     {item.content}
                                   </Text>
                                   {item.copiedFromId != null && (
@@ -262,7 +262,7 @@ function Section({
 }) {
   return (
     <Stack gap="xs">
-      <Title order={4}>{title}</Title>
+      <Title order={2} size="h4">{title}</Title>
       {children || (
         <Text c="dimmed" size="sm">
           {empty}
@@ -277,7 +277,7 @@ function NumberedList({ items }: { items: string[] }) {
     <ol style={{ margin: 0, paddingInlineStart: "1.5rem" }}>
       {items.map((content, index) => (
         <li key={index}>
-          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+          <Text size="sm" maw="75ch" style={{ whiteSpace: "pre-wrap" }}>
             {content}
           </Text>
         </li>

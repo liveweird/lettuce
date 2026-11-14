@@ -20,7 +20,7 @@ describe("Changelog", { timeout: 15_000 }, () => {
 
   test("renders one timeline entry per version with its date", () => {
     renderWithProviders(<Changelog />, { route: "/changelog" });
-    expect(screen.getByRole("heading", { level: 2, name: "Changelog" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Changelog" })).toBeInTheDocument();
     // One "v<version>" heading per entry — a single count assertion instead of a per-entry loop.
     expect(screen.getAllByText(/^v\d/)).toHaveLength(CHANGELOG.length);
     // Spot-check the newest entry's date renders somewhere in the timeline.
@@ -36,7 +36,7 @@ describe("Changelog", { timeout: 15_000 }, () => {
   test("renders the Polish bodies when the language is pl", async () => {
     await i18n.changeLanguage("pl");
     renderWithProviders(<Changelog />, { route: "/changelog" });
-    expect(screen.getByRole("heading", { level: 2, name: "Historia zmian" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Historia zmian" })).toBeInTheDocument();
     expect(screen.getByText(/Pierwsze wydanie/)).toBeInTheDocument();
     expect(screen.queryByText(/Initial release/)).not.toBeInTheDocument();
   });

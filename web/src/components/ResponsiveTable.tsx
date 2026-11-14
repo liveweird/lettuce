@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Table, type TableProps } from "@mantine/core";
 import { useTranslation } from "react-i18next";
+import { useScrollEdgeFallback } from "../hooks/useScrollEdgeFallback";
 import classes from "./ResponsiveTable.module.css";
+import edges from "./scrollEdges.module.css";
 
 type ResponsiveTableProps = TableProps & {
   /** Ordinary lists stack within their available container; comparison matrices scroll. */
@@ -34,6 +36,10 @@ function ResponsiveTable({
     return () => observer.disconnect();
   }, [mode]);
 
+  // Edge shadows + pinned columns need scroll-state queries or scroll-driven animations; where a
+  // browser has neither, this keeps the data-more-* attributes the CSS fallback reads.
+  useScrollEdgeFallback(viewportRef, mode === "matrix");
+
   const showHint = mode === "matrix" && overflowing;
   return (
     <div
@@ -45,7 +51,7 @@ function ResponsiveTable({
       {showHint && <div className={classes.scrollHint}>{t("common.table.scrollHint")}</div>}
       <div
         ref={viewportRef}
-        className={classes.viewport}
+        className={mode === "matrix" ? `${classes.viewport} ${edges.scroller}` : classes.viewport}
         tabIndex={mode === "matrix" ? 0 : undefined}
         role={mode === "matrix" ? "region" : undefined}
         aria-label={mode === "matrix" ? t("common.table.scrollRegion") : undefined}

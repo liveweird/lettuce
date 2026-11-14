@@ -3,6 +3,7 @@ import { AppShell, Divider, Indicator, Menu, NavLink, Stack, Text, Tooltip } fro
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import VersionStamp from "../components/VersionStamp";
+import { useIntentPreload } from "../hooks/useIntentPreload";
 import { isGroup, type NavGroup, type NavLeaf, type NavSection } from "./navModel";
 import classes from "./AppNav.module.css";
 
@@ -19,6 +20,7 @@ type LeafProps = {
 
 function NavLeafLink({ leaf, active, rail, quiet = false, onNavigate, setActiveTarget }: LeafProps) {
   const { t } = useTranslation();
+  const intentPreload = useIntentPreload();
   const Icon = leaf.icon;
   const label = t(leaf.label);
   if (rail) {
@@ -36,6 +38,7 @@ function NavLeafLink({ leaf, active, rail, quiet = false, onNavigate, setActiveT
           data-tour={leaf.tourId}
           className={classes.railLink}
           onClick={onNavigate}
+          {...intentPreload(leaf.to)}
           ref={active ? setActiveTarget : undefined}
         />
       </Tooltip>
@@ -52,6 +55,7 @@ function NavLeafLink({ leaf, active, rail, quiet = false, onNavigate, setActiveT
       data-tour={leaf.tourId}
       className={quiet ? classes.quietLink : undefined}
       onClick={onNavigate}
+      {...intentPreload(leaf.to)}
       ref={active ? setActiveTarget : undefined}
     />
   );
@@ -73,6 +77,7 @@ function NavGroupLink({
   revealActive: () => void;
 }) {
   const { t } = useTranslation();
+  const intentPreload = useIntentPreload();
   const childActive = entry.children.some((c) => c.to === activeTo);
   const [opened, setOpened] = useState(childActive);
   // Auto-expand when a child route becomes active, while staying manually collapsible afterwards.
@@ -119,6 +124,7 @@ function NavGroupLink({
               label={t(label)}
               leftSection={<Icon size={18} stroke={1.5} />}
               onClick={onNavigate}
+              {...intentPreload(to)}
               ref={active ? setActiveTarget : undefined}
             />
           );
@@ -141,6 +147,7 @@ function NavGroupMenu({
   setActiveTarget: SetActiveTarget;
 }) {
   const { t } = useTranslation();
+  const intentPreload = useIntentPreload();
   const label = t(entry.label);
   const GroupIcon = entry.icon;
   const childActive = entry.children.some((c) => c.to === activeTo);
@@ -170,6 +177,7 @@ function NavGroupMenu({
             leftSection={<Icon size={16} stroke={1.5} />}
             aria-current={to === activeTo ? "page" : undefined}
             onClick={onNavigate}
+            {...intentPreload(to)}
           >
             {t(childLabel)}
           </Menu.Item>

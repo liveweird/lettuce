@@ -82,7 +82,7 @@ test("a manager sees only the readable part of a report's activity log, HR sees 
   //    "My activity" — the draft's label links to the document.
   await login(page, employee.email, employee.password);
   await Promise.all([page.waitForResponse(isActivityOf(employee.id)), page.goto("/activity")]);
-  await expect(page.getByRole("heading", { level: 2, name: "My activity" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "My activity" })).toBeVisible();
   await expect(page.getByText("Signed in", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(draftRow)).toBeVisible();
   await expect(page.getByRole("link", { name: `From ${employee.name} to ${manager.name}` })).toBeVisible();
@@ -96,7 +96,7 @@ test("a manager sees only the readable part of a report's activity log, HR sees 
     page.waitForResponse(isActivityOf(employee.id)),
     page.getByRole("link", { name: `Activity log of ${employee.name}` }).click(),
   ]);
-  await expect(page.getByRole("heading", { level: 2, name: `Activity of ${employee.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: `Activity of ${employee.name}` })).toBeVisible();
   await expect(page.getByText("Signed in", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(draftRow)).toHaveCount(0);
   // No Feedback area pill either (scoped to the page body — the nav also says "Feedback").
