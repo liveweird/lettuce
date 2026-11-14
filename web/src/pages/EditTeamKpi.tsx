@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Center, Container, Loader, Paper, Stack, Tabs, Text } from "@mantine/core";
+import { Alert, Button, Center, Container, Paper, Stack, Tabs, Text } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -143,7 +144,7 @@ export default function EditTeamKpi() {
           <Stack>
             {isLoading ? (
               <Center py="xl">
-                <Loader />
+                <LoadingSpinner />
               </Center>
             ) : isError ? (
               <>

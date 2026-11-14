@@ -3,6 +3,7 @@ import { Badge, Button, Group, Paper } from "@mantine/core";
 import { IconChevronDown, IconFilter } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useFilterPanel } from "../hooks/useFilterPanel";
+import chevron from "./DisclosureChevron.module.css";
 
 /** The "Filters" toggle with its active-count badge and `aria-expanded` state. */
 export function FilterToggle({
@@ -36,10 +37,8 @@ export function FilterToggle({
           )}
           <IconChevronDown
             size={16}
-            style={{
-              transform: open ? "rotate(180deg)" : "none",
-              transition: "transform 150ms ease",
-            }}
+            className={`${chevron.chevron} ${chevron.halfTurn}`}
+            data-open={open || undefined}
           />
         </Group>
       }

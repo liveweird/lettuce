@@ -26,6 +26,18 @@ body,
   outline: none;
 }
 
+/* The page h1 takes focus after a navigation (hooks/usePageTitleAndFocus.ts). A keyboard user
+   sees where they landed in the theme's own ring instead of the browser default; a mouse
+   navigation shows none (:focus-visible). */
+#main-content h1[tabindex="-1"]:focus {
+  outline: none;
+}
+#main-content h1[tabindex="-1"]:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+  border-radius: var(--mantine-radius-xs);
+}
+
 /* The canvas colour before Mantine's variables mount (public/color-scheme.js stamps the
    scheme attribute first, so a dark-scheme user never sees a white flash). The two hexes
    duplicate LIGHT_TOKENS.canvas / DARK_TOKENS.canvas (src/themeVariables.ts) — the bundle's
@@ -33,4 +45,36 @@ body,
 html {
   color-scheme: light dark;
   background-color: light-dark(#f8f9fb, #1f1f1f);
+}
+
+/* A scheme CHOSEN in the app (public/color-scheme.js stamps the attribute at first paint, Mantine
+   keeps it current) must reach the browser-drawn surfaces too — scrollbars, form controls,
+   overscroll — not just the app's own colours: otherwise a user whose OS is dark but who picked
+   light gets dark scrollbars on a light page. Mantine's own baseline sets the same property from
+   --mantine-color-scheme once its stylesheet is in; stating it here keeps this file correct on
+   its own (and above `light dark`, which only describes the "follow the OS" case). */
+:root[data-mantine-color-scheme="light"] {
+  color-scheme: light;
+}
+
+:root[data-mantine-color-scheme="dark"] {
+  color-scheme: dark;
+}
+
+/* Native controls (checkbox ticks, range sliders, progress, file inputs) take the brand accent. */
+:root {
+  accent-color: var(--mantine-primary-color-filled);
+}
+
+/* Reading width and wrapping (v4.21.0). Long-form prose is capped near 75 characters per line
+   (typography guide: stay under ~80) — MarkdownView and the pre-wrap free-text blocks read it
+   through this token. `text-wrap: pretty` avoids one-word last lines in running text; it is
+   zero-specificity so any component can still override it, it deliberately skips headings (the
+   theme already balances those), and it is a progressive enhancement (ignored where unsupported). */
+:root {
+  --lettuce-reading-width: 75ch;
+}
+
+:where(p, li, blockquote, dd, figcaption) {
+  text-wrap: pretty;
 }

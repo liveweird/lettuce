@@ -12,7 +12,6 @@ import {
   Container,
   Fieldset,
   Group,
-  Loader,
   Modal,
   MultiSelect,
   Paper,
@@ -20,6 +19,7 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm, type UseFormReturnType } from "@mantine/form";
 import { IconPlus } from "@tabler/icons-react";
@@ -621,7 +621,7 @@ export default function EditSuccessionNomination() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : isError || closed || missingNomination ? (
             <Stack>

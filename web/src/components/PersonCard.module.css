@@ -1,18 +1,30 @@
 /* The card is a container (v3.4.0): its body switches to two columns from 30rem of card
    width (PersonCardStats.module.css), so the layout follows the grid cell, not the viewport.
-   Gentle lift on hover — the only motion the cards need. Respects reduced-motion. */
+   Gentle lift on hover — the only motion the cards need. v4.21.0: the lift is for pointer
+   devices only (`hover: hover`), it also follows keyboard focus of any control INSIDE the card
+   (the card itself is not focusable, so `:has(:focus-visible)`), and pressing a control inside
+   settles the card back down. Respects reduced-motion (no transition at all). */
 .card {
   container-type: inline-size;
   background-color: var(--mantine-color-body);
-  transition: box-shadow 150ms ease;
 }
 
-.card:hover {
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    transition: box-shadow 150ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .card:hover {
+    box-shadow: var(--mantine-shadow-md);
+  }
+}
+
+.card:has(:focus-visible) {
   box-shadow: var(--mantine-shadow-md);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    transition: none;
-  }
+.card:has(:is(a, button):active) {
+  box-shadow: var(--mantine-shadow-xs);
 }

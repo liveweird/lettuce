@@ -1,4 +1,5 @@
-import { Alert, Badge, Button, Center, Group, Loader, Paper, Stack, Text, Timeline } from "@mantine/core";
+import { Alert, Badge, Button, Center, Group, Paper, Stack, Text, Timeline } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { CareerPosition } from "../api/career";
@@ -63,7 +64,7 @@ export default function CareerTimeline({
         </Alert>
       ) : isLoading || !positions ? (
         <Center py="md">
-          <Loader size="sm" />
+          <LoadingSpinner size="sm" />
         </Center>
       ) : newestFirst.length === 0 ? (
         <Text size="sm" c="dimmed" ta="center" py="md">

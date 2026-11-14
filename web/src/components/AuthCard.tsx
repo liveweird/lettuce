@@ -1,6 +1,6 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Center, Group, Paper, Stack, Title } from "@mantine/core";
+import { Center, Group, Paper, Stack, Text, Title } from "@mantine/core";
 import BrandLogo from "./BrandLogo";
 import VersionStamp from "./VersionStamp";
 
@@ -13,16 +13,23 @@ interface Props {
 /**
  * The shared scaffold of the unauthenticated pages (Login, ResetPassword): a soft brand-tinted
  * canvas (scheme-aware — a faint radial green wash) holding a lifted card with the brand
- * lockup, a dimmed page title, and the plain VersionStamp underneath (deliberately not a
+ * lockup (plain text — the title below is the page's h1), a dimmed page title, and the plain VersionStamp underneath (deliberately not a
  * link — /changelog is behind auth). The child structure and all text are pinned by tests;
  * only the frame is decorative.
  */
 export default function AuthCard({ title, children }: Props) {
   const { t } = useTranslation();
+  const brand = t("appShell.brand");
+
+  // The unauthenticated pages have no Shell to derive the document title from; the Shell takes
+  // over once the user is signed in, so nothing is restored on unmount.
+  useEffect(() => {
+    document.title = `${title} · ${brand}`;
+  }, [title, brand]);
 
   return (
     <Center
-      h="100vh"
+      mih="100dvh"
       p="md"
       style={{
         background:
@@ -36,9 +43,12 @@ export default function AuthCard({ title, children }: Props) {
           <Stack>
             <Stack align="center" gap="xs">
               <BrandLogo size={48} />
-              <Title order={2}>{t("appShell.brand")}</Title>
+              {/* Not a heading: the page's one h1 is the title below. Same look as the former h2. */}
+              <Text component="p" fz="h2" fw={600} lh="h2" m={0}>
+                {brand}
+              </Text>
             </Stack>
-            <Title order={3} ta="center" c="dimmed" fw={500} size="h4">
+            <Title order={1} ta="center" c="dimmed" fw={500} size="h4">
               {title}
             </Title>
             {children}

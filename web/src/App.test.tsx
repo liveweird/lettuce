@@ -41,7 +41,7 @@ describe("App shell", () => {
     test("renders the brand and the dashboard at /", async () => {
       renderApp("/");
       expect(
-        await screen.findByRole("heading", { level: 2, name: "Dashboard" }),
+        await screen.findByRole("heading", { level: 1, name: "Dashboard" }),
       ).toBeInTheDocument();
       expect(screen.getByText("Lettuce")).toBeInTheDocument();
     });
@@ -49,7 +49,7 @@ describe("App shell", () => {
     test("an unmatched URL renders the not-found page inside the shell", async () => {
       renderApp("/definitely/not-a-page");
       expect(
-        await screen.findByRole("heading", { level: 2, name: "Page not found" }),
+        await screen.findByRole("heading", { level: 1, name: "Page not found" }),
       ).toBeInTheDocument();
       // The Shell mounted around it — before v2.22.0 an unmatched URL rendered nothing at all.
       expect(screen.getByText("Lettuce")).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("App shell", () => {
       await user.click(await screen.findByText("Config"));
       await user.click(await screen.findByRole("link", { name: /^users$/i }));
       expect(
-        await screen.findByRole("heading", { level: 2, name: "Users" }),
+        await screen.findByRole("heading", { level: 1, name: "Users" }),
       ).toBeInTheDocument();
     });
 
@@ -116,7 +116,7 @@ describe("App shell", () => {
         expect(shared).toHaveAttribute("href", "/shares");
         expect(shared).toHaveAttribute("data-tour", "nav-shares");
         await user.click(shared);
-        expect(await screen.findByRole("heading", { level: 2, name: "Shared" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { level: 1, name: "Shared" })).toBeInTheDocument();
         expect(screen.getByRole("tab", { name: "Shared with me" })).toBeInTheDocument();
         expect(screen.getByRole("tab", { name: "Shared by me" })).toBeInTheDocument();
       } finally {
@@ -139,7 +139,7 @@ describe("App shell", () => {
         expect(activity).toHaveAttribute("href", "/activity");
         expect(activity).toHaveAttribute("data-tour", "nav-activity");
         await user.click(activity);
-        expect(await screen.findByRole("heading", { level: 2, name: "My activity" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { level: 1, name: "My activity" })).toBeInTheDocument();
       } finally {
         localStorage.removeItem("lettuce.auth.disabledFeatures");
       }
@@ -148,7 +148,7 @@ describe("App shell", () => {
     test("the mass-share page is a routed screen, reached from the team view and not a nav leaf (v4.10.0)", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       renderApp("/performance-reviews/mass-share?periodId=5");
-      expect(await screen.findByRole("heading", { level: 2, name: "Share performance reviews" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 1, name: "Share performance reviews" })).toBeInTheDocument();
       // No nav leaf of its own.
       expect(screen.queryByRole("link", { name: /share reviews|share performance reviews/i })).toBeNull();
     });
@@ -156,7 +156,7 @@ describe("App shell", () => {
     test("the days-off calendars mass-share page is a routed screen too, and not a nav leaf (v4.11.0)", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       renderApp("/days-off/mass-share");
-      expect(await screen.findByRole("heading", { level: 2, name: "Share days-off calendars" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 1, name: "Share days-off calendars" })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /share (days-off )?calendars/i })).toBeNull();
     });
 
@@ -165,7 +165,7 @@ describe("App shell", () => {
       localStorage.setItem("lettuce.auth.disabledFeatures", JSON.stringify(["DAYS_OFF"]));
       try {
         renderApp("/days-off/mass-share");
-        expect(await screen.findByRole("heading", { level: 2, name: "Dashboard" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
         expect(screen.queryByRole("heading", { name: "Share days-off calendars" })).toBeNull();
       } finally {
         localStorage.removeItem("lettuce.auth.disabledFeatures");
@@ -174,7 +174,7 @@ describe("App shell", () => {
 
     test("a malformed mass-share link falls back to the team's performance tab", async () => {
       renderApp("/performance-reviews/mass-share");
-      expect(await screen.findByRole("heading", { level: 2, name: "Performance" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 1, name: "Performance" })).toBeInTheDocument();
     });
 
     test("an admin's Config group additionally lists Alerts", async () => {
@@ -291,7 +291,7 @@ describe("App shell", () => {
       localStorage.setItem(USER_ID_KEY, "7");
       renderApp("/users/7/email-notifications");
       expect(
-        await screen.findByRole("heading", { level: 2, name: "Notification preferences" }),
+        await screen.findByRole("heading", { level: 1, name: "Notification preferences" }),
       ).toBeInTheDocument();
     });
 
@@ -366,6 +366,18 @@ describe("App shell", () => {
       expect(screen.getByTitle("What's new")).toBeInTheDocument();
     });
 
+    test("titles the document from the page's h1 and moves focus to the new h1 on navigation (not on first load)", async () => {
+      const user = userEvent.setup();
+      renderApp("/");
+      const dashboard = await screen.findByRole("heading", { level: 1, name: "Dashboard" });
+      await waitFor(() => expect(document.title).toBe("Dashboard · Lettuce"));
+      expect(dashboard).not.toHaveFocus();
+      await user.click(await screen.findByRole("link", { name: /^changelog$/i }));
+      const changelog = await screen.findByRole("heading", { level: 1, name: "Changelog" }, { timeout: 5000 });
+      await waitFor(() => expect(changelog).toHaveFocus());
+      expect(document.title).toBe("Changelog · Lettuce");
+    });
+
     test("opening the changelog clears the what's-new dot immediately", async () => {
       const user = userEvent.setup();
       renderApp("/");
@@ -374,7 +386,7 @@ describe("App shell", () => {
       expect(
         // The Changelog page is lazy-loaded; under full-suite CPU load the chunk import can
         // exceed findBy's default 1s — the recurring source of this test's flakes.
-        await screen.findByRole("heading", { level: 2, name: "Changelog" }, { timeout: 5000 }),
+        await screen.findByRole("heading", { level: 1, name: "Changelog" }, { timeout: 5000 }),
       ).toBeInTheDocument();
       await waitFor(() =>
         expect(screen.queryByTitle("What's new")).not.toBeInTheDocument(),
@@ -664,7 +676,7 @@ describe("App shell", () => {
       localStorage.setItem(ROLES_KEY, JSON.stringify(["ADMIN"]));
       const fetchMock = stubTelemetry();
       renderApp("/");
-      await screen.findByRole("heading", { level: 2, name: "Dashboard" });
+      await screen.findByRole("heading", { level: 1, name: "Dashboard" });
       expect(screen.queryByRole("complementary", { name: "Telemetry" })).not.toBeInTheDocument();
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/telemetry/"))).toBe(false);
     });
@@ -673,7 +685,7 @@ describe("App shell", () => {
       localStorage.setItem(PANEL_KEY, "true");
       const fetchMock = stubTelemetry();
       renderApp("/");
-      await screen.findByRole("heading", { level: 2, name: "Dashboard" });
+      await screen.findByRole("heading", { level: 1, name: "Dashboard" });
       expect(screen.queryByRole("complementary", { name: "Telemetry" })).not.toBeInTheDocument();
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/telemetry/"))).toBe(false);
       // A regular user's user menu has no item for it either.
@@ -705,7 +717,7 @@ describe("App shell", () => {
         const aside = await screen.findByRole("complementary", { name: "Telemetry" });
         expect(await within(aside).findByText("The telemetry panel stopped working")).toBeInTheDocument();
         // The shell around it survives.
-        expect(screen.getByRole("heading", { level: 2, name: "Dashboard" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
         await user.click(within(aside).getByRole("button", { name: "Close panel" }));
         await waitFor(() => expect(screen.queryByRole("complementary", { name: "Telemetry" })).not.toBeInTheDocument());
         expect(localStorage.getItem(PANEL_KEY)).toBe("false");
@@ -719,20 +731,20 @@ describe("App shell", () => {
     test("redirects from / to the login screen", async () => {
       renderApp("/");
       expect(
-        await screen.findByRole("heading", { level: 3, name: /sign in/i }),
+        await screen.findByRole("heading", { level: 1, name: /sign in/i }),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { level: 3, name: "Users in my teams" }),
+        screen.queryByRole("heading", { name: "Users in my teams" }),
       ).not.toBeInTheDocument();
     });
 
     test("redirects from a protected route to the login screen", async () => {
       renderApp("/teams");
       expect(
-        await screen.findByRole("heading", { level: 3, name: /sign in/i }),
+        await screen.findByRole("heading", { level: 1, name: /sign in/i }),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { level: 2, name: "Teams" }),
+        screen.queryByRole("heading", { level: 1, name: "Teams" }),
       ).not.toBeInTheDocument();
     });
   });

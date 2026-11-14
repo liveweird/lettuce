@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Alert, Button, Center, Container, Loader, Paper, Stack, Text } from "@mantine/core";
+import { Alert, Button, Center, Container, Paper, Stack, Text } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -105,7 +106,7 @@ export default function EditImpactEntry() {
               idiom); see ImpactEntryWizard's onSubmit prop for the phantom-activation rationale. */}
           {isLoading ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : isError ? (
             // Load failure: the wizard (and its footer) renders only once the document

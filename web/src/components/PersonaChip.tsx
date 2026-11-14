@@ -1,5 +1,6 @@
-import { Anchor, Avatar, Group, Text } from "@mantine/core";
+import { Anchor, Avatar, Group } from "@mantine/core";
 import { Link as RouterLink } from "react-router-dom";
+import TruncatedText, { TruncationTooltip } from "./TruncatedText";
 
 // A compact person rendering for table cells: initials avatar + name — the same avatar
 // language as the dashboard person cards. Callers decide when a plain-text fallback is more
@@ -22,22 +23,25 @@ export default function PersonaChip({
     // let a long name paint into the next column — the v3.3.0 truncation fix).
     <Group gap={6} wrap="nowrap" style={{ minWidth: 0, maxWidth: "100%" }}>
       <Avatar name={name} color="initials" size={22} radius="xl" />
-      {/* minWidth 0 lets the flex child actually shrink so `truncate` can engage. */}
+      {/* minWidth 0 lets the flex child actually shrink so `truncate` can engage; a cut-off name
+          is revealed in full by the tooltip (hover, and keyboard focus of the link). */}
       {to ? (
-        <Anchor
-          component={RouterLink}
-          to={to}
-          aria-label={ariaLabel}
-          size="sm"
-          truncate
-          style={{ minWidth: 0 }}
-        >
-          {name}
-        </Anchor>
+        <TruncationTooltip label={name}>
+          <Anchor
+            component={RouterLink}
+            to={to}
+            aria-label={ariaLabel}
+            size="sm"
+            truncate
+            style={{ minWidth: 0 }}
+          >
+            {name}
+          </Anchor>
+        </TruncationTooltip>
       ) : (
-        <Text size="sm" c={dimmed ? "dimmed" : undefined} truncate style={{ minWidth: 0 }}>
+        <TruncatedText size="sm" c={dimmed ? "dimmed" : undefined}>
           {name}
-        </Text>
+        </TruncatedText>
       )}
     </Group>
   );

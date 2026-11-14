@@ -4,10 +4,10 @@ import {
   Alert,
   Button,
   Group,
-  Loader,
   NumberInput,
   Text,
 } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 import ResponsiveTable from "./ResponsiveTable";
 import { IconCheck, IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -130,7 +130,7 @@ export default function TeamKpiValuesEditor({ kpi }: { kpi: TeamKpiResponse }) {
     }
   }
 
-  if (isLoading) return <Loader size="sm" />;
+  if (isLoading) return <LoadingSpinner size="sm" />;
   if (isError || !values) {
     return (
       <Alert color="red" variant="light">

@@ -5,10 +5,10 @@ import {
   Button,
   Center,
   Container,
-  Loader,
   Paper,
   Stack,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useForm } from "@mantine/form";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -112,7 +112,7 @@ export default function EditAlert() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : isError ? (
             <Stack>

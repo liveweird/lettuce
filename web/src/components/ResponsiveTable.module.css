@@ -5,7 +5,8 @@
 }
 
 .viewport { min-width: 0; }
-.container[data-mode="matrix"] .viewport { overflow-x: auto; }
+/* The matrix viewport is also a scrollEdges `.scroller` (set in ResponsiveTable.tsx): it scrolls
+   horizontally, draws the edge shadows and pins the primary / actions columns (v4.21.0). */
 .viewport:focus-visible { outline: 2px solid var(--mantine-primary-color-filled); outline-offset: 2px; }
 .scrollHint { color: var(--mantine-color-dimmed); font-size: var(--mantine-font-size-xs); margin-bottom: 6px; }
 
@@ -71,14 +72,10 @@
 .content :where(:global(.mantine-Input-wrapper), :global(.mantine-Input-input)) { min-width: 0; max-width: 100%; }
 .table [data-actions] .content > :global(.mantine-Group-root) { justify-content: flex-end; }
 
-/* Matrices retain aligned columns. The action edge stays reachable while scrolling. */
-.container[data-mode="matrix"] [data-actions] {
-  position: sticky;
-  right: 0;
-  z-index: 1;
-  background: var(--mantine-color-body);
-  box-shadow: -1px 0 var(--mantine-color-default-border);
-}
+/* Matrices retain aligned columns. Both edges stay reachable while scrolling (v4.21.0): the
+   primary column (the person / first column) pins at the inline start, the actions column at the
+   inline end — the sticky rules, their opaque backgrounds and the edge shadows live in
+   scrollEdges.module.css, shared with DaysOffMonthGrid. */
 
 @container (max-width: 40rem) {
 

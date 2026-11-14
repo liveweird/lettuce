@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ActionIcon, Group, Loader, Menu, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, Menu, Tooltip } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 import { IconDotsVertical } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
@@ -51,8 +52,9 @@ export type RowActionsProps = {
 
 function MenuEntry({ item }: { item: RowActionItem }) {
   // A loading item (a row mid-action) reads as busy: disabled, with a spinner in the icon slot.
+  // The item already announces `aria-busy`, so its spinner is hidden from assistive technology.
   const shared = {
-    leftSection: item.loading ? <Loader size={14} /> : item.icon,
+    leftSection: item.loading ? <LoadingSpinner size={14} aria-hidden /> : item.icon,
     color: item.color,
     disabled: item.disabled || item.loading,
     "aria-busy": item.loading || undefined,

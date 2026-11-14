@@ -4,6 +4,7 @@ import { renderWithProviders, screen, within } from "../test/render";
 import ResponsiveTable from "./ResponsiveTable";
 import SortHeader from "./SortHeader";
 import TableLoadingRow from "./TableLoadingRow";
+import edges from "./scrollEdges.module.css";
 
 describe("ResponsiveTable", () => {
   test("preserves a single semantic table, its sorting callback and row action", async () => {
@@ -124,5 +125,49 @@ describe("ResponsiveTable", () => {
       if (scrollWidthDescriptor) Object.defineProperty(Element.prototype, "scrollWidth", scrollWidthDescriptor);
       if (clientWidthDescriptor) Object.defineProperty(HTMLElement.prototype, "clientWidth", clientWidthDescriptor);
     }
+  });
+  test("a matrix viewport is a scroll-edge scroller; a list table is not", () => {
+    const { unmount } = renderWithProviders(
+      <ResponsiveTable mode="matrix">
+        <ResponsiveTable.Tbody><ResponsiveTable.Tr><ResponsiveTable.Td>Comparison</ResponsiveTable.Td></ResponsiveTable.Tr></ResponsiveTable.Tbody>
+      </ResponsiveTable>,
+    );
+    expect(screen.getByRole("region")).toHaveClass(edges.scroller);
+    unmount();
+    renderWithProviders(
+      <ResponsiveTable>
+        <ResponsiveTable.Tbody><ResponsiveTable.Tr><ResponsiveTable.Td>Rows</ResponsiveTable.Td></ResponsiveTable.Tr></ResponsiveTable.Tbody>
+      </ResponsiveTable>,
+    );
+    expect(document.querySelector(`.${edges.scroller}`)).toBeNull();
+  });
+
+  test("primary and actions cells carry the attributes the pinned-column CSS keys on, header and body alike", () => {
+    renderWithProviders(
+      <ResponsiveTable mode="matrix">
+        <ResponsiveTable.Thead>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Th primary>Person</ResponsiveTable.Th>
+            <ResponsiveTable.Th>Team</ResponsiveTable.Th>
+            <ResponsiveTable.Th actions aria-label="Actions" />
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Thead>
+        <ResponsiveTable.Tbody>
+          <ResponsiveTable.Tr>
+            <ResponsiveTable.Td primary label="Person">Alice</ResponsiveTable.Td>
+            <ResponsiveTable.Td label="Team">AAA</ResponsiveTable.Td>
+            <ResponsiveTable.Td actions label="Actions">…</ResponsiveTable.Td>
+          </ResponsiveTable.Tr>
+        </ResponsiveTable.Tbody>
+      </ResponsiveTable>,
+    );
+    const [personHeader, teamHeader, actionsHeader] = screen.getAllByRole("columnheader");
+    expect(personHeader).toHaveAttribute("data-primary");
+    expect(teamHeader).not.toHaveAttribute("data-primary");
+    expect(actionsHeader).toHaveAttribute("data-actions");
+    const [personCell, teamCell, actionsCell] = screen.getAllByRole("cell");
+    expect(personCell).toHaveAttribute("data-primary");
+    expect(teamCell).not.toHaveAttribute("data-primary");
+    expect(actionsCell).toHaveAttribute("data-actions");
   });
 });

@@ -8,13 +8,13 @@ import {
   Button,
   Center,
   Group,
-  Loader,
   Paper,
   Stack,
   Text,
   Title,
   UnstyledButton,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { IconChevronDown, IconChevronRight, IconUsersGroup } from "@tabler/icons-react";
@@ -388,7 +388,7 @@ export default function OrgChart() {
     <Stack gap="md" h="100%">
       <Stack gap={4}>
         <Group justify="space-between" align="flex-end" wrap="wrap">
-          <Title order={2}>
+          <Title order={1} size="h2">
             {t("org.title")}
           </Title>
           <Group gap="md">
@@ -428,7 +428,7 @@ export default function OrgChart() {
         </Alert>
       ) : isLoading ? (
         <Center mih={300}>
-          <Loader />
+          <LoadingSpinner />
         </Center>
       ) : rfNodes.length === 0 ? (
         <EmptyState
@@ -436,7 +436,7 @@ export default function OrgChart() {
           label={t(offToday ? "org.emptyAsOf" : "org.empty")}
         />
       ) : (
-        <Box style={{ height: "calc(100vh - 240px)", minHeight: 420 }}>
+        <Box style={{ height: "calc(100dvh - 240px)", minHeight: 420 }}>
           <ReactFlow
             nodes={rfNodes}
             edges={rfEdges}

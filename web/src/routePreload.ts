@@ -32,3 +32,16 @@ export function preloadFirstRoute(routes: RouteObject[], pathname: string, authe
   }
   return Promise.all(types.filter(isPreloadable).map((t) => t.preload())).then(() => undefined);
 }
+
+/**
+ * Warms the lazy page(s) `pathname` would render — the intent preload behind navigation-link
+ * hover/focus (`hooks/useIntentPreload.ts`). Same route→page matching as `preloadFirstRoute`
+ * (no auth redirect handling: the nav only renders for a signed-in user), idempotent through
+ * `lazyPage`'s memoised `preload()`, an unknown path is a no-op, and it NEVER rejects — a failed
+ * chunk load is the real navigation's problem (it retries, and `vite:preloadError` stays the authority).
+ */
+export function preloadRoute(routes: RouteObject[], pathname: string): Promise<void> {
+  const matches = matchRoutes(routes, pathname) ?? [];
+  const pages = matches.flatMap((m) => elementTypes(m.route.element)).filter(isPreloadable);
+  return Promise.allSettled(pages.map((t) => t.preload())).then(() => undefined);
+}

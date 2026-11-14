@@ -1,7 +1,8 @@
 import { type ReactNode } from "react";
-import { Avatar, Group, Paper, Stack, Text } from "@mantine/core";
+import { Avatar, Group, Paper, Stack } from "@mantine/core";
 import InactivePill from "./InactivePill";
 import TeamBadges from "./TeamBadges";
+import TruncatedText from "./TruncatedText";
 import type { TeamRef } from "../utils/teamRows";
 import classes from "./PersonCard.module.css";
 
@@ -32,15 +33,15 @@ export default function PersonCard({
           <Avatar name={name} color="initials" radius="xl" size="sm" />
           <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
             <Group gap={6} wrap="wrap" align="center">
-              <Text fw={600} size="sm" truncate style={{ minWidth: 0 }}>
+              <TruncatedText fw={600} size="sm">
                 {name}
-              </Text>
+              </TruncatedText>
               {inactive && <InactivePill />}
               <TeamBadges teams={teams} />
             </Group>
-            <Text size="xs" c="dimmed" truncate>
+            <TruncatedText size="xs" c="dimmed">
               {email}
-            </Text>
+            </TruncatedText>
           </Stack>
         </Group>
         {body}

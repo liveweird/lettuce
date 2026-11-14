@@ -10,6 +10,7 @@ import type { PersonCard as PersonCardData } from "../utils/teamRows";
 import { STATUS_COLORS as REVIEW_STATUS_COLORS } from "./performanceReviewStatusColors";
 import PersonCardActions, { type PersonCardActionsProps } from "./PersonCardActions";
 import { StatusDot } from "./StatusPill";
+import TruncatedText from "./TruncatedText";
 import {
   DAYS_OFF_ACTIONS,
   OPERATIONAL_ACTIONS,
@@ -97,9 +98,7 @@ function TimeStat({ at }: { at: number | null }) {
 function CareerValue({ entry }: { entry: LocalizedEntry | null }) {
   const { t, i18n } = useTranslation();
   return entry ? (
-    <Text size="xs" truncate>
-      {pickLocalized(entry.values, i18n.resolvedLanguage)}
-    </Text>
+    <TruncatedText size="xs">{pickLocalized(entry.values, i18n.resolvedLanguage)}</TruncatedText>
   ) : (
     <Text size="xs" c="dimmed" fs="italic">
       {t("users.profile.missingBadge")}

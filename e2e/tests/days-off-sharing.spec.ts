@@ -186,7 +186,7 @@ test("a manager shares two reports' days-off calendars, the sharee sees them in 
   await expect(page.getByRole("button", { name: /^Share the days-off calendar of / })).toHaveCount(0);
   // The Shared screen lists the calendar share under its frozen label.
   await page.goto("/shares");
-  await expect(page.getByRole("heading", { level: 2, name: "Shared" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Shared" })).toBeVisible();
   await expect(rowByTitle(page, `Days-off calendar of ${report1.name}`)).toBeVisible();
   await logout(page);
 

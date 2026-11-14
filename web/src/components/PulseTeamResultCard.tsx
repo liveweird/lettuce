@@ -178,7 +178,8 @@ export default function PulseTeamResultCard({
       <Stack gap="sm">
         <Group justify="space-between" align="baseline" style={{ minWidth: 0 }}>
           <Title
-            order={4}
+            order={2}
+            size="h4"
             aria-current={highlighted ? "true" : undefined}
             style={{
               minWidth: 0,

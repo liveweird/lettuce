@@ -1,4 +1,5 @@
-import { Center, Loader, type MantineSize } from "@mantine/core";
+import { Center, type MantineSize } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 
 /**
  * The one non-table, non-card loading treatment (v3.3.0): a centered spinner with vertical
@@ -8,7 +9,7 @@ import { Center, Loader, type MantineSize } from "@mantine/core";
 export default function CenteredLoader({ size = "md", mih }: { size?: MantineSize; mih?: number }) {
   return (
     <Center py="xl" mih={mih}>
-      <Loader size={size} />
+      <LoadingSpinner size={size} />
     </Center>
   );
 }

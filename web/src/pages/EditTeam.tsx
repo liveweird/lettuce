@@ -12,10 +12,10 @@ import {
   Button,
   Center,
   Container,
-  Loader,
   Paper,
   Stack,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useForm } from "@mantine/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
@@ -102,7 +102,7 @@ export default function EditTeam() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : notFound ? (
             <Stack>

@@ -61,7 +61,7 @@ export default function Career() {
 
   return (
     <Stack gap="md">
-      <Title order={2}>{t("career.title")}</Title>
+      <Title order={1} size="h2">{t("career.title")}</Title>
       <Tabs value={activeTab} onChange={selectTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="my">

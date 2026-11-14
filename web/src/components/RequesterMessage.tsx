@@ -2,6 +2,7 @@ import { Collapse, Text, Textarea, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconChevronRight } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import chevron from "./DisclosureChevron.module.css";
 
 // Read-only display of the requester's clarification note; renders nothing when empty.
 // Shared by the feedback view, the edit triage screen, and the draft editor.
@@ -30,7 +31,8 @@ export default function RequesterMessage({
         >
           <IconChevronRight
             size={14}
-            style={{ transform: opened ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }}
+            className={`${chevron.chevron} ${chevron.quarterTurn}`}
+            data-open={opened || undefined}
           />
           <Text size="sm" c="dimmed" component="span">
             {t("feedback.requesterMessageView")}
@@ -43,6 +45,7 @@ export default function RequesterMessage({
             py={4}
             style={{
               whiteSpace: "pre-wrap",
+              maxInlineSize: "var(--lettuce-reading-width)",
               borderLeft: "3px solid var(--mantine-color-default-border)",
             }}
           >

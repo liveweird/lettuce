@@ -96,7 +96,7 @@ test("a provider shares a feedback, the sharee reads it read-only, and withdrawi
 
   // 3. X's Shared screen lists it under "Shared with me".
   await page.goto("/shares");
-  await expect(page.getByRole("heading", { level: 2, name: "Shared" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Shared" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Shared with me" })).toHaveAttribute("aria-selected", "true");
   const sharedRow = rowByTitle(page, `From ${provider.name} to ${subject.name}`);
   await expect(sharedRow).toBeVisible();

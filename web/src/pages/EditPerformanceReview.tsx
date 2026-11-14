@@ -10,13 +10,13 @@ import {
   Container,
   Fieldset,
   Group,
-  Loader,
   Paper,
   Select,
   Stack,
   Tabs,
   Text,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import EmojiTextarea from "../components/EmojiTextarea";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -173,7 +173,7 @@ export default function EditPerformanceReview() {
         <Paper withBorder shadow="sm" p="xl" radius="md">
           {isLoading && (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           )}
           {isError && (

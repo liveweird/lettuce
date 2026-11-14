@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "../test/render";
 import DaysOffMonthGrid from "./DaysOffMonthGrid";
 import classes from "./DaysOffMonthGrid.module.css";
+import edges from "./scrollEdges.module.css";
 import type { DaysOffCalendarResponse } from "../api/daysoff";
 
 const DATA: DaysOffCalendarResponse = {
@@ -218,5 +219,15 @@ describe("DaysOffMonthGrid", () => {
       expect(document.querySelectorAll(`.${classes.todayColumn}`)).toHaveLength(0);
       expect(screen.queryByText("Today")).toBeNull();
     });
+  });
+  test("the scroll region draws edge shadows and pins the person column (header and rows)", () => {
+    renderWithProviders(<DaysOffMonthGrid data={DATA} />);
+    expect(screen.getByRole("region")).toHaveClass(edges.scroller);
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[0]).toHaveAttribute("data-primary");
+    expect(headers[1]).not.toHaveAttribute("data-primary");
+    const rowHeaders = screen.getAllByRole("rowheader");
+    expect(rowHeaders).toHaveLength(2);
+    for (const rowHeader of rowHeaders) expect(rowHeader).toHaveAttribute("data-primary");
   });
 });

@@ -148,7 +148,7 @@ test("a manager shares two team reviews in one go, the sharee reads them read-on
   await expect(bell.getByText("shared a performance review with you")).toHaveCount(0);
   await card.getByRole("button", { name: /^Go to notification \d+$/ }).click();
   await expect(page).toHaveURL(/\/shares/);
-  await expect(page.getByRole("heading", { level: 2, name: "Shared" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Shared" })).toBeVisible();
   const row1 = rowByTitle(page, `${report1.name}, `);
   const row2 = rowByTitle(page, `${report2.name}, `);
   await expect(row1).toBeVisible();

@@ -50,7 +50,7 @@ export default function PulseSettingsCard({
     <Paper withBorder shadow="sm" p="lg" radius="md">
       <form onSubmit={form.onSubmit(save)} noValidate>
         <Stack gap="sm">
-          <Title order={4}>{t("pulse.admin.settingsTitle")}</Title>
+          <Title order={2} size="h4">{t("pulse.admin.settingsTitle")}</Title>
           <Text size="sm" c="dimmed">
             {t("pulse.admin.settingsHint")}
           </Text>

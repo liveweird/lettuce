@@ -200,7 +200,7 @@ describe("MassSharePerformanceReviews", () => {
     renderPage();
 
     expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Share performance reviews" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Share performance reviews" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Back to Team's performance/ })).toHaveAttribute(
       "href",
       "/performance?tab=managed",

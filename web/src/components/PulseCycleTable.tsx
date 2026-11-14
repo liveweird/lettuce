@@ -104,7 +104,7 @@ export default function PulseCycleTable({
   return (
     <>
       <Stack gap="sm">
-        <Title order={4}>{t("pulse.admin.cycleListTitle")}</Title>
+        <Title order={2} size="h4">{t("pulse.admin.cycleListTitle")}</Title>
         {actionError && (
           <Alert color="red" variant="light">
             {actionError}

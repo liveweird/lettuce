@@ -12,7 +12,7 @@ export default function NotFound() {
   return (
     <Container size="sm">
       <Stack gap="sm">
-        <Title order={2}>{t("common.notFound.title")}</Title>
+        <Title order={1} size="h2">{t("common.notFound.title")}</Title>
         <Text c="dimmed">{t("common.notFound.message")}</Text>
         <Anchor component={RouterLink} to="/">
           {t("common.notFound.backHome")}

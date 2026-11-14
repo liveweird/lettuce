@@ -123,7 +123,7 @@ export default function PulseParticipation() {
           </div>
           {visibleTeams.map((team) => (
             <Stack key={team.teamId} gap="xs">
-              <Title order={5} style={{ minWidth: 0, overflowWrap: "break-word" }}>{team.teamName}</Title>
+              <Title order={2} size="h5" style={{ minWidth: 0, overflowWrap: "break-word" }}>{team.teamName}</Title>
               <ResponsiveTable density="normal">
                 <ResponsiveTable.Thead>
                   <ResponsiveTable.Tr>

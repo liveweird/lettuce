@@ -19,12 +19,28 @@ describe("Login page", () => {
     vi.unstubAllGlobals();
   });
 
+  test("the sign-in fields carry the autofill contract (username/current-password) and the page is titled", () => {
+    renderWithProviders(<Login />, { route: "/login" });
+
+    const email = screen.getByLabelText(/email/i);
+    expect(email).toHaveAttribute("type", "email");
+    expect(email).toHaveAttribute("name", "email");
+    expect(email).toHaveAttribute("autocomplete", "username");
+    expect(email).toHaveAttribute("spellcheck", "false");
+    const password = screen.getByLabelText("Password");
+    expect(password).toHaveAttribute("name", "password");
+    expect(password).toHaveAttribute("autocomplete", "current-password");
+    expect(document.title).toBe("Sign in · Lettuce");
+  });
+
   test("shows the Lettuce brand (logo + wordmark) above the sign-in form", () => {
     renderWithProviders(<Login />, { route: "/login" });
 
     // The wordmark names the app; the adjacent logo is decorative (alt="").
-    expect(screen.getByRole("heading", { level: 2, name: "Lettuce" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: /sign in/i })).toBeInTheDocument();
+    // The brand is plain text (the page's one h1 is the sign-in title).
+    expect(screen.getByText("Lettuce")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Lettuce" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /sign in/i })).toBeInTheDocument();
     expect(document.querySelector('img[src^="/logo-"]')).toBeInTheDocument();
   });
 
@@ -239,6 +255,11 @@ describe("Login page", () => {
     // The aria-label sits on the PinInput group; the six code boxes are its textboxes.
     const inputs = within(screen.getByLabelText(/sign-in code/i)).getAllByRole("textbox");
     expect(inputs).toHaveLength(6);
+    // Every box has its own position-specific name (Mantine's default is "PinInput" on all six).
+    expect(inputs.map((input) => input.getAttribute("aria-label"))).toEqual([
+      "Digit 1 of 6", "Digit 2 of 6", "Digit 3 of 6", "Digit 4 of 6", "Digit 5 of 6", "Digit 6 of 6",
+    ]);
+    expect(screen.getByRole("group", { name: "Sign-in code" })).toBeInTheDocument();
     await user.type(inputs[0], "493072");
     await user.click(screen.getByRole("button", { name: /verify/i }));
 
@@ -296,7 +317,7 @@ describe("Login page", () => {
     renderAppAt("/teams");
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: /sign in/i }),
+      await screen.findByRole("heading", { level: 1, name: /sign in/i }),
     ).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/email/i), "alice@example.com");
@@ -304,7 +325,7 @@ describe("Login page", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Teams" }),
+      await screen.findByRole("heading", { level: 1, name: "Teams" }),
     ).toBeInTheDocument();
   });
 });

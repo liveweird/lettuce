@@ -58,8 +58,10 @@ export default function ResetPassword() {
             <TextInput
               label={t("common.field.email")}
               type="email"
+              name="email"
               autoFocus
-              autoComplete="email"
+              autoComplete="username"
+              spellCheck={false}
               maxLength={254}
               {...form.getInputProps("email")}
             />

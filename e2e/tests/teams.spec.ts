@@ -174,7 +174,7 @@ test("admin records a team's manager and membership history and sees it on the p
   // The admin's own activity log (v4.18.0) records the change under the Team membership area —
   // actor-only, so it is the admin's log, and the row links back to the team's history.
   await page.goto("/activity");
-  await expect(page.getByRole("heading", { level: 2, name: "My activity" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "My activity" })).toBeVisible();
   await openFilters(page);
   await page.getByRole("combobox", { name: "Area", exact: true }).click();
   await Promise.all([

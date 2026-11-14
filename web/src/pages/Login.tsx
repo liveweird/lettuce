@@ -131,7 +131,11 @@ export default function Login() {
                 type="number"
                 oneTimeCode
                 autoFocus
+                role="group"
                 aria-label={t("auth.mfaCodeLabel")}
+                // Each box gets its own position-specific name (the Mantine default is the same
+                // "PinInput" on all six).
+                getInputProps={(index) => ({ "aria-label": t("auth.mfaDigitLabel", { index: index + 1, count: 6 }) })}
                 value={code}
                 onChange={setCode}
               />
@@ -160,13 +164,16 @@ export default function Login() {
           <TextInput
             label={t("common.field.email")}
             type="email"
+            name="email"
             autoFocus
-            autoComplete="email"
+            autoComplete="username"
+            spellCheck={false}
             maxLength={254}
             {...form.getInputProps("email")}
           />
           <PasswordInput
             label={t("auth.password")}
+            name="password"
             autoComplete="current-password"
             {...form.getInputProps("password")}
           />

@@ -74,6 +74,21 @@ describe("ChangeUserPassword page", () => {
     expect(JSON.parse(putCall![1].body)).toEqual({ password: "hunter2!42" });
   });
 
+  test("carries the target account's email in a hidden username field, with the new-password tokens", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
+    renderChangePassword(7);
+
+    const newPassword = await screen.findByLabelText("New password");
+    expect(newPassword).toHaveAttribute("autocomplete", "new-password");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("autocomplete", "new-password");
+    const username = document.querySelector<HTMLInputElement>('input[autocomplete="username"]');
+    expect(username).not.toBeNull();
+    expect(username).toHaveValue("alice@example.com");
+    expect(username).toHaveAttribute("readonly");
+    expect(username).toHaveAttribute("tabindex", "-1");
+    expect(username!.closest('[aria-hidden="true"]')).not.toBeNull();
+  });
+
   test("rejects mismatched confirmation client-side", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse(200, EXISTING_USER));
 

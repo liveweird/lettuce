@@ -155,7 +155,7 @@ describe("MassShareDaysOffCalendars", () => {
     renderPage();
 
     expect(await screen.findByText("Ann Alpha")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Share days-off calendars" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Share days-off calendars" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Back to My team/ })).toHaveAttribute("href", "/days-off?tab=team");
     // Everyone is shareable — including a deactivated person (flagged Inactive) and a skip-level report.
     for (const name of ["Ann Alpha", "Ben Beta", "Cy Gamma", "Dee Delta", "Mid Manager", "Eve Epsilon"]) {
@@ -292,7 +292,7 @@ describe("MassShareDaysOffCalendars", () => {
     const userEv = userEvent.setup();
     renderPage();
     await screen.findByText("Ann Alpha");
-    expect(screen.getByRole("heading", { level: 2, name: "Udostępnij kalendarze dni wolnych" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Udostępnij kalendarze dni wolnych" })).toBeInTheDocument();
 
     const names = ["Ann Alpha", "Ben Beta", "Cy Gamma", "Dee Delta", "Mid Manager"];
     for (const [i, expected] of [

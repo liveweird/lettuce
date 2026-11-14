@@ -5,13 +5,13 @@ import {
   Button,
   Center,
   Group,
-  Loader,
   NumberInput,
   Paper,
   Select,
   Stack,
   Text,
 } from "@mantine/core";
+import LoadingSpinner from "./LoadingSpinner";
 import EmojiTextarea from "./EmojiTextarea";
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -160,7 +160,7 @@ export default function DaysOffCorrections({
       )}
       {isLoading && (
         <Center py="md">
-          <Loader size="sm" />
+          <LoadingSpinner size="sm" />
         </Center>
       )}
       {data && data.length === 0 && (

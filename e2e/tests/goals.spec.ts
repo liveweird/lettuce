@@ -347,7 +347,7 @@ test("leaving a dirty goal form through the sidebar asks before discarding", asy
 
   await page.getByRole("link", { name: "Dashboard", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Discard" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   await expect(page).not.toHaveURL(/\/goals\/new/);
   // Nothing was saved: no goal row carries the abandoned title.
   await gotoSubordinateGoals(page);

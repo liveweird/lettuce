@@ -7,13 +7,13 @@ import {
   Center,
   Container,
   Group,
-  Loader,
   Paper,
   Stack,
   Switch,
   Text,
   Title,
 } from "@mantine/core";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../api/http";
 import { FEATURES, isAdmin, type Feature } from "../api/session";
@@ -85,10 +85,10 @@ export default function UserFeatures() {
     <Container size="sm" px={0}>
       <Paper withBorder shadow="sm" p="xl" radius="md">
         <Stack>
-          <Title order={2}>{t("users.featuresTitle")}</Title>
+          <Title order={1} size="h2">{t("users.featuresTitle")}</Title>
           {isLoading || (enabled == null && !isError) ? (
             <Center py="xl">
-              <Loader />
+              <LoadingSpinner />
             </Center>
           ) : notFound ? (
             <>

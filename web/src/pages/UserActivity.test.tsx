@@ -82,7 +82,7 @@ describe("UserActivity page", () => {
     const user = userEvent.setup();
     renderPage("/users/9/activity?name=Riley&from=subordinates&manages=1");
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Activity of Riley Report" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Activity of Riley Report" })).toBeInTheDocument();
     // F9 (v4.15.0): one one-row lookup by the route's id, never the 100-row directory pages.
     expect(userRequests).toHaveLength(1);
     expect(userRequests[0]).toContain("id=9");
@@ -124,7 +124,7 @@ describe("UserActivity page", () => {
     localStorage.setItem(ROLE_KEY, JSON.stringify(["HR"]));
     mockApi();
     renderPage("/users/9/activity?name=Riley&from=subordinates&manages=1");
-    expect(await screen.findByRole("heading", { level: 2, name: "Activity of Riley Report (audit)" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Activity of Riley Report (audit)" })).toBeInTheDocument();
     expect(screen.getByText(/The auditor view: everything Riley Report did/)).toBeInTheDocument();
     expect(screen.queryByText(/limited to the documents you can read yourself/)).toBeNull();
   });
@@ -157,6 +157,6 @@ describe("UserActivity page", () => {
   test("an id missing from the pool falls back to 'user #id' instead of a URL-carried name", async () => {
     mockApi();
     renderPage("/users/12/activity?name=Mallory");
-    expect(await screen.findByRole("heading", { level: 2, name: "Activity of user #12" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Activity of user #12" })).toBeInTheDocument();
   });
 });

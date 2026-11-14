@@ -16,15 +16,18 @@ function SortableTh({
   sortField,
   sortDir,
   onToggle,
+  primary,
 }: {
   field: MassShareSortField;
   label: string;
   sortField: MassShareSortField;
   sortDir: SortDir;
   onToggle: (field: MassShareSortField) => void;
+  /** The person column: pinned while the matrix scrolls sideways (not the checkbox column before it). */
+  primary?: boolean;
 }) {
   return (
-    <ResponsiveTable.Th sortable>
+    <ResponsiveTable.Th sortable primary={primary}>
       <SortHeader field={field} label={label} activeField={sortField} activeDir={sortDir} onToggle={onToggle} />
     </ResponsiveTable.Th>
   );
@@ -61,7 +64,7 @@ function MassShareTableHead({
             onChange={onTogglePage}
           />
         </ResponsiveTable.Th>
-        <SortableTh field="name" label={personLabel} {...sort} />
+        <SortableTh field="name" label={personLabel} primary {...sort} />
         <SortableTh field="team" label={t("performanceReview.dashboard.team")} {...sort} />
         <ResponsiveTable.Th>{t("users.profile.path")}</ResponsiveTable.Th>
         <ResponsiveTable.Th>{t("performanceReview.dashboard.specialty")}</ResponsiveTable.Th>
