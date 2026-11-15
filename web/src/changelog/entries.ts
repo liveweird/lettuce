@@ -17,6 +17,20 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.22.0",
+    date: "2026-11-15",
+    en: `A tidier top bar, with search.
+
+- **Search or jump to any page.** The new search box in the top bar finds any page you can open — type a few letters and press Enter. Press ⌘K on a Mac or Ctrl K elsewhere to open it without the mouse. On phones it is the magnifier icon.
+- **Everything about your account in one menu.** Click your name in the top right to see your name, email and roles, and to switch the language or the theme. The theme now has a third choice, System, which follows your device's light or dark setting. The same menu holds your password, notification settings, tutorials, replaying the tour, the changelog (marked "New" when there is something you haven't read) and logging out.
+- **A calmer top bar.** The separate language, theme and help buttons are gone; the top bar keeps only search, notifications and your account, and it is a little slimmer.`,
+    pl: `Uporządkowany górny pasek z wyszukiwaniem.
+
+- **Wyszukaj lub przejdź do dowolnej strony.** Nowe pole wyszukiwania w górnym pasku znajduje każdą stronę, którą możesz otworzyć — wpisz kilka liter i naciśnij Enter. Naciśnij ⌘K na Macu lub Ctrl K na innych komputerach, żeby otworzyć je bez myszy. Na telefonie to ikona lupy.
+- **Wszystko o Twoim koncie w jednym menu.** Kliknij swoje imię i nazwisko w prawym górnym rogu, żeby zobaczyć swoje dane, e-mail i role oraz zmienić język lub motyw. Motyw ma teraz trzecią opcję, Systemowy, która podąża za jasnym lub ciemnym ustawieniem Twojego urządzenia. W tym samym menu znajdziesz hasło, preferencje powiadomień, samouczki, ponowne uruchomienie przewodnika, historię zmian (oznaczoną jako "Nowe", gdy czeka na Ciebie coś nieprzeczytanego) i wylogowanie.
+- **Spokojniejszy górny pasek.** Osobne przyciski języka, motywu i pomocy zniknęły; w górnym pasku zostały tylko wyszukiwanie, powiadomienia i Twoje konto, a sam pasek jest nieco niższy.`,
+  },
+  {
     version: "4.21.0",
     date: "2026-11-15",
     en: `A round of accessibility and polish across the whole app.

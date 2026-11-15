@@ -21,7 +21,7 @@
    - *Expected*: a semver-shaped version title (vX.Y.Z), a release date (YYYY-MM-DD), and a
      rendered entry body. Why no exact-version assert: it would need a hand-edit every release;
      the semver shape plus a rendered body already prove the page wires the bundled entries in.
-4. They switch the interface language to Polish through the header language menu.
+4. They switch the interface language to Polish through the account menu's Language items.
    - *Expected*: the heading re-renders as "Historia zmian" and the version timeline stays —
      entry bodies are bilingual content, not just translated chrome.
 5. They switch back to English (hygiene; the account is a throwaway either way).

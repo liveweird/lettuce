@@ -3,38 +3,10 @@ import {
   useEffect,
   useState,
 } from "react";
-import {
-  ActionIcon,
-  AppShell,
-  Avatar,
-  Box,
-  Burger,
-  Button,
-  Group,
-  Menu,
-  ScrollArea,
-  Skeleton,
-  Text,
-  useMantineColorScheme,
-  useMantineTheme,
-  useComputedColorScheme,
-} from "@mantine/core";
+import { ActionIcon, AppShell, Burger, Group, ScrollArea, Text, useMantineTheme } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
 import {
-  IconActivity,
-  IconBell,
-  IconCheck,
-  IconChevronDown,
-  IconHelp,
-  IconKey,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand,
-  IconLogout,
-  IconMoon,
-  IconSun,
-} from "@tabler/icons-react";
-import {
-  Link as RouterLink,
   Navigate,
   Outlet,
   Route,
@@ -45,18 +17,16 @@ import {
   createRoutesFromElements,
   RouterProvider,
 } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getUserId, hasFeature, isAdmin } from "./api/session";
 import { logout } from "./api/auth";
-import { getCurrentUser } from "./api/users";
 import { RedirectIfAuthed, RequireAuth, flagSignedOut } from "./auth";
 import AlertsBanner from "./components/AlertsBanner";
 import { ALERTS_BAR_HEIGHT, useVisibleAlerts } from "./hooks/useVisibleAlerts";
 import BrandLogo from "./components/BrandLogo";
 import NotificationsButton from "./components/NotificationsButton";
-import TutorialsSubmenu from "./components/TutorialsSubmenu";
-import LanguageSwitcher from "./components/LanguageSwitcher";
+import CommandPalette from "./components/CommandPalette";
+import UserMenu from "./components/UserMenu";
 import { useChangelogUnseen } from "./hooks/useChangelogSeen";
 import { isBoolean, useStoredState } from "./hooks/useStoredState";
 import { useIsManager } from "./hooks/useIsManager";
@@ -64,10 +34,9 @@ import { usePageTitleAndFocus } from "./hooks/usePageTitleAndFocus";
 import { IntentPreloadContext } from "./hooks/useIntentPreload";
 import { preloadRoute } from "./routePreload";
 import { TourProvider } from "./components/Tour";
-import { useTour } from "./components/tourSupport";
 import ErrorBoundary, { RouteErrorBoundary } from "./components/ErrorBoundary";
 import TelemetryPanelCrash from "./components/TelemetryPanelCrash";
-import { setTelemetryPanelOpen, toggleTelemetryPanel, useTelemetryPanelOpen } from "./hooks/useTelemetryPanel";
+import { setTelemetryPanelOpen, useTelemetryPanelOpen } from "./hooks/useTelemetryPanel";
 import CenteredLoader from "./components/CenteredLoader";
 import { AppNav, NavFooter } from "./appShell/AppNav";
 import { activeLeaf, resolveNav } from "./appShell/navModel";
@@ -182,127 +151,6 @@ function RouteFallback() {
 }
 
 
-// Width reserved for the account menu's name (px) — see HeaderUserMenu.
-const USER_NAME_SLOT_WIDTH = 160;
-
-/** The header account menu: avatar + name trigger opening email / change-password / logout.
- *  Always rendered (even before — or without — the profile query resolving), so the Logout
- *  affordance never depends on a successful GET /users/{id}. */
-function HeaderUserMenu({ onLogout }: { onLogout: () => void }) {
-  const { t } = useTranslation();
-  const telemetryOpen = useTelemetryPanelOpen();
-  const userId = getUserId();
-  const { data, isLoading } = useQuery({
-    queryKey: ["currentUser", userId],
-    queryFn: getCurrentUser,
-    enabled: userId !== null,
-    staleTime: 5 * 60 * 1000,
-    retry: false
-  });
-  return (
-    <Menu position="bottom-end" withinPortal>
-      <Menu.Target>
-        <Button
-          variant="subtle"
-          color="gray"
-          size="sm"
-          px="xs"
-          aria-label={t("appShell.userMenu")}
-          data-tour="user-menu"
-          leftSection={<Avatar name={data?.name} color="initials" size={22} radius="xl" />}
-          rightSection={<IconChevronDown size={14} />}
-        >
-          {/* The name slot is a FIXED-width box from the first commit (v4.15.2): the name arrives
-              with GET /users/{id}, and a trigger that grew by ~60-90 px when it did shifted the
-              whole right-hand header group. The slot is the full 160 px a name may take (longer
-              names ellipsize), holds a skeleton while loading and stays that wide when the
-              profile fails to load (empty — Logout still works). */}
-          <Box w={USER_NAME_SLOT_WIDTH} visibleFrom="sm" style={{ textAlign: "left" }}>
-            {isLoading ? (
-              <Skeleton h={12} w={120} radius="xl" />
-            ) : (
-              data && (
-                <Text size="sm" fw={500} truncate>
-                  {data.name}
-                </Text>
-              )
-            )}
-          </Box>
-        </Button>
-      </Menu.Target>
-      <Menu.Dropdown>
-        {data && <Menu.Label>{data.email}</Menu.Label>}
-        <Menu.Item
-          component={RouterLink}
-          to={`/users/${userId}/change-password`}
-          leftSection={<IconKey size={14} />}
-        >
-          {t("appShell.nav.changePassword")}
-        </Menu.Item>
-        <Menu.Item
-          component={RouterLink}
-          to={`/users/${userId}/notification-preferences`}
-          leftSection={<IconBell size={14} />}
-        >
-          {t("appShell.nav.notificationPreferences")}
-        </Menu.Item>
-        <TutorialsSubmenu />
-        {isAdmin() && (
-          // ADMIN-only tooling, not a feature or a nav leaf (v4.20.0): a toggle for the shell's telemetry aside. The check
-          // mark (and aria-current, since Mantine fixes the item's role) says it is on.
-          <Menu.Item
-            leftSection={<IconActivity size={14} />}
-            rightSection={telemetryOpen ? <IconCheck size={14} /> : undefined}
-            aria-current={telemetryOpen ? "true" : undefined}
-            onClick={toggleTelemetryPanel}
-          >
-            {t("telemetry.menuItem")}
-          </Menu.Item>
-        )}
-        <Menu.Divider />
-        <Menu.Item leftSection={<IconLogout size={14} />} onClick={onLogout}>
-          {t("common.action.logout")}
-        </Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
-  );
-}
-
-function ColorSchemeToggle() {
-  const { t } = useTranslation();
-  const { setColorScheme } = useMantineColorScheme();
-  const computed = useComputedColorScheme("light", { getInitialValueInEffect: true });
-  const next = computed === "dark" ? "light" : "dark";
-  return (
-    <ActionIcon
-      variant="subtle"
-      color="gray"
-      size="lg"
-      aria-label={t("appShell.toggleColorScheme")}
-      onClick={() => setColorScheme(next)}
-    >
-      {computed === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
-    </ActionIcon>
-  );
-}
-
-function ReplayTourButton() {
-  const { t } = useTranslation();
-  const { startTour } = useTour();
-  return (
-    <ActionIcon
-      variant="subtle"
-      color="gray"
-      size="lg"
-      aria-label={t("tour.replay")}
-      data-tour="replay"
-      onClick={startTour}
-    >
-      <IconHelp size={18} />
-    </ActionIcon>
-  );
-}
-
 /**
  * Warms the lazy page a path renders (the nav's intent preload, hooks/useIntentPreload.ts). Defined here, next to the route
  * table, and handed down through context: the nav cannot import `appRoutes` — the table contains this Shell, which contains the
@@ -383,7 +231,7 @@ function Shell() {
           {t("appShell.skipToContent")}
         </a>
         <AlertsBanner />
-        <Group h={56} px="md" justify="space-between" wrap="nowrap">
+        <Group h={HEADER_HEIGHT} px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
             <Burger
               opened={opened}
@@ -412,22 +260,16 @@ function Shell() {
               )}
             </ActionIcon>
             <BrandLogo />
-            <Text fw={600} size="lg" visibleFrom="sm">
+            <Text fw={600} size="md" visibleFrom="sm">
               {t("appShell.brand")}
             </Text>
           </Group>
           <Group gap="xs" wrap="nowrap">
-            <span data-tour="language" style={{ display: "inline-flex" }}>
-              <LanguageSwitcher />
-            </span>
-            <span data-tour="theme" style={{ display: "inline-flex" }}>
-              <ColorSchemeToggle />
-            </span>
+            <CommandPalette nav={nav} />
             <span data-tour="notifications" style={{ display: "inline-flex" }}>
               <NotificationsButton />
             </span>
-            <ReplayTourButton />
-            <HeaderUserMenu onLogout={handleLogout} />
+            <UserMenu onLogout={handleLogout} />
           </Group>
         </Group>
       </AppShell.Header>

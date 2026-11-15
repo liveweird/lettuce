@@ -18,7 +18,7 @@
    offset var is Mantine's and tracks the dynamic header height (alerts bar included). */
 .sticky {
   position: sticky;
-  top: var(--app-shell-header-offset, 56px);
+  top: var(--app-shell-header-offset, 48px);
   z-index: 10;
   background-color: var(--lettuce-canvas);
   padding-block: var(--mantine-spacing-sm);

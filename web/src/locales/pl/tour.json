@@ -30,10 +30,8 @@
     "dictionaries": "Słowniki — wspólne listy, z których korzysta aplikacja: ścieżki kariery, specjalizacje, poziomy zaszeregowania i pytania ankiety pulsu.",
     "account": "Zmień hasło — tutaj zaktualizujesz swoje hasło.",
     "changelog": "Historia zmian — co nowego w każdym wydaniu; czerwona kropka przy numerze wersji oznacza zmiany, których jeszcze nie widziałeś/aś.",
+    "search": "Szukaj lub przejdź do dowolnej strony — albo wciśnij ⌘K / Ctrl K, gdy nie piszesz w polu.",
     "notifications": "Powiadomienia — dzwonek zaświeci się, gdy coś będzie Cię dotyczyć.",
-    "language": "W każdej chwili zmień język interfejsu.",
-    "theme": "Przełączaj tryb jasny i ciemny.",
-    "logout": "Menu Twojego konta — ustawienia powiadomień, wszystkie samouczki w sekcji Samouczki oraz wylogowanie, gdy skończysz.",
-    "replay": "To wszystko! W każdej chwili możesz odtworzyć ten przewodnik stąd — a na każdej stronie funkcji znajdziesz przycisk pokazujący, jak ona działa; wszystkie samouczki są też w menu konta, w sekcji Samouczki."
+    "userMenu": "Menu Twojego konta — język, motyw, ustawienia powiadomień, samouczki, historia zmian, ponowne odtworzenie tego przewodnika i wylogowanie. To wszystko! W każdej chwili możesz odtworzyć ten przewodnik stąd — a na każdej stronie funkcji znajdziesz przycisk pokazujący, jak ona działa."
   }
 }

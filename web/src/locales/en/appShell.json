@@ -1,7 +1,6 @@
 {
   "toggleMobileNav": "Open or close the navigation",
   "brand": "Lettuce",
-  "toggleColorScheme": "Toggle color scheme",
   "toggleNav": "Show or hide the navigation",
   "skipToContent": "Skip to main content",
   "userMenu": "User menu",
@@ -48,5 +47,20 @@
     "myWork": "My work",
     "team": "Team",
     "administration": "Administration"
+  },
+  "palette": {
+    "placeholder": "Search or jump to a page…",
+    "open": "Search",
+    "groupPages": "Pages",
+    "groupActions": "Actions",
+    "nothingFound": "Nothing found",
+    "telemetryShow": "Show the telemetry panel",
+    "telemetryHide": "Hide the telemetry panel"
+  },
+  "account": {
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAuto": "System"
   }
 }

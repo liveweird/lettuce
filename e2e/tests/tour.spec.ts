@@ -1,16 +1,16 @@
-import { ADMIN, collapseAlertsBanner, expect, login, MANAGER_AAA, test } from "./helpers";
+import { ADMIN, collapseAlertsBanner, expect, login, MANAGER_AAA, openUserMenu, test } from "./helpers";
 import type { Page } from "@playwright/test";
 
 // The guided tour, actually walked twice: as a manager and as the admin, asserting the landmark
 // order the tour promises — since v3.23.0 the tour is a menu presentation only: one stop per
-// left-nav leaf/group (navbar order), then the four header icons and the help/replay icon. No
+// left-nav leaf/group (navbar order), then the header's three stops (the palette search trigger, the bell and, last, the account menu). No
 // step navigates anywhere — feature depth lives in the per-feature "How … works" tutorials
-// instead. The suite's tour-seen stub only suppresses the AUTO-start; the replay button always
-// works.
+// instead. The suite's tour-seen stub only suppresses the AUTO-start; "Replay the tour" (an
+// account-menu item since v4.22.0) always works.
 //
-// Audience math over the 24 steps: MANAGER_AAA is a manager, so the manager-only Succession step
-// is present → 24. The seed admin is an ADMIN but manages no team, so the Succession step is
-// absent → 23, +1 when the shared dev DB gives the admin a team (the existing `managerId` probe).
+// Audience math over the 22 steps: MANAGER_AAA is a manager, so the manager-only Succession step
+// is present → 22. The seed admin is an ADMIN but manages no team, so the Succession step is
+// absent → 21, +1 when the shared dev DB gives the admin a team (the existing `managerId` probe).
 
 const LANDMARKS = [
   "Take a quick tour",
@@ -32,11 +32,9 @@ const LANDMARKS = [
   "Dictionaries —",
   "Change password —",
   "Changelog —",
+  "Search or jump to any page",
   "Notifications —",
-  "Switch the interface language",
-  "Toggle light and dark",
   "Your account menu",
-  "That's it!",
 ];
 
 // The admin walk's landmark subset: the manager-only Succession step drops out, everything else
@@ -44,7 +42,8 @@ const LANDMARKS = [
 const ADMIN_LANDMARKS = LANDMARKS.filter((landmark) => landmark !== "Succession plans —");
 
 async function walkTour(page: Page): Promise<string[]> {
-  await page.locator('[data-tour="replay"]').click();
+  await openUserMenu(page);
+  await page.getByRole("menuitem", { name: "Replay the tour" }).click();
   const seen: string[] = [];
   for (let step = 1; step <= 30; step++) {
     const counter = page.getByText(new RegExp(`^Step ${step} of \\d+$`));
@@ -72,22 +71,22 @@ function assertLandmarkOrder(seen: string[], landmarks: string[]) {
   }
 }
 
-test("the guided tour walks all 24 manager menu steps in the documented order", async ({
+test("the guided tour walks all 22 manager menu steps in the documented order", async ({
   page,
 }) => {
   await login(page, MANAGER_AAA);
-  // A pre-existing active alert's expanded banner overlays the header (and the replay button).
+  // A pre-existing active alert's expanded banner overlays the header (and the account menu).
   await collapseAlertsBanner(page);
   const before = page.url();
   const seen = await walkTour(page);
 
-  expect(seen).toHaveLength(24);
+  expect(seen).toHaveLength(22);
   assertLandmarkOrder(seen, LANDMARKS);
   // No step navigates — the walk never left the Dashboard.
   await expect(page).toHaveURL(before);
 });
 
-test("the guided tour walks the 23 admin menu steps without the manager-only Succession stop", async ({
+test("the guided tour walks the 21 admin menu steps without the manager-only Succession stop", async ({
   page,
   request,
 }) => {
@@ -105,7 +104,7 @@ test("the guided tour walks the 23 admin menu steps without the manager-only Suc
       headers: { Authorization: `Bearer ${token}` },
     })
   ).json()) as { total: number };
-  const expected = 23 + (managed.total > 0 ? 1 : 0);
+  const expected = 21 + (managed.total > 0 ? 1 : 0);
 
   const seen = await walkTour(page);
 

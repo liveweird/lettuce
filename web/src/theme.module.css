@@ -159,3 +159,37 @@
   .segmentedControl { min-width: 0; }
   .segmentedLabel { white-space: normal; }
 }
+
+/* The header's command-palette trigger (v4.22.0): reads as a search field (hairline, quiet
+   tint, dimmed placeholder text, the shortcut as a Kbd on the right) but is a button. */
+.paletteTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  height: 32px;
+  min-width: 260px;
+  padding: 0 var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background-color: var(--lettuce-surface-tint);
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.paletteTrigger:hover {
+  border-color: var(--lettuce-border-strong);
+}
+
+.paletteTrigger > span:first-of-type {
+  flex: 1;
+  text-align: start;
+}
+
+/* A menu item that deletes or signs out (components/DestructiveMenuItem.tsx): the AA `inkError` ink
+   (Mantine's `color="red"` is 3.3:1 on the white dropdown, 4.1:1 on the dark one) and a quiet red
+   hover tint. Mantine's menu item reads `--menu-item-color` / `--menu-item-hover` and, with no
+   `color` prop, writes no inline value, so these declarations win. */
+.menuItemDestructive {
+  --menu-item-color: var(--lettuce-ink-error);
+  --menu-item-hover: light-dark(var(--mantine-color-red-0), var(--mantine-color-dark-5));
+}

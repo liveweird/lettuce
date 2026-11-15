@@ -1,7 +1,6 @@
 {
   "toggleMobileNav": "Otwórz lub zamknij nawigację",
   "brand": "Lettuce",
-  "toggleColorScheme": "Przełącz motyw",
   "toggleNav": "Pokaż lub ukryj nawigację",
   "skipToContent": "Przejdź do treści",
   "userMenu": "Menu użytkownika",
@@ -48,5 +47,20 @@
     "myWork": "Moja praca",
     "team": "Zespół",
     "administration": "Administracja"
+  },
+  "palette": {
+    "placeholder": "Szukaj lub przejdź do strony…",
+    "open": "Szukaj",
+    "groupPages": "Strony",
+    "groupActions": "Akcje",
+    "nothingFound": "Brak wyników",
+    "telemetryShow": "Pokaż panel telemetrii",
+    "telemetryHide": "Ukryj panel telemetrii"
+  },
+  "account": {
+    "theme": "Motyw",
+    "themeLight": "Jasny",
+    "themeDark": "Ciemny",
+    "themeAuto": "Systemowy"
   }
 }
