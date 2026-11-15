@@ -1,9 +1,9 @@
 {
   "status": "accepted",
   "stage": 2,
-  "applicationVersion": "4.22.0 (displayed version pinned to 0.0.0)",
-  "sourceRevision": "feat/header-menu-v4.22 (committed with this record)",
-  "approvedReferenceRevision": "980f9c3c",
+  "applicationVersion": "4.22.1 (displayed version pinned to 0.0.0)",
+  "sourceRevision": "fix/nav-footer-trim (committed with this record)",
+  "approvedReferenceRevision": "3fddcf96",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -17,49 +17,49 @@
       "file": "candidates/forms.spec.ts/feedback-create-initial-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "89c50aebbf1a3bc7ee3d5d2a93c0b122543f2b643b076072f6e2fe946141effd",
+      "sha256": "aa1e93790cc9b5ba72effe2ab7ae352431d8d73778f39b88f8950bd50a5dd667",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/feedback-draft-edit-multi-recipient-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "f2535701d977a09579965924fe3b074c1f83890b2b1b2ca389591c4b66c759ba",
+      "sha256": "41844c9a1a45e2f8d660a62d92dc37f1d62731f8e6b7caeee0b87b637f8602a0",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/feedback-sent-detail-provider-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "237fcf1fd51fa59e81d16f2c6c2db0ade1f6cb654c6fa6b5a123bf73cc6f5483",
+      "sha256": "8b8e39027da87c6aa95a0a2a96aa48bf0b116a82a92b5ac1a86069d9d4214f8f",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/team-create-invalid-empty-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "a7a1a004398eafd68182fb4a18d792e4a538733ac261c91c68c7da5babe46de3",
+      "sha256": "e03f1f90f648c80ab07933b631e771d059b27c555834e3026a20003c8b18dc9b",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/team-detail-member-roster-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "d3a3186189863ced99c749050cc1c270fdb462f3b6bb1427fa065bc515fdbd32",
+      "sha256": "48e2ef8530f6135bfa79e9300d4a746a48d5d0f67153f456f09496fbf689ab16",
       "status": "accepted"
     },
     {
       "file": "candidates/forms.spec.ts/user-detail-subordinate-person-card-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "7d03ea1add21142d8284edef02cf756fc60cdb9af6739cf73c1108ae706d424c",
+      "sha256": "199f56533f3e6a02090ef010aa2f42205b3dbb8c9a048a5a2379ab9a9dd1c543",
       "status": "accepted"
     },
     {
       "file": "candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "e227fb5bd62b6c5a7f2604d9e881aff0c99fe5313ff0003526d9521961ddc0a3",
+      "sha256": "66d25fd7c2d5ef4f0fa43f838884be41075fef1d54dbc172cec974d1a73109aa",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png"
     },
@@ -67,7 +67,7 @@
       "file": "candidates/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "1b3164785d15c9e66ae48a208d444b0d0d7765bca6477214099b074409e7f2ba",
+      "sha256": "8010ccb4997750329285d59cdd1b5e139b2cc38a5e58076a7c35ccbdf8e01faf",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png"
     },
@@ -75,7 +75,7 @@
       "file": "candidates/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "0ee14772e30e477c5a77a8d54736cf65206f30748130d2ceae4d35fa553be109",
+      "sha256": "35ff40766e55683bea5791d090d429b62dd75431d7868aaa10e1d6ee213ee624",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png"
     },
@@ -83,7 +83,7 @@
       "file": "candidates/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "9a9775f66f4cce22608be984d7ea6f888dce129d3f868e5ab5308f01a155b1a2",
+      "sha256": "5e9cd245429dfa39887f7c82c2f7130b7e330690d917ba541023fee3fcc31cc0",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png"
     },
@@ -91,7 +91,7 @@
       "file": "candidates/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "88f40d8fcbf90c2d0962f9562271234425ecb3fb0a2ac93462934cf3eb0f238d",
+      "sha256": "58ccf70e9dc6efadf703fb6ca3851735096079694641b2b6d4f558147c29e8eb",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png"
     },
@@ -99,7 +99,7 @@
       "file": "candidates/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "fb172155eaf6f39e99cb50a1c17ec3b9a036dab2bdcb20c05a17829578fcd688",
+      "sha256": "0c0261a3243f12a3a0d3c153369fe9fff0cc982ad8452b7ffa9c09174503a473",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png"
     },
@@ -107,7 +107,7 @@
       "file": "candidates/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "b9ec267efb27d0bc7662f39b6f99d128bfc1611ea374767cfaae5d2bd22a66f3",
+      "sha256": "d01d4788c74c9a27f67d1d9880a01569af3f1640b83282fd377bc41afe4a4ea9",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png"
     },
@@ -115,7 +115,7 @@
       "file": "candidates/lists.spec.ts/feedback-provided-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "5955e976266f96384ef1a03f7b9dab2a3ae45a9472837c77b2b92bc2572f467e",
+      "sha256": "56583fbe54633bfcbac626e41d7062a944d7bf378f82e204ff01a7ec1bb6d214",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png"
     },
@@ -123,7 +123,7 @@
       "file": "candidates/lists.spec.ts/feedback-provided-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "4ba7a61301862159e5ff73d7f35b0d2afd9ca1c8fd2abef81d671503dadbe2c0",
+      "sha256": "e35510fb35a597ac48ca6ef94ef4a179d0d1d1b943de9aed926a4830c6b9db0a",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png"
     },
@@ -131,7 +131,7 @@
       "file": "candidates/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "91bc28b16e2935dffb1adc419bbffa87692fe30ed01e8f24bb0055ebdd9d1c82",
+      "sha256": "3cb7abd5dc6f946f0af03f9f561c43f807626f7854aa41744fb06a95dfe8bf45",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png"
     },
@@ -139,7 +139,7 @@
       "file": "candidates/lists.spec.ts/feedback-received-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "ef8f2b9b5d08fd0d9f939855fc4f449c887a66a71bd2e63d5722280daf03ba8c",
+      "sha256": "80d5a76a351e68d0865ac353ec9d734d1504d00a4f4273112b605483501e1bb4",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png"
     },
@@ -147,7 +147,7 @@
       "file": "candidates/lists.spec.ts/feedback-received-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "fbf4605fabe77527e4bf7605737e62a0504de6f00677deb581e0c298c13f3cbf",
+      "sha256": "66ca8086f94ba8b8f06ca073025a97b8a99e2310ca16352fba84c93d8f80d973",
       "status": "accepted",
       "previous": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png"
     },
@@ -155,7 +155,7 @@
       "file": "candidates/people.spec.ts/dashboard-manager-en-light-1280.png",
       "width": 1280,
       "height": 1355,
-      "sha256": "074366a59245344313968e21243cbb3eb4aed325406c36ff7e6c4e10d9e560b9",
+      "sha256": "469a660ffbf81cb7eb9decfcd1615055b6cfa7da3d97319ef319b1098a566d4d",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/dashboard-manager-en-light-1280.png"
     },
@@ -163,7 +163,7 @@
       "file": "candidates/people.spec.ts/dashboard-member-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "6e66eeca770dc9a830357be8d974a84e2823da7159a4eb25992057de81b27f0f",
+      "sha256": "4ca80c4c9b74c06965a1fb5bb809726105ae0e7320a9e95a847d058c280bc89a",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/dashboard-member-en-light-1440.png"
     },
@@ -171,7 +171,7 @@
       "file": "candidates/people.spec.ts/teams-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "7a032565a5db21d33461290f7ce1144f2719fc9d23c98daf7dab2b2080a8b1c4",
+      "sha256": "ba53cedd6830fb745cb6f7891b30f3cadd3beda66b94582df59a7704e2057891",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/teams-admin-en-light-1440.png"
     },
@@ -179,7 +179,7 @@
       "file": "candidates/people.spec.ts/teams-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "d243f8cbe8e129c727b20aaa9e774fa00779981de97bb70510dde4770fd7a825",
+      "sha256": "b6c6bb4082e8c078652ec192e1f53367a5094da9de5a38e532a4cbd4ccaa97f8",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/teams-member-en-light-1280.png"
     },
@@ -187,7 +187,7 @@
       "file": "candidates/people.spec.ts/users-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "918d1f3b020a4c9abb08c9067fcd1ef428336c1b8e3e9516137480dc9c2f96f5",
+      "sha256": "72250b2c3debe8af15436edce95da9d1c23a958f22dcc04ce4d6310011fc79e9",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/users-admin-en-light-1440.png"
     },
@@ -195,7 +195,7 @@
       "file": "candidates/people.spec.ts/users-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "c9944e18b8220fa565f05f45af65a070f7966d568aa069a39b83fba4150e5f7b",
+      "sha256": "0c625c69b5e9dbc3784fec9345a7320c5cf6d84d3f744dd26f1d59e4f62890d4",
       "status": "accepted",
       "previous": "snapshots/people.spec.ts/users-member-en-light-1280.png"
     }
