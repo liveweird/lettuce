@@ -1,8 +1,8 @@
 {
   "status": "accepted",
-  "applicationVersion": "4.18.1 (displayed version pinned to 0.0.0)",
-  "sourceRevision": "fix/backlog-ui-polish (committed with this record)",
-  "previousBaselineRevision": "28c5545e",
+  "applicationVersion": "4.22.0 (displayed version pinned to 0.0.0)",
+  "sourceRevision": "feat/header-menu-v4.22 (committed with this record)",
+  "previousBaselineRevision": "980f9c3c",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -16,145 +16,145 @@
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "6888841aa50cc4d4b55e8d2f36fb8c54306c157dea148a83371f018cb6971b2c"
+      "sha256": "e227fb5bd62b6c5a7f2604d9e881aff0c99fe5313ff0003526d9521961ddc0a3"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "38d34c62e42744085ca8b8488ca879a24a0c52d43e95a929a4d620eef0e65294"
+      "sha256": "1b3164785d15c9e66ae48a208d444b0d0d7765bca6477214099b074409e7f2ba"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "e803de191ad924aa1d5a679ce7523e80da6b478c7c6ec947d418f2970c2cddfa"
+      "sha256": "0ee14772e30e477c5a77a8d54736cf65206f30748130d2ceae4d35fa553be109"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "f59d4966f0ea9035115b2b0754593c3dbf9d9482b770854579cc092e1e0b9a37"
+      "sha256": "9a9775f66f4cce22608be984d7ea6f888dce129d3f868e5ab5308f01a155b1a2"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "8335ba5159ac1bd7e8b10381070074508cf16f36fcd6ac475b95e92a002677ac"
+      "sha256": "88f40d8fcbf90c2d0962f9562271234425ecb3fb0a2ac93462934cf3eb0f238d"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "ddefa46bfe928fb8578e957fe324e24fc148ae8cb8f5ec3f47459516dd1818be"
+      "sha256": "fb172155eaf6f39e99cb50a1c17ec3b9a036dab2bdcb20c05a17829578fcd688"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "3a4206c5ce1a0c778b5fde89b93708b561c8f9cd4fb3609a180eee15238cd6a5"
+      "sha256": "b9ec267efb27d0bc7662f39b6f99d128bfc1611ea374767cfaae5d2bd22a66f3"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "42bbf5f0fdd8042d8960ac21f1517ecc6952d761104f346cd0c15226743ec8d5"
+      "sha256": "5955e976266f96384ef1a03f7b9dab2a3ae45a9472837c77b2b92bc2572f467e"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "4087ac1dbbbe2b38d5f8ef1734c39850ccdb72a3d7abfa41243c7bd4e302c7f3"
+      "sha256": "4ba7a61301862159e5ff73d7f35b0d2afd9ca1c8fd2abef81d671503dadbe2c0"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "6317700eb666c3898767fc012353da6eb0cb53c37d6291800c7c4984be5eeb44"
+      "sha256": "91bc28b16e2935dffb1adc419bbffa87692fe30ed01e8f24bb0055ebdd9d1c82"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "41093bd9b148bc3cb2af46994ed71bca0bd6746a4f7fc00a70da5495e10c1632"
+      "sha256": "ef8f2b9b5d08fd0d9f939855fc4f449c887a66a71bd2e63d5722280daf03ba8c"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "bc0e54c59354731d2a940b013bbdee16bbd04cb81e08d21678c4afa5ebd8fd30"
+      "sha256": "fbf4605fabe77527e4bf7605737e62a0504de6f00677deb581e0c298c13f3cbf"
     },
     {
       "file": "snapshots/people.spec.ts/dashboard-manager-en-light-1280.png",
       "width": 1280,
-      "height": 1363,
-      "sha256": "a78a20be07522dd61006c2b9e051351e71e14b334ef48111ada201f36637a0a4"
+      "height": 1355,
+      "sha256": "074366a59245344313968e21243cbb3eb4aed325406c36ff7e6c4e10d9e560b9"
     },
     {
       "file": "snapshots/people.spec.ts/dashboard-member-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "efe1dbf48b89795cc0c9d2bbb1d9b6f1403e351b153de03cd5808530ca1da25b"
+      "sha256": "6e66eeca770dc9a830357be8d974a84e2823da7159a4eb25992057de81b27f0f"
     },
     {
       "file": "snapshots/people.spec.ts/teams-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "932071ce38b4918c7200afd113a9c909d1db1de94ffb5b3d87197427b38b5f4f"
+      "sha256": "7a032565a5db21d33461290f7ce1144f2719fc9d23c98daf7dab2b2080a8b1c4"
     },
     {
       "file": "snapshots/people.spec.ts/teams-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "6141aafb8f7ba89e67488cd522d6d95aa3ef3420b33827b16fd977c771972785"
+      "sha256": "d243f8cbe8e129c727b20aaa9e774fa00779981de97bb70510dde4770fd7a825"
     },
     {
       "file": "snapshots/people.spec.ts/users-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "aaf19a37e7088ddd264e8b45ed56102c38333bd09777463768438148712fef1f"
+      "sha256": "918d1f3b020a4c9abb08c9067fcd1ef428336c1b8e3e9516137480dc9c2f96f5"
     },
     {
       "file": "snapshots/people.spec.ts/users-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "ee2b0ca92fab0ac4159432fb35f762ac85c999f451011bb545ce07d25f6d57fa"
+      "sha256": "c9944e18b8220fa565f05f45af65a070f7966d568aa069a39b83fba4150e5f7b"
     },
     {
       "file": "snapshots/forms.spec.ts/feedback-create-initial-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "08f8d9a161b69c27437ebb5cc1dd7e4c277ebcbd2975b5a4038e5f531177beb4"
+      "sha256": "89c50aebbf1a3bc7ee3d5d2a93c0b122543f2b643b076072f6e2fe946141effd"
     },
     {
       "file": "snapshots/forms.spec.ts/feedback-draft-edit-multi-recipient-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "4139fc74525ff489444e382e3e589bde5a5aa621348875f91170f9324ac3d7be"
+      "sha256": "f2535701d977a09579965924fe3b074c1f83890b2b1b2ca389591c4b66c759ba"
     },
     {
       "file": "snapshots/forms.spec.ts/feedback-sent-detail-provider-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "4b2ca1cda7cf70a06e495f743bcf3ffc190c3a305981dcd77aa76571fedf9522"
+      "sha256": "237fcf1fd51fa59e81d16f2c6c2db0ade1f6cb654c6fa6b5a123bf73cc6f5483"
     },
     {
       "file": "snapshots/forms.spec.ts/team-create-invalid-empty-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "ae6abdef3396b71f91401e1d36896d2c7f001bde61d14ce86f4308d9c7b77885"
+      "sha256": "a7a1a004398eafd68182fb4a18d792e4a538733ac261c91c68c7da5babe46de3"
     },
     {
       "file": "snapshots/forms.spec.ts/team-detail-member-roster-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "3396f3df57107e9a5a69822876fcd20675c3b434f99a37be87adeead89b58e7a"
+      "sha256": "d3a3186189863ced99c749050cc1c270fdb462f3b6bb1427fa065bc515fdbd32"
     },
     {
       "file": "snapshots/forms.spec.ts/user-detail-subordinate-person-card-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "cc1e6d7d264c1ecea3891b8eda950ca722b8be96e96532ba3b5c674f0e20a12f"
+      "sha256": "7d03ea1add21142d8284edef02cf756fc60cdb9af6739cf73c1108ae706d424c"
     }
   ],
   "approval": {

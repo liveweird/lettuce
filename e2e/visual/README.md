@@ -20,6 +20,11 @@ the three 1280px feedback lists keep their table layout, the member users list h
 default Active status filter, and the administrator users list picks "Any" explicitly so it still
 shows both account states. The other 19 images are unchanged.
 
+On 2026-11-15 (app v4.22.0) the owner approved all 24 changed images ("approved"): the header
+redesign makes the top bar 48 px instead of 56 px and replaces the language, theme and help icons
+with the command-palette search box, and the account button loses its fixed-width grey fill.
+Nothing below the header changed; two clean candidate compares, 21/21.
+
 Open the [review gallery](review.html) and [validation/approval record](expansion-review.md).
 The current gallery shows the 24 approved v4.15.3 baselines. The historical v4.15.2 review is
 preserved at [review-history/v4.15.2/review.html](review-history/v4.15.2/review.html), with its
