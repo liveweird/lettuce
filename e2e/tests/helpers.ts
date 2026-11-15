@@ -154,7 +154,9 @@ export async function expectLoginRejected(
  * the accessible name.
  */
 export function userMenu(page: Page): Locator {
-  return page.getByRole("button", { name: "User menu" });
+  // Bilingual: the account menu is also how a spec switches language (`switchLanguage`), and its
+  // visually hidden words flip with the UI language. The visible name (the user's own) is a prefix.
+  return page.getByRole("button", { name: /User menu|Menu użytkownika/ });
 }
 
 /** Collapse the alert banner (it overlays the header) and open the account menu. */
@@ -183,13 +185,13 @@ export async function collapseAlertsBanner(page: Page): Promise<void> {
 }
 
 /**
- * Switch the UI language through the header language menu (v2.20.0 — a Menu of native
- * names). `nativeName` is the language's own name as listed ("Polski", "English"); the
- * trigger's aria-label flips with the language, hence the bilingual regex.
+ * Switch the UI language through the account menu's Language items (v4.22.0 - they lived in a
+ * header menu of their own before). `nativeName` is the language's own name as listed
+ * ("Polski", "English"); the account menu's trigger name flips with the language, so
+ * `userMenu` matches both. The pick closes the menu.
  */
 export async function switchLanguage(page: Page, nativeName: string): Promise<void> {
-  await collapseAlertsBanner(page);
-  await page.getByRole("button", { name: /^(Language|Język)$/ }).click();
+  await openUserMenu(page);
   await page.getByRole("menuitem", { name: nativeName }).click();
 }
 

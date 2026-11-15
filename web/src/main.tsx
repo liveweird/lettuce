@@ -5,6 +5,7 @@ import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@fontsource-variable/inter/index.css";
 import "@mantine/core/styles.css";
+import "@mantine/spotlight/styles.css";
 import "@mantine/notifications/styles.css";
 import "./index.css";
 import i18n, { asSupportedLanguage, switchLanguage } from "./i18n";

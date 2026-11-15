@@ -90,12 +90,11 @@ export const TOUR_STEPS: TourStepDef[] = [
   // Opening /changelog would mark the "what's new" dot as seen — the whirlwind never navigates,
   // so this stop just names the leaf, coherently (nothing is marked seen by looking at it).
   { target: '[data-tour="nav-changelog"]', contentKey: "tour.steps.changelog", placement: "right" },
-  // The header chrome, left to right.
+  // The header chrome, left to right (v4.22.0): the palette trigger, the bell, then the account menu - which carries the language, theme,
+  // replay and sign-out controls the header used to show as icons - as the closing stop.
+  { target: '[data-tour="search"]', contentKey: "tour.steps.search", placement: "bottom" },
   { target: '[data-tour="notifications"]', contentKey: "tour.steps.notifications", placement: "bottom" },
-  { target: '[data-tour="language"]', contentKey: "tour.steps.language", placement: "bottom" },
-  { target: '[data-tour="theme"]', contentKey: "tour.steps.theme", placement: "bottom" },
-  { target: '[data-tour="user-menu"]', contentKey: "tour.steps.logout", placement: "bottom" },
-  { target: '[data-tour="replay"]', contentKey: "tour.steps.replay", placement: "bottom" },
+  { target: '[data-tour="user-menu"]', contentKey: "tour.steps.userMenu", placement: "bottom" },
 ];
 
 /**

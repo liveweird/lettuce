@@ -30,10 +30,8 @@
     "dictionaries": "Dictionaries — the shared lists the app picks from: career paths, specializations, seniority levels and pulse questions.",
     "account": "Change password — update your password here.",
     "changelog": "Changelog — what's new in each release; a red dot on the version stamp marks changes you haven't seen yet.",
+    "search": "Search or jump to any page — or press ⌘K / Ctrl K when you're not typing in a field.",
     "notifications": "Notifications — the bell lights up when something concerns you.",
-    "language": "Switch the interface language at any time.",
-    "theme": "Toggle light and dark mode.",
-    "logout": "Your account menu — notification settings, every tutorial under Tutorials, and sign out when you're done.",
-    "replay": "That's it! Replay this tour anytime from here — and look for the \"How … works\" button on each feature page, or open Tutorials in your account menu, for a guided walkthrough."
+    "userMenu": "Your account menu — language, theme, notification settings, tutorials, the changelog, replaying this tour and signing out. That's it! Replay this tour anytime from here — and look for the \"How … works\" button on each feature page for a guided walkthrough."
   }
 }

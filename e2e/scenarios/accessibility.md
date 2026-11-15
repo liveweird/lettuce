@@ -67,7 +67,7 @@ be visible before scanning):
 - **The alerts and pulse interactive journeys** — only their management *lists* are scanned;
   the interactive flows stay unscanned because those journeys belong to their own chained
   project phases and this spec must stay read-only in the shared phase.
-- **Dark-mode rendering** — the theme toggle is unit-tested and the palette is theme-owned; no
+- **Dark-mode rendering** — the account menu's theme items are unit-tested and the palette is theme-owned; no
   e2e asserts colors and there is no visual-regression suite.
 - **Responsive / cross-browser / visual automation** — the suite deliberately runs Desktop
   Chrome only, with no mobile project or screenshot comparison; layout relies on Mantine

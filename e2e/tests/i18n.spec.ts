@@ -1,6 +1,6 @@
 import { test, expect, createUserViaUi, login, logout, switchLanguage, ADMIN } from "./helpers";
 
-// The header language menu (native names — "Polski"/"English"): switching translates the
+// The account menu's Language items (native names — "Polski"/"English"): switching translates the
 // chrome AND persists server-side (v2.21.0 — the one synced per-user language, applied to
 // the UI at sign-in). The journey runs on a THROWAWAY user: seeded accounts must stay
 // English, or parallel specs logging in as them would flip to Polish chrome.

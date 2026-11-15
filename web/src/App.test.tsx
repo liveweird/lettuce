@@ -516,6 +516,36 @@ describe("App shell", () => {
       }
     });
 
+    test("the header's right side is the search trigger, the bell and the account menu - no language, theme or tour-replay controls (v4.22.0)", async () => {
+      renderApp("/");
+      const header = await screen.findByRole("banner");
+      const group = within(header).getByRole("button", { name: /User menu/ }).closest(".mantine-Group-root");
+      expect(group).not.toBeNull();
+      const names = within(group as HTMLElement)
+        .getAllByRole("button", { hidden: true })
+        .map((b) => b.getAttribute("aria-label") ?? b.textContent ?? "");
+      expect(names).toEqual([
+        expect.stringMatching(/^Search or jump to a page/),
+        "Search",
+        expect.stringMatching(/^Notifications/),
+        expect.stringMatching(/User menu/),
+      ]);
+      for (const gone of ["Language", "Toggle color scheme", "Replay the tour"]) {
+        expect(within(header).queryByRole("button", { name: gone })).not.toBeInTheDocument();
+      }
+    });
+
+    test("the user menu holds the language, theme, Change password, Replay the tour, Changelog and Logout", async () => {
+      const user = userEvent.setup();
+      renderApp("/");
+      await user.click(await screen.findByRole("button", { name: /User menu/ }));
+      expect(await screen.findByRole("menuitem", { name: "English" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Dark" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Replay the tour" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /^Changelog/ })).toHaveAttribute("href", "/changelog");
+      expect(screen.getByRole("menuitem", { name: "Logout" })).toBeInTheDocument();
+    });
+
     test("the user menu holds Change password and Logout", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       const user = userEvent.setup();
