@@ -9,6 +9,19 @@ A finished item is removed (the release history lives in `web/src/changelog/entr
 - [new] Make "Dependency scan" a required check — add the `Dependency scan` context (GitHub Actions) to ruleset 22261631 ("Require PRs before merging"); today it requires Backend, Web, API contract, E2E source and Desktop visual only, so a red scan does not block a merge. The workflow side is ready (v4.5.2).
 - [new] First real Microsoft Teams tenant check — a Microsoft 365 admin follows the runbook in `.claude/docs/features/teams-notifications.md`; step 8 (change your own password, the direct message must arrive) is the only proof of how Teams renders the message, that `User.ReadBasic.All` suffices and that the install policy works.
 
+## UI (v4.21.0 follow-ups)
+
+- [new] Success toasts stay up longer — `main.tsx` closes them after 2.5 s; the modern-web-guidance `persistent-toast-notifications` guide favours staying until dismissed, so a keyboard or screen-reader user can miss "Saved". About 5 s, and check that keyboard focus inside a toast pauses it the way hover does. This is a house-convention change, so it needs the owner's call.
+- [new] Animated page transitions — React Router's `viewTransition` on the nav and row links plus one root cross-fade in `index.css`, gated on `prefers-reduced-motion: no-preference` (`same-document-transitions` guide). Optional polish; it changes motion across the whole app.
+- [new] Faster render of the org-wide leave planner — `DaysOffMonthGrid` renders every person × day cell at once; try `content-visibility: auto` + `contain-intrinsic-size` on its rows (`defer-rendering-heavy-content` guide). Table rows need care, so measure first with the perf runner (`perf/run.sh web`).
+- [new] Large text / 200 % zoom — the app header is a fixed 56 px `nowrap` row (`App.tsx` `HEADER_HEIGHT`), and a few hand-written widths are px (`DaysOffMonthGrid.module.css` name and day cells, `PersonCardStats.module.css` 170 px, the 96 px actions column). Move them to rem or content-based sizes and check at 200 % zoom (`respect-os-text-scale` guide).
+- [new] Cap the pinned column width on phones — `scrollEdges.module.css` pins the person and actions columns with no `max-inline-size`, so a long pinned value (the pulse driver table's question text) can leave a narrow scrolling strip. Cap the pinned cell, or pin only above a container width.
+- [new] Intent preload on the Dashboard tiles — `DashboardHero` tile links could spread `useIntentPreload()` like the nav does (`web/docs/page-structure.md`).
+
+## Docs
+
+- [new] Always-loaded instructions over budget — under `web/`, the project `CLAUDE.md` + the six imported docs + `web/CLAUDE.md` measure ~156k chars against the 150k budget (most of it predates v4.21.0). Move per-feature detail from the imported core files into the on-demand docs, the 2026-10-04 trim recipe.
+
 ## Infrastructure
 
 - [parked] PostgreSQL 18.4 → 18.6 — the `18-alpine` tag has moved. Parked by the owner on 2026-10-04 as "far more invasive than other changes": its own reviewed operation per `.claude/docs/container-images.md`, with a backup/restore rehearsal, never folded into another change.
