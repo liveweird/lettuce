@@ -17,6 +17,12 @@ interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: "4.22.1",
+    date: "2026-11-15",
+    en: `A shorter left menu. "Change password" and "Changelog" are no longer listed at the bottom of the left menu, because both are in the account menu under your name in the top right, and the search box finds them too. The version number at the very bottom of the left menu still opens the changelog, and its red dot still tells you when there is something new.`,
+    pl: `Krótsze menu po lewej stronie. Pozycje "Zmień hasło" i "Historia zmian" zniknęły z dołu lewego menu, bo obie znajdziesz w menu konta pod swoim imieniem i nazwiskiem w prawym górnym rogu, a także w wyszukiwarce. Numer wersji na samym dole lewego menu nadal otwiera historię zmian, a czerwona kropka przy nim nadal informuje Cię o nowościach.`,
+  },
+  {
     version: "4.22.0",
     date: "2026-11-15",
     en: `A tidier top bar, with search.

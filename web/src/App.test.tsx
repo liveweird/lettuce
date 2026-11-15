@@ -295,24 +295,26 @@ describe("App shell", () => {
       ).toBeInTheDocument();
     });
 
-    test("shows a Change password link pointing at the current user's route", async () => {
+    test("Change password lives in the account menu, not the sidebar (v4.22.1), and points at the current user's route", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
+      const user = userEvent.setup();
       renderApp("/");
-      const link = await screen.findByRole("link", { name: /change password/i });
-      expect(link).toHaveAttribute("href", "/users/7/change-password");
+      await screen.findByRole("group", { name: "Overview" });
+      expect(screen.queryByRole("link", { name: /change password/i })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /User menu/ }));
+      expect(await screen.findByRole("menuitem", { name: /change password/i })).toHaveAttribute(
+        "href",
+        "/users/7/change-password",
+      );
     });
 
-    test("highlights only the Change password nav item on its route", async () => {
+    test("on the change-password route the admin Users leaf (a path prefix) is not highlighted", async () => {
       localStorage.setItem(USER_ID_KEY, "7");
       const user = userEvent.setup();
       renderApp("/users/7/change-password");
-
-      const changeLink = await screen.findByRole("link", { name: /change password/i });
       // Reveal the Users link nested under the collapsed "Config" group.
       await user.click(await screen.findByText("Config"));
-      const usersLink = screen.getByRole("link", { name: /^users$/i });
-      expect(changeLink).toHaveAttribute("aria-current", "page");
-      expect(usersLink).not.toHaveAttribute("aria-current");
+      expect(screen.getByRole("link", { name: /^users$/i })).not.toHaveAttribute("aria-current");
     });
 
     test("the Dictionaries group lists all three dictionaries for everyone", async () => {
@@ -356,12 +358,11 @@ describe("App shell", () => {
       expect(document.querySelector("main#main-content")).not.toBeNull();
     });
 
-    test("shows a Changelog nav link and a linked version stamp with the what's-new dot", async () => {
+    test("the linked version stamp is the sidebar's way to the Changelog, with the what's-new dot", async () => {
       renderApp("/");
-      const navLink = await screen.findByRole("link", { name: /^changelog$/i });
-      expect(navLink).toHaveAttribute("href", "/changelog");
-      // The version stamp itself is the second affordance for the same route.
-      expect(screen.getByTitle("Build version")).toHaveAttribute("href", "/changelog");
+      // No Changelog leaf since v4.22.1 — the stamp is the sidebar's only link to the route.
+      expect(await screen.findByTitle("Build version")).toHaveAttribute("href", "/changelog");
+      expect(screen.queryByRole("link", { name: /^changelog$/i })).not.toBeInTheDocument();
       // Nothing seen yet in this fresh storage → the dot (carrying the accessible title) shows.
       expect(screen.getByTitle("What's new")).toBeInTheDocument();
     });
@@ -372,7 +373,7 @@ describe("App shell", () => {
       const dashboard = await screen.findByRole("heading", { level: 1, name: "Dashboard" });
       await waitFor(() => expect(document.title).toBe("Dashboard · Lettuce"));
       expect(dashboard).not.toHaveFocus();
-      await user.click(await screen.findByRole("link", { name: /^changelog$/i }));
+      await user.click(await screen.findByTitle("Build version"));
       const changelog = await screen.findByRole("heading", { level: 1, name: "Changelog" }, { timeout: 5000 });
       await waitFor(() => expect(changelog).toHaveFocus());
       expect(document.title).toBe("Changelog · Lettuce");
@@ -382,7 +383,7 @@ describe("App shell", () => {
       const user = userEvent.setup();
       renderApp("/");
       await screen.findByTitle("What's new");
-      await user.click(screen.getByRole("link", { name: /^changelog$/i }));
+      await user.click(screen.getByTitle("Build version"));
       expect(
         // The Changelog page is lazy-loaded; under full-suite CPU load the chunk import can
         // exceed findBy's default 1s — the recurring source of this test's flakes.
@@ -403,7 +404,7 @@ describe("App shell", () => {
       expect(screen.queryByTitle("What's new")).not.toBeInTheDocument();
     });
 
-    test("the navigation is grouped into labelled sections with the account items in the footer", async () => {
+    test("the navigation is grouped into labelled sections; the footer keeps only the version stamp (v4.22.1)", async () => {
       renderApp("/");
       expect(await screen.findByRole("group", { name: "Overview" })).toBeInTheDocument();
       const myWork = screen.getByRole("group", { name: "My work" });
@@ -414,9 +415,10 @@ describe("App shell", () => {
       expect(within(team).queryByRole("link", { name: /succession/i })).not.toBeInTheDocument();
       const admin = screen.getByRole("group", { name: "Administration" });
       expect(within(admin).getByRole("button", { name: /^config$/i })).toBeInTheDocument();
-      // The account items are no section's business: they live in the footer with the stamp.
-      expect(within(myWork).queryByRole("link", { name: /^changelog$/i })).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /^changelog$/i })).toHaveAttribute("href", "/changelog");
+      // Change password and Changelog left the sidebar (the account menu holds both); the stamp still links to the Changelog.
+      expect(screen.queryByRole("link", { name: /^changelog$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^change password$/i })).not.toBeInTheDocument();
+      expect(screen.getByTitle("Build version").closest("a")).toHaveAttribute("href", "/changelog");
     });
 
     test("the collapsed navbar is an icon rail that keeps every link name and turns groups into menus", async () => {
@@ -433,9 +435,10 @@ describe("App shell", () => {
         // A group is a menu trigger; its leaves are menu items that still carry their targets.
         await user.click(screen.getByRole("button", { name: /^config$/i }));
         expect(await screen.findByRole("menuitem", { name: /^users$/i })).toHaveAttribute("href", "/users");
-        // The footer keeps the account links and the (compact) version stamp.
-        expect(screen.getByRole("link", { name: /^changelog$/i })).toHaveAttribute("href", "/changelog");
+        // The footer keeps only the (compact) version stamp, still a link to the Changelog.
+        expect(screen.queryByRole("link", { name: /^changelog$/i })).not.toBeInTheDocument();
         expect(screen.getByTitle("Build version")).toHaveTextContent(`v${APP_VERSION}`);
+        expect(screen.getByTitle("Build version").closest("a")).toHaveAttribute("href", "/changelog");
       } finally {
         localStorage.removeItem(NAV_KEY);
       }

@@ -288,13 +288,7 @@ function Shell() {
         >
           <AppNav sections={nav.sections} activeTo={activeTo} rail={rail} onNavigate={close} />
         </AppShell.Section>
-        <NavFooter
-          items={nav.footer}
-          activeTo={activeTo}
-          rail={rail}
-          changelogUnseen={changelogUnseen}
-          onNavigate={close}
-        />
+        <NavFooter rail={rail} changelogUnseen={changelogUnseen} />
       </AppShell.Navbar>
 
       <AppShell.Main id="main-content" tabIndex={-1} inert={pageCovered}>

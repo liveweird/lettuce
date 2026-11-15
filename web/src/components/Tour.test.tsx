@@ -178,13 +178,13 @@ describe("Tour", () => {
     vi.unstubAllGlobals();
   });
 
-  test("buildSteps resolves content through the translator and includes the full menu (22 manager / 21 non-manager)", () => {
+  test("buildSteps resolves content through the translator and includes the full menu (20 manager / 19 non-manager)", () => {
     const t = (k: string) => k;
     const manager = buildSteps(TOUR_STEPS, t, true);
     const nonManager = buildSteps(TOUR_STEPS, t, false);
 
-    expect(manager).toHaveLength(22);
-    expect(nonManager).toHaveLength(21);
+    expect(manager).toHaveLength(20);
+    expect(nonManager).toHaveLength(19);
     // Config is present for everyone — it is no longer admin-gated.
     expect(nonManager.some((s) => s.target === '[data-tour="nav-config"]')).toBe(true);
     // Content is resolved through the translator.
@@ -260,7 +260,7 @@ describe("Tour", () => {
     expect(manager.some((s) => s.target === '[data-tour="synthetic-manager-only"]')).toBe(true);
   });
 
-  test("buildSteps drops a disabled feature's step (21 manager / 20 non-manager) and renumbers against the shrunk total", () => {
+  test("buildSteps drops a disabled feature's step (19 manager / 18 non-manager) and renumbers against the shrunk total", () => {
     // A translator that honours interpolation, so we can read the computed current/total.
     const t = (k: string, o?: Record<string, unknown>) => (o ? `${o.current}/${o.total}` : k);
 
@@ -270,8 +270,8 @@ describe("Tour", () => {
       const nonManager = buildSteps(TOUR_STEPS, t, false);
 
       expect(manager.some((s) => s.target === '[data-tour="nav-my-goals"]')).toBe(false);
-      expect(manager).toHaveLength(21);
-      expect(nonManager).toHaveLength(20);
+      expect(manager).toHaveLength(19);
+      expect(nonManager).toHaveLength(18);
       // The "Step X of Y" numbering shrinks with the filtered total.
       const total = manager.length;
       expect(manager[0].title).toBe(`1/${total}`);
@@ -281,7 +281,7 @@ describe("Tour", () => {
     }
   });
 
-  test("buildSteps with every feature disabled keeps only the 12 non-feature steps", () => {
+  test("buildSteps with every feature disabled keeps only the 10 non-feature steps", () => {
     localStorage.setItem(
       "lettuce.auth.disabledFeatures",
       JSON.stringify([
@@ -308,13 +308,11 @@ describe("Tour", () => {
         '[data-tour="nav-activity"]',
         '[data-tour="nav-config"]',
         '[data-tour="nav-dictionaries"]',
-        '[data-tour="nav-change-password"]',
-        '[data-tour="nav-changelog"]',
         '[data-tour="search"]',
         '[data-tour="notifications"]',
         '[data-tour="user-menu"]',
       ]);
-      expect(steps).toHaveLength(12);
+      expect(steps).toHaveLength(10);
     } finally {
       localStorage.removeItem("lettuce.auth.disabledFeatures");
     }

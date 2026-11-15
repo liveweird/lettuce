@@ -61,7 +61,7 @@ export type TourStepDef = {
 // header) — a below-the-fold target would therefore end up off-screen.
 export const TOUR_STEPS: TourStepDef[] = [
   { target: "body", contentKey: "tour.steps.welcome", placement: "center" },
-  // The navbar, top to bottom: Overview, My work, Team, Administration, then the footer leaves —
+  // The navbar, top to bottom: Overview, My work, Team, Administration —
   // one stop per leaf/group, each carrying exactly the gate the nav leaf itself carries
   // (`navModel.ts`). Config and Dictionaries get one group-level stop each (their leaves are
   // named in the stop's own copy, not toured individually).
@@ -86,10 +86,6 @@ export const TOUR_STEPS: TourStepDef[] = [
   { target: '[data-tour="nav-succession"]', contentKey: "tour.steps.succession", placement: "right", managerOnly: true, feature: "SUCCESSION_PLANS" },
   { target: '[data-tour="nav-config"]', contentKey: "tour.steps.config", placement: "right" },
   { target: '[data-tour="nav-dictionaries"]', contentKey: "tour.steps.dictionaries", placement: "right" },
-  { target: '[data-tour="nav-change-password"]', contentKey: "tour.steps.account", placement: "right" },
-  // Opening /changelog would mark the "what's new" dot as seen — the whirlwind never navigates,
-  // so this stop just names the leaf, coherently (nothing is marked seen by looking at it).
-  { target: '[data-tour="nav-changelog"]', contentKey: "tour.steps.changelog", placement: "right" },
   // The header chrome, left to right (v4.22.0): the palette trigger, the bell, then the account menu - which carries the language, theme,
   // replay and sign-out controls the header used to show as icons - as the closing stop.
   { target: '[data-tour="search"]', contentKey: "tour.steps.search", placement: "bottom" },

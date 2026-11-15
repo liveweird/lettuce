@@ -13,12 +13,11 @@ type LeafProps = {
   leaf: NavLeaf;
   active: boolean;
   rail: boolean;
-  quiet?: boolean;
   onNavigate: () => void;
   setActiveTarget?: SetActiveTarget;
 };
 
-function NavLeafLink({ leaf, active, rail, quiet = false, onNavigate, setActiveTarget }: LeafProps) {
+function NavLeafLink({ leaf, active, rail, onNavigate, setActiveTarget }: LeafProps) {
   const { t } = useTranslation();
   const intentPreload = useIntentPreload();
   const Icon = leaf.icon;
@@ -53,7 +52,6 @@ function NavLeafLink({ leaf, active, rail, quiet = false, onNavigate, setActiveT
       label={label}
       leftSection={<Icon size={18} stroke={1.5} />}
       data-tour={leaf.tourId}
-      className={quiet ? classes.quietLink : undefined}
       onClick={onNavigate}
       {...intentPreload(leaf.to)}
       ref={active ? setActiveTarget : undefined}
@@ -278,28 +276,13 @@ export function AppNav({
   );
 }
 
-/** The pinned navbar footer: the account leaf + Changelog (quiet), then the version stamp
- *  with its what's-new dot. The title carries the accessible "what's new" name only while
- *  the dot is shown. */
-export function NavFooter({
-  items,
-  activeTo,
-  rail,
-  changelogUnseen,
-  onNavigate,
-}: {
-  items: NavLeaf[];
-  activeTo: string | null;
-  rail: boolean;
-  changelogUnseen: boolean;
-  onNavigate: () => void;
-}) {
+/** The pinned navbar footer: the version stamp (a link to the Changelog) with its what's-new dot. The title carries the
+ *  accessible "what's new" name only while the dot is shown. Change password and the Changelog leaf left the footer in
+ *  v4.22.1 — the account menu holds both. */
+export function NavFooter({ rail, changelogUnseen }: { rail: boolean; changelogUnseen: boolean }) {
   const { t } = useTranslation();
   return (
     <AppShell.Section pt="xs" className={classes.footer}>
-      {items.map((leaf) => (
-        <NavLeafLink key={leaf.to} leaf={leaf} active={leaf.to === activeTo} rail={rail} quiet onNavigate={onNavigate} />
-      ))}
       <Indicator
         color="red"
         size={8}
