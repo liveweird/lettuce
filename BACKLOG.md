@@ -18,10 +18,6 @@ A finished item is removed (the release history lives in `web/src/changelog/entr
 - [new] Cap the pinned column width on phones — `scrollEdges.module.css` pins the person and actions columns with no `max-inline-size`, so a long pinned value (the pulse driver table's question text) can leave a narrow scrolling strip. Cap the pinned cell, or pin only above a container width.
 - [new] Intent preload on the Dashboard tiles — `DashboardHero` tile links could spread `useIntentPreload()` like the nav does (`web/docs/page-structure.md`).
 
-## Docs
-
-- [new] Always-loaded instructions over budget — under `web/`, the project `CLAUDE.md` + the six imported docs + `web/CLAUDE.md` measure ~156k chars against the 150k budget (most of it predates v4.21.0). Move per-feature detail from the imported core files into the on-demand docs, the 2026-10-04 trim recipe.
-
 ## Infrastructure
 
 - [parked] PostgreSQL 18.4 → 18.6 — the `18-alpine` tag has moved. Parked by the owner on 2026-10-04 as "far more invasive than other changes": its own reviewed operation per `.claude/docs/container-images.md`, with a backup/restore rehearsal, never folded into another change.
