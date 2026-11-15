@@ -5,11 +5,6 @@
   letter-spacing: 0.02em;
 }
 
-/* The account/changelog leaves in the footer: same NavLink, a step quieter. */
-.quietLink {
-  font-size: var(--mantine-font-size-xs);
-}
-
 /* The 64px icon rail: icon-only links (the label lives in the tooltip + aria-label). */
 .railLink {
   justify-content: center;

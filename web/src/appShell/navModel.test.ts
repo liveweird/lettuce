@@ -4,14 +4,14 @@ import { activeLeaf, resolveNav } from "./navModel";
 const allOpen = { isAdmin: true, isManager: true, hasFeature: () => true };
 
 describe("resolveNav", () => {
-  test("with every gate open: four sections, the admin Config leaves, and the footer pair", () => {
+  test("with every gate open: four sections, the admin Config leaves, and the account pair", () => {
     const nav = resolveNav(allOpen, 7);
     expect(nav.sections.map((s) => s.id)).toEqual(["overview", "myWork", "team", "administration"]);
     const config = nav.sections[3].entries[0];
     expect("children" in config ? config.children.map((c) => c.to) : []).toEqual(
       expect.arrayContaining(["/users", "/pulse-cycles", "/feature-flags", "/integration-clients", "/alerts"]),
     );
-    expect(nav.footer.map((l) => l.to)).toEqual(["/users/7/change-password", "/changelog"]);
+    expect(nav.account.map((l) => l.to)).toEqual(["/users/7/change-password", "/changelog"]);
     expect(nav.leafTos).toEqual(expect.arrayContaining(["/", "/succession", "/changelog", "/users/7/change-password"]));
   });
 
@@ -24,7 +24,7 @@ describe("resolveNav", () => {
     const overview = nav.sections.find((s) => s.id === "overview");
     expect(overview?.entries.map((e) => ("to" in e ? e.to : e.label))).toEqual(["/"]);
     // No signed-in user id → no account leaf, the Changelog stays.
-    expect(nav.footer.map((l) => l.to)).toEqual(["/changelog"]);
+    expect(nav.account.map((l) => l.to)).toEqual(["/changelog"]);
   });
 
   test("the Shared leaf sits in My work, is feature-UNGATED, and carries its tour anchor (v4.8.0)", () => {

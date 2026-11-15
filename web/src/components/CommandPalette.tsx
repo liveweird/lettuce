@@ -53,7 +53,7 @@ export default function CommandPalette({ nav }: { nav: ResolvedNav }) {
           : [pageAction(entry, t(entry.label))],
       ),
     ),
-    ...nav.footer.map((leaf) => pageAction(leaf, t(leaf.label))),
+    ...nav.account.map((leaf) => pageAction(leaf, t(leaf.label))),
     // The account menu's own destination (the nav carries Change password and the Changelog itself).
     ...(userId === null
       ? []

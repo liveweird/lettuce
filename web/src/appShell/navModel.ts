@@ -169,13 +169,12 @@ const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   },
 ];
 
-// The quiet footer: the account item, then the Changelog pinned directly above the version
-// stamp it pairs with.
+// The account destinations (v4.22.1): no longer sidebar links — the account menu and the command palette reach them, and the
+// version stamp in the navbar footer still links to the Changelog.
 const CHANGELOG_NAV: NavLeaf = {
   to: "/changelog",
   label: "appShell.nav.changelog",
   icon: IconHistory,
-  tourId: "nav-changelog",
 };
 
 export type NavGates = {
@@ -184,7 +183,9 @@ export type NavGates = {
   hasFeature: (feature: Feature) => boolean;
 };
 
-export type ResolvedNav = { sections: NavSection[]; footer: NavLeaf[]; leafTos: string[] };
+/** `account` is not rendered in the sidebar (v4.22.1); the command palette lists it. Its paths stay in `leafTos` so that, on
+ *  /users/{id}/change-password, the admin "Users" leaf (a prefix of that path) is not highlighted as if it were the page. */
+export type ResolvedNav = { sections: NavSection[]; account: NavLeaf[]; leafTos: string[] };
 
 /** Applies the feature/manager/admin gates: drops hidden leaves, groups emptied by them, and
  *  sections left without an entry, and lists every visible leaf path for active-highlighting. */
@@ -199,17 +200,17 @@ export function resolveNav(gates: NavGates, userId: number | null): ResolvedNav 
       .map((e) => (isGroup(e) ? { ...e, children: e.children.filter(leafVisible) } : e))
       .filter((e) => (isGroup(e) ? e.children.length > 0 : leafVisible(e))),
   })).filter((section) => section.entries.length > 0);
-  const footer: NavLeaf[] = [
+  const account: NavLeaf[] = [
     ...(userId === null
       ? []
-      : [{ to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword" as const, icon: IconKey, tourId: "nav-change-password" }]),
+      : [{ to: `/users/${userId}/change-password`, label: "appShell.nav.changePassword" as const, icon: IconKey }]),
     CHANGELOG_NAV,
   ];
   const leafTos = [
     ...sections.flatMap((s) => s.entries.flatMap((e) => (isGroup(e) ? e.children.map((c) => c.to) : [e.to]))),
-    ...footer.map((l) => l.to),
+    ...account.map((l) => l.to),
   ];
-  return { sections, footer, leafTos };
+  return { sections, account, leafTos };
 }
 
 /** The active leaf for a pathname: the longest matching path ("/" only matches exactly). */

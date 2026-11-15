@@ -7,15 +7,15 @@
   suppresses the tour's auto-start; the account menu's "Replay the tour" always works, and walking the tour mutates
   no server state)
 
-## Scenario: the guided tour walks all 22 manager menu steps in the documented order
+## Scenario: the guided tour walks all 20 manager menu steps in the documented order
 
 1. Manager AAA signs in; the alert banner is collapsed first (a pre-existing active alert's
    expanded banner would overlay the header, account menu included).
 2. They open the account menu, start the tour via "Replay the tour" and click "Next" through every step until "Done".
-   - *Expected*: exactly 22 steps — since v3.23.0 the tour is a menu presentation only: the
+   - *Expected*: exactly 20 steps — since v3.23.0 the tour is a menu presentation only: the
      welcome step, one stop per left-nav leaf/group in navbar order (Dashboard, Kudos, Feedback,
      1:1 meetings, Goals, Impact log, Career, Days off, Shared, My activity, Team KPIs, Performance, Pulse, Succession
-     plans, Config, Dictionaries, Change password, Changelog), then the header's three stops
+     plans, Config, Dictionaries — Change password and Changelog left the sidebar in v4.22.1), then the header's three stops
      (the search / command-palette trigger, Notifications and — closing the tour — the account menu, whose copy
      also says where language, theme, the tutorials and Replay the tour live). Manager AAA is a manager, so the manager-only Succession stop is present.
    - *Expected*: the documented landmarks appear each exactly in order, strictly one after
@@ -25,16 +25,16 @@
    - *Expected*: the walk never left the Dashboard — the URL after the walk is unchanged from
      before it started.
 
-## Scenario: the guided tour walks the 21 admin menu steps without the manager-only Succession stop
+## Scenario: the guided tour walks the 19 admin menu steps without the manager-only Succession stop
 
 1. The administrator signs in; the alert banner is collapsed first.
 2. Before walking, the expected step count is derived from whether the admin currently manages
    any team — the same signal the app's own manager gate uses. Why: the shared dev database may
    carry a manually created team managed by the admin, which would legitimately add the one
-   manager-gated step (Succession plans) on top of the baseline 21.
+   manager-gated step (Succession plans) on top of the baseline 19.
 3. They open the account menu, start the tour via "Replay the tour" and click "Next" through every step until "Done".
-   - *Expected*: 21 steps for the pristine seed admin (an ADMIN who manages no team — the
-     Succession stop drops out), or 22 when the dev database gives them a managed team.
+   - *Expected*: 19 steps for the pristine seed admin (an ADMIN who manages no team — the
+     Succession stop drops out), or 20 when the dev database gives them a managed team.
    - *Expected*: the admin landmark order holds — the same menu-only walk as the manager,
      minus the "Succession plans —" landmark.
 4. The tour finishes.
