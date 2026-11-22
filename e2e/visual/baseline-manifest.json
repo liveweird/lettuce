@@ -158,12 +158,18 @@
     }
   ],
   "approval": {
-    "date": "2026-10-14",
-    "reference": "Repository owner reviewed the five v4.18.1 candidates in the Claude Code conversation and chose \"Approve all 5 as they are\".",
-    "reviewedArtifactsCommit": null,
-    "scope": "Five images changed: the three 1280px feedback lists keep their table layout (FeedbackTable density wide -> normal), the member users list honours the default Active status filter (the inactive account is hidden), and the administrator users list picks the Any status filter explicitly (Filters 1 / Clear filters). The other 19 approved images are unchanged."
+    "date": "2026-11-22",
+    "reference": "Repository owner approved the 24 candidates for PR #134 in the Codex conversation: \"Approved. Promote all 24 screenshots to the new baselines\".",
+    "reviewedArtifactsCommit": "8c32ca9093930966763c4fe4e1b3babdb65b7d0f",
+    "scope": "All 24 desktop images. The detailed whole-head lettuce mark replaces the single leaf. Pixel changes are confined to the sidebar logo."
   },
   "previousApprovals": [
+    {
+      "date": "2026-10-14",
+      "reference": "Repository owner reviewed the five v4.18.1 candidates in the Claude Code conversation and chose \"Approve all 5 as they are\".",
+      "reviewedArtifactsCommit": null,
+      "scope": "Five images changed: the three 1280px feedback lists keep their table layout (FeedbackTable density wide -> normal), the member users list honours the default Active status filter (the inactive account is hidden), and the administrator users list picks the Any status filter explicitly (Filters 1 / Clear filters). The other 19 approved images are unchanged."
+    },
     {
       "date": "2026-10-14",
       "reference": "Repository owner reviewed the v4.17.0 team-detail candidate in the Claude Code conversation and answered \"Approved\".",

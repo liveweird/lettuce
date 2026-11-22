@@ -201,9 +201,9 @@
     }
   ],
   "approval": {
-    "date": "2026-10-13",
-    "reference": "Repository owner reviewed the v4.16.0 candidates in the Claude Code conversation and replied \"approved\".",
-    "reviewedArtifactsCommit": null,
-    "scope": "All 24 images re-approved: the sidebar version stamp is now pinned to v0.0.0 (pinned-version.ts), and the member dashboard's My managers tab gains the account Status filter toggle. No other change."
+    "date": "2026-11-22",
+    "reference": "Repository owner approved the 24 candidates for PR #134 in the Codex conversation: \"Approved. Promote all 24 screenshots to the new baselines\".",
+    "reviewedArtifactsCommit": "8c32ca9093930966763c4fe4e1b3babdb65b7d0f",
+    "scope": "All 24 desktop images. The detailed whole-head lettuce mark replaces the single leaf. Pixel changes are confined to the sidebar logo."
   }
 }

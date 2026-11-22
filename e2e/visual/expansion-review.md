@@ -90,3 +90,12 @@ longer change baselines; a fake `4.99.10` bump compared clean), and `dashboard-m
 shows the new account Status filter toggle above the My managers cards (deactivated-users
 consistency, v4.16.0). Capture 21/21, unchanged candidate comparison 21/21 (twice), promotion
 copies the candidates byte-for-byte (hashes in `baseline-manifest.json`).
+
+## Lettuce logo approval (2026-11-22)
+
+The owner approved all 24 screenshots for [PR #134](https://github.com/liveweird/lettuce/pull/134)
+with the reply **“Approved. Promote all 24 screenshots to the new baselines”**. The reviewed
+set is commit `8c32ca90`, captured from artwork revision `bfdad2e0`. Every changed pixel falls
+inside the sidebar logo, including the darker tile in dark mode. The canonical capture and
+both unchanged candidate comparisons passed all 21 tests. The promoted PNGs match the candidate
+hashes in the [baseline manifest](baseline-manifest.json).
