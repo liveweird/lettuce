@@ -29,8 +29,14 @@ Later on 2026-11-15 (app v4.22.1) the owner approved all 24 changed images again
 the "Change password" and "Changelog" links left the sidebar footer, which now holds only the
 version stamp. Nothing else changed; two clean candidate compares, 21/21.
 
+On 2026-11-22 (app v4.22.1) the owner approved all 24 screenshots for
+[PR #134](https://github.com/liveweird/lettuce/pull/134) ("Approved. Promote all 24 screenshots
+to the new baselines"). The whole-head lettuce mark replaced the single leaf in the sidebar.
+Pixel comparison confined all differences to the logo, and both candidate comparisons passed
+all 21 tests. The promoted PNGs match candidate commit `8c32ca90` byte for byte.
+
 Open the [review gallery](review.html) and [validation/approval record](expansion-review.md).
-The current gallery shows the 24 approved v4.15.3 baselines. The historical v4.15.2 review is
+The current gallery shows the 24 approved baselines. The historical v4.15.2 review is
 preserved at [review-history/v4.15.2/review.html](review-history/v4.15.2/review.html), with its
 [historical manifest](review-history/v4.15.2/baseline-manifest.json).
 
