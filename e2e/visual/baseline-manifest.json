@@ -1,8 +1,8 @@
 {
   "status": "accepted",
   "applicationVersion": "4.22.1 (displayed version pinned to 0.0.0)",
-  "sourceRevision": "fix/nav-footer-trim (committed with this record)",
-  "previousBaselineRevision": "3fddcf96",
+  "sourceRevision": "bfdad2e0ef20caf827b6b3fdb5845010d7dafb55",
+  "previousBaselineRevision": "4af1b55663ab825581e81988d0d6dd6214c72d49",
   "runtime": {
     "image": "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27",
     "platform": "linux/amd64",
@@ -16,154 +16,160 @@
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "66d25fd7c2d5ef4f0fa43f838884be41075fef1d54dbc172cec974d1a73109aa"
+      "sha256": "9e08c35dd46cf109e93173c0ea9b2641870ca664709e1627f4d4d982bc1f91e1"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "8010ccb4997750329285d59cdd1b5e139b2cc38a5e58076a7c35ccbdf8e01faf"
+      "sha256": "1af21ca3f2c5ba5d57bedca9f490b6d8fd97e37419ee451f205ff1f84e06f79e"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-dark-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "35ff40766e55683bea5791d090d429b62dd75431d7868aaa10e1d6ee213ee624"
+      "sha256": "94f785b82d150b6729f7658d6e6375a0b9ea075a783dd8cb10d7131882e3018a"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-paths-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "5e9cd245429dfa39887f7c82c2f7130b7e330690d917ba541023fee3fcc31cc0"
+      "sha256": "eefe77efbb741ad354efb189fecf2a9be94551754195a6b622c6377321399707"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-career-specializations-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "58ccf70e9dc6efadf703fb6ca3851735096079694641b2b6d4f558147c29e8eb"
+      "sha256": "8c0027681943d7faf5fcd86cdb439058eff907a47b07196200e86164e8db4260"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-pulse-rotating-questions-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "0c0261a3243f12a3a0d3c153369fe9fff0cc982ad8452b7ffa9c09174503a473"
+      "sha256": "5372a19f86276c879c53f17c8d151851d972b15eda8f1d53c5120898ccb7c5f4"
     },
     {
       "file": "snapshots/lists.spec.ts/dictionary-seniority-levels-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "d01d4788c74c9a27f67d1d9880a01569af3f1640b83282fd377bc41afe4a4ea9"
+      "sha256": "8fe579bcb7297b0d7ee20ca47a051f707c8b4d97c5ff548a83c28602f558a02c"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "56583fbe54633bfcbac626e41d7062a944d7bf378f82e204ff01a7ec1bb6d214"
+      "sha256": "d6e38317e14bc7c363261da584ababbf55b4bd4216a370b0db50163277938581"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "e35510fb35a597ac48ca6ef94ef4a179d0d1d1b943de9aed926a4830c6b9db0a"
+      "sha256": "93bf1943400862367fccc20739858e78d0405f0d9363c40b9fcc9a1478953473"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-provided-pl-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "3cb7abd5dc6f946f0af03f9f561c43f807626f7854aa41744fb06a95dfe8bf45"
+      "sha256": "ce46bad7a8245dc46a6199bd8201a181616e6d22058e8f13724707dcb4c6b196"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "80d5a76a351e68d0865ac353ec9d734d1504d00a4f4273112b605483501e1bb4"
+      "sha256": "49e4f498efdee69c9164728d0121f209e1a014f55eb93cf771dfc9a8c42e7d81"
     },
     {
       "file": "snapshots/lists.spec.ts/feedback-received-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "66ca8086f94ba8b8f06ca073025a97b8a99e2310ca16352fba84c93d8f80d973"
+      "sha256": "0fdce5a35bda3d4cd335d174fa7db0d9e325cc41ae01d6e6371068d943cc8c99"
     },
     {
       "file": "snapshots/people.spec.ts/dashboard-manager-en-light-1280.png",
       "width": 1280,
       "height": 1355,
-      "sha256": "469a660ffbf81cb7eb9decfcd1615055b6cfa7da3d97319ef319b1098a566d4d"
+      "sha256": "c844ca0fa1c14e8d4c83a4ecaaf937e0a3b7a08b2476fc7ec583df18e7c52a02"
     },
     {
       "file": "snapshots/people.spec.ts/dashboard-member-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "4ca80c4c9b74c06965a1fb5bb809726105ae0e7320a9e95a847d058c280bc89a"
+      "sha256": "bdff7ab48793bc5f3a79ed8b1efa2d6c9623ec6fe304c65759ed71ca4ae11b0b"
     },
     {
       "file": "snapshots/people.spec.ts/teams-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "ba53cedd6830fb745cb6f7891b30f3cadd3beda66b94582df59a7704e2057891"
+      "sha256": "40a1b9a06cd021c850edb0111025eafcbb854060bed68a91e17dc34276c34241"
     },
     {
       "file": "snapshots/people.spec.ts/teams-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "b6c6bb4082e8c078652ec192e1f53367a5094da9de5a38e532a4cbd4ccaa97f8"
+      "sha256": "9aa32c595c4d8de15db12e33a54222ae8cf542cff73c07505395da24a0ac146a"
     },
     {
       "file": "snapshots/people.spec.ts/users-admin-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "72250b2c3debe8af15436edce95da9d1c23a958f22dcc04ce4d6310011fc79e9"
+      "sha256": "4808e348455672ce374010c2253843d32ac62bd60dc1f2eaefc6a7e88b4e03e0"
     },
     {
       "file": "snapshots/people.spec.ts/users-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "0c625c69b5e9dbc3784fec9345a7320c5cf6d84d3f744dd26f1d59e4f62890d4"
+      "sha256": "da0988bdbac1bf92f37a109fba03b22eff19e0ccd533f449c4edb7e743f894f4"
     },
     {
       "file": "snapshots/forms.spec.ts/feedback-create-initial-member-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "aa1e93790cc9b5ba72effe2ab7ae352431d8d73778f39b88f8950bd50a5dd667"
+      "sha256": "c02d27dc6f7a3755014a6f7c490e7d6d457c06856f19dee78c28a0d872bdf380"
     },
     {
       "file": "snapshots/forms.spec.ts/feedback-draft-edit-multi-recipient-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "41844c9a1a45e2f8d660a62d92dc37f1d62731f8e6b7caeee0b87b637f8602a0"
+      "sha256": "4954059fe5b1de656fe99215277759c5a5d51b021da9c0eb7f2ddca3323185c1"
     },
     {
       "file": "snapshots/forms.spec.ts/feedback-sent-detail-provider-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "8b8e39027da87c6aa95a0a2a96aa48bf0b116a82a92b5ac1a86069d9d4214f8f"
+      "sha256": "994ae5d86de3478187d9fa5c9bebe2dd689e8a5b0053df33af8aa80073aba2d5"
     },
     {
       "file": "snapshots/forms.spec.ts/team-create-invalid-empty-admin-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "e03f1f90f648c80ab07933b631e771d059b27c555834e3026a20003c8b18dc9b"
+      "sha256": "99856bb8f226b86838a8de07259573f7a8962d3e228143023d9b3db14bbe2f05"
     },
     {
       "file": "snapshots/forms.spec.ts/team-detail-member-roster-en-light-1280.png",
       "width": 1280,
       "height": 1000,
-      "sha256": "48e2ef8530f6135bfa79e9300d4a746a48d5d0f67153f456f09496fbf689ab16"
+      "sha256": "483ef90c3890cb8debbb0f93cfd79a42037c045f3d177562e135512368ebc102"
     },
     {
       "file": "snapshots/forms.spec.ts/user-detail-subordinate-person-card-en-light-1440.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "199f56533f3e6a02090ef010aa2f42205b3dbb8c9a048a5a2379ab9a9dd1c543"
+      "sha256": "d37034687383a92a06bdcac748ba0bedc4090836df97bfff3a903c258bb050bb"
     }
   ],
   "approval": {
-    "date": "2026-10-14",
-    "reference": "Repository owner reviewed the five v4.18.1 candidates in the Claude Code conversation and chose \"Approve all 5 as they are\".",
-    "reviewedArtifactsCommit": null,
-    "scope": "Five images changed: the three 1280px feedback lists keep their table layout (FeedbackTable density wide -> normal), the member users list honours the default Active status filter (the inactive account is hidden), and the administrator users list picks the Any status filter explicitly (Filters 1 / Clear filters). The other 19 approved images are unchanged."
+    "date": "2026-11-22",
+    "reference": "Repository owner approved the 24 candidates for PR #134 in the Codex conversation: \"Approved. Promote all 24 screenshots to the new baselines\".",
+    "reviewedArtifactsCommit": "8c32ca9093930966763c4fe4e1b3babdb65b7d0f",
+    "scope": "All 24 desktop images. The detailed whole-head lettuce mark replaces the single leaf. Pixel changes are confined to the sidebar logo."
   },
   "previousApprovals": [
+    {
+      "date": "2026-10-14",
+      "reference": "Repository owner reviewed the five v4.18.1 candidates in the Claude Code conversation and chose \"Approve all 5 as they are\".",
+      "reviewedArtifactsCommit": null,
+      "scope": "Five images changed: the three 1280px feedback lists keep their table layout (FeedbackTable density wide -> normal), the member users list honours the default Active status filter (the inactive account is hidden), and the administrator users list picks the Any status filter explicitly (Filters 1 / Clear filters). The other 19 approved images are unchanged."
+    },
     {
       "date": "2026-10-14",
       "reference": "Repository owner reviewed the v4.17.0 team-detail candidate in the Claude Code conversation and answered \"Approved\".",
